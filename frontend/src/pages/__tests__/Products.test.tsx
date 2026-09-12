@@ -883,7 +883,7 @@ describe('weight pool for a variant-mode product (VariantRow)', () => {
 // SKU's other fields as a straight pass-through, so these three new ones
 // must be preserved the same way or an unrelated save silently wipes them.
 describe('weight-embedded barcode pricing (scale_code / pricing_mode / price_per_kilo_minor_units)', () => {
-  it('flat SKU form: pricing controls stay hidden until a scale code is entered', async () => {
+  it('flat SKU form: Pricing selector is always visible, price/kilo only once Per kilo is chosen', async () => {
     const detail: ProductDetail = { product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] }
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
 
@@ -891,9 +891,17 @@ describe('weight-embedded barcode pricing (scale_code / pricing_mode / price_per
     await userEvent.click(await screen.findByTitle('Edit'))
     await waitFor(() => expect(screen.getByDisplayValue('TSHIRT-1')).toBeInTheDocument())
 
-    expect(screen.queryByLabelText('Pricing')).not.toBeInTheDocument()
-    await userEvent.type(screen.getByLabelText('Scale code'), '00633')
+    // Visible even with no scale code yet -- "sold by unit or weight" must
+    // be discoverable without first figuring out the scale-code field.
     expect(screen.getByLabelText('Pricing')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Price per kilo/)).not.toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByLabelText('Pricing'), 'per_weight')
+    expect(screen.getByLabelText(/Price per kilo/)).toBeInTheDocument()
+    expect(screen.getByText(/Set a scale code above too/)).toBeInTheDocument()
+
+    await userEvent.type(screen.getByLabelText('Scale code'), '00633')
+    expect(screen.queryByText(/Set a scale code above too/)).not.toBeInTheDocument()
   })
 
   it('flat SKU form: scale code + per-kilo pricing sends pricing_mode/price_per_kilo_minor_units on save', async () => {

@@ -1098,32 +1098,35 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                     The 5-digit code programmed into the scale for this product — leave blank if it has a normal fixed barcode.
                   </p>
                 </div>
-                {scaleCode && (
-                  <div className="grid grid-cols-2 gap-3 mt-2">
-                    <div>
-                      <label htmlFor="product-pricing-mode" className={labelClass}>Pricing</label>
-                      <select
-                        id="product-pricing-mode" value={pricingMode}
-                        onChange={e => setPricingMode(e.target.value as SKUPricingMode)}
-                        className={inputClass}
-                      >
-                        <option value="fixed">Fixed — same price per package</option>
-                        <option value="per_weight">Per kilo — price = rate × scanned weight</option>
-                      </select>
-                    </div>
-                    {pricingMode === 'per_weight' && (
-                      <div>
-                        <label htmlFor="product-price-per-kilo" className={labelClass}>Price per kilo ({currency})</label>
-                        <input
-                          id="product-price-per-kilo"
-                          type="number" step="0.01" min="0" required value={pricePerKilo}
-                          onChange={e => setPricePerKilo(e.target.value)}
-                          className={inputClass}
-                        />
-                      </div>
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <label htmlFor="product-pricing-mode" className={labelClass}>Pricing</label>
+                    <select
+                      id="product-pricing-mode" value={pricingMode}
+                      onChange={e => setPricingMode(e.target.value as SKUPricingMode)}
+                      className={inputClass}
+                    >
+                      <option value="fixed">Fixed — same price per package (or a normal per-unit product)</option>
+                      <option value="per_weight">Per kilo — price = rate × scanned weight</option>
+                    </select>
+                    {pricingMode === 'per_weight' && !scaleCode && (
+                      <p className="text-[10px] text-amber-500 mt-1">
+                        Set a scale code above too — per-kilo pricing only applies once a package's weight can actually be scanned.
+                      </p>
                     )}
                   </div>
-                )}
+                  {pricingMode === 'per_weight' && (
+                    <div>
+                      <label htmlFor="product-price-per-kilo" className={labelClass}>Price per kilo ({currency})</label>
+                      <input
+                        id="product-price-per-kilo"
+                        type="number" step="0.01" min="0" required value={pricePerKilo}
+                        onChange={e => setPricePerKilo(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                  )}
+                </div>
                 {scaleCode && currentSku && <div className="mt-2"><ScaleCodeAliasesEditor skuId={currentSku.id} /></div>}
               </FormCard>
             )}
@@ -3316,22 +3319,23 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             <label className={fieldLabelClass}>Scale code (weight-embedded barcode)</label>
             <input type="text" placeholder="Not sold via a scale barcode" value={scaleCode} onChange={e => setScaleCode(e.target.value)} className={fieldInputClass} />
           </div>
-          {scaleCode && (
-            <div className="grid grid-cols-2 gap-1.5">
-              <label className="flex flex-col gap-0.5 text-[10px] dark:text-gray-400 text-gray-500">
-                Pricing
-                <select value={pricingMode} onChange={e => setPricingMode(e.target.value as SKUPricingMode)} className={fieldInputClass}>
-                  <option value="fixed">Fixed / package</option>
-                  <option value="per_weight">Per kilo</option>
-                </select>
-              </label>
-              {pricingMode === 'per_weight' && (
-                <div>
-                  <label className={fieldLabelClass}>Price/kilo ({currency})</label>
-                  <input type="number" step="0.01" min="0" required value={pricePerKilo} onChange={e => setPricePerKilo(e.target.value)} className={fieldInputClass} />
-                </div>
-              )}
-            </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <label className="flex flex-col gap-0.5 text-[10px] dark:text-gray-400 text-gray-500">
+              Pricing
+              <select value={pricingMode} onChange={e => setPricingMode(e.target.value as SKUPricingMode)} className={fieldInputClass}>
+                <option value="fixed">Fixed / package</option>
+                <option value="per_weight">Per kilo</option>
+              </select>
+            </label>
+            {pricingMode === 'per_weight' && (
+              <div>
+                <label className={fieldLabelClass}>Price/kilo ({currency})</label>
+                <input type="number" step="0.01" min="0" required value={pricePerKilo} onChange={e => setPricePerKilo(e.target.value)} className={fieldInputClass} />
+              </div>
+            )}
+          </div>
+          {pricingMode === 'per_weight' && !scaleCode && (
+            <p className="text-[10px] text-amber-500">Set a scale code above too — per-kilo pricing only applies once a package's weight can actually be scanned.</p>
           )}
           {error && <p className="text-[10px] text-red-400">{error}</p>}
           <div className="flex gap-1.5">
