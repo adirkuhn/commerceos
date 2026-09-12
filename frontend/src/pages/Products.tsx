@@ -62,6 +62,18 @@ function parseIntOrUndefined(value: string): number | undefined {
   return Number.isNaN(n) ? undefined : n
 }
 
+// SKU.ScaleCode is always the 5-digit segment DecodeWeightEmbeddedBarcode
+// reads out of a scanned barcode's [2:7] -- but staff read/type this off
+// the physical scale, which shows it with its 2-digit GS1 prefix
+// prepended (e.g. 2900633 for scale code 00633). Let them type/paste the
+// full 7 digits (or even a whole 13-digit barcode) and auto-drop the
+// prefix once enough digits land, rather than forcing them to know which
+// part to omit.
+function normalizeScaleCodeInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 7)
+  return digits.length === 7 ? digits.slice(-5) : digits
+}
+
 export default function Products() {
   const { token } = useAuth()
 
@@ -1091,12 +1103,12 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                   <input
                     id="product-scale-code"
                     type="text" placeholder="Not sold via a scale barcode" value={scaleCode}
-                    onChange={e => setScaleCode(e.target.value.replace(/\D/g, '').slice(0, 5))}
-                    maxLength={5} inputMode="numeric"
+                    onChange={e => setScaleCode(normalizeScaleCodeInput(e.target.value))}
+                    maxLength={7} inputMode="numeric"
                     className={inputClass}
                   />
                   <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
-                    The 5-digit code programmed into the scale for this product — leave blank if it has a normal fixed barcode.
+                    The code programmed into the scale for this product — type it exactly as shown on the scale (with or without its 2-digit prefix), leave blank if it has a normal fixed barcode.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3 mt-2">
@@ -2619,7 +2631,7 @@ function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
           <div className="grid grid-cols-2 gap-1.5 pt-1">
             <div>
               <label htmlFor={`scale-code-alias-${skuId}`} className={label}>Scale code</label>
-              <input id={`scale-code-alias-${skuId}`} type="text" value={newCode} onChange={e => setNewCode(e.target.value.replace(/\D/g, '').slice(0, 5))} maxLength={5} inputMode="numeric" className={input} />
+              <input id={`scale-code-alias-${skuId}`} type="text" value={newCode} onChange={e => setNewCode(normalizeScaleCodeInput(e.target.value))} maxLength={7} inputMode="numeric" className={input} />
             </div>
           </div>
           <button
@@ -3318,7 +3330,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           )}
           <div>
             <label className={fieldLabelClass}>Scale code (weight-embedded barcode)</label>
-            <input type="text" placeholder="Not sold via a scale barcode" value={scaleCode} onChange={e => setScaleCode(e.target.value.replace(/\D/g, '').slice(0, 5))} maxLength={5} inputMode="numeric" className={fieldInputClass} />
+            <input type="text" placeholder="Not sold via a scale barcode" value={scaleCode} onChange={e => setScaleCode(normalizeScaleCodeInput(e.target.value))} maxLength={7} inputMode="numeric" className={fieldInputClass} />
           </div>
           <div className="grid grid-cols-2 gap-1.5">
             <label className="flex flex-col gap-0.5 text-[10px] dark:text-gray-400 text-gray-500">
