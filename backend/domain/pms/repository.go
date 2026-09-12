@@ -213,6 +213,23 @@ type BarcodeAliasRepository interface {
 	Create(ctx context.Context, a *BarcodeAlias) error
 	FindByCode(ctx context.Context, code string) (*BarcodeAlias, error)
 	ListBySKU(ctx context.Context, skuID string) ([]BarcodeAlias, error)
+	// ListBySKUIDs bulk-loads aliases for multiple SKUs in one query --
+	// same N+1-avoidance rationale as VariantRepo.ListByProductIDs (see
+	// ListPOSProductCatalogUseCase, which syncs every SKU's aliases to
+	// external POS integrations).
+	ListBySKUIDs(ctx context.Context, skuIDs []string) ([]BarcodeAlias, error)
+	Delete(ctx context.Context, id string) error
+}
+
+// ScaleCodeAliasRepository backs additional (non-primary) scale codes for
+// a SKU -- see ScaleCodeAlias.
+type ScaleCodeAliasRepository interface {
+	Create(ctx context.Context, a *ScaleCodeAlias) error
+	FindByCode(ctx context.Context, code string) (*ScaleCodeAlias, error)
+	ListBySKU(ctx context.Context, skuID string) ([]ScaleCodeAlias, error)
+	// ListBySKUIDs bulk-loads aliases for multiple SKUs in one query --
+	// see BarcodeAliasRepository.ListBySKUIDs.
+	ListBySKUIDs(ctx context.Context, skuIDs []string) ([]ScaleCodeAlias, error)
 	Delete(ctx context.Context, id string) error
 }
 

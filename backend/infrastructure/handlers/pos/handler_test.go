@@ -174,6 +174,28 @@ func TestListPOSProducts_includesScaleCodeAndPricingModeForWeightEmbeddedSKU(t *
 	assert.Contains(t, w.Body.String(), `"price_per_kilo_minor_units":4999`)
 }
 
+func TestListPOSProducts_includesBarcodeAndScaleCodeAliases(t *testing.T) {
+	s := &stubs{listProducts: stubListProducts{out: &apppms.ListPOSProductCatalogResult{
+		Products: []apppms.POSProductWithSKUs{{
+			Product: pmsDomain.Product{ID: "p1", Name: "Dry Meat", Slug: "dry-meat", Status: pmsDomain.ProductStatusActive},
+			SKUs: []apppms.POSProductSKU{
+				{
+					SKU:              pmsDomain.SKU{ID: "sku-1", VariantID: "v1", SKUCode: "DRYMEAT-1", CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive},
+					VariantName:      "Default",
+					BarcodeAliases:   []apppms.POSBarcodeAlias{{Code: "9876543210987", UnitsPerScan: 1}},
+					ScaleCodeAliases: []string{"94722"},
+				},
+			},
+		}},
+		Total: 1,
+	}}}
+	w := doRequest(newTestRouter(s), "GET", "/api/v1/pos/products", nil)
+
+	require.Equal(t, 200, w.Code)
+	assert.Contains(t, w.Body.String(), `"9876543210987"`)
+	assert.Contains(t, w.Body.String(), `"94722"`)
+}
+
 func TestListPOSProducts_includesImageURLAndSaleEndDate(t *testing.T) {
 	salePrice := int64(450)
 	saleEndDate := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)

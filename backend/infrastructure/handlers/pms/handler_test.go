@@ -313,6 +313,70 @@ func (s *stubDeleteSKUCurrencyPrice) Execute(_ context.Context, skuID, currencyC
 	return s.err
 }
 
+type stubListBarcodeAliases struct {
+	out      []pmsDomain.BarcodeAlias
+	err      error
+	gotSKUID string
+}
+
+func (s *stubListBarcodeAliases) Execute(_ context.Context, skuID string) ([]pmsDomain.BarcodeAlias, error) {
+	s.gotSKUID = skuID
+	return s.out, s.err
+}
+
+type stubCreateBarcodeAlias struct {
+	out      *pmsDomain.BarcodeAlias
+	err      error
+	gotInput apppms.CreateBarcodeAliasInput
+}
+
+func (s *stubCreateBarcodeAlias) Execute(_ context.Context, in apppms.CreateBarcodeAliasInput) (*pmsDomain.BarcodeAlias, error) {
+	s.gotInput = in
+	return s.out, s.err
+}
+
+type stubDeleteBarcodeAlias struct {
+	err   error
+	gotID string
+}
+
+func (s *stubDeleteBarcodeAlias) Execute(_ context.Context, id string) error {
+	s.gotID = id
+	return s.err
+}
+
+type stubListScaleCodeAliases struct {
+	out      []pmsDomain.ScaleCodeAlias
+	err      error
+	gotSKUID string
+}
+
+func (s *stubListScaleCodeAliases) Execute(_ context.Context, skuID string) ([]pmsDomain.ScaleCodeAlias, error) {
+	s.gotSKUID = skuID
+	return s.out, s.err
+}
+
+type stubCreateScaleCodeAlias struct {
+	out      *pmsDomain.ScaleCodeAlias
+	err      error
+	gotInput apppms.CreateScaleCodeAliasInput
+}
+
+func (s *stubCreateScaleCodeAlias) Execute(_ context.Context, in apppms.CreateScaleCodeAliasInput) (*pmsDomain.ScaleCodeAlias, error) {
+	s.gotInput = in
+	return s.out, s.err
+}
+
+type stubDeleteScaleCodeAlias struct {
+	err   error
+	gotID string
+}
+
+func (s *stubDeleteScaleCodeAlias) Execute(_ context.Context, id string) error {
+	s.gotID = id
+	return s.err
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type stubs struct {
@@ -347,6 +411,12 @@ type stubs struct {
 	listSKUCurrencyPrices  stubListSKUCurrencyPrices
 	upsertSKUCurrencyPrice stubUpsertSKUCurrencyPrice
 	deleteSKUCurrencyPrice stubDeleteSKUCurrencyPrice
+	listBarcodeAliases     stubListBarcodeAliases
+	createBarcodeAlias     stubCreateBarcodeAlias
+	deleteBarcodeAlias     stubDeleteBarcodeAlias
+	listScaleCodeAliases   stubListScaleCodeAliases
+	createScaleCodeAlias   stubCreateScaleCodeAlias
+	deleteScaleCodeAlias   stubDeleteScaleCodeAlias
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
@@ -362,6 +432,8 @@ func newTestRouter(s *stubs) *gin.Engine {
 		&s.listSKUPriceHistory,
 		&s.listProductHistory,
 		&s.listSKUCurrencyPrices, &s.upsertSKUCurrencyPrice, &s.deleteSKUCurrencyPrice,
+		&s.listBarcodeAliases, &s.createBarcodeAlias, &s.deleteBarcodeAlias,
+		&s.listScaleCodeAliases, &s.createScaleCodeAlias, &s.deleteScaleCodeAlias,
 	)
 	r := gin.New()
 	genpms.RegisterHandlers(r.Group("/api/v1"), h)
@@ -822,6 +894,61 @@ func TestResolveBarcode_corruptedWeightEmbeddedCheckDigitReturns422(t *testing.T
 	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/barcode-lookup/2900633003339", nil)
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestCreateBarcodeAlias_defaultsUnitsPerScanAndReturns201(t *testing.T) {
+	s := &stubs{createBarcodeAlias: stubCreateBarcodeAlias{out: &pmsDomain.BarcodeAlias{ID: "alias-1", SKUID: "sku-1", Code: "0630509892495", UnitsPerScan: 1}}}
+	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/skus/sku-1/barcode-aliases", map[string]any{
+		"code": "0630509892495",
+	})
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, "sku-1", s.createBarcodeAlias.gotInput.SKUID)
+	assert.Equal(t, "0630509892495", s.createBarcodeAlias.gotInput.Code)
+	assert.Contains(t, w.Body.String(), `"units_per_scan":1`)
+}
+
+func TestCreateBarcodeAlias_duplicateReturns409(t *testing.T) {
+	s := &stubs{createBarcodeAlias: stubCreateBarcodeAlias{err: pmsDomain.ErrDuplicateBarcodeAliasCode}}
+	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/skus/sku-1/barcode-aliases", map[string]any{"code": "TAKEN"})
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestListBarcodeAliases_success(t *testing.T) {
+	s := &stubs{listBarcodeAliases: stubListBarcodeAliases{out: []pmsDomain.BarcodeAlias{{ID: "a1", Code: "111"}, {ID: "a2", Code: "222"}}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/sku-1/barcode-aliases", nil)
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "sku-1", s.listBarcodeAliases.gotSKUID)
+	assert.Contains(t, w.Body.String(), `"111"`)
+	assert.Contains(t, w.Body.String(), `"222"`)
+}
+
+func TestDeleteBarcodeAlias_success(t *testing.T) {
+	s := &stubs{deleteBarcodeAlias: stubDeleteBarcodeAlias{}}
+	w := doRequest(newTestRouter(s), http.MethodDelete, "/api/v1/pms/barcode-aliases/alias-1", nil)
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "alias-1", s.deleteBarcodeAlias.gotID)
+}
+
+func TestCreateScaleCodeAlias_returns201(t *testing.T) {
+	s := &stubs{createScaleCodeAlias: stubCreateScaleCodeAlias{out: &pmsDomain.ScaleCodeAlias{ID: "sa-1", SKUID: "sku-1", Code: "94722"}}}
+	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/skus/sku-1/scale-code-aliases", map[string]any{"code": "94722"})
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, "sku-1", s.createScaleCodeAlias.gotInput.SKUID)
+	assert.Equal(t, "94722", s.createScaleCodeAlias.gotInput.Code)
+}
+
+func TestListScaleCodeAliases_success(t *testing.T) {
+	s := &stubs{listScaleCodeAliases: stubListScaleCodeAliases{out: []pmsDomain.ScaleCodeAlias{{ID: "sa-1", Code: "94722"}}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/sku-1/scale-code-aliases", nil)
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"94722"`)
+}
+
+func TestDeleteScaleCodeAlias_success(t *testing.T) {
+	s := &stubs{deleteScaleCodeAlias: stubDeleteScaleCodeAlias{}}
+	w := doRequest(newTestRouter(s), http.MethodDelete, "/api/v1/pms/scale-code-aliases/sa-1", nil)
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "sa-1", s.deleteScaleCodeAlias.gotID)
 }
 
 func TestResolveBarcode_notFound(t *testing.T) {

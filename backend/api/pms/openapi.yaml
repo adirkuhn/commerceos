@@ -558,6 +558,120 @@ paths:
               schema:
                 $ref: '#/components/schemas/EmptyResponse'
 
+  /pms/skus/{id}/barcode-aliases:
+    get:
+      operationId: listBarcodeAliases
+      summary: List a SKU's alternate barcodes
+      description: >-
+        Either a case/box barcode (units_per_scan > 1, scanning it books
+        that many units at once) or a plain alternate unit barcode
+        (units_per_scan = 1 -- e.g. the same product repackaged by two
+        suppliers, each with its own EAN, same SKU/price).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BarcodeAliasListResponse'
+    post:
+      operationId: createBarcodeAlias
+      summary: Add an alternate barcode for a SKU
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBarcodeAliasRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BarcodeAliasResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /pms/barcode-aliases/{id}:
+    delete:
+      operationId: deleteBarcodeAlias
+      summary: Remove an alternate barcode
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+
+  /pms/skus/{id}/scale-code-aliases:
+    get:
+      operationId: listScaleCodeAliases
+      summary: List a SKU's additional scale codes
+      description: >-
+        A tenant with more than one physical butcher/deli scale
+        independently programs each one -- these are the extra codes
+        beyond the SKU's own primary scale_code, all resolving to the same
+        SKU/pricing.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScaleCodeAliasListResponse'
+    post:
+      operationId: createScaleCodeAlias
+      summary: Add an additional scale code for a SKU
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScaleCodeAliasRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScaleCodeAliasResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /pms/scale-code-aliases/{id}:
+    delete:
+      operationId: deleteScaleCodeAlias
+      summary: Remove an additional scale code
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+
   /pms/products/{id}/history:
     get:
       operationId: listProductHistory
@@ -966,6 +1080,71 @@ components:
         sale_price_minor_units: { type: integer, format: int64, nullable: true }
         sale_end_date: { type: string, format: date, nullable: true }
         updated_at: { type: string, format: date-time }
+
+    BarcodeAlias:
+      type: object
+      required: [id, sku_id, code, units_per_scan, created_at, updated_at]
+      properties:
+        id: { type: string }
+        sku_id: { type: string }
+        code: { type: string }
+        units_per_scan:
+          type: integer
+          format: int64
+          description: 1 for a plain alternate unit barcode, >1 for a case/box multiplier.
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateBarcodeAliasRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, minLength: 1 }
+        units_per_scan: { type: integer, format: int64, minimum: 1, default: 1 }
+
+    BarcodeAliasResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/BarcodeAlias' }
+        error: { nullable: true }
+
+    BarcodeAliasListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/BarcodeAlias' }
+        error: { nullable: true }
+
+    ScaleCodeAlias:
+      type: object
+      required: [id, sku_id, code, created_at, updated_at]
+      properties:
+        id: { type: string }
+        sku_id: { type: string }
+        code: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateScaleCodeAliasRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, minLength: 1 }
+
+    ScaleCodeAliasResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ScaleCodeAlias' }
+        error: { nullable: true }
+
+    ScaleCodeAliasListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ScaleCodeAlias' }
+        error: { nullable: true }
 
     UpsertSKUCurrencyPriceRequest:
       type: object

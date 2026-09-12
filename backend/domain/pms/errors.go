@@ -103,4 +103,25 @@ var (
 	// must resolve to exactly one SKU within a tenant
 	// (skus_tenant_scale_code_idx).
 	ErrDuplicateScaleCode = errors.New("scale_code already in use by another sku")
+	// ErrDuplicateBarcodeAliasCode guards BarcodeAlias.Code: a scanned
+	// alias must resolve to exactly one SKU within a tenant
+	// (barcode_aliases_tenant_id_code_key).
+	ErrDuplicateBarcodeAliasCode = errors.New("barcode already in use by another sku or alias")
+	// ErrInvalidUnitsPerScan guards BarcodeAlias.UnitsPerScan: must be at
+	// least 1 (1 = a plain alternate unit barcode, >1 = a case/box
+	// multiplier).
+	ErrInvalidUnitsPerScan = errors.New("units_per_scan must be at least 1")
+	// ErrDuplicateScaleCodeAlias guards ScaleCodeAlias.Code: a decoded
+	// weight-embedded barcode must resolve to exactly one SKU within a
+	// tenant (scale_code_aliases_tenant_id_code_key).
+	ErrDuplicateScaleCodeAlias = errors.New("scale code already in use by another sku")
+	// ErrScaleCodeAliasNotFound is returned by ScaleCodeAliasRepository
+	// lookups/deletes that don't match.
+	ErrScaleCodeAliasNotFound = errors.New("scale code alias not found")
+	// ErrBarcodeAliasCodeRequired guards CreateBarcodeAliasUseCase's
+	// input: a blank/whitespace-only code isn't a barcode.
+	ErrBarcodeAliasCodeRequired = errors.New("code is required")
+	// ErrScaleCodeAliasCodeRequired guards CreateScaleCodeAliasUseCase's
+	// input: a blank/whitespace-only code isn't a scale code.
+	ErrScaleCodeAliasCodeRequired = errors.New("code is required")
 )

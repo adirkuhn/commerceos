@@ -153,6 +153,24 @@ type upsertSKUCurrencyPriceUC interface {
 type deleteSKUCurrencyPriceUC interface {
 	Execute(ctx context.Context, skuID, currencyCode string) error
 }
+type listBarcodeAliasesUC interface {
+	Execute(ctx context.Context, skuID string) ([]pmsDomain.BarcodeAlias, error)
+}
+type createBarcodeAliasUC interface {
+	Execute(ctx context.Context, in apppms.CreateBarcodeAliasInput) (*pmsDomain.BarcodeAlias, error)
+}
+type deleteBarcodeAliasUC interface {
+	Execute(ctx context.Context, id string) error
+}
+type listScaleCodeAliasesUC interface {
+	Execute(ctx context.Context, skuID string) ([]pmsDomain.ScaleCodeAlias, error)
+}
+type createScaleCodeAliasUC interface {
+	Execute(ctx context.Context, in apppms.CreateScaleCodeAliasInput) (*pmsDomain.ScaleCodeAlias, error)
+}
+type deleteScaleCodeAliasUC interface {
+	Execute(ctx context.Context, id string) error
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -188,6 +206,12 @@ type Handler struct {
 	listSKUCurrencyPrices  listSKUCurrencyPricesUC
 	upsertSKUCurrencyPrice upsertSKUCurrencyPriceUC
 	deleteSKUCurrencyPrice deleteSKUCurrencyPriceUC
+	listBarcodeAliases     listBarcodeAliasesUC
+	createBarcodeAlias     createBarcodeAliasUC
+	deleteBarcodeAlias     deleteBarcodeAliasUC
+	listScaleCodeAliases   listScaleCodeAliasesUC
+	createScaleCodeAlias   createScaleCodeAliasUC
+	deleteScaleCodeAlias   deleteScaleCodeAliasUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -223,8 +247,20 @@ func NewHandler(
 	listSKUCurrencyPrices listSKUCurrencyPricesUC,
 	upsertSKUCurrencyPrice upsertSKUCurrencyPriceUC,
 	deleteSKUCurrencyPrice deleteSKUCurrencyPriceUC,
+	listBarcodeAliases listBarcodeAliasesUC,
+	createBarcodeAlias createBarcodeAliasUC,
+	deleteBarcodeAlias deleteBarcodeAliasUC,
+	listScaleCodeAliases listScaleCodeAliasesUC,
+	createScaleCodeAlias createScaleCodeAliasUC,
+	deleteScaleCodeAlias deleteScaleCodeAliasUC,
 ) *Handler {
 	return &Handler{
+		listBarcodeAliases:     listBarcodeAliases,
+		createBarcodeAlias:     createBarcodeAlias,
+		deleteBarcodeAlias:     deleteBarcodeAlias,
+		listScaleCodeAliases:   listScaleCodeAliases,
+		createScaleCodeAlias:   createScaleCodeAlias,
+		deleteScaleCodeAlias:   deleteScaleCodeAlias,
 		getSKUMarginInsight:    getSKUMarginInsight,
 		listCostPriceHistory:   listCostPriceHistory,
 		listMarginReport:       listMarginReport,
@@ -273,6 +309,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 	mediaRepo := repositories.NewMediaRepo(db)
 	listingRepo := repositories.NewProductChannelListingRepo(db)
 	barcodeAliasRepo := repositories.NewBarcodeAliasRepo(db)
+	scaleCodeAliasRepo := repositories.NewScaleCodeAliasRepo(db)
 	costPriceHistoryRepo := repositories.NewSKUCostPriceHistoryRepo(db)
 	priceHistoryRepo := repositories.NewSKUPriceHistoryRepo(db)
 	productHistoryRepo := repositories.NewProductHistoryRepo(db)
@@ -290,7 +327,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewCreateCategoryUseCase(db, categoryRepo),
 		apppms.NewUpdateCategoryUseCase(db, categoryRepo, outboxRepo),
 		apppms.NewDeleteCategoryUseCase(db, categoryRepo),
-		apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo),
+		apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo, barcodeAliasRepo, scaleCodeAliasRepo),
 		apppms.NewCreateProductUseCase(db, productRepo, outboxRepo),
 		apppms.NewGetProductUseCase(db, productRepo, variantRepo, skuRepo),
 		apppms.NewUpdateProductUseCase(db, productRepo, variantRepo, listingRepo, outboxRepo, productHistoryRepo),
@@ -308,7 +345,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewListProductMediaUseCase(db, mediaRepo),
 		apppms.NewDeleteMediaUseCase(db, mediaRepo, fileStorage),
 		apppms.NewUpdateMediaUseCase(db, mediaRepo, outboxRepo),
-		apppms.NewResolveBarcodeUseCase(db, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
+		apppms.NewResolveBarcodeUseCase(db, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
 		apppms.NewGetSKUMarginInsightUseCase(db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo, batchLister, discardLister),
 		apppms.NewListCostPriceHistoryUseCase(db, costPriceHistoryRepo),
 		apppms.NewListMarginReportUseCase(db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo),
@@ -317,6 +354,12 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewListSKUCurrencyPricesUseCase(db, skuCurrencyPriceRepo),
 		apppms.NewUpsertSKUCurrencyPriceUseCase(db, skuRepo, skuCurrencyPriceRepo),
 		apppms.NewDeleteSKUCurrencyPriceUseCase(db, skuCurrencyPriceRepo),
+		apppms.NewListBarcodeAliasesUseCase(db, barcodeAliasRepo),
+		apppms.NewCreateBarcodeAliasUseCase(db, skuRepo, barcodeAliasRepo),
+		apppms.NewDeleteBarcodeAliasUseCase(db, barcodeAliasRepo),
+		apppms.NewListScaleCodeAliasesUseCase(db, scaleCodeAliasRepo),
+		apppms.NewCreateScaleCodeAliasUseCase(db, skuRepo, scaleCodeAliasRepo),
+		apppms.NewDeleteScaleCodeAliasUseCase(db, scaleCodeAliasRepo),
 	)
 	genpms.RegisterHandlers(rg, h)
 }
@@ -776,6 +819,94 @@ func (h *Handler) DeleteSKUCurrencyPrice(c *gin.Context, id genpms.Id, currencyC
 	c.JSON(http.StatusOK, genpms.EmptyResponse{})
 }
 
+func (h *Handler) ListBarcodeAliases(c *gin.Context, id genpms.Id) {
+	aliases, err := h.listBarcodeAliases.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genpms.BarcodeAlias, len(aliases))
+	for i, a := range aliases {
+		resp[i] = toGenBarcodeAlias(a)
+	}
+	c.JSON(http.StatusOK, genpms.BarcodeAliasListResponse{Data: &resp})
+}
+
+func (h *Handler) CreateBarcodeAlias(c *gin.Context, id genpms.Id) {
+	var req genpms.CreateBarcodeAliasRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	var unitsPerScan int64
+	if req.UnitsPerScan != nil {
+		unitsPerScan = *req.UnitsPerScan
+	}
+	alias, err := h.createBarcodeAlias.Execute(c.Request.Context(), apppms.CreateBarcodeAliasInput{
+		SKUID: id, Code: req.Code, UnitsPerScan: unitsPerScan,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenBarcodeAlias(*alias)
+	c.JSON(http.StatusCreated, genpms.BarcodeAliasResponse{Data: &resp})
+}
+
+func (h *Handler) DeleteBarcodeAlias(c *gin.Context, id genpms.Id) {
+	err := h.deleteBarcodeAlias.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, genpms.EmptyResponse{})
+}
+
+func toGenBarcodeAlias(a pmsDomain.BarcodeAlias) genpms.BarcodeAlias {
+	return genpms.BarcodeAlias{
+		Id: a.ID, SkuId: a.SKUID, Code: a.Code, UnitsPerScan: a.UnitsPerScan,
+		CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt,
+	}
+}
+
+func (h *Handler) ListScaleCodeAliases(c *gin.Context, id genpms.Id) {
+	aliases, err := h.listScaleCodeAliases.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genpms.ScaleCodeAlias, len(aliases))
+	for i, a := range aliases {
+		resp[i] = toGenScaleCodeAlias(a)
+	}
+	c.JSON(http.StatusOK, genpms.ScaleCodeAliasListResponse{Data: &resp})
+}
+
+func (h *Handler) CreateScaleCodeAlias(c *gin.Context, id genpms.Id) {
+	var req genpms.CreateScaleCodeAliasRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	alias, err := h.createScaleCodeAlias.Execute(c.Request.Context(), apppms.CreateScaleCodeAliasInput{SKUID: id, Code: req.Code})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenScaleCodeAlias(*alias)
+	c.JSON(http.StatusCreated, genpms.ScaleCodeAliasResponse{Data: &resp})
+}
+
+func (h *Handler) DeleteScaleCodeAlias(c *gin.Context, id genpms.Id) {
+	err := h.deleteScaleCodeAlias.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, genpms.EmptyResponse{})
+}
+
+func toGenScaleCodeAlias(a pmsDomain.ScaleCodeAlias) genpms.ScaleCodeAlias {
+	return genpms.ScaleCodeAlias{
+		Id: a.ID, SkuId: a.SKUID, Code: a.Code,
+		CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt,
+	}
+}
+
 func toGenSKUCurrencyPrice(p pmsDomain.SKUCurrencyPrice) genpms.SKUCurrencyPrice {
 	return genpms.SKUCurrencyPrice{
 		SkuId: p.SKUID, CurrencyCode: p.CurrencyCode, PriceMinorUnits: p.PriceMinorUnits,
@@ -1081,12 +1212,16 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrCategoryNotFound),
 		errors.Is(err, pmsDomain.ErrVariantNotFound),
 		errors.Is(err, pmsDomain.ErrSKUNotFound),
-		errors.Is(err, pmsDomain.ErrMediaNotFound):
+		errors.Is(err, pmsDomain.ErrMediaNotFound),
+		errors.Is(err, pmsDomain.ErrBarcodeAliasNotFound),
+		errors.Is(err, pmsDomain.ErrScaleCodeAliasNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, pmsDomain.ErrDuplicateSlug),
 		errors.Is(err, pmsDomain.ErrDuplicateSKUCode),
 		errors.Is(err, pmsDomain.ErrDuplicateBarcode),
-		errors.Is(err, pmsDomain.ErrDuplicateScaleCode):
+		errors.Is(err, pmsDomain.ErrDuplicateScaleCode),
+		errors.Is(err, pmsDomain.ErrDuplicateBarcodeAliasCode),
+		errors.Is(err, pmsDomain.ErrDuplicateScaleCodeAlias):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
 	case errors.Is(err, pmsDomain.ErrVariantsNotEnabled),
 		errors.Is(err, pmsDomain.ErrInvalidSlug),
@@ -1109,6 +1244,9 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrPricePerKiloOnlyForPerWeight),
 		errors.Is(err, pmsDomain.ErrInvalidPricePerKilo),
 		errors.Is(err, pmsDomain.ErrInvalidCheckDigit),
+		errors.Is(err, pmsDomain.ErrInvalidUnitsPerScan),
+		errors.Is(err, pmsDomain.ErrBarcodeAliasCodeRequired),
+		errors.Is(err, pmsDomain.ErrScaleCodeAliasCodeRequired),
 		errors.Is(err, fxDomain.ErrInvalidCurrencyCode):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:

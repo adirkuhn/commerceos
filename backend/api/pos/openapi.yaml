@@ -186,6 +186,30 @@ components:
           description: >-
             Rate per whole kilo, same minor-unit convention as
             price_minor_units. Set only when pricing_mode is per_weight.
+        barcode_aliases:
+          type: array
+          description: >-
+            This SKU's alternate barcodes, beyond the primary barcode
+            field above -- either a case/box multiplier (units_per_scan >
+            1) or a plain alternate unit barcode (units_per_scan = 1,
+            e.g. the same product repackaged by two suppliers, each with
+            its own EAN, same SKU/price). Empty when it has none.
+          items: { $ref: '#/components/schemas/POSBarcodeAliasEntry' }
+        scale_code_aliases:
+          type: array
+          description: >-
+            Additional scale codes for this SKU, alongside scale_code --
+            for a tenant with more than one physical scale, each
+            independently programmed with its own code for the same
+            product. Empty when it has none.
+          items: { type: string }
+
+    POSBarcodeAliasEntry:
+      type: object
+      required: [code, units_per_scan]
+      properties:
+        code: { type: string }
+        units_per_scan: { type: integer, format: int64 }
 
     POSProduct:
       type: object

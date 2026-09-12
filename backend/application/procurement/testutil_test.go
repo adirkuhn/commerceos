@@ -768,6 +768,9 @@ func (s *stubBarcodeAliasRepo) FindByCode(_ context.Context, code string) (*pmsD
 func (s *stubBarcodeAliasRepo) ListBySKU(_ context.Context, _ string) ([]pmsDomain.BarcodeAlias, error) {
 	return s.listBySKU, nil
 }
+func (s *stubBarcodeAliasRepo) ListBySKUIDs(_ context.Context, _ []string) ([]pmsDomain.BarcodeAlias, error) {
+	return s.listBySKU, nil
+}
 func (s *stubBarcodeAliasRepo) Delete(_ context.Context, _ string) error { return nil }
 
 // stubReceiveStockForBooking tracks every call (CompleteBookingUseCase's

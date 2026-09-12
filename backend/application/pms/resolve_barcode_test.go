@@ -27,7 +27,31 @@ func (s *stubBarcodeAliasRepoForResolve) FindByCode(_ context.Context, code stri
 func (s *stubBarcodeAliasRepoForResolve) ListBySKU(_ context.Context, _ string) ([]pmsDomain.BarcodeAlias, error) {
 	return nil, nil
 }
+func (s *stubBarcodeAliasRepoForResolve) ListBySKUIDs(_ context.Context, _ []string) ([]pmsDomain.BarcodeAlias, error) {
+	return nil, nil
+}
 func (s *stubBarcodeAliasRepoForResolve) Delete(_ context.Context, _ string) error { return nil }
+
+type stubScaleCodeAliasRepoForResolve struct {
+	byCode map[string]*pmsDomain.ScaleCodeAlias
+}
+
+func (s *stubScaleCodeAliasRepoForResolve) Create(_ context.Context, _ *pmsDomain.ScaleCodeAlias) error {
+	return nil
+}
+func (s *stubScaleCodeAliasRepoForResolve) FindByCode(_ context.Context, code string) (*pmsDomain.ScaleCodeAlias, error) {
+	if a, ok := s.byCode[code]; ok {
+		return a, nil
+	}
+	return nil, pmsDomain.ErrScaleCodeAliasNotFound
+}
+func (s *stubScaleCodeAliasRepoForResolve) ListBySKU(_ context.Context, _ string) ([]pmsDomain.ScaleCodeAlias, error) {
+	return nil, nil
+}
+func (s *stubScaleCodeAliasRepoForResolve) ListBySKUIDs(_ context.Context, _ []string) ([]pmsDomain.ScaleCodeAlias, error) {
+	return nil, nil
+}
+func (s *stubScaleCodeAliasRepoForResolve) Delete(_ context.Context, _ string) error { return nil }
 
 func TestResolveBarcode_resolvesDirectUnitBarcodeWithUnitsPerScanOne(t *testing.T) {
 	db := newMockGormDB(t)
@@ -35,7 +59,7 @@ func TestResolveBarcode_resolvesDirectUnitBarcodeWithUnitsPerScanOne(t *testing.
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "variant-1", ProductID: "product-1"}}
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "product-1", Name: "T-Shirt"}}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, variantRepo, productRepo)
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubScaleCodeAliasRepoForResolve{}, variantRepo, productRepo)
 
 	result, err := uc.Execute(context.Background(), "012345")
 
@@ -51,7 +75,7 @@ func TestResolveBarcode_fallsBackToBarcodeAliasWithItsMultiplier(t *testing.T) {
 	aliasRepo := &stubBarcodeAliasRepoForResolve{byCode: map[string]*pmsDomain.BarcodeAlias{
 		"CASE-BARCODE": {ID: "alias-1", SKUID: "sku-1", Code: "CASE-BARCODE", UnitsPerScan: 12},
 	}}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubVariantRepo{}, &stubProductRepo{product: &pmsDomain.Product{Name: "T-Shirt"}})
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubScaleCodeAliasRepoForResolve{}, &stubVariantRepo{}, &stubProductRepo{product: &pmsDomain.Product{Name: "T-Shirt"}})
 
 	result, err := uc.Execute(context.Background(), "CASE-BARCODE")
 
@@ -67,7 +91,7 @@ func TestResolveBarcode_fallsBackToSKUCodeWhenNeitherBarcodeNorAliasMatches(t *t
 	// SKU code" path the scanner apps' prompt promises.
 	skuRepo := &stubSKURepo{findByCodeResult: &pmsDomain.SKU{ID: "sku-1", SKUCode: "TSHIRT-1"}}
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubVariantRepo{}, &stubProductRepo{product: &pmsDomain.Product{Name: "T-Shirt"}})
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubScaleCodeAliasRepoForResolve{}, &stubVariantRepo{}, &stubProductRepo{product: &pmsDomain.Product{Name: "T-Shirt"}})
 
 	result, err := uc.Execute(context.Background(), "TSHIRT-1")
 
@@ -83,7 +107,7 @@ func TestResolveBarcode_trimsWhitespaceFromTheScannedCode(t *testing.T) {
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "variant-1", ProductID: "product-1"}}
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "product-1", Name: "T-Shirt"}}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, variantRepo, productRepo)
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubScaleCodeAliasRepoForResolve{}, variantRepo, productRepo)
 
 	result, err := uc.Execute(context.Background(), " 012345\n")
 
@@ -104,7 +128,7 @@ func TestResolveBarcode_resolvesWeightEmbeddedBarcodeFixedPricing(t *testing.T) 
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "variant-1", ProductID: "product-1"}}
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "product-1", Name: "Calabresa"}}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, variantRepo, productRepo)
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubScaleCodeAliasRepoForResolve{}, variantRepo, productRepo)
 
 	result, err := uc.Execute(context.Background(), "2900633003332")
 
@@ -131,7 +155,7 @@ func TestResolveBarcode_resolvesWeightEmbeddedBarcodePerWeightPricing(t *testing
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "variant-2", ProductID: "product-2"}}
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "product-2", Name: "Dry Meat"}}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, variantRepo, productRepo)
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubScaleCodeAliasRepoForResolve{}, variantRepo, productRepo)
 
 	result, err := uc.Execute(context.Background(), "2994721004622")
 
@@ -142,11 +166,40 @@ func TestResolveBarcode_resolvesWeightEmbeddedBarcodePerWeightPricing(t *testing
 	assert.Equal(t, int64(2310), *result.LineTotalMinorUnits)
 }
 
+func TestResolveBarcode_fallsBackToScaleCodeAliasForASecondScale(t *testing.T) {
+	// Same dry-meat SKU, but this package was weighed on the tenant's
+	// second scale, programmed with a different code (94722) than the
+	// SKU's own primary ScaleCode (94721) -- must still resolve to the
+	// same SKU/pricing.
+	db := newMockGormDB(t)
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{
+		ID: "sku-2", VariantID: "variant-2", ScaleCode: strPtr("94721"),
+		PricingMode: pmsDomain.SKUPricingModePerWeight, PricePerKiloMinorUnits: int64Ptr(4999),
+	}}
+	aliasRepo := &stubBarcodeAliasRepoForResolve{}
+	scaleAliasRepo := &stubScaleCodeAliasRepoForResolve{byCode: map[string]*pmsDomain.ScaleCodeAlias{
+		"94722": {ID: "scalealias-1", SKUID: "sku-2", Code: "94722"},
+	}}
+	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "variant-2", ProductID: "product-2"}}
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "product-2", Name: "Dry Meat"}}
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, scaleAliasRepo, variantRepo, productRepo)
+
+	// Real barcode shape with scale code 94722 instead of 94721, weight 462g.
+	result, err := uc.Execute(context.Background(), "2994722004621")
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-2", result.SKU.ID)
+	require.NotNil(t, result.WeightGrams)
+	assert.Equal(t, int64(462), *result.WeightGrams)
+	require.NotNil(t, result.LineTotalMinorUnits)
+	assert.Equal(t, int64(2310), *result.LineTotalMinorUnits)
+}
+
 func TestResolveBarcode_returnsSKUNotFoundWhenScaleCodeUnregistered(t *testing.T) {
 	db := newMockGormDB(t)
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubVariantRepo{}, &stubProductRepo{})
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubScaleCodeAliasRepoForResolve{}, &stubVariantRepo{}, &stubProductRepo{})
 
 	_, err := uc.Execute(context.Background(), "2900633003332")
 
@@ -160,7 +213,7 @@ func TestResolveBarcode_rejectsCorruptedWeightEmbeddedCheckDigit(t *testing.T) {
 	db := newMockGormDB(t)
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubVariantRepo{}, &stubProductRepo{})
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubScaleCodeAliasRepoForResolve{}, &stubVariantRepo{}, &stubProductRepo{})
 
 	_, err := uc.Execute(context.Background(), "2900633003339")
 
@@ -171,7 +224,7 @@ func TestResolveBarcode_returnsSKUNotFoundWhenNothingMatches(t *testing.T) {
 	db := newMockGormDB(t)
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubVariantRepo{}, &stubProductRepo{})
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubScaleCodeAliasRepoForResolve{}, &stubVariantRepo{}, &stubProductRepo{})
 
 	_, err := uc.Execute(context.Background(), "UNKNOWN")
 

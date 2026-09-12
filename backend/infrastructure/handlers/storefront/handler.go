@@ -249,6 +249,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	apiKeyRepo := repositories.NewAPIKeyRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
 	variantRepo := repositories.NewVariantRepo(db)
+	barcodeAliasRepo := repositories.NewBarcodeAliasRepo(db)
+	scaleCodeAliasRepo := repositories.NewScaleCodeAliasRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 	channelRepo := repositories.NewSalesChannelRepo(db)
 	overrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)
@@ -284,7 +286,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		encryptionSecret, publicBaseURL,
 	)
 	estimateShipping := appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, myparcel.NewCarrierClientFactory(), encryptionSecret)
-	listPOSProductCatalog := apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo)
+	listPOSProductCatalog := apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo, barcodeAliasRepo, scaleCodeAliasRepo)
 	getCartRecommendations := appreports.NewGetCartRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, skuRepo, variantRepo, productRepo)
 	verifyCardPayment := appstorefront.NewVerifyCardPaymentUseCase(db, channelRepo, connRepo, stripe.NewClientFactory(), encryptionSecret)
 	checkoutCart := appstorefront.NewCheckoutCartUseCase(

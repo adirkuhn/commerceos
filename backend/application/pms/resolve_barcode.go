@@ -56,15 +56,16 @@ type productFinderForResolveBarcode interface {
 }
 
 type ResolveBarcodeUseCase struct {
-	db               *gorm.DB
-	skuRepo          pmsDomain.SKURepository
-	barcodeAliasRepo pmsDomain.BarcodeAliasRepository
-	variantRepo      variantFinderForResolveBarcode
-	productRepo      productFinderForResolveBarcode
+	db                 *gorm.DB
+	skuRepo            pmsDomain.SKURepository
+	barcodeAliasRepo   pmsDomain.BarcodeAliasRepository
+	scaleCodeAliasRepo pmsDomain.ScaleCodeAliasRepository
+	variantRepo        variantFinderForResolveBarcode
+	productRepo        productFinderForResolveBarcode
 }
 
-func NewResolveBarcodeUseCase(db *gorm.DB, skuRepo pmsDomain.SKURepository, barcodeAliasRepo pmsDomain.BarcodeAliasRepository, variantRepo variantFinderForResolveBarcode, productRepo productFinderForResolveBarcode) *ResolveBarcodeUseCase {
-	return &ResolveBarcodeUseCase{db: db, skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo, variantRepo: variantRepo, productRepo: productRepo}
+func NewResolveBarcodeUseCase(db *gorm.DB, skuRepo pmsDomain.SKURepository, barcodeAliasRepo pmsDomain.BarcodeAliasRepository, scaleCodeAliasRepo pmsDomain.ScaleCodeAliasRepository, variantRepo variantFinderForResolveBarcode, productRepo productFinderForResolveBarcode) *ResolveBarcodeUseCase {
+	return &ResolveBarcodeUseCase{db: db, skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo, scaleCodeAliasRepo: scaleCodeAliasRepo, variantRepo: variantRepo, productRepo: productRepo}
 }
 
 func (uc *ResolveBarcodeUseCase) Execute(ctx context.Context, code string) (*ResolveBarcodeResult, error) {
@@ -115,6 +116,24 @@ func (uc *ResolveBarcodeUseCase) Execute(ctx context.Context, code string) (*Res
 			return decodeErr
 		}
 		sku, err = uc.skuRepo.FindByScaleCode(ctx, decoded.ScaleCode)
+		if err == nil {
+			return uc.fillResult(ctx, &result, *sku, 1, &decoded.WeightGrams)
+		}
+		if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+			return err
+		}
+
+		// A tenant with more than one physical scale can have this same
+		// product's code programmed differently on each -- see
+		// pmsDomain.ScaleCodeAlias.
+		scaleAlias, err := uc.scaleCodeAliasRepo.FindByCode(ctx, decoded.ScaleCode)
+		if err != nil {
+			if errors.Is(err, pmsDomain.ErrScaleCodeAliasNotFound) {
+				return pmsDomain.ErrSKUNotFound
+			}
+			return err
+		}
+		sku, err = uc.skuRepo.FindByID(ctx, scaleAlias.SKUID)
 		if err != nil {
 			return err
 		}

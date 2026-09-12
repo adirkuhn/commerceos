@@ -956,9 +956,15 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                     <label htmlFor="product-barcode" className={labelClass}>Barcode / EAN</label>
                     <input
                       id="product-barcode"
-                      type="text" placeholder="Optional" value={barcode} onChange={e => setBarcode(e.target.value)}
+                      type="text" placeholder={scaleCode ? 'Not used — see Weight-embedded barcode below' : 'Optional'}
+                      disabled={!!scaleCode} value={scaleCode ? '' : barcode} onChange={e => setBarcode(e.target.value)}
                       className={inputClass}
                     />
+                    {scaleCode && (
+                      <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+                        Not used for this SKU — its real printed barcode changes per package (weight baked in).
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label htmlFor="product-price" className={labelClass}>Price</label>
@@ -2940,11 +2946,12 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               EAN
             </label>
             <input
-              id={`variant-sku-barcode-${sku.id}`} type="text" placeholder="Barcode / EAN"
-              value={barcodeEdit} onChange={e => setBarcodeEdit(e.target.value)}
+              id={`variant-sku-barcode-${sku.id}`} type="text"
+              placeholder={sku.scale_code ? 'Not used — see scale code below' : 'Barcode / EAN'}
+              disabled={!!sku.scale_code} value={sku.scale_code ? '' : barcodeEdit} onChange={e => setBarcodeEdit(e.target.value)}
               className="flex-1 min-w-0 px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
             />
-            {barcodeEdit !== (sku.barcode ?? '') && (
+            {!sku.scale_code && barcodeEdit !== (sku.barcode ?? '') && (
               <button
                 type="button" disabled={barcodeSaving} onClick={saveBarcode}
                 className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50 shrink-0"

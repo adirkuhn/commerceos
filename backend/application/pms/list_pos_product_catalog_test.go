@@ -53,6 +53,26 @@ type stubMediaByProductIDsRepo struct {
 	gotIDs      []string
 }
 
+type stubBarcodeAliasesBySKUIDsRepo struct {
+	out    []pmsDomain.BarcodeAlias
+	gotIDs []string
+}
+
+func (s *stubBarcodeAliasesBySKUIDsRepo) ListBySKUIDs(_ context.Context, skuIDs []string) ([]pmsDomain.BarcodeAlias, error) {
+	s.gotIDs = skuIDs
+	return s.out, nil
+}
+
+type stubScaleCodeAliasesBySKUIDsRepo struct {
+	out    []pmsDomain.ScaleCodeAlias
+	gotIDs []string
+}
+
+func (s *stubScaleCodeAliasesBySKUIDsRepo) ListBySKUIDs(_ context.Context, skuIDs []string) ([]pmsDomain.ScaleCodeAlias, error) {
+	s.gotIDs = skuIDs
+	return s.out, nil
+}
+
 func (s *stubMediaByProductIDsRepo) ListByProductIDs(_ context.Context, productIDs []string) ([]pmsDomain.Media, error) {
 	s.gotIDs = productIDs
 	if s.err != nil {
@@ -78,7 +98,7 @@ func TestListPOSProductCatalog_assemblesSKUsPerProductAcrossVariants(t *testing.
 		"v1": {{ID: "sku-1", VariantID: "v1", Barcode: "111", SKUCode: "W-S"}},
 		"v2": {{ID: "sku-2", VariantID: "v2", Barcode: "222", SKUCode: "W-L"}},
 	}}
-	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 3), listProducts, variantRepo, skuRepo, &stubMediaByProductIDsRepo{})
+	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 3), listProducts, variantRepo, skuRepo, &stubMediaByProductIDsRepo{}, &stubBarcodeAliasesBySKUIDsRepo{}, &stubScaleCodeAliasesBySKUIDsRepo{})
 
 	result, err := uc.Execute(context.Background(), apppms.ListProductsInput{})
 
@@ -94,12 +114,42 @@ func TestListPOSProductCatalog_assemblesSKUsPerProductAcrossVariants(t *testing.
 	require.ElementsMatch(t, []string{"v1", "v2"}, skuRepo.gotIDs)
 }
 
+func TestListPOSProductCatalog_attachesBarcodeAndScaleCodeAliasesPerSKU(t *testing.T) {
+	productRepo := &stubProductRepo{listResult: []pmsDomain.Product{{ID: "p1", Name: "Dry Meat"}}, listTotal: 1}
+	listProducts := apppms.NewListProductsUseCase(newMockGormDB(t), productRepo)
+	variantRepo := &stubVariantsByProductIDsRepo{byProductID: map[string][]pmsDomain.Variant{
+		"p1": {{ID: "v1", ProductID: "p1", Name: "Default"}},
+	}}
+	skuRepo := &stubSKUsByVariantIDsRepo{byVariantID: map[string][]pmsDomain.SKU{
+		"v1": {{ID: "sku-1", VariantID: "v1", SKUCode: "DRYMEAT-1"}},
+	}}
+	barcodeAliasRepo := &stubBarcodeAliasesBySKUIDsRepo{out: []pmsDomain.BarcodeAlias{
+		{SKUID: "sku-1", Code: "9876543210987", UnitsPerScan: 1},
+	}}
+	scaleCodeAliasRepo := &stubScaleCodeAliasesBySKUIDsRepo{out: []pmsDomain.ScaleCodeAlias{
+		{SKUID: "sku-1", Code: "94722"},
+	}}
+	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 3), listProducts, variantRepo, skuRepo, &stubMediaByProductIDsRepo{}, barcodeAliasRepo, scaleCodeAliasRepo)
+
+	result, err := uc.Execute(context.Background(), apppms.ListProductsInput{})
+
+	require.NoError(t, err)
+	require.Len(t, result.Products[0].SKUs, 1)
+	sku := result.Products[0].SKUs[0]
+	require.Len(t, sku.BarcodeAliases, 1)
+	require.Equal(t, "9876543210987", sku.BarcodeAliases[0].Code)
+	require.Equal(t, int64(1), sku.BarcodeAliases[0].UnitsPerScan)
+	require.Equal(t, []string{"94722"}, sku.ScaleCodeAliases)
+	require.Equal(t, []string{"sku-1"}, barcodeAliasRepo.gotIDs)
+	require.Equal(t, []string{"sku-1"}, scaleCodeAliasRepo.gotIDs)
+}
+
 func TestListPOSProductCatalog_productWithNoSKUsGetsEmptySlice(t *testing.T) {
 	productRepo := &stubProductRepo{listResult: []pmsDomain.Product{{ID: "p1", Name: "Widget"}}, listTotal: 1}
 	listProducts := apppms.NewListProductsUseCase(newMockGormDB(t), productRepo)
 	variantRepo := &stubVariantsByProductIDsRepo{}
 	skuRepo := &stubSKUsByVariantIDsRepo{}
-	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 3), listProducts, variantRepo, skuRepo, &stubMediaByProductIDsRepo{})
+	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 3), listProducts, variantRepo, skuRepo, &stubMediaByProductIDsRepo{}, &stubBarcodeAliasesBySKUIDsRepo{}, &stubScaleCodeAliasesBySKUIDsRepo{})
 
 	result, err := uc.Execute(context.Background(), apppms.ListProductsInput{})
 
@@ -114,7 +164,7 @@ func TestListPOSProductCatalog_emptyPageSkipsBulkLookups(t *testing.T) {
 	variantRepo := &stubVariantsByProductIDsRepo{}
 	skuRepo := &stubSKUsByVariantIDsRepo{}
 	mediaRepo := &stubMediaByProductIDsRepo{}
-	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDB(t), listProducts, variantRepo, skuRepo, mediaRepo)
+	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDB(t), listProducts, variantRepo, skuRepo, mediaRepo, &stubBarcodeAliasesBySKUIDsRepo{}, &stubScaleCodeAliasesBySKUIDsRepo{})
 
 	result, err := uc.Execute(context.Background(), apppms.ListProductsInput{})
 
@@ -129,7 +179,7 @@ func TestListPOSProductCatalog_emptyPageSkipsBulkLookups(t *testing.T) {
 func TestListPOSProductCatalog_propagatesListProductsError(t *testing.T) {
 	productRepo := &stubProductRepo{listErr: errors.New("db down")}
 	listProducts := apppms.NewListProductsUseCase(newMockGormDB(t), productRepo)
-	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDB(t), listProducts, &stubVariantsByProductIDsRepo{}, &stubSKUsByVariantIDsRepo{}, &stubMediaByProductIDsRepo{})
+	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDB(t), listProducts, &stubVariantsByProductIDsRepo{}, &stubSKUsByVariantIDsRepo{}, &stubMediaByProductIDsRepo{}, &stubBarcodeAliasesBySKUIDsRepo{}, &stubScaleCodeAliasesBySKUIDsRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.ListProductsInput{})
 
@@ -141,7 +191,7 @@ func TestListPOSProductCatalog_propagatesVariantRepoError(t *testing.T) {
 	productRepo := &stubProductRepo{listResult: []pmsDomain.Product{{ID: "p1"}}, listTotal: 1}
 	listProducts := apppms.NewListProductsUseCase(newMockGormDB(t), productRepo)
 	variantRepo := &stubVariantsByProductIDsRepo{err: errors.New("variant lookup failed")}
-	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 2), listProducts, variantRepo, &stubSKUsByVariantIDsRepo{}, &stubMediaByProductIDsRepo{})
+	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 2), listProducts, variantRepo, &stubSKUsByVariantIDsRepo{}, &stubMediaByProductIDsRepo{}, &stubBarcodeAliasesBySKUIDsRepo{}, &stubScaleCodeAliasesBySKUIDsRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.ListProductsInput{})
 
@@ -153,7 +203,7 @@ func TestListPOSProductCatalog_propagatesMediaRepoError(t *testing.T) {
 	productRepo := &stubProductRepo{listResult: []pmsDomain.Product{{ID: "p1"}}, listTotal: 1}
 	listProducts := apppms.NewListProductsUseCase(newMockGormDB(t), productRepo)
 	mediaRepo := &stubMediaByProductIDsRepo{err: errors.New("media lookup failed")}
-	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 2), listProducts, &stubVariantsByProductIDsRepo{}, &stubSKUsByVariantIDsRepo{}, mediaRepo)
+	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 2), listProducts, &stubVariantsByProductIDsRepo{}, &stubSKUsByVariantIDsRepo{}, mediaRepo, &stubBarcodeAliasesBySKUIDsRepo{}, &stubScaleCodeAliasesBySKUIDsRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.ListProductsInput{})
 
@@ -172,7 +222,7 @@ func TestListPOSProductCatalog_setsImageURLToTheLowestPositionMedia(t *testing.T
 			{ID: "m2", ProductID: strPtr("p1"), URL: "https://example.com/second.jpg", Position: 1},
 		},
 	}}
-	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 3), listProducts, &stubVariantsByProductIDsRepo{}, &stubSKUsByVariantIDsRepo{}, mediaRepo)
+	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 3), listProducts, &stubVariantsByProductIDsRepo{}, &stubSKUsByVariantIDsRepo{}, mediaRepo, &stubBarcodeAliasesBySKUIDsRepo{}, &stubScaleCodeAliasesBySKUIDsRepo{})
 
 	result, err := uc.Execute(context.Background(), apppms.ListProductsInput{})
 
@@ -186,7 +236,7 @@ func TestListPOSProductCatalog_setsImageURLToTheLowestPositionMedia(t *testing.T
 func TestListPOSProductCatalog_imageURLIsNilWhenProductHasNoMedia(t *testing.T) {
 	productRepo := &stubProductRepo{listResult: []pmsDomain.Product{{ID: "p1", Name: "Widget"}}, listTotal: 1}
 	listProducts := apppms.NewListProductsUseCase(newMockGormDB(t), productRepo)
-	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 3), listProducts, &stubVariantsByProductIDsRepo{}, &stubSKUsByVariantIDsRepo{}, &stubMediaByProductIDsRepo{})
+	uc := apppms.NewListPOSProductCatalogUseCase(newMockGormDBN(t, 3), listProducts, &stubVariantsByProductIDsRepo{}, &stubSKUsByVariantIDsRepo{}, &stubMediaByProductIDsRepo{}, &stubBarcodeAliasesBySKUIDsRepo{}, &stubScaleCodeAliasesBySKUIDsRepo{})
 
 	result, err := uc.Execute(context.Background(), apppms.ListProductsInput{})
 

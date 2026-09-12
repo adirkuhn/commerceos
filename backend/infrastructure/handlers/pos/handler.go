@@ -58,6 +58,8 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	productRepo := repositories.NewProductRepo(db)
 	variantRepo := repositories.NewVariantRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
+	barcodeAliasRepo := repositories.NewBarcodeAliasRepo(db)
+	scaleCodeAliasRepo := repositories.NewScaleCodeAliasRepo(db)
 	movementRepo := repositories.NewStockMovementRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
@@ -71,7 +73,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	allocateStock := appinventory.NewAllocateSaleStockUseCase(db, movementRepo, batchRepo, outboxRepo)
 	listProducts := apppms.NewListProductsUseCase(db, productRepo)
 	h := NewHandler(
-		apppms.NewListPOSProductCatalogUseCase(db, listProducts, variantRepo, skuRepo, mediaRepo),
+		apppms.NewListPOSProductCatalogUseCase(db, listProducts, variantRepo, skuRepo, mediaRepo, barcodeAliasRepo, scaleCodeAliasRepo),
 		appinventory.NewListStockLevelsUseCase(db, movementRepo, batchRepo, settingsRepo),
 		appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock),
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
@@ -131,12 +133,18 @@ func toGenPOSProductSKUs(skus []apppms.POSProductSKU) []genpos.POSProductSKU {
 	out := make([]genpos.POSProductSKU, len(skus))
 	for i, s := range skus {
 		pricingMode := genpos.POSProductSKUPricingMode(s.PricingMode)
+		barcodeAliases := make([]genpos.POSBarcodeAliasEntry, len(s.BarcodeAliases))
+		for j, a := range s.BarcodeAliases {
+			barcodeAliases[j] = genpos.POSBarcodeAliasEntry{Code: a.Code, UnitsPerScan: a.UnitsPerScan}
+		}
+		scaleCodeAliases := s.ScaleCodeAliases
 		out[i] = genpos.POSProductSKU{
 			Id: s.ID, VariantId: &s.VariantID, VariantName: &s.VariantName,
 			SkuCode: s.SKUCode, Barcode: &s.Barcode,
 			PriceMinorUnits: s.PriceMinorUnits, SalePriceMinorUnits: s.SalePriceMinorUnits, SaleEndDate: s.SaleEndDate,
 			CurrencyCode: s.CurrencyCode, Status: string(s.Status),
 			ScaleCode: s.ScaleCode, PricingMode: &pricingMode, PricePerKiloMinorUnits: s.PricePerKiloMinorUnits,
+			BarcodeAliases: &barcodeAliases, ScaleCodeAliases: &scaleCodeAliases,
 		}
 	}
 	return out

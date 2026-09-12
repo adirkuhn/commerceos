@@ -910,27 +910,26 @@ describe('weight-embedded barcode pricing (scale_code / pricing_mode / price_per
     })))
   })
 
-  it('editing an existing SKU\'s barcode preserves its scale_code/pricing_mode/price_per_kilo_minor_units unchanged', async () => {
+  it('the EAN field is disabled (not editable) for a SKU that already has a scale code', async () => {
+    // A scale-priced SKU's real printed barcode changes per package (the
+    // weight is baked in), so there's nothing meaningful to type here --
+    // editing it would just be silently ignored/misleading. See the
+    // Barcode/EAN inputs' scale_code-gated placeholder+disabled in
+    // Products.tsx for the flat-form equivalent.
     const existingSku = { ...baseSku, scale_code: '00633', pricing_mode: 'per_weight' as const, price_per_kilo_minor_units: 4999 }
     const detail: ProductDetail = {
       product: product({ has_variants: true }),
       variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [existingSku] }],
     }
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
-    vi.mocked(pmsApi.updateSKU).mockResolvedValue(existingSku)
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('378g')
 
     const ean = await screen.findByLabelText('EAN')
-    await userEvent.clear(ean)
-    await userEvent.type(ean, '7891010249939')
-    await userEvent.click(within(ean.closest('div')!).getByRole('button', { name: 'Save' }))
-
-    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
-      scale_code: '00633', pricing_mode: 'per_weight', price_per_kilo_minor_units: 4999,
-    })))
+    expect(ean).toBeDisabled()
+    expect(ean).toHaveValue('')
   })
 
   it('making an existing SKU a weight pool preserves its scale_code/pricing_mode/price_per_kilo_minor_units unchanged', async () => {

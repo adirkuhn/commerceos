@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -46,6 +47,10 @@ func (r *BarcodeAliasRepo) Create(ctx context.Context, a *pmsDomain.BarcodeAlias
 		CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.ConstraintName == "barcode_aliases_tenant_id_code_key" {
+			return pmsDomain.ErrDuplicateBarcodeAliasCode
+		}
 		return fmt.Errorf("barcodeAliasRepo.Create: %w", err)
 	}
 	a.ID = m.ID
@@ -75,6 +80,22 @@ func (r *BarcodeAliasRepo) ListBySKU(ctx context.Context, skuID string) ([]pmsDo
 	var rows []barcodeAliasModel
 	if err := tx.Where("sku_id = ?", skuID).Order("created_at asc").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("barcodeAliasRepo.ListBySKU: %w", err)
+	}
+	aliases := make([]pmsDomain.BarcodeAlias, len(rows))
+	for i, m := range rows {
+		aliases[i] = *toBarcodeAliasDomain(m)
+	}
+	return aliases, nil
+}
+
+func (r *BarcodeAliasRepo) ListBySKUIDs(ctx context.Context, skuIDs []string) ([]pmsDomain.BarcodeAlias, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []barcodeAliasModel
+	if err := tx.Where("sku_id IN ?", skuIDs).Order("created_at asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("barcodeAliasRepo.ListBySKUIDs: %w", err)
 	}
 	aliases := make([]pmsDomain.BarcodeAlias, len(rows))
 	for i, m := range rows {
