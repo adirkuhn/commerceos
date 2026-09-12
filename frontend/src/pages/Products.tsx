@@ -19,7 +19,7 @@ import * as pmsApi from '../pms/api'
 import * as integrationsApi from '../integrations/api'
 import * as inventoryApi from '../inventory/api'
 import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
-import type { Category, Product, ProductStatus, SKUStatus, SKUUnitType, SKUPricingMode, VariantWithSKUs, Media, SKU, SKUMarginInsight, SKUPriceHistoryEntry, SKUPriceHistoryReason, ProductHistoryEntry, SKUCurrencyPrice } from '../pms/types'
+import type { Category, Product, ProductStatus, SKUStatus, SKUUnitType, SKUPricingMode, VariantWithSKUs, Media, SKU, SKUMarginInsight, SKUPriceHistoryEntry, SKUPriceHistoryReason, ProductHistoryEntry, SKUCurrencyPrice, BarcodeAlias, ScaleCodeAlias } from '../pms/types'
 import type { StockLevel } from '../inventory/types'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
@@ -965,6 +965,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                         Not used for this SKU — its real printed barcode changes per package (weight baked in).
                       </p>
                     )}
+                    {currentSku && !scaleCode && <div className="mt-1"><BarcodeAliasesEditor skuId={currentSku.id} /></div>}
                   </div>
                   <div>
                     <label htmlFor="product-price" className={labelClass}>Price</label>
@@ -1123,6 +1124,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                     )}
                   </div>
                 )}
+                {scaleCode && currentSku && <div className="mt-2"><ScaleCodeAliasesEditor skuId={currentSku.id} /></div>}
               </FormCard>
             )}
 
@@ -2448,6 +2450,187 @@ function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
   )
 }
 
+function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
+  const { token } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [aliases, setAliases] = useState<BarcodeAlias[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [newCode, setNewCode] = useState('')
+  const [newUnitsPerScan, setNewUnitsPerScan] = useState('1')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!open || !token) return
+    setLoading(true)
+    setError('')
+    pmsApi.listBarcodeAliases(token, skuId)
+      .then(setAliases)
+      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load alternate barcodes'))
+      .finally(() => setLoading(false))
+  }, [open, token, skuId])
+
+  const label = 'block text-[9px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wide mb-0.5'
+  const input = 'w-full px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500'
+
+  const handleAdd = async () => {
+    if (!token || !newCode.trim()) return
+    setSaving(true)
+    setError('')
+    try {
+      const result = await pmsApi.createBarcodeAlias(token, skuId, {
+        code: newCode.trim(),
+        units_per_scan: parseInt(newUnitsPerScan, 10) || 1,
+      })
+      setAliases(prev => [...prev, result])
+      setNewCode('')
+      setNewUnitsPerScan('1')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add barcode')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (aliasId: string) => {
+    if (!token) return
+    setError('')
+    try {
+      await pmsApi.deleteBarcodeAlias(token, aliasId)
+      setAliases(prev => prev.filter(a => a.id !== aliasId))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete barcode')
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <button type="button" onClick={() => setOpen(o => !o)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
+        {open ? '− Hide' : '+'} Alternate barcodes{aliases.length > 0 ? ` (${aliases.length})` : ''}
+      </button>
+      {open && (
+        <div className="p-2 rounded-lg dark:bg-[#111827]/60 bg-gray-100 border dark:border-[#2D3748] border-gray-200 space-y-1.5">
+          <p className="text-[9px] dark:text-gray-500 text-gray-400">
+            Extra barcodes that resolve to this same SKU/price — e.g. the same product repackaged by another supplier with its own EAN, or a case/box barcode (units/scan &gt; 1 books that many units at once).
+          </p>
+          {loading && <p className="text-[10px] dark:text-gray-500 text-gray-400">Loading…</p>}
+          {aliases.map(a => (
+            <div key={a.id} className="flex items-center justify-between text-[10px] dark:text-gray-300 text-gray-700">
+              <span>{a.code}{a.units_per_scan > 1 ? ` (×${a.units_per_scan}/scan)` : ''}</span>
+              <button type="button" onClick={() => handleDelete(a.id)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors">
+                Delete
+              </button>
+            </div>
+          ))}
+          <div className="grid grid-cols-3 gap-1.5 pt-1">
+            <div className="col-span-2">
+              <label htmlFor={`barcode-alias-code-${skuId}`} className={label}>Barcode</label>
+              <input id={`barcode-alias-code-${skuId}`} type="text" value={newCode} onChange={e => setNewCode(e.target.value)} className={input} />
+            </div>
+            <div>
+              <label htmlFor={`barcode-alias-units-${skuId}`} className={label}>Units/scan</label>
+              <input id={`barcode-alias-units-${skuId}`} type="number" step="1" min="1" value={newUnitsPerScan} onChange={e => setNewUnitsPerScan(e.target.value)} className={input} />
+            </div>
+          </div>
+          <button
+            type="button" onClick={handleAdd} disabled={saving || !newCode.trim()}
+            className="w-full py-1 rounded bg-blue-600 text-white text-[10px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Saving…' : 'Add'}
+          </button>
+          {error && <p className="text-[10px] text-red-400">{error}</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
+  const { token } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [aliases, setAliases] = useState<ScaleCodeAlias[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [newCode, setNewCode] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!open || !token) return
+    setLoading(true)
+    setError('')
+    pmsApi.listScaleCodeAliases(token, skuId)
+      .then(setAliases)
+      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load additional scale codes'))
+      .finally(() => setLoading(false))
+  }, [open, token, skuId])
+
+  const label = 'block text-[9px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wide mb-0.5'
+  const input = 'w-full px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500'
+
+  const handleAdd = async () => {
+    if (!token || !newCode.trim()) return
+    setSaving(true)
+    setError('')
+    try {
+      const result = await pmsApi.createScaleCodeAlias(token, skuId, { code: newCode.trim() })
+      setAliases(prev => [...prev, result])
+      setNewCode('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add scale code')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (aliasId: string) => {
+    if (!token) return
+    setError('')
+    try {
+      await pmsApi.deleteScaleCodeAlias(token, aliasId)
+      setAliases(prev => prev.filter(a => a.id !== aliasId))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete scale code')
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <button type="button" onClick={() => setOpen(o => !o)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
+        {open ? '− Hide' : '+'} Additional scale codes{aliases.length > 0 ? ` (${aliases.length})` : ''}
+      </button>
+      {open && (
+        <div className="p-2 rounded-lg dark:bg-[#111827]/60 bg-gray-100 border dark:border-[#2D3748] border-gray-200 space-y-1.5">
+          <p className="text-[9px] dark:text-gray-500 text-gray-400">
+            For a second (or third) physical scale programmed with its own code for this same product.
+          </p>
+          {loading && <p className="text-[10px] dark:text-gray-500 text-gray-400">Loading…</p>}
+          {aliases.map(a => (
+            <div key={a.id} className="flex items-center justify-between text-[10px] dark:text-gray-300 text-gray-700">
+              <span>{a.code}</span>
+              <button type="button" onClick={() => handleDelete(a.id)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors">
+                Delete
+              </button>
+            </div>
+          ))}
+          <div className="grid grid-cols-2 gap-1.5 pt-1">
+            <div>
+              <label htmlFor={`scale-code-alias-${skuId}`} className={label}>Scale code</label>
+              <input id={`scale-code-alias-${skuId}`} type="text" value={newCode} onChange={e => setNewCode(e.target.value)} className={input} />
+            </div>
+          </div>
+          <button
+            type="button" onClick={handleAdd} disabled={saving || !newCode.trim()}
+            className="w-full py-1 rounded bg-blue-600 text-white text-[10px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Saving…' : 'Add'}
+          </button>
+          {error && <p className="text-[10px] text-red-400">{error}</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface VariantRowProps {
   variant: VariantWithSKUs
   detail: ReturnType<typeof useProductDetail>
@@ -2961,6 +3144,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             )}
           </div>
           {barcodeError && <p className="text-[10px] text-red-400">{barcodeError}</p>}
+          {sku.scale_code ? <ScaleCodeAliasesEditor skuId={sku.id} /> : <BarcodeAliasesEditor skuId={sku.id} />}
           <div className="flex items-center justify-between">
             {sku.unit_type === 'kilo' ? (
               <span className="text-[10px] dark:text-gray-400 text-gray-500 flex items-center gap-1.5">

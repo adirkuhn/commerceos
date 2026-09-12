@@ -176,6 +176,33 @@ export interface SKUPriceHistoryEntry {
 // non-default currency -- absent one, a sales channel running in that
 // currency prices this SKU via the tenant's configured exchange rate
 // instead (see Settings > Localization).
+export interface BarcodeAlias {
+  id: string
+  sku_id: string
+  code: string
+  // 1 for a plain alternate unit barcode, >1 for a case/box multiplier.
+  units_per_scan: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateBarcodeAliasPayload {
+  code: string
+  units_per_scan?: number
+}
+
+export interface ScaleCodeAlias {
+  id: string
+  sku_id: string
+  code: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateScaleCodeAliasPayload {
+  code: string
+}
+
 export interface SKUCurrencyPrice {
   sku_id: string
   currency_code: string

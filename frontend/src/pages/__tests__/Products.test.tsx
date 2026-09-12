@@ -47,6 +47,12 @@ vi.mock('../../pms/api', () => ({
   listSKUCurrencyPrices: vi.fn(() => Promise.resolve([])),
   upsertSKUCurrencyPrice: vi.fn(),
   deleteSKUCurrencyPrice: vi.fn(),
+  listBarcodeAliases: vi.fn(() => Promise.resolve([])),
+  createBarcodeAlias: vi.fn(),
+  deleteBarcodeAlias: vi.fn(),
+  listScaleCodeAliases: vi.fn(() => Promise.resolve([])),
+  createScaleCodeAlias: vi.fn(),
+  deleteScaleCodeAlias: vi.fn(),
 }))
 
 vi.mock('../../integrations/api', () => ({
@@ -1194,6 +1200,79 @@ describe('SKU currency overrides (VariantRow)', () => {
 
     await waitFor(() => expect(pmsApi.deleteSKUCurrencyPrice).toHaveBeenCalledWith('test-token', 'sku-1', 'USD'))
     expect(screen.queryByText(/USD.*21\.99/)).not.toBeInTheDocument()
+  })
+})
+
+describe('alternate barcodes / scale codes (VariantRow)', () => {
+  it('adds an alternate unit barcode for a SKU with no scale code', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [baseSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.listBarcodeAliases).mockResolvedValue([])
+    vi.mocked(pmsApi.createBarcodeAlias).mockResolvedValue({
+      id: 'alias-1', sku_id: 'sku-1', code: '9876543210987', units_per_scan: 1, created_at: '', updated_at: '',
+    })
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+
+    await userEvent.click(screen.getByRole('button', { name: /alternate barcodes/i }))
+    const panel = screen.getByText(/e.g. the same product repackaged/i).closest('div')!
+    await userEvent.type(within(panel).getByLabelText('Barcode'), '9876543210987')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(pmsApi.createBarcodeAlias).toHaveBeenCalledWith('test-token', 'sku-1', {
+      code: '9876543210987', units_per_scan: 1,
+    }))
+    expect(await screen.findByText('9876543210987')).toBeInTheDocument()
+  })
+
+  it('deletes an existing alternate barcode', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [baseSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.listBarcodeAliases).mockResolvedValue([
+      { id: 'alias-1', sku_id: 'sku-1', code: '9876543210987', units_per_scan: 1, created_at: '', updated_at: '' },
+    ])
+    vi.mocked(pmsApi.deleteBarcodeAlias).mockResolvedValue(null)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+    await userEvent.click(screen.getByRole('button', { name: /alternate barcodes/i }))
+    await screen.findByText('9876543210987')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(pmsApi.deleteBarcodeAlias).toHaveBeenCalledWith('test-token', 'alias-1'))
+    expect(screen.queryByText('9876543210987')).not.toBeInTheDocument()
+  })
+
+  it('adds an additional scale code for a SKU that already has one', async () => {
+    const scaleSku = { ...baseSku, scale_code: '94721', pricing_mode: 'per_weight' as const, price_per_kilo_minor_units: 4999 }
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: 'Dry Meat', skus: [scaleSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.listScaleCodeAliases).mockResolvedValue([])
+    vi.mocked(pmsApi.createScaleCodeAlias).mockResolvedValue({ id: 'sa-1', sku_id: 'sku-1', code: '94722', created_at: '', updated_at: '' })
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('Dry Meat')
+
+    await userEvent.click(screen.getByRole('button', { name: /additional scale codes/i }))
+    const panel = screen.getByText(/second \(or third\) physical scale/i).closest('div')!
+    await userEvent.type(within(panel).getByLabelText('Scale code'), '94722')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(pmsApi.createScaleCodeAlias).toHaveBeenCalledWith('test-token', 'sku-1', { code: '94722' }))
   })
 })
 

@@ -7,6 +7,8 @@ import type {
   SKUMarginInsight, SKUCostPriceHistoryEntry, SKUPriceHistoryEntry, MarginReportRow,
   ProductHistoryEntry,
   SKUCurrencyPrice, UpsertSKUCurrencyPriceInput,
+  BarcodeAlias, CreateBarcodeAliasPayload,
+  ScaleCodeAlias, CreateScaleCodeAliasPayload,
   APIResponse,
 } from './types'
 
@@ -146,6 +148,30 @@ export function upsertSKUCurrencyPrice(token: string, id: string, payload: Upser
 
 export function deleteSKUCurrencyPrice(token: string, id: string, currencyCode: string): Promise<null> {
   return request<null>(`${base()}/skus/${id}/currency-prices/${currencyCode}`, { method: 'DELETE' }, token)
+}
+
+export function listBarcodeAliases(token: string, id: string): Promise<BarcodeAlias[]> {
+  return request<BarcodeAlias[]>(`${base()}/skus/${id}/barcode-aliases`, { method: 'GET' }, token)
+}
+
+export function createBarcodeAlias(token: string, id: string, payload: CreateBarcodeAliasPayload): Promise<BarcodeAlias> {
+  return request<BarcodeAlias>(`${base()}/skus/${id}/barcode-aliases`, { method: 'POST', body: JSON.stringify(payload) }, token)
+}
+
+export function deleteBarcodeAlias(token: string, aliasId: string): Promise<null> {
+  return request<null>(`${base()}/barcode-aliases/${aliasId}`, { method: 'DELETE' }, token)
+}
+
+export function listScaleCodeAliases(token: string, id: string): Promise<ScaleCodeAlias[]> {
+  return request<ScaleCodeAlias[]>(`${base()}/skus/${id}/scale-code-aliases`, { method: 'GET' }, token)
+}
+
+export function createScaleCodeAlias(token: string, id: string, payload: CreateScaleCodeAliasPayload): Promise<ScaleCodeAlias> {
+  return request<ScaleCodeAlias>(`${base()}/skus/${id}/scale-code-aliases`, { method: 'POST', body: JSON.stringify(payload) }, token)
+}
+
+export function deleteScaleCodeAlias(token: string, aliasId: string): Promise<null> {
+  return request<null>(`${base()}/scale-code-aliases/${aliasId}`, { method: 'DELETE' }, token)
 }
 
 export function listSKUCostPriceHistory(token: string, id: string, limit?: number): Promise<SKUCostPriceHistoryEntry[]> {
