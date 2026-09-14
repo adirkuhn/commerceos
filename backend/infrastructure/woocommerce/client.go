@@ -258,6 +258,25 @@ func (c *wooClient) ListCustomers(ctx context.Context, page, perPage int) ([]int
 	return out, nil
 }
 
+// toWooOrderLineItemMetaData converts the underlying library's order-item
+// meta_data (Value typed `any` -- Woo's REST API can carry non-string meta
+// values for internal/plugin keys we don't care about) into this codebase's
+// own WooMetaData shape, stringifying non-string values rather than
+// dropping the entry -- the import use case only ever looks up one specific
+// key (commerceos_expiry_date, always a plain date string), so a odd type
+// on some unrelated key must never abort the whole conversion.
+func toWooOrderLineItemMetaData(md []wc.MetaData) []integrationsDomain.WooMetaData {
+	out := make([]integrationsDomain.WooMetaData, 0, len(md))
+	for _, m := range md {
+		value, ok := m.Value.(string)
+		if !ok {
+			value = fmt.Sprintf("%v", m.Value)
+		}
+		out = append(out, integrationsDomain.WooMetaData{Key: m.Key, Value: value})
+	}
+	return out
+}
+
 func toWooCustomer(cu wc.Customer) integrationsDomain.WooCustomer {
 	var billing, shipping integrationsDomain.WooAddress
 	if cu.Billing != nil {
@@ -311,6 +330,7 @@ func toWooOrder(o wc.Order) integrationsDomain.WooOrder {
 			ProductID: li.ProductID, VariationID: li.VariationID, SKU: li.Sku, Name: li.Name, Quantity: int64(li.Quantity),
 			Price:    strconv.FormatFloat(li.Price, 'f', -1, 64),
 			Subtotal: li.Subtotal, SubtotalTax: li.SubtotalTax, Total: li.Total, TotalTax: li.TotalTax,
+			MetaData: toWooOrderLineItemMetaData(li.MetaData),
 		}
 	}
 	var shippingMethod, shippingMethodTitle string

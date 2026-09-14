@@ -111,6 +111,48 @@ func TestImportWooOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	require.Len(t, h.linkRepo.created, 1)
 }
 
+// TestImportWooOrders_importsSoldExpiryDateFromWooLineItemMeta pins the
+// commerceos-woo plugin's commerceos_expiry_date order-item meta ("2006-01-02",
+// see class-commerceos-orders.php) round-tripping into
+// SalesOrderLineItem.SoldExpiryDate, the exact format toWooMetaData already
+// writes when CommerceOS pushes a batch's expiry to Woo.
+func TestImportWooOrders_importsSoldExpiryDateFromWooLineItemMeta(t *testing.T) {
+	wo := simpleWooOrder()
+	wo.LineItems[0].MetaData = []integrationsDomain.WooMetaData{
+		{Key: "some_other_plugin_field", Value: "irrelevant"},
+		{Key: "commerceos_expiry_date", Value: "2027-06-12"},
+	}
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {wo}})
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.lineItemRepo.created, 1)
+	require.NotNil(t, h.lineItemRepo.created[0].SoldExpiryDate)
+	assert.Equal(t, "2027-06-12", h.lineItemRepo.created[0].SoldExpiryDate.Format("2006-01-02"))
+}
+
+// TestImportWooOrders_noExpiryMeta_leavesSoldExpiryDateNil is the normal
+// case -- most Woo line items carry no commerceos_expiry_date meta at all
+// (the plugin only ever adds the key when the product had an expiry set).
+func TestImportWooOrders_noExpiryMeta_leavesSoldExpiryDateNil(t *testing.T) {
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.lineItemRepo.created, 1)
+	assert.Nil(t, h.lineItemRepo.created[0].SoldExpiryDate)
+}
+
 // TestImportWooOrders_completedOrderArrivesAlreadyFulfilled proves an order
 // imported well after the fact (already completed on Woo, never seen while
 // processing) starts fulfilled too -- see SalesOrder.Fulfilled's doc.

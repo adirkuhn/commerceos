@@ -370,6 +370,65 @@ func TestSalesOrderLineItemRepo_Integration_RefundedFieldsRoundTrip(t *testing.T
 	require.Equal(t, int64(1000), found.RefundedAmountMinorUnits)
 }
 
+func TestSalesOrderLineItemRepo_Integration_SoldExpiryDateRoundTrips(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	expiry := time.Date(2027, 6, 12, 0, 0, 0, 0, time.UTC)
+	var lineItemID, noExpiryLineItemID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
+			ExternalOrderID: "woo-order-expiry-1", WarehouseID: warehouseID,
+			Status: omsDomain.SalesOrderStatusProcessing, CurrencyCode: "USD", TotalMinorUnits: 1000,
+			OccurredAt: now, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order); err != nil {
+			return err
+		}
+
+		li := omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: &skuID, Name: "Widget",
+			Quantity: 1, PriceMinorUnits: 500, CreatedAt: now, SoldExpiryDate: &expiry,
+		}
+		if err := lineItemRepo.Create(ctx, &li); err != nil {
+			return err
+		}
+		lineItemID = li.ID
+
+		// Most lines have no Woo expiry meta at all -- must round-trip nil,
+		// not a zero-value date.
+		noExpiry := omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: &skuID, Name: "Gadget",
+			Quantity: 1, PriceMinorUnits: 500, CreatedAt: now,
+		}
+		if err := lineItemRepo.Create(ctx, &noExpiry); err != nil {
+			return err
+		}
+		noExpiryLineItemID = noExpiry.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	var found, foundNoExpiry *omsDomain.SalesOrderLineItem
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		if found, err = lineItemRepo.FindByID(ctx, lineItemID); err != nil {
+			return err
+		}
+		foundNoExpiry, err = lineItemRepo.FindByID(ctx, noExpiryLineItemID)
+		return err
+	})
+	require.NoError(t, err)
+	require.NotNil(t, found.SoldExpiryDate)
+	require.Equal(t, "2027-06-12", found.SoldExpiryDate.Format("2006-01-02"))
+	require.Nil(t, foundNoExpiry.SoldExpiryDate)
+}
+
 func TestSalesOrderRepo_Integration_List(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

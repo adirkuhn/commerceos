@@ -81,6 +81,12 @@ export interface SalesOrderLineItem {
   subtotal_tax_minor_units: number
   total_minor_units: number
   total_tax_minor_units: number
+  // What WooCommerce reported as the expiry date sold, snapshotted at
+  // import time from the commerceos-woo plugin's order-item meta -- null
+  // for every non-Woo line, or a Woo line whose product had no expiry meta
+  // set at checkout. This is Woo's own belief, not necessarily the batch
+  // CommerceOS's own FEFO allocation actually decremented.
+  sold_expiry_date?: string | null
 }
 
 export interface SalesOrderDetail {

@@ -26,6 +26,10 @@ import type {
 import { StockShortfallDialog } from './StockShortfallDialog'
 import type { SalesOrder, Address } from '../oms/types'
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString()
+}
+
 function customerName(order: SalesOrder): string {
   const name = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ')
   return name || order.billing?.email || 'Unknown customer'
@@ -663,6 +667,11 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
               <div className="flex-1 min-w-0">
                 <p className="text-sm truncate">{li.name}</p>
                 {li.sku_code && <p className="text-xs text-gray-500 truncate">{li.sku_code}</p>}
+                {li.sold_expiry_date && (
+                  <p className="text-xs text-gray-500 truncate" title="Reported by WooCommerce at checkout -- may not match the batch actually allocated">
+                    Sold exp. {formatDate(li.sold_expiry_date)}
+                  </p>
+                )}
                 {!li.sku_id && <p className="text-xs text-amber-400">Not linked to a product yet</p>}
               </div>
               <p className={`text-sm font-medium shrink-0 ${done ? 'text-green-400' : 'text-gray-300'}`}>

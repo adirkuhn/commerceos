@@ -499,6 +499,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 				Name: li.Name, SKUCode: li.SKU, Quantity: li.Quantity, StockStatus: stockStatus,
 				PriceMinorUnits: price, SubtotalMinorUnits: subtotal, SubtotalTaxMinorUnits: subtotalTax,
 				TotalMinorUnits: total, TotalTaxMinorUnits: totalTax, TaxClassID: taxClassID, CreatedAt: now,
+				SoldExpiryDate: wooLineItemSoldExpiryDate(li.MetaData),
 			}
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 				return err
@@ -671,6 +672,30 @@ func parseWooGMTTime(s string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("parseWooGMTTime: empty")
 	}
 	return time.Parse("2006-01-02T15:04:05", s)
+}
+
+// wooLineItemSoldExpiryDate looks up the commerceos-woo plugin's
+// commerceos_expiry_date order-item meta key (see
+// domain/integrations.WooOrderLineItem.MetaData's doc comment) and parses
+// it -- "2006-01-02", the exact format toWooMetaData already writes when
+// CommerceOS pushes a batch's expiry to Woo, so this round-trips the same
+// value byte-for-byte when it comes back on the order. Missing key,
+// unparseable value, or blank value (the plugin never even adds the key
+// when the product had no expiry meta set) all mean "no value" -- nil, not
+// an error, since Woo not knowing an expiry date is the normal case for
+// most products.
+func wooLineItemSoldExpiryDate(meta []integrationsDomain.WooMetaData) *time.Time {
+	for _, m := range meta {
+		if m.Key != "commerceos_expiry_date" || m.Value == "" {
+			continue
+		}
+		t, err := time.Parse("2006-01-02", m.Value)
+		if err != nil {
+			return nil
+		}
+		return &t
+	}
+	return nil
 }
 
 // linkOrderLineItemMovement is import_woo_orders.go's own copy of

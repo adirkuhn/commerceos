@@ -678,6 +678,18 @@ components:
             thumbnail; see SalesOrderLineItem.ProductID's doc). Null on
             every other response that reuses this schema, when sku_id is
             null, or when the SKU/variant has since been deleted.
+        sold_expiry_date:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            What WooCommerce reported as the expiry date sold, snapshotted
+            at import time from the commerceos-woo plugin's own order-item
+            meta. Null for every non-Woo line, or a Woo line whose product
+            had no expiry meta set at checkout. This is Woo's own belief,
+            not necessarily the batch CommerceOS's own FEFO allocation
+            actually decremented -- Woo only ever tracks one current
+            lot/expiry per product, never a real multi-batch split.
 
     SalesOrderDetail:
       type: object

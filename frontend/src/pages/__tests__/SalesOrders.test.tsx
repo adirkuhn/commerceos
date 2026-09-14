@@ -473,6 +473,33 @@ describe('Sales order detail page', () => {
     expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
   })
 
+  it('shows the sold expiry date reported by WooCommerce when a line item has one', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
+      line_items: [{
+        id: 'li-1', sku_id: 'sku-1', name: 'Blue Widget', sku_code: 'WID-BLU', barcode: '5601049213991',
+        quantity: 2, price_minor_units: 2000, subtotal_minor_units: 4000, subtotal_tax_minor_units: 0,
+        total_minor_units: 4000, total_tax_minor_units: 0, sold_expiry_date: '2027-06-12',
+      }],
+    }))
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByText(/Sold exp\./)).toBeInTheDocument()
+  })
+
+  it('shows no expiry line when the line item has none (the normal case)', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    await screen.findByText('Blue Widget')
+    expect(screen.queryByText(/Sold exp\./)).not.toBeInTheDocument()
+  })
+
   it('links the customer name to their customer page when the order has a customer_id', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({

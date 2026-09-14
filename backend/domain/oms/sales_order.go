@@ -298,6 +298,16 @@ type SalesOrderLineItem struct {
 	RefundedQuantity         int64
 	RefundedAmountMinorUnits int64
 
+	// SoldExpiryDate is what WooCommerce reported as the expiry date sold,
+	// snapshotted at import time from the commerceos-woo plugin's order-item
+	// meta (commerceos_expiry_date) -- nil for every non-Woo line, and for a
+	// Woo line whose product had no expiry meta set at checkout. This is
+	// Woo's own belief, not necessarily the batch CommerceOS's own FEFO
+	// allocation actually decremented (see SalesOrderLineItemStockMovement
+	// for that) -- Woo only ever tracks one current lot/expiry per product,
+	// never a real multi-batch split.
+	SoldExpiryDate *time.Time
+
 	CreatedAt time.Time
 
 	// ProductID is display-only -- never persisted on this table, never set

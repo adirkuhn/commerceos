@@ -62,6 +62,24 @@ func TestToWcImages_nilForNoImages(t *testing.T) {
 	require.Nil(t, toWcImages([]integrationsDomain.WooProductImage{}))
 }
 
+// TestToWooOrderLineItemMetaData_stringifiesNonStringValuesInsteadOfDropping
+// pins that an unrelated meta key with a non-string Value (Woo's REST API
+// types order-item meta Value as `any` -- some internal/plugin keys aren't
+// plain strings) never aborts the whole conversion; the import use case
+// only ever looks up one specific string-valued key
+// (commerceos_expiry_date), so the rest just needs to survive intact.
+func TestToWooOrderLineItemMetaData_stringifiesNonStringValuesInsteadOfDropping(t *testing.T) {
+	out := toWooOrderLineItemMetaData([]wc.MetaData{
+		{Key: "commerceos_expiry_date", Value: "2027-06-12"},
+		{Key: "_some_numeric_meta", Value: 42},
+	})
+
+	require.Len(t, out, 2)
+	require.Equal(t, integrationsDomain.WooMetaData{Key: "commerceos_expiry_date", Value: "2027-06-12"}, out[0])
+	require.Equal(t, "_some_numeric_meta", out[1].Key)
+	require.Equal(t, "42", out[1].Value)
+}
+
 func TestToWooProduct_mapsGTINFromGlobalUniqueID(t *testing.T) {
 	result := toWooProduct(wc.Product{ID: 1, GlobalUniqueID: "0012345678905"})
 

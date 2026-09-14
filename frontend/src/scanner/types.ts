@@ -210,6 +210,10 @@ export interface PickingSessionLineItem {
   // a thumbnail (see backend SalesOrderLineItem.ProductID's doc). Null when
   // sku_id is null or the SKU/variant has since been deleted.
   product_id?: string | null
+  // What WooCommerce reported as the expiry date sold, snapshotted at
+  // import time -- see backend SalesOrderLineItem.SoldExpiryDate's doc.
+  // Null for every non-Woo line, or when Woo had no expiry meta set.
+  sold_expiry_date?: string | null
 }
 
 export interface PickingSessionDetail {

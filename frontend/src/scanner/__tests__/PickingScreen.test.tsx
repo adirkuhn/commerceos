@@ -80,6 +80,27 @@ beforeEach(() => {
 })
 
 describe('PickingScreen', () => {
+  it('shows the sold expiry date reported by WooCommerce when a line item has one', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue(detail({
+      line_items: [
+        { id: 'li-1', sku_id: 'sku-1', name: 'Widget', sku_code: 'WIDGET-1', barcode: '111', quantity: 2, price_minor_units: 1000, total_minor_units: 2000, sold_expiry_date: '2027-06-12' },
+      ],
+    }))
+
+    render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder()} onExit={vi.fn()} onAuthError={vi.fn()} />)
+
+    expect(await screen.findByText(/Sold exp\./)).toBeInTheDocument()
+  })
+
+  it('shows no expiry line when the line item has none (the normal case)', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue(detail())
+
+    render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder()} onExit={vi.fn()} onAuthError={vi.fn()} />)
+
+    await screen.findByText('Widget')
+    expect(screen.queryByText(/Sold exp\./)).not.toBeInTheDocument()
+  })
+
   it('completing shows the divergence review before actually completing', async () => {
     vi.mocked(api.getPickingSession).mockResolvedValue(detail())
     const result: CompletePickingResult = {

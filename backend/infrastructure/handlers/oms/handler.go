@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"gorm.io/gorm"
 
 	genoms "github.com/adirkuhn/commerceos/api/oms"
@@ -667,12 +668,17 @@ func toGenSalesOrder(o omsDomain.SalesOrder) genoms.SalesOrder {
 
 func toGenSalesOrderLineItem(li omsDomain.SalesOrderLineItem) genoms.SalesOrderLineItem {
 	stockStatus := genoms.StockStatus(li.StockStatus)
+	var soldExpiryDate *openapi_types.Date
+	if li.SoldExpiryDate != nil {
+		soldExpiryDate = &openapi_types.Date{Time: *li.SoldExpiryDate}
+	}
 	return genoms.SalesOrderLineItem{
 		Id: li.ID, SkuId: li.SKUID, Name: &li.Name, SkuCode: &li.SKUCode, Barcode: &li.Barcode, Quantity: li.Quantity,
 		StockStatus:     &stockStatus,
 		PriceMinorUnits: &li.PriceMinorUnits, SubtotalMinorUnits: &li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: &li.SubtotalTaxMinorUnits, TotalMinorUnits: &li.TotalMinorUnits,
 		TotalTaxMinorUnits: &li.TotalTaxMinorUnits, ProductId: li.ProductID,
+		SoldExpiryDate: soldExpiryDate,
 	}
 }
 

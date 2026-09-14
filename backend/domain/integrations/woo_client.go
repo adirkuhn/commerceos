@@ -135,7 +135,10 @@ type WooCategory struct {
 
 // WooOrder is the subset of a WooCommerce order this codebase maps onto
 // domain/oms.SalesOrder -- deliberately excludes refunds/coupon lines/fee
-// lines/tax lines/meta_data, none of which oms.SalesOrder represents today.
+// lines/tax lines, none of which oms.SalesOrder represents today. Each line
+// item's MetaData IS read (see WooOrderLineItem's doc comment), narrowly,
+// for the commerceos-woo plugin's own commerceos_expiry_date snapshot --
+// not a general order-level meta_data passthrough.
 // Date* fields are UTC ("Y-m-d\TH:i:s" with no offset, read from Woo's
 // *_gmt fields, not its store-local-time ones) -- converted to time.Time at
 // the import use case, not here. Empty string means Woo has no value for
@@ -205,6 +208,12 @@ type WooOrderLineItem struct {
 	SubtotalTax string
 	Total       string
 	TotalTax    string
+	// MetaData carries this line item's order-item meta, narrowly for
+	// reading the commerceos-woo plugin's commerceos_expiry_date snapshot
+	// (see the plugin's class-commerceos-orders.php) -- not a general
+	// passthrough of arbitrary Woo/plugin meta. The import use case looks
+	// up that one key; everything else here is ignored.
+	MetaData []WooMetaData
 }
 
 // WooTaxRate is one row of the store's tax rate table (/wc/v3/taxes) --

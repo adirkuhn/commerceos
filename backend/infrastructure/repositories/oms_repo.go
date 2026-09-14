@@ -104,6 +104,8 @@ type salesOrderLineItemModel struct {
 	RefundedQuantity         int64 `gorm:"column:refunded_quantity;not null;default:0"`
 	RefundedAmountMinorUnits int64 `gorm:"column:refunded_amount_minor_units;not null;default:0"`
 
+	SoldExpiryDate *time.Time `gorm:"column:sold_expiry_date;type:date"`
+
 	CreatedAt time.Time
 }
 
@@ -1211,6 +1213,7 @@ func (r *SalesOrderLineItemRepo) Create(ctx context.Context, li *omsDomain.Sales
 		SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
 		TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: li.TaxClassID, CreatedAt: li.CreatedAt,
 		RefundedQuantity: li.RefundedQuantity, RefundedAmountMinorUnits: li.RefundedAmountMinorUnits,
+		SoldExpiryDate: li.SoldExpiryDate,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("salesOrderLineItemRepo.Create: %w", err)
@@ -1258,6 +1261,7 @@ func toSalesOrderLineItemDomain(m salesOrderLineItemModel) *omsDomain.SalesOrder
 		SubtotalTaxMinorUnits: m.SubtotalTaxMinorUnits, TotalMinorUnits: m.TotalMinorUnits,
 		TotalTaxMinorUnits: m.TotalTaxMinorUnits, TaxClassID: m.TaxClassID, CreatedAt: m.CreatedAt,
 		RefundedQuantity: m.RefundedQuantity, RefundedAmountMinorUnits: m.RefundedAmountMinorUnits,
+		SoldExpiryDate: m.SoldExpiryDate,
 	}
 }
 

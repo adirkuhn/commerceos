@@ -59,6 +59,10 @@ function formatMoney(minorUnits: number, currencyCode: string): string {
   }
 }
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString()
+}
+
 function customerName(order: SalesOrder): string {
   const name = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ')
   return name || order.billing?.email || '—'
@@ -1056,6 +1060,11 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
                             )}
                             {li.barcode && (
                               <p className="text-[10px] dark:text-gray-500 text-gray-400">{li.barcode}</p>
+                            )}
+                            {li.sold_expiry_date && (
+                              <p className="text-[10px] dark:text-gray-500 text-gray-400" title="Reported by WooCommerce at checkout -- may not match the batch actually allocated">
+                                Sold exp. {formatDate(li.sold_expiry_date)}
+                              </p>
                             )}
                             {!li.sku_id && (
                               <p className="text-[10px] text-amber-500">Not linked to a product yet</p>
