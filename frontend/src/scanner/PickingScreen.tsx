@@ -42,6 +42,15 @@ function shippingAddressLine(address?: Address): string {
   return [streetAndLocality, address.country].filter(Boolean).join(', ')
 }
 
+// Same field set/reasoning as SalesOrders.tsx's own addressesEqual -- not
+// phone, which legitimately differs (billing contact vs. delivery contact)
+// without the addresses actually being different.
+function addressesEqual(a?: Address, b?: Address): boolean {
+  if (!a || !b) return false
+  const fields: (keyof Address)[] = ['first_name', 'last_name', 'company', 'address_1', 'address_2', 'city', 'state', 'postcode', 'country']
+  return fields.every(f => (a[f] ?? '') === (b[f] ?? ''))
+}
+
 // Falls back to a placeholder icon when the line isn't linked to a product
 // yet, or the product has no media -- same convention as BookingScreen's
 // own LineItemThumb for procurement bookings.
@@ -420,6 +429,9 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
           {shippingAddressLine(order.shipping) && (
             <p className="text-sm text-gray-400 mt-0.5">{shippingAddressLine(order.shipping)}</p>
           )}
+          {shippingAddressLine(order.billing) && !addressesEqual(order.billing, order.shipping) && (
+            <p className="text-sm text-amber-400 mt-0.5">Billing: {shippingAddressLine(order.billing)}</p>
+          )}
           {(order.shipping_method_title || order.shipping_method) && (
             <p className="text-sm text-gray-400 mt-0.5">Shipping: {order.shipping_method_title || order.shipping_method}</p>
           )}
@@ -641,6 +653,9 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         </div>
         {shippingAddressLine(order.shipping) && (
           <p className="text-sm text-gray-400 mt-0.5">{shippingAddressLine(order.shipping)}</p>
+        )}
+        {shippingAddressLine(order.billing) && !addressesEqual(order.billing, order.shipping) && (
+          <p className="text-sm text-amber-400 mt-0.5">Billing: {shippingAddressLine(order.billing)}</p>
         )}
       </div>
 

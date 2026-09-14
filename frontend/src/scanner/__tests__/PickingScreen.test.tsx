@@ -80,6 +80,28 @@ beforeEach(() => {
 })
 
 describe('PickingScreen', () => {
+  it('shows the billing address when it differs from shipping', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue(detail())
+
+    render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder({
+      billing: { first_name: 'Jane', last_name: 'Doe', email: 'jane@example.com', address_1: 'Kalverstraat 5', city: 'Amsterdam', postcode: '1012NX', country: 'NL' },
+    })} onExit={vi.fn()} onAuthError={vi.fn()} />)
+
+    expect(await screen.findByText(/Billing:/)).toBeInTheDocument()
+    expect(screen.getByText(/Kalverstraat 5/)).toBeInTheDocument()
+  })
+
+  it('hides the billing address when it matches shipping', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue(detail())
+
+    render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder({
+      billing: { first_name: 'Jane', last_name: 'Doe', email: 'jane@example.com', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+    })} onExit={vi.fn()} onAuthError={vi.fn()} />)
+
+    await screen.findByText('Widget')
+    expect(screen.queryByText(/Billing:/)).not.toBeInTheDocument()
+  })
+
   it('shows the sold expiry date reported by WooCommerce when a line item has one', async () => {
     vi.mocked(api.getPickingSession).mockResolvedValue(detail({
       line_items: [
