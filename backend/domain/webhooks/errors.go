@@ -25,4 +25,11 @@ var (
 	ErrInvalidTargetURL = errors.New("webhooks: target_url must be an absolute http(s) URL")
 	// ErrProviderRequired -- maps to 422 on rule creation.
 	ErrProviderRequired = errors.New("webhooks: provider is required")
+	// ErrPayloadTooLarge means a webhook payload exceeds the NATS server's
+	// max_payload -- publishing (or re-publishing via the fallback retry
+	// action) will fail identically on every attempt with these exact bytes,
+	// so it's caught before the publish call instead of surfacing NATS's own
+	// opaque "maximum payload exceeded" error. Maps to 422 on the fallback
+	// retry admin action.
+	ErrPayloadTooLarge = errors.New("webhooks: payload exceeds NATS max payload")
 )

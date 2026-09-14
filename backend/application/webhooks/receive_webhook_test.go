@@ -63,13 +63,20 @@ func (f *fakeConnRepo) Update(ctx context.Context, c *integrationsDomain.Connect
 func (f *fakeConnRepo) Delete(ctx context.Context, id string) error { return nil }
 
 type fakePublisher struct {
-	failCount int
-	calls     int
+	failCount   int
+	failErr     error // returned instead of the generic "no responders" error when set
+	calls       int
+	lastSubject string
+	lastData    []byte
 }
 
 func (f *fakePublisher) Publish(subject string, data []byte) error {
 	f.calls++
+	f.lastSubject, f.lastData = subject, data
 	if f.calls <= f.failCount {
+		if f.failErr != nil {
+			return f.failErr
+		}
 		return errors.New("nats: no responders")
 	}
 	return nil
@@ -187,6 +194,28 @@ func TestReceiveWebhookUseCase_retriesPublishThenFallsBackToDB(t *testing.T) {
 	assert.Equal(t, "tenant-1", fallbackRepo.saved[0].TenantID)
 	assert.Equal(t, webhooks.FallbackStatusPendingRepublish, fallbackRepo.saved[0].Status)
 	assert.Equal(t, body, fallbackRepo.saved[0].Payload)
+}
+
+// TestReceiveWebhookUseCase_payloadTooLarge_singleAttemptFallsBackToDB pins
+// that a too-large payload isn't retried maxPublishRetries times -- every
+// attempt would fail identically against the same oversized bytes, so
+// retrying just delays the fallback save.
+func TestReceiveWebhookUseCase_payloadTooLarge_singleAttemptFallsBackToDB(t *testing.T) {
+	secret := "shhh"
+	connRepo := &fakeConnRepo{conns: []integrationsDomain.Connection{wooConnWithSecret(t, secret)}}
+	pub := &fakePublisher{failCount: 99, failErr: webhooks.ErrPayloadTooLarge}
+	fallbackRepo := &fakeFallbackRepo{}
+	uc := appwebhooks.NewReceiveWebhookUseCase(newMockGormDB(t, 2), connRepo, webhookproviders.NewRegistry(), pub, fallbackRepo, testEncryptionSecret)
+
+	body := []byte(`{"id":123}`)
+	headers := map[string]string{"X-Wc-Webhook-Signature": wooSignature(t, secret, body)}
+
+	result, err := uc.Execute(context.Background(), "tenant-1", "woocommerce", body, headers)
+
+	require.NoError(t, err)
+	assert.True(t, result.FallbackUsed)
+	assert.Equal(t, 1, pub.calls, "must not retry a deterministically-failing payload")
+	require.Len(t, fallbackRepo.saved, 1)
 }
 
 func TestReceiveWebhookUseCase_publishSucceedsOnSecondAttempt(t *testing.T) {

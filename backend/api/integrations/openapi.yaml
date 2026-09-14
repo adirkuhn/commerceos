@@ -315,6 +315,12 @@ paths:
                 $ref: '#/components/schemas/EmptyResponse'
         '404':
           $ref: '#/components/responses/Error'
+        '422':
+          description: >-
+            Payload exceeds the NATS server's max_payload -- will fail
+            identically on every retry; Abandon is the only path forward
+            unless the broker's max_payload is raised.
+          $ref: '#/components/responses/Error'
         '502':
           description: Publish attempt failed again -- row stays pending_republish.
           $ref: '#/components/responses/Error'

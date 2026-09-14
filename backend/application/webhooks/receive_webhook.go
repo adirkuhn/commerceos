@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -113,6 +114,12 @@ func (uc *ReceiveWebhookUseCase) Execute(ctx context.Context, tenantID, provider
 	for attempt := 0; attempt < maxPublishRetries; attempt++ {
 		if publishErr = uc.publisher.Publish(subject, data); publishErr == nil {
 			return Result{EventID: eventID}, nil
+		}
+		// A too-large payload fails identically on every attempt -- retrying
+		// the same bytes 2 more times just delays the fallback save for no
+		// chance of a different outcome.
+		if errors.Is(publishErr, webhooks.ErrPayloadTooLarge) {
+			break
 		}
 	}
 

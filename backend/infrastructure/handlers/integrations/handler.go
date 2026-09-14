@@ -1065,6 +1065,10 @@ func (h *Handler) RetryWebhookFallbackEvent(c *gin.Context, id genintegrations.I
 			middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 			return
 		}
+		if errors.Is(err, webhooksDomain.ErrPayloadTooLarge) {
+			middleware.Fail(c, http.StatusUnprocessableEntity, "PAYLOAD_TOO_LARGE", err.Error())
+			return
+		}
 		middleware.Fail(c, http.StatusBadGateway, "PUBLISH_FAILED", err.Error())
 		return
 	}

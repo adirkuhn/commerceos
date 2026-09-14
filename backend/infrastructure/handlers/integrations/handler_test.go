@@ -2608,6 +2608,17 @@ func TestRetryWebhookFallbackEventHandler_publishFailureReturns502(t *testing.T)
 	assert.Equal(t, http.StatusBadGateway, w.Code)
 }
 
+func TestRetryWebhookFallbackEventHandler_payloadTooLargeReturns422(t *testing.T) {
+	stub := &stubRetryWebhookFallbackEvent{err: webhooksDomain.ErrPayloadTooLarge}
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, stub, &stubAbandonWebhookFallbackEvent{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/webhook-fallback-events/fb-1/retry", nil)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
 func TestRetryWebhookFallbackEventHandler_notFound(t *testing.T) {
 	stub := &stubRetryWebhookFallbackEvent{err: webhooksDomain.ErrFallbackEventNotFound}
 	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, stub, &stubAbandonWebhookFallbackEvent{})

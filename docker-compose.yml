@@ -14,7 +14,11 @@ services:
     image: nats:2.10-alpine
     restart: unless-stopped
     logging: *default-logging
-    command: [ "-js", "-m", "8222" ]
+    # -max_payload above NATS's 1MiB default -- WhatsApp webhook bodies can
+    # carry inline base64 media (image/audio/video) past that; see
+    # infrastructure/publishers.JetStreamPublisher's size guard, which
+    # rejects anything still over this before ever calling js.Publish.
+    command: [ "-js", "-m", "8222", "-max_payload", "8388608" ]
     networks:
       - commerceos
     ports:

@@ -2,6 +2,7 @@ package webhooks_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -37,6 +38,39 @@ func TestRetryWebhookFallbackEventUseCase_republishesAndMarksStatus(t *testing.T
 	assert.Equal(t, 1, pub.calls)
 	require.Len(t, repo.statusUpdates, 1)
 	assert.Equal(t, webhooks.FallbackStatusRepublished, repo.statusUpdates["fb-1"])
+}
+
+// TestRetryWebhookFallbackEventUseCase_publishesEnvelopeShapedLikeHotPath
+// pins that retry republishes the same Envelope{EventID, TenantID,
+// Provider, ReceivedAt, RawPayload, Headers} shape ReceiveWebhookUseCase's
+// hot path publishes, not the bare raw payload -- a consumer expecting the
+// envelope must not break just because a message came through retry
+// instead of the hot path.
+func TestRetryWebhookFallbackEventUseCase_publishesEnvelopeShapedLikeHotPath(t *testing.T) {
+	receivedAt := time.Now().UTC().Truncate(time.Second)
+	repo := &listingFallbackRepo{
+		events: []webhooks.FallbackEvent{{
+			ID: "fb-1", TenantID: "tenant-1", Provider: "woocommerce", EventID: "evt-1",
+			Payload: []byte(`{"id":1}`), Headers: map[string]string{"X-Test": "1"},
+			Status: webhooks.FallbackStatusPendingRepublish, ReceivedAt: receivedAt,
+		}},
+	}
+	pub := &fakePublisher{}
+	uc := appwebhooks.NewRetryWebhookFallbackEventUseCase(newMockGormDB(t, 2), repo, pub)
+
+	err := uc.Execute(context.Background(), "fb-1")
+
+	require.NoError(t, err)
+	require.Equal(t, "webhooks.received.woocommerce", pub.lastSubject)
+
+	var got webhooks.Envelope
+	require.NoError(t, json.Unmarshal(pub.lastData, &got))
+	assert.Equal(t, "evt-1", got.EventID)
+	assert.Equal(t, "tenant-1", got.TenantID)
+	assert.Equal(t, "woocommerce", got.Provider)
+	assert.Equal(t, receivedAt, got.ReceivedAt)
+	assert.Equal(t, []byte(`{"id":1}`), got.RawPayload)
+	assert.Equal(t, "1", got.Headers["X-Test"])
 }
 
 func TestRetryWebhookFallbackEventUseCase_leavesStatusPendingOnPublishFailure(t *testing.T) {

@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -61,8 +62,19 @@ func (uc *RetryWebhookFallbackEventUseCase) Execute(ctx context.Context, id stri
 		return fmt.Errorf("retryWebhookFallbackEvent: %w", err)
 	}
 
+	// Must match the hot path's shape (ReceiveWebhookUseCase.Execute) --
+	// consumers expect the Envelope wrapper, not the bare raw body.
+	envelope := webhooks.Envelope{
+		EventID: event.EventID, TenantID: event.TenantID, Provider: event.Provider,
+		ReceivedAt: event.ReceivedAt, RawPayload: event.Payload, Headers: event.Headers,
+	}
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		return fmt.Errorf("retryWebhookFallbackEvent: marshal envelope: %w", err)
+	}
+
 	subject := webhookSubjectPrefix + event.Provider
-	if err := uc.publisher.Publish(subject, event.Payload); err != nil {
+	if err := uc.publisher.Publish(subject, data); err != nil {
 		return fmt.Errorf("retryWebhookFallbackEvent: publish: %w", err)
 	}
 

@@ -173,13 +173,13 @@ func main() {
 	outboxRepo := repositories.NewOutboxRepository(db)
 	wooFactory := woocommerce.NewFactory()
 	integrations.Register(integrationsGroup, r, db, outboxRepo, wooFactory, []byte(cfg.JWTSecret),
-		cfg.IntegrationsEncryptionSecret, cfg.PublicAPIBaseURL, cfg.FrontendBaseURL, publishers.NewJetStreamPublisher(js))
+		cfg.IntegrationsEncryptionSecret, cfg.PublicAPIBaseURL, cfg.FrontendBaseURL, publishers.NewJetStreamPublisher(nc, js))
 
 	// Own unauthenticated route, mounted on the root router like the
 	// WooCommerce connect callback above -- see infrastructure/handlers/
 	// webhooks's doc comment for why.
 	webhookshandler.Register(r, db, repositories.NewConnectionRepo(db),
-		publishers.NewJetStreamPublisher(js), repositories.NewWebhookFallbackRepo(db), cfg.IntegrationsEncryptionSecret)
+		publishers.NewJetStreamPublisher(nc, js), repositories.NewWebhookFallbackRepo(db), cfg.IntegrationsEncryptionSecret)
 
 	shippingSpec, err := genshipping.GetSpec()
 	if err != nil {
