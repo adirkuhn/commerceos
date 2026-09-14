@@ -537,6 +537,37 @@ describe('Inventory page', () => {
     })
   })
 
+  // Regression test for a real bug: the batch picker used to be sourced
+  // from the currently-viewed (target) SKU's own batches instead of the
+  // BULK pool's -- since a freshly portioned SKU typically has none of its
+  // own, batch-linked portioning never actually worked through this UI,
+  // only "General ledger" was ever selectable.
+  it('sources the batch picker from the BULK sku\'s own batches, not the target sku\'s', async () => {
+    const portionedSku = { ...sku, portioned_from_sku_id: 'sku-bulk-1', weight_grams: 378 }
+    const portionedDetail: ProductDetail = {
+      product,
+      variants: [{ ...detail.variants[0], skus: [portionedSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(portionedDetail)
+    const bulkLot: Batch = { ...batch, id: 'batch-bulk-lot', sku_id: 'sku-bulk-1', lot_number: 'BULK-LOT-9' }
+    vi.mocked(inventoryApi.listBatches).mockImplementation(async (_token, skuId) =>
+      skuId === 'sku-bulk-1' ? [bulkLot] : [batch],
+    )
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+
+    await user.click(screen.getByRole('button', { name: /Add item from weight pool/i }))
+    const dialog = await screen.findByText('Add Item From Weight Pool')
+    const modal = dialog.closest('div')!.parentElement!
+
+    await waitFor(() => expect(inventoryApi.listBatches).toHaveBeenCalledWith('test-token', 'sku-bulk-1'))
+    expect(within(modal).getByRole('option', { name: /BULK-LOT-9/ })).toBeInTheDocument()
+    expect(within(modal).queryByRole('option', { name: /^LOT-1/ })).not.toBeInTheDocument()
+  })
+
   it('opens the movement history page for a SKU and can navigate back', async () => {
     const movement: StockMovement = {
       id: 'mv-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1',

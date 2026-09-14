@@ -18,6 +18,8 @@ import * as pmsApi from '../pms/api'
 import * as inventoryApi from '../inventory/api'
 import type { SKU } from '../pms/types'
 import type { Batch, MovementType, StockMovement, ExpiringBatch, ExpiredBatchReview } from '../inventory/types'
+import { Modal, inputClass, labelClass } from '../inventory/components/Modal'
+import { PortionFromBulkModal } from '../inventory/PortionFromBulkModal'
 
 const PAGE_SIZE = 20
 
@@ -68,26 +70,8 @@ function isExpiringSoon(iso?: string | null, withinDays = 30): boolean {
   return ms >= 0 && ms <= withinDays * 24 * 60 * 60 * 1000
 }
 
-// ── Generic modal shell ──────────────────────────────────────────────────────
-
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-sm rounded-xl dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 shadow-xl">
-        <div className="flex items-center justify-between px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
-          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">{title}</h3>
-          <button type="button" onClick={onClose} aria-label="Close" className="dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600">
-            <X size={16} />
-          </button>
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
-    </div>
-  )
-}
-
-const inputClass = 'w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500'
-const labelClass = 'block text-[10px] font-medium dark:text-gray-400 text-gray-500 mb-1'
+// Modal/inputClass/labelClass live in ../inventory/components/Modal (see
+// import above) -- shared by every stock-action modal in this file.
 
 // BatchScope pins a modal opened by clicking a batch row to that exact
 // row -- warehouseId/batchId feed straight into the mutation, label is
@@ -535,93 +519,10 @@ function SplitCaseModal({
   )
 }
 
-// ── Portion one sellable item from a bulk pool (see pms.SKU.portioned_from_sku_id) ──
-
-function PortionFromBulkModal({
-  warehouses, batches, nominalWeightGrams, onSave, onClose,
-}: {
-  warehouses: { id: string; name: string }[]
-  batches: Batch[]
-  nominalWeightGrams?: number | null
-  onSave: (input: { warehouse_id: string; batch_id?: string | null; weight_grams?: number; reason?: string }) => Promise<unknown>
-  onClose: () => void
-}) {
-  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
-  const [batchId, setBatchId] = useState('')
-  const [weightGrams, setWeightGrams] = useState('')
-  const [reason, setReason] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const submit = async () => {
-    let weight: number | undefined
-    if (weightGrams.trim() !== '') {
-      const n = parseInt(weightGrams, 10)
-      if (Number.isNaN(n) || n <= 0) {
-        setError('Enter a positive weight in grams, or leave blank to use the nominal weight')
-        return
-      }
-      weight = n
-    }
-    setSaving(true)
-    setError(null)
-    try {
-      await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, weight_grams: weight, reason })
-      onClose()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to portion from bulk stock')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Modal title="Add Item From Weight Pool" onClose={onClose}>
-      <div className="space-y-3">
-        <p className="text-[10px] dark:text-gray-500 text-gray-400">
-          Peels one sellable unit off the linked weight pool. Repeatable as many times as you like.
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className={labelClass} htmlFor="portion-warehouse">Warehouse</label>
-            <select id="portion-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
-              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="portion-batch">Batch</label>
-            <select id="portion-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
-              <option value="">General ledger</option>
-              {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="portion-weight">
-            Actual weight (grams){nominalWeightGrams != null && ` — defaults to ${nominalWeightGrams}g`}
-          </label>
-          <input
-            id="portion-weight" type="number" min={1} value={weightGrams} onChange={e => setWeightGrams(e.target.value)}
-            placeholder={nominalWeightGrams != null ? String(nominalWeightGrams) : undefined} className={inputClass}
-          />
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="portion-reason">Reason (optional)</label>
-          <input id="portion-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
-        </div>
-        {error && <p className="text-[10px] text-red-500">{error}</p>}
-        <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
-            Cancel
-          </button>
-          <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-            {saving ? 'Adding…' : 'Add item'}
-          </button>
-        </div>
-      </div>
-    </Modal>
-  )
-}
+// PortionFromBulkModal lives in ../inventory/PortionFromBulkModal (see
+// import above) -- also fixes a real bug: the batch picker used to source
+// the currently-viewed (target) SKU's own batches instead of the BULK
+// pool's, so batch-linked portioning never worked through this UI.
 
 // ── Mark damaged / lost ───────────────────────────────────────────────────────
 
@@ -1065,9 +966,9 @@ function SKUStockPanel({ token, sku, variantName, warehouses, onSKUUpdated, onSt
         <SplitCaseModal warehouses={warehouses} batches={batches} onClose={closeModal}
           onSave={input => splitCase(input).then(() => onStockChanged())} />
       )}
-      {modal === 'portion-from-bulk' && (
+      {modal === 'portion-from-bulk' && sku.portioned_from_sku_id && (
         <PortionFromBulkModal
-          warehouses={warehouses} batches={batches} nominalWeightGrams={sku.weight_grams}
+          token={token} bulkSkuId={sku.portioned_from_sku_id} warehouses={warehouses} nominalWeightGrams={sku.weight_grams}
           onClose={closeModal} onSave={input => portionFromBulk(input).then(() => onStockChanged())}
         />
       )}
