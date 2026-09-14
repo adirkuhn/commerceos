@@ -21,6 +21,7 @@ import (
 	genia "github.com/adirkuhn/commerceos/api/iam"
 	genintegrations "github.com/adirkuhn/commerceos/api/integrations"
 	geninventory "github.com/adirkuhn/commerceos/api/inventory"
+	genmessagecenter "github.com/adirkuhn/commerceos/api/messagecenter"
 	gennotifications "github.com/adirkuhn/commerceos/api/notifications"
 	genoms "github.com/adirkuhn/commerceos/api/oms"
 	genpms "github.com/adirkuhn/commerceos/api/pms"
@@ -48,6 +49,7 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/iam"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/integrations"
 	inventoryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/inventory"
+	messagecenterhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/messagecenter"
 	notificationshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/notifications"
 	omshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/oms"
 	pmshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pms"
@@ -302,6 +304,18 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	reviewshandler.Register(reviewsGroup, db)
+
+	messagecenterSpec, err := genmessagecenter.GetSpec()
+	if err != nil {
+		log.Fatalf("messagecenter: load openapi spec: %v", err)
+	}
+	// Own sub-group so the messagecenter-only spec validator never applies
+	// to the other modules' routes — same reasoning as pmsGroup above.
+	messagecenterGroup := v1.Group("")
+	messagecenterGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(messagecenterSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	messagecenterhandler.Register(messagecenterGroup, db)
 
 	reportsSpec, err := genreports.GetSpec()
 	if err != nil {

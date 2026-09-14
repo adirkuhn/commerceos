@@ -1,0 +1,78 @@
+// Package messagecenter holds the merchant-facing CRUD use cases over
+// domain/messagecenter.MessageTemplate. Automation (event -> rule ->
+// template -> send) is a separate, later slice on top of this one.
+package messagecenter
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
+	"github.com/adirkuhn/commerceos/domain/messaging"
+	"github.com/adirkuhn/commerceos/internal/tenant"
+	"gorm.io/gorm"
+)
+
+type CreateMessageTemplateInput struct {
+	Name     string
+	Category mcDomain.Category
+	Channels []messaging.Channel
+	Subject  string
+	Body     string
+}
+
+// validateMessageTemplateInput is shared by Create and Update -- same field
+// rules apply whichever way a template got into this shape.
+func validateMessageTemplateInput(name string, category mcDomain.Category, channels []messaging.Channel, body string) error {
+	if name == "" {
+		return mcDomain.ErrTemplateNameRequired
+	}
+	if !category.Valid() {
+		return mcDomain.ErrInvalidCategory
+	}
+	if len(channels) == 0 {
+		return mcDomain.ErrNoChannelsSelected
+	}
+	for _, ch := range channels {
+		switch ch {
+		case messaging.ChannelEmail, messaging.ChannelSMS, messaging.ChannelWhatsApp:
+		default:
+			return mcDomain.ErrInvalidChannel
+		}
+	}
+	if body == "" {
+		return mcDomain.ErrTemplateBodyRequired
+	}
+	return nil
+}
+
+type CreateMessageTemplateUseCase struct {
+	db   *gorm.DB
+	repo mcDomain.MessageTemplateRepository
+}
+
+func NewCreateMessageTemplateUseCase(db *gorm.DB, repo mcDomain.MessageTemplateRepository) *CreateMessageTemplateUseCase {
+	return &CreateMessageTemplateUseCase{db: db, repo: repo}
+}
+
+func (uc *CreateMessageTemplateUseCase) Execute(ctx context.Context, in CreateMessageTemplateInput) (*mcDomain.MessageTemplate, error) {
+	if err := validateMessageTemplateInput(in.Name, in.Category, in.Channels, in.Body); err != nil {
+		return nil, fmt.Errorf("createMessageTemplate: %w", err)
+	}
+
+	var tmpl mcDomain.MessageTemplate
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		now := time.Now()
+		tmpl = mcDomain.MessageTemplate{
+			TenantID: tenant.IDFromContext(ctx), Name: in.Name, Category: in.Category,
+			Channels: in.Channels, Subject: in.Subject, Body: in.Body,
+			Enabled: true, CreatedAt: now, UpdatedAt: now,
+		}
+		return uc.repo.Create(ctx, &tmpl)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("createMessageTemplate: %w", err)
+	}
+	return &tmpl, nil
+}
