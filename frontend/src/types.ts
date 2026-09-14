@@ -4,6 +4,7 @@ export type NavItem =
   | 'promotions'
   | 'coupons'
   | 'reviews'
+  | 'message-center'
   | 'inventory'
   | 'warehouses'
   | 'orders'
