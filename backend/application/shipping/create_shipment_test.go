@@ -214,11 +214,11 @@ func TestCreateShipment_perShipmentOverride_winsOverConnectionDefault(t *testing
 
 	require.NoError(t, err)
 	assert.Equal(t, int(shippingDomain.PackageTypeDigitalStamp), gotCreateInput.Options.PackageType)
-	// Digital stamp can't carry signature at all (MyParcel 422 error 3705) --
-	// GateOptionsForPackageType must win even though the caller explicitly
-	// asked for signature on, proving the per-shipment override wins on
-	// PackageType itself but never bypasses the options gate.
-	assert.False(t, gotCreateInput.Options.SignatureRequired)
+	// Only Mailbox package is confirmed to reject signature/insurance
+	// (MyParcel 422 error 3705) -- Digital stamp isn't gated
+	// (GateOptionsForPackageType), so the per-shipment signature request
+	// must pass through unchanged.
+	assert.True(t, gotCreateInput.Options.SignatureRequired)
 }
 
 // TestCreateShipment_perShipmentPackageTypeOverride_gatesOptionsFromConnectionDefault

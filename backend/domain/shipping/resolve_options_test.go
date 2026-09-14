@@ -91,21 +91,40 @@ func TestResolveOptions_notInsuredDoesNotForceSignatureOrOnlyRecipient(t *testin
 	assert.False(t, out.OnlyRecipient)
 }
 
-// TestResolveOptions_nonPackageType_forcesOptionsOff pins a real MyParcel
+// TestResolveOptions_mailboxPackage_forcesOptionsOff pins a real MyParcel
 // 422 (error 3705, "Verzendingsopties kunnen niet worden gebruikt met
 // Brievenbuspakje" -- "shipment options cannot be used with Mailbox
-// package"): every non-Package box type is an unregistered/administrative
-// mail product on MyParcel's side and cannot carry signature, only_recipient
-// or insurance at all, regardless of what the connection/carrier defaults
-// say. Confirmed by a real 422 for Mailbox package specifically; Digital
-// stamp/Pallet/Small package/Envelope are the same product class and gated
-// the same way, per MyParcel's own product model.
-func TestResolveOptions_nonPackageType_forcesOptionsOff(t *testing.T) {
-	nonPackageTypes := []shipping.PackageType{
-		shipping.PackageTypeMailboxPackage, shipping.PackageTypeDigitalStamp,
-		shipping.PackageTypePallet, shipping.PackageTypeSmallPackage, shipping.PackageTypeEnvelope,
+// package"): Mailbox package is an unregistered/administrative mail product
+// on MyParcel's side and cannot carry signature, only_recipient or insurance
+// at all, regardless of what the connection/carrier defaults say.
+func TestResolveOptions_mailboxPackage_forcesOptionsOff(t *testing.T) {
+	settings := &shipping.ShippingConnectionSettings{
+		DefaultPackageType: shipping.PackageTypeMailboxPackage,
+		DefaultSignatureRequired: true, DefaultOnlyRecipient: true, InsureByDefault: true,
 	}
-	for _, pt := range nonPackageTypes {
+
+	out := shipping.ResolveOptions(settings, nil, shipping.CarrierPostNL)
+
+	assert.Equal(t, shipping.PackageTypeMailboxPackage, out.PackageType)
+	assert.False(t, out.SignatureRequired, "Mailbox package must not carry signature_required")
+	assert.False(t, out.OnlyRecipient, "Mailbox package must not carry only_recipient")
+	assert.False(t, out.Insure, "Mailbox package must not carry insurance")
+}
+
+// TestResolveOptions_otherNonPackageTypes_doNotForceOptionsOff pins the
+// correction after TestResolveOptions_mailboxPackage_forcesOptionsOff's
+// gate turned out to be over-broad: only Mailbox package's inability to
+// carry insurance/signature/only_recipient is confirmed by a real MyParcel
+// error. Digital stamp/Pallet/Small package/Envelope were previously lumped
+// into the same restriction by assumption -- since dropped (see
+// GateOptionsForPackageType's doc comment) after a real shipment showed
+// Small package silently lost its insurance despite no MyParcel rejection.
+func TestResolveOptions_otherNonPackageTypes_doNotForceOptionsOff(t *testing.T) {
+	unrestrictedTypes := []shipping.PackageType{
+		shipping.PackageTypeDigitalStamp, shipping.PackageTypePallet,
+		shipping.PackageTypeSmallPackage, shipping.PackageTypeEnvelope,
+	}
+	for _, pt := range unrestrictedTypes {
 		settings := &shipping.ShippingConnectionSettings{
 			DefaultPackageType: pt, DefaultSignatureRequired: true, DefaultOnlyRecipient: true, InsureByDefault: true,
 		}
@@ -113,9 +132,9 @@ func TestResolveOptions_nonPackageType_forcesOptionsOff(t *testing.T) {
 		out := shipping.ResolveOptions(settings, nil, shipping.CarrierPostNL)
 
 		assert.Equal(t, pt, out.PackageType)
-		assert.False(t, out.SignatureRequired, "package type %d must not carry signature_required", pt)
-		assert.False(t, out.OnlyRecipient, "package type %d must not carry only_recipient", pt)
-		assert.False(t, out.Insure, "package type %d must not carry insurance", pt)
+		assert.True(t, out.SignatureRequired, "package type %d must keep signature_required", pt)
+		assert.True(t, out.OnlyRecipient, "package type %d must keep only_recipient", pt)
+		assert.True(t, out.Insure, "package type %d must keep insurance", pt)
 	}
 }
 
