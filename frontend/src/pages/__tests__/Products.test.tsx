@@ -53,6 +53,13 @@ vi.mock('../../pms/api', () => ({
   listScaleCodeAliases: vi.fn(() => Promise.resolve([])),
   createScaleCodeAlias: vi.fn(),
   deleteScaleCodeAlias: vi.fn(),
+  bulkAddWeightPortions: vi.fn(),
+}))
+
+vi.mock('../../inventory/api', () => ({
+  listWarehouses: vi.fn(() => Promise.resolve([])),
+  listBatches: vi.fn(() => Promise.resolve([])),
+  getSKUStockLevel: vi.fn(() => Promise.resolve({ sku_id: 'sku-1', total: 0, syncable: 0 })),
 }))
 
 vi.mock('../../integrations/api', () => ({
@@ -79,6 +86,7 @@ vi.mock('../../tax/api', () => ({
 }))
 
 import * as pmsApi from '../../pms/api'
+import * as inventoryApi from '../../inventory/api'
 import * as integrationsApi from '../../integrations/api'
 import * as tenantSettingsApi from '../../settings/api'
 import * as taxApi from '../../tax/api'
@@ -874,6 +882,43 @@ describe('weight pool for a variant-mode product (VariantRow)', () => {
     await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
       unit_type: 'unit', portioned_from_sku_id: null,
     })))
+  })
+
+  it('a weight pool SKU with per-weight pricing and a scale code shows "Bulk add by weight", opening the modal on click', async () => {
+    const poolSku = {
+      ...baseSku, unit_type: 'kilo' as const, scale_code: '2994721',
+      pricing_mode: 'per_weight' as const, price_per_kilo_minor_units: 29990,
+    }
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: 'Carne Seca', skus: [poolSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('Carne Seca')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Bulk add by weight' }))
+
+    expect(await screen.findByText('Bulk add by weight', { selector: 'h3' })).toBeInTheDocument()
+    await waitFor(() => expect(inventoryApi.listBatches).toHaveBeenCalledWith('test-token', 'sku-1'))
+  })
+
+  it('a weight pool SKU with no scale code does not show "Bulk add by weight" -- nothing to barcode packages with yet', async () => {
+    const poolSkuNoScaleCode = { ...baseSku, unit_type: 'kilo' as const, pricing_mode: 'per_weight' as const, price_per_kilo_minor_units: 29990 }
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: 'Carne Seca', skus: [poolSkuNoScaleCode] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('Carne Seca')
+
+    expect(screen.getByText('Weight pool')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Bulk add by weight' })).not.toBeInTheDocument()
   })
 })
 

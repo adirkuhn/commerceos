@@ -371,6 +371,33 @@ export interface Media {
   created_at: string
 }
 
+// ── Bulk weight portions ("type a list of weights") ─────────────────────────
+
+export interface BulkAddWeightPortionsInput {
+  warehouse_id: string
+  // Which lot of the bulk SKU these packages are drawn from -- null/omitted
+  // means general (un-lotted) bulk stock, no expiry carried forward onto
+  // the new packages.
+  bulk_batch_id?: string | null
+  weights_grams: number[]
+  // Defaults to the bulk SKU's own code on the backend when omitted.
+  sku_code_prefix?: string
+  reason?: string
+}
+
+export interface CreatedPortionedSKU {
+  id: string
+  sku_code: string
+  barcode: string
+  price_minor_units: number
+  currency_code: string
+  weight_grams: number
+}
+
+export interface BulkAddWeightPortionsResult {
+  created: CreatedPortionedSKU[]
+}
+
 export interface APIError {
   code: string
   message: string

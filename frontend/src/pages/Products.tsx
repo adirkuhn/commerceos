@@ -16,6 +16,7 @@ import { useProductDetail } from '../pms/hooks/useProductDetail'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
 import { ProductBolTab } from '../pms/ProductBolTab'
 import * as pmsApi from '../pms/api'
+import { BulkAddWeightPortionsModal } from '../pms/BulkAddWeightPortionsModal'
 import * as integrationsApi from '../integrations/api'
 import * as inventoryApi from '../inventory/api'
 import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
@@ -2745,6 +2746,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkError, setBulkError] = useState('')
   const [existingPortionPickerOpen, setExistingPortionPickerOpen] = useState(false)
+  const [bulkAddOpen, setBulkAddOpen] = useState(false)
 
   // Once a variant's SKU exists, its barcode had no display or edit path
   // at all in this component -- only settable in the "add SKU" form below,
@@ -3165,6 +3167,11 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
                 <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: 'unit', portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
                   Turn off
                 </button>
+                {sku.pricing_mode === 'per_weight' && sku.scale_code && sku.price_per_kilo_minor_units != null && (
+                  <button type="button" onClick={() => setBulkAddOpen(true)} className="text-blue-400 hover:text-blue-300 transition-colors">
+                    Bulk add by weight
+                  </button>
+                )}
               </span>
             ) : sku.portioned_from_sku_id ? (
               <span className="text-[10px] dark:text-gray-400 text-gray-500 flex items-center gap-1.5">
@@ -3201,6 +3208,13 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               filterSku={s => s.unit_type === 'kilo'}
               onSelect={(s) => saveBulkPool({ unitType: sku.unit_type ?? 'unit', portionedFromSkuId: s.id })}
               onClose={() => setExistingPortionPickerOpen(false)}
+            />
+          )}
+          {bulkAddOpen && sku.price_per_kilo_minor_units != null && (
+            <BulkAddWeightPortionsModal
+              token={token ?? ''} bulkSkuId={sku.id}
+              pricePerKiloMinorUnits={sku.price_per_kilo_minor_units} currencyCode={sku.currency_code}
+              onCreated={() => detail.refresh()} onClose={() => setBulkAddOpen(false)}
             />
           )}
           {bulkError && <p className="text-[10px] text-red-400">{bulkError}</p>}

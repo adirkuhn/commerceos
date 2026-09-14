@@ -9,6 +9,7 @@ import type {
   SKUCurrencyPrice, UpsertSKUCurrencyPriceInput,
   BarcodeAlias, CreateBarcodeAliasPayload,
   ScaleCodeAlias, CreateScaleCodeAliasPayload,
+  BulkAddWeightPortionsInput, BulkAddWeightPortionsResult,
   APIResponse,
 } from './types'
 
@@ -265,4 +266,10 @@ export function updateMedia(token: string, id: string, altText: string): Promise
 
 export function deleteMedia(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/media/${id}`, { method: 'DELETE' }, token)
+}
+
+// ── Bulk weight portions ─────────────────────────────────────────────────────
+
+export function bulkAddWeightPortions(token: string, bulkSkuId: string, input: BulkAddWeightPortionsInput): Promise<BulkAddWeightPortionsResult> {
+  return request<BulkAddWeightPortionsResult>(`${base()}/skus/${bulkSkuId}/bulk-weight-portions`, { method: 'POST', body: JSON.stringify(input) }, token)
 }
