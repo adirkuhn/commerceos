@@ -10,7 +10,12 @@ export function pickedQuantityByLineItem(scans: PickScan[]): Map<string, number>
   for (const s of scans) {
     if (!s.line_item_id) continue
     if (s.action_type !== 'pick' && s.action_type !== 'substitute') continue
-    byLineItem.set(s.line_item_id, (byLineItem.get(s.line_item_id) ?? 0) + s.quantity)
+    // A substitute row's own `quantity` is the SUBSTITUTE sku's quantity
+    // (e.g. 4 cheap units), not how much of the original line it covers --
+    // that's original_quantity_covered (e.g. those 4 units covering 1
+    // original unit). Using `quantity` here would badly overcount.
+    const covers = s.action_type === 'substitute' ? (s.original_quantity_covered ?? 0) : s.quantity
+    byLineItem.set(s.line_item_id, (byLineItem.get(s.line_item_id) ?? 0) + covers)
   }
   return byLineItem
 }

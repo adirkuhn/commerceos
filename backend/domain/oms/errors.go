@@ -71,9 +71,12 @@ var (
 	ErrInvalidSubstituteQuantity = errors.New("substitute quantity and original quantity covered must be positive")
 	// ErrSubstitutionCoverageMismatch guards SubstituteLineItemUseCase --
 	// the batch's substitute lines, summed by OriginalQtyCovered, must
-	// cover the original line item's own Quantity exactly, no more, no
-	// less.
-	ErrSubstitutionCoverageMismatch = errors.New("substitute lines must cover exactly the original line item's quantity")
+	// cover the line item's own REMAINING quantity exactly (its Quantity
+	// minus whatever Pick/Substitute/Refund scans already staged against
+	// it this session), no more, no less. Not the full original Quantity
+	// -- a line already partially picked can still have the rest of it
+	// substituted.
+	ErrSubstitutionCoverageMismatch = errors.New("substitute lines must cover exactly the line item's remaining (unpicked) quantity")
 	// ErrInvalidRefundQuantity guards RefundLineItemUseCase against a
 	// quantity that isn't a positive magnitude, or that exceeds the line
 	// item's own Quantity.

@@ -284,6 +284,49 @@ describe('Picking page', () => {
     expect(pickingApi.substituteLineItem).not.toHaveBeenCalled()
   })
 
+  // Regression test for a real bug: an order line for 4x Beans, 3 already
+  // picked, and staff want to substitute only the last unit -- the confirm
+  // button used to require covering the line's FULL original quantity (4)
+  // regardless of what was already picked, making a partial substitute
+  // impossible.
+  it('substitute mode only requires covering the remaining (unpicked) quantity, not the full original quantity', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail({
+      line_items: [{ id: 'li-1', sku_id: 'sku-1', name: 'Beans', sku_code: 'BEANS-1', barcode: '111', quantity: 4, price_minor_units: 100, total_minor_units: 400 }],
+      scans: [{ id: 'scan-0', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 3, scanned_at: '2026-08-22T10:00:30Z', scanned_by: 'user-1' }],
+    }))
+    vi.mocked(pickingApi.resolvePickScanCode).mockResolvedValue({ sku_id: 'sku-2', product_name: 'Canned Beans' })
+    vi.mocked(pickingApi.substituteLineItem).mockResolvedValue({
+      scans: [{ id: 'scan-1', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute', quantity: 1, original_quantity_covered: 1, return_to_stock: false, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' }],
+    })
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Beans')
+    await user.click(screen.getByText('Beans'))
+    await screen.findByText('Confirm pick')
+    await user.click(screen.getByRole('button', { name: 'Substitute' }))
+    await user.type(screen.getByPlaceholderText('Scan or type replacement SKU/barcode'), 'sub-code')
+
+    // Covering the OLD full-quantity requirement (4) must now be rejected.
+    await user.clear(screen.getByLabelText('Covers (of original)'))
+    await user.type(screen.getByLabelText('Covers (of original)'), '4')
+    expect(screen.getByRole('button', { name: 'Confirm substitute' })).toBeDisabled()
+
+    // Covering just what's left (1) must be accepted.
+    await user.clear(screen.getByLabelText('Covers (of original)'))
+    await user.type(screen.getByLabelText('Covers (of original)'), '1')
+    expect(screen.getByRole('button', { name: 'Confirm substitute' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: 'Confirm substitute' }))
+
+    await waitFor(() => expect(pickingApi.substituteLineItem).toHaveBeenCalledWith('test-token', 'ps-1', {
+      line_item_id: 'li-1',
+      lines: [{ sku_id: 'sku-2', substitute_quantity: 1, original_quantity_covered: 1, return_to_stock: false }],
+    }))
+  })
+
   it('refund mode stages a refund for the entered quantity, using the Refund tab', async () => {
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())

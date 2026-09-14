@@ -361,9 +361,12 @@ export default function Picking() {
   }
 
   const substituteCoveredTotal = substituteRows.reduce((sum, r) => sum + (Number(r.coveredQty) || 0), 0)
+  // Must cover exactly what's left, not the line's full original quantity
+  // -- a line already partially picked can still have the rest substituted.
+  const substituteRemaining = pickLine ? pickLine.lineItem.quantity - pickLine.pickedSoFar : 0
   const substituteReady = !!pickLine && substituteRows.length > 0
     && substituteRows.every(r => r.code.trim() && Number(r.substituteQty) > 0 && Number(r.coveredQty) > 0)
-    && substituteCoveredTotal === pickLine.lineItem.quantity
+    && substituteCoveredTotal === substituteRemaining
 
   async function confirmSubstitute() {
     if (!pickLine || !session || !token || !substituteReady) return
@@ -1022,8 +1025,8 @@ export default function Picking() {
             ) : (
               <>
                 <p className="text-[11px] dark:text-gray-400 text-gray-500">
-                  Replace with one or more products -- each row's "covers" quantity must add up to this line's own
-                  quantity ({pickLine.lineItem.quantity}) before you can confirm.
+                  Replace with one or more products -- each row's "covers" quantity must add up to this line's
+                  remaining quantity ({substituteRemaining}) before you can confirm.
                 </p>
                 {substituteRows.map((row, i) => (
                   <div key={row.key} className="space-y-2 rounded-lg border dark:border-[#2D3748] border-gray-200 p-2.5">
@@ -1074,7 +1077,7 @@ export default function Picking() {
                   + Add another substitute
                 </button>
                 <p className="text-[11px] text-center dark:text-gray-500 text-gray-400">
-                  Covers {substituteCoveredTotal} of {pickLine.lineItem.quantity}
+                  Covers {substituteCoveredTotal} of {substituteRemaining}
                 </p>
                 <button
                   type="button" onClick={confirmSubstitute} disabled={busy || !substituteReady}

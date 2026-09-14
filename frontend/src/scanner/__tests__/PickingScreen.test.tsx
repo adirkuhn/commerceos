@@ -9,10 +9,15 @@ import type { PickingSessionDetail, CompletePickingResult } from '../types'
 vi.mock('../api', () => ({
   getPickingSession: vi.fn(),
   scanPickItem: vi.fn(),
+  substituteLineItem: vi.fn(),
   resolvePickScanCode: vi.fn(),
   deletePickScan: vi.fn(),
   pausePicking: vi.fn(),
   completePicking: vi.fn(),
+}))
+
+vi.mock('../../pms/searchCandidates', () => ({
+  searchSKUCandidates: vi.fn(),
 }))
 
 vi.mock('../../pms/api', () => ({
@@ -37,8 +42,10 @@ vi.mock('../errorSound', () => ({
 import * as api from '../api'
 import * as pmsApi from '../../pms/api'
 import * as shippingApi from '../../shipping/api'
+import * as searchCandidatesApi from '../../pms/searchCandidates'
 import { useConnections } from '../../integrations/hooks/useConnections'
 import type { Connection } from '../../integrations/types'
+import type { SKU } from '../../pms/types'
 
 const TOKEN = 'test-token'
 
@@ -94,6 +101,52 @@ describe('PickingScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
     expect(await screen.findByText('Order picked')).toBeInTheDocument()
     expect(screen.getByText("1 line(s) weren't fully picked:")).toBeInTheDocument()
+  })
+
+  // Regression test for a real bug: an order line for 4x Beans, 3 already
+  // picked, and staff want to substitute only the last unit -- the confirm
+  // button used to require covering the line's FULL original quantity (4)
+  // regardless of what was already picked, making a partial substitute
+  // impossible.
+  it('substitute mode only requires covering the remaining (unpicked) quantity, not the full original quantity', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue(detail({
+      line_items: [{ id: 'li-1', sku_id: 'sku-1', name: 'Beans', sku_code: 'BEANS-1', barcode: '111', quantity: 4, price_minor_units: 100, total_minor_units: 400 }],
+      scans: [{ id: 'scan-0', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 3, scanned_at: '2026-08-22T10:00:30Z', scanned_by: 'user-1' }],
+    }))
+    const candidateSKU: SKU = {
+      id: 'sku-2', tenant_id: 'tenant-1', variant_id: 'v-2', sku_code: 'BEANS-CAN', price_minor_units: 150, currency_code: 'USD',
+      is_virtual: false, status: 'active', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z',
+    }
+    vi.mocked(searchCandidatesApi.searchSKUCandidates).mockResolvedValue([{ sku: candidateSKU, productId: 'prod-2', productName: 'Canned Beans' }])
+    vi.mocked(api.substituteLineItem).mockResolvedValue({
+      scans: [{ id: 'scan-1', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute', quantity: 1, original_quantity_covered: 1, return_to_stock: false, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' }],
+    })
+
+    const user = userEvent.setup()
+    render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder()} onExit={vi.fn()} onAuthError={vi.fn()} />)
+    await user.click(await screen.findByText('Beans'))
+    await user.click(screen.getByRole('button', { name: /Substitute/i }))
+
+    await user.type(screen.getByPlaceholderText('Search or scan barcode…'), 'canned')
+    await user.click(screen.getByRole('button', { name: 'Find' }))
+    await user.click(await screen.findByText('Canned Beans'))
+
+    // Covering the OLD full-quantity requirement (4) must now be rejected.
+    await user.clear(screen.getByLabelText('Covers (of original)'))
+    await user.type(screen.getByLabelText('Covers (of original)'), '4')
+    expect(screen.getByRole('button', { name: 'Confirm substitute' })).toBeDisabled()
+
+    // Covering just what's left (1) must be accepted.
+    await user.clear(screen.getByLabelText('Covers (of original)'))
+    await user.type(screen.getByLabelText('Covers (of original)'), '1')
+    expect(screen.getByRole('button', { name: 'Confirm substitute' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: 'Confirm substitute' }))
+
+    await waitFor(() => expect(api.substituteLineItem).toHaveBeenCalledWith(TOKEN, 'ps-1', {
+      line_item_id: 'li-1',
+      lines: [{ sku_id: 'sku-2', substitute_quantity: 1, original_quantity_covered: 1, return_to_stock: false }],
+    }))
   })
 
   it('shows a stock-shortfall dialog and resubmits with the chosen resolution', async () => {

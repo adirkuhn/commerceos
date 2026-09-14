@@ -177,9 +177,10 @@ export interface PickScan {
   // sku's own quantity, not the original line's quantity.
   quantity: number
   // Substitute only -- how much of the original line item's own quantity
-  // this row covers. Every substitute row for a given original line,
-  // summed, equals that line's quantity exactly. Null for every other
-  // action type.
+  // this row covers. A single substitute batch's rows, summed, must equal
+  // the line's REMAINING (not yet covered by any prior Pick/Substitute/
+  // Refund scan) quantity exactly -- a partially-picked line can still
+  // have the rest substituted. Null for every other action type.
   original_quantity_covered?: number | null
   // Substitute only -- whether this row's own original_quantity_covered
   // was added back to the original SKU's stock at replay. Defaults false.

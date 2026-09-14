@@ -834,9 +834,11 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
   const remaining = Math.max(lineItem.quantity - pickedSoFar, 0)
 
   const coveredTotal = substituteRows.reduce((sum, r) => sum + (Number(r.coveredQty) || 0), 0)
+  // Must cover exactly what's left, not the line's full original quantity
+  // -- a line already partially picked can still have the rest substituted.
   const substituteReady = substituteRows.length > 0
     && substituteRows.every(r => r.selected && Number(r.substituteQty) > 0 && Number(r.coveredQty) > 0)
-    && coveredTotal === lineItem.quantity
+    && coveredTotal === remaining
 
   function updateRow(key: string, patch: Partial<SubstituteRowState>) {
     setSubstituteRows(rows => rows.map(r => (r.key === key ? { ...r, ...patch } : r)))
@@ -979,7 +981,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
             <>
               <p className="text-xs text-gray-500">
                 Out of stock? Replace it with one or more products -- each row's "covers" quantity must add up to
-                this line's own quantity ({lineItem.quantity}) before you can confirm.
+                this line's remaining quantity ({remaining}) before you can confirm.
               </p>
               {substituteRows.map((row, i) => (
                 <div key={row.key} className="rounded-xl bg-[#1F2937] border border-[#2D3748] p-3 space-y-2">
@@ -1067,7 +1069,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                 + Add another substitute
               </button>
               <p className="text-xs text-gray-500 text-center">
-                Covers {coveredTotal} of {lineItem.quantity}
+                Covers {coveredTotal} of {remaining}
               </p>
               <button
                 onClick={handleSubmitSubstitute}

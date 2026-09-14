@@ -59,6 +59,37 @@ func NewSubstituteLineItemUseCase(
 	return &SubstituteLineItemUseCase{db: db, sessionRepo: sessionRepo, scanRepo: scanRepo, lineItemRepo: lineItemRepo}
 }
 
+// coveredQuantity sums how much of lineItemID's own ordered Quantity is
+// already accounted for by every Pick/Substitute/Refund scan staged
+// against it so far this session -- a Substitute batch only needs to cover
+// what's left, not the line's full original Quantity (see
+// ErrSubstitutionCoverageMismatch's own doc comment). Substitute rows
+// count by OriginalQtyCovered, not Quantity -- Quantity is the substitute
+// SKU's own quantity, which needn't match how much of the original line it
+// covers (e.g. 4 cheap units covering 1 original unit). Deliberately kept
+// in sync with (but not shared code with) CompletePickingUseCase's
+// missingPickItems in complete_picking.go, which computes the same figure
+// post-completion with one extra wrinkle (StockShortfallWithoutItem
+// resolutions) that doesn't exist yet at substitute-time, mid-session --
+// keep both in sync if either changes.
+func coveredQuantity(scans []omsDomain.PickScan, lineItemID string) int64 {
+	var total int64
+	for _, s := range scans {
+		if s.LineItemID == nil || *s.LineItemID != lineItemID {
+			continue
+		}
+		switch s.ActionType {
+		case omsDomain.PickScanActionPick, omsDomain.PickScanActionRefund:
+			total += s.Quantity
+		case omsDomain.PickScanActionSubstitute:
+			if s.OriginalQtyCovered != nil {
+				total += *s.OriginalQtyCovered
+			}
+		}
+	}
+	return total
+}
+
 func (uc *SubstituteLineItemUseCase) Execute(ctx context.Context, in SubstituteLineItemInput) (*SubstituteLineItemResult, error) {
 	if len(in.Lines) == 0 {
 		return nil, fmt.Errorf("substituteLineItem: %w", omsDomain.ErrSubstituteLinesRequired)
@@ -88,7 +119,12 @@ func (uc *SubstituteLineItemUseCase) Execute(ctx context.Context, in SubstituteL
 		if li.SalesOrderID != session.SalesOrderID {
 			return omsDomain.ErrLineItemNotOnOrder
 		}
-		if coverageSum != li.Quantity {
+		existingScans, err := uc.scanRepo.ListBySession(ctx, in.SessionID)
+		if err != nil {
+			return err
+		}
+		remaining := li.Quantity - coveredQuantity(existingScans, li.ID)
+		if coverageSum != remaining {
 			return omsDomain.ErrSubstitutionCoverageMismatch
 		}
 

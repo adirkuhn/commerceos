@@ -165,6 +165,96 @@ func TestSubstituteLineItem_happyPathSingleLine(t *testing.T) {
 	assert.Equal(t, "out of stock", s.Reason)
 }
 
+// TestSubstituteLineItem_partialPick_substituteJustTheRemainder is a
+// regression test for a real bug: an order line for 4x Beans, 3 already
+// picked (staged Pick scans), and a picker wants to substitute only the
+// last unit. The coverage check used to require covering the line's full
+// original Quantity (4) regardless of what was already picked, making a
+// partial substitute impossible. It must now require covering exactly
+// what's left (1).
+func TestSubstituteLineItem_partialPick_substituteJustTheRemainder(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-beans", SalesOrderID: "order-1", Quantity: 4}}
+	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
+		{ID: "scan-1", LineItemID: strPtr("li-beans"), ActionType: omsDomain.PickScanActionPick, Quantity: 3},
+	}}
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
+
+	result, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
+		SessionID: "session-1", LineItemID: "li-beans", ScannedBy: "user-1", Reason: "out of stock",
+		Lines: []appoms.SubstituteLineInput{{SKUID: "sku-canned-beans", SubstituteQuantity: 1, OriginalQtyCovered: 1}},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, result.Scans, 1)
+	assert.Equal(t, int64(1), *result.Scans[0].OriginalQtyCovered)
+}
+
+// TestSubstituteLineItem_partialPick_rejectsSubstitutingTheFullOriginalQuantity
+// is the flip side: after 3 of 4 are already picked, trying to substitute
+// all 4 (the old, buggy requirement) must now be rejected -- only 1 unit is
+// actually available to substitute.
+func TestSubstituteLineItem_partialPick_rejectsSubstitutingTheFullOriginalQuantity(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-beans", SalesOrderID: "order-1", Quantity: 4}}
+	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
+		{ID: "scan-1", LineItemID: strPtr("li-beans"), ActionType: omsDomain.PickScanActionPick, Quantity: 3},
+	}}
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
+
+	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
+		SessionID: "session-1", LineItemID: "li-beans",
+		Lines: []appoms.SubstituteLineInput{{SKUID: "sku-canned-beans", SubstituteQuantity: 4, OriginalQtyCovered: 4}},
+	})
+
+	assert.ErrorIs(t, err, omsDomain.ErrSubstitutionCoverageMismatch)
+}
+
+// TestSubstituteLineItem_coverageCountsExistingSubstituteScansToo proves
+// coveredQuantity's second scan type (Substitute, via OriginalQtyCovered)
+// is honored too, not just Pick -- e.g. a prior partial substitute already
+// covered 2 of 4, so a second batch must cover exactly the remaining 2.
+func TestSubstituteLineItem_coverageCountsExistingSubstituteScansToo(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-beans", SalesOrderID: "order-1", Quantity: 4}}
+	alreadyCovered := int64(2)
+	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
+		{ID: "scan-1", LineItemID: strPtr("li-beans"), ActionType: omsDomain.PickScanActionSubstitute, Quantity: 10, OriginalQtyCovered: &alreadyCovered},
+	}}
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
+
+	result, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
+		SessionID: "session-1", LineItemID: "li-beans",
+		Lines: []appoms.SubstituteLineInput{{SKUID: "sku-canned-beans", SubstituteQuantity: 2, OriginalQtyCovered: 2}},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, result.Scans, 1)
+}
+
+// TestSubstituteLineItem_ignoresOtherLineItemsScans proves coveredQuantity
+// filters by LineItemID -- a Pick scan against a different line on the
+// same order/session must not affect this line's remaining-quantity math.
+func TestSubstituteLineItem_ignoresOtherLineItemsScans(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-beans", SalesOrderID: "order-1", Quantity: 4}}
+	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
+		{ID: "scan-1", LineItemID: strPtr("li-other"), ActionType: omsDomain.PickScanActionPick, Quantity: 3},
+	}}
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
+
+	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
+		SessionID: "session-1", LineItemID: "li-beans",
+		Lines: []appoms.SubstituteLineInput{{SKUID: "sku-canned-beans", SubstituteQuantity: 4, OriginalQtyCovered: 4}},
+	})
+
+	require.NoError(t, err, "the other line item's Pick scan must not reduce li-beans' own remaining quantity")
+}
+
 func TestSubstituteLineItem_happyPathMultipleLinesSplitAcrossCheaperSKUs(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
