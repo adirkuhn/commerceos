@@ -10,6 +10,7 @@ import (
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -27,8 +28,8 @@ type customerFinder interface {
 }
 
 // connectionLister is integrations.ConnectionRepository narrowed to point
-// of use -- only needed to find the tenant's WhatsApp connection, same
-// narrowing application/whatsapp's own use cases already do.
+// of use -- finds the tenant's WhatsApp/Email connections, same narrowing
+// application/whatsapp's own use cases already do.
 type connectionLister interface {
 	ListByTenant(ctx context.Context) ([]integrationsDomain.Connection, error)
 }
@@ -60,32 +61,40 @@ type pendingSend struct {
 // own payload shape carrying sales_order_id gets recipient resolution for
 // free, no new branch needed here.
 type EvaluateAutomationRulesUseCase struct {
-	db               *gorm.DB
-	ruleRepo         mcDomain.AutomationRuleRepository
-	templateRepo     mcDomain.MessageTemplateRepository
-	salesOrderRepo   salesOrderFinder
-	customerRepo     customerFinder
-	connRepo         connectionLister
-	evolutionFactory integrationsDomain.EvolutionAPIClientFactory
-	encryptionSecret string
-	emailClient      messaging.Client
+	db                 *gorm.DB
+	ruleRepo           mcDomain.AutomationRuleRepository
+	templateRepo       mcDomain.MessageTemplateRepository
+	salesOrderRepo     salesOrderFinder
+	customerRepo       customerFinder
+	connRepo           connectionLister
+	evolutionFactory   integrationsDomain.EvolutionAPIClientFactory
+	encryptionSecret   string
+	emailClientFactory messaging.EmailClientFactory
+	// fallbackEmailClient is used when the tenant has no connected
+	// domain/integrations.ProviderEmail integration -- the platform-level
+	// SMTP client (or noop) cmd/scheduler/main.go already builds from
+	// SMTP_HOST/etc env vars, same fallback every automation email used
+	// before per-tenant email connections existed.
+	fallbackEmailClient messaging.Client
 }
 
 func NewEvaluateAutomationRulesUseCase(
 	db *gorm.DB, ruleRepo mcDomain.AutomationRuleRepository, templateRepo mcDomain.MessageTemplateRepository,
 	salesOrderRepo salesOrderFinder, customerRepo customerFinder, connRepo connectionLister,
-	evolutionFactory integrationsDomain.EvolutionAPIClientFactory, encryptionSecret string, emailClient messaging.Client,
+	evolutionFactory integrationsDomain.EvolutionAPIClientFactory, encryptionSecret string,
+	emailClientFactory messaging.EmailClientFactory, fallbackEmailClient messaging.Client,
 ) *EvaluateAutomationRulesUseCase {
 	return &EvaluateAutomationRulesUseCase{
 		db: db, ruleRepo: ruleRepo, templateRepo: templateRepo,
 		salesOrderRepo: salesOrderRepo, customerRepo: customerRepo, connRepo: connRepo,
-		evolutionFactory: evolutionFactory, encryptionSecret: encryptionSecret, emailClient: emailClient,
+		evolutionFactory: evolutionFactory, encryptionSecret: encryptionSecret,
+		emailClientFactory: emailClientFactory, fallbackEmailClient: fallbackEmailClient,
 	}
 }
 
 func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, eventID string, payload map[string]any) error {
 	var sends []pendingSend
-	var whatsappConn *integrationsDomain.Connection
+	var conns []integrationsDomain.Connection
 
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		rules, err := uc.ruleRepo.ListActiveBySubject(ctx, subject)
@@ -106,6 +115,12 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 		}
 		vars := buildTemplateVars(payload, customer.FirstName)
 
+		conns, err = uc.connRepo.ListByTenant(ctx)
+		if err != nil {
+			return err
+		}
+		whatsappConnected := findWhatsAppConnection(conns) != nil
+
 		for _, rule := range rules {
 			if !rule.Matches(payload) {
 				continue
@@ -122,11 +137,11 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 				channels = []messaging.Channel{*rule.ChannelOverride}
 			}
 			for _, ch := range channels {
-				to, err := uc.resolveRecipient(ctx, ch, customer, &whatsappConn)
-				if err != nil {
-					return err
-				}
+				to := recipientAddress(ch, customer)
 				if to == "" {
+					continue
+				}
+				if ch == messaging.ChannelWhatsApp && !whatsappConnected {
 					continue
 				}
 				sends = append(sends, pendingSend{
@@ -142,7 +157,7 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 		return fmt.Errorf("evaluateAutomationRules: %w", err)
 	}
 
-	return uc.dispatch(ctx, sends, whatsappConn)
+	return uc.dispatch(ctx, sends, conns)
 }
 
 // resolveCustomer resolves the triggering event's customer, generically,
@@ -164,34 +179,20 @@ func (uc *EvaluateAutomationRulesUseCase) resolveCustomer(ctx context.Context, p
 	return uc.customerRepo.FindByID(ctx, *order.CustomerID)
 }
 
-// resolveRecipient returns the customer's destination address for ch, or ""
-// if they have none on file (nothing to send to) -- the WhatsApp connection
-// is looked up at most once per Execute call (cached into *whatsappConn),
-// since a tenant has at most one.
-func (uc *EvaluateAutomationRulesUseCase) resolveRecipient(ctx context.Context, ch messaging.Channel, customer *customersDomain.Customer, whatsappConn **integrationsDomain.Connection) (string, error) {
+// recipientAddress returns the customer's destination address for ch, or ""
+// if they have none on file (nothing to send to). Pure -- no I/O -- since
+// which connection sends it, if any, is dispatch's concern, not this one's.
+func recipientAddress(ch messaging.Channel, customer *customersDomain.Customer) string {
 	switch ch {
 	case messaging.ChannelEmail:
-		return customer.Email, nil
+		return customer.Email
 	case messaging.ChannelWhatsApp:
-		if customer.PhoneE164 == "" {
-			return "", nil
-		}
-		if *whatsappConn == nil {
-			conns, err := uc.connRepo.ListByTenant(ctx)
-			if err != nil {
-				return "", err
-			}
-			*whatsappConn = findWhatsAppConnection(conns)
-		}
-		if *whatsappConn == nil {
-			return "", nil
-		}
-		return customer.PhoneE164, nil
+		return customer.PhoneE164
 	default:
 		// SMS has no provider configured yet -- see
 		// domain/messagecenter.KnownTriggerSubjects' own doc comment on
 		// this project's staged scope.
-		return "", nil
+		return ""
 	}
 }
 
@@ -200,23 +201,33 @@ func (uc *EvaluateAutomationRulesUseCase) resolveRecipient(ctx context.Context, 
 // "safe to retry, an occasional duplicate is a smaller harm than a silent
 // drop" tradeoff every other consumer in this codebase already makes) --
 // the whole event is nacked and redelivered, not partially retried.
-func (uc *EvaluateAutomationRulesUseCase) dispatch(ctx context.Context, sends []pendingSend, whatsappConn *integrationsDomain.Connection) error {
+func (uc *EvaluateAutomationRulesUseCase) dispatch(ctx context.Context, sends []pendingSend, conns []integrationsDomain.Connection) error {
 	var whatsappClient integrationsDomain.EvolutionAPIClient
+	var emailClient messaging.Client
+
 	for _, s := range sends {
 		switch s.channel {
 		case messaging.ChannelEmail:
+			if emailClient == nil {
+				c, err := uc.resolveEmailClient(conns)
+				if err != nil {
+					return fmt.Errorf("evaluateAutomationRules: %w", err)
+				}
+				emailClient = c
+			}
 			// smtp.Client.Send only reads HTMLBody, never Body (see
 			// infrastructure/messaging/smtp.Client.Send) -- Body alone
 			// here would silently send an empty message.
-			if err := uc.emailClient.Send(ctx, messaging.Message{Channel: messaging.ChannelEmail, To: s.to, Subject: s.subject, HTMLBody: s.body}); err != nil {
+			if err := emailClient.Send(ctx, messaging.Message{Channel: messaging.ChannelEmail, To: s.to, Subject: s.subject, HTMLBody: s.body}); err != nil {
 				return fmt.Errorf("evaluateAutomationRules: send email: %w", err)
 			}
 		case messaging.ChannelWhatsApp:
-			if whatsappConn == nil {
-				continue
-			}
 			if whatsappClient == nil {
-				c, err := buildEvolutionClient(uc.evolutionFactory, uc.encryptionSecret, *whatsappConn)
+				conn := findWhatsAppConnection(conns)
+				if conn == nil {
+					continue
+				}
+				c, err := buildEvolutionClient(uc.evolutionFactory, uc.encryptionSecret, *conn)
 				if err != nil {
 					return fmt.Errorf("evaluateAutomationRules: %w", err)
 				}
@@ -228,4 +239,32 @@ func (uc *EvaluateAutomationRulesUseCase) dispatch(ctx context.Context, sends []
 		}
 	}
 	return nil
+}
+
+// resolveEmailClient prefers the tenant's own connected email integration
+// (domain/integrations.ProviderEmail -- see that constant's doc comment for
+// the Connection field mapping) over fallbackEmailClient, the injected
+// platform-level SMTP client every automation email used before per-tenant
+// email connections existed.
+func (uc *EvaluateAutomationRulesUseCase) resolveEmailClient(conns []integrationsDomain.Connection) (messaging.Client, error) {
+	for i := range conns {
+		if conns[i].Provider != integrationsDomain.ProviderEmail {
+			continue
+		}
+		conn := conns[i]
+		password, err := crypto.Decrypt(uc.encryptionSecret, conn.ConsumerSecretEncrypted)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt email connection secret: %w", err)
+		}
+		port := ""
+		if conn.SMTPPort != nil {
+			port = *conn.SMTPPort
+		}
+		from := ""
+		if conn.EmailFrom != nil {
+			from = *conn.EmailFrom
+		}
+		return uc.emailClientFactory.NewClient(conn.StoreURL.String(), port, conn.ConsumerKey, password, from), nil
+	}
+	return uc.fallbackEmailClient, nil
 }

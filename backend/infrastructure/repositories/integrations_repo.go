@@ -25,6 +25,8 @@ type integrationConnectionModel struct {
 	DefaultWarehouseID      *string `gorm:"type:uuid"`
 	BolEconomicOperatorID   *string
 	BolDeliveryCode         *string
+	SMTPPort                *string
+	EmailFrom               *string
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
 }
@@ -60,6 +62,8 @@ func (r *ConnectionRepo) Create(ctx context.Context, c *integrationsDomain.Conne
 		DefaultWarehouseID:      c.DefaultWarehouseID,
 		BolEconomicOperatorID:   c.BolEconomicOperatorID,
 		BolDeliveryCode:         c.BolDeliveryCode,
+		SMTPPort:                c.SMTPPort,
+		EmailFrom:               c.EmailFrom,
 		CreatedAt:               c.CreatedAt,
 		UpdatedAt:               c.UpdatedAt,
 	}
@@ -146,6 +150,8 @@ func toConnectionDomain(m integrationConnectionModel) *integrationsDomain.Connec
 		DefaultWarehouseID:      m.DefaultWarehouseID,
 		BolEconomicOperatorID:   m.BolEconomicOperatorID,
 		BolDeliveryCode:         m.BolDeliveryCode,
+		SMTPPort:                m.SMTPPort,
+		EmailFrom:               m.EmailFrom,
 		CreatedAt:               m.CreatedAt,
 		UpdatedAt:               m.UpdatedAt,
 	}

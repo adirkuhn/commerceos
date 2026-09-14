@@ -40,3 +40,16 @@ type Message struct {
 type Client interface {
 	Send(ctx context.Context, msg Message) error
 }
+
+// EmailClientFactory builds a Client scoped to one tenant's own connected
+// email integration (see domain/integrations.ProviderEmail) -- same DI
+// shape as integrations.EvolutionAPIClientFactory: the use case that needs
+// a per-tenant email client (application/messagecenter's automation
+// engine) never constructs a concrete smtp.Client itself. Unlike
+// EvolutionAPIClientFactory there's no per-provider dispatch here (only
+// one Client implementation exists, infrastructure/messaging/smtp) --
+// still a factory, not a direct constructor call, so this package stays
+// free of an infrastructure import.
+type EmailClientFactory interface {
+	NewClient(host, port, username, password, from string) Client
+}

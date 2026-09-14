@@ -17,6 +17,7 @@ import (
 	gencoupons "github.com/adirkuhn/commerceos/api/coupons"
 	gencustomers "github.com/adirkuhn/commerceos/api/customers"
 	gendashboard "github.com/adirkuhn/commerceos/api/dashboard"
+	genemailintegration "github.com/adirkuhn/commerceos/api/emailintegration"
 	genfx "github.com/adirkuhn/commerceos/api/fx"
 	genia "github.com/adirkuhn/commerceos/api/iam"
 	genintegrations "github.com/adirkuhn/commerceos/api/integrations"
@@ -45,6 +46,7 @@ import (
 	couponshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/coupons"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
 	dashboardhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/dashboard"
+	emailintegrationhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/emailintegration"
 	fxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/fx"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/iam"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/integrations"
@@ -316,6 +318,21 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	messagecenterhandler.Register(messagecenterGroup, db)
+
+	emailintegrationSpec, err := genemailintegration.GetSpec()
+	if err != nil {
+		log.Fatalf("emailintegration: load openapi spec: %v", err)
+	}
+	// Own sub-group so the emailintegration-only spec validator never
+	// applies to the other modules' routes — same reasoning as pmsGroup
+	// above. Kept as its own small module rather than folded into
+	// api/integrations' already large composed handler -- see
+	// api/emailintegration/openapi.yaml's doc comment.
+	emailintegrationGroup := v1.Group("")
+	emailintegrationGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(emailintegrationSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	emailintegrationhandler.Register(emailintegrationGroup, db, outboxRepo, cfg.IntegrationsEncryptionSecret)
 
 	reportsSpec, err := genreports.GetSpec()
 	if err != nil {

@@ -23,7 +23,22 @@ const (
 	// unused (blank, same as Bol/MyParcel), ConsumerSecretEncrypted holds
 	// the provider's secret/API key. See PaymentLinkClientFactory for the
 	// payment integration contract both implement.
-	ProviderStripe  Provider = "stripe"
+	ProviderStripe Provider = "stripe"
+	// ProviderEmail is a per-tenant outbound SMTP relay -- reuses
+	// domain/messaging.Client (infrastructure/messaging/smtp.Client) rather
+	// than a dedicated factory port, since there's only one implementation
+	// today (unlike Stripe/Revolut, competing implementations of one
+	// PaymentLinkClient contract). Field mapping: StoreURL holds the SMTP
+	// host (a bare hostname, not a URL -- StoreURL.Validate()'s http(s)
+	// scheme check is NOT used for this provider), ConsumerKey the
+	// username (plain, same "not the sensitive half" reasoning as Stripe's
+	// publishable key), ConsumerSecretEncrypted the encrypted password,
+	// SMTPPort/EmailFrom (below) the remaining two fields no existing
+	// generic column covers. Before this provider existed, email was only
+	// ever a single platform-wide SMTP relay configured via SMTP_HOST/etc
+	// env vars (still the fallback cmd/api and cmd/scheduler use when no
+	// tenant has connected one -- see those main.go files).
+	ProviderEmail   Provider = "email"
 	ProviderRevolut Provider = "revolut"
 )
 
@@ -104,8 +119,15 @@ type Connection struct {
 	// no BolProductOverride field for this by design (explicit user choice:
 	// one delivery promise per connection is enough for now).
 	BolDeliveryCode *string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	// SMTPPort/EmailFrom are ProviderEmail-only (nil for every other
+	// provider) -- see that constant's doc comment for the full field
+	// mapping (StoreURL/ConsumerKey/ConsumerSecretEncrypted cover host/
+	// username/password, these two cover the remaining pieces no generic
+	// column already fit).
+	SMTPPort  *string
+	EmailFrom *string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // DefaultBolDeliveryCode is used whenever a Bol connection hasn't set

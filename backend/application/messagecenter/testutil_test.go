@@ -36,6 +36,16 @@ func whatsappConnection(t *testing.T) integrationsDomain.Connection {
 	}
 }
 
+func emailConnection(t *testing.T) integrationsDomain.Connection {
+	port, from := "587", "orders@mystore.com"
+	return integrationsDomain.Connection{
+		ID: "conn-email-1", Provider: integrationsDomain.ProviderEmail,
+		StoreURL: "smtp.mystore.com", ConsumerKey: "smtp-user",
+		ConsumerSecretEncrypted: encryptedSecret(t, "smtp-pass"),
+		SMTPPort:                &port, EmailFrom: &from,
+	}
+}
+
 func newMockGormDB(t *testing.T, n int) *gorm.DB {
 	t.Helper()
 	mockDB, mock, err := sqlmock.New()
@@ -187,6 +197,10 @@ func (f *fakeEvolutionAPIClientFactory) NewClient(_, _, _ string) (integrationsD
 type fakeEmailClient struct {
 	sent []messaging.Message
 	err  error
+	// label distinguishes which client instance a test's assertions came
+	// from -- e.g. "fallback" vs "tenant" -- to prove
+	// resolveEmailClient picked the right one.
+	label string
 }
 
 func (f *fakeEmailClient) Send(_ context.Context, msg messaging.Message) error {
@@ -195,4 +209,17 @@ func (f *fakeEmailClient) Send(_ context.Context, msg messaging.Message) error {
 	}
 	f.sent = append(f.sent, msg)
 	return nil
+}
+
+// fakeEmailClientFactory records the per-tenant Connection fields it was
+// built from and always returns the same client, so a test can both assert
+// on what was decrypted/passed and on what got sent through it.
+type fakeEmailClientFactory struct {
+	client                                              *fakeEmailClient
+	gotHost, gotPort, gotUsername, gotPassword, gotFrom string
+}
+
+func (f *fakeEmailClientFactory) NewClient(host, port, username, password, from string) messaging.Client {
+	f.gotHost, f.gotPort, f.gotUsername, f.gotPassword, f.gotFrom = host, port, username, password, from
+	return f.client
 }

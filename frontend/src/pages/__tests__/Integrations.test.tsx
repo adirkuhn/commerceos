@@ -27,6 +27,7 @@ vi.mock('../../integrations/api', () => ({
   connectWhatsapp: vi.fn(),
   connectStripe: vi.fn(),
   connectRevolut: vi.fn(),
+  connectEmail: vi.fn(),
   setWebhookSecret: vi.fn(),
 }))
 
@@ -515,5 +516,38 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
 
     expect(await screen.findByText('invalid key')).toBeInTheDocument()
+  })
+
+  it('connecting Email submits host/port/from and closes the modal (no webhook step)', async () => {
+    vi.mocked(integrationsApi.connectEmail).mockResolvedValue(
+      { id: 'conn-email-1', provider: 'email', store_url: 'smtp.mystore.com', status: 'connected', created_at: '' },
+    )
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(screen.getByText('Email'))
+
+    await userEvent.type(screen.getByLabelText('SMTP host'), 'smtp.mystore.com')
+    await userEvent.clear(screen.getByLabelText('Port'))
+    await userEvent.type(screen.getByLabelText('Port'), '587')
+    await userEvent.type(screen.getByLabelText('From address'), 'orders@mystore.com')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+
+    await waitFor(() => expect(integrationsApi.connectEmail).toHaveBeenCalledWith('test-token', {
+      host: 'smtp.mystore.com', port: '587', username: '', password: '', from: 'orders@mystore.com',
+    }))
+    expect(screen.queryByLabelText('SMTP host')).not.toBeInTheDocument()
+    expect(integrationsApi.listConnections).toHaveBeenCalledTimes(2) // initial load + refresh after connect
+  })
+
+  it('shows an error if connecting Email fails', async () => {
+    vi.mocked(integrationsApi.connectEmail).mockRejectedValue(new Error('connection refused'))
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(screen.getByText('Email'))
+    await userEvent.type(screen.getByLabelText('SMTP host'), 'smtp.mystore.com')
+    await userEvent.type(screen.getByLabelText('From address'), 'orders@mystore.com')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+
+    expect(await screen.findByText('connection refused')).toBeInTheDocument()
   })
 })

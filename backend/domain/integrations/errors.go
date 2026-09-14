@@ -64,4 +64,7 @@ var (
 	// call failure (list/create/delete a webhook subscription) from an
 	// internal error -- handlers map it to 502, not 500.
 	ErrProviderWebhookRequestFailed = errors.New("provider webhook request failed")
+	ErrEmailHostRequired            = errors.New("smtp host is required")
+	ErrEmailPortRequired            = errors.New("smtp port is required")
+	ErrEmailFromRequired            = errors.New("from address is required")
 )

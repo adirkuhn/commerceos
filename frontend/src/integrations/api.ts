@@ -516,6 +516,34 @@ export function deleteProviderWebhook(token: string, connectionId: string, webho
   return request<null>(`${base()}/connections/${connectionId}/provider-webhooks/${webhookId}`, { method: 'DELETE' }, token)
 }
 
+export interface ConnectEmailPayload {
+  host: string
+  port: string
+  username: string
+  password: string
+  from: string
+}
+
+// No OAuth -- paste your own outbound SMTP relay's credentials. Username/
+// password optional (some relays need no auth); omitted from the request
+// body entirely when blank rather than sent as empty strings.
+export function connectEmail(token: string, payload: ConnectEmailPayload): Promise<Connection> {
+  return request<Connection>(
+    `${base()}/email/connect`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        host: payload.host,
+        port: payload.port,
+        username: payload.username || undefined,
+        password: payload.password || undefined,
+        from: payload.from,
+      }),
+    },
+    token,
+  )
+}
+
 export interface ConnectBolPayload {
   clientId: string
   clientSecret: string

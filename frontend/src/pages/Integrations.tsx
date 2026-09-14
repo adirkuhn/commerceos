@@ -165,6 +165,12 @@ export default function Integrations() {
   const [stripePublishableKey, setStripePublishableKey] = useState('')
   const [connectingRevolut, setConnectingRevolut] = useState(false)
   const [revolutApiKey, setRevolutApiKey] = useState('')
+  const [connectingEmail, setConnectingEmail] = useState(false)
+  const [emailHost, setEmailHost] = useState('')
+  const [emailPort, setEmailPort] = useState('587')
+  const [emailUsername, setEmailUsername] = useState('')
+  const [emailPassword, setEmailPassword] = useState('')
+  const [emailFrom, setEmailFrom] = useState('')
   // Set once connectStripe/connectRevolut succeeds -- switches the form to
   // the "register this URL, then paste back the secret it gives you" step.
   // Reversed from WhatsApp's flow (there we generate the secret) since
@@ -279,6 +285,12 @@ export default function Integrations() {
     setStripePublishableKey('')
     setConnectingRevolut(false)
     setRevolutApiKey('')
+    setConnectingEmail(false)
+    setEmailHost('')
+    setEmailPort('587')
+    setEmailUsername('')
+    setEmailPassword('')
+    setEmailFrom('')
     setPaymentWebhook(null)
     setPaymentWebhookSecret('')
     setSavingPaymentWebhookSecret(false)
@@ -326,6 +338,22 @@ export default function Integrations() {
     try {
       const { connection, webhook_url } = await api.connectRevolut(token, revolutApiKey)
       setPaymentWebhook({ connectionId: connection.id, url: webhook_url })
+      refresh()
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : 'Failed to connect')
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  const handleConnectEmail = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!token) return
+    setConnectError('')
+    setStarting(true)
+    try {
+      await api.connectEmail(token, { host: emailHost, port: emailPort, username: emailUsername, password: emailPassword, from: emailFrom })
+      closeBrowse()
       refresh()
     } catch (err) {
       setConnectError(err instanceof Error ? err.message : 'Failed to connect')
@@ -573,7 +601,7 @@ export default function Integrations() {
               </button>
             </div>
 
-            {!connectingWoo && !connectingWhatsapp && !connectingStripe && !connectingRevolut ? (
+            {!connectingWoo && !connectingWhatsapp && !connectingStripe && !connectingRevolut && !connectingEmail ? (
               <div className="space-y-2">
                 <button
                   onClick={() => setConnectingWoo(true)}
@@ -628,6 +656,15 @@ export default function Integrations() {
                     R
                   </div>
                   <span className="text-sm dark:text-gray-200 text-gray-800">Revolut</span>
+                </button>
+                <button
+                  onClick={() => setConnectingEmail(true)}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                    E
+                  </div>
+                  <span className="text-sm dark:text-gray-200 text-gray-800">Email</span>
                 </button>
               </div>
             ) : connectingWhatsapp ? (
@@ -810,6 +847,89 @@ export default function Integrations() {
                 </button>
               </form>
               )
+            ) : connectingEmail ? (
+              <form onSubmit={handleConnectEmail} className="space-y-3">
+                <div>
+                  <label htmlFor="email-host" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    SMTP host
+                  </label>
+                  <input
+                    id="email-host"
+                    type="text"
+                    required
+                    autoFocus
+                    value={emailHost}
+                    onChange={e => setEmailHost(e.target.value)}
+                    placeholder="smtp.example.com"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="email-port" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Port
+                  </label>
+                  <input
+                    id="email-port"
+                    type="text"
+                    required
+                    value={emailPort}
+                    onChange={e => setEmailPort(e.target.value)}
+                    placeholder="587"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="email-username" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Username (optional)
+                  </label>
+                  <input
+                    id="email-username"
+                    type="text"
+                    value={emailUsername}
+                    onChange={e => setEmailUsername(e.target.value)}
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="email-password" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Password (optional)
+                  </label>
+                  <input
+                    id="email-password"
+                    type="password"
+                    value={emailPassword}
+                    onChange={e => setEmailPassword(e.target.value)}
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    Leave username/password blank for a relay that needs no auth.
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="email-from" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    From address
+                  </label>
+                  <input
+                    id="email-from"
+                    type="email"
+                    required
+                    value={emailFrom}
+                    onChange={e => setEmailFrom(e.target.value)}
+                    placeholder="orders@mystore.com"
+                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                {connectError && (
+                  <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={starting}
+                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {starting ? 'Connecting…' : 'Connect'}
+                </button>
+              </form>
             ) : (
               <>
                 <div className="flex gap-1 mb-4 p-0.5 rounded-lg dark:bg-[#111827] bg-gray-100">

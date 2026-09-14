@@ -334,7 +334,7 @@ func main() {
 	evaluateAutomationRulesUC := messagecenterapp.NewEvaluateAutomationRulesUseCase(
 		db, repositories.NewAutomationRuleRepo(db), repositories.NewMessageTemplateRepo(db),
 		salesOrderRepo, customerRepo, connRepo, evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
-		automationEmailClient,
+		smtp.NewClientFactory(), automationEmailClient,
 	)
 	for _, subject := range mcDomain.KnownTriggerSubjects {
 		automationEngineConsumer := consumers.NewAutomationEngineConsumer(subject, processedEventRepo, evaluateAutomationRulesUC, js)

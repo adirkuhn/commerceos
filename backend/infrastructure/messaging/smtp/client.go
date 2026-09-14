@@ -73,3 +73,14 @@ func (c *Client) Send(_ context.Context, msg messaging.Message) error {
 	}
 	return nil
 }
+
+// ClientFactory implements domain/messaging.EmailClientFactory -- see that
+// interface's doc comment for why a factory exists even though there's
+// only one Client implementation.
+type ClientFactory struct{}
+
+func NewClientFactory() ClientFactory { return ClientFactory{} }
+
+func (ClientFactory) NewClient(host, port, username, password, from string) messaging.Client {
+	return NewClient(Config{Host: host, Port: port, Username: username, Password: password, From: from})
+}
