@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { MessageTemplate, APIResponse } from '../types'
+import type { MessageTemplate, AutomationRule, APIResponse } from '../types'
 
 const TOKEN = 'test-token'
 
@@ -98,5 +98,74 @@ describe('deleteMessageTemplate', () => {
   it('throws on not found', async () => {
     mockFetchError('NOT_FOUND', 'message template not found', 404)
     await expect(api.deleteMessageTemplate(TOKEN, 'missing')).rejects.toThrow('message template not found')
+  })
+})
+
+const sampleRule: AutomationRule = {
+  id: 'rule-1', name: 'Collect point notice', trigger_subject: 'shipping.shipment.fulfillment_signal',
+  conditions: [{ field: 'status_code', operator: 'in', value: [8, 19] }], template_id: 'template-1',
+  channel_override: 'whatsapp', enabled: true,
+  created_at: '2026-06-01T00:00:00Z', updated_at: '2026-06-01T00:00:00Z',
+}
+
+describe('listAutomationRules', () => {
+  it('calls correct endpoint', async () => {
+    mockFetch([sampleRule])
+    const result = await api.listAutomationRules(TOKEN)
+    expect(result).toEqual([sampleRule])
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/automation-rules',
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+})
+
+describe('createAutomationRule', () => {
+  it('posts the input and returns the created rule', async () => {
+    mockFetch(sampleRule)
+    const result = await api.createAutomationRule(TOKEN, {
+      name: 'Collect point notice', trigger_subject: 'shipping.shipment.fulfillment_signal',
+      conditions: [{ field: 'status_code', operator: 'in', value: [8, 19] }], template_id: 'template-1',
+    })
+    expect(result).toEqual(sampleRule)
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/automation-rules',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('throws on validation error', async () => {
+    mockFetchError('INVALID_REQUEST', 'invalid trigger subject', 422)
+    await expect(api.createAutomationRule(TOKEN, { name: 'X', trigger_subject: 'bogus' as never, template_id: 'template-1' }))
+      .rejects.toThrow('invalid trigger subject')
+  })
+})
+
+describe('updateAutomationRule', () => {
+  it('calls the correct endpoint with PATCH', async () => {
+    mockFetch(sampleRule)
+    await api.updateAutomationRule(TOKEN, 'rule-1', {
+      name: 'Collect point notice', trigger_subject: 'shipping.shipment.fulfillment_signal', template_id: 'template-1', enabled: false,
+    })
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/automation-rules/rule-1',
+      expect.objectContaining({ method: 'PATCH' }),
+    )
+  })
+})
+
+describe('deleteAutomationRule', () => {
+  it('calls the correct endpoint with DELETE', async () => {
+    mockFetch(null)
+    await api.deleteAutomationRule(TOKEN, 'rule-1')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/automation-rules/rule-1',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
+  it('throws on not found', async () => {
+    mockFetchError('NOT_FOUND', 'automation rule not found', 404)
+    await expect(api.deleteAutomationRule(TOKEN, 'missing')).rejects.toThrow('automation rule not found')
   })
 })
