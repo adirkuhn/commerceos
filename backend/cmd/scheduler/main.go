@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 
 	channelsapp "github.com/adirkuhn/commerceos/application/channels"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
+	messagecenterapp "github.com/adirkuhn/commerceos/application/messagecenter"
 	notificationsapp "github.com/adirkuhn/commerceos/application/notifications"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	pmsapp "github.com/adirkuhn/commerceos/application/pms"
@@ -26,6 +28,8 @@ import (
 	whatsappapp "github.com/adirkuhn/commerceos/application/whatsapp"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	"github.com/adirkuhn/commerceos/domain/events"
+	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
+	"github.com/adirkuhn/commerceos/domain/messaging"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
@@ -34,6 +38,8 @@ import (
 	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
 	"github.com/adirkuhn/commerceos/infrastructure/evolutionapi"
+	"github.com/adirkuhn/commerceos/infrastructure/messaging/noop"
+	"github.com/adirkuhn/commerceos/infrastructure/messaging/smtp"
 	myparcelinfra "github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/pdf"
 	"github.com/adirkuhn/commerceos/infrastructure/publishers"
@@ -306,6 +312,41 @@ func main() {
 	if sub := subscribeConsumer(js, events.ShipmentFulfillmentSignal{}.EventName(), "shipment-fulfillment-signal-scheduler",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, shipmentFulfillmentSignalConsumer.Handle); sub != nil {
 		defer sub.Unsubscribe()
+	}
+
+	// Message Center automation engine -- one AutomationEngineConsumer
+	// instance per known trigger subject (see
+	// domain/messagecenter.KnownTriggerSubjects), each its own JetStream
+	// subscription/durable/processed-events key, same
+	// "independent consumer per subject" convention as every consumer
+	// above, but sharing one handler implementation since the subject
+	// itself is the variable part here (see AutomationEngineConsumer's own
+	// doc comment). Email uses the same optional SMTP client as
+	// cmd/api/main.go's storefront login emails -- unset SMTP_HOST means
+	// every automation email silently no-ops (noop.Client) rather than the
+	// scheduler failing to start.
+	var automationEmailClient messaging.Client = noop.Client{}
+	if cfg.SMTPHost != "" {
+		automationEmailClient = smtp.NewClient(smtp.Config{
+			Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, From: cfg.SMTPFrom,
+		})
+	}
+	evaluateAutomationRulesUC := messagecenterapp.NewEvaluateAutomationRulesUseCase(
+		db, repositories.NewAutomationRuleRepo(db), repositories.NewMessageTemplateRepo(db),
+		salesOrderRepo, customerRepo, connRepo, evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
+		automationEmailClient,
+	)
+	for _, subject := range mcDomain.KnownTriggerSubjects {
+		automationEngineConsumer := consumers.NewAutomationEngineConsumer(subject, processedEventRepo, evaluateAutomationRulesUC, js)
+		// JetStream durable names may not contain "." (see nats.go's
+		// checkConsumerName) -- subject itself keeps its dots (that's the
+		// real NATS subject every event is published under), only the
+		// durable name is sanitized.
+		durable := "automation-engine-" + strings.ReplaceAll(subject, ".", "-")
+		if sub := subscribeConsumer(js, subject, durable,
+			consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, automationEngineConsumer.Handle); sub != nil {
+			defer sub.Unsubscribe()
+		}
 	}
 
 	rs := buildRunners(
