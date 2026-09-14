@@ -14,12 +14,20 @@ servers:
   - url: /api/v1
 
 paths:
-  /pms/skus/{bulkSkuId}/bulk-weight-portions:
+  /pms/skus/{id}/bulk-weight-portions:
     post:
       operationId: bulkAddWeightPortions
       summary: Create N sellable SKUs off a weight-pool bulk SKU, one per entered weight
       parameters:
-        - name: bulkSkuId
+        # Named "id" (not e.g. "bulkSkuId"), matching every other
+        # /pms/skus/{id}/... path in api/pms/openapi.yaml -- gin's router
+        # requires the SAME wildcard name at a given path position across
+        # every route registered into it, regardless of which OpenAPI
+        # module/Gin sub-group declared it (sub-groups only scope
+        # middleware, not the underlying route tree) -- a mismatched name
+        # here panics the whole process at startup ("conflicts with
+        # existing wildcard").
+        - name: id
           in: path
           required: true
           schema: { type: string }

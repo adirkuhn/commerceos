@@ -47,7 +47,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 	genweightportions.RegisterHandlers(rg, h)
 }
 
-func (h *Handler) BulkAddWeightPortions(c *gin.Context, bulkSkuId string) {
+func (h *Handler) BulkAddWeightPortions(c *gin.Context, id string) {
 	var req genweightportions.BulkAddWeightPortionsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
@@ -58,7 +58,7 @@ func (h *Handler) BulkAddWeightPortions(c *gin.Context, bulkSkuId string) {
 		weights[i] = int64(w)
 	}
 	result, err := h.bulkAdd.Execute(c.Request.Context(), apppms.BulkAddWeightPortionsInput{
-		BulkSKUID: bulkSkuId, WarehouseID: req.WarehouseId, BulkBatchID: req.BulkBatchId,
+		BulkSKUID: id, WarehouseID: req.WarehouseId, BulkBatchID: req.BulkBatchId,
 		WeightsGrams: weights, SKUCodePrefix: stringValue(req.SkuCodePrefix), Reason: stringValue(req.Reason),
 	})
 	if err := mapError(c, err); err != nil {

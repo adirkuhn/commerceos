@@ -66,8 +66,8 @@ type BulkAddWeightPortionsJSONRequestBody = BulkAddWeightPortionsRequest
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// BulkAddWeightPortions Create N sellable SKUs off a weight-pool bulk SKU, one per entered weight
-	// (POST /pms/skus/{bulkSkuId}/bulk-weight-portions)
-	BulkAddWeightPortions(c *gin.Context, bulkSkuId string)
+	// (POST /pms/skus/{id}/bulk-weight-portions)
+	BulkAddWeightPortions(c *gin.Context, id string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -85,12 +85,12 @@ func (siw *ServerInterfaceWrapper) BulkAddWeightPortions(c *gin.Context) {
 	var err error
 	_ = err
 
-	// ------------- Path parameter "bulkSkuId" -------------
-	var bulkSkuId string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "bulkSkuId", c.Param("bulkSkuId"), &bulkSkuId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
 	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter bulkSkuId: %w", err), http.StatusBadRequest)
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
 		return
 	}
 
@@ -101,7 +101,7 @@ func (siw *ServerInterfaceWrapper) BulkAddWeightPortions(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.BulkAddWeightPortions(c, bulkSkuId)
+	siw.Handler.BulkAddWeightPortions(c, id)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -131,7 +131,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
-	router.POST(options.BaseURL+"/pms/skus/:bulkSkuId/bulk-weight-portions", wrapper.BulkAddWeightPortions)
+	router.POST(options.BaseURL+"/pms/skus/:id/bulk-weight-portions", wrapper.BulkAddWeightPortions)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -139,23 +139,23 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"tFbfb9s2EP5XDtyANoBsJU2fBOwh6YIhCNAV9YI+tIFxEc8Wa/7qkYprBP7fB1KyHVt2toftTaKO393p",
-	"++4jn0XtjHeWbAyiehZMwTsbKL/cMDtOD7WzkWxMj+i9VjVG5Wz5PTib1kLdkMH09CvTTFTil3KHWnZf",
-	"Q5nRPvf4Yr1eF0JSqFn5BCYqQTldWu+3JMTrVi+upPxCat7ET45TbPhMP1oKuR7PzhNH1VX82OrF9BFj",
-	"3UyVTAv7Gb40qm5AuwhuBrEhSPEwubtPL4HAY73AOQVAJpCMSwszdgZGI3BGxdK2WsPMMczJEqOGt60d",
-	"aRcjybMOK0RXLwqwDuinV7yCGpkVybRriSzHohAJBR81iSpyS4WIK0+iEiGysnOxLgQT9n928Cks2mnt",
-	"JE0900z9HLb4O82w1TFAdHsdvgnglhbSXlg2ZHNDkXJBgyxLZGpcG6j/i8OATEeYzhlN/vEqUvdglFWm",
-	"NaK62OIqG2lOnPYZZW+7yN1nZMZVpp3pR6uYpKi+7pdwmPBhu9k9fqc6JugTQunlNlCKxIjD1ZoJI8m9",
-	"jl7T9Icuvk9HcnJ3n2oZdDaoljajtS+Go7HHkgyVj5y4PcpW3TKTrVfTkxEnaPasapoaZR1PW6s6ixiy",
-	"uhHlK1LZKeVw+wHvme0tYLHt61gxh50dJDumkn0TOqmKA1Ze8HWgl1NdGwoB58e+DRk+spIosTM3HO9v",
-	"4q+VJ0DQKmQX6wejgDlF+AiBusIhy/ebSNaVLGDUKTvsAiZ39wHcbAbYY4y8c3rniG8DEUhnUNnSmzCe",
-	"3N2P762KKf9vC6XdWQHOEnhiIBuJSfZABRDWDWAb3SiTJjsX3djRmwB5eeSJRwkJ0MouvGdbwpNCwN5m",
-	"I0n4Y3KxKZPMI8kUc3P1cXRxOSj0xiaIzgdu+tjrDvdsDFcQyGMChWBQazBOtprgrVYLAvSqZHpStAxF",
-	"ful5rHOHZ8AYG2KIDVqYOZ2qUDa6HOpNeAOomVCuQCPPCbJjBJLQoJWaOJutiklX4oMzhrimPyeQrAu6",
-	"gmHjXHD16VYU4ok4dMxfjM+TsJwni16JSlyOz8eXaS4wNlmMqYIyLNpQPqffPFm0t3JdZva3DHfgWciu",
-	"O0CTnPNxfitFddxFcxJGQ5E4iOrrs1CpopQ4HWdoUj/blOLlQHcn3O6CcDgMD10whXjt5Oo/u2u8emtY",
-	"73tOP+F7N5935+f/dy2n70FukYh+f/7+FPK21O5OlaPfvfvX0cmxW2OQV0mG2RdeOsc/GMOpqe86CcRP",
-	"G5G0rEUlyjQbTxdi/bD+OwAA//8=",
+	"tFZNb9tGEP0rg22BxAAl+iMnAj3YqVEYBtIgqpFDYghj7kjcaL8yu7QiGPrvxS4pKRIlt4f2Ri5n38zw",
+	"vXm7L6J2xjtLNgZRvQim4J0NlF9umR2nh9rZSDamR/Reqxqjcrb8FpxNa6FuyGB6+pVpJirxS7lDLbuv",
+	"ocxon3p8sV6vCyEp1Kx8AhOVoJwurfdbEuJNqxfXUn4mNW/iR8cpNnyi7y2FXI9n54mj6ip+avVi+oSx",
+	"bqZKpoX9DJ8bVTegXQQ3g9gQpHiY3D+kl0DgsV7gnAIgE0jGpYUZOwOjETijYmlbrWHmGOZkiVHD29aO",
+	"tIuR5FmHFaKrFwVYB/TDK15BjcyKZNq1RJZjUYiEgk+aRBW5pULElSdRiRBZ2blYF4IJ+z87+BQW7bR2",
+	"kqaeaaZ+DFv8nWbY6hggur0O3wRwSwtpLywbsrmhSLmgQZYlMjWuDdT/xWFApiNM54wm/3gVqXswyirT",
+	"GlFdbHGVjTQnTvuMsndd5O4zMuMq0870vVVMUlRf9ks4TPi43eyevlEdE/QJofRyGyhFYsThas2EkeRe",
+	"R69p+n0X36cjObl/SLUMOhtUS5vR2hfD0dhjSYbKR07cHmWrbpnJ1qvpyYgTNHtWNU2Nso6nrVWdRQxZ",
+	"3YjyFanslHK4/YD3zPYWsNj2dayYw84Okh1Tyb4JnVTFASs/8XWgl1NdGwoB58e+DRk+spIosTM3HO+v",
+	"4q+VJ0DQKmQX6wejgDlF+ACBusIhy/erSNaVLGDUKTvsAib3DwHcbAbYY4y8c3rniG8DEUhnUNnSmzCe",
+	"3D+MH6yKKf9vC6XdWQHOEnhiIBuJSfZABRDWDWAb3SiTJjsX3djRmwB5eeSJRwkJ0MouvGdbwrNCwN5m",
+	"I0n4Y3KxKZPME8kUc3v9YXRxNSj01iaIzgdu+9ibDvdsDNcQyGMChWBQazBOtprgrVYLAvSqZHpWtAxF",
+	"ful5rHOHZ8AYG2KIDVqYOZ2qUDa6HOpNeAOomVCuQCPPCbJjBJLQoJWaOJutiklX4r0zhrimPyeQrAu6",
+	"gmHjXHD98U4U4pk4dMxfjM+TsJwni16JSlyNz8dXaS4wNlmMqYIyLNpQvii5LjPtW2o71Kxg152cScf5",
+	"HL+Tojpunxmd0VAkDqL68iJUKiVlTOcYmjzJaWJ3I9ydabsrwaH8H7tgCvHGydV/drt49Z6w3neZfqb3",
+	"7jqX5+f/dy2nbz5ukah9d/7uFPK21O4WlaMvL/91dPLo1hjkVRJedoKfveIfrODUnHedBOLnjTpa1qIS",
+	"ZZqG5wuxflz/HQAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
