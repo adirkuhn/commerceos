@@ -122,10 +122,7 @@ describe('AddressConfirmModal', () => {
 
   it('offers every MyParcel box type and defaults to Package, hands off the chosen one', async () => {
     const onNext = vi.fn()
-    // Carrier 2 (bpost), not 1 (PostNL) -- PostNL only accepts package_type
-    // 1/2 (see packageTypesForCarrier), so this generic "every box type"
-    // case needs a carrier without that restriction.
-    render(<AddressConfirmModal token="test-token" initialAddress={address} defaultCarrier={2} onNext={onNext} onClose={vi.fn()} />)
+    render(<AddressConfirmModal token="test-token" initialAddress={address} defaultCarrier={1} onNext={onNext} onClose={vi.fn()} />)
 
     const select = screen.getByLabelText<HTMLSelectElement>('Package type')
     expect(select.value).toBe('1')
@@ -136,29 +133,6 @@ describe('AddressConfirmModal', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
 
     await waitFor(() => expect(onNext).toHaveBeenCalledWith(expect.objectContaining({ packageType: 6 })))
-  })
-
-  // Pins the real MyParcel 422 (error 3707, "Pakkettype niet ondersteund"):
-  // PostNL/SendMyParcel only accepts package_type 1 (Package) or 2 (Mailbox
-  // package) -- the picker must not offer choices MyParcel will reject.
-  it('restricts the package type picker to what PostNL actually supports', async () => {
-    render(<AddressConfirmModal token="test-token" initialAddress={address} defaultCarrier={1} onNext={vi.fn()} onClose={vi.fn()} />)
-
-    const select = screen.getByLabelText<HTMLSelectElement>('Package type')
-    const labels = Array.from(select.querySelectorAll('option')).map(o => o.textContent)
-    expect(labels).toEqual(['Package', 'Mailbox package'])
-  })
-
-  it('clamps the chosen package type when switching to a carrier that no longer supports it', async () => {
-    render(<AddressConfirmModal token="test-token" initialAddress={address} defaultCarrier={2} onNext={vi.fn()} onClose={vi.fn()} />)
-
-    const packageSelect = screen.getByLabelText<HTMLSelectElement>('Package type')
-    await userEvent.selectOptions(packageSelect, '6') // Small package -- unsupported by PostNL
-
-    const carrierSelect = screen.getByLabelText<HTMLSelectElement>('Carrier')
-    await userEvent.selectOptions(carrierSelect, '1') // switch to PostNL
-
-    expect(packageSelect.value).toBe('1')
   })
 
   // Reaching this modal via LabelPreviewModal's "Back to edit" must not

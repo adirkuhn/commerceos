@@ -216,12 +216,6 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ShipmentResponse' }
         '400': { $ref: '#/components/responses/Error' }
-        '422':
-          description: >-
-            package_type isn't one the chosen carrier supports (e.g. PostNL
-            /SendMyParcel only accepts 1 Package or 2 Mailbox package) --
-            rejected before ever calling MyParcel.
-          $ref: '#/components/responses/Error'
         '502':
           description: MyParcel rejected the shipment (invalid address, etc) -- nothing was persisted locally.
           $ref: '#/components/responses/Error'

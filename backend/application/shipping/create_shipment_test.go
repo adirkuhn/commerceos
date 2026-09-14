@@ -204,14 +204,11 @@ func TestCreateShipment_perShipmentOverride_winsOverConnectionDefault(t *testing
 	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 3), connRepo, settingsRepo, overrideRepo, shipmentRepo,
 		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, tenantSettingsRepoWithCurrency("EUR"), notInsuredSalesOrderRepo(), &fakeOrderExporter{}, &fakeSalesOrderLineItemLister{}, &fakeSKURepo{})
 
-	// Bpost, not PostNL/SendMyParcel -- PostNL only accepts package_type 1/2
-	// (see ValidatePackageTypeForCarrier); this test is about override-wins
-	// ordering, not carrier capability, so it stays off that restriction.
 	digitalStamp := shippingDomain.PackageTypeDigitalStamp
 	sig := true
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
-		SalesOrderID: "order-1", ConnectionID: "conn-1", Carrier: shippingDomain.CarrierBpost, Recipient: validRecipient(),
+		SalesOrderID: "order-1", ConnectionID: "conn-1", Carrier: shippingDomain.CarrierPostNL, Recipient: validRecipient(),
 		PackageType: &digitalStamp, SignatureRequired: &sig,
 	})
 
@@ -411,46 +408,6 @@ func TestCreateShipment_incompleteRecipient_returnsErrMissingRecipient(t *testin
 	})
 
 	require.ErrorIs(t, err, shippingDomain.ErrMissingRecipient)
-}
-
-// TestCreateShipment_unsupportedPackageTypeForCarrier_returnsTypedErrorWithoutCallingMyParcel
-// pins the real MyParcel 422 (error 3707, "Pakkettype niet ondersteund")
-// this codebase actually hit: PostNL/SendMyParcel only accepts package_type
-// 1/2. The use case must catch this before ever calling MyParcel, not just
-// propagate MyParcel's own rejection.
-func TestCreateShipment_unsupportedPackageTypeForCarrier_returnsTypedErrorWithoutCallingMyParcel(t *testing.T) {
-	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
-	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	settingsRepo := &mocks.ShippingConnectionSettingsRepo{
-		FindByConnectionIDFn: func(_ context.Context, _ string) (*shippingDomain.ShippingConnectionSettings, error) {
-			return &shippingDomain.ShippingConnectionSettings{DefaultPackageType: shippingDomain.PackageTypePackage}, nil
-		},
-	}
-	overrideRepo := &fakeShippingCarrierOverrideRepo{
-		findByConnectionAndCarrierFn: func(_ context.Context, _ string, _ shippingDomain.Carrier) (*shippingDomain.ShippingCarrierOverride, error) {
-			return nil, nil
-		},
-	}
-	clientCalled := false
-	client := &fakeCarrierClient{
-		createShipmentFn: func(_ context.Context, _ integrationsDomain.CreateCarrierShipmentRequest) (integrationsDomain.CarrierShipmentResult, error) {
-			clientCalled = true
-			return integrationsDomain.CarrierShipmentResult{}, nil
-		},
-	}
-	shipmentRepo := &fakeShipmentRepo{findBySalesOrderIDFn: noExistingShipments}
-	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 1), connRepo, settingsRepo, overrideRepo, shipmentRepo,
-		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, tenantSettingsRepoWithCurrency("EUR"), notInsuredSalesOrderRepo(), &fakeOrderExporter{}, &fakeSalesOrderLineItemLister{}, &fakeSKURepo{})
-
-	digitalStamp := shippingDomain.PackageTypeDigitalStamp
-	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
-	_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
-		SalesOrderID: "order-1", ConnectionID: "conn-1", Carrier: shippingDomain.CarrierPostNL, Recipient: validRecipient(),
-		PackageType: &digitalStamp,
-	})
-
-	require.ErrorIs(t, err, shippingDomain.ErrUnsupportedPackageTypeForCarrier)
-	assert.False(t, clientCalled, "must reject before ever calling MyParcel")
 }
 
 func TestCreateShipment_myParcelAPIError_propagatesAndDoesNotPersist(t *testing.T) {

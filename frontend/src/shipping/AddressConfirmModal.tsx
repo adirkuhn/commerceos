@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import type { Address } from '../oms/types'
 import type { RecipientAddress, DeliveryPriceOption } from './types'
-import { CARRIERS, packageTypesForCarrier } from './types'
+import { CARRIERS, PACKAGE_TYPES } from './types'
 import * as shippingApi from './api'
 
 // ESTIMATE_DEBOUNCE_MS: same purpose as the address check's blur-triggered
@@ -119,16 +119,6 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
   const [recipient, setRecipient] = useState<RecipientAddress>(() => initialRecipient ?? addressToRecipientDraft(initialAddress, fallbackEmail))
   const [carrier, setCarrier] = useState(initialCarrier ?? defaultCarrier ?? 1)
   const [packageType, setPackageType] = useState(initialPackageType ?? defaultPackageType ?? 1)
-  const availablePackageTypes = packageTypesForCarrier(carrier)
-  // Switching to a carrier that doesn't support the current selection (e.g.
-  // PostNL only takes Package/Mailbox) must not silently submit an
-  // unsupported package_type -- clamp to that carrier's first allowed type.
-  useEffect(() => {
-    if (!availablePackageTypes.some(p => p.id === packageType)) {
-      setPackageType(availablePackageTypes[0].id)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carrier])
 
   // Estimated label cost -- MyParcel's own GET /delivery_options is the
   // only price MyParcel's API exposes before a shipment exists, and it only
@@ -352,7 +342,7 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
             <div>
               <label htmlFor="ship-package-type" className={labelClass}>Package type</label>
               <select id="ship-package-type" value={packageType} onChange={e => setPackageType(Number(e.target.value))} className={inputClass}>
-                {availablePackageTypes.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select>
             </div>
           </div>

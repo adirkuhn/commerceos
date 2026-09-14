@@ -127,8 +127,6 @@ func mapErr(c *gin.Context, err error) {
 		writeError(c, http.StatusConflict, "webhook_secret_not_set", err.Error())
 	case errors.Is(err, shippingDomain.ErrDeliveryEstimateUnsupportedCountry):
 		writeError(c, http.StatusUnprocessableEntity, "unsupported_country", err.Error())
-	case errors.Is(err, shippingDomain.ErrUnsupportedPackageTypeForCarrier):
-		writeError(c, http.StatusUnprocessableEntity, "unsupported_package_type", err.Error())
 	default:
 		writeError(c, http.StatusBadGateway, "upstream_error", err.Error())
 	}
