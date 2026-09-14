@@ -69,3 +69,44 @@ func (s *stubMessageTemplateRepo) Delete(_ context.Context, id string) error {
 	s.deletedID = id
 	return nil
 }
+
+type stubAutomationRuleRepo struct {
+	created   []mcDomain.AutomationRule
+	updated   []mcDomain.AutomationRule
+	deletedID string
+	byID      map[string]mcDomain.AutomationRule
+	all       []mcDomain.AutomationRule
+	bySubject []mcDomain.AutomationRule
+}
+
+func (s *stubAutomationRuleRepo) Create(_ context.Context, r *mcDomain.AutomationRule) error {
+	r.ID = "rule-1"
+	s.created = append(s.created, *r)
+	return nil
+}
+
+func (s *stubAutomationRuleRepo) FindByID(_ context.Context, id string) (*mcDomain.AutomationRule, error) {
+	rule, ok := s.byID[id]
+	if !ok {
+		return nil, mcDomain.ErrRuleNotFound
+	}
+	return &rule, nil
+}
+
+func (s *stubAutomationRuleRepo) ListByTenant(_ context.Context) ([]mcDomain.AutomationRule, error) {
+	return s.all, nil
+}
+
+func (s *stubAutomationRuleRepo) ListActiveBySubject(_ context.Context, _ string) ([]mcDomain.AutomationRule, error) {
+	return s.bySubject, nil
+}
+
+func (s *stubAutomationRuleRepo) Update(_ context.Context, r *mcDomain.AutomationRule) error {
+	s.updated = append(s.updated, *r)
+	return nil
+}
+
+func (s *stubAutomationRuleRepo) Delete(_ context.Context, id string) error {
+	s.deletedID = id
+	return nil
+}

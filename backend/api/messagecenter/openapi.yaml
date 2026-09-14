@@ -4,9 +4,10 @@ info:
   version: "1.0"
   description: >-
     Merchant-configurable message templates (see domain/messagecenter) --
-    reusable wording sent over email/sms/whatsapp, referenced by a future
-    AutomationRule contract that decides *when* one fires. This slice only
-    covers manual CRUD over templates themselves.
+    reusable wording sent over email/sms/whatsapp -- plus AutomationRule,
+    which decides *when* one fires (event subject + flat AND condition list).
+    Evaluating a rule against a live event (the automation engine itself) is
+    a separate, later slice; this contract only covers CRUD over both.
 servers:
   - url: /api/v1
 
@@ -67,6 +68,70 @@ paths:
     delete:
       operationId: deleteMessageTemplate
       summary: Delete a message template
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /automation-rules:
+    get:
+      operationId: listAutomationRules
+      summary: List every automation rule for the current tenant
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRuleListResponse'
+    post:
+      operationId: createAutomationRule
+      summary: Create an automation rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAutomationRuleRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRuleResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /automation-rules/{id}:
+    patch:
+      operationId: updateAutomationRule
+      summary: Update an automation rule
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAutomationRuleRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRuleResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteAutomationRule
+      summary: Delete an automation rule
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -164,6 +229,102 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MessageTemplate'
+        error: { nullable: true }
+
+    TriggerSubject:
+      type: string
+      description: >-
+        Domain event subject this rule can fire on -- mirrors
+        domain/messagecenter.KnownTriggerSubjects.
+      enum:
+        - pms.product.deleted
+        - storefront.order.placed
+        - pms.category.changed
+        - pms.product.changed
+        - payments.refund.manual_review_required
+        - payments.refund.issued
+        - integrations.connection.connected
+        - oms.sales_order.status_changed
+        - inventory.stock.changed
+        - shipping.shipment.fulfillment_signal
+
+    Operator:
+      type: string
+      enum: [eq, neq, in, gt, lt]
+
+    Condition:
+      type: object
+      required: [field, operator, value]
+      properties:
+        field: { type: string, minLength: 1 }
+        operator:
+          $ref: '#/components/schemas/Operator'
+        value: {}
+
+    AutomationRule:
+      type: object
+      required: [id, name, trigger_subject, conditions, template_id, enabled, created_at, updated_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        trigger_subject:
+          $ref: '#/components/schemas/TriggerSubject'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Condition'
+        template_id: { type: string }
+        channel_override:
+          $ref: '#/components/schemas/Channel'
+        enabled: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateAutomationRuleRequest:
+      type: object
+      required: [name, trigger_subject, template_id]
+      properties:
+        name: { type: string, minLength: 1 }
+        trigger_subject:
+          $ref: '#/components/schemas/TriggerSubject'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Condition'
+        template_id: { type: string }
+        channel_override:
+          $ref: '#/components/schemas/Channel'
+
+    UpdateAutomationRuleRequest:
+      type: object
+      required: [name, trigger_subject, template_id, enabled]
+      properties:
+        name: { type: string, minLength: 1 }
+        trigger_subject:
+          $ref: '#/components/schemas/TriggerSubject'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Condition'
+        template_id: { type: string }
+        channel_override:
+          $ref: '#/components/schemas/Channel'
+        enabled: { type: boolean }
+
+    AutomationRuleResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/AutomationRule'
+        error: { nullable: true }
+
+    AutomationRuleListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationRule'
         error: { nullable: true }
 
     ErrorResponse:

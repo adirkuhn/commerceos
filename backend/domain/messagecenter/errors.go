@@ -9,4 +9,10 @@ var (
 	ErrNoChannelsSelected   = errors.New("at least one channel must be selected")
 	ErrInvalidChannel       = errors.New("invalid message channel")
 	ErrTemplateBodyRequired = errors.New("template body is required")
+
+	ErrRuleNotFound          = errors.New("automation rule not found")
+	ErrRuleNameRequired      = errors.New("rule name is required")
+	ErrInvalidTriggerSubject = errors.New("invalid trigger subject")
+	ErrTemplateIDRequired    = errors.New("template id is required")
+	ErrInvalidCondition      = errors.New("invalid condition")
 )

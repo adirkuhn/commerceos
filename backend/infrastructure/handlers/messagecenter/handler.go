@@ -35,26 +35,57 @@ type deleteMessageTemplateUC interface {
 	Execute(ctx context.Context, id string) error
 }
 
+type listAutomationRulesUC interface {
+	Execute(ctx context.Context) ([]mcDomain.AutomationRule, error)
+}
+
+type createAutomationRuleUC interface {
+	Execute(ctx context.Context, in appmc.CreateAutomationRuleInput) (*mcDomain.AutomationRule, error)
+}
+
+type updateAutomationRuleUC interface {
+	Execute(ctx context.Context, in appmc.UpdateAutomationRuleInput) (*mcDomain.AutomationRule, error)
+}
+
+type deleteAutomationRuleUC interface {
+	Execute(ctx context.Context, id string) error
+}
+
 type Handler struct {
 	listTemplates  listMessageTemplatesUC
 	createTemplate createMessageTemplateUC
 	updateTemplate updateMessageTemplateUC
 	deleteTemplate deleteMessageTemplateUC
+	listRules      listAutomationRulesUC
+	createRule     createAutomationRuleUC
+	updateRule     updateAutomationRuleUC
+	deleteRule     deleteAutomationRuleUC
 }
 
-func NewHandler(list listMessageTemplatesUC, create createMessageTemplateUC, update updateMessageTemplateUC, del deleteMessageTemplateUC) *Handler {
-	return &Handler{listTemplates: list, createTemplate: create, updateTemplate: update, deleteTemplate: del}
+func NewHandler(
+	list listMessageTemplatesUC, create createMessageTemplateUC, update updateMessageTemplateUC, del deleteMessageTemplateUC,
+	listRules listAutomationRulesUC, createRule createAutomationRuleUC, updateRule updateAutomationRuleUC, deleteRule deleteAutomationRuleUC,
+) *Handler {
+	return &Handler{
+		listTemplates: list, createTemplate: create, updateTemplate: update, deleteTemplate: del,
+		listRules: listRules, createRule: createRule, updateRule: updateRule, deleteRule: deleteRule,
+	}
 }
 
 var _ genmc.ServerInterface = (*Handler)(nil)
 
 func Register(rg gin.IRouter, db *gorm.DB) {
-	repo := repositories.NewMessageTemplateRepo(db)
+	templateRepo := repositories.NewMessageTemplateRepo(db)
+	ruleRepo := repositories.NewAutomationRuleRepo(db)
 	h := NewHandler(
-		appmc.NewListMessageTemplatesUseCase(db, repo),
-		appmc.NewCreateMessageTemplateUseCase(db, repo),
-		appmc.NewUpdateMessageTemplateUseCase(db, repo),
-		appmc.NewDeleteMessageTemplateUseCase(db, repo),
+		appmc.NewListMessageTemplatesUseCase(db, templateRepo),
+		appmc.NewCreateMessageTemplateUseCase(db, templateRepo),
+		appmc.NewUpdateMessageTemplateUseCase(db, templateRepo),
+		appmc.NewDeleteMessageTemplateUseCase(db, templateRepo),
+		appmc.NewListAutomationRulesUseCase(db, ruleRepo),
+		appmc.NewCreateAutomationRuleUseCase(db, ruleRepo, templateRepo),
+		appmc.NewUpdateAutomationRuleUseCase(db, ruleRepo, templateRepo),
+		appmc.NewDeleteAutomationRuleUseCase(db, ruleRepo),
 	)
 	genmc.RegisterHandlers(rg, h)
 }
@@ -111,6 +142,94 @@ func (h *Handler) DeleteMessageTemplate(c *gin.Context, id genmc.Id) {
 	middleware.OK(c, nil)
 }
 
+func (h *Handler) ListAutomationRules(c *gin.Context) {
+	rules, err := h.listRules.Execute(c.Request.Context())
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := make([]genmc.AutomationRule, len(rules))
+	for i, r := range rules {
+		out[i] = toGenRule(r)
+	}
+	middleware.OK(c, out)
+}
+
+func (h *Handler) CreateAutomationRule(c *gin.Context) {
+	var req genmc.CreateAutomationRuleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		return
+	}
+	rule, err := h.createRule.Execute(c.Request.Context(), appmc.CreateAutomationRuleInput{
+		Name: req.Name, TriggerSubject: string(req.TriggerSubject), Conditions: toDomainConditions(req.Conditions),
+		TemplateID: req.TemplateId, ChannelOverride: toDomainChannelPtr(req.ChannelOverride),
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenRule(*rule))
+}
+
+func (h *Handler) UpdateAutomationRule(c *gin.Context, id genmc.Id) {
+	var req genmc.UpdateAutomationRuleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		return
+	}
+	rule, err := h.updateRule.Execute(c.Request.Context(), appmc.UpdateAutomationRuleInput{
+		ID: id, Name: req.Name, TriggerSubject: string(req.TriggerSubject), Conditions: toDomainConditions(req.Conditions),
+		TemplateID: req.TemplateId, ChannelOverride: toDomainChannelPtr(req.ChannelOverride), Enabled: req.Enabled,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenRule(*rule))
+}
+
+func (h *Handler) DeleteAutomationRule(c *gin.Context, id genmc.Id) {
+	err := h.deleteRule.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, nil)
+}
+
+func toGenRule(r mcDomain.AutomationRule) genmc.AutomationRule {
+	conditions := make([]genmc.Condition, len(r.Conditions))
+	for i, c := range r.Conditions {
+		conditions[i] = genmc.Condition{Field: c.Field, Operator: genmc.Operator(c.Operator), Value: c.Value}
+	}
+	var channelOverride *genmc.Channel
+	if r.ChannelOverride != nil {
+		v := genmc.Channel(*r.ChannelOverride)
+		channelOverride = &v
+	}
+	return genmc.AutomationRule{
+		Id: r.ID, Name: r.Name, TriggerSubject: genmc.TriggerSubject(r.TriggerSubject), Conditions: conditions,
+		TemplateId: r.TemplateID, ChannelOverride: channelOverride, Enabled: r.Enabled,
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+	}
+}
+
+func toDomainConditions(conditions *[]genmc.Condition) []mcDomain.Condition {
+	if conditions == nil {
+		return nil
+	}
+	out := make([]mcDomain.Condition, len(*conditions))
+	for i, c := range *conditions {
+		out[i] = mcDomain.Condition{Field: c.Field, Operator: mcDomain.Operator(c.Operator), Value: c.Value}
+	}
+	return out
+}
+
+func toDomainChannelPtr(ch *genmc.Channel) *messaging.Channel {
+	if ch == nil {
+		return nil
+	}
+	v := messaging.Channel(*ch)
+	return &v
+}
+
 func toGenTemplate(t mcDomain.MessageTemplate) genmc.MessageTemplate {
 	channels := make([]genmc.Channel, len(t.Channels))
 	for i, ch := range t.Channels {
@@ -142,11 +261,13 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, mcDomain.ErrTemplateNotFound):
+	case errors.Is(err, mcDomain.ErrTemplateNotFound), errors.Is(err, mcDomain.ErrRuleNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, mcDomain.ErrTemplateNameRequired), errors.Is(err, mcDomain.ErrInvalidCategory),
 		errors.Is(err, mcDomain.ErrNoChannelsSelected), errors.Is(err, mcDomain.ErrInvalidChannel),
-		errors.Is(err, mcDomain.ErrTemplateBodyRequired):
+		errors.Is(err, mcDomain.ErrTemplateBodyRequired), errors.Is(err, mcDomain.ErrRuleNameRequired),
+		errors.Is(err, mcDomain.ErrInvalidTriggerSubject), errors.Is(err, mcDomain.ErrTemplateIDRequired),
+		errors.Is(err, mcDomain.ErrInvalidCondition):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
 	default:
 		log.Printf("messagecenter: unhandled error: %v", err)

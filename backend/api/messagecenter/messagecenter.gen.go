@@ -67,11 +67,125 @@ func (e Channel) Valid() bool {
 	}
 }
 
+// Defines values for Operator.
+const (
+	Eq  Operator = "eq"
+	Gt  Operator = "gt"
+	In  Operator = "in"
+	Lt  Operator = "lt"
+	Neq Operator = "neq"
+)
+
+// Valid indicates whether the value is a known member of the Operator enum.
+func (e Operator) Valid() bool {
+	switch e {
+	case Eq:
+		return true
+	case Gt:
+		return true
+	case In:
+		return true
+	case Lt:
+		return true
+	case Neq:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TriggerSubject.
+const (
+	IntegrationsConnectionConnected    TriggerSubject = "integrations.connection.connected"
+	InventoryStockChanged              TriggerSubject = "inventory.stock.changed"
+	OmsSalesOrderStatusChanged         TriggerSubject = "oms.sales_order.status_changed"
+	PaymentsRefundIssued               TriggerSubject = "payments.refund.issued"
+	PaymentsRefundManualReviewRequired TriggerSubject = "payments.refund.manual_review_required"
+	PmsCategoryChanged                 TriggerSubject = "pms.category.changed"
+	PmsProductChanged                  TriggerSubject = "pms.product.changed"
+	PmsProductDeleted                  TriggerSubject = "pms.product.deleted"
+	ShippingShipmentFulfillmentSignal  TriggerSubject = "shipping.shipment.fulfillment_signal"
+	StorefrontOrderPlaced              TriggerSubject = "storefront.order.placed"
+)
+
+// Valid indicates whether the value is a known member of the TriggerSubject enum.
+func (e TriggerSubject) Valid() bool {
+	switch e {
+	case IntegrationsConnectionConnected:
+		return true
+	case InventoryStockChanged:
+		return true
+	case OmsSalesOrderStatusChanged:
+		return true
+	case PaymentsRefundIssued:
+		return true
+	case PaymentsRefundManualReviewRequired:
+		return true
+	case PmsCategoryChanged:
+		return true
+	case PmsProductChanged:
+		return true
+	case PmsProductDeleted:
+		return true
+	case ShippingShipmentFulfillmentSignal:
+		return true
+	case StorefrontOrderPlaced:
+		return true
+	default:
+		return false
+	}
+}
+
+// AutomationRule defines model for AutomationRule.
+type AutomationRule struct {
+	ChannelOverride *Channel    `json:"channel_override,omitempty"`
+	Conditions      []Condition `json:"conditions"`
+	CreatedAt       time.Time   `json:"created_at"`
+	Enabled         bool        `json:"enabled"`
+	Id              string      `json:"id"`
+	Name            string      `json:"name"`
+	TemplateId      string      `json:"template_id"`
+
+	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects.
+	TriggerSubject TriggerSubject `json:"trigger_subject"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+}
+
+// AutomationRuleListResponse defines model for AutomationRuleListResponse.
+type AutomationRuleListResponse struct {
+	Data  *[]AutomationRule `json:"data,omitempty"`
+	Error interface{}       `json:"error,omitempty"`
+}
+
+// AutomationRuleResponse defines model for AutomationRuleResponse.
+type AutomationRuleResponse struct {
+	Data  *AutomationRule `json:"data,omitempty"`
+	Error interface{}     `json:"error,omitempty"`
+}
+
 // Category defines model for Category.
 type Category string
 
 // Channel defines model for Channel.
 type Channel string
+
+// Condition defines model for Condition.
+type Condition struct {
+	Field    string      `json:"field"`
+	Operator Operator    `json:"operator"`
+	Value    interface{} `json:"value"`
+}
+
+// CreateAutomationRuleRequest defines model for CreateAutomationRuleRequest.
+type CreateAutomationRuleRequest struct {
+	ChannelOverride *Channel     `json:"channel_override,omitempty"`
+	Conditions      *[]Condition `json:"conditions,omitempty"`
+	Name            string       `json:"name"`
+	TemplateId      string       `json:"template_id"`
+
+	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects.
+	TriggerSubject TriggerSubject `json:"trigger_subject"`
+}
 
 // CreateMessageTemplateRequest defines model for CreateMessageTemplateRequest.
 type CreateMessageTemplateRequest struct {
@@ -116,6 +230,24 @@ type MessageTemplateResponse struct {
 	Error interface{}      `json:"error,omitempty"`
 }
 
+// Operator defines model for Operator.
+type Operator string
+
+// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects.
+type TriggerSubject string
+
+// UpdateAutomationRuleRequest defines model for UpdateAutomationRuleRequest.
+type UpdateAutomationRuleRequest struct {
+	ChannelOverride *Channel     `json:"channel_override,omitempty"`
+	Conditions      *[]Condition `json:"conditions,omitempty"`
+	Enabled         bool         `json:"enabled"`
+	Name            string       `json:"name"`
+	TemplateId      string       `json:"template_id"`
+
+	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects.
+	TriggerSubject TriggerSubject `json:"trigger_subject"`
+}
+
 // UpdateMessageTemplateRequest defines model for UpdateMessageTemplateRequest.
 type UpdateMessageTemplateRequest struct {
 	Body     string    `json:"body"`
@@ -132,6 +264,12 @@ type Id = string
 // Error defines model for Error.
 type Error = ErrorResponse
 
+// CreateAutomationRuleJSONRequestBody defines body for CreateAutomationRule for application/json ContentType.
+type CreateAutomationRuleJSONRequestBody = CreateAutomationRuleRequest
+
+// UpdateAutomationRuleJSONRequestBody defines body for UpdateAutomationRule for application/json ContentType.
+type UpdateAutomationRuleJSONRequestBody = UpdateAutomationRuleRequest
+
 // CreateMessageTemplateJSONRequestBody defines body for CreateMessageTemplate for application/json ContentType.
 type CreateMessageTemplateJSONRequestBody = CreateMessageTemplateRequest
 
@@ -140,6 +278,18 @@ type UpdateMessageTemplateJSONRequestBody = UpdateMessageTemplateRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListAutomationRules List every automation rule for the current tenant
+	// (GET /automation-rules)
+	ListAutomationRules(c *gin.Context)
+	// CreateAutomationRule Create an automation rule
+	// (POST /automation-rules)
+	CreateAutomationRule(c *gin.Context)
+	// DeleteAutomationRule Delete an automation rule
+	// (DELETE /automation-rules/{id})
+	DeleteAutomationRule(c *gin.Context, id Id)
+	// UpdateAutomationRule Update an automation rule
+	// (PATCH /automation-rules/{id})
+	UpdateAutomationRule(c *gin.Context, id Id)
 	// ListMessageTemplates List every message template for the current tenant
 	// (GET /message-templates)
 	ListMessageTemplates(c *gin.Context)
@@ -162,6 +312,82 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// ListAutomationRules operation middleware
+func (siw *ServerInterfaceWrapper) ListAutomationRules(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListAutomationRules(c)
+}
+
+// CreateAutomationRule operation middleware
+func (siw *ServerInterfaceWrapper) CreateAutomationRule(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateAutomationRule(c)
+}
+
+// DeleteAutomationRule operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAutomationRule(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteAutomationRule(c, id)
+}
+
+// UpdateAutomationRule operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAutomationRule(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateAutomationRule(c, id)
+}
 
 // ListMessageTemplates operation middleware
 func (siw *ServerInterfaceWrapper) ListMessageTemplates(c *gin.Context) {
@@ -270,6 +496,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/message-templates", wrapper.CreateMessageTemplate)
 	router.DELETE(options.BaseURL+"/message-templates/:id", wrapper.DeleteMessageTemplate)
 	router.PATCH(options.BaseURL+"/message-templates/:id", wrapper.UpdateMessageTemplate)
+	router.GET(options.BaseURL+"/automation-rules", wrapper.ListAutomationRules)
+	router.POST(options.BaseURL+"/automation-rules", wrapper.CreateAutomationRule)
+	router.DELETE(options.BaseURL+"/automation-rules/:id", wrapper.DeleteAutomationRule)
+	router.PATCH(options.BaseURL+"/automation-rules/:id", wrapper.UpdateAutomationRule)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -277,22 +507,31 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"JSeLC958bv4JAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
