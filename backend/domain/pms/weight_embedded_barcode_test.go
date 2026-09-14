@@ -49,10 +49,13 @@ func TestDecodeWeightEmbeddedBarcode_RejectsWrongPrefix(t *testing.T) {
 func TestDecodeWeightEmbeddedBarcode_AcceptsWholePrefixBlock(t *testing.T) {
 	// 20-29 is the whole GS1-reserved internal-use block, not just the 29
 	// this store happens to be assigned -- covers another scale/vendor
-	// using e.g. 23 without code changes.
+	// using e.g. 23 without code changes. Fixtures are built via
+	// EncodeWeightEmbeddedBarcode itself rather than a hand-rolled checksum
+	// -- dogfoods the real encoder and proves it round-trips through Decode.
 	for prefix := 20; prefix <= 29; prefix++ {
 		prefixStr := itoaPrefix(prefix)
-		barcode := recomputeCheckDigit(prefixStr + "0063300333")
+		barcode, err := EncodeWeightEmbeddedBarcode(prefixStr+"00633", 333)
+		require.NoError(t, err)
 		t.Run(barcode, func(t *testing.T) {
 			got, err := DecodeWeightEmbeddedBarcode(barcode)
 			require.NoError(t, err)
@@ -78,25 +81,59 @@ func TestDecodeWeightEmbeddedBarcode_RejectsWrongLength(t *testing.T) {
 	}
 }
 
-// itoaPrefix/recomputeCheckDigit are tiny test-only helpers -- the
-// production check-digit math lives in weight_embedded_barcode.go and is
-// exercised directly by the real-sample tests above; these just let the
-// prefix-range test build valid fixtures without hardcoding all 10 check
-// digits by hand.
+// itoaPrefix is a tiny test-only helper letting the prefix-range test build
+// fixtures without hardcoding "20".."29" as string literals.
 func itoaPrefix(n int) string {
 	return string(rune('0'+n/10)) + string(rune('0'+n%10))
 }
 
-func recomputeCheckDigit(first12 string) string {
-	sum := 0
-	for i, c := range first12 {
-		d := int(c - '0')
-		if i%2 == 0 {
-			sum += d
-		} else {
-			sum += d * 3
-		}
+func TestEncodeWeightEmbeddedBarcode_MatchesRealScaleSamples(t *testing.T) {
+	// Same fixtures as the decode test above, run in reverse -- proves the
+	// encoder produces byte-for-byte the same barcode a real scale printed,
+	// not just "a barcode that happens to decode back correctly."
+	tests := []struct {
+		scaleCode string
+		grams     int64
+		want      string
+	}{
+		{"2900633", 333, "2900633003332"},
+		{"2900633", 328, "2900633003288"},
+		{"2908885", 407, "2908885004077"},
+		{"2994721", 462, "2994721004622"},
 	}
-	check := (10 - sum%10) % 10
-	return first12 + string(rune('0'+check))
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			got, err := EncodeWeightEmbeddedBarcode(tt.scaleCode, tt.grams)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestEncodeWeightEmbeddedBarcode_RoundTripsThroughDecode(t *testing.T) {
+	for _, grams := range []int64{0, 1, 333, 9999, 99999} {
+		barcode, err := EncodeWeightEmbeddedBarcode("2994721", grams)
+		require.NoError(t, err)
+		decoded, err := DecodeWeightEmbeddedBarcode(barcode)
+		require.NoError(t, err)
+		assert.Equal(t, "2994721", decoded.ScaleCode)
+		assert.Equal(t, grams, decoded.WeightGrams)
+	}
+}
+
+func TestEncodeWeightEmbeddedBarcode_RejectsBadScaleCode(t *testing.T) {
+	for _, sc := range []string{"", "299472", "29947210", "299472a", "1994721"} {
+		t.Run(sc, func(t *testing.T) {
+			_, err := EncodeWeightEmbeddedBarcode(sc, 100)
+			assert.ErrorIs(t, err, ErrInvalidScaleCode)
+		})
+	}
+}
+
+func TestEncodeWeightEmbeddedBarcode_RejectsWeightOutOfRange(t *testing.T) {
+	_, err := EncodeWeightEmbeddedBarcode("2994721", -1)
+	assert.ErrorIs(t, err, ErrWeightOutOfRange)
+
+	_, err = EncodeWeightEmbeddedBarcode("2994721", 100000)
+	assert.ErrorIs(t, err, ErrWeightOutOfRange)
 }

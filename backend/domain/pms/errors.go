@@ -133,4 +133,13 @@ var (
 	// so it's rejected rather than silently letting a picker/receiver
 	// record a package that was never actually weighed.
 	ErrWeightRequiredForPerWeightSKU = errors.New("this item is priced by weight -- scan its scale barcode, not a product code")
+	// ErrNoWeightsProvided guards BulkAddWeightPortionsUseCase: an empty
+	// weight list has nothing to create.
+	ErrNoWeightsProvided = errors.New("at least one weight is required")
+	// ErrBulkSKUNotWeightPool guards BulkAddWeightPortionsUseCase: the
+	// source SKU must actually be a scale-sold weight pool -- UnitType
+	// kilo, PricingMode per_weight (so a per-package price can be
+	// computed), and a ScaleCode set (so a barcode can be generated for
+	// each new package) -- all three, not just one.
+	ErrBulkSKUNotWeightPool = errors.New("source sku must be a weight pool with per-weight pricing and a scale code")
 )

@@ -41,6 +41,7 @@ import (
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
+	genweightportions "github.com/adirkuhn/commerceos/api/weightportions"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	couponshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/coupons"
@@ -71,6 +72,7 @@ import (
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
 	themehandler "github.com/adirkuhn/commerceos/infrastructure/handlers/theme"
 	webhookshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/webhooks"
+	weightportionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/weightportions"
 	"github.com/adirkuhn/commerceos/infrastructure/lm2license"
 	"github.com/adirkuhn/commerceos/infrastructure/messaging/noop"
 	"github.com/adirkuhn/commerceos/infrastructure/messaging/smtp"
@@ -333,6 +335,18 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	emailintegrationhandler.Register(emailintegrationGroup, db, outboxRepo, cfg.IntegrationsEncryptionSecret)
+
+	weightportionsSpec, err := genweightportions.GetSpec()
+	if err != nil {
+		log.Fatalf("weightportions: load openapi spec: %v", err)
+	}
+	// Own sub-group so the weightportions-only spec validator never applies
+	// to the other modules' routes — same reasoning as pmsGroup above.
+	weightportionsGroup := v1.Group("")
+	weightportionsGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(weightportionsSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	weightportionshandler.Register(weightportionsGroup, db, outboxRepo)
 
 	reportsSpec, err := genreports.GetSpec()
 	if err != nil {

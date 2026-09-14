@@ -1,0 +1,106 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Bulk Weight Portions API
+  version: "1.0"
+  description: >-
+    "Type a list of weights, get N sellable items" -- bulk-creates sellable
+    SKUs off a weight-pool bulk SKU (see domain/pms.SKU.UnitType=kilo), one
+    per entered weight, each auto-priced from the bulk's price-per-kilo and
+    auto-barcoded via a generated GS1 weight-embedded EAN-13 (see
+    domain/pms.EncodeWeightEmbeddedBarcode). A separate small module (like
+    api/reviews, api/messagecenter) rather than folded into api/pms'
+    already large composed handler.
+servers:
+  - url: /api/v1
+
+paths:
+  /pms/skus/{bulkSkuId}/bulk-weight-portions:
+    post:
+      operationId: bulkAddWeightPortions
+      summary: Create N sellable SKUs off a weight-pool bulk SKU, one per entered weight
+      parameters:
+        - name: bulkSkuId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkAddWeightPortionsRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkAddWeightPortionsResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+components:
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    BulkAddWeightPortionsRequest:
+      type: object
+      required: [warehouse_id, weights_grams]
+      properties:
+        warehouse_id: { type: string }
+        bulk_batch_id:
+          type: string
+          nullable: true
+          description: >-
+            Which lot of the bulk SKU these packages are drawn from --
+            omit/null for general (un-lotted) bulk stock, no expiry
+            carried forward.
+        weights_grams:
+          type: array
+          minItems: 1
+          items: { type: integer, minimum: 1 }
+        sku_code_prefix:
+          type: string
+          description: Defaults to the bulk SKU's own code when omitted.
+        reason: { type: string }
+
+    CreatedPortionedSKU:
+      type: object
+      required: [id, sku_code, barcode, price_minor_units, currency_code, weight_grams]
+      properties:
+        id: { type: string }
+        sku_code: { type: string }
+        barcode: { type: string }
+        price_minor_units: { type: integer }
+        currency_code: { type: string }
+        weight_grams: { type: integer }
+
+    BulkAddWeightPortionsResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            created:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreatedPortionedSKU'
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

@@ -140,11 +140,12 @@ func TestPortionFromBulk_propagatesSKUNotFound(t *testing.T) {
 	require.ErrorIs(t, err, pmsDomain.ErrSKUNotFound)
 }
 
-// TestPortionFromBulk_unitStockIsNeverBatchTracked mirrors
-// SplitCaseIntoUnits' same deliberate limitation: the portioned item
-// always lands in general (un-lotted) stock, even when the bulk stock it
+// TestPortionFromBulk_unitStockIsUnBatchTrackedByDefault mirrors
+// SplitCaseIntoUnits' same default: the portioned item lands in general
+// (un-lotted) stock unless the caller explicitly opts in via
+// Input.TargetBatchID (see the test below), even when the bulk stock it
 // was peeled from came from a specific batch/lot.
-func TestPortionFromBulk_unitStockIsNeverBatchTracked(t *testing.T) {
+func TestPortionFromBulk_unitStockIsUnBatchTrackedByDefault(t *testing.T) {
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{
 		ID: "sku-378g", PortionedFromSKUID: strPtr("sku-bulk-1"), WeightGrams: int64Ptr(378),
 	}}
@@ -161,4 +162,27 @@ func TestPortionFromBulk_unitStockIsNeverBatchTracked(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, &batchID, result.BulkOutMovement.BatchID)
 	assert.Nil(t, result.UnitInMovement.BatchID)
+}
+
+// TestPortionFromBulk_linksUnitStockToTargetBatchWhenSet is the regression
+// test for the new opt-in: BulkAddWeightPortionsUseCase sets TargetBatchID
+// so a portioned SKU's stock can carry the bulk lot's own expiry forward
+// (see that use case's own doc comment) instead of landing un-lotted.
+func TestPortionFromBulk_linksUnitStockToTargetBatchWhenSet(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{
+		ID: "sku-378g", PortionedFromSKUID: strPtr("sku-bulk-1"), WeightGrams: int64Ptr(378),
+	}}
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-bulk-1", WarehouseID: "warehouse-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 20000},
+	}}
+	uc := appinventory.NewPortionFromBulkUseCase(newMockGormDB(t), skuRepo, movementRepo, &stubOutboxRepo{})
+	targetBatchID := "batch-new-sku-1"
+
+	result, err := uc.Execute(context.Background(), appinventory.PortionFromBulkInput{
+		TargetSKUID: "sku-378g", WarehouseID: "warehouse-1", TargetBatchID: &targetBatchID,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result.UnitInMovement.BatchID)
+	assert.Equal(t, targetBatchID, *result.UnitInMovement.BatchID)
 }

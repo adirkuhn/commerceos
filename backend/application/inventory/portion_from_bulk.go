@@ -20,8 +20,16 @@ type PortionFromBulkInput struct {
 	// item (e.g. a scale reading) -- nil defaults to the target SKU's own
 	// nominal WeightGrams.
 	WeightGrams *int64
-	Reason      string
-	OccurredAt  time.Time
+	// TargetBatchID, nil by default, links the resulting unit stock to a
+	// batch of the TARGET SKU (e.g. one created to carry the bulk lot's own
+	// expiry date forward -- see
+	// application/pms.BulkAddWeightPortionsUseCase). Distinct from BatchID,
+	// which addresses a batch of the BULK SKU being drawn down. Leaving
+	// this nil preserves the original behavior (unit stock un-batch-
+	// tracked, see this type's own doc comment).
+	TargetBatchID *string
+	Reason        string
+	OccurredAt    time.Time
 }
 
 type PortionFromBulkResult struct {
@@ -40,8 +48,10 @@ type PortionFromBulkResult struct {
 // time -- there's no case count here, just a running weight pool that
 // shrinks by whatever each individual item actually weighs.
 //
-// The resulting unit stock is deliberately not batch-tracked (UnitInMovement
-// always has BatchID nil), same reasoning as SplitCaseIntoUnitsUseCase.
+// The resulting unit stock is un-batch-tracked by default (UnitInMovement's
+// BatchID nil), same reasoning as SplitCaseIntoUnitsUseCase -- unless the
+// caller sets Input.TargetBatchID, which links it to a batch of the target
+// SKU instead (e.g. to carry the bulk lot's expiry date forward).
 type PortionFromBulkUseCase struct {
 	db           *gorm.DB
 	skuRepo      pmsDomain.SKURepository
@@ -100,7 +110,7 @@ func (uc *PortionFromBulkUseCase) Execute(ctx context.Context, in PortionFromBul
 		result.BulkOutMovement = bulkOut
 
 		unitIn := invDomain.StockMovement{
-			TenantID: tenantID, SKUID: in.TargetSKUID, WarehouseID: in.WarehouseID, BatchID: nil,
+			TenantID: tenantID, SKUID: in.TargetSKUID, WarehouseID: in.WarehouseID, BatchID: in.TargetBatchID,
 			Type: invDomain.MovementTypeSplitIn, QuantityDelta: 1,
 			Reason: in.Reason, OccurredAt: in.OccurredAt, CreatedAt: now,
 		}

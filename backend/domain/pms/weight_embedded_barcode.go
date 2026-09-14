@@ -2,6 +2,7 @@ package pms
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 )
 
@@ -14,6 +15,16 @@ var ErrNotWeightEmbeddedBarcode = errors.New("not a weight-embedded barcode")
 // prefix 20-29) but fails the standard EAN-13 checksum -- a corrupted or
 // mis-scanned read, not a barcode to resolve against.
 var ErrInvalidCheckDigit = errors.New("invalid EAN-13 check digit")
+
+// ErrInvalidScaleCode guards EncodeWeightEmbeddedBarcode: scaleCode must be
+// exactly 7 digits (2-digit GS1 prefix 20-29 + 5-digit merchant scale code),
+// the same shape DecodeWeightEmbeddedBarcode always produces.
+var ErrInvalidScaleCode = errors.New("scale code must be 7 digits with a GS1 prefix of 20-29")
+
+// ErrWeightOutOfRange guards EncodeWeightEmbeddedBarcode: the format has
+// exactly 5 digits for weight, so 0-99999 grams (0-99.999kg) is the whole
+// representable range.
+var ErrWeightOutOfRange = errors.New("weight must be between 0 and 99999 grams to fit a weight-embedded barcode")
 
 // DecodedWeightEmbeddedBarcode is what a GS1 "prefix 2x" variable-weight
 // EAN-13 barcode encodes: a 7-digit scale code (see SKU.ScaleCode) --
@@ -67,15 +78,54 @@ func DecodeWeightEmbeddedBarcode(code string) (*DecodedWeightEmbeddedBarcode, er
 // (odd positions x1, even positions x3, 1-indexed from the left) to the
 // first 12 digits and compares against the 13th.
 func hasValidEAN13CheckDigit(code string) bool {
+	return computeEAN13CheckDigit(code[:12]) == int(code[12]-'0')
+}
+
+// computeEAN13CheckDigit is the one place the EAN-13 mod-10 checksum is
+// computed -- shared by hasValidEAN13CheckDigit (verifying a scanned code)
+// and EncodeWeightEmbeddedBarcode (generating one), so the two can never
+// drift apart the way a second hand-rolled copy risks.
+func computeEAN13CheckDigit(first12 string) int {
 	sum := 0
 	for i := 0; i < 12; i++ {
-		d := int(code[i] - '0')
+		d := int(first12[i] - '0')
 		if i%2 == 0 {
 			sum += d
 		} else {
 			sum += d * 3
 		}
 	}
-	check := (10 - sum%10) % 10
-	return check == int(code[12]-'0')
+	return (10 - sum%10) % 10
+}
+
+// EncodeWeightEmbeddedBarcode builds a GS1 "prefix 2x" variable-weight
+// EAN-13 barcode from a 7-digit ScaleCode (2-digit GS1 prefix + 5-digit
+// merchant-programmed scale code, see DecodedWeightEmbeddedBarcode) and a
+// weight in grams -- the inverse of DecodeWeightEmbeddedBarcode. Used when
+// this codebase generates a barcode itself (e.g. bulk-portioning several
+// packages off a weight pool at once, see
+// application/pms.BulkAddWeightPortionsUseCase) rather than reading one a
+// physical scale already printed. Reuses computeEAN13CheckDigit's exact
+// formula, so anything this produces is guaranteed to decode back through
+// DecodeWeightEmbeddedBarcode -- the two can never disagree about what's a
+// valid code.
+func EncodeWeightEmbeddedBarcode(scaleCode string, weightGrams int64) (string, error) {
+	if len(scaleCode) != 7 {
+		return "", ErrInvalidScaleCode
+	}
+	for _, c := range scaleCode {
+		if c < '0' || c > '9' {
+			return "", ErrInvalidScaleCode
+		}
+	}
+	prefix, _ := strconv.Atoi(scaleCode[0:2])
+	if prefix < 20 || prefix > 29 {
+		return "", ErrInvalidScaleCode
+	}
+	if weightGrams < 0 || weightGrams > 99999 {
+		return "", ErrWeightOutOfRange
+	}
+	first12 := fmt.Sprintf("%s%05d", scaleCode, weightGrams)
+	check := computeEAN13CheckDigit(first12)
+	return fmt.Sprintf("%s%d", first12, check), nil
 }
