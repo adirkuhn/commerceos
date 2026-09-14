@@ -564,6 +564,150 @@ describe('Inventory page', () => {
   })
 })
 
+describe('Variant name in the SKU header', () => {
+  it('shows the owning variant name next to the SKU code', async () => {
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+
+    const skuHeader = (await screen.findByText('WIDGET-1')).closest('span')!
+    expect(skuHeader.textContent).toContain('Default')
+  })
+})
+
+describe('Clicking a batch row opens a scoped action window', () => {
+  it('opens a chooser naming the clicked batch, offering Adjust/Recount/Transfer/Damaged-Lost, with a Cancel', async () => {
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('LOT-1')
+
+    await user.click(screen.getByText('LOT-1'))
+
+    const dialog = await screen.findByText('LOT-1', { selector: 'h3' })
+    const modal = dialog.closest('div')!.parentElement!
+    expect(within(modal).getByRole('button', { name: /Adjust/ })).toBeInTheDocument()
+    expect(within(modal).getByRole('button', { name: 'Recount' })).toBeInTheDocument()
+    expect(within(modal).getByRole('button', { name: 'Transfer' })).toBeInTheDocument()
+    expect(within(modal).getByRole('button', { name: /Damaged/ })).toBeInTheDocument()
+
+    await user.click(within(modal).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByText('Adjust Stock')).not.toBeInTheDocument()
+  })
+
+  it('Adjust from a clicked batch row locks warehouse/batch and records the movement against that exact batch', async () => {
+    const movement: StockMovement = {
+      id: 'mv-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1',
+      type: 'receipt', quantity_delta: 5, reason: '', occurred_at: '', created_at: '',
+    }
+    vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue(movement)
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('LOT-1')
+
+    await user.click(screen.getByText('LOT-1'))
+    const chooserTitle = await screen.findByText('LOT-1', { selector: 'h3' })
+    const chooser = chooserTitle.closest('div')!.parentElement!
+    await user.click(within(chooser).getByRole('button', { name: 'Adjust (add/remove)' }))
+
+    const dialog = await screen.findByText('Adjust Stock')
+    const modal = dialog.closest('div')!.parentElement!
+    // Locked from the row click -- no editable warehouse/batch select here.
+    expect(within(modal).queryByLabelText(/warehouse/i)).not.toBeInTheDocument()
+    expect(within(modal).queryByLabelText(/batch/i)).not.toBeInTheDocument()
+    expect(within(modal).getByText('Main DC')).toBeInTheDocument()
+    expect(within(modal).getByText('LOT-1')).toBeInTheDocument()
+
+    await user.type(within(modal).getByLabelText(/quantity/i), '5')
+    await user.click(within(modal).getByRole('button', { name: /record/i }))
+
+    await waitFor(() => {
+      expect(inventoryApi.recordStockMovement).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        warehouse_id: 'wh-1', batch_id: 'batch-1', type: 'receipt', quantity_delta: 5,
+      }))
+    })
+  })
+
+  it('Adjust from the general ledger row locks to that warehouse with no batch', async () => {
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([
+      { ...batch, id: '', lot_number: '', is_general_ledger: true, quantity: 0 },
+    ])
+    const movement: StockMovement = {
+      id: 'mv-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: null,
+      type: 'receipt', quantity_delta: 5, reason: '', occurred_at: '', created_at: '',
+    }
+    vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue(movement)
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('General ledger')
+
+    await user.click(screen.getByText('General ledger'))
+    const chooserTitle = await screen.findByText('General ledger', { selector: 'h3' })
+    const chooser = chooserTitle.closest('div')!.parentElement!
+    await user.click(within(chooser).getByRole('button', { name: 'Adjust (add/remove)' }))
+
+    const dialog = await screen.findByText('Adjust Stock')
+    const modal = dialog.closest('div')!.parentElement!
+    await user.type(within(modal).getByLabelText(/quantity/i), '5')
+    await user.click(within(modal).getByRole('button', { name: /record/i }))
+
+    await waitFor(() => {
+      expect(inventoryApi.recordStockMovement).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        warehouse_id: 'wh-1', batch_id: null, type: 'receipt', quantity_delta: 5,
+      }))
+    })
+  })
+
+  it('Transfer from a clicked batch row locks only the FROM side -- TO stays editable', async () => {
+    vi.mocked(inventoryApi.transferStock).mockResolvedValue({
+      out: { id: 'mv-2', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1', type: 'transfer_out', quantity_delta: -3, reason: '', occurred_at: '', created_at: '' },
+      in: { id: 'mv-3', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: null, type: 'transfer_in', quantity_delta: 3, reason: '', occurred_at: '', created_at: '' },
+    })
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('LOT-1')
+
+    await user.click(screen.getByText('LOT-1'))
+    const chooserTitle = await screen.findByText('LOT-1', { selector: 'h3' })
+    const chooser = chooserTitle.closest('div')!.parentElement!
+    await user.click(within(chooser).getByRole('button', { name: 'Transfer' }))
+
+    const dialog = await screen.findByText('Transfer Stock')
+    const modal = dialog.closest('div')!.parentElement!
+    expect(within(modal).queryByLabelText(/from warehouse/i)).not.toBeInTheDocument()
+    expect(within(modal).queryByLabelText(/from batch/i)).not.toBeInTheDocument()
+    expect(within(modal).getByLabelText(/to warehouse/i)).toBeInTheDocument()
+    expect(within(modal).getByLabelText(/to batch/i)).toBeInTheDocument()
+
+    await user.type(within(modal).getByLabelText(/quantity/i), '3')
+    await user.click(within(modal).getByRole('button', { name: /transfer/i }))
+
+    await waitFor(() => {
+      expect(inventoryApi.transferStock).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        from_warehouse_id: 'wh-1', from_batch_id: 'batch-1', quantity: 3,
+      }))
+    })
+  })
+
+  it('clicking a row action icon (History/Edit/Delete) does not open the row chooser', async () => {
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('LOT-1')
+
+    await user.click(screen.getByLabelText(/Edit batch/))
+
+    expect(await screen.findByText('Edit Batch')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Adjust (add/remove)' })).not.toBeInTheDocument()
+  })
+})
+
 describe('Product-level movement history (account book across all SKUs)', () => {
   it('clicking History on the collapsed product row opens a page without expanding it', async () => {
     vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([])

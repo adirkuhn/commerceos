@@ -89,6 +89,30 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 const inputClass = 'w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500'
 const labelClass = 'block text-[10px] font-medium dark:text-gray-400 text-gray-500 mb-1'
 
+// BatchScope pins a modal opened by clicking a batch row to that exact
+// row -- warehouseId/batchId feed straight into the mutation, label is
+// just for display. batchId '' means the general-ledger row (same sentinel
+// AdjustStockModal/RecountModal/etc already use for "no batch"). Only
+// Adjust/Recount/Damaged-Lost, and Transfer's FROM side, ever get locked
+// this way -- Transfer's TO side stays a free pick even from a row click.
+interface BatchScope {
+  warehouseId: string
+  batchId: string
+  label: string
+}
+
+// LockedField replaces a warehouse/batch <select> with its resolved value
+// when a modal was opened by clicking a specific batch row -- the whole
+// point of that entry point is "this exact row", so it isn't re-editable.
+function LockedField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span className={labelClass}>{label}</span>
+      <div className={clsx(inputClass, 'opacity-70 cursor-not-allowed')}>{value}</div>
+    </div>
+  )
+}
+
 // ── Batch form (create/edit) ─────────────────────────────────────────────────
 
 function BatchFormModal({
@@ -152,16 +176,17 @@ function BatchFormModal({
 // ── Adjust stock ──────────────────────────────────────────────────────────────
 
 function AdjustStockModal({
-  warehouses, batches, onSave, onClose,
+  warehouses, batches, scope, onSave, onClose,
 }: {
   warehouses: { id: string; name: string }[]
   batches: Batch[]
+  scope?: BatchScope
   onSave: (input: { warehouse_id: string; batch_id?: string | null; type: MovementType; quantity_delta: number; reason?: string }) => Promise<void>
   onClose: () => void
 }) {
   const [type, setType] = useState<'receipt' | 'sale' | 'adjustment'>('receipt')
-  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
-  const [batchId, setBatchId] = useState('')
+  const [warehouseId, setWarehouseId] = useState(scope?.warehouseId ?? warehouses[0]?.id ?? '')
+  const [batchId, setBatchId] = useState(scope?.batchId ?? '')
   const [quantity, setQuantity] = useState('')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
@@ -197,19 +222,27 @@ function AdjustStockModal({
             <option value="adjustment">Adjustment (+/-)</option>
           </select>
         </div>
-        <div>
-          <label className={labelClass} htmlFor="adjust-warehouse">Warehouse</label>
-          <select id="adjust-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
-            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="adjust-batch">Batch (leave empty for general ledger)</label>
-          <select id="adjust-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
-            <option value="">General ledger (no batch)</option>
-            {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
-          </select>
-        </div>
+        {scope ? (
+          <LockedField label="Warehouse" value={warehouses.find(w => w.id === scope.warehouseId)?.name ?? scope.warehouseId} />
+        ) : (
+          <div>
+            <label className={labelClass} htmlFor="adjust-warehouse">Warehouse</label>
+            <select id="adjust-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
+              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+        )}
+        {scope ? (
+          <LockedField label="Batch" value={scope.label} />
+        ) : (
+          <div>
+            <label className={labelClass} htmlFor="adjust-batch">Batch (leave empty for general ledger)</label>
+            <select id="adjust-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
+              <option value="">General ledger (no batch)</option>
+              {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
+            </select>
+          </div>
+        )}
         <div>
           <label className={labelClass} htmlFor="adjust-qty">
             Quantity {type === 'adjustment' ? '(use a minus sign to decrease)' : ''}
@@ -237,15 +270,16 @@ function AdjustStockModal({
 // ── Recount ───────────────────────────────────────────────────────────────────
 
 function RecountModal({
-  warehouses, batches, onSave, onClose,
+  warehouses, batches, scope, onSave, onClose,
 }: {
   warehouses: { id: string; name: string }[]
   batches: Batch[]
+  scope?: BatchScope
   onSave: (input: { warehouse_id: string; batch_id?: string | null; counted_quantity: number; reason?: string }) => Promise<void>
   onClose: () => void
 }) {
-  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
-  const [batchId, setBatchId] = useState('')
+  const [warehouseId, setWarehouseId] = useState(scope?.warehouseId ?? warehouses[0]?.id ?? '')
+  const [batchId, setBatchId] = useState(scope?.batchId ?? '')
   const [counted, setCounted] = useState('')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
@@ -272,19 +306,27 @@ function RecountModal({
   return (
     <Modal title="Recount Stock" onClose={onClose}>
       <div className="space-y-3">
-        <div>
-          <label className={labelClass} htmlFor="recount-warehouse">Warehouse</label>
-          <select id="recount-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
-            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="recount-batch">Batch (leave empty for general ledger)</label>
-          <select id="recount-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
-            <option value="">General ledger (no batch)</option>
-            {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
-          </select>
-        </div>
+        {scope ? (
+          <LockedField label="Warehouse" value={warehouses.find(w => w.id === scope.warehouseId)?.name ?? scope.warehouseId} />
+        ) : (
+          <div>
+            <label className={labelClass} htmlFor="recount-warehouse">Warehouse</label>
+            <select id="recount-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
+              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+        )}
+        {scope ? (
+          <LockedField label="Batch" value={scope.label} />
+        ) : (
+          <div>
+            <label className={labelClass} htmlFor="recount-batch">Batch (leave empty for general ledger)</label>
+            <select id="recount-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
+              <option value="">General ledger (no batch)</option>
+              {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
+            </select>
+          </div>
+        )}
         <div>
           <label className={labelClass} htmlFor="recount-qty">Counted quantity</label>
           <input id="recount-qty" type="number" min={0} value={counted} onChange={e => setCounted(e.target.value)} className={inputClass} />
@@ -310,10 +352,11 @@ function RecountModal({
 // ── Transfer (also covers general-ledger <-> batch moves) ───────────────────
 
 function TransferModal({
-  warehouses, batches, onSave, onClose,
+  warehouses, batches, scope, onSave, onClose,
 }: {
   warehouses: { id: string; name: string }[]
   batches: Batch[]
+  scope?: BatchScope
   onSave: (input: {
     quantity: number; from_warehouse_id: string; from_batch_id?: string | null
     to_warehouse_id: string; to_batch_id?: string | null; reason?: string
@@ -321,8 +364,8 @@ function TransferModal({
   onClose: () => void
 }) {
   const [quantity, setQuantity] = useState('')
-  const [fromWarehouse, setFromWarehouse] = useState(warehouses[0]?.id ?? '')
-  const [fromBatch, setFromBatch] = useState('')
+  const [fromWarehouse, setFromWarehouse] = useState(scope?.warehouseId ?? warehouses[0]?.id ?? '')
+  const [fromBatch, setFromBatch] = useState(scope?.batchId ?? '')
   const [toWarehouse, setToWarehouse] = useState(warehouses[0]?.id ?? '')
   const [toBatch, setToBatch] = useState('')
   const [reason, setReason] = useState('')
@@ -357,25 +400,33 @@ function TransferModal({
           Leaving a batch empty means the general ledger (un-lotted stock) — use this to move stock into or out of a batch too.
         </p>
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className={labelClass} htmlFor="transfer-from-wh">From warehouse</label>
-            <select id="transfer-from-wh" value={fromWarehouse} onChange={e => setFromWarehouse(e.target.value)} className={inputClass}>
-              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select>
-          </div>
+          {scope ? (
+            <LockedField label="From warehouse" value={warehouses.find(w => w.id === scope.warehouseId)?.name ?? scope.warehouseId} />
+          ) : (
+            <div>
+              <label className={labelClass} htmlFor="transfer-from-wh">From warehouse</label>
+              <select id="transfer-from-wh" value={fromWarehouse} onChange={e => setFromWarehouse(e.target.value)} className={inputClass}>
+                {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className={labelClass} htmlFor="transfer-to-wh">To warehouse</label>
             <select id="transfer-to-wh" value={toWarehouse} onChange={e => setToWarehouse(e.target.value)} className={inputClass}>
               {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
-          <div>
-            <label className={labelClass} htmlFor="transfer-from-batch">From batch</label>
-            <select id="transfer-from-batch" value={fromBatch} onChange={e => setFromBatch(e.target.value)} className={inputClass}>
-              <option value="">General ledger</option>
-              {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
-            </select>
-          </div>
+          {scope ? (
+            <LockedField label="From batch" value={scope.label} />
+          ) : (
+            <div>
+              <label className={labelClass} htmlFor="transfer-from-batch">From batch</label>
+              <select id="transfer-from-batch" value={fromBatch} onChange={e => setFromBatch(e.target.value)} className={inputClass}>
+                <option value="">General ledger</option>
+                {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className={labelClass} htmlFor="transfer-to-batch">To batch</label>
             <select id="transfer-to-batch" value={toBatch} onChange={e => setToBatch(e.target.value)} className={inputClass}>
@@ -575,16 +626,17 @@ function PortionFromBulkModal({
 // ── Mark damaged / lost ───────────────────────────────────────────────────────
 
 function DamagedLostModal({
-  warehouses, batches, onSave, onClose,
+  warehouses, batches, scope, onSave, onClose,
 }: {
   warehouses: { id: string; name: string }[]
   batches: Batch[]
+  scope?: BatchScope
   onSave: (input: { warehouse_id: string; batch_id?: string | null; quantity: number; type: 'damaged' | 'lost'; reason?: string }) => Promise<void>
   onClose: () => void
 }) {
   const [type, setType] = useState<'damaged' | 'lost'>('damaged')
-  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
-  const [batchId, setBatchId] = useState('')
+  const [warehouseId, setWarehouseId] = useState(scope?.warehouseId ?? warehouses[0]?.id ?? '')
+  const [batchId, setBatchId] = useState(scope?.batchId ?? '')
   const [quantity, setQuantity] = useState('')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
@@ -618,19 +670,27 @@ function DamagedLostModal({
             <option value="lost">Lost</option>
           </select>
         </div>
-        <div>
-          <label className={labelClass} htmlFor="dl-warehouse">Warehouse</label>
-          <select id="dl-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
-            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="dl-batch">Batch (leave empty for general ledger)</label>
-          <select id="dl-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
-            <option value="">General ledger (no batch)</option>
-            {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
-          </select>
-        </div>
+        {scope ? (
+          <LockedField label="Warehouse" value={warehouses.find(w => w.id === scope.warehouseId)?.name ?? scope.warehouseId} />
+        ) : (
+          <div>
+            <label className={labelClass} htmlFor="dl-warehouse">Warehouse</label>
+            <select id="dl-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
+              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+        )}
+        {scope ? (
+          <LockedField label="Batch" value={scope.label} />
+        ) : (
+          <div>
+            <label className={labelClass} htmlFor="dl-batch">Batch (leave empty for general ledger)</label>
+            <select id="dl-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
+              <option value="">General ledger (no batch)</option>
+              {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
+            </select>
+          </div>
+        )}
         <div>
           <label className={labelClass} htmlFor="dl-qty">Quantity</label>
           <input id="dl-qty" type="number" min={1} value={quantity} onChange={e => setQuantity(e.target.value)} className={inputClass} />
@@ -729,10 +789,48 @@ function PriceModal({ sku, onSave, onClose }: {
 
 // ── Per-SKU stock panel ───────────────────────────────────────────────────────
 
-type ActiveModal = 'adjust' | 'recount' | 'transfer' | 'split-case' | 'portion-from-bulk' | 'damaged-lost' | 'batch-new' | 'price' | { edit: Batch } | null
+type ActiveModal = 'adjust' | 'recount' | 'transfer' | 'split-case' | 'portion-from-bulk' | 'damaged-lost' | 'batch-new' | 'price' | 'row-choose' | { edit: Batch } | null
 
-function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onStockChanged, onViewHistory, onViewBatchHistory }: {
-  token: string; sku: SKU; warehouses: { id: string; name: string }[]
+// BatchRowActionModal is what clicking a batch row opens -- a chooser
+// scoped to that one row, since a click alone can't say which of
+// Adjust/Recount/Transfer/Damaged-Lost staff actually want. Picking one
+// hands off to that same modal, pre-locked to this row (see BatchScope);
+// Cancel here just closes without picking anything.
+function BatchRowActionModal({ scope, onChoose, onClose }: {
+  scope: BatchScope
+  onChoose: (action: 'adjust' | 'recount' | 'transfer' | 'damaged-lost') => void
+  onClose: () => void
+}) {
+  const actions: { key: 'adjust' | 'recount' | 'transfer' | 'damaged-lost'; label: string; icon: ReactNode; danger?: boolean }[] = [
+    { key: 'adjust', label: 'Adjust (add/remove)', icon: <Plus size={13} /> },
+    { key: 'recount', label: 'Recount', icon: <ClipboardList size={13} /> },
+    { key: 'transfer', label: 'Transfer', icon: <ArrowRightLeft size={13} /> },
+    { key: 'damaged-lost', label: 'Damaged / Lost', icon: <PackageMinus size={13} />, danger: true },
+  ]
+  return (
+    <Modal title={scope.label} onClose={onClose}>
+      <div className="space-y-1.5">
+        {actions.map(a => (
+          <button
+            key={a.key} type="button" onClick={() => onChoose(a.key)}
+            className={clsx(
+              'w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-100',
+              a.danger ? 'text-red-400' : 'dark:text-gray-200 text-gray-800',
+            )}
+          >
+            {a.icon} {a.label}
+          </button>
+        ))}
+        <button type="button" onClick={onClose} className="w-full px-3 py-2 text-xs rounded-lg dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          Cancel
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
+function SKUStockPanel({ token, sku, variantName, warehouses, onSKUUpdated, onStockChanged, onViewHistory, onViewBatchHistory }: {
+  token: string; sku: SKU; variantName?: string; warehouses: { id: string; name: string }[]
   // onSKUUpdated refetches product/variant/SKU metadata (name, price, ...)
   // -- reserved for price edits. Stock-quantity mutations must use
   // onStockChanged instead: onSKUUpdated flips the parent's `loading` flag,
@@ -747,8 +845,23 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onStockChanged, o
   const { level, batches, loading, error, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, portionFromBulk, markDamagedOrLost } =
     useSKUStock(token, sku.id)
   const [modal, setModal] = useState<ActiveModal>(null)
+  // Set alongside `modal` only when a batch ROW was clicked (as opposed to
+  // one of the SKU-level Adjust/Recount/Transfer/Damaged-Lost buttons) --
+  // passed down as `scope` to lock that modal to this exact batch. Cleared
+  // whenever any modal closes, regardless of which entry point opened it.
+  const [rowScope, setRowScope] = useState<BatchScope | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [showAllBatches, setShowAllBatches] = useState(false)
+
+  const closeModal = () => { setModal(null); setRowScope(null) }
+  const openRowAction = (b: Batch) => {
+    setRowScope({
+      warehouseId: b.warehouse_id,
+      batchId: b.is_general_ledger ? '' : b.id,
+      label: b.is_general_ledger ? 'General ledger' : (b.lot_number || 'Batch'),
+    })
+    setModal('row-choose')
+  }
 
   // Old zero-stock batches (even with movement history) clutter this table
   // by default -- hidden unless explicitly shown. The general-ledger row
@@ -798,7 +911,10 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onStockChanged, o
     <div className="pl-8 pr-4 py-3 border-t dark:border-[#2D3748]/60 border-gray-100 dark:bg-[#0B1220]/40 bg-gray-50/60">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
-          <span className="font-mono text-[11px] dark:text-gray-300 text-gray-700">{sku.sku_code}</span>
+          <span className="font-mono text-[11px] dark:text-gray-300 text-gray-700">
+            {variantName && <span className="font-sans dark:text-gray-400 text-gray-500">{variantName} · </span>}
+            {sku.sku_code}
+          </span>
           <button
             type="button"
             onClick={() => setModal('price')}
@@ -863,7 +979,15 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onStockChanged, o
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
             {visibleBatches.map(b => (
-              <tr key={b.is_general_ledger ? `general-${b.warehouse_id}` : b.id} className={clsx(b.is_general_ledger && 'dark:bg-[#111827]/40 bg-gray-100/60')}>
+              <tr
+                key={b.is_general_ledger ? `general-${b.warehouse_id}` : b.id}
+                onClick={() => openRowAction(b)}
+                title="Click to adjust, recount, transfer, or mark damaged/lost"
+                className={clsx(
+                  'cursor-pointer hover:dark:bg-[#1F2937] hover:bg-gray-100/80',
+                  b.is_general_ledger && 'dark:bg-[#111827]/40 bg-gray-100/60',
+                )}
+              >
                 <td className="px-2.5 py-1.5 font-mono dark:text-gray-300 text-gray-700">
                   {b.is_general_ledger ? 'General ledger' : (b.lot_number || '—')}
                 </td>
@@ -879,7 +1003,7 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onStockChanged, o
                     </span>
                   )}
                 </td>
-                <td className="px-2.5 py-1.5">
+                <td className="px-2.5 py-1.5" onClick={e => e.stopPropagation()}>
                   {!b.is_general_ledger && (
                     <div className="flex items-center justify-end gap-2">
                       <button type="button" onClick={() => onViewBatchHistory(sku, b)} aria-label={`View movement history for batch ${b.lot_number}`} title="View movement history" className="dark:text-gray-500 text-gray-400 hover:text-blue-400">
@@ -922,41 +1046,44 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onStockChanged, o
         </div>
       </div>
 
+      {modal === 'row-choose' && rowScope && (
+        <BatchRowActionModal scope={rowScope} onChoose={setModal} onClose={closeModal} />
+      )}
       {modal === 'adjust' && (
-        <AdjustStockModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
+        <AdjustStockModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
           onSave={input => adjust(input).then(() => onStockChanged())} />
       )}
       {modal === 'recount' && (
-        <RecountModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
+        <RecountModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
           onSave={input => recount(input).then(() => onStockChanged())} />
       )}
       {modal === 'transfer' && (
-        <TransferModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
+        <TransferModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
           onSave={input => transfer(input).then(() => onStockChanged())} />
       )}
       {modal === 'split-case' && (
-        <SplitCaseModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
+        <SplitCaseModal warehouses={warehouses} batches={batches} onClose={closeModal}
           onSave={input => splitCase(input).then(() => onStockChanged())} />
       )}
       {modal === 'portion-from-bulk' && (
         <PortionFromBulkModal
           warehouses={warehouses} batches={batches} nominalWeightGrams={sku.weight_grams}
-          onClose={() => setModal(null)} onSave={input => portionFromBulk(input).then(() => onStockChanged())}
+          onClose={closeModal} onSave={input => portionFromBulk(input).then(() => onStockChanged())}
         />
       )}
       {modal === 'damaged-lost' && (
-        <DamagedLostModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
+        <DamagedLostModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
           onSave={input => markDamagedOrLost(input).then(() => onStockChanged())} />
       )}
       {modal === 'batch-new' && (
-        <BatchFormModal batch={null} warehouses={warehouses} onClose={() => setModal(null)}
+        <BatchFormModal batch={null} warehouses={warehouses} onClose={closeModal}
           onSave={input => addBatch(input).then(() => { setShowAllBatches(true); onStockChanged() })} />
       )}
       {modal === 'price' && (
-        <PriceModal sku={sku} onClose={() => setModal(null)} onSave={handleSavePrice} />
+        <PriceModal sku={sku} onClose={closeModal} onSave={handleSavePrice} />
       )}
       {modal !== null && typeof modal === 'object' && (
-        <BatchFormModal batch={modal.edit} warehouses={warehouses} onClose={() => setModal(null)}
+        <BatchFormModal batch={modal.edit} warehouses={warehouses} onClose={closeModal}
           onSave={input => editBatch(modal.edit.id, input).then(() => onStockChanged())} />
       )}
     </div>
@@ -999,6 +1126,12 @@ function ProductStockRow({ token, productId, productName, productImageUrl, wareh
   const { detail, loading, refresh } = useProductDetail(token, productId)
   const skus = (detail?.variants ?? []).flatMap(v => v.skus ?? [])
   const skusKey = skus.map(s => s.id).join(',')
+  // Kept as a separate lookup rather than threading a variantName field
+  // through SKU itself -- every other consumer of `skus` here (movement
+  // history, price range) has no use for it.
+  const variantNameBySKU = Object.fromEntries(
+    (detail?.variants ?? []).flatMap(v => (v.skus ?? []).map(s => [s.id, v.name] as const)),
+  )
 
   const [stockBySKU, setStockBySKU] = useState<Record<string, number>>({})
   const [stockLoading, setStockLoading] = useState(true)
@@ -1103,7 +1236,7 @@ function ProductStockRow({ token, productId, productName, productImageUrl, wareh
             {loading && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">Loading SKUs…</p>}
             {!loading && skus.length === 0 && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">No SKUs on this product yet.</p>}
             {!loading && skus.map(sku => (
-              <SKUStockPanel key={sku.id} token={token} sku={sku} warehouses={warehouses} onSKUUpdated={refresh} onStockChanged={loadStock} onViewHistory={onViewHistory} onViewBatchHistory={onViewBatchHistory} />
+              <SKUStockPanel key={sku.id} token={token} sku={sku} variantName={variantNameBySKU[sku.id]} warehouses={warehouses} onSKUUpdated={refresh} onStockChanged={loadStock} onViewHistory={onViewHistory} onViewBatchHistory={onViewBatchHistory} />
             ))}
           </td>
         </tr>
