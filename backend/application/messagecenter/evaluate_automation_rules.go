@@ -205,7 +205,10 @@ func (uc *EvaluateAutomationRulesUseCase) dispatch(ctx context.Context, sends []
 	for _, s := range sends {
 		switch s.channel {
 		case messaging.ChannelEmail:
-			if err := uc.emailClient.Send(ctx, messaging.Message{Channel: messaging.ChannelEmail, To: s.to, Subject: s.subject, Body: s.body}); err != nil {
+			// smtp.Client.Send only reads HTMLBody, never Body (see
+			// infrastructure/messaging/smtp.Client.Send) -- Body alone
+			// here would silently send an empty message.
+			if err := uc.emailClient.Send(ctx, messaging.Message{Channel: messaging.ChannelEmail, To: s.to, Subject: s.subject, HTMLBody: s.body}); err != nil {
 				return fmt.Errorf("evaluateAutomationRules: send email: %w", err)
 			}
 		case messaging.ChannelWhatsApp:

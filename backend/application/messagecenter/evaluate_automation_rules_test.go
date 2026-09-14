@@ -182,6 +182,33 @@ func TestEvaluateAutomationRules_channelOverride_usesOverrideNotTemplateChannels
 	assert.Empty(t, evo.sentTo)
 }
 
+// TestEvaluateAutomationRules_sendsEmailViaHTMLBody is a regression test:
+// smtp.Client.Send only reads Message.HTMLBody, never Message.Body (see
+// infrastructure/messaging/smtp.Client.Send) -- an earlier version of this
+// use case set Body instead, which the real SMTP client would silently
+// send as an empty message.
+func TestEvaluateAutomationRules_sendsEmailViaHTMLBody(t *testing.T) {
+	rule := mcDomain.AutomationRule{ID: "rule-1", TriggerSubject: "oms.sales_order.status_changed", TemplateID: "template-1", Enabled: true}
+	template := mcDomain.MessageTemplate{ID: "template-1", Channels: []messaging.Channel{messaging.ChannelEmail}, Enabled: true, Subject: "Update", Body: "Hi {{customer_name}}"}
+	email := &fakeEmailClient{}
+	uc := newEvalUseCase(t, evalDeps{
+		ruleRepo:     &stubAutomationRuleRepo{bySubject: []mcDomain.AutomationRule{rule}},
+		templateRepo: &stubMessageTemplateRepo{byID: map[string]mcDomain.MessageTemplate{"template-1": template}},
+		salesOrders:  &fakeSalesOrderRepo{byID: map[string]omsDomain.SalesOrder{"order-1": {ID: "order-1", CustomerID: strPtr("cust-1")}}},
+		customers:    &fakeCustomerRepo{byID: map[string]customersDomain.Customer{"cust-1": {ID: "cust-1", FirstName: "Jane", Email: "jane@example.com"}}},
+		conns:        &fakeConnectionRepo{},
+		emailClient:  email,
+	})
+
+	err := uc.Execute(context.Background(), "oms.sales_order.status_changed", "evt-1", map[string]any{"sales_order_id": "order-1"})
+
+	require.NoError(t, err)
+	require.Len(t, email.sent, 1)
+	assert.Equal(t, "Update", email.sent[0].Subject)
+	assert.Equal(t, "Hi Jane", email.sent[0].HTMLBody)
+	assert.Empty(t, email.sent[0].Body, "Body must stay empty -- smtp.Client only reads HTMLBody")
+}
+
 func TestEvaluateAutomationRules_customerWithNoDestinationForChannel_sendsNothing(t *testing.T) {
 	rule := mcDomain.AutomationRule{ID: "rule-1", TriggerSubject: "oms.sales_order.status_changed", TemplateID: "template-1", Enabled: true}
 	template := mcDomain.MessageTemplate{ID: "template-1", Channels: []messaging.Channel{messaging.ChannelEmail}, Enabled: true, Body: "x"}
