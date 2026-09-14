@@ -26,7 +26,7 @@ describe('LabelPreviewModal', () => {
   it('shows the chosen package type as a badge', () => {
     render(<LabelPreviewModal recipient={recipient} carrier={1} packageType={6} labelSize="A4" onLabelSizeChange={vi.fn()} onBack={vi.fn()} onPrint={vi.fn()} onClose={vi.fn()} />)
 
-    expect(screen.getByText('Envelope')).toBeInTheDocument()
+    expect(screen.getByText('Small package')).toBeInTheDocument()
   })
 
   it('calls onLabelSizeChange when a different size is picked, without calling onPrint', async () => {

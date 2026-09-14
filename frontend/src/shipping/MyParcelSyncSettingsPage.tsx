@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import * as api from './api'
-import { CARRIERS, PACKAGE_TYPES } from './types'
+import { CARRIERS, packageTypesForCarrier } from './types'
 import type { ShippingCarrierOverride } from './types'
 import * as integrationsApi from '../integrations/api'
 import ProviderWebhooksPanel from '../integrations/ProviderWebhooksPanel'
@@ -43,6 +43,16 @@ export default function MyParcelSyncSettingsPage({
 
   const [defaultCarrier, setDefaultCarrier] = useState(1)
   const [defaultPackageType, setDefaultPackageType] = useState(1)
+  const availableDefaultPackageTypes = packageTypesForCarrier(defaultCarrier)
+  // Switching the default carrier to one with a narrower package_type
+  // allow-list (e.g. PostNL) must not leave an unsupported selection in
+  // place -- clamp to that carrier's first allowed type.
+  useEffect(() => {
+    if (!availableDefaultPackageTypes.some(p => p.id === defaultPackageType)) {
+      setDefaultPackageType(availableDefaultPackageTypes[0].id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultCarrier])
   const [defaultLabelFormat, setDefaultLabelFormat] = useState<'pdf' | 'zpl'>('pdf')
   const [defaultLabelSize, setDefaultLabelSize] = useState<'A4' | 'A6'>('A4')
   const [defaultSignatureRequired, setDefaultSignatureRequired] = useState(false)
@@ -286,7 +296,7 @@ export default function MyParcelSyncSettingsPage({
                 <div>
                   <label htmlFor="default-package-type" className="block text-[11px] font-medium dark:text-gray-400 text-gray-500 mb-1">Default package type</label>
                   <select id="default-package-type" value={defaultPackageType} onChange={e => setDefaultPackageType(Number(e.target.value))} className={selectClass + ' w-full'}>
-                    {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                    {availableDefaultPackageTypes.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                   </select>
                 </div>
                 <div>
@@ -393,7 +403,7 @@ export default function MyParcelSyncSettingsPage({
                           className={selectClass}
                         >
                           <option value="">(use default)</option>
-                          {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                          {packageTypesForCarrier(c.id).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                         </select>
                         <label className="flex items-center gap-1.5 text-[11px] dark:text-gray-400 text-gray-500">
                           <input

@@ -100,7 +100,10 @@ describe('MyParcelSyncSettingsPage -- already-connected settings', () => {
   it('offers every MyParcel box type in the default package type select', async () => {
     vi.mocked(api.getShippingSettings).mockResolvedValue({
       settings: {
-        connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1,
+        // Carrier 2 (bpost), not 1 (PostNL) -- PostNL only accepts
+        // package_type 1/2 (see packageTypesForCarrier), so this generic
+        // "every box type" case needs a carrier without that restriction.
+        connection_id: 'conn-mp-1', default_carrier: 2, default_package_type: 1,
         default_label_format: 'pdf', default_signature_required: false, default_only_recipient: false,
         insure_by_default: false, myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: false,
       },
@@ -111,8 +114,30 @@ describe('MyParcelSyncSettingsPage -- already-connected settings', () => {
     const select = await screen.findByLabelText('Default package type')
     const labels = Array.from(select.querySelectorAll('option')).map(o => o.textContent)
     expect(labels).toEqual([
-      'Package', 'Mailbox package', 'Digital stamp', 'Small package', 'Envelope', 'Unfranked',
+      'Package', 'Mailbox package', 'Digital stamp', 'Pallet', 'Small package', 'Envelope',
     ])
+  })
+
+  // Pins the real MyParcel 422 (error 3707, "Pakkettype niet ondersteund"):
+  // PostNL/SendMyParcel only accepts package_type 1 (Package) or 2 (Mailbox
+  // package) -- both the default select and every PostNL override row must
+  // not offer choices MyParcel will reject.
+  it('restricts package type selects to what PostNL actually supports', async () => {
+    vi.mocked(api.getShippingSettings).mockResolvedValue({
+      settings: {
+        connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1,
+        default_label_format: 'pdf', default_signature_required: false, default_only_recipient: false,
+        insure_by_default: false, myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: false,
+      },
+      carrier_overrides: [],
+    })
+    render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
+
+    const defaultSelect = await screen.findByLabelText('Default package type')
+    expect(Array.from(defaultSelect.querySelectorAll('option')).map(o => o.textContent)).toEqual(['Package', 'Mailbox package'])
+
+    const postNLOverride = await screen.findByLabelText('PostNL package type override')
+    expect(Array.from(postNLOverride.querySelectorAll('option')).map(o => o.textContent)).toEqual(['(use default)', 'Package', 'Mailbox package'])
   })
 
   it('saves a per-carrier override independently of the global form', async () => {

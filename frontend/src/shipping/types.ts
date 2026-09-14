@@ -21,10 +21,27 @@ export const PACKAGE_TYPES = [
   { id: 1, label: 'Package' },
   { id: 2, label: 'Mailbox package' },
   { id: 4, label: 'Digital stamp' },
-  { id: 5, label: 'Small package' },
-  { id: 6, label: 'Envelope' },
-  { id: 7, label: 'Unfranked' },
+  { id: 5, label: 'Pallet' },
+  { id: 6, label: 'Small package' },
+  { id: 7, label: 'Envelope' },
 ] as const
+
+// CARRIER_PACKAGE_TYPES mirrors backend domain/shipping's carrierPackageTypes
+// -- a carrier id present here only accepts these package_type ids (MyParcel
+// rejects the rest with a 422). A carrier absent from this map has no
+// confirmed restriction and offers every PACKAGE_TYPES id -- only add
+// entries backed by MyParcel's own docs/errors, never guessed.
+const CARRIER_PACKAGE_TYPES: Partial<Record<number, readonly number[]>> = {
+  // PostNL is MyParcel's own-brand "SendMyParcel" default carrier: only
+  // Package (1) and Mailbox package (2) are allowed.
+  1: [1, 2],
+}
+
+export function packageTypesForCarrier(carrierId: number): typeof PACKAGE_TYPES[number][] {
+  const allowed = CARRIER_PACKAGE_TYPES[carrierId]
+  if (!allowed) return [...PACKAGE_TYPES]
+  return PACKAGE_TYPES.filter(p => allowed.includes(p.id))
+}
 
 export interface RecipientAddress {
   person: string
