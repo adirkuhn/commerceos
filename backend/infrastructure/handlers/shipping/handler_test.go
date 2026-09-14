@@ -288,6 +288,26 @@ func TestCreateShipment_400OnMissingRecipient(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestCreateShipment_422OnUnsupportedPackageTypeForCarrier(t *testing.T) {
+	create := &stubCreateShipment{err: shippingDomain.ErrUnsupportedPackageTypeForCarrier}
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{})
+	r := newTestRouter(h)
+
+	body, _ := json.Marshal(map[string]any{
+		"sales_order_id": "11111111-1111-1111-1111-111111111111",
+		"connection_id":  "22222222-2222-2222-2222-222222222222",
+		"carrier":        1,
+		"package_type":   4,
+		"recipient":      map[string]any{"person": "Jane", "street": "Damrak", "city": "Amsterdam", "cc": "NL"},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/shipping/shipments", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
 func TestCreateShipment_502OnMyParcelRejection(t *testing.T) {
 	create := &stubCreateShipment{err: assertAnError}
 	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{})

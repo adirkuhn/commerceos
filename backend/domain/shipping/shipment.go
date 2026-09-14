@@ -62,10 +62,43 @@ const (
 	// id 3 ("letter") is deprecated/unused by MyParcel -- intentionally no
 	// const for it.
 	PackageTypeDigitalStamp PackageType = 4
-	PackageTypeSmallPackage PackageType = 5
-	PackageTypeEnvelope     PackageType = 6
-	PackageTypeUnfranked    PackageType = 7
+	PackageTypePallet       PackageType = 5
+	PackageTypeSmallPackage PackageType = 6
+	PackageTypeEnvelope     PackageType = 7
 )
+
+// ErrUnsupportedPackageTypeForCarrier is returned when a resolved
+// PackageType isn't one MyParcel's chosen carrier actually accepts --
+// discovered from a real 422 (error 3707, "Pakkettype niet ondersteund").
+var ErrUnsupportedPackageTypeForCarrier = errors.New("shipping: package type not supported by carrier")
+
+// carrierPackageTypes lists, per carrier, the only package_type values
+// MyParcel's API accepts for it. A carrier absent from this map has no
+// confirmed restriction and is left unvalidated -- only add entries backed
+// by MyParcel's own docs/errors, never guessed.
+var carrierPackageTypes = map[Carrier][]PackageType{
+	// SendMyParcel is MyParcel's own-brand default carrier (id 1, PostNL):
+	// https://developer.myparcel.nl/api-reference/06.shipments.html --
+	// only package (1) and mailbox package (2) are allowed. International
+	// mailbox package additionally requires a PostNL contract permitting
+	// it; MyParcel itself rejects that case, not modeled here.
+	CarrierPostNL: {PackageTypePackage, PackageTypeMailboxPackage},
+}
+
+// ValidatePackageTypeForCarrier returns ErrUnsupportedPackageTypeForCarrier
+// if carrier has a known package_type restriction that pt violates.
+func ValidatePackageTypeForCarrier(carrier Carrier, pt PackageType) error {
+	allowed, restricted := carrierPackageTypes[carrier]
+	if !restricted {
+		return nil
+	}
+	for _, a := range allowed {
+		if a == pt {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: carrier %s does not support package_type %d", ErrUnsupportedPackageTypeForCarrier, carrier, int(pt))
+}
 
 const (
 	LabelFormatPDF = "pdf"

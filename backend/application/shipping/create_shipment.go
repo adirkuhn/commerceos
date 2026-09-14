@@ -220,6 +220,10 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	// (see GateOptionsForPackageType's doc comment).
 	resolved = shippingDomain.GateOptionsForPackageType(resolved)
 
+	if err := shippingDomain.ValidatePackageTypeForCarrier(in.Carrier, resolved.PackageType); err != nil {
+		return nil, fmt.Errorf("createShipment: %w", err)
+	}
+
 	// The insured amount is always this specific order's own value, never a
 	// caller-supplied or pre-configured figure -- looked up only when
 	// actually insuring, to avoid the read otherwise.

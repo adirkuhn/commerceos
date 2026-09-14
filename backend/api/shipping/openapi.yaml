@@ -216,6 +216,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ShipmentResponse' }
         '400': { $ref: '#/components/responses/Error' }
+        '422':
+          description: >-
+            package_type isn't one the chosen carrier supports (e.g. PostNL
+            /SendMyParcel only accepts 1 Package or 2 Mailbox package) --
+            rejected before ever calling MyParcel.
+          $ref: '#/components/responses/Error'
         '502':
           description: MyParcel rejected the shipment (invalid address, etc) -- nothing was persisted locally.
           $ref: '#/components/responses/Error'
@@ -430,8 +436,8 @@ components:
           type: integer
           description: >-
             MyParcel shipment_options.package_type: 1 Package, 2 Mailbox
-            package (Letterbox parcel), 4 Digital stamp, 5 Small package,
-            6 Envelope, 7 Unfranked. Id 3 (Letter) is deprecated/unused by
+            package (Letterbox parcel), 4 Digital stamp, 5 Pallet,
+            6 Small package, 7 Envelope. Id 3 (Letter) is deprecated/unused by
             MyParcel.
         default_label_format: { type: string, enum: [pdf, zpl] }
         default_label_size: { type: string, enum: [A4, A6] }
@@ -460,8 +466,8 @@ components:
           nullable: true
           description: >-
             MyParcel shipment_options.package_type: 1 Package, 2 Mailbox
-            package (Letterbox parcel), 4 Digital stamp, 5 Small package,
-            6 Envelope, 7 Unfranked. Id 3 (Letter) is deprecated/unused by
+            package (Letterbox parcel), 4 Digital stamp, 5 Pallet,
+            6 Small package, 7 Envelope. Id 3 (Letter) is deprecated/unused by
             MyParcel. Null means "use the connection's default".
         signature_required: { type: boolean, nullable: true }
         only_recipient: { type: boolean, nullable: true }
@@ -498,8 +504,8 @@ components:
           type: integer
           description: >-
             MyParcel shipment_options.package_type: 1 Package, 2 Mailbox
-            package (Letterbox parcel), 4 Digital stamp, 5 Small package,
-            6 Envelope, 7 Unfranked. Id 3 (Letter) is deprecated/unused by
+            package (Letterbox parcel), 4 Digital stamp, 5 Pallet,
+            6 Small package, 7 Envelope. Id 3 (Letter) is deprecated/unused by
             MyParcel.
         default_label_format: { type: string, enum: [pdf, zpl] }
         default_label_size: { type: string, enum: [A4, A6] }
@@ -519,8 +525,8 @@ components:
           nullable: true
           description: >-
             MyParcel shipment_options.package_type: 1 Package, 2 Mailbox
-            package (Letterbox parcel), 4 Digital stamp, 5 Small package,
-            6 Envelope, 7 Unfranked. Id 3 (Letter) is deprecated/unused by
+            package (Letterbox parcel), 4 Digital stamp, 5 Pallet,
+            6 Small package, 7 Envelope. Id 3 (Letter) is deprecated/unused by
             MyParcel. Null means "use the connection's default".
         signature_required: { type: boolean, nullable: true }
         only_recipient: { type: boolean, nullable: true }
@@ -562,8 +568,8 @@ components:
           nullable: true
           description: >-
             MyParcel shipment_options.package_type: 1 Package, 2 Mailbox
-            package (Letterbox parcel), 4 Digital stamp, 5 Small package,
-            6 Envelope, 7 Unfranked. Id 3 (Letter) is deprecated/unused by
+            package (Letterbox parcel), 4 Digital stamp, 5 Pallet,
+            6 Small package, 7 Envelope. Id 3 (Letter) is deprecated/unused by
             MyParcel. Null means "use the connection's default".
         signature_required: { type: boolean, nullable: true }
         only_recipient: { type: boolean, nullable: true }

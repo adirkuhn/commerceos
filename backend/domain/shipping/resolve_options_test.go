@@ -98,12 +98,12 @@ func TestResolveOptions_notInsuredDoesNotForceSignatureOrOnlyRecipient(t *testin
 // mail product on MyParcel's side and cannot carry signature, only_recipient
 // or insurance at all, regardless of what the connection/carrier defaults
 // say. Confirmed by a real 422 for Mailbox package specifically; Digital
-// stamp/Small package/Envelope/Unfranked are the same product class and
-// gated the same way, per MyParcel's own product model.
+// stamp/Pallet/Small package/Envelope are the same product class and gated
+// the same way, per MyParcel's own product model.
 func TestResolveOptions_nonPackageType_forcesOptionsOff(t *testing.T) {
 	nonPackageTypes := []shipping.PackageType{
 		shipping.PackageTypeMailboxPackage, shipping.PackageTypeDigitalStamp,
-		shipping.PackageTypeSmallPackage, shipping.PackageTypeEnvelope, shipping.PackageTypeUnfranked,
+		shipping.PackageTypePallet, shipping.PackageTypeSmallPackage, shipping.PackageTypeEnvelope,
 	}
 	for _, pt := range nonPackageTypes {
 		settings := &shipping.ShippingConnectionSettings{

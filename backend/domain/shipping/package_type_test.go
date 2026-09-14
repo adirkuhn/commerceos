@@ -17,7 +17,7 @@ func TestPackageType_MyParcelIDs(t *testing.T) {
 	assert.Equal(t, shipping.PackageType(1), shipping.PackageTypePackage)
 	assert.Equal(t, shipping.PackageType(2), shipping.PackageTypeMailboxPackage)
 	assert.Equal(t, shipping.PackageType(4), shipping.PackageTypeDigitalStamp)
-	assert.Equal(t, shipping.PackageType(5), shipping.PackageTypeSmallPackage)
-	assert.Equal(t, shipping.PackageType(6), shipping.PackageTypeEnvelope)
-	assert.Equal(t, shipping.PackageType(7), shipping.PackageTypeUnfranked)
+	assert.Equal(t, shipping.PackageType(5), shipping.PackageTypePallet)
+	assert.Equal(t, shipping.PackageType(6), shipping.PackageTypeSmallPackage)
+	assert.Equal(t, shipping.PackageType(7), shipping.PackageTypeEnvelope)
 }

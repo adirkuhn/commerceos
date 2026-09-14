@@ -176,14 +176,16 @@ type ConnectionResponse struct {
 
 // CreateShipmentRequest defines model for CreateShipmentRequest.
 type CreateShipmentRequest struct {
-	Carrier           int                               `json:"carrier"`
-	ConnectionId      openapi_types.UUID                `json:"connection_id"`
-	LabelFormat       *CreateShipmentRequestLabelFormat `json:"label_format,omitempty"`
-	OnlyRecipient     *bool                             `json:"only_recipient,omitempty"`
-	PackageType       *int                              `json:"package_type,omitempty"`
-	Recipient         RecipientAddress                  `json:"recipient"`
-	SalesOrderId      openapi_types.UUID                `json:"sales_order_id"`
-	SignatureRequired *bool                             `json:"signature_required,omitempty"`
+	Carrier       int                               `json:"carrier"`
+	ConnectionId  openapi_types.UUID                `json:"connection_id"`
+	LabelFormat   *CreateShipmentRequestLabelFormat `json:"label_format,omitempty"`
+	OnlyRecipient *bool                             `json:"only_recipient,omitempty"`
+
+	// PackageType MyParcel shipment_options.package_type: 1 Package, 2 Mailbox package (Letterbox parcel), 4 Digital stamp, 5 Pallet, 6 Small package, 7 Envelope. Id 3 (Letter) is deprecated/unused by MyParcel. Null means "use the connection's default".
+	PackageType       *int               `json:"package_type,omitempty"`
+	Recipient         RecipientAddress   `json:"recipient"`
+	SalesOrderId      openapi_types.UUID `json:"sales_order_id"`
+	SignatureRequired *bool              `json:"signature_required,omitempty"`
 }
 
 // CreateShipmentRequestLabelFormat defines model for CreateShipmentRequest.LabelFormat.
@@ -312,12 +314,14 @@ type ShipmentTrackingEventResponse struct {
 
 // ShippingCarrierOverride defines model for ShippingCarrierOverride.
 type ShippingCarrierOverride struct {
-	Carrier           *int    `json:"carrier,omitempty"`
-	ConnectionId      *string `json:"connection_id,omitempty"`
-	InsureByDefault   *bool   `json:"insure_by_default,omitempty"`
-	OnlyRecipient     *bool   `json:"only_recipient,omitempty"`
-	PackageType       *int    `json:"package_type,omitempty"`
-	SignatureRequired *bool   `json:"signature_required,omitempty"`
+	Carrier         *int    `json:"carrier,omitempty"`
+	ConnectionId    *string `json:"connection_id,omitempty"`
+	InsureByDefault *bool   `json:"insure_by_default,omitempty"`
+	OnlyRecipient   *bool   `json:"only_recipient,omitempty"`
+
+	// PackageType MyParcel shipment_options.package_type: 1 Package, 2 Mailbox package (Letterbox parcel), 4 Digital stamp, 5 Pallet, 6 Small package, 7 Envelope. Id 3 (Letter) is deprecated/unused by MyParcel. Null means "use the connection's default".
+	PackageType       *int  `json:"package_type,omitempty"`
+	SignatureRequired *bool `json:"signature_required,omitempty"`
 
 	// TrackingUrlTemplate Carrier tracking-page URL with {barcode}/{postcode} placeholders, e.g. PostNL's "https://postnl.nl/tracktrace/?B={barcode}&P={postcode}&D=NL&T=C&L=EN". Preferred over MyParcel's own tracking link when set. Null means "use MyParcel's own link, if any".
 	TrackingUrlTemplate *string `json:"tracking_url_template,omitempty"`
@@ -325,14 +329,16 @@ type ShippingCarrierOverride struct {
 
 // ShippingConnectionSettings defines model for ShippingConnectionSettings.
 type ShippingConnectionSettings struct {
-	AutoPrintEnabled         *bool                                         `json:"auto_print_enabled,omitempty"`
-	ConnectionId             *string                                       `json:"connection_id,omitempty"`
-	DefaultCarrier           *int                                          `json:"default_carrier,omitempty"`
-	DefaultLabelFormat       *ShippingConnectionSettingsDefaultLabelFormat `json:"default_label_format,omitempty"`
-	DefaultLabelSize         *ShippingConnectionSettingsDefaultLabelSize   `json:"default_label_size,omitempty"`
-	DefaultOnlyRecipient     *bool                                         `json:"default_only_recipient,omitempty"`
-	DefaultPackageType       *int                                          `json:"default_package_type,omitempty"`
-	DefaultSignatureRequired *bool                                         `json:"default_signature_required,omitempty"`
+	AutoPrintEnabled     *bool                                         `json:"auto_print_enabled,omitempty"`
+	ConnectionId         *string                                       `json:"connection_id,omitempty"`
+	DefaultCarrier       *int                                          `json:"default_carrier,omitempty"`
+	DefaultLabelFormat   *ShippingConnectionSettingsDefaultLabelFormat `json:"default_label_format,omitempty"`
+	DefaultLabelSize     *ShippingConnectionSettingsDefaultLabelSize   `json:"default_label_size,omitempty"`
+	DefaultOnlyRecipient *bool                                         `json:"default_only_recipient,omitempty"`
+
+	// DefaultPackageType MyParcel shipment_options.package_type: 1 Package, 2 Mailbox package (Letterbox parcel), 4 Digital stamp, 5 Pallet, 6 Small package, 7 Envelope. Id 3 (Letter) is deprecated/unused by MyParcel.
+	DefaultPackageType       *int  `json:"default_package_type,omitempty"`
+	DefaultSignatureRequired *bool `json:"default_signature_required,omitempty"`
 
 	// ExportOrderToMyparcel When true, creating a shipment also registers the order via MyParcel's separate Orders/Fulfilment API, so it shows up on MyParcel's own Orders dashboard (the plain Shipments API used by default does not). Off by default -- it hands MyParcel the full order (line items, prices).
 	ExportOrderToMyparcel *bool `json:"export_order_to_myparcel,omitempty"`
@@ -358,17 +364,19 @@ type ShippingSettingsResponse struct {
 
 // UpdateShippingSettingsRequest defines model for UpdateShippingSettingsRequest.
 type UpdateShippingSettingsRequest struct {
-	AutoPrintEnabled         *bool                                           `json:"auto_print_enabled,omitempty"`
-	DefaultCarrier           int                                             `json:"default_carrier"`
-	DefaultLabelFormat       UpdateShippingSettingsRequestDefaultLabelFormat `json:"default_label_format"`
-	DefaultLabelSize         *UpdateShippingSettingsRequestDefaultLabelSize  `json:"default_label_size,omitempty"`
-	DefaultOnlyRecipient     *bool                                           `json:"default_only_recipient,omitempty"`
-	DefaultPackageType       int                                             `json:"default_package_type"`
-	DefaultSignatureRequired *bool                                           `json:"default_signature_required,omitempty"`
-	ExportOrderToMyparcel    *bool                                           `json:"export_order_to_myparcel,omitempty"`
-	InsureByDefault          *bool                                           `json:"insure_by_default,omitempty"`
-	MyparcelAccountId        *int                                            `json:"myparcel_account_id,omitempty"`
-	MyparcelShopId           *int                                            `json:"myparcel_shop_id,omitempty"`
+	AutoPrintEnabled     *bool                                           `json:"auto_print_enabled,omitempty"`
+	DefaultCarrier       int                                             `json:"default_carrier"`
+	DefaultLabelFormat   UpdateShippingSettingsRequestDefaultLabelFormat `json:"default_label_format"`
+	DefaultLabelSize     *UpdateShippingSettingsRequestDefaultLabelSize  `json:"default_label_size,omitempty"`
+	DefaultOnlyRecipient *bool                                           `json:"default_only_recipient,omitempty"`
+
+	// DefaultPackageType MyParcel shipment_options.package_type: 1 Package, 2 Mailbox package (Letterbox parcel), 4 Digital stamp, 5 Pallet, 6 Small package, 7 Envelope. Id 3 (Letter) is deprecated/unused by MyParcel.
+	DefaultPackageType       int   `json:"default_package_type"`
+	DefaultSignatureRequired *bool `json:"default_signature_required,omitempty"`
+	ExportOrderToMyparcel    *bool `json:"export_order_to_myparcel,omitempty"`
+	InsureByDefault          *bool `json:"insure_by_default,omitempty"`
+	MyparcelAccountId        *int  `json:"myparcel_account_id,omitempty"`
+	MyparcelShopId           *int  `json:"myparcel_shop_id,omitempty"`
 }
 
 // UpdateShippingSettingsRequestDefaultLabelFormat defines model for UpdateShippingSettingsRequest.DefaultLabelFormat.
@@ -379,8 +387,10 @@ type UpdateShippingSettingsRequestDefaultLabelSize string
 
 // UpsertCarrierOverrideRequest defines model for UpsertCarrierOverrideRequest.
 type UpsertCarrierOverrideRequest struct {
-	InsureByDefault     *bool   `json:"insure_by_default,omitempty"`
-	OnlyRecipient       *bool   `json:"only_recipient,omitempty"`
+	InsureByDefault *bool `json:"insure_by_default,omitempty"`
+	OnlyRecipient   *bool `json:"only_recipient,omitempty"`
+
+	// PackageType MyParcel shipment_options.package_type: 1 Package, 2 Mailbox package (Letterbox parcel), 4 Digital stamp, 5 Pallet, 6 Small package, 7 Envelope. Id 3 (Letter) is deprecated/unused by MyParcel. Null means "use the connection's default".
 	PackageType         *int    `json:"package_type,omitempty"`
 	SignatureRequired   *bool   `json:"signature_required,omitempty"`
 	TrackingUrlTemplate *string `json:"tracking_url_template,omitempty"`
@@ -944,77 +954,79 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"bv8nAAD//w==",
+	"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",
+	"aMAKPpgeRnef7/4nAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
