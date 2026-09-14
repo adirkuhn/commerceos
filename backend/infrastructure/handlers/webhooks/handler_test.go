@@ -139,6 +139,33 @@ func TestReceiveWebhook_forwardsQueryTokenForMyParcel(t *testing.T) {
 	assert.Equal(t, "secret-abc", uc.headers["__query_token"])
 }
 
+// TestReceiveWebhook_413OnOversizedBody pins the real incident: a WhatsApp
+// webhook body of 44.5MB (Evolution API embeds media as inline base64,
+// never read downstream) permanently stuck a fallback row that could never
+// succeed on retry (NATS max_payload). Must now be rejected at the HTTP
+// layer before ever reaching the use case -- the use case is never even
+// called.
+func TestReceiveWebhook_413OnOversizedBody(t *testing.T) {
+	uc := &stubReceiveWebhook{result: appwebhooks.Result{EventID: "evt-1"}}
+	r := newTestRouter(uc)
+
+	oversized := bytes.Repeat([]byte("a"), 8*1024*1024+1)
+	w := doWebhookRequest(t, r, testTenantID, "whatsapp", oversized, nil)
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+	assert.Empty(t, uc.provider, "must reject before ever calling the use case")
+}
+
+func TestReceiveWebhook_200AtExactlyTheSizeLimit(t *testing.T) {
+	uc := &stubReceiveWebhook{result: appwebhooks.Result{EventID: "evt-1"}}
+	r := newTestRouter(uc)
+
+	atLimit := bytes.Repeat([]byte("a"), 8*1024*1024)
+	w := doWebhookRequest(t, r, testTenantID, "whatsapp", atLimit, nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
 // ReceiveWebhookWithToken is the current registration shape for MyParcel
 // (application/shipping.RegisterMyParcelWebhookUseCase /
 // application/integrations.CreateProviderWebhookUseCase both build this

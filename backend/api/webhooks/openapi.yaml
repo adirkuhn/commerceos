@@ -64,6 +64,12 @@ paths:
         '404':
           description: Unknown provider name.
           $ref: '#/components/responses/Error'
+        '413':
+          description: >-
+            Request body exceeds the maximum accepted size (matches
+            nats/nats.conf's max_payload) -- rejected before ever being
+            read, published, or durably saved to the fallback table.
+          $ref: '#/components/responses/Error'
         '501':
           description: Provider is registered but has no real verification yet, or the tenant hasn't configured a webhook secret for it.
           $ref: '#/components/responses/Error'
@@ -115,6 +121,12 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           description: Unknown provider name.
+          $ref: '#/components/responses/Error'
+        '413':
+          description: >-
+            Request body exceeds the maximum accepted size (matches
+            nats/nats.conf's max_payload) -- rejected before ever being
+            read, published, or durably saved to the fallback table.
           $ref: '#/components/responses/Error'
         '501':
           description: Provider is registered but has no real verification yet, or the tenant hasn't configured a webhook secret for it.

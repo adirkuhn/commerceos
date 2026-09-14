@@ -20,6 +20,14 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/webhookproviders"
 )
 
+// maxWebhookBodyBytes matches nats/nats.conf's max_payload -- anything that
+// clears this cap is guaranteed to clear NATS too, so an oversized body
+// (a WhatsApp/Evolution API media message embeds the full file as inline
+// base64 -- 44.5MB seen in practice, and nothing downstream ever reads
+// those bytes) is rejected here, before it's ever buffered, published, or
+// durably written to the fallback table as a row that can never succeed.
+const maxWebhookBodyBytes = 8 * 1024 * 1024
+
 // receiveWebhookUseCase is appwebhooks.ReceiveWebhookUseCase narrowed to
 // point of use (ISP) -- lets the handler be unit tested without a real DB,
 // NATS connection, or connection repository.
@@ -52,8 +60,14 @@ func (h *Handler) ReceiveWebhookWithToken(c *gin.Context, tenantID openapi_types
 }
 
 func (h *Handler) receiveWithToken(c *gin.Context, tenantID openapi_types.UUID, provider string, token string) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxWebhookBodyBytes)
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeWebhookError(c, http.StatusRequestEntityTooLarge, "payload_too_large", "request body exceeds the maximum accepted size")
+			return
+		}
 		writeWebhookError(c, http.StatusBadRequest, "invalid_body", "could not read request body")
 		return
 	}
