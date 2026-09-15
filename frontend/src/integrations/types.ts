@@ -28,6 +28,8 @@ export interface Connection {
   default_warehouse_id?: string | null
   bol_economic_operator_id?: string | null
   bol_delivery_code?: string | null
+  whatsapp_test_mode_enabled?: boolean
+  whatsapp_test_phone_e164?: string | null
   created_at: string
 }
 

@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext'
 import { useConnections } from '../integrations/hooks/useConnections'
 import { useWebhookFallbackEvents } from '../integrations/hooks/useWebhookFallbackEvents'
 import { WebhookFallbackEventsTable } from '../integrations/WebhookFallbackEventsTable'
+import { WhatsAppTestModeModal } from '../integrations/WhatsAppTestModeModal'
 import * as api from '../integrations/api'
 import type { Connection, ImportJob, DeleteAllImportedProductsResult } from '../integrations/types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
@@ -142,6 +143,7 @@ export default function Integrations() {
   const fallbackEvents = useWebhookFallbackEvents(showWebhookAdmin ? token ?? '' : '')
 
   const [configuringConnection, setConfiguringConnection] = useState<Connection | null>(null)
+  const [configuringWhatsAppTestMode, setConfiguringWhatsAppTestMode] = useState<Connection | null>(null)
 
   const [browsing, setBrowsing] = useState(false)
   const [connectingWoo, setConnectingWoo] = useState(false)
@@ -505,6 +507,11 @@ export default function Integrations() {
                     </div>
                     <p className="text-sm font-semibold dark:text-gray-100 text-gray-900 capitalize">{conn.provider}</p>
                     <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5 truncate">{conn.store_url}</p>
+                    {conn.provider === 'whatsapp' && conn.whatsapp_test_mode_enabled && (
+                      <p className="mt-2 text-[10px] px-2 py-1 rounded-lg text-amber-400 bg-amber-500/10">
+                        Test mode on — all messages go to {conn.whatsapp_test_phone_e164}
+                      </p>
+                    )}
                     {testResult && testResult.id === conn.id && (
                       <p className={clsx(
                         'mt-2 text-[10px] px-2 py-1 rounded-lg',
@@ -544,6 +551,14 @@ export default function Integrations() {
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                         >
                           Configure
+                        </button>
+                      )}
+                      {conn.provider === 'whatsapp' && (
+                        <button
+                          onClick={() => setConfiguringWhatsAppTestMode(conn)}
+                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                        >
+                          Test mode
                         </button>
                       )}
                       {conn.provider === 'woocommerce' && (
@@ -587,6 +602,14 @@ export default function Integrations() {
 
         {showWebhookAdmin && <WebhookFallbackEventsTable {...fallbackEvents} />}
       </div>
+
+      {configuringWhatsAppTestMode && (
+        <WhatsAppTestModeModal
+          connection={configuringWhatsAppTestMode}
+          onClose={() => setConfiguringWhatsAppTestMode(null)}
+          onSaved={() => refresh()}
+        />
+      )}
 
       {browsing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">

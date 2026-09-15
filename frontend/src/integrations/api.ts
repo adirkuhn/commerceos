@@ -434,6 +434,16 @@ export function setWebhookSecret(token: string, connectionId: string, secret?: s
   )
 }
 
+// enabled:true with an empty testPhoneE164 is rejected by the backend
+// (422) -- pass a non-empty number whenever enabling.
+export function setWhatsAppTestMode(token: string, connectionId: string, enabled: boolean, testPhoneE164: string): Promise<Connection> {
+  return request<Connection>(
+    `${base()}/connections/${connectionId}/whatsapp-test-mode`,
+    { method: 'POST', body: JSON.stringify({ enabled, test_phone_e164: testPhoneE164 }) },
+    token,
+  )
+}
+
 export interface ListWebhookFallbackEventsResult {
   events: WebhookFallbackEvent[]
   total: number

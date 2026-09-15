@@ -71,6 +71,9 @@ type retryWebhookFallbackEventUC interface {
 type abandonWebhookFallbackEventUC interface {
 	Execute(ctx context.Context, id string) error
 }
+type setWhatsAppTestModeUC interface {
+	Execute(ctx context.Context, connectionID string, enabled bool, testPhoneE164 string) (*integrationsDomain.Connection, error)
+}
 type abandonAllWebhookFallbackEventsUC interface {
 	Execute(ctx context.Context, status webhooksDomain.FallbackStatus) (int64, error)
 }
@@ -300,6 +303,7 @@ type Handler struct {
 	retryWebhookEventDispatch       retryWebhookEventDispatchUC
 	linkExistingWooProduct          linkExistingWooProductUC
 	abandonAllWebhookFallbackEvents abandonAllWebhookFallbackEventsUC
+	setWhatsAppTestMode             setWhatsAppTestModeUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -369,6 +373,7 @@ func NewHandler(
 	linkExistingWooProduct linkExistingWooProductUC,
 	listProductChannelListings listProductChannelListingsUC,
 	abandonAllWebhookFallbackEvents abandonAllWebhookFallbackEventsUC,
+	setWhatsAppTestMode setWhatsAppTestModeUC,
 ) *Handler {
 	return &Handler{
 		listConnections:                 listConnections,
@@ -436,6 +441,7 @@ func NewHandler(
 		linkExistingWooProduct:          linkExistingWooProduct,
 		listProductChannelListings:      listProductChannelListings,
 		abandonAllWebhookFallbackEvents: abandonAllWebhookFallbackEvents,
+		setWhatsAppTestMode:             setWhatsAppTestMode,
 	}
 }
 
@@ -614,6 +620,7 @@ func Register(
 		appchannels.NewLinkExistingWooProductUseCase(db, productRepo, connRepo, listingRepo, wooFactory, encryptionSecret),
 		appchannels.NewListProductChannelListingsUseCase(db, listingRepo),
 		appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(db, webhookFallbackRepo),
+		appintegrations.NewSetWhatsAppTestModeUseCase(db, connRepo),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -838,6 +845,23 @@ func (h *Handler) SetWebhookSecret(c *gin.Context, id genintegrations.Id) {
 		return
 	}
 	middleware.OK(c, gin.H{"connection_id": result.ConnectionID, "webhook_secret": result.PlaintextSecret})
+}
+
+func (h *Handler) SetWhatsAppTestMode(c *gin.Context, id genintegrations.Id) {
+	var req genintegrations.SetWhatsAppTestModeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	testPhone := ""
+	if req.TestPhoneE164 != nil {
+		testPhone = *req.TestPhoneE164
+	}
+	conn, err := h.setWhatsAppTestMode.Execute(c.Request.Context(), id, req.Enabled, testPhone)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenConnection(*conn))
 }
 
 func (h *Handler) ListWebhookFallbackEvents(c *gin.Context, params genintegrations.ListWebhookFallbackEventsParams) {
@@ -1765,15 +1789,17 @@ func (h *Handler) WooCallback(c *gin.Context) {
 func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection {
 	currency := c.DefaultCurrency
 	return genintegrations.Connection{
-		Id:                    c.ID,
-		Provider:              string(c.Provider),
-		StoreUrl:              c.StoreURL.String(),
-		Status:                genintegrations.ConnectionStatus(c.Status),
-		DefaultCurrency:       &currency,
-		DefaultWarehouseId:    c.DefaultWarehouseID,
-		BolEconomicOperatorId: c.BolEconomicOperatorID,
-		BolDeliveryCode:       c.BolDeliveryCode,
-		CreatedAt:             c.CreatedAt,
+		Id:                      c.ID,
+		Provider:                string(c.Provider),
+		StoreUrl:                c.StoreURL.String(),
+		Status:                  genintegrations.ConnectionStatus(c.Status),
+		DefaultCurrency:         &currency,
+		DefaultWarehouseId:      c.DefaultWarehouseID,
+		BolEconomicOperatorId:   c.BolEconomicOperatorID,
+		BolDeliveryCode:         c.BolDeliveryCode,
+		WhatsappTestModeEnabled: &c.WhatsAppTestModeEnabled,
+		WhatsappTestPhoneE164:   c.WhatsAppTestPhoneE164,
+		CreatedAt:               c.CreatedAt,
 	}
 }
 
@@ -1992,7 +2018,9 @@ func mapError(c *gin.Context, err error) error {
 	case errors.Is(err, integrationsDomain.ErrProviderNotSupported),
 		errors.Is(err, integrationsDomain.ErrAPIKeyRequired),
 		errors.Is(err, integrationsDomain.ErrBaseURLRequired),
-		errors.Is(err, integrationsDomain.ErrInvalidBolDeliveryCode):
+		errors.Is(err, integrationsDomain.ErrInvalidBolDeliveryCode),
+		errors.Is(err, integrationsDomain.ErrWhatsAppTestPhoneRequired),
+		errors.Is(err, integrationsDomain.ErrNotWhatsAppConnection):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, channelsDomain.ErrCannotPushVariableProduct),
 		errors.Is(err, channelsDomain.ErrInvalidSyncEntityType),

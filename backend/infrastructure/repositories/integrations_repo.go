@@ -27,6 +27,8 @@ type integrationConnectionModel struct {
 	BolDeliveryCode         *string
 	SMTPPort                *string
 	EmailFrom               *string
+	WhatsAppTestModeEnabled bool `gorm:"not null;default:false"`
+	WhatsAppTestPhoneE164   *string
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
 }
@@ -64,6 +66,8 @@ func (r *ConnectionRepo) Create(ctx context.Context, c *integrationsDomain.Conne
 		BolDeliveryCode:         c.BolDeliveryCode,
 		SMTPPort:                c.SMTPPort,
 		EmailFrom:               c.EmailFrom,
+		WhatsAppTestModeEnabled: c.WhatsAppTestModeEnabled,
+		WhatsAppTestPhoneE164:   c.WhatsAppTestPhoneE164,
 		CreatedAt:               c.CreatedAt,
 		UpdatedAt:               c.UpdatedAt,
 	}
@@ -112,13 +116,15 @@ func (r *ConnectionRepo) Update(ctx context.Context, c *integrationsDomain.Conne
 	}
 	if err := tx.Model(&integrationConnectionModel{}).Where("id = ?", c.ID).
 		Updates(map[string]any{
-			"status":                   string(c.Status),
-			"default_currency":         c.DefaultCurrency,
-			"default_warehouse_id":     c.DefaultWarehouseID,
-			"webhook_secret_encrypted": c.WebhookSecretEncrypted,
-			"bol_economic_operator_id": c.BolEconomicOperatorID,
-			"bol_delivery_code":        c.BolDeliveryCode,
-			"updated_at":               c.UpdatedAt,
+			"status":                     string(c.Status),
+			"default_currency":           c.DefaultCurrency,
+			"default_warehouse_id":       c.DefaultWarehouseID,
+			"webhook_secret_encrypted":   c.WebhookSecretEncrypted,
+			"bol_economic_operator_id":   c.BolEconomicOperatorID,
+			"bol_delivery_code":          c.BolDeliveryCode,
+			"whatsapp_test_mode_enabled": c.WhatsAppTestModeEnabled,
+			"whatsapp_test_phone_e164":   c.WhatsAppTestPhoneE164,
+			"updated_at":                 c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("connectionRepo.Update: %w", err)
 	}
@@ -152,6 +158,8 @@ func toConnectionDomain(m integrationConnectionModel) *integrationsDomain.Connec
 		BolDeliveryCode:         m.BolDeliveryCode,
 		SMTPPort:                m.SMTPPort,
 		EmailFrom:               m.EmailFrom,
+		WhatsAppTestModeEnabled: m.WhatsAppTestModeEnabled,
+		WhatsAppTestPhoneE164:   m.WhatsAppTestPhoneE164,
 		CreatedAt:               m.CreatedAt,
 		UpdatedAt:               m.UpdatedAt,
 	}

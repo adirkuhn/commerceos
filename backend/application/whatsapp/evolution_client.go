@@ -1,6 +1,7 @@
 package whatsapp
 
 import (
+	"context"
 	"fmt"
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
@@ -33,7 +34,26 @@ func buildEvolutionClient(factory integrationsDomain.EvolutionAPIClientFactory, 
 	if err != nil {
 		return nil, fmt.Errorf("build evolution api client: %w", err)
 	}
+	if conn.WhatsAppTestModeEnabled && conn.WhatsAppTestPhoneE164 != nil && *conn.WhatsAppTestPhoneE164 != "" {
+		client = &testModeEvolutionClient{inner: client, testPhone: *conn.WhatsAppTestPhoneE164}
+	}
 	return client, nil
+}
+
+// testModeEvolutionClient redirects every outbound send to one fixed test
+// number instead of the real recipient -- see
+// domain/integrations.Connection.WhatsAppTestModeEnabled's doc comment.
+// Wrapping the client here (buildEvolutionClient's single choke point)
+// means every outbound-send use case (replies, order-status/
+// shipment-delivery notifications, Message Center automation) gets this
+// for free without any of them knowing test mode exists.
+type testModeEvolutionClient struct {
+	inner     integrationsDomain.EvolutionAPIClient
+	testPhone string
+}
+
+func (c *testModeEvolutionClient) SendText(ctx context.Context, toPhone, body string) error {
+	return c.inner.SendText(ctx, c.testPhone, fmt.Sprintf("[TEST -- meant for %s]\n%s", toPhone, body))
 }
 
 // buildPaymentClient decrypts conn's stored API key and builds a payment

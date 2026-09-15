@@ -67,4 +67,12 @@ var (
 	ErrEmailHostRequired            = errors.New("smtp host is required")
 	ErrEmailPortRequired            = errors.New("smtp port is required")
 	ErrEmailFromRequired            = errors.New("from address is required")
+	// ErrWhatsAppTestPhoneRequired guards SetWhatsAppTestModeUseCase --
+	// enabling test mode with no redirect number would silently drop every
+	// outbound WhatsApp message instead of the intended "sent to me
+	// instead of the customer" behavior.
+	ErrWhatsAppTestPhoneRequired = errors.New("a test phone number is required to enable whatsapp test mode")
+	// ErrNotWhatsAppConnection guards SetWhatsAppTestModeUseCase against
+	// being pointed at a connection of any other provider.
+	ErrNotWhatsAppConnection = errors.New("connection is not a whatsapp connection")
 )

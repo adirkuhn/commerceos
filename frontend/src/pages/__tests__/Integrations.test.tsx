@@ -29,6 +29,7 @@ vi.mock('../../integrations/api', () => ({
   connectRevolut: vi.fn(),
   connectEmail: vi.fn(),
   setWebhookSecret: vi.fn(),
+  setWhatsAppTestMode: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -83,6 +84,10 @@ function bolConnection(overrides: Partial<Connection> = {}): Connection {
 
 function myParcelConnection(overrides: Partial<Connection> = {}): Connection {
   return { id: 'conn-mp-1', provider: 'myparcel', store_url: '', status: 'connected', created_at: '', ...overrides }
+}
+
+function whatsappConnection(overrides: Partial<Connection> = {}): Connection {
+  return { id: 'conn-wa-1', provider: 'whatsapp', store_url: 'https://evolution.example.com', status: 'connected', created_at: '', ...overrides }
 }
 
 const sampleWarehouse: Warehouse = {
@@ -549,5 +554,65 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
 
     expect(await screen.findByText('connection refused')).toBeInTheDocument()
+  })
+})
+
+describe('WhatsApp test mode', () => {
+  it('shows a "Test mode" button only for whatsapp connections', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection(), whatsappConnection()])
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+
+    await screen.findByText('woocommerce', { selector: 'p' })
+    expect(screen.getAllByRole('button', { name: 'Test mode' })).toHaveLength(1)
+  })
+
+  it('opens the modal prefilled from the connection, enables it, and saves', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([whatsappConnection()])
+    vi.mocked(integrationsApi.setWhatsAppTestMode).mockResolvedValue(
+      whatsappConnection({ whatsapp_test_mode_enabled: true, whatsapp_test_phone_e164: '31612345678' }),
+    )
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Test mode' }))
+
+    expect(await screen.findByText('WhatsApp test mode')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Test phone number')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByLabelText('Enable test mode'))
+    await userEvent.type(screen.getByLabelText('Test phone number'), '31612345678')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.setWhatsAppTestMode).toHaveBeenCalledWith('test-token', 'conn-wa-1', true, '31612345678'))
+    expect(screen.queryByText('WhatsApp test mode')).not.toBeInTheDocument()
+    expect(integrationsApi.listConnections).toHaveBeenCalledTimes(2) // initial load + refresh after save
+  })
+
+  it('shows a badge with the redirect number when test mode is already on', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([
+      whatsappConnection({ whatsapp_test_mode_enabled: true, whatsapp_test_phone_e164: '31612345678' }),
+    ])
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+
+    expect(await screen.findByText(/Test mode on.*31612345678/)).toBeInTheDocument()
+  })
+
+  it('Save is disabled with test mode enabled and no phone entered', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([whatsappConnection()])
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Test mode' }))
+    await userEvent.click(screen.getByLabelText('Enable test mode'))
+
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
+
+  it('surfaces an error instead of a silent failure', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([whatsappConnection()])
+    vi.mocked(integrationsApi.setWhatsAppTestMode).mockRejectedValue(new Error('a test phone number is required'))
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Test mode' }))
+    await userEvent.click(screen.getByLabelText('Enable test mode'))
+    await userEvent.type(screen.getByLabelText('Test phone number'), '31612345678')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('a test phone number is required')).toBeInTheDocument()
   })
 })

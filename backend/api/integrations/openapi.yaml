@@ -282,6 +282,38 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/whatsapp-test-mode:
+    post:
+      operationId: setWhatsAppTestMode
+      summary: >
+        Toggle a WhatsApp connection's test mode -- while enabled, every
+        outbound send from it (inbound-message replies, order-status/
+        shipment-delivery notifications, Message Center automation) is
+        redirected to test_phone_e164 instead of the real customer, so the
+        integration can be exercised end-to-end with no risk of a real
+        customer receiving a message. Disabling clears the stored test
+        number.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetWhatsAppTestModeRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          description: enabled=true with no test_phone_e164, or the connection isn't a WhatsApp connection.
+          $ref: '#/components/responses/Error'
+
   /integrations/webhook-fallback-events:
     get:
       operationId: listWebhookFallbackEvents
@@ -1403,6 +1435,13 @@ components:
           type: string
           nullable: true
           description: Bol's Fulfilment.deliveryCode enum value, sent on every FBR offer this connection pushes. Null falls back to the app default ("3-5d"). Only meaningful for Bol connections.
+        whatsapp_test_mode_enabled:
+          type: boolean
+          description: When true, every outbound WhatsApp send from this connection is redirected to whatsapp_test_phone_e164 instead of the real recipient. Only meaningful for WhatsApp connections.
+        whatsapp_test_phone_e164:
+          type: string
+          nullable: true
+          description: The redirect number while test mode is enabled. Only meaningful for WhatsApp connections.
         created_at: { type: string, format: date-time }
 
     UpdateConnectionSettingsRequest:
@@ -2233,6 +2272,15 @@ components:
       properties:
         data: { $ref: '#/components/schemas/Connection' }
         error: { nullable: true }
+
+    SetWhatsAppTestModeRequest:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+        test_phone_e164:
+          type: string
+          description: Required when enabled is true. E.164, no leading '+' (same convention as EvolutionAPIClient.SendText).
 
     SetWebhookSecretRequest:
       type: object

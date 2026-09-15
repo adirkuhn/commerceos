@@ -126,8 +126,17 @@ type Connection struct {
 	// column already fit).
 	SMTPPort  *string
 	EmailFrom *string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	// WhatsAppTestModeEnabled/WhatsAppTestPhoneE164 are ProviderWhatsApp-only
+	// (false/nil for every other provider). When enabled, every outbound
+	// WhatsApp send through this connection is redirected to
+	// WhatsAppTestPhoneE164 instead of the real recipient -- see
+	// application/whatsapp's buildEvolutionClient, the single choke point
+	// all 4 outbound-send call sites share. Lets a merchant test the
+	// integration without risking a message reaching a real customer.
+	WhatsAppTestModeEnabled bool
+	WhatsAppTestPhoneE164   *string
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 // DefaultBolDeliveryCode is used whenever a Bol connection hasn't set

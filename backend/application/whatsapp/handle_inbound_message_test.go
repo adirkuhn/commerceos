@@ -244,6 +244,31 @@ func TestHandleInboundMessageUseCase_logsMessageFromUnmatchedPhoneUnlinked(t *te
 	assert.Nil(t, messageRepo.created[1].CustomerID)
 }
 
+func TestHandleInboundMessageUseCase_testModeRedirectsReplyToTestNumber(t *testing.T) {
+	client := &fakeEvolutionAPIClient{}
+	testPhone := "31699999999"
+	conn := whatsappConnection(t)
+	conn.WhatsAppTestModeEnabled = true
+	conn.WhatsAppTestPhoneE164 = &testPhone
+	uc := appwhatsapp.NewHandleInboundMessageUseCase(
+		newMockGormDB(t, 2),
+		&fakeConnectionRepo{conns: []integrationsDomain.Connection{conn}},
+		&fakeEvolutionAPIClientFactory{client: client},
+		testEncryptionSecret,
+		&fakeProductInfoLookup{info: &appwhatsapp.ProductInfo{ProductName: "Widget", SKUCode: "ABC123", StockQuantity: 7, CurrencyCode: "EUR"}},
+		&fakeCustomerRepo{},
+		nil,
+		&fakeMessageRepo{},
+	)
+
+	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", false))
+
+	require.NoError(t, err)
+	assert.Equal(t, testPhone, client.sentTo, "test mode must redirect to the connection's test number, never the real customer")
+	assert.Contains(t, client.sentBody, "31612345678", "the real intended recipient must still be identifiable in the redirected body")
+	assert.Contains(t, client.sentBody, "Widget")
+}
+
 func TestHandleInboundMessageUseCase_lookupInfraError_propagates(t *testing.T) {
 	client := &fakeEvolutionAPIClient{}
 	uc := appwhatsapp.NewHandleInboundMessageUseCase(
