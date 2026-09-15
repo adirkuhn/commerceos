@@ -42,7 +42,7 @@ func TestAnthropicWhatsAppIntentParser_ParseIntent_success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, whatsappDomain.IntentCommandPrice, intent.Command)
 	assert.Equal(t, "camiseta brasil", intent.ProductQuery)
-	assert.EqualValues(t, 100, capturedBody["max_tokens"])
+	assert.EqualValues(t, 200, capturedBody["max_tokens"])
 }
 
 func TestAnthropicWhatsAppIntentParser_ParseIntent_returnsErrorWhenNoToolUseBlock(t *testing.T) {

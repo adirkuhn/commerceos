@@ -46,6 +46,14 @@ func (p *GeminiWhatsAppIntentParser) ParseIntent(ctx context.Context, text strin
 
 	maxTokens := int32(whatsappIntentMaxOutputTokens)
 	temperature := float32(0)
+	// Gemini's newer models spend MaxOutputTokens on internal "thinking"
+	// before the actual answer by default -- with a cap this small for a
+	// one-word classification call, thinking alone can exhaust the whole
+	// budget and truncate the response before it ever reaches valid JSON
+	// (seen in practice: "unmarshal intent: invalid character ... looking
+	// for beginning of value"). ThinkingBudget: 0 disables it -- this call
+	// needs no reasoning, only strict classification.
+	thinkingBudget := int32(0)
 	resp, err := client.Models.GenerateContent(ctx, p.model,
 		[]*genai.Content{genai.NewContentFromParts([]*genai.Part{
 			genai.NewPartFromText(whatsappIntentPrompt),
@@ -56,6 +64,7 @@ func (p *GeminiWhatsAppIntentParser) ParseIntent(ctx context.Context, text strin
 			ResponseJsonSchema: whatsappIntentJSONSchema,
 			MaxOutputTokens:    maxTokens,
 			Temperature:        &temperature,
+			ThinkingConfig:     &genai.ThinkingConfig{ThinkingBudget: &thinkingBudget},
 		},
 	)
 	if err != nil {

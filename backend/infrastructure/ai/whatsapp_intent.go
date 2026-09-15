@@ -38,8 +38,11 @@ var whatsappIntentJSONSchema = map[string]any{
 // whatsappIntentMaxOutputTokens caps every provider's response -- this is a
 // one-word-command-plus-a-short-phrase extraction, never a long-form
 // answer, so a small cap both bounds cost and gives a malformed/runaway
-// completion nowhere to go.
-const whatsappIntentMaxOutputTokens = 100
+// completion nowhere to go. Not tiny enough to risk truncating before a
+// closing brace even with some JSON-formatting overhead -- Gemini's own
+// adapter also explicitly disables "thinking" (ThinkingBudget: 0), the
+// bigger truncation risk for that provider specifically.
+const whatsappIntentMaxOutputTokens = 200
 
 type whatsappIntentPayload struct {
 	Command      string `json:"command"`

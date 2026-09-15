@@ -15,7 +15,9 @@ import (
 )
 
 func TestGeminiWhatsAppIntentParser_ParseIntent_success(t *testing.T) {
+	var capturedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&capturedBody))
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"candidates": []map[string]any{
@@ -39,6 +41,12 @@ func TestGeminiWhatsAppIntentParser_ParseIntent_success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, whatsappDomain.IntentCommandInfo, intent.Command)
 	assert.Equal(t, "cha verde", intent.ProductQuery)
+
+	genCfg, _ := capturedBody["generationConfig"].(map[string]any)
+	require.NotNil(t, genCfg, "generationConfig missing from request: %v", capturedBody)
+	thinkingCfg, _ := genCfg["thinkingConfig"].(map[string]any)
+	require.NotNil(t, thinkingCfg, "thinking must be explicitly disabled for this classification-only call")
+	assert.EqualValues(t, 0, thinkingCfg["thinkingBudget"])
 }
 
 func TestGeminiWhatsAppIntentParser_ParseIntent_returnsErrorWhenNoText(t *testing.T) {

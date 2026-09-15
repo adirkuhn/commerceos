@@ -42,7 +42,7 @@ func TestOpenAIWhatsAppIntentParser_ParseIntent_success(t *testing.T) {
 	assert.Equal(t, whatsappDomain.IntentCommandStock, intent.Command)
 	assert.Equal(t, "cha de limao", intent.ProductQuery)
 	assert.Equal(t, "gpt-4o", capturedBody["model"])
-	assert.EqualValues(t, 100, capturedBody["max_output_tokens"])
+	assert.EqualValues(t, 200, capturedBody["max_output_tokens"])
 }
 
 func TestOpenAIWhatsAppIntentParser_ParseIntent_unrecognizedCommandFallsBackToUnknown(t *testing.T) {
