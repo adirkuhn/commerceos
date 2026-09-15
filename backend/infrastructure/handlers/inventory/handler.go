@@ -14,6 +14,7 @@ import (
 
 	geninventory "github.com/adirkuhn/commerceos/api/inventory"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
+	apppms "github.com/adirkuhn/commerceos/application/pms"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -190,6 +191,24 @@ func NewHandler(
 
 var _ geninventory.ServerInterface = (*Handler)(nil)
 
+// skuCostUpdaterAdapter bridges application/inventory's local
+// skuCostUpdaterForReceiveStock interface to application/pms's real
+// ApplyReceiptCostUseCase -- lives in the composition root (not in either
+// application package) because application/pms already imports
+// application/inventory (see application/pms/recalculate_cost_prices.go's
+// own doc comment on that exact cycle), so the reverse import would cycle.
+// Duplicated (not shared) with infrastructure/handlers/procurement's own
+// copy -- each handler package builds its own wiring, same reasoning as
+// this file's genDateToTimePtr-style local helpers elsewhere in the repo.
+type skuCostUpdaterAdapter struct{ uc *apppms.ApplyReceiptCostUseCase }
+
+func (a skuCostUpdaterAdapter) Execute(ctx context.Context, in appinventory.SKUCostReceiptInput) error {
+	return a.uc.Execute(ctx, apppms.ApplyReceiptCostInput{
+		SKUID: in.SKUID, ReceivedQuantity: in.ReceivedQuantity, LandedUnitCostMinorUnits: in.LandedUnitCostMinorUnits,
+		ReferenceType: in.ReferenceType, ReferenceID: in.ReferenceID, OccurredAt: in.OccurredAt,
+	})
+}
+
 // Register is the production wiring: creates repos + use cases, then
 // mounts the generated routes (matching the OpenAPI spec exactly).
 // fileStorage backs the Discard app's optional photo upload -- the same
@@ -203,6 +222,9 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, fileSto
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	discardRepo := repositories.NewDiscardRecordRepo(db)
 	markDamagedOrLost := appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, discardRepo, outboxRepo)
+	skuCostUpdater := skuCostUpdaterAdapter{uc: apppms.NewApplyReceiptCostUseCase(
+		db, skuRepo, repositories.NewSKUCostPriceLedgerRepo(db), appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
+	)}
 
 	h := NewHandler(
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
@@ -222,7 +244,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, fileSto
 		markDamagedOrLost,
 		appinventory.NewListExpiringBatchesUseCase(db, batchRepo),
 		appinventory.NewListStockMovementsUseCase(db, movementRepo),
-		appinventory.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo),
+		appinventory.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo, skuCostUpdater),
 		appinventory.NewListPendingExpiredBatchesUseCase(db, batchRepo),
 		appinventory.NewWriteOffExpiredBatchUseCase(db, batchRepo, movementRepo, markDamagedOrLost),
 		appinventory.NewExtendBatchExpiryUseCase(db, batchRepo),

@@ -11,6 +11,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -236,6 +237,22 @@ func (s *stubStockMovementRepo) ListDistinctSKUIDs(_ context.Context, changedSin
 		return nil, 0, s.distinctSKUIDsErr
 	}
 	return s.distinctSKUIDs, s.distinctSKUIDsTotal, nil
+}
+
+// stubSKUCostUpdater satisfies ReceiveStockUseCase's local
+// skuCostUpdaterForReceiveStock interface -- records what it was called
+// with so tests can assert the MWAC hook fired (or didn't) correctly.
+type stubSKUCostUpdater struct {
+	calls []appinventory.SKUCostReceiptInput
+	err   error
+}
+
+func (s *stubSKUCostUpdater) Execute(_ context.Context, in appinventory.SKUCostReceiptInput) error {
+	if s.err != nil {
+		return s.err
+	}
+	s.calls = append(s.calls, in)
+	return nil
 }
 
 // stubSettingsRepo satisfies the settingsGetter interface used by

@@ -23,6 +23,21 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
 
+// skuCostUpdaterAdapter bridges application/inventory's local
+// skuCostUpdaterForReceiveStock interface to application/pms's real
+// ApplyReceiptCostUseCase -- lives in the composition root (not in either
+// application package) because application/pms already imports
+// application/inventory (see application/pms/recalculate_cost_prices.go's
+// own doc comment on that exact cycle), so the reverse import would cycle.
+type skuCostUpdaterAdapter struct{ uc *pmsapp.ApplyReceiptCostUseCase }
+
+func (a skuCostUpdaterAdapter) Execute(ctx context.Context, in invapp.SKUCostReceiptInput) error {
+	return a.uc.Execute(ctx, pmsapp.ApplyReceiptCostInput{
+		SKUID: in.SKUID, ReceivedQuantity: in.ReceivedQuantity, LandedUnitCostMinorUnits: in.LandedUnitCostMinorUnits,
+		ReferenceType: in.ReferenceType, ReferenceID: in.ReferenceID, OccurredAt: in.OccurredAt,
+	})
+}
+
 // genDateToTimePtr/timePtrToGenDate convert between openapi_types.Date
 // (date-only, no time-of-day) and *time.Time -- same helpers duplicated in
 // infrastructure/handlers/inventory and .../pms; kept local rather than
@@ -311,6 +326,11 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 	movementRepo := repositories.NewStockMovementRepo(db)
 	discardRepo := repositories.NewDiscardRecordRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
+	warehouseRepo := repositories.NewWarehouseRepo(db)
+
+	skuCostUpdater := skuCostUpdaterAdapter{uc: pmsapp.NewApplyReceiptCostUseCase(
+		db, skuRepo, repositories.NewSKUCostPriceLedgerRepo(db), invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
+	)}
 
 	createPurchaseOrderUC := appprocurement.NewCreatePurchaseOrderUseCase(db, poRepo)
 	attachDocumentUC := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, lineItemRepo, jobRepo, fileStorage)
@@ -351,7 +371,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewPauseBookingUseCase(db, bookingRepo),
 		appprocurement.NewCompleteBookingUseCase(
 			db, bookingRepo, poRepo, lineItemRepo, bookingScanRepo,
-			invapp.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo),
+			invapp.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo, skuCostUpdater),
 			invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo),
 			invapp.NewMarkDamagedOrLostUseCase(db, movementRepo, discardRepo, outboxRepo),
 		),

@@ -17,7 +17,7 @@ func TestReceiveStock_createsNewBatchAndReceiptMovement(t *testing.T) {
 	batchRepo := &stubBatchRepo{}
 	movementRepo := &stubStockMovementRepo{}
 	outboxRepo := &stubOutboxRepo{}
-	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo)
+	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo, nil)
 
 	result, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{
 		SKUID: "sku-1", WarehouseID: "warehouse-1", Quantity: 10,
@@ -41,7 +41,7 @@ func TestReceiveStock_targetsExistingBatchWithoutCreatingANewOne(t *testing.T) {
 	batchRepo := &stubBatchRepo{}
 	movementRepo := &stubStockMovementRepo{}
 	outboxRepo := &stubOutboxRepo{}
-	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo)
+	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo, nil)
 
 	existingBatchID := "existing-batch-1"
 	result, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{
@@ -58,7 +58,7 @@ func TestReceiveStock_targetsExistingBatchWithoutCreatingANewOne(t *testing.T) {
 
 func TestReceiveStock_rejectsNonPositiveQuantity(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appinventory.NewReceiveStockUseCase(db, &stubBatchRepo{}, &stubStockMovementRepo{}, &stubOutboxRepo{})
+	uc := appinventory.NewReceiveStockUseCase(db, &stubBatchRepo{}, &stubStockMovementRepo{}, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{SKUID: "sku-1", WarehouseID: "warehouse-1", Quantity: 0})
 
@@ -68,7 +68,7 @@ func TestReceiveStock_rejectsNonPositiveQuantity(t *testing.T) {
 func TestReceiveStock_propagatesBatchCreateError(t *testing.T) {
 	db := newMockGormDB(t)
 	batchRepo := &stubBatchRepo{createErr: errStub}
-	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, &stubStockMovementRepo{}, &stubOutboxRepo{})
+	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, &stubStockMovementRepo{}, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{SKUID: "sku-1", WarehouseID: "warehouse-1", Quantity: 5})
 
@@ -79,7 +79,7 @@ func TestReceiveStock_propagatesMovementCreateError(t *testing.T) {
 	db := newMockGormDB(t)
 	movementRepo := &stubStockMovementRepo{createErr: errStub}
 	existingBatchID := "existing-batch-1"
-	uc := appinventory.NewReceiveStockUseCase(db, &stubBatchRepo{}, movementRepo, &stubOutboxRepo{})
+	uc := appinventory.NewReceiveStockUseCase(db, &stubBatchRepo{}, movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{
 		SKUID: "sku-1", WarehouseID: "warehouse-1", Quantity: 5, BatchID: &existingBatchID,
@@ -91,7 +91,7 @@ func TestReceiveStock_propagatesMovementCreateError(t *testing.T) {
 func TestReceiveStock_setsExpiryDateOnNewBatch(t *testing.T) {
 	db := newMockGormDB(t)
 	batchRepo := &stubBatchRepo{}
-	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, &stubStockMovementRepo{}, &stubOutboxRepo{})
+	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, &stubStockMovementRepo{}, &stubOutboxRepo{}, nil)
 
 	expiry := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
 	result, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{
@@ -107,7 +107,8 @@ func TestReceiveStock_setsExpiryDateOnNewBatch(t *testing.T) {
 func TestReceiveStock_persistsLandedCostAndPurchaseOrderLineItemIDOnNewBatch(t *testing.T) {
 	db := newMockGormDB(t)
 	batchRepo := &stubBatchRepo{}
-	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, &stubStockMovementRepo{}, &stubOutboxRepo{})
+	costUpdater := &stubSKUCostUpdater{}
+	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, &stubStockMovementRepo{}, &stubOutboxRepo{}, costUpdater)
 
 	lineItemID := "line-item-1"
 	unitCost := int64(1250)
@@ -122,12 +123,63 @@ func TestReceiveStock_persistsLandedCostAndPurchaseOrderLineItemIDOnNewBatch(t *
 	assert.Equal(t, lineItemID, *result.Batch.PurchaseOrderLineItemID)
 	require.NotNil(t, result.Batch.LandedCostMinorUnits)
 	assert.Equal(t, unitCost, *result.Batch.LandedCostMinorUnits)
+
+	// A costed receipt against a known PO line item must also drive the
+	// MWAC hook, referencing that line item (see
+	// skuCostUpdaterForReceiveStock's doc comment).
+	require.Len(t, costUpdater.calls, 1)
+	call := costUpdater.calls[0]
+	assert.Equal(t, "sku-1", call.SKUID)
+	assert.Equal(t, int64(5), call.ReceivedQuantity)
+	assert.Equal(t, unitCost, call.LandedUnitCostMinorUnits)
+	assert.Equal(t, "purchase_order_line_item", call.ReferenceType)
+	assert.Equal(t, lineItemID, call.ReferenceID)
+}
+
+func TestReceiveStock_costUpdaterNotCalledWhenNoUnitCostSupplied(t *testing.T) {
+	db := newMockGormDB(t)
+	costUpdater := &stubSKUCostUpdater{}
+	uc := appinventory.NewReceiveStockUseCase(db, &stubBatchRepo{}, &stubStockMovementRepo{}, &stubOutboxRepo{}, costUpdater)
+
+	_, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{SKUID: "sku-1", WarehouseID: "warehouse-1", Quantity: 5})
+
+	require.NoError(t, err)
+	assert.Empty(t, costUpdater.calls)
+}
+
+func TestReceiveStock_costUpdaterReferencesBatchWhenNoLineItemID(t *testing.T) {
+	db := newMockGormDB(t)
+	costUpdater := &stubSKUCostUpdater{}
+	uc := appinventory.NewReceiveStockUseCase(db, &stubBatchRepo{}, &stubStockMovementRepo{}, &stubOutboxRepo{}, costUpdater)
+
+	unitCost := int64(900)
+	result, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{
+		SKUID: "sku-1", WarehouseID: "warehouse-1", Quantity: 3, UnitCostMinorUnits: &unitCost,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, costUpdater.calls, 1)
+	assert.Equal(t, "batch", costUpdater.calls[0].ReferenceType)
+	assert.Equal(t, result.Batch.ID, costUpdater.calls[0].ReferenceID)
+}
+
+func TestReceiveStock_propagatesCostUpdaterError(t *testing.T) {
+	db := newMockGormDB(t)
+	costUpdater := &stubSKUCostUpdater{err: errStub}
+	uc := appinventory.NewReceiveStockUseCase(db, &stubBatchRepo{}, &stubStockMovementRepo{}, &stubOutboxRepo{}, costUpdater)
+
+	unitCost := int64(900)
+	_, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{
+		SKUID: "sku-1", WarehouseID: "warehouse-1", Quantity: 3, UnitCostMinorUnits: &unitCost,
+	})
+
+	require.Error(t, err)
 }
 
 func TestReceiveStock_leavesLandedCostNilWhenNotSupplied(t *testing.T) {
 	db := newMockGormDB(t)
 	batchRepo := &stubBatchRepo{}
-	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, &stubStockMovementRepo{}, &stubOutboxRepo{})
+	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, &stubStockMovementRepo{}, &stubOutboxRepo{}, nil)
 
 	result, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{
 		SKUID: "sku-1", WarehouseID: "warehouse-1", Quantity: 5,

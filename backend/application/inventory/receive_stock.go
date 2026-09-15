@@ -42,6 +42,31 @@ type ReceiveStockResult struct {
 	Movement *invDomain.StockMovement
 }
 
+// SKUCostReceiptInput is what ReceiveStockUseCase hands to its
+// skuCostUpdater after a costed receipt commits -- a local mirror of
+// application/pms's ApplyReceiptCostInput, not an import of application/pms
+// (which already imports application/inventory -- see
+// application/pms/recalculate_cost_prices.go's own doc comment on that
+// exact cycle), wired via a small adapter in the composition root instead.
+type SKUCostReceiptInput struct {
+	SKUID                    string
+	ReceivedQuantity         int64
+	LandedUnitCostMinorUnits int64
+	// ReferenceType/ReferenceID is "purchase_order_line_item"/<id> when the
+	// receipt has one, else "batch"/<id> -- see Execute.
+	ReferenceType string
+	ReferenceID   string
+	OccurredAt    time.Time
+}
+
+// skuCostUpdaterForReceiveStock is the narrow slice of application/pms's
+// MWAC receipt hook (ApplyReceiptCostUseCase) this use case needs (ISP,
+// point of use) -- kept as a local interface rather than an import, same
+// cross-domain-avoidance reasoning as SKUCostReceiptInput's doc comment.
+type skuCostUpdaterForReceiveStock interface {
+	Execute(ctx context.Context, in SKUCostReceiptInput) error
+}
+
 // ReceiveStockUseCase is the atomic "book received stock" action used by
 // the Phase 4 receiving flow (see application/procurement's
 // ApplyReceivingLineUseCase) and, later, the Phase 5 scanner app -- same
@@ -50,14 +75,15 @@ type ReceiveStockResult struct {
 // ledger can never show a movement referencing a batch that didn't
 // actually get created.
 type ReceiveStockUseCase struct {
-	db           *gorm.DB
-	batchRepo    invDomain.BatchRepository
-	movementRepo invDomain.StockMovementRepository
-	outboxRepo   outbox.Repository
+	db             *gorm.DB
+	batchRepo      invDomain.BatchRepository
+	movementRepo   invDomain.StockMovementRepository
+	outboxRepo     outbox.Repository
+	skuCostUpdater skuCostUpdaterForReceiveStock
 }
 
-func NewReceiveStockUseCase(db *gorm.DB, batchRepo invDomain.BatchRepository, movementRepo invDomain.StockMovementRepository, outboxRepo outbox.Repository) *ReceiveStockUseCase {
-	return &ReceiveStockUseCase{db: db, batchRepo: batchRepo, movementRepo: movementRepo, outboxRepo: outboxRepo}
+func NewReceiveStockUseCase(db *gorm.DB, batchRepo invDomain.BatchRepository, movementRepo invDomain.StockMovementRepository, outboxRepo outbox.Repository, skuCostUpdater skuCostUpdaterForReceiveStock) *ReceiveStockUseCase {
+	return &ReceiveStockUseCase{db: db, batchRepo: batchRepo, movementRepo: movementRepo, outboxRepo: outboxRepo, skuCostUpdater: skuCostUpdater}
 }
 
 func (uc *ReceiveStockUseCase) Execute(ctx context.Context, in ReceiveStockInput) (*ReceiveStockResult, error) {
@@ -104,5 +130,31 @@ func (uc *ReceiveStockUseCase) Execute(ctx context.Context, in ReceiveStockInput
 	if err != nil {
 		return nil, fmt.Errorf("receiveStock: %w", err)
 	}
+
+	if in.UnitCostMinorUnits != nil && uc.skuCostUpdater != nil {
+		refType, refID := "batch", *result.Movement.BatchID
+		if in.PurchaseOrderLineItemID != nil {
+			refType, refID = "purchase_order_line_item", *in.PurchaseOrderLineItemID
+		}
+		occurredAt := in.OccurredAt
+		if occurredAt.IsZero() {
+			occurredAt = time.Now()
+		}
+		// Deliberately its own transaction, not nested inside the one
+		// above (tenant.WithTenant must never nest -- see
+		// application/procurement.CompleteBookingUseCase's doc comment on
+		// the same composition constraint). The batch and stock movement
+		// are already durably committed at this point; a failure here just
+		// means the SKU's moving-average cost falls behind until the
+		// reconciliation job flags the drift -- same accepted-gap shape as
+		// CompleteBookingUseCase.markReplayed.
+		if err := uc.skuCostUpdater.Execute(ctx, SKUCostReceiptInput{
+			SKUID: in.SKUID, ReceivedQuantity: in.Quantity, LandedUnitCostMinorUnits: *in.UnitCostMinorUnits,
+			ReferenceType: refType, ReferenceID: refID, OccurredAt: occurredAt,
+		}); err != nil {
+			return &result, fmt.Errorf("receiveStock: cost update: %w", err)
+		}
+	}
+
 	return &result, nil
 }
