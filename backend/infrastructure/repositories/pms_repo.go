@@ -1343,14 +1343,14 @@ func (r *SKUCostPriceHistoryRepo) ListBySKU(ctx context.Context, skuID string, l
 const defaultCostPriceLedgerLimit = 200
 
 type skuCostPriceLedgerModel struct {
-	ID                       string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID                 string    `gorm:"not null;type:uuid"`
-	SKUID                    string    `gorm:"column:sku_id;not null;type:uuid"`
-	SourceType               string    `gorm:"column:source_type;not null"`
-	ReferenceType            *string   `gorm:"column:reference_type"`
-	ReferenceID              *string   `gorm:"column:reference_id;type:uuid"`
-	QuantityDelta            int64     `gorm:"not null"`
-	QuantityAfter            int64     `gorm:"column:quantity_after;not null"`
+	ID                       string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                 string  `gorm:"not null;type:uuid"`
+	SKUID                    string  `gorm:"column:sku_id;not null;type:uuid"`
+	SourceType               string  `gorm:"column:source_type;not null"`
+	ReferenceType            *string `gorm:"column:reference_type"`
+	ReferenceID              *string `gorm:"column:reference_id;type:uuid"`
+	QuantityDelta            int64   `gorm:"not null"`
+	QuantityAfter            int64   `gorm:"column:quantity_after;not null"`
 	CostPriceMinorUnits      *int64
 	InventoryValueMinorUnits *int64
 	OccurredAt               time.Time `gorm:"not null"`
@@ -1411,7 +1411,7 @@ func (r *SKUCostPriceLedgerRepo) ListBySKU(ctx context.Context, skuID string, li
 	for i, row := range rows {
 		entries[i] = pmsDomain.SKUCostPriceLedgerEntry{
 			ID: row.ID, TenantID: row.TenantID, SKUID: row.SKUID,
-			SourceType: pmsDomain.SKUCostPriceLedgerSourceType(row.SourceType),
+			SourceType:    pmsDomain.SKUCostPriceLedgerSourceType(row.SourceType),
 			ReferenceType: row.ReferenceType, ReferenceID: row.ReferenceID,
 			QuantityDelta: row.QuantityDelta, QuantityAfter: row.QuantityAfter,
 			CostPriceMinorUnits: row.CostPriceMinorUnits, InventoryValueMinorUnits: row.InventoryValueMinorUnits,

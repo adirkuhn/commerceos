@@ -234,6 +234,9 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 				return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
 			}
 		}
+		if err := freezeCostAtSale(ctx, uc.db, uc.lineItemRepo, uc.skuRepo, li.ID, *li.SKUID, li.Quantity); err != nil {
+			return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
+		}
 	}
 	return order, nil
 }

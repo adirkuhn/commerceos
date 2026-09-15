@@ -86,7 +86,7 @@ func TestCompletePicking_reportsMissingItemsButStillCompletes(t *testing.T) {
 }
 
 func TestCompletePicking_substituteReversesOriginalAndDecrementsSubstitute(t *testing.T) {
-	db := newMockGormDBN(t, 5) // read + listLineItemMovements + linkLineItemMovement(1) + mark-replayed + mark-completed
+	db := newMockGormDBN(t, 6) // read + listLineItemMovements + linkLineItemMovement(1) + mark-replayed + freezeCostAtSale + mark-completed
 	sessionRepo, salesOrderRepo := completablePickingFixtures()
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-orig"), Name: "Widget", Quantity: 5}}}
 	batchID := "batch-1"
@@ -123,7 +123,7 @@ func TestCompletePicking_substituteReversesOriginalAndDecrementsSubstitute(t *te
 }
 
 func TestCompletePicking_substituteSkipsReversalWhenOriginalLineHasNoSKU(t *testing.T) {
-	db := newMockGormDBN(t, 4) // read + linkLineItemMovement(1) + mark-replayed + mark-completed (no listLineItemMovements)
+	db := newMockGormDBN(t, 5) // read + linkLineItemMovement(1) + mark-replayed + freezeCostAtSale + mark-completed (no listLineItemMovements)
 	sessionRepo, salesOrderRepo := completablePickingFixtures()
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: nil, Name: "Unmatched import line", Quantity: 5}}}
 	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
@@ -141,7 +141,7 @@ func TestCompletePicking_substituteSkipsReversalWhenOriginalLineHasNoSKU(t *test
 }
 
 func TestCompletePicking_substituteWithReturnToStockFalseDoesNotReverseButStillCoversMissingItems(t *testing.T) {
-	db := newMockGormDBN(t, 4) // read + linkLineItemMovement(1) + mark-replayed + mark-completed (no listLineItemMovements -- ReturnToStock is false)
+	db := newMockGormDBN(t, 5) // read + linkLineItemMovement(1) + mark-replayed + mark-completed (no listLineItemMovements -- ReturnToStock is false, plus freezeCostAtSale)
 	sessionRepo, salesOrderRepo := completablePickingFixtures()
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-orig"), Name: "Widget", Quantity: 5}}}
 	linkRepo := &stubSalesOrderLineItemStockMovementRepo{}
@@ -167,7 +167,7 @@ func TestCompletePicking_substituteWithReturnToStockFalseDoesNotReverseButStillC
 // the opted-in row's share, decrement both substitute SKUs independently,
 // and never double-reverse the original line's stock.
 func TestCompletePicking_multipleSubstituteRowsOnSameLine_reversesOnlyOptedInShare(t *testing.T) {
-	db := newMockGormDBN(t, 7) // read + listLineItemMovements + linkLineItemMovement(2) + mark-replayed(2) + mark-completed
+	db := newMockGormDBN(t, 9) // read + listLineItemMovements + linkLineItemMovement(2) + mark-replayed(2) + freezeCostAtSale(2) + mark-completed
 	sessionRepo, salesOrderRepo := completablePickingFixtures()
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-orig"), Name: "Widget", Quantity: 2}}}
 	batchID := "batch-1"
@@ -201,7 +201,7 @@ func TestCompletePicking_multipleSubstituteRowsOnSameLine_reversesOnlyOptedInSha
 }
 
 func TestCompletePicking_freebieCreatesZeroPricedLineItemAndDecrementsStock(t *testing.T) {
-	db := newMockGormDBN(t, 4) // read + linkLineItemMovement(1) + mark-replayed + mark-completed
+	db := newMockGormDBN(t, 5) // read + linkLineItemMovement(1) + mark-replayed + freezeCostAtSale + mark-completed
 	sessionRepo, salesOrderRepo := completablePickingFixtures()
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
 	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
@@ -230,7 +230,7 @@ func TestCompletePicking_freebieCreatesZeroPricedLineItemAndDecrementsStock(t *t
 }
 
 func TestCompletePicking_newItemUsesPickerEnteredPrice(t *testing.T) {
-	db := newMockGormDBN(t, 4)
+	db := newMockGormDBN(t, 5)
 	sessionRepo, salesOrderRepo := completablePickingFixtures()
 	price := int64(1500)
 	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
@@ -344,7 +344,7 @@ func TestCompletePicking_freebieShortfall_usesReasonAsName(t *testing.T) {
 }
 
 func TestCompletePicking_alreadyResolvedScan_skipsShortfallCheck(t *testing.T) {
-	db := newMockGormDBN(t, 4) // read + linkLineItemMovement(1) + mark-replayed + mark-completed
+	db := newMockGormDBN(t, 5) // read + linkLineItemMovement(1) + mark-replayed + freezeCostAtSale + mark-completed
 	sessionRepo, salesOrderRepo := completablePickingFixtures()
 	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
 		{ID: "scan-1", SKUID: "sku-free", ActionType: omsDomain.PickScanActionFreebie, Quantity: 2, Reason: "Sample gift"},

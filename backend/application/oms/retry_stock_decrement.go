@@ -36,11 +36,12 @@ type RetryStockDecrementUseCase struct {
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	linkRepo       omsDomain.SalesOrderLineItemStockMovementRepository
+	skuRepo        skuLookupRepo
 	recordMovement recordSaleMovementUC
 }
 
-func NewRetryStockDecrementUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, recordMovement recordSaleMovementUC) *RetryStockDecrementUseCase {
-	return &RetryStockDecrementUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, recordMovement: recordMovement}
+func NewRetryStockDecrementUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC) *RetryStockDecrementUseCase {
+	return &RetryStockDecrementUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement}
 }
 
 func (uc *RetryStockDecrementUseCase) Execute(ctx context.Context, salesOrderID string) (*RetryStockDecrementResult, error) {
@@ -85,6 +86,9 @@ func (uc *RetryStockDecrementUseCase) Execute(ctx context.Context, salesOrderID 
 			}
 		}
 		if err := setLineItemStockStatus(ctx, uc.db, uc.lineItemRepo, li.ID, omsDomain.StockStatusDecremented); err != nil {
+			return nil, fmt.Errorf("retryStockDecrement: %w", err)
+		}
+		if err := freezeCostAtSale(ctx, uc.db, uc.lineItemRepo, uc.skuRepo, li.ID, *li.SKUID, li.Quantity); err != nil {
 			return nil, fmt.Errorf("retryStockDecrement: %w", err)
 		}
 		resolved++

@@ -409,6 +409,9 @@ func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID string, 
 					return err
 				}
 			}
+			if err := freezeCostAtSale(ctx, uc.db, uc.lineItemRepo, uc.skuRepo, newLI.ID, s.SKUID, s.Quantity); err != nil {
+				return err
+			}
 			if err := uc.markReplayed(ctx, s.ID); err != nil {
 				return err
 			}
@@ -458,6 +461,9 @@ func (uc *CompletePickingUseCase) replaySubstituteGroup(ctx context.Context, ses
 				if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, m); err != nil {
 					return err
 				}
+			}
+			if err := freezeCostAtSale(ctx, uc.db, uc.lineItemRepo, uc.skuRepo, li.ID, s.SKUID, s.Quantity); err != nil {
+				return err
 			}
 		}
 		if err := uc.markReplayed(ctx, s.ID); err != nil {

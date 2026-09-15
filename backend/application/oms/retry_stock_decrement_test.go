@@ -12,7 +12,7 @@ import (
 )
 
 func TestRetryStockDecrement_resolvesAPendingLineItemAndClearsNeedsStockReview(t *testing.T) {
-	db := newMockGormDBN(t, 4) // header tx (find order + list line items) + link movement + setLineItemStockStatus + setOrderNeedsStockReview
+	db := newMockGormDBN(t, 5) // header tx (find order + list line items) + link movement + setLineItemStockStatus + freezeCostAtSale + setOrderNeedsStockReview
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(func(o *omsDomain.SalesOrder) {
 		o.Status = omsDomain.SalesOrderStatusProcessing
 		o.NeedsStockReview = true
@@ -21,7 +21,7 @@ func TestRetryStockDecrement_resolvesAPendingLineItemAndClearsNeedsStockReview(t
 		{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 2, StockStatus: omsDomain.StockStatusPending},
 	}}
 	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
+	uc := appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement)
 
 	result, err := uc.Execute(context.Background(), "sales-order-1")
 
@@ -45,7 +45,7 @@ func TestRetryStockDecrement_stillInsufficientKeepsPendingAndReportsPartialResul
 		{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 2, StockStatus: omsDomain.StockStatusPending},
 	}}
 	recordMovement := &stubRecordMovement{err: invDomain.ErrInsufficientStock}
-	uc := appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
+	uc := appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement)
 
 	result, err := uc.Execute(context.Background(), "sales-order-1")
 
@@ -67,7 +67,7 @@ func TestRetryStockDecrement_skipsAlreadyDecrementedAndUnlinkedLineItems(t *test
 		{ID: "li-2", SKUID: nil, Quantity: 1, StockStatus: omsDomain.StockStatusPending},
 	}}
 	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
+	uc := appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement)
 
 	result, err := uc.Execute(context.Background(), "sales-order-1")
 
@@ -82,7 +82,7 @@ func TestRetryStockDecrement_rejectsAnOrderWhoseStatusDoesNotReduceStock(t *test
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(func(o *omsDomain.SalesOrder) {
 		o.Status = omsDomain.SalesOrderStatusCancelled
 	})}
-	uc := appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubRecordMovement{})
+	uc := appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{})
 
 	_, err := uc.Execute(context.Background(), "sales-order-1")
 

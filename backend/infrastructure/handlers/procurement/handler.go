@@ -29,7 +29,9 @@ import (
 // application package) because application/pms already imports
 // application/inventory (see application/pms/recalculate_cost_prices.go's
 // own doc comment on that exact cycle), so the reverse import would cycle.
-type skuCostUpdaterAdapter struct{ uc *pmsapp.ApplyReceiptCostUseCase }
+type skuCostUpdaterAdapter struct {
+	uc *pmsapp.ApplyReceiptCostUseCase
+}
 
 func (a skuCostUpdaterAdapter) Execute(ctx context.Context, in invapp.SKUCostReceiptInput) error {
 	return a.uc.Execute(ctx, pmsapp.ApplyReceiptCostInput{

@@ -34,11 +34,12 @@ type ForceAcceptStockUseCase struct {
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	linkRepo       omsDomain.SalesOrderLineItemStockMovementRepository
+	skuRepo        skuLookupRepo
 	recordMovement recordSaleMovementUC
 }
 
-func NewForceAcceptStockUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, recordMovement recordSaleMovementUC) *ForceAcceptStockUseCase {
-	return &ForceAcceptStockUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, recordMovement: recordMovement}
+func NewForceAcceptStockUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC) *ForceAcceptStockUseCase {
+	return &ForceAcceptStockUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement}
 }
 
 func (uc *ForceAcceptStockUseCase) Execute(ctx context.Context, salesOrderID string) (*ForceAcceptStockResult, error) {
@@ -76,6 +77,9 @@ func (uc *ForceAcceptStockUseCase) Execute(ctx context.Context, salesOrderID str
 			}
 		}
 		if err := setLineItemStockStatus(ctx, uc.db, uc.lineItemRepo, li.ID, omsDomain.StockStatusDecremented); err != nil {
+			return nil, fmt.Errorf("forceAcceptStock: %w", err)
+		}
+		if err := freezeCostAtSale(ctx, uc.db, uc.lineItemRepo, uc.skuRepo, li.ID, *li.SKUID, li.Quantity); err != nil {
 			return nil, fmt.Errorf("forceAcceptStock: %w", err)
 		}
 		resolved++

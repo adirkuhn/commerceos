@@ -68,13 +68,14 @@ type UpdateSalesOrderUseCase struct {
 	salesOrderRepo  omsDomain.SalesOrderRepository
 	lineItemRepo    omsDomain.SalesOrderLineItemRepository
 	linkRepo        omsDomain.SalesOrderLineItemStockMovementRepository
+	skuRepo         skuLookupRepo
 	recordMovement  recordSaleMovementUC
 	reverseMovement movementReverser
 	outboxRepo      outbox.Repository
 }
 
-func NewUpdateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, recordMovement recordSaleMovementUC, reverseMovement movementReverser, outboxRepo outbox.Repository) *UpdateSalesOrderUseCase {
-	return &UpdateSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, recordMovement: recordMovement, reverseMovement: reverseMovement, outboxRepo: outboxRepo}
+func NewUpdateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, reverseMovement movementReverser, outboxRepo outbox.Repository) *UpdateSalesOrderUseCase {
+	return &UpdateSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement, reverseMovement: reverseMovement, outboxRepo: outboxRepo}
 }
 
 func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in UpdateSalesOrderInput) (*omsDomain.SalesOrder, error) {
@@ -230,7 +231,7 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 	}
 
 	if decrementing {
-		if err := decrementLineItems(ctx, uc.db, uc.lineItemRepo, uc.linkRepo, uc.salesOrderRepo, uc.recordMovement, id, updated.WarehouseID, lineItems); err != nil {
+		if err := decrementLineItems(ctx, uc.db, uc.lineItemRepo, uc.linkRepo, uc.salesOrderRepo, uc.skuRepo, uc.recordMovement, id, updated.WarehouseID, lineItems); err != nil {
 			return nil, fmt.Errorf("updateSalesOrder: %w", err)
 		}
 	}
@@ -251,7 +252,7 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 // used to. Staff resolve a pending item via LinkLineItemSKUUseCase (SKU-less
 // case) then RetryStockDecrementUseCase (either case) from the "Stock
 // Issues"/"Unmatched SKUs" admin pages -- see those use cases' docs.
-func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, salesOrderRepo omsDomain.SalesOrderRepository, recordMovement recordSaleMovementUC, orderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem) error {
+func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, salesOrderRepo omsDomain.SalesOrderRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, orderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem) error {
 	stillPending := false
 	for _, li := range lineItems {
 		if li.SKUID == nil {
@@ -279,6 +280,9 @@ func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain
 			if err := linkLineItemMovement(ctx, db, linkRepo, li.ID, movement); err != nil {
 				return err
 			}
+		}
+		if err := freezeCostAtSale(ctx, db, lineItemRepo, skuRepo, li.ID, *li.SKUID, li.Quantity); err != nil {
+			return err
 		}
 	}
 	return setOrderNeedsStockReview(ctx, db, salesOrderRepo, orderID, stillPending)

@@ -308,6 +308,17 @@ type SalesOrderLineItem struct {
 	// never a real multi-batch split.
 	SoldExpiryDate *time.Time
 
+	// CostAtSaleMinorUnits/CogsMinorUnits are frozen at the moment stock was
+	// actually decremented for this line (see application/oms's
+	// freezeCostAtSale, called right after the sale's stock movement is
+	// recorded) -- the SKU's pms.SKU.CostPriceMinorUnits at that instant,
+	// never recomputed later. Both nil when the SKU's cost was
+	// pms.SKUCostPriceSourceUnknown at sale time (no fabricated 0, same
+	// policy as the cost ledger) -- a historical sale's margin must never
+	// drift just because inventory cost moved on since.
+	CostAtSaleMinorUnits *int64
+	CogsMinorUnits       *int64
+
 	CreatedAt time.Time
 
 	// ProductID is display-only -- never persisted on this table, never set

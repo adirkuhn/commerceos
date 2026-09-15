@@ -14,7 +14,9 @@ import (
 )
 
 func TestCreateSalesOrder_completedOrderDecrementsStockPerLine(t *testing.T) {
-	db := newMockGormDBN(t, 2)
+	// n=3: order creation, linkLineItemMovement, freezeCostAtSale -- one
+	// each of the latter two per SKU-linked line item (this test has one).
+	db := newMockGormDBN(t, 3)
 	salesOrderRepo := &stubSalesOrderRepo{}
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
 	recordMovement := &stubRecordMovement{}

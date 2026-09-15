@@ -193,6 +193,9 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 				return nil, fmt.Errorf("createSalesOrder: %w", err)
 			}
 		}
+		if err := freezeCostAtSale(ctx, uc.db, uc.lineItemRepo, uc.skuRepo, li.ID, *li.SKUID, li.Quantity); err != nil {
+			return nil, fmt.Errorf("createSalesOrder: %w", err)
+		}
 	}
 	return result, nil
 }

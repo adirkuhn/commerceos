@@ -162,7 +162,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 	variantRepo := repositories.NewVariantRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 	addLineItem := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
-	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock, recordMovement, outboxRepo)
+	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, recordMovement, outboxRepo)
 
 	permissionRepo := repositories.NewGroupPermissionRepo(db)
 	connRepo := repositories.NewConnectionRepo(db)
@@ -175,8 +175,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		updateSalesOrder,
 		appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement),
 		appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo),
-		appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock),
-		appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock),
+		appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock),
+		appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock),
 		addLineItem,
 		appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, pickingSessionRepo),
 		appoms.NewGetPickingSessionUseCase(db, pickingSessionRepo, lineItemRepo, pickScanRepo, skuRepo, variantRepo),

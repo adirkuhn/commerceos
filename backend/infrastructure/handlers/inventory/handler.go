@@ -200,7 +200,9 @@ var _ geninventory.ServerInterface = (*Handler)(nil)
 // Duplicated (not shared) with infrastructure/handlers/procurement's own
 // copy -- each handler package builds its own wiring, same reasoning as
 // this file's genDateToTimePtr-style local helpers elsewhere in the repo.
-type skuCostUpdaterAdapter struct{ uc *apppms.ApplyReceiptCostUseCase }
+type skuCostUpdaterAdapter struct {
+	uc *apppms.ApplyReceiptCostUseCase
+}
 
 func (a skuCostUpdaterAdapter) Execute(ctx context.Context, in appinventory.SKUCostReceiptInput) error {
 	return a.uc.Execute(ctx, apppms.ApplyReceiptCostInput{

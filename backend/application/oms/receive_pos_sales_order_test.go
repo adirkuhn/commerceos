@@ -14,7 +14,7 @@ import (
 )
 
 func TestReceivePOSSalesOrder_createsTheOrderAndDecrementsStockPerLine(t *testing.T) {
-	db := newMockGormDBN(t, 3)
+	db := newMockGormDBN(t, 5) // order create, 2x(link+freezeCostAtSale)
 	salesOrderRepo := &stubSalesOrderRepo{}
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
 	recordMovement := &stubRecordMovement{}
@@ -50,7 +50,7 @@ func TestReceivePOSSalesOrder_createsTheOrderAndDecrementsStockPerLine(t *testin
 }
 
 func TestReceivePOSSalesOrder_matchesLineItemsToSKUsByID(t *testing.T) {
-	db := newMockGormDBN(t, 2)
+	db := newMockGormDBN(t, 3) // order create, link, freezeCostAtSale
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
 	taxClassID := "tax-class-standard"
 	skuRepo := &stubSKURepo{byID: map[string]*pmsDomain.SKU{
@@ -150,7 +150,7 @@ func TestReceivePOSSalesOrder_rejectsAdhocLineItemWithNoName(t *testing.T) {
 // TestReceivePOSSalesOrder_mixesAdhocAndCatalogLineItemsInOneOrder proves
 // a single POS ticket can carry both kinds of line at once.
 func TestReceivePOSSalesOrder_mixesAdhocAndCatalogLineItemsInOneOrder(t *testing.T) {
-	db := newMockGormDBN(t, 2)
+	db := newMockGormDBN(t, 3) // order create, link, freezeCostAtSale
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
 	recordMovement := &stubRecordMovement{}
 	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement)
