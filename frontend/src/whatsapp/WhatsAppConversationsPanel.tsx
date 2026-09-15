@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import clsx from 'clsx'
+import { Trash2 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useWhatsAppConversations } from './hooks/useWhatsAppConversations'
 import { useWhatsAppConversationMessages } from './hooks/useWhatsAppConversationMessages'
@@ -16,11 +17,30 @@ function conversationLabel(conv: WhatsAppConversation): string {
 // bot or the outbound notification flows, not from here.
 export default function WhatsAppConversationsPanel() {
   const { token } = useAuth()
-  const { conversations, loading, error } = useWhatsAppConversations(token ?? '')
+  const { conversations, loading, error, deleteConversation } = useWhatsAppConversations(token ?? '')
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
   const { messages, loading: loadingMessages } = useWhatsAppConversationMessages(token ?? '', selectedPhone)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   const selected = conversations.find(c => c.phone_e164 === selectedPhone) ?? null
+
+  async function handleDelete() {
+    if (!selected) return
+    if (!window.confirm(`Delete this conversation with ${conversationLabel(selected)}? This permanently removes its message history and cannot be undone.`)) {
+      return
+    }
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      await deleteConversation(selected.phone_e164)
+      setSelectedPhone(null)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete conversation')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -68,12 +88,24 @@ export default function WhatsAppConversationsPanel() {
           </div>
         ) : (
           <>
-            <div className="px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 shrink-0">
-              <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{conversationLabel(selected)}</p>
-              {selected.customer_name && (
-                <p className="text-[11px] dark:text-gray-500 text-gray-400">{selected.phone_e164}</p>
-              )}
+            <div className="px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 shrink-0 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{conversationLabel(selected)}</p>
+                {selected.customer_name && (
+                  <p className="text-[11px] dark:text-gray-500 text-gray-400">{selected.phone_e164}</p>
+                )}
+              </div>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                title="Delete chat"
+                aria-label="Delete chat"
+                className="shrink-0 w-7 h-7 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
+              >
+                <Trash2 size={14} className="dark:text-gray-500 text-gray-400 hover:text-red-400" />
+              </button>
             </div>
+            {deleteError && <p className="text-xs text-red-400 px-5 pt-2">{deleteError}</p>}
             <div className="flex-1 overflow-y-auto p-5 space-y-2">
               {loadingMessages && messages.length === 0 ? (
                 <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>

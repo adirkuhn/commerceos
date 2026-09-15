@@ -41,3 +41,24 @@ func TestListWhatsAppMessagesByPhone_returnsRepoResult(t *testing.T) {
 	require.Len(t, out, 1)
 	assert.Equal(t, "hi", out[0].Body)
 }
+
+func TestDeleteWhatsAppConversation_removesOnlyThatPhonesMessages(t *testing.T) {
+	repo := &fakeMessageRepo{}
+	require.NoError(t, repo.Create(context.Background(), &whatsappDomain.Message{
+		PhoneE164: "31612345678", Direction: whatsappDomain.MessageDirectionInbound, Body: "hi",
+	}))
+	require.NoError(t, repo.Create(context.Background(), &whatsappDomain.Message{
+		PhoneE164: "31699999999", Direction: whatsappDomain.MessageDirectionInbound, Body: "oi",
+	}))
+	uc := appwhatsapp.NewDeleteWhatsAppConversationUseCase(newMockGormDB(t, 1), repo)
+
+	err := uc.Execute(context.Background(), "31612345678")
+
+	require.NoError(t, err)
+	remaining, err := repo.ListByPhone(context.Background(), "31612345678")
+	require.NoError(t, err)
+	assert.Empty(t, remaining)
+	untouched, err := repo.ListByPhone(context.Background(), "31699999999")
+	require.NoError(t, err)
+	assert.Len(t, untouched, 1)
+}

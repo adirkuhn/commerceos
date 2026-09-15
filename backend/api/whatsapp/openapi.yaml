@@ -3,12 +3,13 @@ info:
   title: CommerceOS WhatsApp Conversations API
   version: "1.0"
   description: >
-    Admin-only (JWT) read view over every WhatsApp conversation this
-    tenant's integration has ever seen (see domain/whatsapp.Message) --
-    a "WhatsApp Web"-style list of conversations plus one conversation's
-    full message thread. Read-only: there's no compose/reply endpoint
-    here, replying happens through the bot (application/whatsapp.
-    HandleInboundMessageUseCase) or the outbound notification use cases.
+    Admin-only (JWT) view over every WhatsApp conversation this tenant's
+    integration has ever seen (see domain/whatsapp.Message) -- a
+    "WhatsApp Web"-style list of conversations plus one conversation's
+    full message thread, and a "Delete chat" action to permanently clear
+    one. No compose/reply endpoint here, replying happens through the bot
+    (application/whatsapp.HandleInboundMessageUseCase) or the outbound
+    notification use cases.
 servers:
   - url: /api/v1
 
@@ -42,6 +43,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WhatsAppConversationMessageListResponse'
+    delete:
+      operationId: deleteWhatsAppConversation
+      summary: Permanently delete every message exchanged with one phone number ("Delete chat")
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          description: E.164, no leading '+' (same convention as the rest of the WhatsApp integration).
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
 
 components:
   schemas:
@@ -83,4 +100,10 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/WhatsAppConversationMessage' }
+        error: { nullable: true }
+
+    EmptyResponse:
+      type: object
+      properties:
+        data: { nullable: true }
         error: { nullable: true }

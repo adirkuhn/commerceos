@@ -55,6 +55,12 @@ func (e WhatsAppConversationMessageDirection) Valid() bool {
 	}
 }
 
+// EmptyResponse defines model for EmptyResponse.
+type EmptyResponse struct {
+	Data  interface{} `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
 // WhatsAppConversation defines model for WhatsAppConversation.
 type WhatsAppConversation struct {
 	CustomerId *string `json:"customer_id,omitempty"`
@@ -100,6 +106,9 @@ type ServerInterface interface {
 	// ListWhatsAppConversations List every phone number that has exchanged a WhatsApp message, newest conversation first
 	// (GET /whatsapp/conversations)
 	ListWhatsAppConversations(c *gin.Context)
+	// DeleteWhatsAppConversation Permanently delete every message exchanged with one phone number ("Delete chat")
+	// (DELETE /whatsapp/conversations/{phone}/messages)
+	DeleteWhatsAppConversation(c *gin.Context, phone string)
 	// ListWhatsAppConversationMessages List every message exchanged with one phone number, newest first
 	// (GET /whatsapp/conversations/{phone}/messages)
 	ListWhatsAppConversationMessages(c *gin.Context, phone string)
@@ -125,6 +134,31 @@ func (siw *ServerInterfaceWrapper) ListWhatsAppConversations(c *gin.Context) {
 	}
 
 	siw.Handler.ListWhatsAppConversations(c)
+}
+
+// DeleteWhatsAppConversation operation middleware
+func (siw *ServerInterfaceWrapper) DeleteWhatsAppConversation(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "phone" -------------
+	var phone string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "phone", c.Param("phone"), &phone, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter phone: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteWhatsAppConversation(c, phone)
 }
 
 // ListWhatsAppConversationMessages operation middleware
@@ -180,6 +214,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.GET(options.BaseURL+"/whatsapp/conversations", wrapper.ListWhatsAppConversations)
+	router.DELETE(options.BaseURL+"/whatsapp/conversations/:phone/messages", wrapper.DeleteWhatsAppConversation)
 	router.GET(options.BaseURL+"/whatsapp/conversations/:phone/messages", wrapper.ListWhatsAppConversationMessages)
 }
 
@@ -188,21 +223,22 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

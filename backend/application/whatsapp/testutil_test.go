@@ -140,6 +140,17 @@ func (f *fakeMessageRepo) ListConversations(_ context.Context) ([]whatsappDomain
 	return out, nil
 }
 
+func (f *fakeMessageRepo) DeleteByPhone(_ context.Context, phone string) error {
+	kept := f.created[:0]
+	for _, m := range f.created {
+		if m.PhoneE164 != phone {
+			kept = append(kept, m)
+		}
+	}
+	f.created = kept
+	return nil
+}
+
 type fakeEvolutionAPIClient struct {
 	sentTo   string
 	sentBody string

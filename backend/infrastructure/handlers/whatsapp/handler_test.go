@@ -39,8 +39,22 @@ func (s *stubListConversationMessages) Execute(_ context.Context, phoneE164 stri
 	return s.out, s.err
 }
 
-func newTestHandler(list *stubListConversations, messages *stubListConversationMessages) *whatsapphandler.Handler {
-	return whatsapphandler.NewHandler(list, messages)
+type stubDeleteConversation struct {
+	err      error
+	gotPhone string
+}
+
+func (s *stubDeleteConversation) Execute(_ context.Context, phoneE164 string) error {
+	s.gotPhone = phoneE164
+	return s.err
+}
+
+func newTestHandler(list *stubListConversations, messages *stubListConversationMessages, opts ...*stubDeleteConversation) *whatsapphandler.Handler {
+	del := &stubDeleteConversation{}
+	if len(opts) > 0 {
+		del = opts[0]
+	}
+	return whatsapphandler.NewHandler(list, messages, del)
 }
 
 func newTestRouter(h *whatsapphandler.Handler) *gin.Engine {
@@ -90,4 +104,21 @@ func TestListWhatsAppConversationMessagesHandler_returnsTheThread(t *testing.T) 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "31612345678", messages.gotPhone)
 	assert.Contains(t, w.Body.String(), "STOCK ABC123")
+}
+
+func TestDeleteWhatsAppConversationHandler_success(t *testing.T) {
+	del := &stubDeleteConversation{}
+	h := newTestHandler(&stubListConversations{}, &stubListConversationMessages{}, del)
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/whatsapp/conversations/31612345678/messages")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "31612345678", del.gotPhone)
+}
+
+func TestDeleteWhatsAppConversationHandler_infraError(t *testing.T) {
+	del := &stubDeleteConversation{err: errors.New("db down")}
+	h := newTestHandler(&stubListConversations{}, &stubListConversationMessages{}, del)
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/whatsapp/conversations/31612345678/messages")
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }

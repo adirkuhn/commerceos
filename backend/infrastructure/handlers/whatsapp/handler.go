@@ -25,13 +25,18 @@ type listConversationMessagesUC interface {
 	Execute(ctx context.Context, phoneE164 string) ([]whatsappDomain.Message, error)
 }
 
+type deleteConversationUC interface {
+	Execute(ctx context.Context, phoneE164 string) error
+}
+
 type Handler struct {
 	listConversations        listConversationsUC
 	listConversationMessages listConversationMessagesUC
+	deleteConversation       deleteConversationUC
 }
 
-func NewHandler(listConversations listConversationsUC, listConversationMessages listConversationMessagesUC) *Handler {
-	return &Handler{listConversations: listConversations, listConversationMessages: listConversationMessages}
+func NewHandler(listConversations listConversationsUC, listConversationMessages listConversationMessagesUC, deleteConversation deleteConversationUC) *Handler {
+	return &Handler{listConversations: listConversations, listConversationMessages: listConversationMessages, deleteConversation: deleteConversation}
 }
 
 var _ genwhatsapp.ServerInterface = (*Handler)(nil)
@@ -41,6 +46,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	h := NewHandler(
 		appwhatsapp.NewListWhatsAppConversationsUseCase(db, messageRepo),
 		appwhatsapp.NewListWhatsAppMessagesByPhoneUseCase(db, messageRepo),
+		appwhatsapp.NewDeleteWhatsAppConversationUseCase(db, messageRepo),
 	)
 	genwhatsapp.RegisterHandlers(rg, h)
 }
@@ -71,6 +77,15 @@ func (h *Handler) ListWhatsAppConversationMessages(c *gin.Context, phone string)
 		out[i] = toGenConversationMessage(m)
 	}
 	middleware.OK(c, out)
+}
+
+func (h *Handler) DeleteWhatsAppConversation(c *gin.Context, phone string) {
+	if err := h.deleteConversation.Execute(c.Request.Context(), phone); err != nil {
+		log.Printf("whatsapp: unhandled error: %v", err)
+		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
+		return
+	}
+	middleware.OK(c, nil)
 }
 
 func toGenConversation(conv whatsappDomain.ConversationSummary) genwhatsapp.WhatsAppConversation {

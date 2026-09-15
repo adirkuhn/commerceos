@@ -59,3 +59,25 @@ func (uc *ListWhatsAppMessagesByPhoneUseCase) Execute(ctx context.Context, phone
 	}
 	return out, nil
 }
+
+// DeleteWhatsAppConversationUseCase powers the conversations list's
+// "Delete chat" action -- permanently removes every message for one phone
+// number.
+type DeleteWhatsAppConversationUseCase struct {
+	db          *gorm.DB
+	messageRepo whatsappDomain.MessageRepository
+}
+
+func NewDeleteWhatsAppConversationUseCase(db *gorm.DB, messageRepo whatsappDomain.MessageRepository) *DeleteWhatsAppConversationUseCase {
+	return &DeleteWhatsAppConversationUseCase{db: db, messageRepo: messageRepo}
+}
+
+func (uc *DeleteWhatsAppConversationUseCase) Execute(ctx context.Context, phoneE164 string) error {
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		return uc.messageRepo.DeleteByPhone(ctx, phoneE164)
+	})
+	if err != nil {
+		return fmt.Errorf("deleteWhatsAppConversation: %w", err)
+	}
+	return nil
+}

@@ -4,8 +4,9 @@ function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/whatsapp`
 }
 
-async function request<T>(path: string, token: string): Promise<T> {
+async function request<T>(path: string, token: string, method: string = 'GET'): Promise<T> {
   const res = await fetch(path, {
+    method,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
   })
   const body: APIResponse<T> = await res.json()
@@ -21,4 +22,8 @@ export function listWhatsAppConversations(token: string): Promise<WhatsAppConver
 
 export function listWhatsAppConversationMessages(token: string, phoneE164: string): Promise<WhatsAppConversationMessage[]> {
   return request<WhatsAppConversationMessage[]>(`${base()}/conversations/${encodeURIComponent(phoneE164)}/messages`, token)
+}
+
+export function deleteWhatsAppConversation(token: string, phoneE164: string): Promise<null> {
+  return request<null>(`${base()}/conversations/${encodeURIComponent(phoneE164)}/messages`, token, 'DELETE')
 }

@@ -57,4 +57,13 @@ type MessageRepository interface {
 	// exchanged at least one message, newest conversation first -- the
 	// conversations list view.
 	ListConversations(ctx context.Context) ([]ConversationSummary, error)
+	// DeleteByPhone permanently removes every message for this phone
+	// number -- the conversations list's "Delete chat" action. A genuine
+	// hard delete (not a soft/audit-kept status change like
+	// webhooks.FallbackEvent's Abandon): this log is a tenant-owned
+	// convenience history with no compliance/audit requirement, matching
+	// the "Delete chat" metaphor real WhatsApp clients use. Idempotent --
+	// deleting an already-empty or never-existed phone number is not an
+	// error.
+	DeleteByPhone(ctx context.Context, phoneE164 string) error
 }

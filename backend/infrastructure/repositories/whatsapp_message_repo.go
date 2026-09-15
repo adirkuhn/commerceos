@@ -71,6 +71,17 @@ func (r *WhatsAppMessageRepo) ListByCustomer(ctx context.Context, customerID str
 	return toDomainWhatsAppMessages(rows), nil
 }
 
+func (r *WhatsAppMessageRepo) DeleteByPhone(ctx context.Context, phoneE164 string) error {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return errors.New("whatsappMessageRepo: operation called outside a transaction")
+	}
+	if err := tx.WithContext(ctx).Where("phone_e164 = ?", phoneE164).Delete(&whatsappMessageModel{}).Error; err != nil {
+		return fmt.Errorf("whatsappMessageRepo.DeleteByPhone: %w", err)
+	}
+	return nil
+}
+
 // conversationSummaryRow is ListConversations' raw query result shape --
 // FirstName/LastName come from a LEFT JOIN against customers (NULL when
 // CustomerID is nil or the row somehow no longer matches one), combined

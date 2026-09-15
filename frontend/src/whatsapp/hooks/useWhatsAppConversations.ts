@@ -8,7 +8,12 @@ interface UseWhatsAppConversationsState {
   error: string | null
 }
 
-export function useWhatsAppConversations(token: string): UseWhatsAppConversationsState & { refresh: () => void } {
+interface UseWhatsAppConversationsActions {
+  refresh: () => void
+  deleteConversation: (phoneE164: string) => Promise<void>
+}
+
+export function useWhatsAppConversations(token: string): UseWhatsAppConversationsState & UseWhatsAppConversationsActions {
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,5 +34,10 @@ export function useWhatsAppConversations(token: string): UseWhatsAppConversation
 
   useEffect(() => { load() }, [load])
 
-  return { conversations, loading, error, refresh: load }
+  const deleteConversation = useCallback(async (phoneE164: string): Promise<void> => {
+    await api.deleteWhatsAppConversation(token, phoneE164)
+    setConversations(prev => prev.filter(c => c.phone_e164 !== phoneE164))
+  }, [token])
+
+  return { conversations, loading, error, refresh: load, deleteConversation }
 }
