@@ -18,6 +18,7 @@ import (
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	apppayments "github.com/adirkuhn/commerceos/application/payments"
+	apppms "github.com/adirkuhn/commerceos/application/pms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appwebhooks "github.com/adirkuhn/commerceos/application/webhooks"
 	appwhatsapp "github.com/adirkuhn/commerceos/application/whatsapp"
@@ -70,6 +71,9 @@ type retryWebhookFallbackEventUC interface {
 }
 type abandonWebhookFallbackEventUC interface {
 	Execute(ctx context.Context, id string) error
+}
+type setWhatsAppAIParsingUC interface {
+	Execute(ctx context.Context, connectionID string, enabled bool) (*integrationsDomain.Connection, error)
 }
 type setWhatsAppTestModeUC interface {
 	Execute(ctx context.Context, connectionID string, enabled bool, testPhoneE164 string) (*integrationsDomain.Connection, error)
@@ -304,6 +308,7 @@ type Handler struct {
 	linkExistingWooProduct          linkExistingWooProductUC
 	abandonAllWebhookFallbackEvents abandonAllWebhookFallbackEventsUC
 	setWhatsAppTestMode             setWhatsAppTestModeUC
+	setWhatsAppAIParsing            setWhatsAppAIParsingUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -374,6 +379,7 @@ func NewHandler(
 	listProductChannelListings listProductChannelListingsUC,
 	abandonAllWebhookFallbackEvents abandonAllWebhookFallbackEventsUC,
 	setWhatsAppTestMode setWhatsAppTestModeUC,
+	setWhatsAppAIParsing setWhatsAppAIParsingUC,
 ) *Handler {
 	return &Handler{
 		listConnections:                 listConnections,
@@ -442,11 +448,31 @@ func NewHandler(
 		listProductChannelListings:      listProductChannelListings,
 		abandonAllWebhookFallbackEvents: abandonAllWebhookFallbackEvents,
 		setWhatsAppTestMode:             setWhatsAppTestMode,
+		setWhatsAppAIParsing:            setWhatsAppAIParsing,
 	}
 }
 
 var _ genintegrations.ServerInterface = (*Handler)(nil)
 var _ gencallback.ServerInterface = (*Handler)(nil)
+
+// costLedgerRecorderAdapter bridges application/inventory's local
+// costLedgerRecorder interface to application/pms's real
+// RecordCostLedgerMovementUseCase -- lives in the composition root because
+// application/pms already imports application/inventory (see
+// application/pms/recalculate_cost_prices.go's doc comment), so the
+// reverse import would cycle. Duplicated per handler package, same
+// reasoning as infrastructure/handlers/inventory's own copy.
+type costLedgerRecorderAdapter struct {
+	uc *apppms.RecordCostLedgerMovementUseCase
+}
+
+func (a costLedgerRecorderAdapter) Execute(ctx context.Context, in appinventory.CostLedgerMovementInput) error {
+	return a.uc.Execute(ctx, apppms.RecordCostLedgerMovementInput{
+		SKUID: in.SKUID, QuantityDelta: in.QuantityDelta,
+		SourceType:    pmsDomain.SKUCostPriceLedgerSourceType(in.SourceType),
+		ReferenceType: in.ReferenceType, ReferenceID: in.ReferenceID, OccurredAt: in.OccurredAt,
+	})
+}
 
 // RegisterRoutes mounts the JWT-protected routes (matching the
 // api/integrations OpenAPI spec exactly).
@@ -503,7 +529,10 @@ func Register(
 	salesOrderLineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	salesOrderLinkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
-	stockRecorderUC := appinventory.NewRecordStockMovementUseCase(db, stockMovementRepo, outboxRepo)
+	costLedgerRecorder := costLedgerRecorderAdapter{uc: apppms.NewRecordCostLedgerMovementUseCase(
+		db, skuRepo, repositories.NewSKUCostPriceLedgerRepo(db), appinventory.NewListBatchesUseCase(db, batchRepo, stockMovementRepo, channelWarehouseRepo),
+	)}
+	stockRecorderUC := appinventory.NewRecordStockMovementUseCase(db, stockMovementRepo, outboxRepo, costLedgerRecorder)
 	allocateStockUC := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
 	updateSalesOrderForWebhooksUC := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo)
 	retryablePaymentHandlers := map[string]appshipping.RetryableWebhookHandler{
@@ -621,6 +650,7 @@ func Register(
 		appchannels.NewListProductChannelListingsUseCase(db, listingRepo),
 		appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(db, webhookFallbackRepo),
 		appintegrations.NewSetWhatsAppTestModeUseCase(db, connRepo),
+		appintegrations.NewSetWhatsAppAIParsingUseCase(db, connRepo, aiConnRepo),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -858,6 +888,19 @@ func (h *Handler) SetWhatsAppTestMode(c *gin.Context, id genintegrations.Id) {
 		testPhone = *req.TestPhoneE164
 	}
 	conn, err := h.setWhatsAppTestMode.Execute(c.Request.Context(), id, req.Enabled, testPhone)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenConnection(*conn))
+}
+
+func (h *Handler) SetWhatsAppAIParsing(c *gin.Context, id genintegrations.Id) {
+	var req genintegrations.SetWhatsAppAIParsingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	conn, err := h.setWhatsAppAIParsing.Execute(c.Request.Context(), id, req.Enabled)
 	if err := mapError(c, err); err != nil {
 		return
 	}
@@ -1789,17 +1832,18 @@ func (h *Handler) WooCallback(c *gin.Context) {
 func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection {
 	currency := c.DefaultCurrency
 	return genintegrations.Connection{
-		Id:                      c.ID,
-		Provider:                string(c.Provider),
-		StoreUrl:                c.StoreURL.String(),
-		Status:                  genintegrations.ConnectionStatus(c.Status),
-		DefaultCurrency:         &currency,
-		DefaultWarehouseId:      c.DefaultWarehouseID,
-		BolEconomicOperatorId:   c.BolEconomicOperatorID,
-		BolDeliveryCode:         c.BolDeliveryCode,
-		WhatsappTestModeEnabled: &c.WhatsAppTestModeEnabled,
-		WhatsappTestPhoneE164:   c.WhatsAppTestPhoneE164,
-		CreatedAt:               c.CreatedAt,
+		Id:                       c.ID,
+		Provider:                 string(c.Provider),
+		StoreUrl:                 c.StoreURL.String(),
+		Status:                   genintegrations.ConnectionStatus(c.Status),
+		DefaultCurrency:          &currency,
+		DefaultWarehouseId:       c.DefaultWarehouseID,
+		BolEconomicOperatorId:    c.BolEconomicOperatorID,
+		BolDeliveryCode:          c.BolDeliveryCode,
+		WhatsappTestModeEnabled:  &c.WhatsAppTestModeEnabled,
+		WhatsappTestPhoneE164:    c.WhatsAppTestPhoneE164,
+		WhatsappAiParsingEnabled: &c.WhatsAppAIParsingEnabled,
+		CreatedAt:                c.CreatedAt,
 	}
 }
 
@@ -2020,7 +2064,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, integrationsDomain.ErrBaseURLRequired),
 		errors.Is(err, integrationsDomain.ErrInvalidBolDeliveryCode),
 		errors.Is(err, integrationsDomain.ErrWhatsAppTestPhoneRequired),
-		errors.Is(err, integrationsDomain.ErrNotWhatsAppConnection):
+		errors.Is(err, integrationsDomain.ErrNotWhatsAppConnection),
+		errors.Is(err, appintegrations.ErrAIConnectionRequiredForWhatsAppParsing):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, channelsDomain.ErrCannotPushVariableProduct),
 		errors.Is(err, channelsDomain.ErrInvalidSyncEntityType),

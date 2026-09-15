@@ -30,6 +30,8 @@ vi.mock('../../integrations/api', () => ({
   connectEmail: vi.fn(),
   setWebhookSecret: vi.fn(),
   setWhatsAppTestMode: vi.fn(),
+  setWhatsAppAIParsing: vi.fn(),
+  getAIConnection: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -105,6 +107,7 @@ beforeEach(() => {
     prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
   })
   vi.mocked(integrationsApi.listSyncSchedules).mockResolvedValue([])
+  vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
   vi.mocked(integrationsApi.listWooTaxes).mockResolvedValue([])
   vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
   vi.mocked(taxApi.listExternalTaxClassLinks).mockResolvedValue([])
@@ -614,5 +617,70 @@ describe('WhatsApp test mode', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('a test phone number is required')).toBeInTheDocument()
+  })
+})
+
+describe('WhatsApp AI-assisted parsing', () => {
+  it('shows an "AI parsing" button only for whatsapp connections', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection(), whatsappConnection()])
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+
+    await screen.findByText('woocommerce', { selector: 'p' })
+    expect(screen.getAllByRole('button', { name: 'AI parsing' })).toHaveLength(1)
+  })
+
+  it('warns and disables the toggle when no AI provider is connected', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([whatsappConnection()])
+    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'AI parsing' }))
+
+    expect(await screen.findByText(/No AI provider connected yet/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Enable AI-assisted parsing')).toBeDisabled()
+  })
+
+  it('enables and saves when an AI provider is connected', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([whatsappConnection()])
+    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue({
+      id: 'ai-1', provider: 'gemini', status: 'connected', model: '', base_url: null, created_at: '',
+    })
+    vi.mocked(integrationsApi.setWhatsAppAIParsing).mockResolvedValue(
+      whatsappConnection({ whatsapp_ai_parsing_enabled: true }),
+    )
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'AI parsing' }))
+    await screen.findByText('WhatsApp AI-assisted parsing')
+
+    const toggle = screen.getByLabelText('Enable AI-assisted parsing')
+    expect(toggle).not.toBeDisabled()
+    await userEvent.click(toggle)
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.setWhatsAppAIParsing).toHaveBeenCalledWith('test-token', 'conn-wa-1', true))
+    expect(screen.queryByText('WhatsApp AI-assisted parsing')).not.toBeInTheDocument()
+    expect(integrationsApi.listConnections).toHaveBeenCalledTimes(2) // initial load + refresh after save
+  })
+
+  it('shows a badge when AI-assisted parsing is already on', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([
+      whatsappConnection({ whatsapp_ai_parsing_enabled: true }),
+    ])
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+
+    expect(await screen.findByText('AI-assisted parsing on')).toBeInTheDocument()
+  })
+
+  it('surfaces an error instead of a silent failure', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([whatsappConnection()])
+    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue({
+      id: 'ai-1', provider: 'gemini', status: 'connected', model: '', base_url: null, created_at: '',
+    })
+    vi.mocked(integrationsApi.setWhatsAppAIParsing).mockRejectedValue(new Error('connect an AI provider first'))
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'AI parsing' }))
+    await userEvent.click(screen.getByLabelText('Enable AI-assisted parsing'))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('connect an AI provider first')).toBeInTheDocument()
   })
 })

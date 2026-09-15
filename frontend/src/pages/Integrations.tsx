@@ -7,6 +7,7 @@ import { useConnections } from '../integrations/hooks/useConnections'
 import { useWebhookFallbackEvents } from '../integrations/hooks/useWebhookFallbackEvents'
 import { WebhookFallbackEventsTable } from '../integrations/WebhookFallbackEventsTable'
 import { WhatsAppTestModeModal } from '../integrations/WhatsAppTestModeModal'
+import { WhatsAppAIParsingModal } from '../integrations/WhatsAppAIParsingModal'
 import * as api from '../integrations/api'
 import type { Connection, ImportJob, DeleteAllImportedProductsResult } from '../integrations/types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
@@ -144,6 +145,7 @@ export default function Integrations() {
 
   const [configuringConnection, setConfiguringConnection] = useState<Connection | null>(null)
   const [configuringWhatsAppTestMode, setConfiguringWhatsAppTestMode] = useState<Connection | null>(null)
+  const [configuringWhatsAppAIParsing, setConfiguringWhatsAppAIParsing] = useState<Connection | null>(null)
 
   const [browsing, setBrowsing] = useState(false)
   const [connectingWoo, setConnectingWoo] = useState(false)
@@ -512,6 +514,11 @@ export default function Integrations() {
                         Test mode on — all messages go to {conn.whatsapp_test_phone_e164}
                       </p>
                     )}
+                    {conn.provider === 'whatsapp' && conn.whatsapp_ai_parsing_enabled && (
+                      <p className="mt-2 text-[10px] px-2 py-1 rounded-lg text-blue-400 bg-blue-500/10">
+                        AI-assisted parsing on
+                      </p>
+                    )}
                     {testResult && testResult.id === conn.id && (
                       <p className={clsx(
                         'mt-2 text-[10px] px-2 py-1 rounded-lg',
@@ -561,6 +568,14 @@ export default function Integrations() {
                           Test mode
                         </button>
                       )}
+                      {conn.provider === 'whatsapp' && (
+                        <button
+                          onClick={() => setConfiguringWhatsAppAIParsing(conn)}
+                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                        >
+                          AI parsing
+                        </button>
+                      )}
                       {conn.provider === 'woocommerce' && (
                         <button
                           onClick={() => handleTestConnection(conn.id)}
@@ -607,6 +622,14 @@ export default function Integrations() {
         <WhatsAppTestModeModal
           connection={configuringWhatsAppTestMode}
           onClose={() => setConfiguringWhatsAppTestMode(null)}
+          onSaved={() => refresh()}
+        />
+      )}
+
+      {configuringWhatsAppAIParsing && (
+        <WhatsAppAIParsingModal
+          connection={configuringWhatsAppAIParsing}
+          onClose={() => setConfiguringWhatsAppAIParsing(null)}
           onSaved={() => refresh()}
         />
       )}

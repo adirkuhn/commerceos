@@ -1,0 +1,86 @@
+import { useState } from 'react'
+import { X } from 'lucide-react'
+import { useAuth } from '../auth/AuthContext'
+import { useAIConnection } from './hooks/useAIConnection'
+import * as api from './api'
+import type { Connection } from './types'
+
+// AI-assisted parsing: when a customer's message doesn't match the rigid
+// "STOCK <code>"/"PRICE <code>"/etc format, the tenant's connected AI
+// provider classifies it (strict, closed-schema output only -- never a
+// free-form chat reply) and extracts the product they meant. Requires an
+// AI connection (Settings -> Integrations -> AI) to already exist.
+export function WhatsAppAIParsingModal({ connection, onClose, onSaved }: {
+  connection: Connection
+  onClose: () => void
+  onSaved: (connection: Connection) => void
+}) {
+  const { token } = useAuth()
+  const { connection: aiConnection, loading: loadingAIConnection } = useAIConnection(token ?? '')
+  const [enabled, setEnabled] = useState(connection.whatsapp_ai_parsing_enabled ?? false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const aiConfigured = !!aiConnection
+
+  async function handleSave() {
+    setSaving(true)
+    setError('')
+    try {
+      const updated = await api.setWhatsAppAIParsing(token ?? '', connection.id, enabled)
+      onSaved(updated)
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
+      <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">WhatsApp AI-assisted parsing</h3>
+          <button onClick={onClose} aria-label="Close">
+            <X size={14} className="dark:text-gray-500 text-gray-400" />
+          </button>
+        </div>
+
+        <p className="text-xs dark:text-gray-500 text-gray-400 mb-4">
+          When a message doesn't match a strict command (e.g. "voce tem estoque do cha de limao?"), the connected AI
+          provider classifies it into stock/price/expiry/info and extracts the product — never a free-form chat reply,
+          only strict classification.
+        </p>
+
+        {!loadingAIConnection && !aiConfigured && (
+          <p className="text-xs text-amber-500 bg-amber-500/10 rounded-lg px-2 py-1.5 mb-3">
+            No AI provider connected yet. Connect one under Settings → Integrations → AI first.
+          </p>
+        )}
+
+        <label className={`flex items-center gap-2 mb-4 ${aiConfigured ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+          <input
+            type="checkbox"
+            checked={enabled}
+            disabled={!aiConfigured}
+            onChange={e => setEnabled(e.target.checked)}
+            className="rounded"
+          />
+          <span className="text-xs dark:text-gray-300 text-gray-700">Enable AI-assisted parsing</span>
+        </label>
+
+        {error && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{error}</p>}
+
+        <button
+          onClick={handleSave}
+          disabled={saving || (enabled && !aiConfigured)}
+          className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </div>
+  )
+}

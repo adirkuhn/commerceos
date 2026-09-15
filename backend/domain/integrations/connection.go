@@ -135,8 +135,15 @@ type Connection struct {
 	// integration without risking a message reaching a real customer.
 	WhatsAppTestModeEnabled bool
 	WhatsAppTestPhoneE164   *string
-	CreatedAt               time.Time
-	UpdatedAt               time.Time
+	// WhatsAppAIParsingEnabled is ProviderWhatsApp-only (false for every
+	// other provider). When true, a message that doesn't match the rigid
+	// "COMMAND CODE" format is classified by the tenant's AI connection
+	// (see whatsapp.AIIntentParser) instead of falling straight to help
+	// text. SetWhatsAppAIParsingUseCase refuses to enable this unless the
+	// tenant already has an AIConnection configured.
+	WhatsAppAIParsingEnabled bool
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
 }
 
 // DefaultBolDeliveryCode is used whenever a Bol connection hasn't set

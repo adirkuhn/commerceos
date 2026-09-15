@@ -314,6 +314,38 @@ paths:
           description: enabled=true with no test_phone_e164, or the connection isn't a WhatsApp connection.
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/whatsapp-ai-parsing:
+    post:
+      operationId: setWhatsAppAIParsing
+      summary: >
+        Toggle a WhatsApp connection's AI-assisted message parsing -- when a
+        message doesn't match the rigid "STOCK <code>"/"PRICE <code>"/etc
+        format, the tenant's connected AI provider classifies it (strict,
+        closed-schema output only -- STOCK/PRICE/EXPIRY/INFO or Unknown,
+        never a free-form chat reply) and extracts the product the customer
+        meant. Refuses to enable with 422 unless the tenant already has an
+        AI connection configured.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetWhatsAppAIParsingRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          description: enabled=true with no AI connection configured, or the connection isn't a WhatsApp connection.
+          $ref: '#/components/responses/Error'
+
   /integrations/webhook-fallback-events:
     get:
       operationId: listWebhookFallbackEvents
@@ -1442,6 +1474,9 @@ components:
           type: string
           nullable: true
           description: The redirect number while test mode is enabled. Only meaningful for WhatsApp connections.
+        whatsapp_ai_parsing_enabled:
+          type: boolean
+          description: When true, a message that doesn't match the rigid "COMMAND CODE" format is classified by the tenant's connected AI provider instead of falling straight to help text. Only meaningful for WhatsApp connections.
         created_at: { type: string, format: date-time }
 
     UpdateConnectionSettingsRequest:
@@ -2272,6 +2307,12 @@ components:
       properties:
         data: { $ref: '#/components/schemas/Connection' }
         error: { nullable: true }
+
+    SetWhatsAppAIParsingRequest:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
 
     SetWhatsAppTestModeRequest:
       type: object

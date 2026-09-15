@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -22,6 +23,13 @@ import (
 	whatsappDomain "github.com/adirkuhn/commerceos/domain/whatsapp"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
+
+// whatsappAIIntentTimeout bounds the AI-assisted classification call --
+// a customer waiting on a WhatsApp reply must never be stuck behind a
+// slow/hanging third-party AI provider; on timeout the message falls back
+// to the normal help text, same as any other AI failure (see
+// tryAIAssistedReply).
+const whatsappAIIntentTimeout = 8 * time.Second
 
 // evolutionAPIMessage is Evolution API's "messages.upsert" webhook payload --
 // built from its published docs, NOT confirmed against a real running
@@ -88,6 +96,18 @@ type messageRecorder interface {
 	Create(ctx context.Context, m *whatsappDomain.Message) error
 }
 
+// aiIntentResolver is whatsappDomain.AIIntentParserResolver narrowed to
+// point of use (ISP).
+type aiIntentResolver interface {
+	Resolve(ctx context.Context) (whatsappDomain.AIIntentParser, error)
+}
+
+// skuQueryResolver is *ResolveSKUFromQueryUseCase narrowed to point of use
+// (ISP).
+type skuQueryResolver interface {
+	Execute(ctx context.Context, query string) (string, error)
+}
+
 // HandleInboundMessageUseCase is the WhatsApp branch of the webhook cold
 // path's per-topic dispatch (see application/webhooks.ProcessWebhookEventUseCase,
 // registered under provider key "whatsapp"). A message that doesn't parse
@@ -104,6 +124,8 @@ type HandleInboundMessageUseCase struct {
 	customerRepo     customersDomain.CustomerRepository
 	orderFlow        orderFlowHandler
 	messageRepo      messageRecorder
+	aiIntentResolver aiIntentResolver
+	resolveSKU       skuQueryResolver
 }
 
 func NewHandleInboundMessageUseCase(
@@ -115,10 +137,13 @@ func NewHandleInboundMessageUseCase(
 	customerRepo customersDomain.CustomerRepository,
 	orderFlow orderFlowHandler,
 	messageRepo messageRecorder,
+	aiIntentResolver aiIntentResolver,
+	resolveSKU skuQueryResolver,
 ) *HandleInboundMessageUseCase {
 	return &HandleInboundMessageUseCase{
 		db: db, connRepo: connRepo, evolutionFactory: evolutionFactory, encryptionSecret: encryptionSecret,
 		lookupProduct: lookupProduct, customerRepo: customerRepo, orderFlow: orderFlow, messageRepo: messageRepo,
+		aiIntentResolver: aiIntentResolver, resolveSKU: resolveSKU,
 	}
 }
 
@@ -184,7 +209,7 @@ func (uc *HandleInboundMessageUseCase) Execute(ctx context.Context, envelope web
 		return fmt.Errorf("handleInboundMessage: %w", err)
 	}
 
-	reply, err := uc.buildReply(ctx, customer, phone, payload.text())
+	reply, err := uc.buildReply(ctx, conn, customer, phone, payload.text())
 	if err != nil {
 		return fmt.Errorf("handleInboundMessage: build reply: %w", err)
 	}
@@ -217,7 +242,7 @@ const helpText = "Commands:\nSTOCK <code> - check stock\nPRICE <code> - check pr
 // always produces a reply string instead, never an error, since those must
 // reach the customer as a normal message, not trigger the webhook
 // consumer's nack/retry loop.
-func (uc *HandleInboundMessageUseCase) buildReply(ctx context.Context, customer *customersDomain.Customer, phone, text string) (string, error) {
+func (uc *HandleInboundMessageUseCase) buildReply(ctx context.Context, conn *integrationsDomain.Connection, customer *customersDomain.Customer, phone, text string) (string, error) {
 	if uc.orderFlow != nil {
 		reply, handled, err := uc.orderFlow.Execute(ctx, phone, customer, text)
 		if err != nil {
@@ -228,31 +253,114 @@ func (uc *HandleInboundMessageUseCase) buildReply(ctx context.Context, customer 
 		}
 	}
 
+	if command, skuCode, ok := parseRigidLookupCommand(text); ok {
+		return uc.replyForLookupCommand(ctx, customer, command, skuCode)
+	}
+
+	// The message didn't match "COMMAND CODE" -- try AI-assisted
+	// classification (STOCK/PRICE/EXPIRY/INFO only, see
+	// tryAIAssistedReply) when this tenant has opted in. Any AI-side
+	// failure (resolver, network, timeout, malformed response) degrades
+	// silently to the same help text a rigid-parse miss already produces
+	// -- an assist feature must never turn into an error, and must never
+	// risk a duplicate reply from a webhook retry.
+	if conn.WhatsAppAIParsingEnabled {
+		if reply, ok, err := uc.tryAIAssistedReply(ctx, customer, text); err != nil {
+			return "", err
+		} else if ok {
+			return reply, nil
+		}
+	}
+
+	return greet(customer, helpText), nil
+}
+
+// parseRigidLookupCommand is the original, deterministic "COMMAND CODE"
+// parser -- STOCK/PRICE/EXPIRY/INFO only (ORDER/CART/CHECKOUT/CANCEL are
+// handled earlier, by orderFlowHandler). ok=false for anything else,
+// including a recognized word with no second field.
+func parseRigidLookupCommand(text string) (command, skuCode string, ok bool) {
 	fields := strings.Fields(text)
 	if len(fields) < 2 {
-		return greet(customer, helpText), nil
+		return "", "", false
 	}
-	command := strings.ToUpper(fields[0])
-	skuCode := fields[1]
-
-	var reply string
-	switch command {
+	switch cmd := strings.ToUpper(fields[0]); cmd {
 	case "STOCK", "PRICE", "EXPIRY", "INFO":
-		info, err := uc.lookupProduct.Execute(ctx, skuCode)
-		switch {
-		case err == nil:
-			reply = formatProductInfo(command, *info)
-		case errors.Is(err, ErrProductNotFound):
-			reply = fmt.Sprintf("We couldn't find a product with code %s.", skuCode)
-		case errors.Is(err, ErrNoWhatsAppChannel):
-			reply = "WhatsApp ordering isn't set up for this account yet."
-		default:
-			return "", err
-		}
+		return cmd, fields[1], true
 	default:
-		reply = helpText
+		return "", "", false
+	}
+}
+
+// replyForLookupCommand is the shared "look up this SKU code and format
+// the answer" step both the rigid parser and the AI-assisted path funnel
+// into -- the AI never composes reply text itself, it only ever supplies
+// (command, skuCode) inputs to this exact same deterministic formatter.
+func (uc *HandleInboundMessageUseCase) replyForLookupCommand(ctx context.Context, customer *customersDomain.Customer, command, skuCode string) (string, error) {
+	info, err := uc.lookupProduct.Execute(ctx, skuCode)
+	var reply string
+	switch {
+	case err == nil:
+		reply = formatProductInfo(command, *info)
+	case errors.Is(err, ErrProductNotFound):
+		reply = fmt.Sprintf("We couldn't find a product with code %s.", skuCode)
+	case errors.Is(err, ErrNoWhatsAppChannel):
+		reply = "WhatsApp ordering isn't set up for this account yet."
+	default:
+		return "", err
 	}
 	return greet(customer, reply), nil
+}
+
+// tryAIAssistedReply classifies text with the tenant's connected AI
+// provider, resolves the extracted product query to a concrete SKU code
+// (ResolveSKUFromQueryUseCase -- exact code first, then a strict fuzzy
+// name match), and formats the reply through the exact same
+// replyForLookupCommand every rigid command uses. ok=false means "AI
+// assist had nothing usable" (unconfigured, Unknown intent, or any
+// failure short of a real product-lookup infra error) -- the caller falls
+// back to help text in that case, never to an error.
+func (uc *HandleInboundMessageUseCase) tryAIAssistedReply(ctx context.Context, customer *customersDomain.Customer, text string) (reply string, ok bool, err error) {
+	if uc.aiIntentResolver == nil || uc.resolveSKU == nil {
+		return "", false, nil
+	}
+	parser, err := uc.aiIntentResolver.Resolve(ctx)
+	if err != nil {
+		log.Printf("handleInboundMessage: resolve AI intent parser: %v", err)
+		return "", false, nil
+	}
+	if parser == nil {
+		// Toggle is on but no AI connection exists -- shouldn't happen
+		// (SetWhatsAppAIParsingUseCase guards it), but never treat it as
+		// a dispatch error.
+		return "", false, nil
+	}
+
+	aiCtx, cancel := context.WithTimeout(ctx, whatsappAIIntentTimeout)
+	defer cancel()
+	intent, err := parser.ParseIntent(aiCtx, text)
+	if err != nil {
+		log.Printf("handleInboundMessage: AI intent parse failed: %v", err)
+		return "", false, nil
+	}
+	if intent.Command == whatsappDomain.IntentCommandUnknown || intent.ProductQuery == "" {
+		return "", false, nil
+	}
+
+	skuCode, err := uc.resolveSKU.Execute(ctx, intent.ProductQuery)
+	if err != nil {
+		return "", false, err
+	}
+	if skuCode == "" {
+		reply := fmt.Sprintf("We couldn't find a product matching %q.", intent.ProductQuery)
+		return greet(customer, reply), true, nil
+	}
+
+	reply, err = uc.replyForLookupCommand(ctx, customer, string(intent.Command), skuCode)
+	if err != nil {
+		return "", false, err
+	}
+	return reply, true, nil
 }
 
 // greet prefixes reply with the customer's name -- only for a known

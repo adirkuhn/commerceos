@@ -778,7 +778,7 @@ function AIIntegrationCard() {
   }
 
   const handleDisconnect = async () => {
-    if (!window.confirm('Disconnect AI provider? Procurement PDF document parsing will stop working until reconfigured.')) return
+    if (!window.confirm('Disconnect AI provider? Procurement PDF document parsing and WhatsApp AI-assisted parsing will stop working until reconfigured.')) return
     await disconnect()
   }
 
@@ -801,7 +801,7 @@ function AIIntegrationCard() {
             <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">
               {loading ? 'Loading…' : connection
                 ? AI_PROVIDER_LABELS[connection.provider]
-                : 'Used for procurement document parsing (PDF invoices). Not configured.'}
+                : 'Used for procurement document parsing (PDF invoices) and optional WhatsApp AI-assisted message parsing. Not configured.'}
             </p>
           </div>
         </div>

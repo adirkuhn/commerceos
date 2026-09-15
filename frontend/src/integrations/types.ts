@@ -30,6 +30,7 @@ export interface Connection {
   bol_delivery_code?: string | null
   whatsapp_test_mode_enabled?: boolean
   whatsapp_test_phone_e164?: string | null
+  whatsapp_ai_parsing_enabled?: boolean
   created_at: string
 }
 

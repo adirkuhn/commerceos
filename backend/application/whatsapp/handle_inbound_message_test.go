@@ -59,8 +59,7 @@ func TestHandleInboundMessageUseCase_stockCommand_sendsFormattedReply(t *testing
 		&fakeProductInfoLookup{info: &appwhatsapp.ProductInfo{ProductName: "Widget", SKUCode: "ABC123", StockQuantity: 7, CurrencyCode: "EUR"}},
 		&fakeCustomerRepo{},
 		nil,
-		&fakeMessageRepo{},
-	)
+		&fakeMessageRepo{}, nil, nil)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", false))
 
@@ -82,8 +81,7 @@ func TestHandleInboundMessageUseCase_knownCustomer_greetsInReply(t *testing.T) {
 			"31612345678": {ID: "cust-1", FirstName: "Jane"},
 		}},
 		nil,
-		&fakeMessageRepo{},
-	)
+		&fakeMessageRepo{}, nil, nil)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", false))
 
@@ -101,8 +99,7 @@ func TestHandleInboundMessageUseCase_unknownNumber_repliesWithNoPersonalization(
 		&fakeProductInfoLookup{info: &appwhatsapp.ProductInfo{ProductName: "Widget", SKUCode: "ABC123"}},
 		&fakeCustomerRepo{},
 		nil,
-		&fakeMessageRepo{},
-	)
+		&fakeMessageRepo{}, nil, nil)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31699999999@s.whatsapp.net", "STOCK ABC123", false))
 
@@ -120,8 +117,7 @@ func TestHandleInboundMessageUseCase_productNotFound_repliesGracefully(t *testin
 		&fakeProductInfoLookup{err: appwhatsapp.ErrProductNotFound},
 		&fakeCustomerRepo{},
 		nil,
-		&fakeMessageRepo{},
-	)
+		&fakeMessageRepo{}, nil, nil)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ZZZ", false))
 
@@ -139,8 +135,7 @@ func TestHandleInboundMessageUseCase_unrecognizedCommand_sendsHelpText(t *testin
 		&fakeProductInfoLookup{},
 		&fakeCustomerRepo{},
 		nil,
-		&fakeMessageRepo{},
-	)
+		&fakeMessageRepo{}, nil, nil)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "hello there", false))
 
@@ -158,8 +153,7 @@ func TestHandleInboundMessageUseCase_fromMeMessage_neverDispatched(t *testing.T)
 		&fakeProductInfoLookup{},
 		&fakeCustomerRepo{},
 		nil,
-		&fakeMessageRepo{},
-	)
+		&fakeMessageRepo{}, nil, nil)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", true))
 
@@ -177,8 +171,7 @@ func TestHandleInboundMessageUseCase_groupChatMessage_neverDispatched(t *testing
 		&fakeProductInfoLookup{},
 		&fakeCustomerRepo{},
 		nil,
-		&fakeMessageRepo{},
-	)
+		&fakeMessageRepo{}, nil, nil)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("120363025246285034@g.us", "STOCK ABC123", false))
 
@@ -199,8 +192,7 @@ func TestHandleInboundMessageUseCase_logsInboundAndOutboundMessages(t *testing.T
 			"31612345678": {ID: "cust-1", FirstName: "Jane"},
 		}},
 		nil,
-		messageRepo,
-	)
+		messageRepo, nil, nil)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", false))
 
@@ -233,8 +225,7 @@ func TestHandleInboundMessageUseCase_logsMessageFromUnmatchedPhoneUnlinked(t *te
 		&fakeProductInfoLookup{},
 		&fakeCustomerRepo{},
 		nil,
-		messageRepo,
-	)
+		messageRepo, nil, nil)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31699999999@s.whatsapp.net", "hello there", false))
 
@@ -258,8 +249,7 @@ func TestHandleInboundMessageUseCase_testModeRedirectsReplyToTestNumber(t *testi
 		&fakeProductInfoLookup{info: &appwhatsapp.ProductInfo{ProductName: "Widget", SKUCode: "ABC123", StockQuantity: 7, CurrencyCode: "EUR"}},
 		&fakeCustomerRepo{},
 		nil,
-		&fakeMessageRepo{},
-	)
+		&fakeMessageRepo{}, nil, nil)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", false))
 
@@ -279,8 +269,7 @@ func TestHandleInboundMessageUseCase_lookupInfraError_propagates(t *testing.T) {
 		&fakeProductInfoLookup{err: assertAnError},
 		&fakeCustomerRepo{},
 		nil,
-		&fakeMessageRepo{},
-	)
+		&fakeMessageRepo{}, nil, nil)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", false))
 

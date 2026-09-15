@@ -444,6 +444,16 @@ export function setWhatsAppTestMode(token: string, connectionId: string, enabled
   )
 }
 
+// enabled:true is rejected by the backend (422) unless the tenant already
+// has an AI connection configured (Settings' AI card).
+export function setWhatsAppAIParsing(token: string, connectionId: string, enabled: boolean): Promise<Connection> {
+  return request<Connection>(
+    `${base()}/connections/${connectionId}/whatsapp-ai-parsing`,
+    { method: 'POST', body: JSON.stringify({ enabled }) },
+    token,
+  )
+}
+
 export interface ListWebhookFallbackEventsResult {
   events: WebhookFallbackEvent[]
   total: number
