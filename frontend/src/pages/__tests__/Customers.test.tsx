@@ -24,6 +24,7 @@ vi.mock('../../customers/api', () => ({
   createCustomer: vi.fn(),
   updateCustomer: vi.fn(),
   deleteCustomer: vi.fn(),
+  listCustomerWhatsAppMessages: vi.fn(),
 }))
 
 vi.mock('../../oms/api', () => ({
@@ -56,6 +57,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(customersApi.listCustomers).mockResolvedValue([])
   vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [], total: 0 })
+  vi.mocked(customersApi.listCustomerWhatsAppMessages).mockResolvedValue([])
 })
 
 describe('Customers list', () => {
@@ -166,6 +168,33 @@ describe('Customer detail page', () => {
     expect(await screen.findByText('$50.00')).toBeInTheDocument()
     expect(screen.getByText('1')).toBeInTheDocument()
     expect(screen.getByText(/Placed order #1001/)).toBeInTheDocument()
+  })
+
+  it('shows the WhatsApp conversation panel with inbound/outbound messages when there are any', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+    vi.mocked(customersApi.listCustomerWhatsAppMessages).mockResolvedValue([
+      { id: 'msg-2', phone_e164: '31612345678', direction: 'outbound', body: 'Widget - in stock: 7', created_at: '2026-08-23T10:01:00Z' },
+      { id: 'msg-1', phone_e164: '31612345678', direction: 'inbound', body: 'STOCK ABC123', created_at: '2026-08-23T10:00:00Z' },
+    ])
+
+    render(<MemoryRouter><Customers /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('Jane Doe'))
+
+    expect(await screen.findByText('WhatsApp conversation')).toBeInTheDocument()
+    expect(screen.getByText('STOCK ABC123')).toBeInTheDocument()
+    expect(screen.getByText('Widget - in stock: 7')).toBeInTheDocument()
+    expect(customersApi.listCustomerWhatsAppMessages).toHaveBeenCalledWith('test-token', 'customer-1')
+  })
+
+  it('hides the WhatsApp conversation panel entirely when there is no history', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+    vi.mocked(customersApi.listCustomerWhatsAppMessages).mockResolvedValue([])
+
+    render(<MemoryRouter><Customers /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('Jane Doe'))
+
+    await screen.findByText('jane@example.com')
+    expect(screen.queryByText('WhatsApp conversation')).not.toBeInTheDocument()
   })
 
   // Reported: clicking the Orders stat should take you to that customer's

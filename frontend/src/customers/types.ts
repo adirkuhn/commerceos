@@ -47,6 +47,18 @@ export interface CustomerInput {
   customer_note?: string
 }
 
+export type WhatsAppMessageDirection = 'inbound' | 'outbound'
+
+// One entry in a customer's WhatsApp conversation log (both inbound
+// messages and outbound replies) -- see backend/domain/whatsapp.Message.
+export interface WhatsAppMessage {
+  id: string
+  phone_e164: string
+  direction: WhatsAppMessageDirection
+  body: string
+  created_at: string
+}
+
 export interface APIError {
   code: string
   message: string

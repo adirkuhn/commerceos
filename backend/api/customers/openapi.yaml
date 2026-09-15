@@ -76,6 +76,20 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /customers/{id}/whatsapp-messages:
+    get:
+      operationId: listCustomerWhatsAppMessages
+      summary: List every WhatsApp message (inbound and outbound reply) linked to this customer, newest first
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppMessageListResponse'
+
 components:
   parameters:
     id:
@@ -174,6 +188,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Customer'
+        error: { nullable: true }
+
+    WhatsAppMessage:
+      type: object
+      required: [id, phone_e164, direction, body, created_at]
+      properties:
+        id: { type: string }
+        phone_e164: { type: string }
+        direction: { type: string, enum: [inbound, outbound] }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
+
+    WhatsAppMessageListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/WhatsAppMessage'
         error: { nullable: true }
 
     EmptyResponse:

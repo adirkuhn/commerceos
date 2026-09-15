@@ -115,7 +115,7 @@ func main() {
 	)
 	whatsappHandler := appwhatsapp.NewHandleInboundMessageUseCase(
 		db, repositories.NewConnectionRepo(db), evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
-		lookupProductInfo, repositories.NewCustomerRepo(db), orderFlowUC,
+		lookupProductInfo, repositories.NewCustomerRepo(db), orderFlowUC, repositories.NewWhatsAppMessageRepo(db),
 	)
 
 	stripePaymentHandler := apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewStripeEventParser(), updateSalesOrder, "stripe")

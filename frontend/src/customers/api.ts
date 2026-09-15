@@ -1,4 +1,4 @@
-import type { Customer, CustomerInput, APIResponse } from './types'
+import type { Customer, CustomerInput, WhatsAppMessage, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/customers`
@@ -38,4 +38,8 @@ export function updateCustomer(token: string, id: string, input: CustomerInput):
 
 export function deleteCustomer(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/${id}`, { method: 'DELETE' }, token)
+}
+
+export function listCustomerWhatsAppMessages(token: string, id: string): Promise<WhatsAppMessage[]> {
+  return request<WhatsAppMessage[]>(`${base()}/${id}/whatsapp-messages`, { method: 'GET' }, token)
 }

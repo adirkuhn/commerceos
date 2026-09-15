@@ -2,6 +2,7 @@ package whatsapp_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
@@ -92,6 +93,36 @@ func (f *fakeSalesOrderRepo) FindByID(_ context.Context, id string) (*omsDomain.
 		return &o, nil
 	}
 	return nil, omsDomain.ErrSalesOrderNotFound
+}
+
+type fakeMessageRepo struct {
+	created []whatsappDomain.Message
+}
+
+func (f *fakeMessageRepo) Create(_ context.Context, m *whatsappDomain.Message) error {
+	m.ID = fmt.Sprintf("msg-%d", len(f.created)+1)
+	f.created = append(f.created, *m)
+	return nil
+}
+
+func (f *fakeMessageRepo) ListByPhone(_ context.Context, phone string) ([]whatsappDomain.Message, error) {
+	var out []whatsappDomain.Message
+	for _, m := range f.created {
+		if m.PhoneE164 == phone {
+			out = append(out, m)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeMessageRepo) ListByCustomer(_ context.Context, customerID string) ([]whatsappDomain.Message, error) {
+	var out []whatsappDomain.Message
+	for _, m := range f.created {
+		if m.CustomerID != nil && *m.CustomerID == customerID {
+			out = append(out, m)
+		}
+	}
+	return out, nil
 }
 
 type fakeEvolutionAPIClient struct {

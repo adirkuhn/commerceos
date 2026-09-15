@@ -12,6 +12,7 @@ import (
 	gencustomers "github.com/adirkuhn/commerceos/api/customers"
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	whatsappDomain "github.com/adirkuhn/commerceos/domain/whatsapp"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -30,18 +31,28 @@ type updateCustomerUC interface {
 type deleteCustomerUC interface {
 	Execute(ctx context.Context, id string) error
 }
+type listCustomerWhatsAppMessagesUC interface {
+	Execute(ctx context.Context, customerID string) ([]whatsappDomain.Message, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	listCustomers  listCustomersUC
-	createCustomer createCustomerUC
-	updateCustomer updateCustomerUC
-	deleteCustomer deleteCustomerUC
+	listCustomers                listCustomersUC
+	createCustomer               createCustomerUC
+	updateCustomer               updateCustomerUC
+	deleteCustomer               deleteCustomerUC
+	listCustomerWhatsAppMessages listCustomerWhatsAppMessagesUC
 }
 
-func NewHandler(listCustomers listCustomersUC, createCustomer createCustomerUC, updateCustomer updateCustomerUC, deleteCustomer deleteCustomerUC) *Handler {
-	return &Handler{listCustomers: listCustomers, createCustomer: createCustomer, updateCustomer: updateCustomer, deleteCustomer: deleteCustomer}
+func NewHandler(
+	listCustomers listCustomersUC, createCustomer createCustomerUC, updateCustomer updateCustomerUC, deleteCustomer deleteCustomerUC,
+	listCustomerWhatsAppMessages listCustomerWhatsAppMessagesUC,
+) *Handler {
+	return &Handler{
+		listCustomers: listCustomers, createCustomer: createCustomer, updateCustomer: updateCustomer, deleteCustomer: deleteCustomer,
+		listCustomerWhatsAppMessages: listCustomerWhatsAppMessages,
+	}
 }
 
 var _ gencustomers.ServerInterface = (*Handler)(nil)
@@ -56,6 +67,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appcustomers.NewCreateCustomerUseCase(db, customerRepo),
 		appcustomers.NewUpdateCustomerUseCase(db, customerRepo),
 		appcustomers.NewDeleteCustomerUseCase(db, customerRepo),
+		appcustomers.NewListCustomerWhatsAppMessagesUseCase(db, repositories.NewWhatsAppMessageRepo(db)),
 	)
 	gencustomers.RegisterHandlers(rg, h)
 }
@@ -124,6 +136,21 @@ func (h *Handler) DeleteCustomer(c *gin.Context, id gencustomers.Id) {
 		return
 	}
 	c.JSON(http.StatusOK, gencustomers.EmptyResponse{})
+}
+
+func (h *Handler) ListCustomerWhatsAppMessages(c *gin.Context, id gencustomers.Id) {
+	list, err := h.listCustomerWhatsAppMessages.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]gencustomers.WhatsAppMessage, len(list))
+	for i, m := range list {
+		resp[i] = gencustomers.WhatsAppMessage{
+			Id: m.ID, PhoneE164: m.PhoneE164, Direction: gencustomers.WhatsAppMessageDirection(m.Direction),
+			Body: m.Body, CreatedAt: m.CreatedAt,
+		}
+	}
+	c.JSON(http.StatusOK, gencustomers.WhatsAppMessageListResponse{Data: &resp})
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

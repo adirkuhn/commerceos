@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 
 	"gorm.io/gorm"
@@ -18,6 +19,7 @@ import (
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/domain/webhooks"
+	whatsappDomain "github.com/adirkuhn/commerceos/domain/whatsapp"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -80,6 +82,12 @@ type orderFlowHandler interface {
 	Execute(ctx context.Context, phone string, customer *customersDomain.Customer, text string) (reply string, handled bool, err error)
 }
 
+// messageRecorder is whatsappDomain.MessageRepository narrowed to point of
+// use (ISP) -- HandleInboundMessageUseCase only ever writes.
+type messageRecorder interface {
+	Create(ctx context.Context, m *whatsappDomain.Message) error
+}
+
 // HandleInboundMessageUseCase is the WhatsApp branch of the webhook cold
 // path's per-topic dispatch (see application/webhooks.ProcessWebhookEventUseCase,
 // registered under provider key "whatsapp"). A message that doesn't parse
@@ -95,6 +103,7 @@ type HandleInboundMessageUseCase struct {
 	lookupProduct    productInfoLookup
 	customerRepo     customersDomain.CustomerRepository
 	orderFlow        orderFlowHandler
+	messageRepo      messageRecorder
 }
 
 func NewHandleInboundMessageUseCase(
@@ -105,11 +114,20 @@ func NewHandleInboundMessageUseCase(
 	lookupProduct productInfoLookup,
 	customerRepo customersDomain.CustomerRepository,
 	orderFlow orderFlowHandler,
+	messageRepo messageRecorder,
 ) *HandleInboundMessageUseCase {
 	return &HandleInboundMessageUseCase{
 		db: db, connRepo: connRepo, evolutionFactory: evolutionFactory, encryptionSecret: encryptionSecret,
-		lookupProduct: lookupProduct, customerRepo: customerRepo, orderFlow: orderFlow,
+		lookupProduct: lookupProduct, customerRepo: customerRepo, orderFlow: orderFlow, messageRepo: messageRepo,
 	}
+}
+
+func customerIDPtr(customer *customersDomain.Customer) *string {
+	if customer == nil {
+		return nil
+	}
+	id := customer.ID
+	return &id
 }
 
 func (uc *HandleInboundMessageUseCase) Execute(ctx context.Context, envelope webhooks.Envelope) error {
@@ -138,11 +156,16 @@ func (uc *HandleInboundMessageUseCase) Execute(ctx context.Context, envelope web
 			return err
 		}
 		conn = findWhatsAppConnection(conns)
-		if conn == nil {
-			return nil
+		if conn != nil {
+			customer, err = uc.customerRepo.FindByPhoneE164(ctx, phone)
+			if err != nil {
+				return err
+			}
 		}
-		customer, err = uc.customerRepo.FindByPhoneE164(ctx, phone)
-		return err
+		return uc.messageRepo.Create(ctx, &whatsappDomain.Message{
+			TenantID: envelope.TenantID, PhoneE164: phone, CustomerID: customerIDPtr(customer),
+			Direction: whatsappDomain.MessageDirectionInbound, Body: payload.text(),
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("handleInboundMessage: load connection/customer: %w", err)
@@ -168,6 +191,20 @@ func (uc *HandleInboundMessageUseCase) Execute(ctx context.Context, envelope web
 
 	if err := client.SendText(ctx, phone, reply); err != nil {
 		return fmt.Errorf("handleInboundMessage: send reply: %w", err)
+	}
+
+	// Logged best-effort, after the send: the reply is already on its way
+	// to the customer, so a logging failure here must not turn into a
+	// webhook nack -- that would redeliver this event and send a second,
+	// duplicate reply.
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		return uc.messageRepo.Create(ctx, &whatsappDomain.Message{
+			TenantID: envelope.TenantID, PhoneE164: phone, CustomerID: customerIDPtr(customer),
+			Direction: whatsappDomain.MessageDirectionOutbound, Body: reply,
+		})
+	})
+	if err != nil {
+		log.Printf("handleInboundMessage: log outbound message: %v", err)
 	}
 	return nil
 }

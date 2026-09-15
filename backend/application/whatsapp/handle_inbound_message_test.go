@@ -12,6 +12,7 @@ import (
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/domain/webhooks"
+	whatsappDomain "github.com/adirkuhn/commerceos/domain/whatsapp"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 )
 
@@ -51,13 +52,14 @@ func boolStr(b bool) string {
 func TestHandleInboundMessageUseCase_stockCommand_sendsFormattedReply(t *testing.T) {
 	client := &fakeEvolutionAPIClient{}
 	uc := appwhatsapp.NewHandleInboundMessageUseCase(
-		newMockGormDB(t, 1),
+		newMockGormDB(t, 2),
 		&fakeConnectionRepo{conns: []integrationsDomain.Connection{whatsappConnection(t)}},
 		&fakeEvolutionAPIClientFactory{client: client},
 		testEncryptionSecret,
 		&fakeProductInfoLookup{info: &appwhatsapp.ProductInfo{ProductName: "Widget", SKUCode: "ABC123", StockQuantity: 7, CurrencyCode: "EUR"}},
 		&fakeCustomerRepo{},
 		nil,
+		&fakeMessageRepo{},
 	)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", false))
@@ -71,7 +73,7 @@ func TestHandleInboundMessageUseCase_stockCommand_sendsFormattedReply(t *testing
 func TestHandleInboundMessageUseCase_knownCustomer_greetsInReply(t *testing.T) {
 	client := &fakeEvolutionAPIClient{}
 	uc := appwhatsapp.NewHandleInboundMessageUseCase(
-		newMockGormDB(t, 1),
+		newMockGormDB(t, 2),
 		&fakeConnectionRepo{conns: []integrationsDomain.Connection{whatsappConnection(t)}},
 		&fakeEvolutionAPIClientFactory{client: client},
 		testEncryptionSecret,
@@ -80,6 +82,7 @@ func TestHandleInboundMessageUseCase_knownCustomer_greetsInReply(t *testing.T) {
 			"31612345678": {ID: "cust-1", FirstName: "Jane"},
 		}},
 		nil,
+		&fakeMessageRepo{},
 	)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", false))
@@ -91,13 +94,14 @@ func TestHandleInboundMessageUseCase_knownCustomer_greetsInReply(t *testing.T) {
 func TestHandleInboundMessageUseCase_unknownNumber_repliesWithNoPersonalization(t *testing.T) {
 	client := &fakeEvolutionAPIClient{}
 	uc := appwhatsapp.NewHandleInboundMessageUseCase(
-		newMockGormDB(t, 1),
+		newMockGormDB(t, 2),
 		&fakeConnectionRepo{conns: []integrationsDomain.Connection{whatsappConnection(t)}},
 		&fakeEvolutionAPIClientFactory{client: client},
 		testEncryptionSecret,
 		&fakeProductInfoLookup{info: &appwhatsapp.ProductInfo{ProductName: "Widget", SKUCode: "ABC123"}},
 		&fakeCustomerRepo{},
 		nil,
+		&fakeMessageRepo{},
 	)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31699999999@s.whatsapp.net", "STOCK ABC123", false))
@@ -109,13 +113,14 @@ func TestHandleInboundMessageUseCase_unknownNumber_repliesWithNoPersonalization(
 func TestHandleInboundMessageUseCase_productNotFound_repliesGracefully(t *testing.T) {
 	client := &fakeEvolutionAPIClient{}
 	uc := appwhatsapp.NewHandleInboundMessageUseCase(
-		newMockGormDB(t, 1),
+		newMockGormDB(t, 2),
 		&fakeConnectionRepo{conns: []integrationsDomain.Connection{whatsappConnection(t)}},
 		&fakeEvolutionAPIClientFactory{client: client},
 		testEncryptionSecret,
 		&fakeProductInfoLookup{err: appwhatsapp.ErrProductNotFound},
 		&fakeCustomerRepo{},
 		nil,
+		&fakeMessageRepo{},
 	)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ZZZ", false))
@@ -127,13 +132,14 @@ func TestHandleInboundMessageUseCase_productNotFound_repliesGracefully(t *testin
 func TestHandleInboundMessageUseCase_unrecognizedCommand_sendsHelpText(t *testing.T) {
 	client := &fakeEvolutionAPIClient{}
 	uc := appwhatsapp.NewHandleInboundMessageUseCase(
-		newMockGormDB(t, 1),
+		newMockGormDB(t, 2),
 		&fakeConnectionRepo{conns: []integrationsDomain.Connection{whatsappConnection(t)}},
 		&fakeEvolutionAPIClientFactory{client: client},
 		testEncryptionSecret,
 		&fakeProductInfoLookup{},
 		&fakeCustomerRepo{},
 		nil,
+		&fakeMessageRepo{},
 	)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "hello there", false))
@@ -152,6 +158,7 @@ func TestHandleInboundMessageUseCase_fromMeMessage_neverDispatched(t *testing.T)
 		&fakeProductInfoLookup{},
 		&fakeCustomerRepo{},
 		nil,
+		&fakeMessageRepo{},
 	)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", true))
@@ -170,12 +177,71 @@ func TestHandleInboundMessageUseCase_groupChatMessage_neverDispatched(t *testing
 		&fakeProductInfoLookup{},
 		&fakeCustomerRepo{},
 		nil,
+		&fakeMessageRepo{},
 	)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("120363025246285034@g.us", "STOCK ABC123", false))
 
 	require.NoError(t, err)
 	assert.Empty(t, client.sentTo, "a group's numeric id is not a phone number -- must never be dispatched as a direct-chat command or sent a reply")
+}
+
+func TestHandleInboundMessageUseCase_logsInboundAndOutboundMessages(t *testing.T) {
+	client := &fakeEvolutionAPIClient{}
+	messageRepo := &fakeMessageRepo{}
+	uc := appwhatsapp.NewHandleInboundMessageUseCase(
+		newMockGormDB(t, 2),
+		&fakeConnectionRepo{conns: []integrationsDomain.Connection{whatsappConnection(t)}},
+		&fakeEvolutionAPIClientFactory{client: client},
+		testEncryptionSecret,
+		&fakeProductInfoLookup{info: &appwhatsapp.ProductInfo{ProductName: "Widget", SKUCode: "ABC123"}},
+		&fakeCustomerRepo{byPhone: map[string]customersDomain.Customer{
+			"31612345678": {ID: "cust-1", FirstName: "Jane"},
+		}},
+		nil,
+		messageRepo,
+	)
+
+	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", false))
+
+	require.NoError(t, err)
+	require.Len(t, messageRepo.created, 2, "one inbound row and one outbound reply row")
+
+	inbound := messageRepo.created[0]
+	assert.Equal(t, whatsappDomain.MessageDirectionInbound, inbound.Direction)
+	assert.Equal(t, "31612345678", inbound.PhoneE164)
+	assert.Equal(t, "STOCK ABC123", inbound.Body)
+	require.NotNil(t, inbound.CustomerID, "phone matched an existing customer -- must be linked")
+	assert.Equal(t, "cust-1", *inbound.CustomerID)
+
+	outbound := messageRepo.created[1]
+	assert.Equal(t, whatsappDomain.MessageDirectionOutbound, outbound.Direction)
+	assert.Equal(t, "31612345678", outbound.PhoneE164)
+	assert.Equal(t, client.sentBody, outbound.Body)
+	require.NotNil(t, outbound.CustomerID)
+	assert.Equal(t, "cust-1", *outbound.CustomerID)
+}
+
+func TestHandleInboundMessageUseCase_logsMessageFromUnmatchedPhoneUnlinked(t *testing.T) {
+	client := &fakeEvolutionAPIClient{}
+	messageRepo := &fakeMessageRepo{}
+	uc := appwhatsapp.NewHandleInboundMessageUseCase(
+		newMockGormDB(t, 2),
+		&fakeConnectionRepo{conns: []integrationsDomain.Connection{whatsappConnection(t)}},
+		&fakeEvolutionAPIClientFactory{client: client},
+		testEncryptionSecret,
+		&fakeProductInfoLookup{},
+		&fakeCustomerRepo{},
+		nil,
+		messageRepo,
+	)
+
+	err := uc.Execute(context.Background(), inboundEnvelope("31699999999@s.whatsapp.net", "hello there", false))
+
+	require.NoError(t, err)
+	require.Len(t, messageRepo.created, 2)
+	assert.Nil(t, messageRepo.created[0].CustomerID, "no customer matched this phone -- still logged, just unlinked")
+	assert.Nil(t, messageRepo.created[1].CustomerID)
 }
 
 func TestHandleInboundMessageUseCase_lookupInfraError_propagates(t *testing.T) {
@@ -188,6 +254,7 @@ func TestHandleInboundMessageUseCase_lookupInfraError_propagates(t *testing.T) {
 		&fakeProductInfoLookup{err: assertAnError},
 		&fakeCustomerRepo{},
 		nil,
+		&fakeMessageRepo{},
 	)
 
 	err := uc.Execute(context.Background(), inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", false))

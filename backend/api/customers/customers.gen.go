@@ -19,6 +19,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for WhatsAppMessageDirection.
+const (
+	Inbound  WhatsAppMessageDirection = "inbound"
+	Outbound WhatsAppMessageDirection = "outbound"
+)
+
+// Valid indicates whether the value is a known member of the WhatsAppMessageDirection enum.
+func (e WhatsAppMessageDirection) Valid() bool {
+	switch e {
+	case Inbound:
+		return true
+	case Outbound:
+		return true
+	default:
+		return false
+	}
+}
+
 // Address defines model for Address.
 type Address struct {
 	Address1 *string `json:"address_1,omitempty"`
@@ -114,6 +132,24 @@ type UpdateCustomerRequest struct {
 	WooCustomerId    *int64   `json:"woo_customer_id,omitempty"`
 }
 
+// WhatsAppMessage defines model for WhatsAppMessage.
+type WhatsAppMessage struct {
+	Body      string                   `json:"body"`
+	CreatedAt time.Time                `json:"created_at"`
+	Direction WhatsAppMessageDirection `json:"direction"`
+	Id        string                   `json:"id"`
+	PhoneE164 string                   `json:"phone_e164"`
+}
+
+// WhatsAppMessageDirection defines model for WhatsAppMessage.Direction.
+type WhatsAppMessageDirection string
+
+// WhatsAppMessageListResponse defines model for WhatsAppMessageListResponse.
+type WhatsAppMessageListResponse struct {
+	Data  *[]WhatsAppMessage `json:"data,omitempty"`
+	Error interface{}        `json:"error,omitempty"`
+}
+
 // Id defines model for id.
 type Id = string
 
@@ -140,6 +176,9 @@ type ServerInterface interface {
 	// UpdateCustomer Update a customer
 	// (PATCH /customers/{id})
 	UpdateCustomer(c *gin.Context, id Id)
+	// ListCustomerWhatsAppMessages List every WhatsApp message (inbound and outbound reply) linked to this customer, newest first
+	// (GET /customers/{id}/whatsapp-messages)
+	ListCustomerWhatsAppMessages(c *gin.Context, id Id)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -227,6 +266,31 @@ func (siw *ServerInterfaceWrapper) UpdateCustomer(c *gin.Context) {
 	siw.Handler.UpdateCustomer(c, id)
 }
 
+// ListCustomerWhatsAppMessages operation middleware
+func (siw *ServerInterfaceWrapper) ListCustomerWhatsAppMessages(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListCustomerWhatsAppMessages(c, id)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -258,6 +322,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/customers", wrapper.CreateCustomer)
 	router.DELETE(options.BaseURL+"/customers/:id", wrapper.DeleteCustomer)
 	router.PATCH(options.BaseURL+"/customers/:id", wrapper.UpdateCustomer)
+	router.GET(options.BaseURL+"/customers/:id/whatsapp-messages", wrapper.ListCustomerWhatsAppMessages)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -265,22 +330,25 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"xnfndH27/isAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

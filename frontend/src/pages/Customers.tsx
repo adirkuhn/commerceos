@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useCustomers } from '../customers/hooks/useCustomers'
+import { WhatsAppConversationPanel } from '../customers/WhatsAppConversationPanel'
 import type { Customer, CustomerInput, Address } from '../customers/types'
 import { idFromPath } from '../routes'
 import * as omsApi from '../oms/api'
@@ -412,6 +413,8 @@ function CustomerDetailPage({ customer, loading, token, onEdit, onClose, onSaveN
                     </div>
                   ))}
                 </div>
+
+                <WhatsAppConversationPanel customerId={customer.id} />
               </div>
 
               {/* Aside column */}

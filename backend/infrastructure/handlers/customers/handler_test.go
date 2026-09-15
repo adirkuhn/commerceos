@@ -15,6 +15,7 @@ import (
 	gencustomers "github.com/adirkuhn/commerceos/api/customers"
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	whatsappDomain "github.com/adirkuhn/commerceos/domain/whatsapp"
 	customerhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
 )
 
@@ -73,8 +74,19 @@ func (s *stubDeleteCustomer) Execute(_ context.Context, id string) error {
 	return s.err
 }
 
+type stubListCustomerWhatsAppMessages struct {
+	out []whatsappDomain.Message
+	err error
+	got string
+}
+
+func (s *stubListCustomerWhatsAppMessages) Execute(_ context.Context, customerID string) ([]whatsappDomain.Message, error) {
+	s.got = customerID
+	return s.out, s.err
+}
+
 func newTestRouter(list *stubListCustomers, create *stubCreateCustomer, update *stubUpdateCustomer, del *stubDeleteCustomer) *gin.Engine {
-	h := customerhandler.NewHandler(list, create, update, del)
+	h := customerhandler.NewHandler(list, create, update, del, &stubListCustomerWhatsAppMessages{})
 	r := gin.New()
 	gencustomers.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -155,4 +167,20 @@ func TestDeleteCustomer_notFound(t *testing.T) {
 	w := doRequest(newTestRouter(&stubListCustomers{}, &stubCreateCustomer{}, &stubUpdateCustomer{}, del), "DELETE", "/api/v1/customers/missing", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestListCustomerWhatsAppMessages_success(t *testing.T) {
+	custID := "cust-1"
+	list := &stubListCustomerWhatsAppMessages{out: []whatsappDomain.Message{
+		{ID: "msg-1", PhoneE164: "31612345678", CustomerID: &custID, Direction: whatsappDomain.MessageDirectionInbound, Body: "STOCK ABC123"},
+	}}
+	h := customerhandler.NewHandler(&stubListCustomers{}, &stubCreateCustomer{}, &stubUpdateCustomer{}, &stubDeleteCustomer{}, list)
+	r := gin.New()
+	gencustomers.RegisterHandlers(r.Group("/api/v1"), h)
+
+	w := doRequest(r, "GET", "/api/v1/customers/cust-1/whatsapp-messages", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "cust-1", list.got)
+	assert.Contains(t, w.Body.String(), "STOCK ABC123")
 }
