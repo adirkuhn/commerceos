@@ -114,6 +114,9 @@ type setManualCostPriceUC interface {
 type clearCostPriceOverrideUC interface {
 	Execute(ctx context.Context, skuID string) (*pmsDomain.SKU, error)
 }
+type correctCostUC interface {
+	Execute(ctx context.Context, in apppms.CorrectCostInput) (*pmsDomain.SKU, error)
+}
 type uploadMediaUC interface {
 	Execute(ctx context.Context, in apppms.UploadMediaInput) (*pmsDomain.Media, error)
 }
@@ -193,6 +196,7 @@ type Handler struct {
 	deleteSKU              deleteSKUUC
 	setManualCostPrice     setManualCostPriceUC
 	clearCostPriceOverride clearCostPriceOverrideUC
+	correctCost            correctCostUC
 	uploadMedia            uploadMediaUC
 	listProductMedia       listProductMediaUC
 	deleteMedia            deleteMediaUC
@@ -253,6 +257,7 @@ func NewHandler(
 	listScaleCodeAliases listScaleCodeAliasesUC,
 	createScaleCodeAlias createScaleCodeAliasUC,
 	deleteScaleCodeAlias deleteScaleCodeAliasUC,
+	correctCost correctCostUC,
 ) *Handler {
 	return &Handler{
 		listBarcodeAliases:     listBarcodeAliases,
@@ -292,6 +297,7 @@ func NewHandler(
 		deleteMedia:            deleteMedia,
 		updateMedia:            updateMedia,
 		resolveBarcode:         resolveBarcode,
+		correctCost:            correctCost,
 	}
 }
 
@@ -360,6 +366,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewListScaleCodeAliasesUseCase(db, scaleCodeAliasRepo),
 		apppms.NewCreateScaleCodeAliasUseCase(db, skuRepo, scaleCodeAliasRepo),
 		apppms.NewDeleteScaleCodeAliasUseCase(db, scaleCodeAliasRepo),
+		apppms.NewCorrectCostUseCase(db, skuRepo, repositories.NewSKUCostPriceLedgerRepo(db), batchLister),
 	)
 	genpms.RegisterHandlers(rg, h)
 }
@@ -690,6 +697,30 @@ func (h *Handler) SetManualCostPrice(c *gin.Context, id genpms.Id) {
 
 func (h *Handler) ClearCostPriceOverride(c *gin.Context, id genpms.Id) {
 	sku, err := h.clearCostPriceOverride.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenSKU(*sku)
+	c.JSON(http.StatusOK, genpms.SKUResponse{Data: &resp})
+}
+
+func (h *Handler) CorrectCost(c *gin.Context, id genpms.Id) {
+	var req genpms.CorrectCostRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	var referenceType, referenceID string
+	if req.ReferenceType != nil {
+		referenceType = *req.ReferenceType
+	}
+	if req.ReferenceId != nil {
+		referenceID = *req.ReferenceId
+	}
+	sku, err := h.correctCost.Execute(c.Request.Context(), apppms.CorrectCostInput{
+		SKUID: id, AdjustmentValueMinorUnits: req.AdjustmentValueMinorUnits,
+		ReferenceType: referenceType, ReferenceID: referenceID, OccurredAt: time.Now(),
+	})
 	if err := mapError(c, err); err != nil {
 		return
 	}
@@ -1247,6 +1278,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrInvalidUnitsPerScan),
 		errors.Is(err, pmsDomain.ErrBarcodeAliasCodeRequired),
 		errors.Is(err, pmsDomain.ErrScaleCodeAliasCodeRequired),
+		errors.Is(err, pmsDomain.ErrCostPriceUnknownForCorrection),
+		errors.Is(err, pmsDomain.ErrNoStockOnHandForCorrection),
 		errors.Is(err, fxDomain.ErrInvalidCurrencyCode):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:

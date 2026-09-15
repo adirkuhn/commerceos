@@ -178,6 +178,17 @@ func (s *stubSetManualCostPrice) Execute(_ context.Context, skuID string, costPr
 	return s.out, s.err
 }
 
+type stubCorrectCost struct {
+	out   *pmsDomain.SKU
+	err   error
+	gotIn apppms.CorrectCostInput
+}
+
+func (s *stubCorrectCost) Execute(_ context.Context, in apppms.CorrectCostInput) (*pmsDomain.SKU, error) {
+	s.gotIn = in
+	return s.out, s.err
+}
+
 type stubClearCostPriceOverride struct {
 	out      *pmsDomain.SKU
 	err      error
@@ -417,6 +428,7 @@ type stubs struct {
 	listScaleCodeAliases   stubListScaleCodeAliases
 	createScaleCodeAlias   stubCreateScaleCodeAlias
 	deleteScaleCodeAlias   stubDeleteScaleCodeAlias
+	correctCost            stubCorrectCost
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
@@ -434,6 +446,7 @@ func newTestRouter(s *stubs) *gin.Engine {
 		&s.listSKUCurrencyPrices, &s.upsertSKUCurrencyPrice, &s.deleteSKUCurrencyPrice,
 		&s.listBarcodeAliases, &s.createBarcodeAlias, &s.deleteBarcodeAlias,
 		&s.listScaleCodeAliases, &s.createScaleCodeAlias, &s.deleteScaleCodeAlias,
+		&s.correctCost,
 	)
 	r := gin.New()
 	genpms.RegisterHandlers(r.Group("/api/v1"), h)
@@ -855,6 +868,39 @@ func TestClearCostPriceOverride_notFound(t *testing.T) {
 	s := &stubs{clearCostPriceOverride: stubClearCostPriceOverride{err: pmsDomain.ErrSKUNotFound}}
 	w := doRequest(newTestRouter(s), http.MethodDelete, "/api/v1/pms/skus/missing/cost-price", nil)
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestCorrectCost_success(t *testing.T) {
+	newCost := int64(350)
+	s := &stubs{correctCost: stubCorrectCost{out: &pmsDomain.SKU{
+		ID: "s1", SKUCode: "WID-L", PriceMinorUnits: 2499, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+		CostPriceMinorUnits: &newCost, CostPriceSource: pmsDomain.SKUCostPriceSourceComputed,
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/skus/s1/cost-price/correction", map[string]any{
+		"adjustment_value_minor_units": 5000, "reference_type": "purchase_order_line_item", "reference_id": "line-1",
+	})
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "s1", s.correctCost.gotIn.SKUID)
+	assert.Equal(t, int64(5000), s.correctCost.gotIn.AdjustmentValueMinorUnits)
+	assert.Equal(t, "purchase_order_line_item", s.correctCost.gotIn.ReferenceType)
+	assert.Equal(t, "line-1", s.correctCost.gotIn.ReferenceID)
+	assert.Contains(t, w.Body.String(), `"cost_price_minor_units":350`)
+}
+
+func TestCorrectCost_unprocessableWhenCostUnknown(t *testing.T) {
+	s := &stubs{correctCost: stubCorrectCost{err: pmsDomain.ErrCostPriceUnknownForCorrection}}
+	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/skus/s1/cost-price/correction", map[string]any{
+		"adjustment_value_minor_units": 5000,
+	})
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestCorrectCost_unprocessableWhenNoStockOnHand(t *testing.T) {
+	s := &stubs{correctCost: stubCorrectCost{err: pmsDomain.ErrNoStockOnHandForCorrection}}
+	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/skus/s1/cost-price/correction", map[string]any{
+		"adjustment_value_minor_units": 5000,
+	})
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
 func TestResolveBarcode_success(t *testing.T) {

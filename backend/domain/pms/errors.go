@@ -142,4 +142,14 @@ var (
 	// computed), and a ScaleCode set (so a barcode can be generated for
 	// each new package) -- all three, not just one.
 	ErrBulkSKUNotWeightPool = errors.New("source sku must be a weight pool with per-weight pricing and a scale code")
+	// ErrCostPriceUnknownForCorrection guards CorrectCostUseCase: a value
+	// correction adjusts an existing cost baseline, so a SKU whose cost is
+	// still unknown (cost_price_source unknown, see
+	// SKUCostPriceSourceUnknown) has nothing to correct -- the first real
+	// receipt establishes that baseline, not a correction.
+	ErrCostPriceUnknownForCorrection = errors.New("sku has no known cost price to correct -- wait for its first receipt")
+	// ErrNoStockOnHandForCorrection guards CorrectCostUseCase: a value
+	// correction is meaningless with zero on-hand quantity -- there's
+	// nothing to divide the corrected value across.
+	ErrNoStockOnHandForCorrection = errors.New("sku has no on-hand stock to apply a cost correction to")
 )

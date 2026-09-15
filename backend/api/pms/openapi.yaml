@@ -460,6 +460,39 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /pms/skus/{id}/cost-price/correction:
+    post:
+      operationId: correctCost
+      summary: Apply a value correction to a SKU's cost (e.g. a supplier invoice correcting a prior receipt's price)
+      description: >-
+        Re-blends the SKU's current cost across its on-hand quantity by
+        adjustment_value_minor_units (signed -- added to total inventory
+        value, not set as a new unit cost directly) and writes a
+        "correction" row to its cost history. Affects cost_price_minor_units
+        going forward only -- never touches any sale's already-frozen
+        cost_at_sale/cogs (see SalesOrderLineItem). 422 when the SKU's cost
+        is still unknown (no receipt has established a baseline yet) or it
+        has no on-hand quantity to apply the correction across.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorrectCostRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SKUResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /pms/skus/{id}/cost-price-history:
     get:
       operationId: listSKUCostPriceHistory
@@ -994,6 +1027,17 @@ components:
       required: [cost_price_minor_units]
       properties:
         cost_price_minor_units: { type: integer, format: int64, minimum: 0 }
+
+    CorrectCostRequest:
+      type: object
+      required: [adjustment_value_minor_units]
+      properties:
+        adjustment_value_minor_units:
+          type: integer
+          format: int64
+          description: Signed -- added to the SKU's current total inventory value before re-dividing across on-hand quantity. Negative lowers the cost.
+        reference_type: { type: string, nullable: true }
+        reference_id: { type: string, nullable: true }
 
     SKUMarginInsight:
       type: object
