@@ -27,7 +27,14 @@ type Message struct {
 	CustomerID *string
 	Direction  MessageDirection
 	Body       string
-	CreatedAt  time.Time
+	// WebhookEventID is set only for an inbound message recorded from a
+	// webhook envelope (see application/whatsapp.HandleInboundMessageUseCase)
+	// -- nil for an outbound reply/notification, which has no envelope of
+	// its own. Lets Create dedupe a redelivered envelope instead of
+	// re-logging the same customer message on every NATS retry (see
+	// WhatsAppMessageRepo.Create's doc comment).
+	WebhookEventID *string
+	CreatedAt      time.Time
 }
 
 // ConversationSummary is one row of the WhatsApp conversations list (the

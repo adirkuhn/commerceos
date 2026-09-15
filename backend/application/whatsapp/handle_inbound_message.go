@@ -206,6 +206,7 @@ func (uc *HandleInboundMessageUseCase) Execute(ctx context.Context, envelope web
 		return uc.messageRepo.Create(ctx, &whatsappDomain.Message{
 			TenantID: envelope.TenantID, PhoneE164: phone, CustomerID: customerIDPtr(customer),
 			Direction: whatsappDomain.MessageDirectionInbound, Body: payload.text(),
+			WebhookEventID: &envelope.EventID,
 		})
 	})
 	if err != nil {

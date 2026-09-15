@@ -278,6 +278,44 @@ func TestHandleInboundMessageUseCase_logsInboundAndOutboundMessages(t *testing.T
 	assert.Equal(t, "cust-1", *outbound.CustomerID)
 }
 
+// Regression: NATS redelivers the same envelope whenever Execute returns
+// an error (see infrastructure/consumers.WebhookConsumer -- the outer
+// processed_events dedup only marks an event processed on full success),
+// so a send failure legitimately retries the WHOLE handler from scratch.
+// Before WebhookEventID-based dedup, that re-ran the unconditional inbound
+// messageRepo.Create too, logging the same customer message once per
+// retry -- a real customer conversation showed the same "Tem flocao"
+// three times over. Only the inbound row must dedupe; the reply attempt
+// itself must still retry every time (that's the whole point of NATS
+// redelivery) until it succeeds.
+func TestHandleInboundMessageUseCase_redeliveredEnvelopeAfterFailedSend_logsInboundOnlyOnce(t *testing.T) {
+	client := &fakeEvolutionAPIClient{err: errors.New("evolutionapi: send text: status 401: not authorized")}
+	messageRepo := &fakeMessageRepo{}
+	uc := appwhatsapp.NewHandleInboundMessageUseCase(
+		newMockGormDB(t, 3), // 1st attempt: inbound only (send fails, no outbound tx). 2nd: inbound (deduped, no-op) + outbound.
+		&fakeConnectionRepo{conns: []integrationsDomain.Connection{whatsappConnection(t)}},
+		&fakeEvolutionAPIClientFactory{client: client},
+		testEncryptionSecret,
+		&fakeProductInfoLookup{info: &appwhatsapp.ProductInfo{ProductName: "Widget", SKUCode: "ABC123"}},
+		&fakeCustomerRepo{},
+		nil,
+		messageRepo, nil, nil,
+	)
+	envelope := inboundEnvelope("31612345678@s.whatsapp.net", "STOCK ABC123", false)
+
+	err := uc.Execute(context.Background(), envelope)
+	require.Error(t, err, "first attempt fails to send -- NATS will redeliver")
+	require.Len(t, messageRepo.created, 1, "inbound logged once")
+
+	client.err = nil // redelivery: the underlying issue (e.g. a since-fixed API key) is resolved
+	err = uc.Execute(context.Background(), envelope)
+	require.NoError(t, err, "redelivery retries the send and this time succeeds")
+
+	require.Len(t, messageRepo.created, 2, "still just one inbound row -- deduped by WebhookEventID -- plus the one outbound reply")
+	assert.Equal(t, whatsappDomain.MessageDirectionInbound, messageRepo.created[0].Direction)
+	assert.Equal(t, whatsappDomain.MessageDirectionOutbound, messageRepo.created[1].Direction)
+}
+
 func TestHandleInboundMessageUseCase_logsMessageFromUnmatchedPhoneUnlinked(t *testing.T) {
 	client := &fakeEvolutionAPIClient{}
 	messageRepo := &fakeMessageRepo{}

@@ -7,19 +7,21 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	whatsappDomain "github.com/adirkuhn/commerceos/domain/whatsapp"
 	"github.com/adirkuhn/commerceos/internal/txctx"
 )
 
 type whatsappMessageModel struct {
-	ID         string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID   string  `gorm:"not null;type:uuid"`
-	PhoneE164  string  `gorm:"column:phone_e164;not null"`
-	CustomerID *string `gorm:"column:customer_id;type:uuid"`
-	Direction  string  `gorm:"not null"`
-	Body       string  `gorm:"not null"`
-	CreatedAt  time.Time
+	ID             string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID       string  `gorm:"not null;type:uuid"`
+	PhoneE164      string  `gorm:"column:phone_e164;not null"`
+	CustomerID     *string `gorm:"column:customer_id;type:uuid"`
+	Direction      string  `gorm:"not null"`
+	Body           string  `gorm:"not null"`
+	WebhookEventID *string `gorm:"column:webhook_event_id"`
+	CreatedAt      time.Time
 }
 
 func (whatsappMessageModel) TableName() string { return "whatsapp_messages" }
@@ -28,6 +30,15 @@ type WhatsAppMessageRepo struct{ db *gorm.DB }
 
 func NewWhatsAppMessageRepo(db *gorm.DB) *WhatsAppMessageRepo { return &WhatsAppMessageRepo{db: db} }
 
+// Create dedupes on (tenant_id, webhook_event_id) via ON CONFLICT DO
+// NOTHING -- safe to apply unconditionally (not just when m.WebhookEventID
+// is set) because Postgres never treats two NULLs as conflicting in a
+// unique index, so an outbound reply or any other message with no
+// WebhookEventID always inserts normally. A skipped insert (WebhookEventID
+// already logged, e.g. this NATS delivery is a retry of an envelope
+// already recorded) leaves m.ID/m.CreatedAt at their zero value -- callers
+// (HandleInboundMessageUseCase) don't use them afterward for the inbound
+// row, only for logging.
 func (r *WhatsAppMessageRepo) Create(ctx context.Context, m *whatsappDomain.Message) error {
 	tx, ok := txctx.FromContext(ctx)
 	if !ok {
@@ -35,9 +46,12 @@ func (r *WhatsAppMessageRepo) Create(ctx context.Context, m *whatsappDomain.Mess
 	}
 	row := whatsappMessageModel{
 		TenantID: m.TenantID, PhoneE164: m.PhoneE164, CustomerID: m.CustomerID,
-		Direction: string(m.Direction), Body: m.Body,
+		Direction: string(m.Direction), Body: m.Body, WebhookEventID: m.WebhookEventID,
 	}
-	if err := tx.WithContext(ctx).Create(&row).Error; err != nil {
+	err := tx.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "tenant_id"}, {Name: "webhook_event_id"}}, DoNothing: true,
+	}).Create(&row).Error
+	if err != nil {
 		return fmt.Errorf("whatsappMessageRepo.Create: %w", err)
 	}
 	m.ID = row.ID

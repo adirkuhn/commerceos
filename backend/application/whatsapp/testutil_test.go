@@ -99,7 +99,19 @@ type fakeMessageRepo struct {
 	created []whatsappDomain.Message
 }
 
+// Create mirrors WhatsAppMessageRepo.Create's real ON CONFLICT DO NOTHING
+// dedup on (TenantID, WebhookEventID) -- a nil WebhookEventID never
+// conflicts with anything (same "NULL never equals NULL" semantics the
+// real unique index gives for free), only two Creates sharing the same
+// non-nil WebhookEventID for the same tenant collide.
 func (f *fakeMessageRepo) Create(_ context.Context, m *whatsappDomain.Message) error {
+	if m.WebhookEventID != nil {
+		for _, existing := range f.created {
+			if existing.WebhookEventID != nil && existing.TenantID == m.TenantID && *existing.WebhookEventID == *m.WebhookEventID {
+				return nil
+			}
+		}
+	}
 	m.ID = fmt.Sprintf("msg-%d", len(f.created)+1)
 	f.created = append(f.created, *m)
 	return nil

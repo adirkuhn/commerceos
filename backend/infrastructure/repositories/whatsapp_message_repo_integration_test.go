@@ -116,6 +116,68 @@ func TestWhatsAppMessageRepo_Integration_DeleteByPhone(t *testing.T) {
 	require.Len(t, untouched, 1)
 }
 
+func TestWhatsAppMessageRepo_Integration_Create_dedupesSameWebhookEventID(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	repo := repositories.NewWhatsAppMessageRepo(db)
+	eventID := "evt-" + uuid.NewString()
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		// Simulates a NATS redelivery of the same webhook envelope --
+		// two Creates for the same (tenant, webhook_event_id) must only
+		// ever land one row.
+		if err := repo.Create(ctx, &whatsappDomain.Message{
+			TenantID: tenantID, PhoneE164: "31612345678",
+			Direction: whatsappDomain.MessageDirectionInbound, Body: "Tem flocao", WebhookEventID: &eventID,
+		}); err != nil {
+			return err
+		}
+		return repo.Create(ctx, &whatsappDomain.Message{
+			TenantID: tenantID, PhoneE164: "31612345678",
+			Direction: whatsappDomain.MessageDirectionInbound, Body: "Tem flocao", WebhookEventID: &eventID,
+		})
+	})
+	require.NoError(t, err)
+
+	var byPhone []whatsappDomain.Message
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		byPhone, err = repo.ListByPhone(ctx, "31612345678")
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, byPhone, 1, "the redelivered envelope must not log a second row")
+}
+
+func TestWhatsAppMessageRepo_Integration_Create_neverDedupesMessagesWithNoWebhookEventID(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	repo := repositories.NewWhatsAppMessageRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		// Two outbound replies (no WebhookEventID) -- NULL never conflicts
+		// with NULL, both must insert.
+		if err := repo.Create(ctx, &whatsappDomain.Message{
+			TenantID: tenantID, PhoneE164: "31612345678", Direction: whatsappDomain.MessageDirectionOutbound, Body: "reply 1",
+		}); err != nil {
+			return err
+		}
+		return repo.Create(ctx, &whatsappDomain.Message{
+			TenantID: tenantID, PhoneE164: "31612345678", Direction: whatsappDomain.MessageDirectionOutbound, Body: "reply 2",
+		})
+	})
+	require.NoError(t, err)
+
+	var byPhone []whatsappDomain.Message
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		byPhone, err = repo.ListByPhone(ctx, "31612345678")
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, byPhone, 2)
+}
+
 func TestWhatsAppMessageRepo_Integration_DeleteByPhone_neverExistedIsNotAnError(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()
