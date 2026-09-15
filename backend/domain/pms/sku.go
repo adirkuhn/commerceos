@@ -22,6 +22,13 @@ const (
 	// place until ClearCostPriceOverrideUseCase resets the source back to
 	// computed.
 	SKUCostPriceSourceManual SKUCostPriceSource = "manual"
+	// SKUCostPriceSourceUnknown means this SKU has on-hand quantity with no
+	// reliable cost basis -- CostPriceMinorUnits is nil, and a sale against
+	// it records no cost_at_sale/COGS (never a fabricated 0, see the MWAC
+	// opening-balance migration policy). Resolved automatically the first
+	// time a real receipt gives the SKU a cost (see
+	// application/pms.ApplyReceiptToMovingAverageCost).
+	SKUCostPriceSourceUnknown SKUCostPriceSource = "unknown"
 )
 
 // SKUUnitType is how this SKU's stock quantity is denominated. "unit" (the

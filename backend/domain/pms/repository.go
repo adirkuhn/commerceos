@@ -180,6 +180,9 @@ type SKUCostPriceHistoryRepository interface {
 	ListBySKU(ctx context.Context, skuID string, limit int) ([]SKUCostPriceHistory, error)
 }
 
+// SKUCostPriceLedgerRepository is defined in cost_price_ledger.go, next to
+// the SKUCostPriceLedgerEntry type it backs.
+
 // SKUPriceHistoryRepository backs the immutable, effective-dated
 // selling-price audit trail -- see SKUPriceHistory. Unlike
 // SKUCostPriceHistoryRepository (a periodic snapshot upserted daily), a row

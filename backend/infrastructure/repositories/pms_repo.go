@@ -1314,6 +1314,89 @@ func (r *SKUCostPriceHistoryRepo) ListBySKU(ctx context.Context, skuID string, l
 	return history, nil
 }
 
+// ── SKU cost price ledger repo ──────────────────────────────────────────────
+
+const defaultCostPriceLedgerLimit = 200
+
+type skuCostPriceLedgerModel struct {
+	ID                       string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                 string    `gorm:"not null;type:uuid"`
+	SKUID                    string    `gorm:"column:sku_id;not null;type:uuid"`
+	SourceType               string    `gorm:"column:source_type;not null"`
+	ReferenceType            *string   `gorm:"column:reference_type"`
+	ReferenceID              *string   `gorm:"column:reference_id;type:uuid"`
+	QuantityDelta            int64     `gorm:"not null"`
+	QuantityAfter            int64     `gorm:"column:quantity_after;not null"`
+	CostPriceMinorUnits      *int64
+	InventoryValueMinorUnits *int64
+	OccurredAt               time.Time `gorm:"not null"`
+	CreatedAt                time.Time
+}
+
+func (skuCostPriceLedgerModel) TableName() string { return "sku_cost_price_ledger" }
+
+// SKUCostPriceLedgerRepo is the GORM adapter for
+// pmsDomain.SKUCostPriceLedgerRepository -- append-only, so it exposes only
+// Create/ListBySKU, no Update/Delete.
+type SKUCostPriceLedgerRepo struct{ db *gorm.DB }
+
+func NewSKUCostPriceLedgerRepo(db *gorm.DB) *SKUCostPriceLedgerRepo {
+	return &SKUCostPriceLedgerRepo{db: db}
+}
+
+func (r *SKUCostPriceLedgerRepo) tx(ctx context.Context) (*gorm.DB, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("pms: operation called outside a transaction")
+	}
+	return tx.WithContext(ctx), nil
+}
+
+func (r *SKUCostPriceLedgerRepo) Create(ctx context.Context, e *pmsDomain.SKUCostPriceLedgerEntry) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	m := skuCostPriceLedgerModel{
+		TenantID: e.TenantID, SKUID: e.SKUID, SourceType: string(e.SourceType),
+		ReferenceType: e.ReferenceType, ReferenceID: e.ReferenceID,
+		QuantityDelta: e.QuantityDelta, QuantityAfter: e.QuantityAfter,
+		CostPriceMinorUnits: e.CostPriceMinorUnits, InventoryValueMinorUnits: e.InventoryValueMinorUnits,
+		OccurredAt: e.OccurredAt, CreatedAt: e.CreatedAt,
+	}
+	if err := tx.Create(&m).Error; err != nil {
+		return fmt.Errorf("skuCostPriceLedgerRepo.Create: %w", err)
+	}
+	e.ID = m.ID
+	return nil
+}
+
+func (r *SKUCostPriceLedgerRepo) ListBySKU(ctx context.Context, skuID string, limit int) ([]pmsDomain.SKUCostPriceLedgerEntry, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 {
+		limit = defaultCostPriceLedgerLimit
+	}
+	var rows []skuCostPriceLedgerModel
+	if err := tx.Where("sku_id = ?", skuID).Order("occurred_at desc").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("skuCostPriceLedgerRepo.ListBySKU: %w", err)
+	}
+	entries := make([]pmsDomain.SKUCostPriceLedgerEntry, len(rows))
+	for i, row := range rows {
+		entries[i] = pmsDomain.SKUCostPriceLedgerEntry{
+			ID: row.ID, TenantID: row.TenantID, SKUID: row.SKUID,
+			SourceType: pmsDomain.SKUCostPriceLedgerSourceType(row.SourceType),
+			ReferenceType: row.ReferenceType, ReferenceID: row.ReferenceID,
+			QuantityDelta: row.QuantityDelta, QuantityAfter: row.QuantityAfter,
+			CostPriceMinorUnits: row.CostPriceMinorUnits, InventoryValueMinorUnits: row.InventoryValueMinorUnits,
+			OccurredAt: row.OccurredAt, CreatedAt: row.CreatedAt,
+		}
+	}
+	return entries, nil
+}
+
 // ── SKU price history repo ──────────────────────────────────────────────────
 
 const defaultPriceHistoryLimit = 90
