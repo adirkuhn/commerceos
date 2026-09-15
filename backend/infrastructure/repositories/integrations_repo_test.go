@@ -74,3 +74,36 @@ func TestConnectionRepo_Update_persistsDefaultWarehouseID(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
+
+// TestConnectionRepo_Update_persistsStoreURLConsumerKeyAndSecret guards
+// against a real bug: Update's column whitelist was missing store_url/
+// consumer_key/consumer_secret_encrypted entirely (they were only ever
+// written by Create, before UpdateWhatsAppCredentialsUseCase needed to
+// change them in place) -- the use case reported success, the connection
+// still round-tripped through toConnectionDomain unchanged, but nothing
+// was actually written. Silent no-op, no error anywhere, since Updates()
+// with a map never complains about a key just not being in the SET list.
+func TestConnectionRepo_Update_persistsStoreURLConsumerKeyAndSecret(t *testing.T) {
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer mockDB.Close()
+
+	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: mockDB}), &gorm.Config{})
+	require.NoError(t, err)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE "integration_connections" SET .*"consumer_key"=\$\d.*"consumer_secret_encrypted"=\$\d.*"store_url"=\$\d.*WHERE id = \$\d`).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	repo := repositories.NewConnectionRepo(gormDB)
+	ctx := txctx.WithTx(context.Background(), gormDB)
+
+	conn := &integrationsDomain.Connection{
+		ID: "conn-1", StoreURL: "https://new.example.com", ConsumerKey: "new-instance", ConsumerSecretEncrypted: "new-encrypted-key",
+	}
+	err = repo.Update(ctx, conn)
+
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
