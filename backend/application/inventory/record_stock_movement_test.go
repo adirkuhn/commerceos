@@ -14,7 +14,7 @@ import (
 
 func TestRecordStockMovement_rejectsZeroQuantity(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 0, OccurredAt: time.Now(),
@@ -27,7 +27,7 @@ func TestRecordStockMovement_rejectsZeroQuantity(t *testing.T) {
 
 func TestRecordStockMovement_rejectsNegativeReceipt(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: -5, OccurredAt: time.Now(),
@@ -39,7 +39,7 @@ func TestRecordStockMovement_rejectsNegativeReceipt(t *testing.T) {
 
 func TestRecordStockMovement_rejectsPositiveSale(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: 5, OccurredAt: time.Now(),
@@ -52,7 +52,7 @@ func TestRecordStockMovement_rejectsPositiveSale(t *testing.T) {
 func TestRecordStockMovement_raisesStockChangedEvent(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
 	outboxRepo := &stubOutboxRepo{}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, outboxRepo)
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, outboxRepo, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 10, OccurredAt: time.Now(),
@@ -65,7 +65,7 @@ func TestRecordStockMovement_raisesStockChangedEvent(t *testing.T) {
 func TestRecordStockMovement_suppressEventSkipsOutbox(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
 	outboxRepo := &stubOutboxRepo{}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, outboxRepo)
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, outboxRepo, nil)
 
 	m, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 10,
@@ -80,7 +80,7 @@ func TestRecordStockMovement_suppressEventSkipsOutbox(t *testing.T) {
 
 func TestRecordStockMovement_acceptsPositiveReceipt(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	m, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 10, OccurredAt: time.Now(),
@@ -95,7 +95,7 @@ func TestRecordStockMovement_acceptsNegativeSale(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
 	}}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	m, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -3, OccurredAt: time.Now(),
@@ -109,7 +109,7 @@ func TestRecordStockMovement_adjustmentAllowsNegative(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
 	}}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeAdjustment, QuantityDelta: -3, OccurredAt: time.Now(),
@@ -119,7 +119,7 @@ func TestRecordStockMovement_adjustmentAllowsNegative(t *testing.T) {
 
 func TestRecordStockMovement_adjustmentAllowsPositive(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeAdjustment, QuantityDelta: 3, OccurredAt: time.Now(),
@@ -127,11 +127,46 @@ func TestRecordStockMovement_adjustmentAllowsPositive(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestRecordStockMovement_adjustmentRecordsCostLedgerMovement(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{}
+	costLedger := &stubCostLedgerRecorder{}
+	occurredAt := time.Now()
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, costLedger)
+
+	movement, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeAdjustment, QuantityDelta: 3, OccurredAt: occurredAt,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, costLedger.calls, 1)
+	call := costLedger.calls[0]
+	require.Equal(t, "sku-1", call.SKUID)
+	require.Equal(t, int64(3), call.QuantityDelta)
+	require.Equal(t, "adjustment", call.SourceType)
+	require.Equal(t, movement.ID, call.ReferenceID)
+	require.Equal(t, occurredAt, call.OccurredAt)
+}
+
+func TestRecordStockMovement_nonAdjustmentTypesDoNotRecordCostLedgerMovement(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
+	}}
+	costLedger := &stubCostLedgerRecorder{}
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, costLedger)
+
+	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeDamaged, QuantityDelta: -2, OccurredAt: time.Now(),
+	})
+
+	require.NoError(t, err)
+	require.Empty(t, costLedger.calls, "Damaged/Lost go through MarkDamagedOrLostUseCase's own hook, not this one")
+}
+
 func TestRecordStockMovement_acceptsNegativeDamaged(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
 	}}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	m, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeDamaged, QuantityDelta: -2, OccurredAt: time.Now(),
@@ -143,7 +178,7 @@ func TestRecordStockMovement_acceptsNegativeDamaged(t *testing.T) {
 
 func TestRecordStockMovement_rejectsPositiveDamaged(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeDamaged, QuantityDelta: 2, OccurredAt: time.Now(),
@@ -157,7 +192,7 @@ func TestRecordStockMovement_acceptsNegativeLost(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
 	}}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	m, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeLost, QuantityDelta: -1, OccurredAt: time.Now(),
@@ -169,7 +204,7 @@ func TestRecordStockMovement_acceptsNegativeLost(t *testing.T) {
 
 func TestRecordStockMovement_rejectsSaleWithNoStockInScope(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -1, OccurredAt: time.Now(),
@@ -184,7 +219,7 @@ func TestRecordStockMovement_rejectsRemovalExceedingScopeStock(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 5},
 	}}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -6, OccurredAt: time.Now(),
@@ -202,7 +237,7 @@ func TestRecordStockMovement_batchStockDoesNotCoverGeneralLedgerRemoval(t *testi
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", BatchID: &batchID, QuantityDelta: 100},
 	}}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", BatchID: nil, Type: invDomain.MovementTypeSale, QuantityDelta: -18, OccurredAt: time.Now(),
@@ -217,7 +252,7 @@ func TestRecordStockMovement_batchStockDoesNotCoverGeneralLedgerRemoval(t *testi
 // the warehouse must not be rejected -- the sale already happened.
 func TestRecordStockMovement_reconcileShortfallCoversAnUntrackedSKU(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	m, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -1,
@@ -238,7 +273,7 @@ func TestRecordStockMovement_reconcileShortfallCoversOnlyTheGap(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 2},
 	}}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -5,
@@ -254,7 +289,7 @@ func TestRecordStockMovement_reconcileShortfallNoopWhenStockAlreadySufficient(t 
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
 	}}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -3,
@@ -267,7 +302,7 @@ func TestRecordStockMovement_reconcileShortfallNoopWhenStockAlreadySufficient(t 
 
 func TestRecordStockMovement_withoutReconcileShortfallStillRejectsInsufficientStock(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -1, OccurredAt: time.Now(),
@@ -283,7 +318,7 @@ func TestRecordStockMovement_reconcileShortfallRespectsBatchScope(t *testing.T) 
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", BatchID: &batchID, QuantityDelta: 100},
 	}}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", BatchID: nil, Type: invDomain.MovementTypeSale, QuantityDelta: -1,
@@ -298,7 +333,7 @@ func TestRecordStockMovement_reconcileShortfallRespectsBatchScope(t *testing.T) 
 
 func TestRecordStockMovement_rejectsPositiveLost(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeLost, QuantityDelta: 1, OccurredAt: time.Now(),

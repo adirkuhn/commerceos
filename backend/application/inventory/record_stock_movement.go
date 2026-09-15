@@ -42,13 +42,14 @@ type RecordStockMovementInput struct {
 }
 
 type RecordStockMovementUseCase struct {
-	db           *gorm.DB
-	movementRepo invDomain.StockMovementRepository
-	outboxRepo   outbox.Repository
+	db                 *gorm.DB
+	movementRepo       invDomain.StockMovementRepository
+	outboxRepo         outbox.Repository
+	costLedgerRecorder costLedgerRecorder
 }
 
-func NewRecordStockMovementUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRepository, outboxRepo outbox.Repository) *RecordStockMovementUseCase {
-	return &RecordStockMovementUseCase{db: db, movementRepo: movementRepo, outboxRepo: outboxRepo}
+func NewRecordStockMovementUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRepository, outboxRepo outbox.Repository, costLedgerRecorder costLedgerRecorder) *RecordStockMovementUseCase {
+	return &RecordStockMovementUseCase{db: db, movementRepo: movementRepo, outboxRepo: outboxRepo, costLedgerRecorder: costLedgerRecorder}
 }
 
 // validateSign enforces that a movement's sign matches what its type means:
@@ -144,5 +145,29 @@ func (uc *RecordStockMovementUseCase) Execute(ctx context.Context, in RecordStoc
 	if err != nil {
 		return nil, fmt.Errorf("recordStockMovement: %w", err)
 	}
+
+	// Only Adjustment carries a cost-ledger entry -- it's the only type
+	// this generic use case is ever called with that represents a real
+	// quantity/value change worth tracking here (a recount correction, or
+	// a customer return credited back to stock; see
+	// inventory.MovementTypeAdjustment's doc). Receipt/Sale have their own
+	// dedicated cost hooks (ApplyReceiptCostUseCase / the oms sale-freeze
+	// path); Transfer/Split don't change tenant-wide value at all.
+	if in.Type == invDomain.MovementTypeAdjustment && uc.costLedgerRecorder != nil {
+		occurredAt := in.OccurredAt
+		if occurredAt.IsZero() {
+			occurredAt = time.Now()
+		}
+		// Own transaction, deliberately not nested -- see
+		// MarkDamagedOrLostUseCase's identical hook for the same
+		// composition constraint and accepted-gap reasoning.
+		if err := uc.costLedgerRecorder.Execute(ctx, CostLedgerMovementInput{
+			SKUID: in.SKUID, QuantityDelta: in.QuantityDelta, SourceType: "adjustment",
+			ReferenceType: "stock_movement", ReferenceID: movement.ID, OccurredAt: occurredAt,
+		}); err != nil {
+			return &movement, fmt.Errorf("recordStockMovement: cost ledger: %w", err)
+		}
+	}
+
 	return &movement, nil
 }

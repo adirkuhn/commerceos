@@ -255,6 +255,21 @@ func (s *stubSKUCostUpdater) Execute(_ context.Context, in appinventory.SKUCostR
 	return nil
 }
 
+// stubCostLedgerRecorder satisfies MarkDamagedOrLostUseCase/
+// RecordStockMovementUseCase's local costLedgerRecorder interface.
+type stubCostLedgerRecorder struct {
+	calls []appinventory.CostLedgerMovementInput
+	err   error
+}
+
+func (s *stubCostLedgerRecorder) Execute(_ context.Context, in appinventory.CostLedgerMovementInput) error {
+	if s.err != nil {
+		return s.err
+	}
+	s.calls = append(s.calls, in)
+	return nil
+}
+
 // stubSettingsRepo satisfies the settingsGetter interface used by
 // GetSKUStockLevelUseCase/ListStockLevelsUseCase -- a zero-value result
 // (InventorySyncRulesEnabled: false) matches an unsaved tenant, preserving

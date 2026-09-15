@@ -14,6 +14,7 @@ import (
 	genoms "github.com/adirkuhn/commerceos/api/oms"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
+	apppms "github.com/adirkuhn/commerceos/application/pms"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -139,6 +140,25 @@ func NewHandler(
 
 var _ genoms.ServerInterface = (*Handler)(nil)
 
+// costLedgerRecorderAdapter bridges application/inventory's local
+// costLedgerRecorder interface to application/pms's real
+// RecordCostLedgerMovementUseCase -- lives in the composition root because
+// application/pms already imports application/inventory (see
+// application/pms/recalculate_cost_prices.go's doc comment), so the
+// reverse import would cycle. Duplicated per handler package, same
+// reasoning as infrastructure/handlers/inventory's own copy.
+type costLedgerRecorderAdapter struct {
+	uc *apppms.RecordCostLedgerMovementUseCase
+}
+
+func (a costLedgerRecorderAdapter) Execute(ctx context.Context, in appinventory.CostLedgerMovementInput) error {
+	return a.uc.Execute(ctx, apppms.RecordCostLedgerMovementInput{
+		SKUID: in.SKUID, QuantityDelta: in.QuantityDelta,
+		SourceType:    pmsDomain.SKUCostPriceLedgerSourceType(in.SourceType),
+		ReferenceType: in.ReferenceType, ReferenceID: in.ReferenceID, OccurredAt: in.OccurredAt,
+	})
+}
+
 // Register is the production wiring. Callers mount rg under the normal
 // human-JWT-authenticated /api/v1 group -- this is staff creating/editing
 // sales orders from the admin UI. The POS's own push path
@@ -152,7 +172,11 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 	batchRepo := repositories.NewBatchRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 	skuRepo := repositories.NewSKURepo(db)
-	recordMovement := appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
+	warehouseRepo := repositories.NewWarehouseRepo(db)
+	costLedgerRecorder := costLedgerRecorderAdapter{uc: apppms.NewRecordCostLedgerMovementUseCase(
+		db, skuRepo, repositories.NewSKUCostPriceLedgerRepo(db), appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
+	)}
+	recordMovement := appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo, costLedgerRecorder)
 	allocateStock := appinventory.NewAllocateSaleStockUseCase(db, movementRepo, batchRepo, outboxRepo)
 
 	pickingSessionRepo := repositories.NewPickingSessionRepo(db)

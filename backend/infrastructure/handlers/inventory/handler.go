@@ -211,6 +211,22 @@ func (a skuCostUpdaterAdapter) Execute(ctx context.Context, in appinventory.SKUC
 	})
 }
 
+// costLedgerRecorderAdapter bridges application/inventory's local
+// costLedgerRecorder interface to application/pms's real
+// RecordCostLedgerMovementUseCase -- same cross-domain-avoidance reasoning
+// and composition-root placement as skuCostUpdaterAdapter above.
+type costLedgerRecorderAdapter struct {
+	uc *apppms.RecordCostLedgerMovementUseCase
+}
+
+func (a costLedgerRecorderAdapter) Execute(ctx context.Context, in appinventory.CostLedgerMovementInput) error {
+	return a.uc.Execute(ctx, apppms.RecordCostLedgerMovementInput{
+		SKUID: in.SKUID, QuantityDelta: in.QuantityDelta,
+		SourceType:    pmsDomain.SKUCostPriceLedgerSourceType(in.SourceType),
+		ReferenceType: in.ReferenceType, ReferenceID: in.ReferenceID, OccurredAt: in.OccurredAt,
+	})
+}
+
 // Register is the production wiring: creates repos + use cases, then
 // mounts the generated routes (matching the OpenAPI spec exactly).
 // fileStorage backs the Discard app's optional photo upload -- the same
@@ -223,10 +239,11 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, fileSto
 	skuRepo := repositories.NewSKURepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	discardRepo := repositories.NewDiscardRecordRepo(db)
-	markDamagedOrLost := appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, discardRepo, outboxRepo)
-	skuCostUpdater := skuCostUpdaterAdapter{uc: apppms.NewApplyReceiptCostUseCase(
-		db, skuRepo, repositories.NewSKUCostPriceLedgerRepo(db), appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
-	)}
+	costLedgerRepo := repositories.NewSKUCostPriceLedgerRepo(db)
+	batchListerForCost := appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo)
+	skuCostUpdater := skuCostUpdaterAdapter{uc: apppms.NewApplyReceiptCostUseCase(db, skuRepo, costLedgerRepo, batchListerForCost)}
+	costLedgerRecorder := costLedgerRecorderAdapter{uc: apppms.NewRecordCostLedgerMovementUseCase(db, skuRepo, costLedgerRepo, batchListerForCost)}
+	markDamagedOrLost := appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, discardRepo, outboxRepo, costLedgerRecorder)
 
 	h := NewHandler(
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
@@ -238,7 +255,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, fileSto
 		appinventory.NewDeleteBatchUseCase(db, batchRepo, movementRepo),
 		appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
 		appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo),
-		appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo),
+		appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo, costLedgerRecorder),
 		appinventory.NewRecordRecountUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewTransferStockUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewSplitCaseIntoUnitsUseCase(db, skuRepo, movementRepo, outboxRepo),

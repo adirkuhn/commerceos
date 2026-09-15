@@ -77,6 +77,24 @@ const receivingParsingJobPollInterval = 5 * time.Second
 // the scheduler process from requeuing itself forever.
 const maxJobRetries = 3
 
+// costLedgerRecorderAdapter bridges application/inventory's local
+// costLedgerRecorder interface to application/pms's real
+// RecordCostLedgerMovementUseCase -- lives here (not in either application
+// package) because application/pms already imports application/inventory
+// (see application/pms/recalculate_cost_prices.go's doc comment), so the
+// reverse import would cycle.
+type costLedgerRecorderAdapter struct {
+	uc *pmsapp.RecordCostLedgerMovementUseCase
+}
+
+func (a costLedgerRecorderAdapter) Execute(ctx context.Context, in invapp.CostLedgerMovementInput) error {
+	return a.uc.Execute(ctx, pmsapp.RecordCostLedgerMovementInput{
+		SKUID: in.SKUID, QuantityDelta: in.QuantityDelta,
+		SourceType:    pmsDomain.SKUCostPriceLedgerSourceType(in.SourceType),
+		ReferenceType: in.ReferenceType, ReferenceID: in.ReferenceID, OccurredAt: in.OccurredAt,
+	})
+}
+
 // buildFileStorage mirrors cmd/api/main.go's helper of the same name —
 // each binary wires its own dependencies (no shared main-package library
 // between commands), matching this codebase's existing convention.
@@ -154,7 +172,10 @@ func main() {
 	revertPromotionSKUUC := apppromotions.NewRevertPromotionSKUUseCase(db, setPromotionSalePriceUC, promotionSKURepo)
 	jobRepo := repositories.NewScheduledJobRepo(db)
 
-	stockRecorderUC := invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
+	costLedgerRecorder := costLedgerRecorderAdapter{uc: pmsapp.NewRecordCostLedgerMovementUseCase(
+		db, skuRepo, repositories.NewSKUCostPriceLedgerRepo(db), invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
+	)}
+	stockRecorderUC := invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo, costLedgerRecorder)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	stockLevelUC := invapp.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo)
 	// lineItemRepo is constructed here (earlier than the rest of procurement's

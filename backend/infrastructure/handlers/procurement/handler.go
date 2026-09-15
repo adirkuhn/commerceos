@@ -40,6 +40,22 @@ func (a skuCostUpdaterAdapter) Execute(ctx context.Context, in invapp.SKUCostRec
 	})
 }
 
+// costLedgerRecorderAdapter bridges application/inventory's local
+// costLedgerRecorder interface to application/pms's real
+// RecordCostLedgerMovementUseCase -- same cross-domain-avoidance reasoning
+// and composition-root placement as skuCostUpdaterAdapter above.
+type costLedgerRecorderAdapter struct {
+	uc *pmsapp.RecordCostLedgerMovementUseCase
+}
+
+func (a costLedgerRecorderAdapter) Execute(ctx context.Context, in invapp.CostLedgerMovementInput) error {
+	return a.uc.Execute(ctx, pmsapp.RecordCostLedgerMovementInput{
+		SKUID: in.SKUID, QuantityDelta: in.QuantityDelta,
+		SourceType:    pmsDomain.SKUCostPriceLedgerSourceType(in.SourceType),
+		ReferenceType: in.ReferenceType, ReferenceID: in.ReferenceID, OccurredAt: in.OccurredAt,
+	})
+}
+
 // genDateToTimePtr/timePtrToGenDate convert between openapi_types.Date
 // (date-only, no time-of-day) and *time.Time -- same helpers duplicated in
 // infrastructure/handlers/inventory and .../pms; kept local rather than
@@ -330,9 +346,10 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 	outboxRepo := repositories.NewOutboxRepository(db)
 	warehouseRepo := repositories.NewWarehouseRepo(db)
 
-	skuCostUpdater := skuCostUpdaterAdapter{uc: pmsapp.NewApplyReceiptCostUseCase(
-		db, skuRepo, repositories.NewSKUCostPriceLedgerRepo(db), invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
-	)}
+	costLedgerRepo := repositories.NewSKUCostPriceLedgerRepo(db)
+	batchListerForCost := invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo)
+	skuCostUpdater := skuCostUpdaterAdapter{uc: pmsapp.NewApplyReceiptCostUseCase(db, skuRepo, costLedgerRepo, batchListerForCost)}
+	costLedgerRecorder := costLedgerRecorderAdapter{uc: pmsapp.NewRecordCostLedgerMovementUseCase(db, skuRepo, costLedgerRepo, batchListerForCost)}
 
 	createPurchaseOrderUC := appprocurement.NewCreatePurchaseOrderUseCase(db, poRepo)
 	attachDocumentUC := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, lineItemRepo, jobRepo, fileStorage)
@@ -374,8 +391,8 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewCompleteBookingUseCase(
 			db, bookingRepo, poRepo, lineItemRepo, bookingScanRepo,
 			invapp.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo, skuCostUpdater),
-			invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo),
-			invapp.NewMarkDamagedOrLostUseCase(db, movementRepo, discardRepo, outboxRepo),
+			invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo, costLedgerRecorder),
+			invapp.NewMarkDamagedOrLostUseCase(db, movementRepo, discardRepo, outboxRepo, costLedgerRecorder),
 		),
 		appprocurement.NewDeletePurchaseOrderDocumentUseCase(db, documentRepo, fileStorage),
 		appprocurement.NewListBookingDiscrepanciesUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo, skuRepo, variantRepo, productRepo),

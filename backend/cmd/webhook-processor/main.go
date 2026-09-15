@@ -20,9 +20,12 @@ import (
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	apppayments "github.com/adirkuhn/commerceos/application/payments"
+	apppms "github.com/adirkuhn/commerceos/application/pms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appwebhooks "github.com/adirkuhn/commerceos/application/webhooks"
 	appwhatsapp "github.com/adirkuhn/commerceos/application/whatsapp"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	"github.com/adirkuhn/commerceos/infrastructure/ai"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
 	"github.com/adirkuhn/commerceos/infrastructure/evolutionapi"
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
@@ -43,6 +46,24 @@ const webhookQueueGroup = "webhook-processor"
 // the whole queue group, so a redeployed/restarted instance resumes from
 // where the group left off instead of replaying (or losing) everything.
 const webhookConsumerDurable = "webhook-processor"
+
+// costLedgerRecorderAdapter bridges application/inventory's local
+// costLedgerRecorder interface to application/pms's real
+// RecordCostLedgerMovementUseCase -- lives here (not in either application
+// package) because application/pms already imports application/inventory
+// (see application/pms/recalculate_cost_prices.go's doc comment), so the
+// reverse import would cycle.
+type costLedgerRecorderAdapter struct {
+	uc *apppms.RecordCostLedgerMovementUseCase
+}
+
+func (a costLedgerRecorderAdapter) Execute(ctx context.Context, in appinventory.CostLedgerMovementInput) error {
+	return a.uc.Execute(ctx, apppms.RecordCostLedgerMovementInput{
+		SKUID: in.SKUID, QuantityDelta: in.QuantityDelta,
+		SourceType:    pmsDomain.SKUCostPriceLedgerSourceType(in.SourceType),
+		ReferenceType: in.ReferenceType, ReferenceID: in.ReferenceID, OccurredAt: in.OccurredAt,
+	})
+}
 
 func main() {
 	cfg := config.Load()
@@ -81,7 +102,11 @@ func main() {
 	batchRepo := repositories.NewBatchRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 	skuRepo := repositories.NewSKURepo(db)
-	recordMovement := appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
+	warehouseRepo := repositories.NewWarehouseRepo(db)
+	costLedgerRecorder := costLedgerRecorderAdapter{uc: apppms.NewRecordCostLedgerMovementUseCase(
+		db, skuRepo, repositories.NewSKUCostPriceLedgerRepo(db), appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
+	)}
+	recordMovement := appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo, costLedgerRecorder)
 	allocateStock := appinventory.NewAllocateSaleStockUseCase(db, movementRepo, batchRepo, outboxRepo)
 	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, recordMovement, outboxRepo)
 
@@ -117,6 +142,8 @@ func main() {
 	whatsappHandler := appwhatsapp.NewHandleInboundMessageUseCase(
 		db, repositories.NewConnectionRepo(db), evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
 		lookupProductInfo, repositories.NewCustomerRepo(db), orderFlowUC, repositories.NewWhatsAppMessageRepo(db),
+		ai.NewWhatsAppIntentParserResolver(db, repositories.NewAIConnectionRepo(db), cfg.IntegrationsEncryptionSecret),
+		appwhatsapp.NewResolveSKUFromQueryUseCase(db, repositories.NewSKURepo(db), repositories.NewProductRepo(db), repositories.NewVariantRepo(db)),
 	)
 
 	stripePaymentHandler := apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewStripeEventParser(), updateSalesOrder, "stripe")

@@ -16,7 +16,7 @@ func TestMarkDamagedOrLost_recordsNegativeDamagedMovement(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
 	}}
-	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{})
+	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{}, nil)
 
 	m, _, err := uc.Execute(context.Background(), appinv.MarkDamagedOrLostInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Quantity: 3, Type: invDomain.MovementTypeDamaged,
@@ -33,7 +33,7 @@ func TestMarkDamagedOrLost_recordsNegativeLostMovement(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
 	}}
-	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{})
+	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{}, nil)
 
 	m, _, err := uc.Execute(context.Background(), appinv.MarkDamagedOrLostInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Quantity: 1, Type: invDomain.MovementTypeLost,
@@ -47,7 +47,7 @@ func TestMarkDamagedOrLost_recordsNegativeLostMovement(t *testing.T) {
 
 func TestMarkDamagedOrLost_rejectsNonPositiveQuantity(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{})
+	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{}, nil)
 
 	_, _, err := uc.Execute(context.Background(), appinv.MarkDamagedOrLostInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Quantity: 0, Type: invDomain.MovementTypeDamaged, OccurredAt: time.Now(),
@@ -62,7 +62,7 @@ func TestMarkDamagedOrLost_rejectsWhenScopeLacksEnoughStock(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 2},
 	}}
-	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{})
+	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{}, nil)
 
 	_, _, err := uc.Execute(context.Background(), appinv.MarkDamagedOrLostInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Quantity: 3, Type: invDomain.MovementTypeDamaged, OccurredAt: time.Now(),
@@ -75,7 +75,7 @@ func TestMarkDamagedOrLost_rejectsWhenScopeLacksEnoughStock(t *testing.T) {
 
 func TestMarkDamagedOrLost_rejectsOtherMovementTypes(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{})
+	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{}, nil)
 
 	_, _, err := uc.Execute(context.Background(), appinv.MarkDamagedOrLostInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Quantity: 1, Type: invDomain.MovementTypeAdjustment, OccurredAt: time.Now(),
@@ -91,7 +91,7 @@ func TestMarkDamagedOrLost_setsBatchIDWhenGiven(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", WarehouseID: "wh-1", BatchID: &batchID, QuantityDelta: 10},
 	}}
-	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{})
+	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{}, nil)
 
 	m, _, err := uc.Execute(context.Background(), appinv.MarkDamagedOrLostInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", BatchID: &batchID, Quantity: 2, Type: invDomain.MovementTypeDamaged, OccurredAt: time.Now(),
@@ -107,7 +107,7 @@ func TestMarkDamagedOrLost_raisesStockChangedEvent(t *testing.T) {
 		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
 	}}
 	outboxRepo := &stubOutboxRepo{}
-	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, outboxRepo)
+	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, outboxRepo, nil)
 
 	_, _, err := uc.Execute(context.Background(), appinv.MarkDamagedOrLostInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Quantity: 3, Type: invDomain.MovementTypeDamaged, OccurredAt: time.Now(),
@@ -127,7 +127,7 @@ func TestMarkDamagedOrLost_alsoWritesADiscardRecordLinkedToTheMovement(t *testin
 		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
 	}}
 	discardRepo := &stubDiscardRecordRepo{}
-	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, discardRepo, &stubOutboxRepo{})
+	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, discardRepo, &stubOutboxRepo{}, nil)
 	photoURL := "https://example.com/photo.jpg"
 
 	movement, record, err := uc.Execute(context.Background(), appinv.MarkDamagedOrLostInput{
@@ -146,4 +146,41 @@ func TestMarkDamagedOrLost_alsoWritesADiscardRecordLinkedToTheMovement(t *testin
 	require.NotNil(t, created.PhotoURL)
 	require.Equal(t, photoURL, *created.PhotoURL)
 	require.Equal(t, created, *record)
+}
+
+func TestMarkDamagedOrLost_recordsCostLedgerMovementWithSourceTypeMatchingTheWriteOff(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
+	}}
+	costLedger := &stubCostLedgerRecorder{}
+	occurredAt := time.Now()
+	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{}, costLedger)
+
+	movement, _, err := uc.Execute(context.Background(), appinv.MarkDamagedOrLostInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Quantity: 4, Type: invDomain.MovementTypeLost, OccurredAt: occurredAt,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, costLedger.calls, 1)
+	call := costLedger.calls[0]
+	require.Equal(t, "sku-1", call.SKUID)
+	require.Equal(t, int64(-4), call.QuantityDelta)
+	require.Equal(t, "lost", call.SourceType)
+	require.Equal(t, "stock_movement", call.ReferenceType)
+	require.Equal(t, movement.ID, call.ReferenceID)
+	require.Equal(t, occurredAt, call.OccurredAt)
+}
+
+func TestMarkDamagedOrLost_propagatesCostLedgerError(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
+	}}
+	costLedger := &stubCostLedgerRecorder{err: errors.New("db down")}
+	uc := appinv.NewMarkDamagedOrLostUseCase(newMockGormDB(t), movementRepo, &stubDiscardRecordRepo{}, &stubOutboxRepo{}, costLedger)
+
+	_, _, err := uc.Execute(context.Background(), appinv.MarkDamagedOrLostInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Quantity: 1, Type: invDomain.MovementTypeDamaged, OccurredAt: time.Now(),
+	})
+
+	require.Error(t, err)
 }

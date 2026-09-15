@@ -32,14 +32,15 @@ type MarkDamagedOrLostInput struct {
 }
 
 type MarkDamagedOrLostUseCase struct {
-	db           *gorm.DB
-	movementRepo invDomain.StockMovementRepository
-	discardRepo  invDomain.DiscardRecordRepository
-	outboxRepo   outbox.Repository
+	db                 *gorm.DB
+	movementRepo       invDomain.StockMovementRepository
+	discardRepo        invDomain.DiscardRecordRepository
+	outboxRepo         outbox.Repository
+	costLedgerRecorder costLedgerRecorder
 }
 
-func NewMarkDamagedOrLostUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRepository, discardRepo invDomain.DiscardRecordRepository, outboxRepo outbox.Repository) *MarkDamagedOrLostUseCase {
-	return &MarkDamagedOrLostUseCase{db: db, movementRepo: movementRepo, discardRepo: discardRepo, outboxRepo: outboxRepo}
+func NewMarkDamagedOrLostUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRepository, discardRepo invDomain.DiscardRecordRepository, outboxRepo outbox.Repository, costLedgerRecorder costLedgerRecorder) *MarkDamagedOrLostUseCase {
+	return &MarkDamagedOrLostUseCase{db: db, movementRepo: movementRepo, discardRepo: discardRepo, outboxRepo: outboxRepo, costLedgerRecorder: costLedgerRecorder}
 }
 
 // Execute records a write-off — stock that's gone (damaged or lost) and
@@ -101,5 +102,27 @@ func (uc *MarkDamagedOrLostUseCase) Execute(ctx context.Context, in MarkDamagedO
 	if err != nil {
 		return nil, nil, fmt.Errorf("markDamagedOrLost: %w", err)
 	}
+
+	if uc.costLedgerRecorder != nil {
+		sourceType := "damaged"
+		if in.Type == invDomain.MovementTypeLost {
+			sourceType = "lost"
+		}
+		// Own transaction, deliberately not nested inside the one above
+		// (tenant.WithTenant must never nest -- see
+		// application/procurement.CompleteBookingUseCase's doc comment on
+		// the same composition constraint). The movement and discard
+		// record are already durably committed at this point; a failure
+		// here just means the per-item cost history is missing this entry
+		// until someone notices, same accepted-gap shape as
+		// ReceiveStockUseCase's own cost hook.
+		if err := uc.costLedgerRecorder.Execute(ctx, CostLedgerMovementInput{
+			SKUID: in.SKUID, QuantityDelta: -in.Quantity, SourceType: sourceType,
+			ReferenceType: "stock_movement", ReferenceID: movement.ID, OccurredAt: in.OccurredAt,
+		}); err != nil {
+			return &movement, &record, fmt.Errorf("markDamagedOrLost: cost ledger: %w", err)
+		}
+	}
+
 	return &movement, &record, nil
 }
