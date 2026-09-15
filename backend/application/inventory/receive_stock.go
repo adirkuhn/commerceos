@@ -125,6 +125,13 @@ func (uc *ReceiveStockUseCase) Execute(ctx context.Context, in ReceiveStockInput
 		}
 		result.Movement = &movement
 
+		if in.PurchaseOrderLineItemID != nil && in.UnitCostMinorUnits != nil {
+			if err := enqueueGoodsReceived(ctx, uc.outboxRepo, in.SKUID, in.WarehouseID, *batchID,
+				*in.PurchaseOrderLineItemID, in.Quantity, *in.UnitCostMinorUnits); err != nil {
+				return err
+			}
+		}
+
 		return enqueueStockChanged(ctx, uc.outboxRepo, in.SKUID)
 	})
 	if err != nil {

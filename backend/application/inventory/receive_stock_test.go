@@ -136,6 +136,35 @@ func TestReceiveStock_persistsLandedCostAndPurchaseOrderLineItemIDOnNewBatch(t *
 	assert.Equal(t, lineItemID, call.ReferenceID)
 }
 
+func TestReceiveStock_costedPOLineReceiptRaisesGoodsReceivedEvent(t *testing.T) {
+	db := newMockGormDB(t)
+	outboxRepo := &stubOutboxRepo{}
+	uc := appinventory.NewReceiveStockUseCase(db, &stubBatchRepo{}, &stubStockMovementRepo{}, outboxRepo, nil)
+
+	lineItemID := "line-item-1"
+	unitCost := int64(1250)
+	_, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{
+		SKUID: "sku-1", WarehouseID: "warehouse-1", Quantity: 5,
+		PurchaseOrderLineItemID: &lineItemID, UnitCostMinorUnits: &unitCost,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"procurement.goods.received", "inventory.stock.changed"}, outboxRepo.calls)
+}
+
+func TestReceiveStock_manualStockInWithNoPOLineDoesNotRaiseGoodsReceivedEvent(t *testing.T) {
+	db := newMockGormDB(t)
+	outboxRepo := &stubOutboxRepo{}
+	uc := appinventory.NewReceiveStockUseCase(db, &stubBatchRepo{}, &stubStockMovementRepo{}, outboxRepo, nil)
+
+	_, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{
+		SKUID: "sku-1", WarehouseID: "warehouse-1", Quantity: 5,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"inventory.stock.changed"}, outboxRepo.calls)
+}
+
 func TestReceiveStock_costUpdaterNotCalledWhenNoUnitCostSupplied(t *testing.T) {
 	db := newMockGormDB(t)
 	costUpdater := &stubSKUCostUpdater{}
