@@ -1,17 +1,18 @@
-// Package evolutionapi is a small, self-built client for Evolution API
-// (https://doc.evolution-api.com/), a self-hosted, unofficial (Baileys
-// -based WhatsApp Web) gateway -- no official WhatsApp Cloud API access is
-// assumed (see domain/integrations.ProviderWhatsApp's doc comment). No
-// approved third-party Go SDK exists for this API.
+// Package evolutionapi is a small, self-built client for the user's actual
+// self-hosted gateway, github.com/EvolutionAPI/evolution-go (a Go/whatsmeow
+// fork -- NOT the standard Node.js Evolution API, and NOT WhatsApp's
+// official Cloud API; see domain/integrations.ProviderWhatsApp's doc
+// comment). No approved third-party Go SDK exists for this API.
 //
-// SendText's endpoint/request shape (POST {baseURL}/message/sendText/{instance},
-// header apikey: <key>, body {"number":"<phone>","text":"<message>"}) is
-// built from Evolution API's published docs, NOT confirmed against a real
-// running instance -- same caveat convention as
-// infrastructure/myparcel's package doc comment. Confirm against a real
-// instance's actual response/error shape before relying on this in
-// production; a mismatch here fails safe (SendText returns an error, it
-// doesn't silently drop the message).
+// SendText's endpoint/request shape -- POST {baseURL}/send/text, header
+// apikey: <key>, body {"number":"<phone>","text":"<message>"} -- is
+// confirmed against this fork's real published swagger.json
+// (evo.cantinhobrasileiro.nl/swagger/doc.json) and its route/middleware
+// source (pkg/routes/routes.go, pkg/middleware/auth_middleware.go): the
+// route has no {instance} path segment because auth_middleware.Auth()
+// resolves the instance server-side purely from the apikey header
+// (GetInstanceByToken) -- the apikey IS the instance identity, there is
+// nothing else to put in the URL.
 package evolutionapi
 
 import (
@@ -61,7 +62,7 @@ func (c *Client) SendText(ctx context.Context, toPhone, body string) error {
 		return fmt.Errorf("evolutionapi: encode request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/message/sendText/%s", c.cfg.BaseURL, c.cfg.InstanceName)
+	url := fmt.Sprintf("%s/send/text", c.cfg.BaseURL)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return fmt.Errorf("evolutionapi: build request: %w", err)

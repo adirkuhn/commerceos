@@ -29,7 +29,7 @@ func TestClient_SendText_sendsApiKeyHeaderAndBody(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "secret-key", gotAPIKey)
-	assert.Equal(t, "/message/sendText/tenant-1", gotPath)
+	assert.Equal(t, "/send/text", gotPath)
 	assert.Equal(t, "31612345678", gotBody["number"])
 	assert.Equal(t, "your order is on its way", gotBody["text"])
 }
