@@ -3,6 +3,7 @@ package pms
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
@@ -46,32 +47,52 @@ type purchaseCostLineListerForCostPrice interface {
 
 // RecalculateCostPricesResult reports what happened for one SKU.
 type RecalculateCostPricesResult struct {
-	// Skipped is true when the SKU has no on-hand batch with a cost basis
-	// (LandedCostMinorUnits set) to average -- nothing was written.
-	Skipped                    bool
+	// Skipped is true when there is nothing to reconcile: cost_price_source
+	// is manual (a human override -- see SetManualCostPriceUseCase), or the
+	// SKU has no cost_price_minor_units at all yet (cost_price_source
+	// unknown -- see pms.SKUCostPriceSourceUnknown, resolved by the first
+	// real receipt, not by this job).
+	Skipped bool
+	// CostPriceMinorUnits is the SKU's actual, current cost -- written
+	// incrementally at receipt time by ApplyReceiptCostUseCase. This job
+	// never writes it; it only checks it against ExpectedCostPriceMinorUnits.
 	CostPriceMinorUnits        int64
 	RecommendedPriceMinorUnits int64
+	// Reconciled is false when the independently-derived weighted average
+	// of on-hand batches/open PO lines (ExpectedCostPriceMinorUnits)
+	// disagrees with CostPriceMinorUnits -- logged as a drift warning
+	// (Execute never auto-corrects; see the type's doc comment).
+	Reconciled                  bool
+	ExpectedCostPriceMinorUnits int64
 }
 
-// RecalculateCostPricesUseCase is the daily cost-price cron's per-SKU unit
-// of work (see cmd/scheduler.runRecalculateCostPrices for the cross-tenant
-// dispatch loop) -- one call, one transaction, same shape as
+// RecalculateCostPricesUseCase is the daily reconciliation cron's per-SKU
+// unit of work (see cmd/scheduler.runRecalculateCostPrices for the
+// cross-tenant dispatch loop) -- one call, one transaction, same shape as
 // ExpireSKUSalePriceUseCase/ExpireBatchUseCase so a single SKU's failure
 // can't affect any other's.
 //
-// Cost price is the weighted average of inventory.Batch.LandedCostMinorUnits
-// across every batch of this SKU still holding remaining quantity (weight =
-// that batch's remaining quantity) -- batches with no captured cost (nil
-// LandedCostMinorUnits, e.g. anything received before landed-cost capture
-// existed, or a manual/POS stock-in with no PO behind it) are excluded from
-// both the numerator and the weight, not treated as zero. A SKU with no
-// cost-bearing on-hand batch at all is Skipped, not zeroed.
+// Despite the name (kept to avoid an unrelated rename ripple across ~14
+// files), this no longer computes or writes cost_price_minor_units -- that
+// is now ApplyReceiptCostUseCase's job, done incrementally (true Moving
+// Weighted Average Cost) at every goods receipt, not recomputed nightly
+// from a batch snapshot. This job is now a SAFETY NET: it independently
+// re-derives what the weighted average SHOULD be from on-hand
+// inventory.Batch.LandedCostMinorUnits (weight = remaining quantity;
+// batches with no captured cost are excluded from both numerator and
+// weight, not treated as zero) plus any received/open PO line not yet
+// backed by a real Batch, and compares that to the SKU's actual current
+// cost_price_minor_units. A mismatch is logged as a drift warning --
+// evidence the incremental path and the ledger have diverged (a bug, or a
+// manual DB fix) -- never silently auto-corrected.
 //
-// Recommended price is computed from the effective target markup (the
-// SKU's product's category override, falling back to the tenant default --
-// see EffectiveTargetMarkupBasisPoints) and written alongside cost price to
-// today's SKUCostPriceHistory row (upserted, so a same-day rerun is a
-// no-op-that-overwrites rather than a duplicate).
+// Recommended price is computed from the SKU's actual current cost (not
+// the reconciliation figure) via the effective target markup (the SKU's
+// product's category override, falling back to the tenant default -- see
+// EffectiveTargetMarkupBasisPoints), and written alongside it to today's
+// SKUCostPriceHistory row (upserted, so a same-day rerun is a
+// no-op-that-overwrites rather than a duplicate) -- this part is unchanged,
+// still the margin-trend-over-time chart's data source.
 type RecalculateCostPricesUseCase struct {
 	db                 *gorm.DB
 	skuRepo            pmsDomain.SKURepository
@@ -111,9 +132,17 @@ func (uc *RecalculateCostPricesUseCase) Execute(ctx context.Context, skuID strin
 		}
 		if sku.CostPriceSource == pmsDomain.SKUCostPriceSourceManual {
 			// A human set this SKU's cost price directly (see
-			// SetManualCostPriceUseCase) -- it sticks until
-			// ClearCostPriceOverrideUseCase runs, so there's nothing for the
-			// cron to average or overwrite.
+			// SetManualCostPriceUseCase) -- intentionally different from
+			// whatever the ledger would derive, so there's nothing to
+			// reconcile against.
+			result.Skipped = true
+			return nil
+		}
+		if sku.CostPriceMinorUnits == nil {
+			// cost_price_source unknown -- no receipt has given this SKU a
+			// cost yet (see pms.SKUCostPriceSourceUnknown), so there's
+			// nothing current to check the ledger against. Resolved by the
+			// first real receipt, not by this job.
 			result.Skipped = true
 			return nil
 		}
@@ -152,10 +181,13 @@ func (uc *RecalculateCostPricesUseCase) Execute(ctx context.Context, skuID strin
 		}
 
 		if totalQty <= 0 {
+			// Nothing currently on the ledger to check the SKU's cost
+			// against (fully sold out, or brand new) -- not a drift signal.
 			result.Skipped = true
 			return nil
 		}
-		costPrice := (weightedCost + totalQty/2) / totalQty
+		expected := (weightedCost + totalQty/2) / totalQty
+		actual := *sku.CostPriceMinorUnits
 
 		settings, err := uc.settingsRepo.Get(ctx)
 		if err != nil {
@@ -163,20 +195,24 @@ func (uc *RecalculateCostPricesUseCase) Execute(ctx context.Context, skuID strin
 		}
 		category := resolveCategory(ctx, uc.variantRepo, uc.productRepo, uc.categoryRepo, sku.VariantID)
 		markup := EffectiveTargetMarkupBasisPoints(category, settings.DefaultTargetMarkupBasisPoints)
-		recommended := RecommendedPriceMinorUnits(costPrice, markup)
+		recommended := RecommendedPriceMinorUnits(actual, markup)
 
-		if err := uc.skuRepo.UpdateCostPrice(ctx, skuID, costPrice); err != nil {
-			return err
+		result.Reconciled = actual == expected
+		if !result.Reconciled {
+			log.Printf("[WARN] cost price drift for SKU %s: ledger-derived cost %d does not match current cost %d",
+				skuID, expected, actual)
 		}
+
 		now := time.Now()
 		if err := uc.historyRepo.Upsert(ctx, &pmsDomain.SKUCostPriceHistory{
 			TenantID: tenant.IDFromContext(ctx), SKUID: skuID,
-			CostPriceMinorUnits: costPrice, RecommendedPriceMinorUnits: recommended,
+			CostPriceMinorUnits: actual, RecommendedPriceMinorUnits: recommended,
 			OccurredOn: now.Truncate(24 * time.Hour), CreatedAt: now,
 		}); err != nil {
 			return err
 		}
-		result.CostPriceMinorUnits = costPrice
+		result.CostPriceMinorUnits = actual
+		result.ExpectedCostPriceMinorUnits = expected
 		result.RecommendedPriceMinorUnits = recommended
 		return nil
 	})

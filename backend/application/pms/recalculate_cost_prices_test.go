@@ -14,12 +14,16 @@ import (
 
 func int64Ptr2(v int64) *int64 { return &v }
 
-func TestRecalculateCostPrices_weightedAveragesOnHandBatchesAndAppliesTenantDefaultMarkup(t *testing.T) {
+func TestRecalculateCostPrices_agreesWithLedgerAndSnapshotsHistoryFromTheActualCurrentCost(t *testing.T) {
 	batchLister := &stubBatchListerForCostPrice{batches: []invDomain.Batch{
 		{ID: "batch-1", Quantity: 10, LandedCostMinorUnits: int64Ptr2(800)},
 		{ID: "batch-2", Quantity: 5, LandedCostMinorUnits: int64Ptr2(500)},
 	}}
-	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1"}}
+	// weighted avg: (10*800 + 5*500) / 15 = 700 -- matches the SKU's actual
+	// current cost, set incrementally by ApplyReceiptCostUseCase at receipt
+	// time (this job never writes it, only checks it).
+	actual := int64(700)
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1", CostPriceMinorUnits: &actual}}
 	historyRepo := &stubSKUCostPriceHistoryRepo{}
 	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarkupBasisPoints: 3000}}
 	uc := apppms.NewRecalculateCostPricesUseCase(
@@ -30,21 +34,43 @@ func TestRecalculateCostPrices_weightedAveragesOnHandBatchesAndAppliesTenantDefa
 
 	require.NoError(t, err)
 	require.False(t, result.Skipped)
-	// weighted avg: (10*800 + 5*500) / 15 = (8000+2500)/15 = 700
+	assert.True(t, result.Reconciled)
 	assert.Equal(t, int64(700), result.CostPriceMinorUnits)
-	// recommended at 30% markup: 700*1.3 = 910
+	assert.Equal(t, int64(700), result.ExpectedCostPriceMinorUnits)
+	// recommended at 30% markup on the ACTUAL cost: 700*1.3 = 910
 	assert.Equal(t, int64(910), result.RecommendedPriceMinorUnits)
-	require.Len(t, skuRepo.updateCostPriceCalls, 1)
-	assert.Equal(t, int64(700), skuRepo.updateCostPriceCalls[0].CostPriceMinorUnits)
+	assert.Empty(t, skuRepo.updateCostPriceCalls, "this job never writes cost_price_minor_units -- only ApplyReceiptCostUseCase does")
 	require.Len(t, historyRepo.upserted, 1)
 	assert.Equal(t, int64(700), historyRepo.upserted[0].CostPriceMinorUnits)
 	assert.Equal(t, int64(910), historyRepo.upserted[0].RecommendedPriceMinorUnits)
 }
 
-func TestRecalculateCostPrices_skipsBatchesWithNoLandedCost(t *testing.T) {
+func TestRecalculateCostPrices_flagsDriftWhenLedgerDisagreesWithTheActualCurrentCost(t *testing.T) {
 	batchLister := &stubBatchListerForCostPrice{batches: []invDomain.Batch{
-		{ID: "batch-1", Quantity: 10, LandedCostMinorUnits: nil}, // pre-landed-cost stock, excluded
-		{ID: "batch-2", Quantity: 5, LandedCostMinorUnits: int64Ptr2(500)},
+		{ID: "batch-1", Quantity: 10, LandedCostMinorUnits: int64Ptr2(800)},
+	}}
+	// SKU's actual cost (500) disagrees with what the ledger says it should
+	// be (800) -- e.g. a bug, or a manual DB fix bypassing the app.
+	actual := int64(500)
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1", CostPriceMinorUnits: &actual}}
+	uc := apppms.NewRecalculateCostPricesUseCase(
+		newMockGormDB(t), skuRepo, &stubVariantRepo{}, &stubProductRepo{}, &stubCategoryRepo{}, &stubSettingsRepoForPMS{}, &stubSKUCostPriceHistoryRepo{}, batchLister, &stubPurchaseCostLineListerForCostPrice{},
+	)
+
+	result, err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.False(t, result.Skipped)
+	assert.False(t, result.Reconciled)
+	assert.Equal(t, int64(500), result.CostPriceMinorUnits, "still reports the actual current cost, not the ledger figure")
+	assert.Equal(t, int64(800), result.ExpectedCostPriceMinorUnits)
+}
+
+func TestRecalculateCostPrices_skipsSKUWithNoCurrentCost(t *testing.T) {
+	// cost_price_source unknown (nil CostPriceMinorUnits) -- nothing to
+	// reconcile against yet, even if batches exist.
+	batchLister := &stubBatchListerForCostPrice{batches: []invDomain.Batch{
+		{ID: "batch-1", Quantity: 10, LandedCostMinorUnits: int64Ptr2(800)},
 	}}
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1"}}
 	uc := apppms.NewRecalculateCostPricesUseCase(
@@ -54,15 +80,15 @@ func TestRecalculateCostPrices_skipsBatchesWithNoLandedCost(t *testing.T) {
 	result, err := uc.Execute(context.Background(), "sku-1")
 
 	require.NoError(t, err)
-	require.False(t, result.Skipped)
-	assert.Equal(t, int64(500), result.CostPriceMinorUnits) // only batch-2 counted
+	assert.True(t, result.Skipped)
 }
 
 func TestRecalculateCostPrices_skipsSKUWithNoCostBearingBatches(t *testing.T) {
 	batchLister := &stubBatchListerForCostPrice{batches: []invDomain.Batch{
 		{ID: "batch-1", Quantity: 10, LandedCostMinorUnits: nil},
 	}}
-	skuRepo := &stubSKURepo{}
+	actual := int64(500)
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1", CostPriceMinorUnits: &actual}}
 	uc := apppms.NewRecalculateCostPricesUseCase(
 		newMockGormDB(t), skuRepo, &stubVariantRepo{}, &stubProductRepo{}, &stubCategoryRepo{}, &stubSettingsRepoForPMS{}, &stubSKUCostPriceHistoryRepo{}, batchLister, &stubPurchaseCostLineListerForCostPrice{},
 	)
@@ -78,7 +104,8 @@ func TestRecalculateCostPrices_categoryOverrideBeatsTenantDefault(t *testing.T) 
 	batchLister := &stubBatchListerForCostPrice{batches: []invDomain.Batch{
 		{ID: "batch-1", Quantity: 1, LandedCostMinorUnits: int64Ptr2(700)},
 	}}
-	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1"}}
+	actual := int64(700)
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1", CostPriceMinorUnits: &actual}}
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "product-1", CategoryID: strPtr("category-1")}}
 	categoryRepo := &stubCategoryRepo{findByIDResult: &pmsDomain.Category{ID: "category-1", TargetMarkupBasisPoints: intPtr(5000)}}
 	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarkupBasisPoints: 1000}}
@@ -102,7 +129,8 @@ func TestRecalculateCostPrices_includesReceivedPurchaseOrderLinesWithNoBatch(t *
 	purchaseCostLister := &stubPurchaseCostLineListerForCostPrice{lines: []apppms.PurchaseCostLine{
 		{PurchaseOrderLineItemID: "line-1", Quantity: 10, LandedUnitCostMinorUnits: 900},
 	}}
-	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1"}}
+	actual := int64(900)
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1", CostPriceMinorUnits: &actual}}
 	uc := apppms.NewRecalculateCostPricesUseCase(
 		newMockGormDB(t), skuRepo, &stubVariantRepo{}, &stubProductRepo{}, &stubCategoryRepo{}, &stubSettingsRepoForPMS{}, &stubSKUCostPriceHistoryRepo{}, batchLister, purchaseCostLister,
 	)
@@ -111,7 +139,8 @@ func TestRecalculateCostPrices_includesReceivedPurchaseOrderLinesWithNoBatch(t *
 
 	require.NoError(t, err)
 	require.False(t, result.Skipped)
-	assert.Equal(t, int64(900), result.CostPriceMinorUnits)
+	assert.True(t, result.Reconciled)
+	assert.Equal(t, int64(900), result.ExpectedCostPriceMinorUnits)
 }
 
 func TestRecalculateCostPrices_doesNotDoubleCountAPurchaseOrderLineAlreadyBookedToABatch(t *testing.T) {
@@ -123,7 +152,8 @@ func TestRecalculateCostPrices_doesNotDoubleCountAPurchaseOrderLineAlreadyBooked
 	purchaseCostLister := &stubPurchaseCostLineListerForCostPrice{lines: []apppms.PurchaseCostLine{
 		{PurchaseOrderLineItemID: "line-1", Quantity: 10, LandedUnitCostMinorUnits: 900},
 	}}
-	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1"}}
+	actual := int64(900)
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1", CostPriceMinorUnits: &actual}}
 	uc := apppms.NewRecalculateCostPricesUseCase(
 		newMockGormDB(t), skuRepo, &stubVariantRepo{}, &stubProductRepo{}, &stubCategoryRepo{}, &stubSettingsRepoForPMS{}, &stubSKUCostPriceHistoryRepo{}, batchLister, purchaseCostLister,
 	)
@@ -132,17 +162,18 @@ func TestRecalculateCostPrices_doesNotDoubleCountAPurchaseOrderLineAlreadyBooked
 
 	require.NoError(t, err)
 	require.False(t, result.Skipped)
-	assert.Equal(t, int64(900), result.CostPriceMinorUnits) // not counted twice via both sources
+	assert.Equal(t, int64(900), result.ExpectedCostPriceMinorUnits) // not counted twice via both sources
 }
 
 func TestRecalculateCostPrices_skipsSKUWithManualCostPriceOverride(t *testing.T) {
-	// A human set this via SetManualCostPriceUseCase -- the cron must leave
+	// A human set this via SetManualCostPriceUseCase -- this job must leave
 	// it alone entirely, not even look at batches/POs.
 	batchLister := &stubBatchListerForCostPrice{batches: []invDomain.Batch{
 		{ID: "batch-1", Quantity: 10, LandedCostMinorUnits: int64Ptr2(800)},
 	}}
 	purchaseCostLister := &stubPurchaseCostLineListerForCostPrice{}
-	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1", CostPriceSource: pmsDomain.SKUCostPriceSourceManual}}
+	actual := int64(500)
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1", CostPriceMinorUnits: &actual, CostPriceSource: pmsDomain.SKUCostPriceSourceManual}}
 	uc := apppms.NewRecalculateCostPricesUseCase(
 		newMockGormDB(t), skuRepo, &stubVariantRepo{}, &stubProductRepo{}, &stubCategoryRepo{}, &stubSettingsRepoForPMS{}, &stubSKUCostPriceHistoryRepo{}, batchLister, purchaseCostLister,
 	)
