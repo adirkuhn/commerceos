@@ -83,28 +83,45 @@ func (r *WebhookFallbackRepo) Get(ctx context.Context, id string) (*webhooks.Fal
 	return toFallbackEventDomain(m)
 }
 
-func (r *WebhookFallbackRepo) List(ctx context.Context, status webhooks.FallbackStatus) ([]webhooks.FallbackEvent, error) {
+func (r *WebhookFallbackRepo) List(ctx context.Context, status webhooks.FallbackStatus, limit, offset int) ([]webhooks.FallbackEvent, int64, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	q := tx.Order("received_at desc")
+	q := tx.Model(&webhookFallbackEventModel{})
 	if status != "" {
 		q = q.Where("status = ?", string(status))
 	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("webhookFallbackRepo.List: count: %w", err)
+	}
 	var rows []webhookFallbackEventModel
-	if err := q.Find(&rows).Error; err != nil {
-		return nil, fmt.Errorf("webhookFallbackRepo.List: %w", err)
+	if err := q.Order("received_at desc").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
+		return nil, 0, fmt.Errorf("webhookFallbackRepo.List: %w", err)
 	}
 	out := make([]webhooks.FallbackEvent, len(rows))
 	for i, row := range rows {
 		e, err := toFallbackEventDomain(row)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		out[i] = *e
 	}
-	return out, nil
+	return out, total, nil
+}
+
+func (r *WebhookFallbackRepo) UpdateStatusForAll(ctx context.Context, fromStatus, toStatus webhooks.FallbackStatus) (int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return 0, err
+	}
+	res := tx.Model(&webhookFallbackEventModel{}).Where("status = ?", string(fromStatus)).
+		Updates(map[string]any{"status": string(toStatus), "updated_at": time.Now().UTC()})
+	if res.Error != nil {
+		return 0, fmt.Errorf("webhookFallbackRepo.UpdateStatusForAll: %w", res.Error)
+	}
+	return res.RowsAffected, nil
 }
 
 func (r *WebhookFallbackRepo) UpdateStatus(ctx context.Context, id string, status webhooks.FallbackStatus) error {

@@ -63,13 +63,16 @@ type setWebhookSecretUC interface {
 	Execute(ctx context.Context, connectionID string, providedSecret string) (*appintegrations.SetWebhookSecretResult, error)
 }
 type listWebhookFallbackEventsUC interface {
-	Execute(ctx context.Context, status webhooksDomain.FallbackStatus) ([]webhooksDomain.FallbackEvent, error)
+	Execute(ctx context.Context, status webhooksDomain.FallbackStatus, page, perPage int) (*appwebhooks.ListWebhookFallbackEventsResult, error)
 }
 type retryWebhookFallbackEventUC interface {
 	Execute(ctx context.Context, id string) error
 }
 type abandonWebhookFallbackEventUC interface {
 	Execute(ctx context.Context, id string) error
+}
+type abandonAllWebhookFallbackEventsUC interface {
+	Execute(ctx context.Context, status webhooksDomain.FallbackStatus) (int64, error)
 }
 type createWebhookForwardRuleUC interface {
 	Execute(ctx context.Context, provider, topic, targetURL string) (*webhooksDomain.ForwardRule, error)
@@ -232,70 +235,71 @@ type listBolEconomicOperatorsUC interface {
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	listConnections              listConnectionsUC
-	startWooConnect              startWooConnectUC
-	completeWooConnect           completeWooConnectUC
-	manualConnectWoo             manualConnectWooCommerceUC
-	disconnect                   disconnectConnectionUC
-	testConnection               testConnectionUC
-	listWooTaxes                 listWooTaxesUC
-	createImportJob              createImportJobUC
-	pushProductToWoo             pushProductToWooUC
-	listSyncSchedules            listSyncSchedulesUC
-	upsertSyncSchedules          upsertSyncSchedulesUC
-	deleteAllImportedProds       deleteAllImportedProductsUC
-	updateConnectionSettings     updateConnectionSettingsUC
-	getProductChannelListing     getProductChannelListingUC
-	listProductChannelListings   listProductChannelListingsUC
-	listSyncLogs                 listSyncLogsUC
-	listAllSyncLogs              listAllSyncLogsUC
-	listSyncLogsNeedingAttention listSyncLogsNeedingAttentionUC
-	retryFailedSync              retryFailedSyncUC
-	dismissFailedSync            dismissFailedSyncUC
-	resyncProductToChannels      resyncProductToChannelsUC
-	getAIConnection              getAIConnectionUC
-	connectAIProvider            connectAIProviderUC
-	disconnectAIConnection       disconnectAIConnectionUC
-	listSalesChannels            listSalesChannelsUC
-	createSalesChannel           createSalesChannelUC
-	updateSalesChannel           updateSalesChannelUC
-	setSalesChannelPaymentMethod setSalesChannelPaymentMethodUC
-	deleteSalesChannel           deleteSalesChannelUC
-	listSalesChannelProducts     listSalesChannelProductsUC
-	setProductChannelOverride    setProductChannelOverrideUC
-	fetchWooOrder                fetchWooOrderUC
-	listWooCategories            listWooCategoriesUC
-	listExternalCategoryLinks    listExternalCategoryLinksUC
-	upsertExternalCategoryLink   upsertExternalCategoryLinkUC
-	deleteExternalCategoryLink   deleteExternalCategoryLinkUC
-	setWebhookSecret             setWebhookSecretUC
-	listWebhookFallbackEvents    listWebhookFallbackEventsUC
-	retryWebhookFallbackEvent    retryWebhookFallbackEventUC
-	abandonWebhookFallbackEvent  abandonWebhookFallbackEventUC
-	createWebhookForwardRule     createWebhookForwardRuleUC
-	listWebhookForwardRules      listWebhookForwardRulesUC
-	deleteWebhookForwardRule     deleteWebhookForwardRuleUC
-	listWebhookForwardDeliveries listWebhookForwardDeliveriesUC
-	listProviderWebhooks         listProviderWebhooksUC
-	listAllProviderWebhooks      listAllProviderWebhooksUC
-	listAvailableWebhookTopics   listAvailableWebhookTopicsUC
-	createProviderWebhook        createProviderWebhookUC
-	deleteProviderWebhook        deleteProviderWebhookUC
-	connectBol                   connectBolUC
-	connectWhatsapp              connectWhatsappUC
-	connectStripe                connectStripeUC
-	connectRevolut               connectRevolutUC
-	listPaymentConnections       listPaymentConnectionsUC
-	pushProductToBol             pushProductToBolUC
-	getBolProductOverride        getBolProductOverrideUC
-	upsertBolProductOverride     upsertBolProductOverrideUC
-	getBolProductContent         getBolProductContentUC
-	upsertBolProductContent      upsertBolProductContentUC
-	getBolCommission             getBolCommissionUC
-	listBolEconomicOperators     listBolEconomicOperatorsUC
-	listWebhookEvents            listWebhookEventsUC
-	retryWebhookEventDispatch    retryWebhookEventDispatchUC
-	linkExistingWooProduct       linkExistingWooProductUC
+	listConnections                 listConnectionsUC
+	startWooConnect                 startWooConnectUC
+	completeWooConnect              completeWooConnectUC
+	manualConnectWoo                manualConnectWooCommerceUC
+	disconnect                      disconnectConnectionUC
+	testConnection                  testConnectionUC
+	listWooTaxes                    listWooTaxesUC
+	createImportJob                 createImportJobUC
+	pushProductToWoo                pushProductToWooUC
+	listSyncSchedules               listSyncSchedulesUC
+	upsertSyncSchedules             upsertSyncSchedulesUC
+	deleteAllImportedProds          deleteAllImportedProductsUC
+	updateConnectionSettings        updateConnectionSettingsUC
+	getProductChannelListing        getProductChannelListingUC
+	listProductChannelListings      listProductChannelListingsUC
+	listSyncLogs                    listSyncLogsUC
+	listAllSyncLogs                 listAllSyncLogsUC
+	listSyncLogsNeedingAttention    listSyncLogsNeedingAttentionUC
+	retryFailedSync                 retryFailedSyncUC
+	dismissFailedSync               dismissFailedSyncUC
+	resyncProductToChannels         resyncProductToChannelsUC
+	getAIConnection                 getAIConnectionUC
+	connectAIProvider               connectAIProviderUC
+	disconnectAIConnection          disconnectAIConnectionUC
+	listSalesChannels               listSalesChannelsUC
+	createSalesChannel              createSalesChannelUC
+	updateSalesChannel              updateSalesChannelUC
+	setSalesChannelPaymentMethod    setSalesChannelPaymentMethodUC
+	deleteSalesChannel              deleteSalesChannelUC
+	listSalesChannelProducts        listSalesChannelProductsUC
+	setProductChannelOverride       setProductChannelOverrideUC
+	fetchWooOrder                   fetchWooOrderUC
+	listWooCategories               listWooCategoriesUC
+	listExternalCategoryLinks       listExternalCategoryLinksUC
+	upsertExternalCategoryLink      upsertExternalCategoryLinkUC
+	deleteExternalCategoryLink      deleteExternalCategoryLinkUC
+	setWebhookSecret                setWebhookSecretUC
+	listWebhookFallbackEvents       listWebhookFallbackEventsUC
+	retryWebhookFallbackEvent       retryWebhookFallbackEventUC
+	abandonWebhookFallbackEvent     abandonWebhookFallbackEventUC
+	createWebhookForwardRule        createWebhookForwardRuleUC
+	listWebhookForwardRules         listWebhookForwardRulesUC
+	deleteWebhookForwardRule        deleteWebhookForwardRuleUC
+	listWebhookForwardDeliveries    listWebhookForwardDeliveriesUC
+	listProviderWebhooks            listProviderWebhooksUC
+	listAllProviderWebhooks         listAllProviderWebhooksUC
+	listAvailableWebhookTopics      listAvailableWebhookTopicsUC
+	createProviderWebhook           createProviderWebhookUC
+	deleteProviderWebhook           deleteProviderWebhookUC
+	connectBol                      connectBolUC
+	connectWhatsapp                 connectWhatsappUC
+	connectStripe                   connectStripeUC
+	connectRevolut                  connectRevolutUC
+	listPaymentConnections          listPaymentConnectionsUC
+	pushProductToBol                pushProductToBolUC
+	getBolProductOverride           getBolProductOverrideUC
+	upsertBolProductOverride        upsertBolProductOverrideUC
+	getBolProductContent            getBolProductContentUC
+	upsertBolProductContent         upsertBolProductContentUC
+	getBolCommission                getBolCommissionUC
+	listBolEconomicOperators        listBolEconomicOperatorsUC
+	listWebhookEvents               listWebhookEventsUC
+	retryWebhookEventDispatch       retryWebhookEventDispatchUC
+	linkExistingWooProduct          linkExistingWooProductUC
+	abandonAllWebhookFallbackEvents abandonAllWebhookFallbackEventsUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -364,72 +368,74 @@ func NewHandler(
 	retryWebhookEventDispatch retryWebhookEventDispatchUC,
 	linkExistingWooProduct linkExistingWooProductUC,
 	listProductChannelListings listProductChannelListingsUC,
+	abandonAllWebhookFallbackEvents abandonAllWebhookFallbackEventsUC,
 ) *Handler {
 	return &Handler{
-		listConnections:              listConnections,
-		startWooConnect:              startWooConnect,
-		completeWooConnect:           completeWooConnect,
-		manualConnectWoo:             manualConnectWoo,
-		disconnect:                   disconnect,
-		testConnection:               testConnection,
-		listWooTaxes:                 listWooTaxes,
-		createImportJob:              createImportJob,
-		pushProductToWoo:             pushProductToWoo,
-		listSyncSchedules:            listSyncSchedules,
-		upsertSyncSchedules:          upsertSyncSchedules,
-		deleteAllImportedProds:       deleteAllImportedProds,
-		updateConnectionSettings:     updateConnectionSettings,
-		getProductChannelListing:     getProductChannelListing,
-		listSyncLogs:                 listSyncLogs,
-		listAllSyncLogs:              listAllSyncLogs,
-		listSyncLogsNeedingAttention: listSyncLogsNeedingAttention,
-		retryFailedSync:              retryFailedSync,
-		dismissFailedSync:            dismissFailedSync,
-		resyncProductToChannels:      resyncProductToChannels,
-		getAIConnection:              getAIConnection,
-		connectAIProvider:            connectAIProvider,
-		disconnectAIConnection:       disconnectAIConnection,
-		listSalesChannels:            listSalesChannels,
-		createSalesChannel:           createSalesChannel,
-		updateSalesChannel:           updateSalesChannel,
-		setSalesChannelPaymentMethod: setSalesChannelPaymentMethod,
-		deleteSalesChannel:           deleteSalesChannel,
-		listSalesChannelProducts:     listSalesChannelProducts,
-		setProductChannelOverride:    setProductChannelOverride,
-		fetchWooOrder:                fetchWooOrder,
-		listWooCategories:            listWooCategories,
-		listExternalCategoryLinks:    listExternalCategoryLinks,
-		upsertExternalCategoryLink:   upsertExternalCategoryLink,
-		deleteExternalCategoryLink:   deleteExternalCategoryLink,
-		setWebhookSecret:             setWebhookSecret,
-		listWebhookFallbackEvents:    listWebhookFallbackEvents,
-		retryWebhookFallbackEvent:    retryWebhookFallbackEvent,
-		abandonWebhookFallbackEvent:  abandonWebhookFallbackEvent,
-		createWebhookForwardRule:     createWebhookForwardRule,
-		listWebhookForwardRules:      listWebhookForwardRules,
-		deleteWebhookForwardRule:     deleteWebhookForwardRule,
-		listWebhookForwardDeliveries: listWebhookForwardDeliveries,
-		listProviderWebhooks:         listProviderWebhooks,
-		listAllProviderWebhooks:      listAllProviderWebhooks,
-		listAvailableWebhookTopics:   listAvailableWebhookTopics,
-		createProviderWebhook:        createProviderWebhook,
-		deleteProviderWebhook:        deleteProviderWebhook,
-		connectBol:                   connectBol,
-		connectWhatsapp:              connectWhatsapp,
-		connectStripe:                connectStripe,
-		connectRevolut:               connectRevolut,
-		listPaymentConnections:       listPaymentConnections,
-		pushProductToBol:             pushProductToBol,
-		getBolProductOverride:        getBolProductOverride,
-		upsertBolProductOverride:     upsertBolProductOverride,
-		getBolProductContent:         getBolProductContent,
-		upsertBolProductContent:      upsertBolProductContent,
-		getBolCommission:             getBolCommission,
-		listBolEconomicOperators:     listBolEconomicOperators,
-		listWebhookEvents:            listWebhookEvents,
-		retryWebhookEventDispatch:    retryWebhookEventDispatch,
-		linkExistingWooProduct:       linkExistingWooProduct,
-		listProductChannelListings:   listProductChannelListings,
+		listConnections:                 listConnections,
+		startWooConnect:                 startWooConnect,
+		completeWooConnect:              completeWooConnect,
+		manualConnectWoo:                manualConnectWoo,
+		disconnect:                      disconnect,
+		testConnection:                  testConnection,
+		listWooTaxes:                    listWooTaxes,
+		createImportJob:                 createImportJob,
+		pushProductToWoo:                pushProductToWoo,
+		listSyncSchedules:               listSyncSchedules,
+		upsertSyncSchedules:             upsertSyncSchedules,
+		deleteAllImportedProds:          deleteAllImportedProds,
+		updateConnectionSettings:        updateConnectionSettings,
+		getProductChannelListing:        getProductChannelListing,
+		listSyncLogs:                    listSyncLogs,
+		listAllSyncLogs:                 listAllSyncLogs,
+		listSyncLogsNeedingAttention:    listSyncLogsNeedingAttention,
+		retryFailedSync:                 retryFailedSync,
+		dismissFailedSync:               dismissFailedSync,
+		resyncProductToChannels:         resyncProductToChannels,
+		getAIConnection:                 getAIConnection,
+		connectAIProvider:               connectAIProvider,
+		disconnectAIConnection:          disconnectAIConnection,
+		listSalesChannels:               listSalesChannels,
+		createSalesChannel:              createSalesChannel,
+		updateSalesChannel:              updateSalesChannel,
+		setSalesChannelPaymentMethod:    setSalesChannelPaymentMethod,
+		deleteSalesChannel:              deleteSalesChannel,
+		listSalesChannelProducts:        listSalesChannelProducts,
+		setProductChannelOverride:       setProductChannelOverride,
+		fetchWooOrder:                   fetchWooOrder,
+		listWooCategories:               listWooCategories,
+		listExternalCategoryLinks:       listExternalCategoryLinks,
+		upsertExternalCategoryLink:      upsertExternalCategoryLink,
+		deleteExternalCategoryLink:      deleteExternalCategoryLink,
+		setWebhookSecret:                setWebhookSecret,
+		listWebhookFallbackEvents:       listWebhookFallbackEvents,
+		retryWebhookFallbackEvent:       retryWebhookFallbackEvent,
+		abandonWebhookFallbackEvent:     abandonWebhookFallbackEvent,
+		createWebhookForwardRule:        createWebhookForwardRule,
+		listWebhookForwardRules:         listWebhookForwardRules,
+		deleteWebhookForwardRule:        deleteWebhookForwardRule,
+		listWebhookForwardDeliveries:    listWebhookForwardDeliveries,
+		listProviderWebhooks:            listProviderWebhooks,
+		listAllProviderWebhooks:         listAllProviderWebhooks,
+		listAvailableWebhookTopics:      listAvailableWebhookTopics,
+		createProviderWebhook:           createProviderWebhook,
+		deleteProviderWebhook:           deleteProviderWebhook,
+		connectBol:                      connectBol,
+		connectWhatsapp:                 connectWhatsapp,
+		connectStripe:                   connectStripe,
+		connectRevolut:                  connectRevolut,
+		listPaymentConnections:          listPaymentConnections,
+		pushProductToBol:                pushProductToBol,
+		getBolProductOverride:           getBolProductOverride,
+		upsertBolProductOverride:        upsertBolProductOverride,
+		getBolProductContent:            getBolProductContent,
+		upsertBolProductContent:         upsertBolProductContent,
+		getBolCommission:                getBolCommission,
+		listBolEconomicOperators:        listBolEconomicOperators,
+		listWebhookEvents:               listWebhookEvents,
+		retryWebhookEventDispatch:       retryWebhookEventDispatch,
+		linkExistingWooProduct:          linkExistingWooProduct,
+		listProductChannelListings:      listProductChannelListings,
+		abandonAllWebhookFallbackEvents: abandonAllWebhookFallbackEvents,
 	}
 }
 
@@ -607,6 +613,7 @@ func Register(
 		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewCarrierClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC, notifyShipmentDeliveryUC, outboxRepo, retryablePaymentHandlers),
 		appchannels.NewLinkExistingWooProductUseCase(db, productRepo, connRepo, listingRepo, wooFactory, encryptionSecret),
 		appchannels.NewListProductChannelListingsUseCase(db, listingRepo),
+		appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(db, webhookFallbackRepo),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -838,12 +845,19 @@ func (h *Handler) ListWebhookFallbackEvents(c *gin.Context, params genintegratio
 	if params.Status != nil {
 		status = webhooksDomain.FallbackStatus(*params.Status)
 	}
-	events, err := h.listWebhookFallbackEvents.Execute(c.Request.Context(), status)
+	page, perPage := 0, 0
+	if params.Page != nil {
+		page = *params.Page
+	}
+	if params.PerPage != nil {
+		perPage = *params.PerPage
+	}
+	result, err := h.listWebhookFallbackEvents.Execute(c.Request.Context(), status, page, perPage)
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	out := make([]genintegrations.WebhookFallbackEvent, len(events))
-	for i, e := range events {
+	out := make([]genintegrations.WebhookFallbackEvent, len(result.Events))
+	for i, e := range result.Events {
 		id, eventID, provider := e.ID, e.EventID, e.Provider
 		st := genintegrations.WebhookFallbackEventStatus(e.Status)
 		receivedAt := e.ReceivedAt
@@ -851,7 +865,8 @@ func (h *Handler) ListWebhookFallbackEvents(c *gin.Context, params genintegratio
 			Id: &id, EventId: &eventID, Provider: &provider, Status: &st, ReceivedAt: &receivedAt,
 		}
 	}
-	middleware.OK(c, out)
+	total := int(result.Total)
+	c.JSON(http.StatusOK, genintegrations.WebhookFallbackEventListResponse{Data: &out, Total: &total})
 }
 
 func (h *Handler) ListWebhookForwardRules(c *gin.Context) {
@@ -1081,6 +1096,23 @@ func (h *Handler) AbandonWebhookFallbackEvent(c *gin.Context, id genintegrations
 		return
 	}
 	middleware.OK(c, nil)
+}
+
+func (h *Handler) AbandonAllWebhookFallbackEvents(c *gin.Context, params genintegrations.AbandonAllWebhookFallbackEventsParams) {
+	status := webhooksDomain.FallbackStatusPendingRepublish
+	if params.Status != nil {
+		status = webhooksDomain.FallbackStatus(*params.Status)
+	}
+	count, err := h.abandonAllWebhookFallbackEvents.Execute(c.Request.Context(), status)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	abandoned := int(count)
+	c.JSON(http.StatusOK, genintegrations.AbandonAllWebhookFallbackEventsResponse{
+		Data: &struct {
+			Abandoned *int `json:"abandoned,omitempty"`
+		}{Abandoned: &abandoned},
+	})
 }
 
 func (h *Handler) ImportWooProducts(c *gin.Context, id genintegrations.Id) {

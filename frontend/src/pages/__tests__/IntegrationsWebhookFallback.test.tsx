@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
@@ -33,6 +33,7 @@ vi.mock('../../integrations/api', () => ({
   listWebhookFallbackEvents: vi.fn(),
   retryWebhookFallbackEvent: vi.fn(),
   abandonWebhookFallbackEvent: vi.fn(),
+  abandonAllWebhookFallbackEvents: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -69,18 +70,18 @@ beforeEach(() => {
     tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
     prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
   })
-  vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue([])
+  vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue({ events: [], total: 0 })
 })
 
 describe('Integrations — undelivered webhooks table', () => {
   it('renders rows for pending fallback events', async () => {
-    vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue([fallbackEvent()])
+    vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue({ events: [fallbackEvent()], total: 1 })
 
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
 
     expect(await screen.findByText('hash-abc')).toBeInTheDocument()
     expect(screen.getByText('woocommerce', { selector: 'td' })).toBeInTheDocument()
-    expect(integrationsApi.listWebhookFallbackEvents).toHaveBeenCalledWith('test-token', 'pending_republish')
+    expect(integrationsApi.listWebhookFallbackEvents).toHaveBeenCalledWith('test-token', 'pending_republish', 1, 20)
   })
 
   it('shows nothing pending when the list is empty', async () => {
@@ -91,7 +92,9 @@ describe('Integrations — undelivered webhooks table', () => {
   })
 
   it('Retry calls the retry endpoint and removes the row on success', async () => {
-    vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue([fallbackEvent()])
+    vi.mocked(integrationsApi.listWebhookFallbackEvents)
+      .mockResolvedValueOnce({ events: [fallbackEvent()], total: 1 })
+      .mockResolvedValueOnce({ events: [], total: 0 })
     vi.mocked(integrationsApi.retryWebhookFallbackEvent).mockResolvedValue(null)
 
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
@@ -100,11 +103,15 @@ describe('Integrations — undelivered webhooks table', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
     expect(integrationsApi.retryWebhookFallbackEvent).toHaveBeenCalledWith('test-token', 'fb-1')
-    expect(screen.queryByText('hash-abc')).not.toBeInTheDocument()
+    // Refetch comes back empty -- the whole card hides itself (same as if
+    // there'd never been anything pending), not just the row.
+    await waitFor(() => expect(screen.queryByText('hash-abc')).not.toBeInTheDocument())
   })
 
   it('Abandon calls the abandon endpoint and removes the row on success', async () => {
-    vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue([fallbackEvent()])
+    vi.mocked(integrationsApi.listWebhookFallbackEvents)
+      .mockResolvedValueOnce({ events: [fallbackEvent()], total: 1 })
+      .mockResolvedValueOnce({ events: [], total: 0 })
     vi.mocked(integrationsApi.abandonWebhookFallbackEvent).mockResolvedValue(null)
 
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
@@ -113,11 +120,11 @@ describe('Integrations — undelivered webhooks table', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Abandon' }))
 
     expect(integrationsApi.abandonWebhookFallbackEvent).toHaveBeenCalledWith('test-token', 'fb-1')
-    expect(screen.queryByText('hash-abc')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('hash-abc')).not.toBeInTheDocument())
   })
 
   it('surfaces a retry failure inline instead of swallowing it', async () => {
-    vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue([fallbackEvent()])
+    vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue({ events: [fallbackEvent()], total: 1 })
     vi.mocked(integrationsApi.retryWebhookFallbackEvent).mockRejectedValue(new Error('publish failed: nats unreachable'))
 
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
@@ -127,6 +134,45 @@ describe('Integrations — undelivered webhooks table', () => {
 
     expect(await screen.findByText('publish failed: nats unreachable')).toBeInTheDocument()
     // Row stays -- retry failed, nothing to remove.
+    expect(screen.getByText('hash-abc')).toBeInTheDocument()
+  })
+
+  it('shows pagination controls once there is more than one page', async () => {
+    vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue({ events: [fallbackEvent()], total: 25 })
+
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await screen.findByText('hash-abc')
+
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
+  })
+
+  it('Abandon all asks for confirmation, calls the bulk endpoint, and refreshes the list', async () => {
+    vi.mocked(integrationsApi.listWebhookFallbackEvents)
+      .mockResolvedValueOnce({ events: [fallbackEvent()], total: 1 })
+      .mockResolvedValueOnce({ events: [], total: 0 })
+    vi.mocked(integrationsApi.abandonAllWebhookFallbackEvents).mockResolvedValue({ abandoned: 1 })
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await screen.findByText('hash-abc')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Abandon all' }))
+
+    expect(confirmSpy).toHaveBeenCalled()
+    expect(integrationsApi.abandonAllWebhookFallbackEvents).toHaveBeenCalledWith('test-token', 'pending_republish')
+    await waitFor(() => expect(screen.queryByText('hash-abc')).not.toBeInTheDocument())
+  })
+
+  it('Abandon all does nothing when the confirmation is declined', async () => {
+    vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue({ events: [fallbackEvent()], total: 1 })
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await screen.findByText('hash-abc')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Abandon all' }))
+
+    expect(integrationsApi.abandonAllWebhookFallbackEvents).not.toHaveBeenCalled()
     expect(screen.getByText('hash-abc')).toBeInTheDocument()
   })
 })

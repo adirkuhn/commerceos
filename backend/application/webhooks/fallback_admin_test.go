@@ -18,11 +18,40 @@ func TestListWebhookFallbackEventsUseCase_listsFromRepo(t *testing.T) {
 	repo := &listingFallbackRepo{events: []webhooks.FallbackEvent{{ID: "fb-1", Provider: "woocommerce", Status: webhooks.FallbackStatusPendingRepublish}}}
 	uc := appwebhooks.NewListWebhookFallbackEventsUseCase(newMockGormDB(t, 1), repo)
 
-	out, err := uc.Execute(context.Background(), webhooks.FallbackStatusPendingRepublish)
+	out, err := uc.Execute(context.Background(), webhooks.FallbackStatusPendingRepublish, 1, 20)
 
 	require.NoError(t, err)
-	require.Len(t, out, 1)
-	assert.Equal(t, "fb-1", out[0].ID)
+	require.Len(t, out.Events, 1)
+	assert.Equal(t, "fb-1", out.Events[0].ID)
+}
+
+func TestListWebhookFallbackEventsUseCase_translatesPageToLimitOffsetAndReturnsTotal(t *testing.T) {
+	repo := &listingFallbackRepo{
+		events: []webhooks.FallbackEvent{{ID: "fb-1"}},
+		total:  47,
+	}
+	uc := appwebhooks.NewListWebhookFallbackEventsUseCase(newMockGormDB(t, 1), repo)
+
+	out, err := uc.Execute(context.Background(), webhooks.FallbackStatusPendingRepublish, 3, 10)
+
+	require.NoError(t, err)
+	assert.Equal(t, 10, repo.gotLimit)
+	assert.Equal(t, 20, repo.gotOffset, "page 3 at 10/page -> offset 20")
+	assert.EqualValues(t, 47, out.Total)
+}
+
+func TestListWebhookFallbackEventsUseCase_defaultsAndClampsPagination(t *testing.T) {
+	repo := &listingFallbackRepo{}
+	uc := appwebhooks.NewListWebhookFallbackEventsUseCase(newMockGormDB(t, 2), repo)
+
+	_, err := uc.Execute(context.Background(), webhooks.FallbackStatusPendingRepublish, 0, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 20, repo.gotLimit, "perPage<=0 defaults to 20")
+	assert.Equal(t, 0, repo.gotOffset, "page<=0 defaults to page 1 -> offset 0")
+
+	_, err = uc.Execute(context.Background(), webhooks.FallbackStatusPendingRepublish, 1, 10000)
+	require.NoError(t, err)
+	assert.Equal(t, 200, repo.gotLimit, "perPage is clamped to the max")
 }
 
 func TestRetryWebhookFallbackEventUseCase_republishesAndMarksStatus(t *testing.T) {
@@ -86,6 +115,34 @@ func TestRetryWebhookFallbackEventUseCase_leavesStatusPendingOnPublishFailure(t 
 	assert.Empty(t, repo.statusUpdates)
 }
 
+func TestAbandonAllWebhookFallbackEventsUseCase_abandonsEveryMatchingRow(t *testing.T) {
+	repo := &listingFallbackRepo{events: []webhooks.FallbackEvent{
+		{ID: "fb-1", Status: webhooks.FallbackStatusPendingRepublish},
+		{ID: "fb-2", Status: webhooks.FallbackStatusPendingRepublish},
+		{ID: "fb-3", Status: webhooks.FallbackStatusAbandoned},
+	}}
+	uc := appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(newMockGormDB(t, 1), repo)
+
+	count, err := uc.Execute(context.Background(), webhooks.FallbackStatusPendingRepublish)
+
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, count)
+	assert.Equal(t, webhooks.FallbackStatusAbandoned, repo.events[0].Status)
+	assert.Equal(t, webhooks.FallbackStatusAbandoned, repo.events[1].Status)
+}
+
+func TestAbandonAllWebhookFallbackEventsUseCase_defaultsToPendingRepublish(t *testing.T) {
+	repo := &listingFallbackRepo{events: []webhooks.FallbackEvent{
+		{ID: "fb-1", Status: webhooks.FallbackStatusPendingRepublish},
+	}}
+	uc := appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(newMockGormDB(t, 1), repo)
+
+	count, err := uc.Execute(context.Background(), "")
+
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, count)
+}
+
 func TestAbandonWebhookFallbackEventUseCase_marksAbandoned(t *testing.T) {
 	repo := &listingFallbackRepo{events: []webhooks.FallbackEvent{{ID: "fb-1"}}}
 	uc := appwebhooks.NewAbandonWebhookFallbackEventUseCase(newMockGormDB(t, 1), repo)
@@ -109,9 +166,12 @@ func TestAbandonWebhookFallbackEventUseCase_propagatesNotFound(t *testing.T) {
 // supports Save) -- needed for the admin use cases' Get/List/UpdateStatus.
 type listingFallbackRepo struct {
 	events        []webhooks.FallbackEvent
+	total         int64
 	getByID       bool
 	notFound      bool
 	statusUpdates map[string]webhooks.FallbackStatus
+	gotLimit      int
+	gotOffset     int
 }
 
 func (r *listingFallbackRepo) Save(ctx context.Context, e *webhooks.FallbackEvent) error { return nil }
@@ -129,8 +189,20 @@ func (r *listingFallbackRepo) Get(ctx context.Context, id string) (*webhooks.Fal
 	return nil, errors.New("not found in fake")
 }
 
-func (r *listingFallbackRepo) List(ctx context.Context, status webhooks.FallbackStatus) ([]webhooks.FallbackEvent, error) {
-	return r.events, nil
+func (r *listingFallbackRepo) List(ctx context.Context, status webhooks.FallbackStatus, limit, offset int) ([]webhooks.FallbackEvent, int64, error) {
+	r.gotLimit, r.gotOffset = limit, offset
+	return r.events, r.total, nil
+}
+
+func (r *listingFallbackRepo) UpdateStatusForAll(ctx context.Context, fromStatus, toStatus webhooks.FallbackStatus) (int64, error) {
+	var n int64
+	for i := range r.events {
+		if r.events[i].Status == fromStatus {
+			r.events[i].Status = toStatus
+			n++
+		}
+	}
+	return n, nil
 }
 
 func (r *listingFallbackRepo) UpdateStatus(ctx context.Context, id string, status webhooks.FallbackStatus) error {

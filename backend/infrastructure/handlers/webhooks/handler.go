@@ -20,13 +20,29 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/webhookproviders"
 )
 
-// maxWebhookBodyBytes matches nats/nats.conf's max_payload -- anything that
-// clears this cap is guaranteed to clear NATS too, so an oversized body
-// (a WhatsApp/Evolution API media message embeds the full file as inline
-// base64 -- 44.5MB seen in practice, and nothing downstream ever reads
-// those bytes) is rejected here, before it's ever buffered, published, or
-// durably written to the fallback table as a row that can never succeed.
-const maxWebhookBodyBytes = 8 * 1024 * 1024
+// natsMaxPayloadBytes must match nats/nats.conf's max_payload.
+const natsMaxPayloadBytes = 8 * 1024 * 1024
+
+// envelopeOverheadBytes is slack for the JSON application/webhooks.Envelope
+// wraps the raw body in (EventID/TenantID/Provider/ReceivedAt/Headers)
+// before publish -- generous enough to cover a realistic header set
+// without needing to track its exact size here.
+const envelopeOverheadBytes = 64 * 1024
+
+// maxWebhookBodyBytes is the raw HTTP body size guaranteed to still clear
+// NATS's max_payload once ReceiveWebhookUseCase wraps it in an Envelope and
+// json.Marshals it. That marshaling is NOT 1:1 with the raw body:
+// Envelope.RawPayload is a []byte field, and encoding/json encodes []byte
+// as base64, inflating size by 4/3 -- on top of the rest of the envelope's
+// JSON. A body sized exactly at natsMaxPayloadBytes would therefore
+// marshal to well over NATS's cap; every publish attempt would fail
+// identically, and (a WhatsApp/Evolution API media message embeds the
+// full file as inline base64 -- 44.5MB seen in practice) it would sit in
+// the fallback table as pending_republish forever, since retrying can
+// never succeed. Back-computing from natsMaxPayloadBytes keeps that
+// oversized case rejected here instead, before it's ever buffered,
+// published, or durably written as a row that can't be fixed.
+const maxWebhookBodyBytes = (natsMaxPayloadBytes - envelopeOverheadBytes) * 3 / 4
 
 // receiveWebhookUseCase is appwebhooks.ReceiveWebhookUseCase narrowed to
 // point of use (ISP) -- lets the handler be unit tested without a real DB,

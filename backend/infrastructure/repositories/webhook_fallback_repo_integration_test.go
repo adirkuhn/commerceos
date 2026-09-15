@@ -4,6 +4,7 @@ package repositories_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -55,13 +56,15 @@ func TestWebhookFallbackRepo_Integration_SaveGetListUpdateStatus(t *testing.T) {
 	require.NoError(t, err)
 
 	var listed []webhooks.FallbackEvent
+	var total int64
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		listed, err = repo.List(ctx, webhooks.FallbackStatusPendingRepublish)
+		listed, total, err = repo.List(ctx, webhooks.FallbackStatusPendingRepublish, 20, 0)
 		return err
 	})
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
+	require.EqualValues(t, 1, total)
 
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		return repo.UpdateStatus(ctx, saved.ID, webhooks.FallbackStatusAbandoned)
@@ -69,12 +72,54 @@ func TestWebhookFallbackRepo_Integration_SaveGetListUpdateStatus(t *testing.T) {
 	require.NoError(t, err)
 
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		listed, err := repo.List(ctx, webhooks.FallbackStatusPendingRepublish)
+		listed, total, err := repo.List(ctx, webhooks.FallbackStatusPendingRepublish, 20, 0)
 		require.NoError(t, err)
 		require.Empty(t, listed)
+		require.EqualValues(t, 0, total)
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+// TestWebhookFallbackRepo_Integration_List_respectsLimitAndOffset pins the
+// "Undelivered webhooks" admin list's pagination: total reflects every
+// matching row regardless of page, while the returned slice is windowed.
+func TestWebhookFallbackRepo_Integration_List_respectsLimitAndOffset(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	repo := repositories.NewWebhookFallbackRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		for i := 0; i < 3; i++ {
+			e := webhooks.FallbackEvent{
+				TenantID: tenantID, Provider: "whatsapp", EventID: fmt.Sprintf("evt-%d", i),
+				Payload: []byte(`{}`), Status: webhooks.FallbackStatusPendingRepublish,
+				ReceivedAt: time.Now().UTC().Add(time.Duration(i) * time.Second),
+			}
+			if err := repo.Save(ctx, &e); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var page1, page2 []webhooks.FallbackEvent
+	var total1, total2 int64
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		page1, total1, err = repo.List(ctx, webhooks.FallbackStatusPendingRepublish, 2, 0)
+		if err != nil {
+			return err
+		}
+		page2, total2, err = repo.List(ctx, webhooks.FallbackStatusPendingRepublish, 2, 2)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, page1, 2)
+	require.Len(t, page2, 1)
+	require.EqualValues(t, 3, total1)
+	require.EqualValues(t, 3, total2)
 }
 
 func TestWebhookFallbackRepo_Integration_UpdateStatusNotFound(t *testing.T) {

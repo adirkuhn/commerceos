@@ -292,6 +292,12 @@ paths:
           required: false
           description: Defaults to pending_republish when omitted.
           schema: { type: string, enum: [pending_republish, republished, abandoned] }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
       responses:
         '200':
           description: ok
@@ -299,6 +305,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WebhookFallbackEventListResponse'
+
+  /integrations/webhook-fallback-events/abandon-all:
+    post:
+      operationId: abandonAllWebhookFallbackEvents
+      summary: Bulk form of abandonWebhookFallbackEvent -- marks every row at `status` (default pending_republish) abandoned
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Defaults to pending_republish when omitted.
+          schema: { type: string, enum: [pending_republish, republished, abandoned] }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AbandonAllWebhookFallbackEventsResponse'
 
   /integrations/webhook-fallback-events/{id}/retry:
     post:
@@ -2245,6 +2269,16 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/WebhookFallbackEvent' }
+        total: { type: integer }
+        error: { nullable: true }
+
+    AbandonAllWebhookFallbackEventsResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            abandoned: { type: integer }
         error: { nullable: true }
 
     WebhookForwardRule:

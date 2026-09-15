@@ -160,6 +160,24 @@ func TestHandleInboundMessageUseCase_fromMeMessage_neverDispatched(t *testing.T)
 	assert.Empty(t, client.sentTo, "our own outbound message echoed back must never be treated as an inbound command")
 }
 
+func TestHandleInboundMessageUseCase_groupChatMessage_neverDispatched(t *testing.T) {
+	client := &fakeEvolutionAPIClient{}
+	uc := appwhatsapp.NewHandleInboundMessageUseCase(
+		newMockGormDB(t, 0),
+		&fakeConnectionRepo{conns: []integrationsDomain.Connection{whatsappConnection(t)}},
+		&fakeEvolutionAPIClientFactory{client: client},
+		testEncryptionSecret,
+		&fakeProductInfoLookup{},
+		&fakeCustomerRepo{},
+		nil,
+	)
+
+	err := uc.Execute(context.Background(), inboundEnvelope("120363025246285034@g.us", "STOCK ABC123", false))
+
+	require.NoError(t, err)
+	assert.Empty(t, client.sentTo, "a group's numeric id is not a phone number -- must never be dispatched as a direct-chat command or sent a reply")
+}
+
 func TestHandleInboundMessageUseCase_lookupInfraError_propagates(t *testing.T) {
 	client := &fakeEvolutionAPIClient{}
 	uc := appwhatsapp.NewHandleInboundMessageUseCase(

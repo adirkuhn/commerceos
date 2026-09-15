@@ -11,6 +11,11 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
+const (
+	defaultWebhookFallbackEventsPerPage = 20
+	maxWebhookFallbackEventsPerPage     = 200
+)
+
 // ListWebhookFallbackEventsUseCase is the admin-facing read side of the
 // fallback table -- what an operator triages after a NATS outage.
 type ListWebhookFallbackEventsUseCase struct {
@@ -22,17 +27,32 @@ func NewListWebhookFallbackEventsUseCase(db *gorm.DB, fallbackRepo webhooks.Fall
 	return &ListWebhookFallbackEventsUseCase{db: db, fallbackRepo: fallbackRepo}
 }
 
-func (uc *ListWebhookFallbackEventsUseCase) Execute(ctx context.Context, status webhooks.FallbackStatus) ([]webhooks.FallbackEvent, error) {
-	var out []webhooks.FallbackEvent
+type ListWebhookFallbackEventsResult struct {
+	Events []webhooks.FallbackEvent
+	Total  int64
+}
+
+func (uc *ListWebhookFallbackEventsUseCase) Execute(ctx context.Context, status webhooks.FallbackStatus, page, perPage int) (*ListWebhookFallbackEventsResult, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if perPage <= 0 {
+		perPage = defaultWebhookFallbackEventsPerPage
+	}
+	if perPage > maxWebhookFallbackEventsPerPage {
+		perPage = maxWebhookFallbackEventsPerPage
+	}
+
+	result := &ListWebhookFallbackEventsResult{}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
-		out, err = uc.fallbackRepo.List(ctx, status)
+		result.Events, result.Total, err = uc.fallbackRepo.List(ctx, status, perPage, (page-1)*perPage)
 		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listWebhookFallbackEvents: %w", err)
 	}
-	return out, nil
+	return result, nil
 }
 
 // RetryWebhookFallbackEventUseCase re-attempts publishing one fallback
@@ -108,4 +128,33 @@ func (uc *AbandonWebhookFallbackEventUseCase) Execute(ctx context.Context, id st
 		return fmt.Errorf("abandonWebhookFallbackEvent: %w", err)
 	}
 	return nil
+}
+
+// AbandonAllWebhookFallbackEventsUseCase is the bulk form of Abandon --
+// every row currently at status (defaults to PendingRepublish) becomes
+// Abandoned in one go, same audit-trail-kept-not-deleted semantics as the
+// single-row action. The admin list's "Abandon all" button.
+type AbandonAllWebhookFallbackEventsUseCase struct {
+	db           *gorm.DB
+	fallbackRepo webhooks.FallbackEventRepository
+}
+
+func NewAbandonAllWebhookFallbackEventsUseCase(db *gorm.DB, fallbackRepo webhooks.FallbackEventRepository) *AbandonAllWebhookFallbackEventsUseCase {
+	return &AbandonAllWebhookFallbackEventsUseCase{db: db, fallbackRepo: fallbackRepo}
+}
+
+func (uc *AbandonAllWebhookFallbackEventsUseCase) Execute(ctx context.Context, status webhooks.FallbackStatus) (int64, error) {
+	if status == "" {
+		status = webhooks.FallbackStatusPendingRepublish
+	}
+	var count int64
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		var err error
+		count, err = uc.fallbackRepo.UpdateStatusForAll(ctx, status, webhooks.FallbackStatusAbandoned)
+		return err
+	})
+	if err != nil {
+		return 0, fmt.Errorf("abandonAllWebhookFallbackEvents: %w", err)
+	}
+	return count, nil
 }

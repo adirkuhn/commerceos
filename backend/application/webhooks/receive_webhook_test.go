@@ -93,8 +93,11 @@ func (f *fakeFallbackRepo) Save(ctx context.Context, e *webhooks.FallbackEvent) 
 func (f *fakeFallbackRepo) Get(ctx context.Context, id string) (*webhooks.FallbackEvent, error) {
 	return nil, nil
 }
-func (f *fakeFallbackRepo) List(ctx context.Context, status webhooks.FallbackStatus) ([]webhooks.FallbackEvent, error) {
-	return nil, nil
+func (f *fakeFallbackRepo) List(ctx context.Context, status webhooks.FallbackStatus, limit, offset int) ([]webhooks.FallbackEvent, int64, error) {
+	return nil, 0, nil
+}
+func (f *fakeFallbackRepo) UpdateStatusForAll(ctx context.Context, fromStatus, toStatus webhooks.FallbackStatus) (int64, error) {
+	return 0, nil
 }
 func (f *fakeFallbackRepo) UpdateStatus(ctx context.Context, id string, status webhooks.FallbackStatus) error {
 	return nil

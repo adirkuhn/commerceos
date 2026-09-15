@@ -48,6 +48,16 @@ func (m evolutionAPIMessage) phone() string {
 	return strings.SplitN(m.Data.Key.RemoteJID, "@", 2)[0]
 }
 
+// isGroup is true for a group chat's RemoteJID ("<groupId>@g.us"), as
+// opposed to a direct 1-1 chat ("<phone>@s.whatsapp.net"). Group messages
+// are deliberately unsupported (no bot commands, no order flow, no
+// customer lookup by "phone" -- a group JID's numeric prefix is a group
+// id, not anyone's phone number) and must be dropped before Execute does
+// anything with phone().
+func (m evolutionAPIMessage) isGroup() bool {
+	return strings.HasSuffix(m.Data.Key.RemoteJID, "@g.us")
+}
+
 func (m evolutionAPIMessage) text() string {
 	if m.Data.Message.Conversation != "" {
 		return m.Data.Message.Conversation
@@ -108,6 +118,9 @@ func (uc *HandleInboundMessageUseCase) Execute(ctx context.Context, envelope web
 		return fmt.Errorf("handleInboundMessage: decode payload: %w", err)
 	}
 	if payload.Data.Key.FromMe {
+		return nil
+	}
+	if payload.isGroup() {
 		return nil
 	}
 	phone := payload.phone()

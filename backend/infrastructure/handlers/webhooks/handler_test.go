@@ -139,6 +139,11 @@ func TestReceiveWebhook_forwardsQueryTokenForMyParcel(t *testing.T) {
 	assert.Equal(t, "secret-abc", uc.headers["__query_token"])
 }
 
+// testMaxWebhookBodyBytes mirrors handler.go's maxWebhookBodyBytes formula
+// ((natsMaxPayloadBytes - envelopeOverheadBytes) * 3 / 4) by hand, since
+// it's unexported and this is a black-box (_test package) test file.
+const testMaxWebhookBodyBytes = (8*1024*1024 - 64*1024) * 3 / 4
+
 // TestReceiveWebhook_413OnOversizedBody pins the real incident: a WhatsApp
 // webhook body of 44.5MB (Evolution API embeds media as inline base64,
 // never read downstream) permanently stuck a fallback row that could never
@@ -149,7 +154,7 @@ func TestReceiveWebhook_413OnOversizedBody(t *testing.T) {
 	uc := &stubReceiveWebhook{result: appwebhooks.Result{EventID: "evt-1"}}
 	r := newTestRouter(uc)
 
-	oversized := bytes.Repeat([]byte("a"), 8*1024*1024+1)
+	oversized := bytes.Repeat([]byte("a"), testMaxWebhookBodyBytes+1)
 	w := doWebhookRequest(t, r, testTenantID, "whatsapp", oversized, nil)
 
 	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
@@ -160,10 +165,35 @@ func TestReceiveWebhook_200AtExactlyTheSizeLimit(t *testing.T) {
 	uc := &stubReceiveWebhook{result: appwebhooks.Result{EventID: "evt-1"}}
 	r := newTestRouter(uc)
 
-	atLimit := bytes.Repeat([]byte("a"), 8*1024*1024)
+	atLimit := bytes.Repeat([]byte("a"), testMaxWebhookBodyBytes)
 	w := doWebhookRequest(t, r, testTenantID, "whatsapp", atLimit, nil)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+// TestReceiveWebhook_413OnBodyThatWouldExceedNATSOncePublishEnvelopeWraps
+// pins the actual production bug this session fixed: a raw body between
+// (old) maxWebhookBodyBytes=8MB and NATS's real 8MB max_payload was
+// accepted here, but application/webhooks.ReceiveWebhookUseCase wraps it
+// in an Envelope and json.Marshals it before publishing -- Envelope's
+// RawPayload []byte field is base64-encoded by encoding/json (+1/3 size),
+// so that marshaled envelope blew past NATS's cap on every one of the 3
+// publish retries, landing the event permanently in the fallback table as
+// pending_republish (retrying can never succeed once the bytes are fixed).
+// A body just above the new (smaller, envelope-overhead-aware)
+// maxWebhookBodyBytes -- but still comfortably under the raw 8MB NATS
+// figure -- must now be rejected with 413 here instead.
+func TestReceiveWebhook_413OnBodyThatWouldExceedNATSOncePublishEnvelopeWraps(t *testing.T) {
+	uc := &stubReceiveWebhook{result: appwebhooks.Result{EventID: "evt-1"}}
+	r := newTestRouter(uc)
+
+	// Comfortably under the raw 8MB NATS max_payload, but its base64+JSON
+	// envelope would exceed it.
+	body := bytes.Repeat([]byte("a"), 7*1024*1024)
+	w := doWebhookRequest(t, r, testTenantID, "whatsapp", body, nil)
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+	assert.Empty(t, uc.provider, "must reject before ever calling the use case")
 }
 
 // ReceiveWebhookWithToken is the current registration shape for MyParcel

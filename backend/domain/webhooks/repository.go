@@ -12,8 +12,15 @@ import (
 type FallbackEventRepository interface {
 	Save(ctx context.Context, e *FallbackEvent) error
 	Get(ctx context.Context, id string) (*FallbackEvent, error)
-	List(ctx context.Context, status FallbackStatus) ([]FallbackEvent, error)
+	// List returns one page of rows matching status (newest first) plus the
+	// total count matching status across every page -- the admin "Undelivered
+	// webhooks" list's pagination.
+	List(ctx context.Context, status FallbackStatus, limit, offset int) ([]FallbackEvent, int64, error)
 	UpdateStatus(ctx context.Context, id string, status FallbackStatus) error
+	// UpdateStatusForAll bulk-transitions every row currently at fromStatus
+	// to toStatus -- the "Abandon all" bulk action on the admin list.
+	// Returns how many rows it actually changed.
+	UpdateStatusForAll(ctx context.Context, fromStatus, toStatus FallbackStatus) (int64, error)
 }
 
 // WebhookEventRepository persists the cold-path landing record -- see

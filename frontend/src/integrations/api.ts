@@ -434,11 +434,30 @@ export function setWebhookSecret(token: string, connectionId: string, secret?: s
   )
 }
 
+export interface ListWebhookFallbackEventsResult {
+  events: WebhookFallbackEvent[]
+  total: number
+}
+
 // Defaults to pending_republish server-side when status is omitted --
 // what an operator triages after a NATS outage.
-export function listWebhookFallbackEvents(token: string, status?: WebhookFallbackStatus): Promise<WebhookFallbackEvent[]> {
-  const query = status ? `?status=${status}` : ''
-  return request<WebhookFallbackEvent[]>(`${base()}/webhook-fallback-events${query}`, { method: 'GET' }, token)
+export async function listWebhookFallbackEvents(
+  token: string, status?: WebhookFallbackStatus, page?: number, perPage?: number,
+): Promise<ListWebhookFallbackEventsResult> {
+  const qs = new URLSearchParams()
+  if (status) qs.set('status', status)
+  if (page) qs.set('page', String(page))
+  if (perPage) qs.set('per_page', String(perPage))
+  const query = qs.toString()
+
+  const res = await fetch(`${base()}/webhook-fallback-events${query ? `?${query}` : ''}`, {
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  })
+  const body: APIResponse<WebhookFallbackEvent[]> & { total?: number } = await res.json()
+  if (!res.ok || body.error) {
+    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+  }
+  return { events: body.data ?? [], total: body.total ?? 0 }
 }
 
 export function retryWebhookFallbackEvent(token: string, id: string): Promise<null> {
@@ -447,6 +466,13 @@ export function retryWebhookFallbackEvent(token: string, id: string): Promise<nu
 
 export function abandonWebhookFallbackEvent(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/webhook-fallback-events/${id}`, { method: 'DELETE' }, token)
+}
+
+// Bulk form of abandonWebhookFallbackEvent -- marks every row at `status`
+// (defaults to pending_republish server-side) abandoned in one call.
+export function abandonAllWebhookFallbackEvents(token: string, status?: WebhookFallbackStatus): Promise<{ abandoned: number }> {
+  const query = status ? `?status=${status}` : ''
+  return request<{ abandoned: number }>(`${base()}/webhook-fallback-events/abandon-all${query}`, { method: 'POST' }, token)
 }
 
 export function listWebhookForwardRules(token: string): Promise<WebhookForwardRule[]> {
