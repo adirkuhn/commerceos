@@ -3,6 +3,7 @@ package whatsapp_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,10 +36,18 @@ func whatsappConnection(t *testing.T) integrationsDomain.Connection {
 	}
 }
 
+// inboundEnvelope builds a minimal payload in the real (whatsmeow-based)
+// shape Evolution API actually sends -- see
+// TestHandleInboundMessageUseCase_parsesRealCapturedEvolutionAPIPayload
+// for the full, verbatim-captured version this was confirmed against.
+// remoteJID doubling as the isGroup signal (via its "@g.us" suffix) is a
+// test-helper convenience only -- the real payload carries IsGroup as its
+// own explicit boolean field, unrelated to the JID string.
 func inboundEnvelope(remoteJID, text string, fromMe bool) webhooks.Envelope {
+	isGroup := strings.HasSuffix(remoteJID, "@g.us")
 	return webhooks.Envelope{
 		EventID: "evt-1", TenantID: "tenant-1", Provider: "whatsapp",
-		RawPayload: []byte(`{"data":{"key":{"remoteJid":"` + remoteJID + `","fromMe":` + boolStr(fromMe) + `},"message":{"conversation":"` + text + `"}}}`),
+		RawPayload: []byte(`{"data":{"Info":{"Sender":"` + remoteJID + `","IsFromMe":` + boolStr(fromMe) + `,"IsGroup":` + boolStr(isGroup) + `},"Message":{"conversation":"` + text + `"}}}`),
 	}
 }
 
@@ -177,6 +186,61 @@ func TestHandleInboundMessageUseCase_groupChatMessage_neverDispatched(t *testing
 
 	require.NoError(t, err)
 	assert.Empty(t, client.sentTo, "a group's numeric id is not a phone number -- must never be dispatched as a direct-chat command or sent a reply")
+}
+
+// realCapturedEvolutionAPIMessagePayload is the exact (trimmed of
+// irrelevant noise fields) webhook body Evolution API sent for a real
+// inbound WhatsApp text message on 2026-09-15 (event ID
+// 0000000000000000000000000000000A) -- captured directly from production
+// logs after every inbound message turned out to be silently dropped.
+// Sender is the gateway's own already-reconciled "<phone>@s.whatsapp.net"
+// (SenderAlt carries the alternate "<numeric>@lid" identity for this
+// particular LID-swap case, and must never be parsed as a phone number).
+const realCapturedEvolutionAPIMessagePayload = `{
+	"data": {
+		"Info": {
+			"Chat": "31600000001@s.whatsapp.net",
+			"ID": "0000000000000000000000000000000A",
+			"IsFromMe": false,
+			"IsGroup": false,
+			"PushName": "Adir Kuhn",
+			"Sender": "31600000001@s.whatsapp.net",
+			"SenderAlt": "100000000000001@lid",
+			"Type": "text"
+		},
+		"Message": {
+			"conversation": "Tem polvilho?",
+			"messageContextInfo": {
+				"deviceListMetadataVersion": 2,
+				"messageSecret": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+			}
+		}
+	},
+	"event": "Message",
+	"instanceId": "00000000-0000-4000-8000-000000000001",
+	"instanceName": "Cantinho1"
+}`
+
+func TestHandleInboundMessageUseCase_parsesRealCapturedEvolutionAPIPayload(t *testing.T) {
+	client := &fakeEvolutionAPIClient{}
+	uc := appwhatsapp.NewHandleInboundMessageUseCase(
+		newMockGormDB(t, 2),
+		&fakeConnectionRepo{conns: []integrationsDomain.Connection{whatsappConnection(t)}},
+		&fakeEvolutionAPIClientFactory{client: client},
+		testEncryptionSecret,
+		&fakeProductInfoLookup{},
+		&fakeCustomerRepo{},
+		nil,
+		&fakeMessageRepo{}, nil, nil)
+
+	err := uc.Execute(context.Background(), webhooks.Envelope{
+		EventID: "evt-1", TenantID: "tenant-1", Provider: "whatsapp",
+		RawPayload: []byte(realCapturedEvolutionAPIMessagePayload),
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "31600000001", client.sentTo, "must dispatch to Sender's phone number, never SenderAlt's @lid identity")
+	assert.Contains(t, client.sentBody, "Commands:", "unrecognized free text (no AI parsing configured in this test) falls back to help text -- proves the message was NOT silently dropped")
 }
 
 func TestHandleInboundMessageUseCase_logsInboundAndOutboundMessages(t *testing.T) {
