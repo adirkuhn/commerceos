@@ -1131,13 +1131,29 @@ func TestConnectAIProviderHandler_success(t *testing.T) {
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
 	w := doRequest(r, http.MethodPost, "/api/v1/integrations/ai", map[string]any{
-		"provider": "openai", "api_key": "sk-test", "model": "gpt-4o",
+		"provider": "openai", "api_key": "sk-test", "model": "gpt-4o", "fallback_models": "gpt-4o-mini",
 	})
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, integrationsDomain.AIProviderOpenAI, connect.gotInput.Provider)
 	assert.Equal(t, "sk-test", connect.gotInput.APIKey)
 	assert.Equal(t, "gpt-4o", connect.gotInput.Model)
+	assert.Equal(t, "gpt-4o-mini", connect.gotInput.FallbackModels)
+}
+
+func TestGetAIConnectionHandler_includesFallbackModelsWhenSet(t *testing.T) {
+	get := &stubGetAIConnection{out: &integrationsDomain.AIConnection{
+		ID: "ai-conn-1", Provider: integrationsDomain.AIProviderGemini, Status: integrationsDomain.StatusConnected,
+		Model: "gemini-3.6-flash", FallbackModels: "gemini-3.5-flash-lite,gemini-3.1-flash-lite",
+	}}
+	h := newAIConnectionTestHandler(get, &stubConnectAIProvider{}, &stubDisconnectAIConnection{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/ai", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "gemini-3.5-flash-lite,gemini-3.1-flash-lite")
 }
 
 func TestConnectAIProviderHandler_propagatesValidationError(t *testing.T) {

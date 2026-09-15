@@ -751,6 +751,7 @@ function AIIntegrationCard() {
   const [apiKey, setApiKey] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
   const [model, setModel] = useState('')
+  const [fallbackModels, setFallbackModels] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -759,6 +760,7 @@ function AIIntegrationCard() {
     setApiKey('')
     setBaseUrl(connection?.base_url ?? '')
     setModel(connection?.model ?? '')
+    setFallbackModels(connection?.fallback_models ?? '')
     setFormError('')
     setConfiguring(true)
   }
@@ -768,7 +770,7 @@ function AIIntegrationCard() {
     setSaving(true)
     setFormError('')
     try {
-      await connect({ provider, apiKey, baseUrl, model })
+      await connect({ provider, apiKey, baseUrl, model, fallbackModels })
       setConfiguring(false)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to connect')
@@ -895,6 +897,24 @@ function AIIntegrationCard() {
                   className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
+              {provider === 'gemini' && (
+                <div>
+                  <label htmlFor="ai-fallback-models" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Fallback models (optional)
+                  </label>
+                  <input
+                    id="ai-fallback-models"
+                    type="text"
+                    value={fallbackModels}
+                    onChange={e => setFallbackModels(e.target.value)}
+                    placeholder="gemini-3.5-flash-lite, gemini-3.1-flash-lite"
+                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    Comma-separated. Tried in order when Model hits a rate limit (Gemini's free tier caps some models at 20 requests/day, others at 500).
+                  </p>
+                </div>
+              )}
               {formError && (
                 <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
               )}

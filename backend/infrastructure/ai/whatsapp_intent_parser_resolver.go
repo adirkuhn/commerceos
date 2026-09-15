@@ -65,7 +65,7 @@ func (r *WhatsAppIntentParserResolver) Resolve(ctx context.Context) (whatsappDom
 		}
 		return p, nil
 	case integrationsDomain.AIProviderGemini:
-		p := NewGeminiWhatsAppIntentParser(apiKey).WithModel(conn.Model)
+		p := NewGeminiWhatsAppIntentParser(apiKey).WithModel(conn.Model).WithFallbackModels(conn.FallbackModels)
 		if conn.BaseURL != "" {
 			p = p.WithBaseURL(conn.BaseURL)
 		}

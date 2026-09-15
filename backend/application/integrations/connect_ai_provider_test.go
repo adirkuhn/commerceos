@@ -30,6 +30,7 @@ func TestConnectAIProvider_encryptsKeyAndUpserts(t *testing.T) {
 
 	conn, err := uc.Execute(withTenantCtx("tenant-1"), appintegrations.ConnectAIProviderInput{
 		Provider: integrationsDomain.AIProviderOpenAI, APIKey: "sk-test-key", Model: "gpt-4o",
+		FallbackModels: "gpt-4o-mini",
 	})
 
 	require.NoError(t, err)
@@ -39,6 +40,8 @@ func TestConnectAIProvider_encryptsKeyAndUpserts(t *testing.T) {
 	assert.NotEmpty(t, conn.APIKeyEncrypted)
 	assert.NotEqual(t, "sk-test-key", conn.APIKeyEncrypted, "the raw key must never be stored/returned as-is")
 	assert.Equal(t, integrationsDomain.StatusConnected, conn.Status)
+	assert.Equal(t, "gpt-4o-mini", conn.FallbackModels)
+	assert.Equal(t, "gpt-4o-mini", upserted.FallbackModels)
 }
 
 func TestConnectAIProvider_ollamaAllowsEmptyAPIKey(t *testing.T) {

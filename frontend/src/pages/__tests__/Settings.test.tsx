@@ -481,8 +481,46 @@ describe('Settings > Integrations > AI', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(integrationsApi.connectAIProvider).toHaveBeenCalledWith('test-token', {
-      provider: 'openai', apiKey: 'sk-test-key', baseUrl: '', model: '',
+      provider: 'openai', apiKey: 'sk-test-key', baseUrl: '', model: '', fallbackModels: '',
     }))
+  })
+
+  it('shows fallback models only for Gemini, and sends it on save', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+    vi.mocked(integrationsApi.connectAIProvider).mockResolvedValue({
+      id: 'ai-conn-1', provider: 'gemini', status: 'connected', created_at: '',
+    })
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
+
+    expect(screen.queryByLabelText(/Fallback models/)).not.toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByLabelText('Provider'), 'gemini')
+    expect(screen.getByLabelText(/Fallback models/)).toBeInTheDocument()
+
+    await userEvent.type(screen.getByLabelText('API Key'), 'gm-test-key')
+    await userEvent.type(screen.getByLabelText(/Fallback models/), 'gemini-3.5-flash-lite,gemini-3.1-flash-lite')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.connectAIProvider).toHaveBeenCalledWith('test-token', {
+      provider: 'gemini', apiKey: 'gm-test-key', baseUrl: '', model: '', fallbackModels: 'gemini-3.5-flash-lite,gemini-3.1-flash-lite',
+    }))
+  })
+
+  it('prefills fallback models from the existing connection', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue({
+      id: 'ai-conn-1', provider: 'gemini', status: 'connected', created_at: '',
+      model: 'gemini-3.6-flash', fallback_models: 'gemini-3.5-flash-lite',
+    })
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+
+    expect(screen.getByLabelText(/Fallback models/)).toHaveValue('gemini-3.5-flash-lite')
   })
 
   it('requires a server URL instead of an API key for Ollama', async () => {

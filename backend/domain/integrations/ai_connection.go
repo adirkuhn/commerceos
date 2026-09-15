@@ -42,10 +42,17 @@ type AIConnection struct {
 	BaseURL string
 	// Model is the provider-specific model identifier -- empty means "use
 	// the adapter's built-in default" (e.g. OpenAI's gpt-4o).
-	Model     string
-	Status    Status
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Model string
+	// FallbackModels is a comma-separated list of model IDs to retry, in
+	// order, when Model comes back rate-limited (HTTP 429) -- e.g. Gemini's
+	// free tier caps some models at 20 requests/day and others at 500.
+	// Empty means no fallback: a rate limit just fails, same as before this
+	// field existed. Only infrastructure/ai's Gemini adapter reads it
+	// today.
+	FallbackModels string
+	Status         Status
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // RequiresAPIKey reports whether Provider needs a non-empty APIKeyEncrypted

@@ -713,6 +713,9 @@ func (h *Handler) ConnectAIProvider(c *gin.Context) {
 	if req.Model != nil {
 		in.Model = *req.Model
 	}
+	if req.FallbackModels != nil {
+		in.FallbackModels = *req.FallbackModels
+	}
 	conn, err := h.connectAIProvider.Execute(c.Request.Context(), in)
 	if err := mapError(c, err); err != nil {
 		return
@@ -1939,6 +1942,9 @@ func toGenAIConnection(c integrationsDomain.AIConnection) genintegrations.AIConn
 	}
 	if c.Model != "" {
 		resp.Model = &c.Model
+	}
+	if c.FallbackModels != "" {
+		resp.FallbackModels = &c.FallbackModels
 	}
 	return resp
 }

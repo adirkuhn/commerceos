@@ -19,6 +19,10 @@ type ConnectAIProviderInput struct {
 	APIKey  string
 	BaseURL string
 	Model   string
+	// FallbackModels is a comma-separated list of model IDs to retry, in
+	// order, when Model comes back rate-limited -- see
+	// domain/integrations.AIConnection.FallbackModels.
+	FallbackModels string
 }
 
 // ConnectAIProviderUseCase upserts the tenant's single AIConnection --
@@ -61,7 +65,7 @@ func (uc *ConnectAIProviderUseCase) Execute(ctx context.Context, in ConnectAIPro
 
 	conn := &integrationsDomain.AIConnection{
 		TenantID: tenantID, Provider: in.Provider,
-		APIKeyEncrypted: apiKeyEncrypted, BaseURL: in.BaseURL, Model: in.Model,
+		APIKeyEncrypted: apiKeyEncrypted, BaseURL: in.BaseURL, Model: in.Model, FallbackModels: in.FallbackModels,
 		Status: integrationsDomain.StatusConnected, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {

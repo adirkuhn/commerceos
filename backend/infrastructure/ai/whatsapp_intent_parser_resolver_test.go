@@ -2,7 +2,11 @@ package ai_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,6 +15,7 @@ import (
 	"github.com/adirkuhn/commerceos/application/integrations/mocks"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/infrastructure/ai"
+	"github.com/adirkuhn/commerceos/internal/crypto"
 )
 
 func TestWhatsAppIntentParserResolver_returnsNilWhenNotConfigured(t *testing.T) {
@@ -48,6 +53,44 @@ func TestWhatsAppIntentParserResolver_buildsCorrectAdapterPerProvider(t *testing
 			assert.IsType(t, tc.wantType, parser)
 		})
 	}
+}
+
+func TestWhatsAppIntentParserResolver_geminiWiresFallbackModelsFromConnection(t *testing.T) {
+	var calledModels []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calledModels = append(calledModels, r.URL.Path)
+		if strings.Contains(r.URL.Path, "primary-model") {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"code": 429}})
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"candidates": []map[string]any{
+				{"content": map[string]any{"role": "model", "parts": []map[string]any{{"text": `{"command":"STOCK","product_query":"flocao"}`}}}, "finishReason": "STOP"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	encryptedKey, err := crypto.Encrypt("test-secret", "test-api-key")
+	require.NoError(t, err)
+	repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+		return &integrationsDomain.AIConnection{
+			Provider: integrationsDomain.AIProviderGemini, BaseURL: server.URL, APIKeyEncrypted: encryptedKey,
+			Model: "primary-model", FallbackModels: "fallback-model",
+		}, nil
+	}}
+	resolver := ai.NewWhatsAppIntentParserResolver(newMockGormDB(t), repo, "test-secret")
+
+	parser, err := resolver.Resolve(context.Background())
+	require.NoError(t, err)
+
+	intent, err := parser.ParseIntent(context.Background(), "tem flocao?")
+	require.NoError(t, err)
+	assert.Equal(t, "flocao", intent.ProductQuery)
+	require.Len(t, calledModels, 2)
+	assert.Contains(t, calledModels[1], "fallback-model")
 }
 
 func TestWhatsAppIntentParserResolver_propagatesRepoError(t *testing.T) {

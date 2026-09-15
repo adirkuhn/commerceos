@@ -1569,6 +1569,12 @@ components:
         # provider's default".
         base_url: { type: string }
         model: { type: string }
+        fallback_models:
+          type: string
+          description: >
+            Comma-separated model IDs to retry, in order, when model comes
+            back rate-limited (HTTP 429). Only consumed by the Gemini
+            adapter today. Empty means no fallback.
         status: { $ref: '#/components/schemas/ConnectionStatus' }
         created_at: { type: string, format: date-time }
 
@@ -1582,6 +1588,7 @@ components:
         # Required for ollama (the tenant's self-hosted instance URL).
         base_url: { type: string }
         model: { type: string }
+        fallback_models: { type: string }
 
     AIConnectionResponse:
       type: object

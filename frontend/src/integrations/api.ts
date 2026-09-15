@@ -191,6 +191,7 @@ export interface ConnectAIProviderPayload {
   apiKey?: string
   baseUrl?: string
   model?: string
+  fallbackModels?: string
 }
 
 export function connectAIProvider(token: string, payload: ConnectAIProviderPayload): Promise<AIConnection> {
@@ -203,6 +204,7 @@ export function connectAIProvider(token: string, payload: ConnectAIProviderPaylo
         api_key: payload.apiKey || undefined,
         base_url: payload.baseUrl || undefined,
         model: payload.model || undefined,
+        fallback_models: payload.fallbackModels || undefined,
       }),
     },
     token,

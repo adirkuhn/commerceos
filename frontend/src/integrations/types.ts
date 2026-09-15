@@ -228,6 +228,7 @@ export interface AIConnection {
   provider: AIProvider
   base_url?: string | null
   model?: string | null
+  fallback_models?: string | null
   status: 'connected' | 'error'
   created_at: string
 }

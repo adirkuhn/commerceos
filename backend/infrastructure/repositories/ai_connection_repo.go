@@ -20,6 +20,7 @@ type aiConnectionModel struct {
 	APIKeyEncrypted string `gorm:"column:api_key_encrypted"`
 	BaseURL         string `gorm:"column:base_url"`
 	Model           string `gorm:"not null;default:''"`
+	FallbackModels  string `gorm:"column:fallback_models;not null;default:''"`
 	Status          string `gorm:"not null;default:'connected'"`
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
@@ -61,12 +62,12 @@ func (r *AIConnectionRepo) Upsert(ctx context.Context, c *integrationsDomain.AIC
 	}
 	m := aiConnectionModel{
 		TenantID: c.TenantID, Provider: string(c.Provider),
-		APIKeyEncrypted: c.APIKeyEncrypted, BaseURL: c.BaseURL, Model: c.Model,
+		APIKeyEncrypted: c.APIKeyEncrypted, BaseURL: c.BaseURL, Model: c.Model, FallbackModels: c.FallbackModels,
 		Status: string(c.Status), CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "tenant_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"provider", "api_key_encrypted", "base_url", "model", "status", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"provider", "api_key_encrypted", "base_url", "model", "fallback_models", "status", "updated_at"}),
 	}).Create(&m).Error
 	if err != nil {
 		return fmt.Errorf("aiConnectionRepo.Upsert: %w", err)
@@ -92,7 +93,7 @@ func (r *AIConnectionRepo) Delete(ctx context.Context) error {
 func toAIConnectionDomain(m aiConnectionModel) *integrationsDomain.AIConnection {
 	return &integrationsDomain.AIConnection{
 		ID: m.ID, TenantID: m.TenantID, Provider: integrationsDomain.AIProvider(m.Provider),
-		APIKeyEncrypted: m.APIKeyEncrypted, BaseURL: m.BaseURL, Model: m.Model,
+		APIKeyEncrypted: m.APIKeyEncrypted, BaseURL: m.BaseURL, Model: m.Model, FallbackModels: m.FallbackModels,
 		Status: integrationsDomain.Status(m.Status), CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }
