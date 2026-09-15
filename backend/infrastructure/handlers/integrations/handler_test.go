@@ -612,6 +612,24 @@ func (s *stubSetWhatsAppAIParsing) Execute(_ context.Context, connectionID strin
 	return &integrationsDomain.Connection{ID: connectionID, Provider: integrationsDomain.ProviderWhatsApp, WhatsAppAIParsingEnabled: enabled}, nil
 }
 
+type stubUpdateWhatsAppCredentials struct {
+	out   *integrationsDomain.Connection
+	err   error
+	gotID string
+	gotIn appintegrations.UpdateWhatsAppCredentialsInput
+}
+
+func (s *stubUpdateWhatsAppCredentials) Execute(_ context.Context, connectionID string, in appintegrations.UpdateWhatsAppCredentialsInput) (*integrationsDomain.Connection, error) {
+	s.gotID, s.gotIn = connectionID, in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &integrationsDomain.Connection{ID: connectionID, Provider: integrationsDomain.ProviderWhatsApp, StoreURL: integrationsDomain.StoreURL(in.BaseURL), ConsumerKey: in.InstanceName}, nil
+}
+
 type stubCreateWebhookForwardRule struct {
 	out *webhooksDomain.ForwardRule
 	err error
@@ -754,7 +772,7 @@ func newTestHandler(
 		&stubCreateImportJob{}, &stubPushProductToWoo{}, &stubListSyncSchedules{}, &stubUpsertSyncSchedule{},
 		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newSyncScheduleTestHandler builds a Handler for the sync-schedule routes
@@ -766,7 +784,7 @@ func newSyncScheduleTestHandler(list *stubListSyncSchedules, upsert *stubUpsertS
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		list, upsert, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newListWooTaxesTestHandler builds a Handler for the woo-taxes route
@@ -777,7 +795,7 @@ func newListWooTaxesTestHandler(listWooTaxes *stubListWooTaxes) *integrationshan
 		&stubDisconnectConnection{}, &stubTestConnection{}, listWooTaxes, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newCategoryLinksTestHandler builds a Handler for the woo-categories/
@@ -790,7 +808,7 @@ func newCategoryLinksTestHandler(listWooCategories *stubListWooCategories, listL
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{},
-		listWooCategories, listLinks, upsert, del, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		listWooCategories, listLinks, upsert, del, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newDeleteImportedTestHandler builds a Handler for the delete-all-imported
@@ -801,7 +819,7 @@ func newDeleteImportedTestHandler(deleteAll *stubDeleteAllImportedProducts) *int
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, deleteAll, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newUpdateConnectionSettingsTestHandler builds a Handler for the
@@ -812,7 +830,7 @@ func newUpdateConnectionSettingsTestHandler(settings *stubUpdateConnectionSettin
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, settings, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newLinkExistingWooProductTestHandler builds a Handler for the
@@ -824,7 +842,7 @@ func newLinkExistingWooProductTestHandler(link *stubLinkExistingWooProduct) *int
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, link, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, link, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 func TestLinkExistingWooProductHandler_returnsTheListing(t *testing.T) {
@@ -880,7 +898,7 @@ func newGetListingTestHandler(getListing *stubGetProductChannelListing) *integra
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		getListing, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newListProductChannelListingsTestHandler builds a Handler for the
@@ -893,7 +911,7 @@ func newListProductChannelListingsTestHandler(list *stubListProductChannelListin
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, list, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, list, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 func TestListProductChannelListingsHandler_returnsEveryRow(t *testing.T) {
@@ -933,7 +951,7 @@ func newListSyncLogsTestHandler(listLogs *stubListSyncLogs) *integrationshandler
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, listLogs, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newListAllSyncLogsTestHandler builds a Handler for the tenant-wide
@@ -946,7 +964,7 @@ func newListAllSyncLogsTestHandler(listAll *stubListAllSyncLogs) *integrationsha
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, listAll, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newSyncLogAttentionTestHandler builds a Handler for the "needs attention"/
@@ -960,7 +978,7 @@ func newSyncLogAttentionTestHandler(needingAttn *stubListSyncLogsNeedingAttentio
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
 		needingAttn, retry, dismiss, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newResyncProductTestHandler builds a Handler for the resync-to-channels
@@ -973,7 +991,7 @@ func newResyncProductTestHandler(resync *stubResyncProductToChannels) *integrati
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		resync,
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 func TestResyncProductToChannelsHandler_success(t *testing.T) {
@@ -1009,7 +1027,7 @@ func newFetchWooOrderTestHandler(fetch *stubFetchWooOrder) *integrationshandler.
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
-		fetch, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		fetch, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newWhatsappTestHandler builds a Handler for the WhatsApp connect route
@@ -1023,7 +1041,7 @@ func newWhatsappTestHandler(connectWhatsapp *stubConnectWhatsapp) *integrationsh
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 		&stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{},
-		&stubConnectBol{}, connectWhatsapp, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubConnectBol{}, connectWhatsapp, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newPaymentTestHandler builds a Handler for the Stripe/Revolut connect and
@@ -1038,7 +1056,7 @@ func newPaymentTestHandler(connectStripe *stubConnectStripe, connectRevolut *stu
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 		&stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{},
-		&stubConnectBol{}, &stubConnectWhatsapp{}, connectStripe, connectRevolut, listPayments, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubConnectBol{}, &stubConnectWhatsapp{}, connectStripe, connectRevolut, listPayments, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newBolTestHandler builds a Handler for the Bol routes specifically —
@@ -1052,7 +1070,7 @@ func newBolTestHandler(connectBol *stubConnectBol, pushBol *stubPushProductToBol
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 		&stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{},
-		connectBol, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, pushBol, getOverride, upsertOverride, getContent, upsertContent, getCommission, listEconomicOperators, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		connectBol, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, pushBol, getOverride, upsertOverride, getContent, upsertContent, getCommission, listEconomicOperators, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 func doRequest(rg *gin.Engine, method, path string, body any) *httptest.ResponseRecorder {
@@ -1165,6 +1183,21 @@ func TestListConnectionsHandler_neverLeaksSecret(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "mystore.com")
 	assert.NotContains(t, w.Body.String(), "ck_live_secret")
 	assert.NotContains(t, w.Body.String(), "encrypted-blob")
+}
+
+func TestListConnectionsHandler_exposesConsumerKeyOnlyForWhatsAppAsInstanceName(t *testing.T) {
+	conns := []integrationsDomain.Connection{
+		{ID: "conn-woo", Provider: integrationsDomain.ProviderWooCommerce, ConsumerKey: "ck_live_secret", CreatedAt: time.Now()},
+		{ID: "conn-wa", Provider: integrationsDomain.ProviderWhatsApp, ConsumerKey: "my-instance", CreatedAt: time.Now()},
+	}
+	h := newTestHandler(&stubListConnections{out: conns}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{}, &stubDisconnectConnection{}, &stubTestConnection{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections", nil)
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.NotContains(t, w.Body.String(), "ck_live_secret")
+	assert.Contains(t, w.Body.String(), "my-instance")
 }
 
 func TestStartWooConnectHandler_returnsAuthorizeURL(t *testing.T) {
@@ -1573,7 +1606,7 @@ func newImportTestHandler(importUC *stubCreateImportJob) *integrationshandler.Ha
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, importUC, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newAIConnectionTestHandler builds a Handler for the AI connection routes
@@ -1587,7 +1620,7 @@ func newAIConnectionTestHandler(
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		get, connect, disconnect,
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // The import endpoint no longer runs the import inline — it enqueues an
@@ -1843,7 +1876,7 @@ func newSalesChannelTestHandler(
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		list, create, update, &stubSetSalesChannelPaymentMethod{}, del, listProducts, setOverride, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		list, create, update, &stubSetSalesChannelPaymentMethod{}, del, listProducts, setOverride, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newSetPaymentMethodTestHandler builds a Handler for the sales-channel
@@ -1856,7 +1889,7 @@ func newSetPaymentMethodTestHandler(setPayment *stubSetSalesChannelPaymentMethod
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, setPayment, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, setPayment, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 func TestSetSalesChannelPaymentMethodHandler_enable_success(t *testing.T) {
@@ -2217,14 +2250,14 @@ func TestDismissFailedSyncHandler_notFound(t *testing.T) {
 // newWebhookAdminTestHandler builds a Handler for the webhook-secret/
 // fallback-event admin routes specifically — every other use case is a
 // harmless zero-value stub.
-func newWebhookAdminTestHandler(setSecret *stubSetWebhookSecret, list *stubListWebhookFallbackEvents, retry *stubRetryWebhookFallbackEvent, abandon *stubAbandonWebhookFallbackEvent, abandonAll *stubAbandonAllWebhookFallbackEvents, setTestMode *stubSetWhatsAppTestMode, setAIParsing *stubSetWhatsAppAIParsing) *integrationshandler.Handler {
+func newWebhookAdminTestHandler(setSecret *stubSetWebhookSecret, list *stubListWebhookFallbackEvents, retry *stubRetryWebhookFallbackEvent, abandon *stubAbandonWebhookFallbackEvent, abandonAll *stubAbandonAllWebhookFallbackEvents, setTestMode *stubSetWhatsAppTestMode, setAIParsing *stubSetWhatsAppAIParsing, updateCreds *stubUpdateWhatsAppCredentials) *integrationshandler.Handler {
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubSetSalesChannelPaymentMethod{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{},
-		setSecret, list, retry, abandon, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, abandonAll, setTestMode, setAIParsing)
+		setSecret, list, retry, abandon, &stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{}, &stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{}, &stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, abandonAll, setTestMode, setAIParsing, updateCreds)
 }
 
 // newWebhookForwardTestHandler wires only the four webhook fan-out use
@@ -2239,7 +2272,7 @@ func newWebhookForwardTestHandler(create *stubCreateWebhookForwardRule, list *st
 		&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{},
 		create, list, del, listDeliveries,
 		&stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{},
-		&stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 func TestCreateWebhookForwardRuleHandler_success(t *testing.T) {
@@ -2316,7 +2349,7 @@ func newProviderWebhookTestHandler(list *stubListProviderWebhooks, create *stubC
 		&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{},
 		&stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{},
 		list, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, create, del,
-		&stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 func newListAllProviderWebhooksTestHandler(stub *stubListAllProviderWebhooks) *integrationshandler.Handler {
@@ -2329,7 +2362,7 @@ func newListAllProviderWebhooksTestHandler(stub *stubListAllProviderWebhooks) *i
 		&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{},
 		&stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{},
 		&stubListProviderWebhooks{}, stub, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{},
-		&stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 func TestListAllProviderWebhooksHandler_returnsList(t *testing.T) {
@@ -2359,7 +2392,7 @@ func newListAvailableWebhookTopicsTestHandler(stub *stubListAvailableWebhookTopi
 		&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{},
 		&stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{},
 		&stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, stub, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{},
-		&stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newListWebhookEventsTestHandler builds a Handler for the webhook-events
@@ -2374,7 +2407,7 @@ func newListWebhookEventsTestHandler(stub *stubListWebhookEvents) *integrationsh
 		&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{},
 		&stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{},
 		&stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{},
-		&stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, stub, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, stub, &stubRetryWebhookEventDispatch{}, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 // newRetryWebhookEventDispatchTestHandler builds a Handler for the
@@ -2390,7 +2423,7 @@ func newRetryWebhookEventDispatchTestHandler(stub *stubRetryWebhookEventDispatch
 		&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{},
 		&stubCreateWebhookForwardRule{}, &stubListWebhookForwardRules{}, &stubDeleteWebhookForwardRule{}, &stubListWebhookForwardDeliveries{},
 		&stubListProviderWebhooks{}, &stubListAllProviderWebhooks{}, &stubListAvailableWebhookTopics{}, &stubCreateProviderWebhook{}, &stubDeleteProviderWebhook{},
-		&stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, stub, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+		&stubConnectBol{}, &stubConnectWhatsapp{}, &stubConnectStripe{}, &stubConnectRevolut{}, &stubListPaymentConnections{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{}, &stubListWebhookEvents{}, stub, &stubLinkExistingWooProduct{}, &stubListProductChannelListings{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 }
 
 func TestRetryWebhookEventDispatchHandler_returnsUpdatedRow(t *testing.T) {
@@ -2596,7 +2629,7 @@ func TestDeleteProviderWebhookHandler_liveCallFailure_returns502(t *testing.T) {
 
 func TestSetWebhookSecretHandler_returnsPlaintextSecretOnce(t *testing.T) {
 	stub := &stubSetWebhookSecret{out: &appintegrations.SetWebhookSecretResult{ConnectionID: "conn-1", PlaintextSecret: "topsecret"}}
-	h := newWebhookAdminTestHandler(stub, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(stub, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2608,7 +2641,7 @@ func TestSetWebhookSecretHandler_returnsPlaintextSecretOnce(t *testing.T) {
 
 func TestSetWebhookSecretHandler_passesThroughAProvidedSecret(t *testing.T) {
 	stub := &stubSetWebhookSecret{out: &appintegrations.SetWebhookSecretResult{ConnectionID: "conn-1", PlaintextSecret: "whsec_from_dashboard"}}
-	h := newWebhookAdminTestHandler(stub, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(stub, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2620,7 +2653,7 @@ func TestSetWebhookSecretHandler_passesThroughAProvidedSecret(t *testing.T) {
 
 func TestSetWebhookSecretHandler_notFound(t *testing.T) {
 	stub := &stubSetWebhookSecret{err: integrationsDomain.ErrConnectionNotFound}
-	h := newWebhookAdminTestHandler(stub, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(stub, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2631,7 +2664,7 @@ func TestSetWebhookSecretHandler_notFound(t *testing.T) {
 
 func TestSetWhatsAppTestModeHandler_enablesWithTestPhone(t *testing.T) {
 	stub := &stubSetWhatsAppTestMode{}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, stub, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, stub, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2646,7 +2679,7 @@ func TestSetWhatsAppTestModeHandler_enablesWithTestPhone(t *testing.T) {
 
 func TestSetWhatsAppTestModeHandler_validationError(t *testing.T) {
 	stub := &stubSetWhatsAppTestMode{err: integrationsDomain.ErrWhatsAppTestPhoneRequired}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, stub, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, stub, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2657,7 +2690,7 @@ func TestSetWhatsAppTestModeHandler_validationError(t *testing.T) {
 
 func TestSetWhatsAppTestModeHandler_notFound(t *testing.T) {
 	stub := &stubSetWhatsAppTestMode{err: integrationsDomain.ErrConnectionNotFound}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, stub, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, stub, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2668,7 +2701,7 @@ func TestSetWhatsAppTestModeHandler_notFound(t *testing.T) {
 
 func TestSetWhatsAppAIParsingHandler_enables(t *testing.T) {
 	stub := &stubSetWhatsAppAIParsing{}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, stub)
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, stub, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2681,7 +2714,7 @@ func TestSetWhatsAppAIParsingHandler_enables(t *testing.T) {
 
 func TestSetWhatsAppAIParsingHandler_validationError(t *testing.T) {
 	stub := &stubSetWhatsAppAIParsing{err: appintegrations.ErrAIConnectionRequiredForWhatsAppParsing}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, stub)
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, stub, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2692,7 +2725,7 @@ func TestSetWhatsAppAIParsingHandler_validationError(t *testing.T) {
 
 func TestSetWhatsAppAIParsingHandler_notFound(t *testing.T) {
 	stub := &stubSetWhatsAppAIParsing{err: integrationsDomain.ErrConnectionNotFound}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, stub)
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, stub, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2701,9 +2734,62 @@ func TestSetWhatsAppAIParsingHandler_notFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
+func TestUpdateWhatsAppCredentialsHandler_updatesBaseURLInstanceNameAndKey(t *testing.T) {
+	stub := &stubUpdateWhatsAppCredentials{}
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, stub)
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/conn-1/whatsapp-credentials",
+		map[string]any{"base_url": "https://evolution.example.com", "instance_name": "my-instance", "api_key": "new-key"})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "conn-1", stub.gotID)
+	assert.Equal(t, "https://evolution.example.com", stub.gotIn.BaseURL)
+	assert.Equal(t, "my-instance", stub.gotIn.InstanceName)
+	assert.Equal(t, "new-key", stub.gotIn.APIKey)
+}
+
+func TestUpdateWhatsAppCredentialsHandler_omittedAPIKeyIsEmptyString(t *testing.T) {
+	stub := &stubUpdateWhatsAppCredentials{}
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, stub)
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/conn-1/whatsapp-credentials",
+		map[string]any{"base_url": "https://evolution.example.com", "instance_name": "my-instance"})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "", stub.gotIn.APIKey)
+}
+
+func TestUpdateWhatsAppCredentialsHandler_validationError(t *testing.T) {
+	stub := &stubUpdateWhatsAppCredentials{err: integrationsDomain.ErrStoreURLInvalid}
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, stub)
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/conn-1/whatsapp-credentials",
+		map[string]any{"base_url": "not-a-url", "instance_name": "my-instance"})
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpdateWhatsAppCredentialsHandler_notFound(t *testing.T) {
+	stub := &stubUpdateWhatsAppCredentials{err: integrationsDomain.ErrConnectionNotFound}
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, stub)
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/missing/whatsapp-credentials",
+		map[string]any{"base_url": "https://evolution.example.com", "instance_name": "my-instance"})
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestListWebhookFallbackEventsHandler_returnsList(t *testing.T) {
 	stub := &stubListWebhookFallbackEvents{out: []webhooksDomain.FallbackEvent{{ID: "fb-1", Provider: "woocommerce", Status: webhooksDomain.FallbackStatusPendingRepublish}}}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, stub, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, stub, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2715,7 +2801,7 @@ func TestListWebhookFallbackEventsHandler_returnsList(t *testing.T) {
 
 func TestAbandonAllWebhookFallbackEventsHandler_success(t *testing.T) {
 	stub := &stubAbandonAllWebhookFallbackEvents{count: 9}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, stub, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, stub, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2728,7 +2814,7 @@ func TestAbandonAllWebhookFallbackEventsHandler_success(t *testing.T) {
 
 func TestListWebhookFallbackEventsHandler_forwardsPageAndPerPageAndReturnsTotal(t *testing.T) {
 	stub := &stubListWebhookFallbackEvents{out: []webhooksDomain.FallbackEvent{{ID: "fb-1"}}, total: 47}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, stub, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, stub, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2742,7 +2828,7 @@ func TestListWebhookFallbackEventsHandler_forwardsPageAndPerPageAndReturnsTotal(
 
 func TestRetryWebhookFallbackEventHandler_success(t *testing.T) {
 	stub := &stubRetryWebhookFallbackEvent{}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, stub, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, stub, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2753,7 +2839,7 @@ func TestRetryWebhookFallbackEventHandler_success(t *testing.T) {
 
 func TestRetryWebhookFallbackEventHandler_publishFailureReturns502(t *testing.T) {
 	stub := &stubRetryWebhookFallbackEvent{err: errors.New("nats: no responders")}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, stub, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, stub, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2764,7 +2850,7 @@ func TestRetryWebhookFallbackEventHandler_publishFailureReturns502(t *testing.T)
 
 func TestRetryWebhookFallbackEventHandler_payloadTooLargeReturns422(t *testing.T) {
 	stub := &stubRetryWebhookFallbackEvent{err: webhooksDomain.ErrPayloadTooLarge}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, stub, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, stub, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2775,7 +2861,7 @@ func TestRetryWebhookFallbackEventHandler_payloadTooLargeReturns422(t *testing.T
 
 func TestRetryWebhookFallbackEventHandler_notFound(t *testing.T) {
 	stub := &stubRetryWebhookFallbackEvent{err: webhooksDomain.ErrFallbackEventNotFound}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, stub, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, stub, &stubAbandonWebhookFallbackEvent{}, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2786,7 +2872,7 @@ func TestRetryWebhookFallbackEventHandler_notFound(t *testing.T) {
 
 func TestAbandonWebhookFallbackEventHandler_success(t *testing.T) {
 	stub := &stubAbandonWebhookFallbackEvent{}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, stub, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, stub, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2797,7 +2883,7 @@ func TestAbandonWebhookFallbackEventHandler_success(t *testing.T) {
 
 func TestAbandonWebhookFallbackEventHandler_notFound(t *testing.T) {
 	stub := &stubAbandonWebhookFallbackEvent{err: webhooksDomain.ErrFallbackEventNotFound}
-	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, stub, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{})
+	h := newWebhookAdminTestHandler(&stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, stub, &stubAbandonAllWebhookFallbackEvents{}, &stubSetWhatsAppTestMode{}, &stubSetWhatsAppAIParsing{}, &stubUpdateWhatsAppCredentials{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 

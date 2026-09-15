@@ -78,6 +78,9 @@ type setWhatsAppAIParsingUC interface {
 type setWhatsAppTestModeUC interface {
 	Execute(ctx context.Context, connectionID string, enabled bool, testPhoneE164 string) (*integrationsDomain.Connection, error)
 }
+type updateWhatsAppCredentialsUC interface {
+	Execute(ctx context.Context, connectionID string, in appintegrations.UpdateWhatsAppCredentialsInput) (*integrationsDomain.Connection, error)
+}
 type abandonAllWebhookFallbackEventsUC interface {
 	Execute(ctx context.Context, status webhooksDomain.FallbackStatus) (int64, error)
 }
@@ -308,6 +311,7 @@ type Handler struct {
 	linkExistingWooProduct          linkExistingWooProductUC
 	abandonAllWebhookFallbackEvents abandonAllWebhookFallbackEventsUC
 	setWhatsAppTestMode             setWhatsAppTestModeUC
+	updateWhatsAppCredentials       updateWhatsAppCredentialsUC
 	setWhatsAppAIParsing            setWhatsAppAIParsingUC
 }
 
@@ -380,6 +384,7 @@ func NewHandler(
 	abandonAllWebhookFallbackEvents abandonAllWebhookFallbackEventsUC,
 	setWhatsAppTestMode setWhatsAppTestModeUC,
 	setWhatsAppAIParsing setWhatsAppAIParsingUC,
+	updateWhatsAppCredentials updateWhatsAppCredentialsUC,
 ) *Handler {
 	return &Handler{
 		listConnections:                 listConnections,
@@ -449,6 +454,7 @@ func NewHandler(
 		abandonAllWebhookFallbackEvents: abandonAllWebhookFallbackEvents,
 		setWhatsAppTestMode:             setWhatsAppTestMode,
 		setWhatsAppAIParsing:            setWhatsAppAIParsing,
+		updateWhatsAppCredentials:       updateWhatsAppCredentials,
 	}
 }
 
@@ -651,6 +657,7 @@ func Register(
 		appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(db, webhookFallbackRepo),
 		appintegrations.NewSetWhatsAppTestModeUseCase(db, connRepo),
 		appintegrations.NewSetWhatsAppAIParsingUseCase(db, connRepo, aiConnRepo),
+		appintegrations.NewUpdateWhatsAppCredentialsUseCase(db, connRepo, encryptionSecret),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -875,6 +882,25 @@ func (h *Handler) SetWebhookSecret(c *gin.Context, id genintegrations.Id) {
 		return
 	}
 	middleware.OK(c, gin.H{"connection_id": result.ConnectionID, "webhook_secret": result.PlaintextSecret})
+}
+
+func (h *Handler) UpdateWhatsAppCredentials(c *gin.Context, id genintegrations.Id) {
+	var req genintegrations.UpdateWhatsAppCredentialsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	apiKey := ""
+	if req.ApiKey != nil {
+		apiKey = *req.ApiKey
+	}
+	conn, err := h.updateWhatsAppCredentials.Execute(c.Request.Context(), id, appintegrations.UpdateWhatsAppCredentialsInput{
+		BaseURL: req.BaseUrl, InstanceName: req.InstanceName, APIKey: apiKey,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenConnection(*conn))
 }
 
 func (h *Handler) SetWhatsAppTestMode(c *gin.Context, id genintegrations.Id) {
@@ -1831,6 +1857,10 @@ func (h *Handler) WooCallback(c *gin.Context) {
 
 func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection {
 	currency := c.DefaultCurrency
+	var whatsappInstanceName *string
+	if c.Provider == integrationsDomain.ProviderWhatsApp {
+		whatsappInstanceName = &c.ConsumerKey
+	}
 	return genintegrations.Connection{
 		Id:                       c.ID,
 		Provider:                 string(c.Provider),
@@ -1843,6 +1873,7 @@ func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection
 		WhatsappTestModeEnabled:  &c.WhatsAppTestModeEnabled,
 		WhatsappTestPhoneE164:    c.WhatsAppTestPhoneE164,
 		WhatsappAiParsingEnabled: &c.WhatsAppAIParsingEnabled,
+		WhatsappInstanceName:     whatsappInstanceName,
 		CreatedAt:                c.CreatedAt,
 	}
 }

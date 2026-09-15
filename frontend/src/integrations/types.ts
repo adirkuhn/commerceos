@@ -31,6 +31,7 @@ export interface Connection {
   whatsapp_test_mode_enabled?: boolean
   whatsapp_test_phone_e164?: string | null
   whatsapp_ai_parsing_enabled?: boolean
+  whatsapp_instance_name?: string | null
   created_at: string
 }
 

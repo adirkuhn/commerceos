@@ -31,6 +31,7 @@ vi.mock('../../integrations/api', () => ({
   setWebhookSecret: vi.fn(),
   setWhatsAppTestMode: vi.fn(),
   setWhatsAppAIParsing: vi.fn(),
+  updateWhatsAppCredentials: vi.fn(),
   getAIConnection: vi.fn(),
 }))
 
@@ -89,7 +90,10 @@ function myParcelConnection(overrides: Partial<Connection> = {}): Connection {
 }
 
 function whatsappConnection(overrides: Partial<Connection> = {}): Connection {
-  return { id: 'conn-wa-1', provider: 'whatsapp', store_url: 'https://evolution.example.com', status: 'connected', created_at: '', ...overrides }
+  return {
+    id: 'conn-wa-1', provider: 'whatsapp', store_url: 'https://evolution.example.com', status: 'connected',
+    whatsapp_instance_name: 'my-instance', created_at: '', ...overrides,
+  }
 }
 
 const sampleWarehouse: Warehouse = {
@@ -682,5 +686,101 @@ describe('WhatsApp AI-assisted parsing', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('connect an AI provider first')).toBeInTheDocument()
+  })
+})
+
+describe('WhatsApp credentials edit', () => {
+  it('shows an "Edit credentials" button only for whatsapp connections', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection(), whatsappConnection()])
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+
+    await screen.findByText('woocommerce', { selector: 'p' })
+    expect(screen.getAllByRole('button', { name: 'Edit credentials' })).toHaveLength(1)
+  })
+
+  it('prefills base URL and instance name (never the API key), and saves', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([
+      whatsappConnection({ whatsapp_instance_name: 'my-instance' }),
+    ])
+    vi.mocked(integrationsApi.updateWhatsAppCredentials).mockResolvedValue(
+      whatsappConnection({ store_url: 'https://new.example.com', whatsapp_instance_name: 'new-instance' }),
+    )
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit credentials' }))
+
+    expect(await screen.findByText('WhatsApp credentials')).toBeInTheDocument()
+    expect(screen.getByLabelText('Base URL')).toHaveValue('https://evolution.example.com')
+    expect(screen.getByLabelText('Instance name')).toHaveValue('my-instance')
+    expect(screen.getByLabelText('API key')).toHaveValue('')
+
+    await userEvent.clear(screen.getByLabelText('Base URL'))
+    await userEvent.type(screen.getByLabelText('Base URL'), 'https://new.example.com')
+    await userEvent.clear(screen.getByLabelText('Instance name'))
+    await userEvent.type(screen.getByLabelText('Instance name'), 'new-instance')
+    await userEvent.type(screen.getByLabelText('API key'), 'new-key')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.updateWhatsAppCredentials).toHaveBeenCalledWith(
+      'test-token', 'conn-wa-1', { baseUrl: 'https://new.example.com', instanceName: 'new-instance', apiKey: 'new-key' },
+    ))
+    expect(screen.queryByText('WhatsApp credentials')).not.toBeInTheDocument()
+    expect(integrationsApi.listConnections).toHaveBeenCalledTimes(2) // initial load + refresh after save
+  })
+
+  it('leaves the API key blank on save when not rotating it', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([whatsappConnection()])
+    vi.mocked(integrationsApi.updateWhatsAppCredentials).mockResolvedValue(whatsappConnection())
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit credentials' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.updateWhatsAppCredentials).toHaveBeenCalledWith(
+      'test-token', 'conn-wa-1', { baseUrl: 'https://evolution.example.com', instanceName: 'my-instance', apiKey: '' },
+    ))
+  })
+
+  it('surfaces an error instead of a silent failure', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([whatsappConnection()])
+    vi.mocked(integrationsApi.updateWhatsAppCredentials).mockRejectedValue(new Error('base_url is invalid'))
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit credentials' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('base_url is invalid')).toBeInTheDocument()
+  })
+})
+
+describe('WhatsApp webhook URL', () => {
+  it('shows a "Webhook" button only for whatsapp connections', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection(), whatsappConnection()])
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+
+    await screen.findByText('woocommerce', { selector: 'p' })
+    expect(screen.getAllByRole('button', { name: 'Webhook' })).toHaveLength(1)
+  })
+
+  it('regenerates and shows the new URL, not the old one', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([whatsappConnection()])
+    vi.mocked(integrationsApi.setWebhookSecret).mockResolvedValue({ connection_id: 'conn-wa-1', webhook_secret: 'new-secret-token' })
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Webhook' }))
+
+    expect(await screen.findByText('WhatsApp webhook URL')).toBeInTheDocument()
+    expect(screen.queryByText(/new-secret-token/)).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Regenerate webhook URL' }))
+
+    await waitFor(() => expect(integrationsApi.setWebhookSecret).toHaveBeenCalledWith('test-token', 'conn-wa-1'))
+    expect(await screen.findByText(/new-secret-token/)).toBeInTheDocument()
+  })
+
+  it('surfaces an error instead of a silent failure', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([whatsappConnection()])
+    vi.mocked(integrationsApi.setWebhookSecret).mockRejectedValue(new Error('connection not found'))
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Webhook' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Regenerate webhook URL' }))
+
+    expect(await screen.findByText('connection not found')).toBeInTheDocument()
   })
 })

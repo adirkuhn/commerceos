@@ -314,6 +314,36 @@ paths:
           description: enabled=true with no test_phone_e164, or the connection isn't a WhatsApp connection.
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/whatsapp-credentials:
+    post:
+      operationId: updateWhatsAppCredentials
+      summary: >
+        Update a WhatsApp connection's base URL/instance name/API key in
+        place -- for rotating a wrong or expired API key without
+        disconnecting (which would reset test mode/AI parsing and rotate
+        the webhook secret as a side effect). api_key is optional: omit or
+        send empty to keep the currently stored key unchanged.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWhatsAppCredentialsRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          description: invalid base_url, or the connection isn't a WhatsApp connection.
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/whatsapp-ai-parsing:
     post:
       operationId: setWhatsAppAIParsing
@@ -1477,6 +1507,17 @@ components:
         whatsapp_ai_parsing_enabled:
           type: boolean
           description: When true, a message that doesn't match the rigid "COMMAND CODE" format is classified by the tenant's connected AI provider instead of falling straight to help text. Only meaningful for WhatsApp connections.
+        whatsapp_instance_name:
+          type: string
+          nullable: true
+          description: >
+            The Evolution API instance name this connection sends/receives
+            through. Deliberately the one exception to this schema's "never
+            includes the stored consumer key" rule above: for WhatsApp
+            specifically, this column holds a plain instance name, not a
+            secret (the API key is the secret half, and that never
+            round-trips) -- exposed so the credentials-edit form can
+            prefill it. Only set for WhatsApp connections.
         created_at: { type: string, format: date-time }
 
     UpdateConnectionSettingsRequest:
@@ -1754,6 +1795,20 @@ components:
         api_key:
           type: string
           description: The Evolution API instance's own API key.
+
+    UpdateWhatsAppCredentialsRequest:
+      type: object
+      required: [base_url, instance_name]
+      properties:
+        base_url:
+          type: string
+          description: Base URL of the tenant's self-hosted Evolution API instance, e.g. https://evolution.example.com.
+        instance_name:
+          type: string
+          description: The Evolution API instance name this connection sends/receives through.
+        api_key:
+          type: string
+          description: The Evolution API instance's own API key. Omit or send empty to keep the currently stored key unchanged.
 
     ConnectStripeRequest:
       type: object

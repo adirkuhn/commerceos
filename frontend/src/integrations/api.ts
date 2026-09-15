@@ -454,6 +454,22 @@ export function setWhatsAppAIParsing(token: string, connectionId: string, enable
   )
 }
 
+// Rotates a WhatsApp connection's base URL/instance name/API key in place
+// -- unlike connectWhatsapp, this never touches the webhook secret or
+// test-mode/AI-parsing settings. apiKey empty/omitted keeps the currently
+// stored key unchanged (it's never sent back to prefill the form).
+export function updateWhatsAppCredentials(
+  token: string,
+  connectionId: string,
+  input: { baseUrl: string; instanceName: string; apiKey?: string },
+): Promise<Connection> {
+  return request<Connection>(
+    `${base()}/connections/${connectionId}/whatsapp-credentials`,
+    { method: 'POST', body: JSON.stringify({ base_url: input.baseUrl, instance_name: input.instanceName, api_key: input.apiKey || undefined }) },
+    token,
+  )
+}
+
 export interface ListWebhookFallbackEventsResult {
   events: WebhookFallbackEvent[]
   total: number

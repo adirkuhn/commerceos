@@ -8,6 +8,8 @@ import { useWebhookFallbackEvents } from '../integrations/hooks/useWebhookFallba
 import { WebhookFallbackEventsTable } from '../integrations/WebhookFallbackEventsTable'
 import { WhatsAppTestModeModal } from '../integrations/WhatsAppTestModeModal'
 import { WhatsAppAIParsingModal } from '../integrations/WhatsAppAIParsingModal'
+import { WhatsAppCredentialsModal } from '../integrations/WhatsAppCredentialsModal'
+import { WhatsAppWebhookModal } from '../integrations/WhatsAppWebhookModal'
 import * as api from '../integrations/api'
 import type { Connection, ImportJob, DeleteAllImportedProductsResult } from '../integrations/types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
@@ -146,6 +148,8 @@ export default function Integrations() {
   const [configuringConnection, setConfiguringConnection] = useState<Connection | null>(null)
   const [configuringWhatsAppTestMode, setConfiguringWhatsAppTestMode] = useState<Connection | null>(null)
   const [configuringWhatsAppAIParsing, setConfiguringWhatsAppAIParsing] = useState<Connection | null>(null)
+  const [configuringWhatsAppCredentials, setConfiguringWhatsAppCredentials] = useState<Connection | null>(null)
+  const [configuringWhatsAppWebhook, setConfiguringWhatsAppWebhook] = useState<Connection | null>(null)
 
   const [browsing, setBrowsing] = useState(false)
   const [connectingWoo, setConnectingWoo] = useState(false)
@@ -576,6 +580,22 @@ export default function Integrations() {
                           AI parsing
                         </button>
                       )}
+                      {conn.provider === 'whatsapp' && (
+                        <button
+                          onClick={() => setConfiguringWhatsAppCredentials(conn)}
+                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                        >
+                          Edit credentials
+                        </button>
+                      )}
+                      {conn.provider === 'whatsapp' && (
+                        <button
+                          onClick={() => setConfiguringWhatsAppWebhook(conn)}
+                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                        >
+                          Webhook
+                        </button>
+                      )}
                       {conn.provider === 'woocommerce' && (
                         <button
                           onClick={() => handleTestConnection(conn.id)}
@@ -631,6 +651,22 @@ export default function Integrations() {
           connection={configuringWhatsAppAIParsing}
           onClose={() => setConfiguringWhatsAppAIParsing(null)}
           onSaved={() => refresh()}
+        />
+      )}
+
+      {configuringWhatsAppCredentials && (
+        <WhatsAppCredentialsModal
+          connection={configuringWhatsAppCredentials}
+          onClose={() => setConfiguringWhatsAppCredentials(null)}
+          onSaved={() => refresh()}
+        />
+      )}
+
+      {configuringWhatsAppWebhook && (
+        <WhatsAppWebhookModal
+          connection={configuringWhatsAppWebhook}
+          tenantId={user?.tenant_id ?? ''}
+          onClose={() => setConfiguringWhatsAppWebhook(null)}
         />
       )}
 
