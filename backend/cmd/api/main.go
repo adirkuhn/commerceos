@@ -42,6 +42,7 @@ import (
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
 	genweightportions "github.com/adirkuhn/commerceos/api/weightportions"
+	genwhatsapp "github.com/adirkuhn/commerceos/api/whatsapp"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	couponshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/coupons"
@@ -73,6 +74,7 @@ import (
 	themehandler "github.com/adirkuhn/commerceos/infrastructure/handlers/theme"
 	webhookshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/webhooks"
 	weightportionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/weightportions"
+	whatsapphandler "github.com/adirkuhn/commerceos/infrastructure/handlers/whatsapp"
 	"github.com/adirkuhn/commerceos/infrastructure/lm2license"
 	"github.com/adirkuhn/commerceos/infrastructure/messaging/noop"
 	"github.com/adirkuhn/commerceos/infrastructure/messaging/smtp"
@@ -308,6 +310,18 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	reviewshandler.Register(reviewsGroup, db)
+
+	whatsappSpec, err := genwhatsapp.GetSpec()
+	if err != nil {
+		log.Fatalf("whatsapp: load openapi spec: %v", err)
+	}
+	// Own sub-group so the whatsapp-only spec validator never applies to
+	// the other modules' routes — same reasoning as pmsGroup above.
+	whatsappGroup := v1.Group("")
+	whatsappGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(whatsappSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	whatsapphandler.Register(whatsappGroup, db)
 
 	messagecenterSpec, err := genmessagecenter.GetSpec()
 	if err != nil {

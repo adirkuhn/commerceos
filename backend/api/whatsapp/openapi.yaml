@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS WhatsApp Conversations API
+  version: "1.0"
+  description: >
+    Admin-only (JWT) read view over every WhatsApp conversation this
+    tenant's integration has ever seen (see domain/whatsapp.Message) --
+    a "WhatsApp Web"-style list of conversations plus one conversation's
+    full message thread. Read-only: there's no compose/reply endpoint
+    here, replying happens through the bot (application/whatsapp.
+    HandleInboundMessageUseCase) or the outbound notification use cases.
+servers:
+  - url: /api/v1
+
+paths:
+  /whatsapp/conversations:
+    get:
+      operationId: listWhatsAppConversations
+      summary: List every phone number that has exchanged a WhatsApp message, newest conversation first
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppConversationListResponse'
+
+  /whatsapp/conversations/{phone}/messages:
+    get:
+      operationId: listWhatsAppConversationMessages
+      summary: List every message exchanged with one phone number, newest first
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          description: E.164, no leading '+' (same convention as the rest of the WhatsApp integration).
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppConversationMessageListResponse'
+
+components:
+  schemas:
+    WhatsAppConversation:
+      type: object
+      required: [phone_e164, last_direction, last_body, last_message_at]
+      properties:
+        phone_e164: { type: string }
+        customer_id: { type: string, nullable: true }
+        customer_name:
+          type: string
+          description: Empty when customer_id is null, or the linked customer has no name on file.
+        last_direction: { type: string, enum: [inbound, outbound] }
+        last_body: { type: string }
+        last_message_at: { type: string, format: date-time }
+
+    WhatsAppConversationListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/WhatsAppConversation' }
+        error: { nullable: true }
+
+    WhatsAppConversationMessage:
+      type: object
+      required: [id, phone_e164, direction, body, created_at]
+      properties:
+        id: { type: string }
+        phone_e164: { type: string }
+        customer_id: { type: string, nullable: true }
+        direction: { type: string, enum: [inbound, outbound] }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
+
+    WhatsAppConversationMessageListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/WhatsAppConversationMessage' }
+        error: { nullable: true }

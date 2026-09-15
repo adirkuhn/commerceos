@@ -30,6 +30,21 @@ type Message struct {
 	CreatedAt  time.Time
 }
 
+// ConversationSummary is one row of the WhatsApp conversations list (the
+// "WhatsApp Web"-style admin view) -- one per phone number that has ever
+// exchanged a message, carrying only its most recent message so the list
+// can render without pulling every message for every conversation.
+// CustomerName is "" when CustomerID is nil (never matched) or the
+// customer record itself has no name on file.
+type ConversationSummary struct {
+	PhoneE164     string
+	CustomerID    *string
+	CustomerName  string
+	LastDirection MessageDirection
+	LastBody      string
+	LastMessageAt time.Time
+}
+
 type MessageRepository interface {
 	Create(ctx context.Context, m *Message) error
 	// ListByPhone returns every message for this phone number, newest
@@ -38,4 +53,8 @@ type MessageRepository interface {
 	// ListByCustomer returns every message linked to this customer,
 	// newest first -- the Customer detail page's conversation panel.
 	ListByCustomer(ctx context.Context, customerID string) ([]Message, error)
+	// ListConversations returns one summary per phone number that has
+	// exchanged at least one message, newest conversation first -- the
+	// conversations list view.
+	ListConversations(ctx context.Context) ([]ConversationSummary, error)
 }

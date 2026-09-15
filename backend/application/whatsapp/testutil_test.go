@@ -125,6 +125,21 @@ func (f *fakeMessageRepo) ListByCustomer(_ context.Context, customerID string) (
 	return out, nil
 }
 
+func (f *fakeMessageRepo) ListConversations(_ context.Context) ([]whatsappDomain.ConversationSummary, error) {
+	seen := map[string]whatsappDomain.ConversationSummary{}
+	for _, m := range f.created {
+		seen[m.PhoneE164] = whatsappDomain.ConversationSummary{
+			PhoneE164: m.PhoneE164, CustomerID: m.CustomerID,
+			LastDirection: m.Direction, LastBody: m.Body, LastMessageAt: m.CreatedAt,
+		}
+	}
+	out := make([]whatsappDomain.ConversationSummary, 0, len(seen))
+	for _, s := range seen {
+		out = append(out, s)
+	}
+	return out, nil
+}
+
 type fakeEvolutionAPIClient struct {
 	sentTo   string
 	sentBody string

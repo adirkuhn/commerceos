@@ -19,6 +19,11 @@ vi.mock('../../messagecenter/api', () => ({
   deleteAutomationRule: vi.fn(),
 }))
 
+vi.mock('../../whatsapp/api', () => ({
+  listWhatsAppConversations: vi.fn().mockResolvedValue([]),
+  listWhatsAppConversationMessages: vi.fn().mockResolvedValue([]),
+}))
+
 beforeEach(() => vi.clearAllMocks())
 
 describe('MessageCenter', () => {
@@ -35,5 +40,14 @@ describe('MessageCenter', () => {
     await userEvent.click(screen.getByText('Automation Rules'))
 
     expect(await screen.findByText('When an event fires and every condition matches, the chosen template is sent.')).toBeInTheDocument()
+  })
+
+  it('switches to the Conversations panel', async () => {
+    render(<MessageCenter />)
+    await screen.findByPlaceholderText('Search templates...')
+
+    await userEvent.click(screen.getByText('Conversations'))
+
+    expect(await screen.findByText('No WhatsApp conversations yet.')).toBeInTheDocument()
   })
 })

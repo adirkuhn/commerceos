@@ -71,6 +71,69 @@ func (r *WhatsAppMessageRepo) ListByCustomer(ctx context.Context, customerID str
 	return toDomainWhatsAppMessages(rows), nil
 }
 
+// conversationSummaryRow is ListConversations' raw query result shape --
+// FirstName/LastName come from a LEFT JOIN against customers (NULL when
+// CustomerID is nil or the row somehow no longer matches one), combined
+// into ConversationSummary.CustomerName in toDomainConversationSummaries.
+type conversationSummaryRow struct {
+	PhoneE164     string
+	CustomerID    *string
+	FirstName     *string
+	LastName      *string
+	LastDirection string
+	LastBody      string
+	LastMessageAt time.Time
+}
+
+// ListConversations picks each phone number's single most recent message
+// via Postgres's DISTINCT ON (phone_e164 ... ORDER BY phone_e164,
+// created_at DESC), then re-sorts that one-row-per-phone result by
+// created_at DESC in an outer query -- DISTINCT ON requires phone_e164 to
+// lead the ORDER BY for the dedup itself to pick the right row, so the
+// conversation list's actual newest-first order has to be a second pass
+// over the deduped set, not the same ORDER BY.
+func (r *WhatsAppMessageRepo) ListConversations(ctx context.Context) ([]whatsappDomain.ConversationSummary, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("whatsappMessageRepo: operation called outside a transaction")
+	}
+	var rows []conversationSummaryRow
+	err := tx.WithContext(ctx).Raw(`
+		SELECT * FROM (
+			SELECT DISTINCT ON (wm.phone_e164)
+				wm.phone_e164 AS phone_e164, wm.customer_id AS customer_id,
+				c.first_name AS first_name, c.last_name AS last_name,
+				wm.direction AS last_direction, wm.body AS last_body, wm.created_at AS last_message_at
+			FROM whatsapp_messages wm
+			LEFT JOIN customers c ON c.id = wm.customer_id
+			ORDER BY wm.phone_e164, wm.created_at DESC
+		) conversations
+		ORDER BY last_message_at DESC
+	`).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("whatsappMessageRepo.ListConversations: %w", err)
+	}
+	return toDomainConversationSummaries(rows), nil
+}
+
+func toDomainConversationSummaries(rows []conversationSummaryRow) []whatsappDomain.ConversationSummary {
+	out := make([]whatsappDomain.ConversationSummary, len(rows))
+	for i, r := range rows {
+		name := ""
+		if r.FirstName != nil {
+			name = *r.FirstName
+			if r.LastName != nil && *r.LastName != "" {
+				name += " " + *r.LastName
+			}
+		}
+		out[i] = whatsappDomain.ConversationSummary{
+			PhoneE164: r.PhoneE164, CustomerID: r.CustomerID, CustomerName: name,
+			LastDirection: whatsappDomain.MessageDirection(r.LastDirection), LastBody: r.LastBody, LastMessageAt: r.LastMessageAt,
+		}
+	}
+	return out
+}
+
 func toDomainWhatsAppMessages(rows []whatsappMessageModel) []whatsappDomain.Message {
 	out := make([]whatsappDomain.Message, len(rows))
 	for i, r := range rows {

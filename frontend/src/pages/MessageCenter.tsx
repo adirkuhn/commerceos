@@ -2,8 +2,9 @@ import { useState } from 'react'
 import clsx from 'clsx'
 import MessageTemplatesPanel from '../messagecenter/MessageTemplatesPanel'
 import AutomationRulesPanel from '../messagecenter/AutomationRulesPanel'
+import WhatsAppConversationsPanel from '../whatsapp/WhatsAppConversationsPanel'
 
-type Tab = 'templates' | 'rules'
+type Tab = 'templates' | 'rules' | 'conversations'
 
 export default function MessageCenter() {
   const [tab, setTab] = useState<Tab>('templates')
@@ -33,10 +34,21 @@ export default function MessageCenter() {
         >
           Automation Rules
         </button>
+        <button
+          onClick={() => setTab('conversations')}
+          className={clsx(
+            'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
+            tab === 'conversations'
+              ? 'border-blue-500 dark:text-gray-100 text-gray-900'
+              : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+          )}
+        >
+          Conversations
+        </button>
       </div>
 
       <div className="flex-1 min-h-0">
-        {tab === 'templates' ? <MessageTemplatesPanel /> : <AutomationRulesPanel />}
+        {tab === 'templates' ? <MessageTemplatesPanel /> : tab === 'rules' ? <AutomationRulesPanel /> : <WhatsAppConversationsPanel />}
       </div>
     </div>
   )
