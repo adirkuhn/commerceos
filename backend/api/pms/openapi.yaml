@@ -967,21 +967,27 @@ components:
           format: int64
           nullable: true
           description: >-
-            Read-only. Weighted average of on-hand batches' landed cost,
-            recomputed daily by the cost-price cron -- unless
-            cost_price_source is "manual", in which case this is whatever a
-            human last set via PUT /pms/skus/{id}/cost-price. Null until
-            either has happened at least once.
+            Read-only. Moving Weighted Average Cost, updated incrementally
+            at every goods receipt -- unless cost_price_source is "manual",
+            in which case this is whatever a human last set via
+            PUT /pms/skus/{id}/cost-price. Null when cost_price_source is
+            "unknown" (no receipt has given this SKU a cost yet).
         cost_price_source:
           allOf:
             - $ref: '#/components/schemas/SKUCostPriceSource'
-          description: Read-only. Whether cost_price_minor_units came from the daily cron or a manual override.
+          description: Read-only. Whether cost_price_minor_units came from a receipt, a manual override, or is not yet known.
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
     SKUCostPriceSource:
       type: string
-      enum: [computed, manual]
+      enum: [computed, manual, unknown]
+      description: >-
+        "computed" means cost_price_minor_units was last set by a goods
+        receipt (the Moving Weighted Average Cost blend -- see
+        ApplyReceiptCostUseCase); "manual" means a human set it directly and
+        it sticks until cleared; "unknown" means no receipt has ever given
+        this SKU a cost basis, so cost_price_minor_units is null.
 
     SetManualCostPriceRequest:
       type: object

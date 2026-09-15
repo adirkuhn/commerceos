@@ -678,7 +678,8 @@ func toGenSalesOrderLineItem(li omsDomain.SalesOrderLineItem) genoms.SalesOrderL
 		PriceMinorUnits: &li.PriceMinorUnits, SubtotalMinorUnits: &li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: &li.SubtotalTaxMinorUnits, TotalMinorUnits: &li.TotalMinorUnits,
 		TotalTaxMinorUnits: &li.TotalTaxMinorUnits, ProductId: li.ProductID,
-		SoldExpiryDate: soldExpiryDate,
+		SoldExpiryDate:       soldExpiryDate,
+		CostAtSaleMinorUnits: li.CostAtSaleMinorUnits, CogsMinorUnits: li.CogsMinorUnits,
 	}
 }
 

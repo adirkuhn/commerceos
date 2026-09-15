@@ -690,6 +690,23 @@ components:
             not necessarily the batch CommerceOS's own FEFO allocation
             actually decremented -- Woo only ever tracks one current
             lot/expiry per product, never a real multi-batch split.
+        cost_at_sale_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            The SKU's moving-average cost at the instant this line's stock
+            was actually decremented, frozen forever -- never recomputed if
+            the SKU's current cost later changes. Null when the SKU had no
+            known cost at sale time (cost_price_source was unknown) or
+            stock was never decremented for this line (e.g. still pending).
+        cogs_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            cost_at_sale_minor_units * quantity -- this line's cost of
+            goods sold. Same nullability as cost_at_sale_minor_units.
 
     SalesOrderDetail:
       type: object
