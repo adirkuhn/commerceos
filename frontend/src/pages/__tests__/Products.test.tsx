@@ -1356,11 +1356,67 @@ describe('alternate barcodes / scale codes (VariantRow)', () => {
 })
 
 describe('weight pool (unit_type / portioned_from_sku_id)', () => {
-  it('is not shown for a brand-new, not-yet-saved product', async () => {
+  it('is shown for a brand-new, not-yet-saved product (no two-step create-then-edit needed)', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    expect(screen.queryByText('Weight pool')).not.toBeInTheDocument()
+    expect(await screen.findByText('Weight pool')).toBeInTheDocument()
+    expect(screen.getByLabelText(/item type/i)).toBeInTheDocument()
+  })
+
+  it('weight-pool fields set on the create form are sent in the initial createSKU call', async () => {
+    const created = product({ id: 'new-prod' })
+    vi.mocked(pmsApi.createProduct).mockResolvedValue(created)
+    vi.mocked(pmsApi.createVariant).mockResolvedValue({ ...baseVariant, id: 'new-var', product_id: 'new-prod' })
+    vi.mocked(pmsApi.createSKU).mockResolvedValue({ ...baseSku, id: 'new-sku', variant_id: 'new-var' })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: created,
+      variants: [{ ...baseVariant, id: 'new-var', product_id: 'new-prod', skus: [{ ...baseSku, id: 'new-sku', variant_id: 'new-var' }] }],
+    })
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByText('New Product'))
+
+    await userEvent.type(screen.getByLabelText('Name'), 'Dried Beef')
+    await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'DRIED-BEEF')
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
+
+    await userEvent.selectOptions(screen.getByLabelText(/item type/i), 'kilo')
+    await userEvent.type(screen.getByLabelText(/scale code/i), '2900633')
+    await userEvent.selectOptions(screen.getByLabelText(/pricing/i), 'per_weight')
+    await userEvent.type(screen.getByLabelText(/price per kilo/i), '19.99')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+
+    await waitFor(() => expect(pmsApi.createSKU).toHaveBeenCalled())
+    expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'new-var', expect.objectContaining({
+      unit_type: 'kilo', scale_code: '2900633', pricing_mode: 'per_weight', price_per_kilo_minor_units: 1999,
+    }))
+  })
+
+  it('regression: does not fetch product detail until the just-created variant/SKU finish writing (race left Weight pool permanently hidden)', async () => {
+    const created = product({ id: 'new-prod' })
+    vi.mocked(pmsApi.createProduct).mockResolvedValue(created)
+    vi.mocked(pmsApi.createVariant).mockResolvedValue({ ...baseVariant, id: 'new-var', product_id: 'new-prod' })
+    vi.mocked(pmsApi.createSKU).mockResolvedValue({ ...baseSku, id: 'new-sku', variant_id: 'new-var' })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: created,
+      variants: [{ ...baseVariant, id: 'new-var', product_id: 'new-prod', skus: [{ ...baseSku, id: 'new-sku', variant_id: 'new-var' }] }],
+    })
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.type(screen.getByLabelText('Name'), 'New Shirt')
+    await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'NEWSHIRT-1')
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+
+    await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalled())
+
+    const skuCallOrder = vi.mocked(pmsApi.createSKU).mock.invocationCallOrder[0]
+    const getProductCallOrder = vi.mocked(pmsApi.getProduct).mock.invocationCallOrder[0]
+    expect(getProductCallOrder).toBeGreaterThan(skuCallOrder)
   })
 
   it('picking "Kilo" item type and saving sends unit_type:kilo', async () => {

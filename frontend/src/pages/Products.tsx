@@ -520,7 +520,6 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
 
       if (!savedProductId) {
         const product = await onCreate(payload)
-        setSavedProductId(product.id)
         if (!variantsMode) {
           const variant = await pmsApi.createVariant(token ?? '', product.id, { name: product.name })
           if (skuCode) {
@@ -533,11 +532,24 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
               currency_code: currency,
               is_virtual: isVirtual,
               ...dimensions,
+              unit_type: unitType,
+              portioned_from_sku_id: portionedFromSKUID,
+              scale_code: scaleCode || null,
+              pricing_mode: pricingMode,
+              price_per_kilo_minor_units: pricingMode === 'per_weight' ? parseOptionalPriceToMinorUnits(pricePerKilo) : null,
               tax_class_id: taxClassId,
               status: skuStatus,
             })
           }
         }
+        // Set this last, after the variant/SKU writes above complete --
+        // useProductDetail's auto-fetch fires the instant `savedProductId`
+        // changes (its `productId` prop), so setting it any earlier races
+        // that fetch against the still-in-flight creates above and can
+        // land on an empty `variants: []` permanently (no later refetch
+        // ever corrects it, since nothing besides this transition
+        // triggers one).
+        setSavedProductId(product.id)
         return
       }
 
@@ -1091,7 +1103,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
               </FormCard>
             )}
 
-            {showFlatSKU && currentSku && (
+            {showFlatSKU && (
               <FormCard
                 title="Weight-embedded barcode"
                 description="For a butcher/deli scale that prints a barcode with the package's weight baked in — every package gets a different full barcode, so scanning it is matched by this scale code instead."
@@ -1142,7 +1154,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
               </FormCard>
             )}
 
-            {showFlatSKU && currentSku && (
+            {showFlatSKU && (
               <FormCard
                 title="Weight pool"
                 description="Book a bulk lot once (e.g. 20kg), then peel off individually-weighed sellable items from it over time as they're packaged."
@@ -1180,7 +1192,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                   ) : portionPickerOpen ? (
                     <div className="mt-2">
                       <CaseOfSKUPicker
-                        excludeSKUID={currentSku.id}
+                        excludeSKUID={currentSku?.id ?? ''}
                         filterSku={s => s.unit_type === 'kilo'}
                         onSelect={(sku, label) => { setPortionedFromSKUID(sku.id); setPortionedFromLabel(label); setPortionPickerOpen(false) }}
                         onClose={() => setPortionPickerOpen(false)}
