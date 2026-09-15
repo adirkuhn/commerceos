@@ -27,8 +27,13 @@ type integrationConnectionModel struct {
 	BolDeliveryCode         *string
 	SMTPPort                *string
 	EmailFrom               *string
-	WhatsAppTestModeEnabled bool `gorm:"not null;default:false"`
-	WhatsAppTestPhoneE164   *string
+	// Explicit column names: GORM's default snake_case conversion splits
+	// "WhatsApp" into "whats_app" (not a recognized single word/acronym to
+	// it), which doesn't match what migration 172 actually created --
+	// verified against a real production error before this fix
+	// ("column \"whats_app_test_mode_enabled\" ... does not exist").
+	WhatsAppTestModeEnabled bool    `gorm:"column:whatsapp_test_mode_enabled;not null;default:false"`
+	WhatsAppTestPhoneE164   *string `gorm:"column:whatsapp_test_phone_e164"`
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
 }
