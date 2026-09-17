@@ -149,6 +149,9 @@ type attachDocumentToPurchaseOrderUC interface {
 type deletePurchaseOrderDocumentUC interface {
 	Execute(ctx context.Context, id string) error
 }
+type retryDocumentParsingJobUC interface {
+	Execute(ctx context.Context, documentID string) (*procurementDomain.DocumentParsingJob, error)
+}
 type getDocumentParsingJobUC interface {
 	Execute(ctx context.Context, id string) (*procurementDomain.DocumentParsingJob, error)
 }
@@ -246,6 +249,7 @@ type Handler struct {
 	pauseBooking                    pauseBookingUC
 	completeBooking                 completeBookingUC
 	deletePurchaseOrderDocument     deletePurchaseOrderDocumentUC
+	retryDocumentParsingJob         retryDocumentParsingJobUC
 	listBookingDiscrepancies        listBookingDiscrepanciesUC
 	getLandedUnitCost               getLandedUnitCostUC
 	acknowledgeReceivingDiscrepancy acknowledgeReceivingDiscrepancyUC
@@ -282,6 +286,7 @@ func NewHandler(
 	pauseBooking pauseBookingUC,
 	completeBooking completeBookingUC,
 	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC,
+	retryDocumentParsingJob retryDocumentParsingJobUC,
 	listBookingDiscrepancies listBookingDiscrepanciesUC,
 	getLandedUnitCost getLandedUnitCostUC,
 	acknowledgeReceivingDiscrepancy acknowledgeReceivingDiscrepancyUC,
@@ -312,6 +317,7 @@ func NewHandler(
 		pauseBooking:                pauseBooking,
 		completeBooking:             completeBooking,
 		deletePurchaseOrderDocument: deletePurchaseOrderDocument,
+		retryDocumentParsingJob:     retryDocumentParsingJob,
 		listBookingDiscrepancies:    listBookingDiscrepancies,
 	}
 }
@@ -395,6 +401,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 			invapp.NewMarkDamagedOrLostUseCase(db, movementRepo, discardRepo, outboxRepo, costLedgerRecorder),
 		),
 		appprocurement.NewDeletePurchaseOrderDocumentUseCase(db, documentRepo, fileStorage),
+		appprocurement.NewRetryDocumentParsingJobUseCase(db, documentRepo, jobRepo),
 		appprocurement.NewListBookingDiscrepanciesUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo, skuRepo, variantRepo, productRepo),
 		appprocurement.NewGetLandedUnitCostUseCase(db, lineItemRepo),
 		appprocurement.NewAcknowledgeReceivingDiscrepancyUseCase(db, discrepancyRepo),
@@ -545,6 +552,15 @@ func (h *Handler) AttachDocumentToPurchaseOrder(c *gin.Context, id genprocuremen
 	job, err := h.attachDocument.Execute(c.Request.Context(), appprocurement.AttachDocumentToPurchaseOrderInput{
 		PurchaseOrderID: id, FileName: fileHeader.Filename, ContentType: fileHeader.Header.Get("Content-Type"), Data: f,
 	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenDocumentParsingJob(*job)
+	c.JSON(http.StatusCreated, genprocurement.DocumentParsingJobResponse{Data: &resp})
+}
+
+func (h *Handler) RetryDocumentParsingJob(c *gin.Context, id genprocurement.Id) {
+	job, err := h.retryDocumentParsingJob.Execute(c.Request.Context(), id)
 	if err := mapError(c, err); err != nil {
 		return
 	}

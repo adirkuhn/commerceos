@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
-import { Plus, ShoppingBag, Trash2, Edit3, ArrowLeft, Search, X, Check, Upload, Sparkles, PackageCheck, FileText, AlertTriangle, Loader2, Link2, ClipboardList, Download } from 'lucide-react'
+import { Plus, ShoppingBag, Trash2, Edit3, ArrowLeft, Search, X, Check, Upload, Sparkles, PackageCheck, FileText, AlertTriangle, Loader2, Link2, ClipboardList, Download, RefreshCw } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { usePurchaseOrders } from '../procurement/hooks/usePurchaseOrders'
@@ -776,7 +776,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
           )}
 
           {!isNew && effectiveId && (detail?.documents.length ?? 0) > 0 && (
-            <DocumentsSection documents={detail!.documents} onDelete={deleteDocument} />
+            <DocumentsSection documents={detail!.documents} onDelete={deleteDocument} onRefresh={refreshDetail} />
           )}
 
           {!isNew && effectiveId && (
@@ -884,10 +884,14 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAs
 interface DocumentsSectionProps {
   documents: PurchaseOrderDocument[]
   onDelete: (id: string) => Promise<void>
+  onRefresh: () => void
 }
 
-function DocumentsSection({ documents, onDelete }: DocumentsSectionProps) {
+function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSectionProps) {
+  const { token } = useAuth()
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [reparsingId, setReparsingId] = useState<string | null>(null)
+  const [reparseError, setReparseError] = useState<{ id: string; message: string } | null>(null)
 
   async function handleDelete(doc: PurchaseOrderDocument) {
     if (!window.confirm(`Delete "${doc.file_name}"? This does not affect any line items already created from it.`)) return
@@ -899,6 +903,23 @@ function DocumentsSection({ documents, onDelete }: DocumentsSectionProps) {
     }
   }
 
+  async function handleReparse(doc: PurchaseOrderDocument) {
+    setReparseError(null)
+    setReparsingId(doc.id)
+    try {
+      const job = await procurementApi.retryDocumentParsingJob(token ?? '', doc.id)
+      const finalJob = await pollParsingJob(() => procurementApi.getDocumentParsingJob(token ?? '', job.id))
+      if (finalJob.status === 'failed') {
+        setReparseError({ id: doc.id, message: friendlyParsingError(finalJob.error_message) })
+      }
+      onRefresh()
+    } catch (err) {
+      setReparseError({ id: doc.id, message: err instanceof Error ? err.message : 'Failed to reparse document' })
+    } finally {
+      setReparsingId(null)
+    }
+  }
+
   return (
     <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
       <div className="px-4 py-3 dark:bg-[#111827]/50 bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
@@ -906,25 +927,39 @@ function DocumentsSection({ documents, onDelete }: DocumentsSectionProps) {
       </div>
       <div className="divide-y dark:divide-[#2D3748] divide-gray-200">
         {documents.map(doc => (
-          <div key={doc.id} className="flex items-center gap-2 px-4 py-2.5 text-xs dark:text-gray-300 text-gray-700">
-            <FileText size={13} className="dark:text-gray-500 text-gray-400 shrink-0" />
-            <a href={doc.file_url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 truncate hover:underline">
-              {doc.file_name}
-            </a>
-            {doc.is_potential_duplicate && (
-              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium text-amber-400 bg-amber-500/10 shrink-0">
-                <AlertTriangle size={10} /> Possible duplicate
-              </span>
+          <div key={doc.id} className="px-4 py-2.5">
+            <div className="flex items-center gap-2 text-xs dark:text-gray-300 text-gray-700">
+              <FileText size={13} className="dark:text-gray-500 text-gray-400 shrink-0" />
+              <a href={doc.file_url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 truncate hover:underline">
+                {doc.file_name}
+              </a>
+              {doc.is_potential_duplicate && (
+                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium text-amber-400 bg-amber-500/10 shrink-0">
+                  <AlertTriangle size={10} /> Possible duplicate
+                </span>
+              )}
+              <button
+                type="button"
+                title="Reparse"
+                onClick={() => handleReparse(doc)}
+                disabled={reparsingId === doc.id}
+                className="p-1 rounded dark:text-gray-500 text-gray-400 hover:text-blue-400 disabled:opacity-50 transition-colors shrink-0"
+              >
+                <RefreshCw size={13} className={reparsingId === doc.id ? 'animate-spin' : ''} />
+              </button>
+              <button
+                type="button"
+                title="Delete"
+                onClick={() => handleDelete(doc)}
+                disabled={deletingId === doc.id}
+                className="p-1 rounded dark:text-gray-500 text-gray-400 hover:text-red-400 disabled:opacity-50 transition-colors shrink-0"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+            {reparseError?.id === doc.id && (
+              <p className="mt-1 text-[10px] text-red-400 pl-[21px]">{reparseError.message}</p>
             )}
-            <button
-              type="button"
-              title="Delete"
-              onClick={() => handleDelete(doc)}
-              disabled={deletingId === doc.id}
-              className="p-1 rounded dark:text-gray-500 text-gray-400 hover:text-red-400 disabled:opacity-50 transition-colors shrink-0"
-            >
-              <Trash2 size={13} />
-            </button>
           </div>
         ))}
       </div>

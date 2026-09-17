@@ -92,6 +92,10 @@ export function getDocumentParsingJob(token: string, id: string): Promise<Docume
   return request<DocumentParsingJob>(`${base()}/document-parsing-jobs/${id}`, { method: 'GET' }, token)
 }
 
+export function retryDocumentParsingJob(token: string, documentId: string): Promise<DocumentParsingJob> {
+  return request<DocumentParsingJob>(`${base()}/purchase-order-documents/${documentId}/retry`, { method: 'POST' }, token)
+}
+
 export function createPurchaseOrderFromDocument(token: string, input: CreatePurchaseOrderFromDocumentInput): Promise<DocumentParsingJob> {
   const formData = new FormData()
   formData.append('file', input.file)

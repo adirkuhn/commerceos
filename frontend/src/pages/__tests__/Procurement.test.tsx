@@ -24,6 +24,7 @@ vi.mock('../../procurement/api', () => ({
   attachDocumentToPurchaseOrder: vi.fn(),
   deletePurchaseOrderDocument: vi.fn(),
   getDocumentParsingJob: vi.fn(),
+  retryDocumentParsingJob: vi.fn(),
   createPurchaseOrderFromDocument: vi.fn(),
   linkLineItemToSku: vi.fn(),
   createProductAndLinkLineItem: vi.fn(),
@@ -868,6 +869,73 @@ describe('Documents', () => {
     await userEvent.click(screen.getByTitle('Delete'))
 
     expect(procurementApi.deletePurchaseOrderDocument).not.toHaveBeenCalled()
+  })
+
+  it('reparses a document and clears once it completes', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      documents: [{
+        id: 'document-1', purchase_order_id: 'po-1', file_url: 'https://uploads.example.com/tenant-1/abc.pdf',
+        file_name: 'invoice.pdf', content_type: 'application/pdf', is_potential_duplicate: false, created_at: '',
+      }],
+    }))
+    vi.mocked(procurementApi.retryDocumentParsingJob).mockResolvedValue({
+      id: 'job-2', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1', status: 'pending', error_message: '', created_at: '',
+    })
+    vi.mocked(procurementApi.getDocumentParsingJob).mockResolvedValue({
+      id: 'job-2', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1', status: 'completed', error_message: '', created_at: '',
+    })
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('invoice.pdf')
+    await userEvent.click(screen.getByTitle('Reparse'))
+
+    await waitFor(() => expect(procurementApi.retryDocumentParsingJob).toHaveBeenCalledWith('test-token', 'document-1'))
+    await waitFor(() => expect(procurementApi.getDocumentParsingJob).toHaveBeenCalledWith('test-token', 'job-2'))
+    // getPurchaseOrder called again for the initial load + the post-reparse refresh
+    await waitFor(() => expect(procurementApi.getPurchaseOrder).toHaveBeenCalledTimes(2))
+  })
+
+  it('shows an error inline when the reparse itself fails', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      documents: [{
+        id: 'document-1', purchase_order_id: 'po-1', file_url: 'https://uploads.example.com/tenant-1/abc.pdf',
+        file_name: 'invoice.pdf', content_type: 'application/pdf', is_potential_duplicate: false, created_at: '',
+      }],
+    }))
+    vi.mocked(procurementApi.retryDocumentParsingJob).mockRejectedValue(new Error('purchase order document not found'))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('invoice.pdf')
+    await userEvent.click(screen.getByTitle('Reparse'))
+
+    expect(await screen.findByText('purchase order document not found')).toBeInTheDocument()
+  })
+
+  it('shows the friendly parse-failed message when the retried job fails again', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      documents: [{
+        id: 'document-1', purchase_order_id: 'po-1', file_url: 'https://uploads.example.com/tenant-1/abc.pdf',
+        file_name: 'invoice.pdf', content_type: 'application/pdf', is_potential_duplicate: false, created_at: '',
+      }],
+    }))
+    vi.mocked(procurementApi.retryDocumentParsingJob).mockResolvedValue({
+      id: 'job-2', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1', status: 'pending', error_message: '', created_at: '',
+    })
+    vi.mocked(procurementApi.getDocumentParsingJob).mockResolvedValue({
+      id: 'job-2', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1', status: 'failed', error_message: 'unmarshal intent: unexpected EOF', created_at: '',
+    })
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('invoice.pdf')
+    await userEvent.click(screen.getByTitle('Reparse'))
+
+    expect(await screen.findByText('unmarshal intent: unexpected EOF')).toBeInTheDocument()
   })
 })
 

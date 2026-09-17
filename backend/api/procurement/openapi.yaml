@@ -153,6 +153,27 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /procurement/purchase-order-documents/{id}/retry:
+    post:
+      operationId: retryDocumentParsingJob
+      summary: >
+        Re-enqueue AI parsing for a document whose most recent parsing job
+        failed -- the document's already-stored file is re-parsed, no
+        re-upload needed. Returns the new job to poll (same shape as the
+        initial attach), same "pending -> running -> completed/failed"
+        lifecycle cmd/scheduler drives.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentParsingJobResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /procurement/purchase-orders/documents:
     post:
       operationId: createPurchaseOrderFromDocument
