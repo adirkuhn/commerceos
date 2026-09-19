@@ -12,7 +12,6 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/nats-io/nats.go"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	channelsapp "github.com/adirkuhn/commerceos/application/channels"
@@ -47,6 +46,7 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/storage"
 	"github.com/adirkuhn/commerceos/infrastructure/woocommerce"
 	"github.com/adirkuhn/commerceos/internal/config"
+	"github.com/adirkuhn/commerceos/internal/db"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -123,7 +123,7 @@ func buildFileStorage(cfg config.Config) pmsDomain.FileStorage {
 func main() {
 	cfg := config.Load()
 
-	db, err := gorm.Open(postgres.Open(cfg.DBDsn), &gorm.Config{})
+	db, err := db.Open(cfg.DBDsn, 10)
 	if err != nil {
 		log.Fatalf("db connect: %v", err)
 	}

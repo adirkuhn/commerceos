@@ -14,13 +14,11 @@ import (
 	"syscall"
 	"time"
 
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-
 	appwebhooks "github.com/adirkuhn/commerceos/application/webhooks"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/webhookforward"
 	"github.com/adirkuhn/commerceos/internal/config"
+	"github.com/adirkuhn/commerceos/internal/db"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -34,7 +32,7 @@ const pollInterval = 5 * time.Second
 func main() {
 	cfg := config.Load()
 
-	db, err := gorm.Open(postgres.Open(cfg.DBDsn), &gorm.Config{})
+	db, err := db.Open(cfg.DBDsn, 10)
 	if err != nil {
 		log.Fatalf("db connect: %v", err)
 	}

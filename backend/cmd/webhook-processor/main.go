@@ -13,8 +13,6 @@ import (
 	"syscall"
 
 	"github.com/nats-io/nats.go"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
@@ -34,6 +32,7 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/revolut"
 	"github.com/adirkuhn/commerceos/infrastructure/stripe"
 	"github.com/adirkuhn/commerceos/internal/config"
+	"github.com/adirkuhn/commerceos/internal/db"
 )
 
 // webhookQueueGroup is the NATS queue group name every webhook-processor
@@ -68,7 +67,7 @@ func (a costLedgerRecorderAdapter) Execute(ctx context.Context, in appinventory.
 func main() {
 	cfg := config.Load()
 
-	db, err := gorm.Open(postgres.Open(cfg.DBDsn), &gorm.Config{})
+	db, err := db.Open(cfg.DBDsn, 10)
 	if err != nil {
 		log.Fatalf("db connect: %v", err)
 	}

@@ -8,8 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nats-io/nats.go"
 	ginmiddleware "github.com/oapi-codegen/gin-middleware"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -84,6 +82,7 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/storage"
 	"github.com/adirkuhn/commerceos/infrastructure/woocommerce"
 	"github.com/adirkuhn/commerceos/internal/config"
+	"github.com/adirkuhn/commerceos/internal/db"
 )
 
 // buildFileStorage selects the pms.FileStorage adapter per cfg.StorageDriver.
@@ -114,7 +113,7 @@ func buildFileStorage(cfg config.Config) pmsDomain.FileStorage {
 func main() {
 	cfg := config.Load()
 
-	db, err := gorm.Open(postgres.Open(cfg.DBDsn), &gorm.Config{})
+	db, err := db.Open(cfg.DBDsn, 20)
 	if err != nil {
 		log.Fatalf("db connect: %v", err)
 	}

@@ -35,12 +35,10 @@ import (
 	"flag"
 	"log"
 
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/config"
+	"github.com/adirkuhn/commerceos/internal/db"
 )
 
 // outboxReplayRepo is outbox.Repository's would-be shape narrowed to what
@@ -62,7 +60,7 @@ func main() {
 	}
 
 	cfg := config.Load()
-	db, err := gorm.Open(postgres.Open(cfg.DBDsn), &gorm.Config{})
+	db, err := db.Open(cfg.DBDsn, 5)
 	if err != nil {
 		log.Fatalf("db connect: %v", err)
 	}

@@ -23,14 +23,12 @@ import (
 	"flag"
 	"log"
 
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/config"
+	"github.com/adirkuhn/commerceos/internal/db"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -39,7 +37,7 @@ func main() {
 	flag.Parse()
 
 	cfg := config.Load()
-	db, err := gorm.Open(postgres.Open(cfg.DBDsn), &gorm.Config{})
+	db, err := db.Open(cfg.DBDsn, 5)
 	if err != nil {
 		log.Fatalf("db connect: %v", err)
 	}

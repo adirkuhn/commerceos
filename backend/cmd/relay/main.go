@@ -9,13 +9,12 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	"github.com/adirkuhn/commerceos/infrastructure/publishers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/config"
+	"github.com/adirkuhn/commerceos/internal/db"
 )
 
 // maxOutboxPublishRetries caps how many genuine per-message publish
@@ -82,7 +81,7 @@ func main() {
 		log.Fatalf("jetstream: %v", err)
 	}
 
-	db, err := gorm.Open(postgres.Open(cfg.DBDsn), &gorm.Config{})
+	db, err := db.Open(cfg.DBDsn, 10)
 	if err != nil {
 		log.Fatalf("db connect: %v", err)
 	}
