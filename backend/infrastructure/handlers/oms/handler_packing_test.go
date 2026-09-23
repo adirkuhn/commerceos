@@ -20,11 +20,18 @@ func TestStartOrResumePacking_success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "pack-session-1")
 }
 
-func TestStartOrResumePacking_notYetPickedIsUnprocessable(t *testing.T) {
-	w := doRequest(routerWithPacking(func(s *packingStubs) { s.start.err = omsDomain.ErrOrderNotYetPicked }),
+func TestStartOrResumePacking_notPackableIsUnprocessable(t *testing.T) {
+	w := doRequest(routerWithPacking(func(s *packingStubs) { s.start.err = omsDomain.ErrOrderNotPackable }),
 		"POST", "/api/v1/sales-orders/so-1/packing", nil)
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestStartOrResumePacking_pickingInProgressIsConflict(t *testing.T) {
+	w := doRequest(routerWithPacking(func(s *packingStubs) { s.start.err = omsDomain.ErrOrderPickingInProgress }),
+		"POST", "/api/v1/sales-orders/so-1/packing", nil)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
 }
 
 func TestStartOrResumePacking_lockedIsConflict(t *testing.T) {

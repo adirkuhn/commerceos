@@ -14,15 +14,24 @@ import (
 // picking session rather than creating a duplicate -- same "pausing one
 // order to work another is just start/resume" mechanic as
 // procurement.StartOrResumeBookingUseCase. Unlike Booking, there's no
-// warehouse-assignment step: SalesOrder.WarehouseID is always set.
+// warehouse-assignment step: SalesOrder.WarehouseID is always set. Picking
+// is optional (packing accepts unpicked orders), so it refuses an order
+// already packed or mid-packing -- see SalesOrder.CanStartPicking.
 type StartOrResumePickingUseCase struct {
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
 	sessionRepo    omsDomain.PickingSessionRepository
+	packingRepo    activePackingSessionFinder
 }
 
-func NewStartOrResumePickingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, sessionRepo omsDomain.PickingSessionRepository) *StartOrResumePickingUseCase {
-	return &StartOrResumePickingUseCase{db: db, salesOrderRepo: salesOrderRepo, sessionRepo: sessionRepo}
+// activePackingSessionFinder is the one PackingSessionRepository method
+// picking needs -- whether the order is mid-packing.
+type activePackingSessionFinder interface {
+	FindActiveBySalesOrder(ctx context.Context, salesOrderID string) (*omsDomain.PackingSession, error)
+}
+
+func NewStartOrResumePickingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, sessionRepo omsDomain.PickingSessionRepository, packingRepo activePackingSessionFinder) *StartOrResumePickingUseCase {
+	return &StartOrResumePickingUseCase{db: db, salesOrderRepo: salesOrderRepo, sessionRepo: sessionRepo, packingRepo: packingRepo}
 }
 
 func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID, userID string) (*omsDomain.PickingSession, error) {
@@ -32,8 +41,12 @@ func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID
 		if err != nil {
 			return err
 		}
-		if order.Fulfilled {
-			return omsDomain.ErrOrderAlreadyFulfilled
+		packing, err := uc.packingRepo.FindActiveBySalesOrder(ctx, salesOrderID)
+		if err != nil {
+			return err
+		}
+		if err := order.CanStartPicking(packing != nil); err != nil {
+			return err
 		}
 
 		existing, err := uc.sessionRepo.FindActiveBySalesOrder(ctx, salesOrderID)

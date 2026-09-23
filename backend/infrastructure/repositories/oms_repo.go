@@ -271,6 +271,14 @@ func salesOrderOrderClause(filter omsDomain.ListSalesOrdersFilter) string {
 	}
 }
 
+func salesOrderStatusStrings(statuses []omsDomain.SalesOrderStatus) []string {
+	out := make([]string, len(statuses))
+	for i, s := range statuses {
+		out[i] = string(s)
+	}
+	return out
+}
+
 func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -296,12 +304,14 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 	if filter.Packed != nil {
 		q = q.Where("packed = ?", *filter.Packed)
 	}
+	if filter.ReadyToPack {
+		q = q.Where("packed = false").
+			Where("(fulfilled = true OR status IN ?)", salesOrderStatusStrings(omsDomain.PickableStatuses())).
+			Where("NOT EXISTS (SELECT 1 FROM picking_sessions ps WHERE ps.sales_order_id = sales_orders.id AND ps.status IN ?)",
+				[]string{string(omsDomain.PickingSessionStatusInProgress), string(omsDomain.PickingSessionStatusPaused)})
+	}
 	if len(filter.Status) > 0 {
-		statuses := make([]string, len(filter.Status))
-		for i, s := range filter.Status {
-			statuses[i] = string(s)
-		}
-		q = q.Where("status IN ?", statuses)
+		q = q.Where("status IN ?", salesOrderStatusStrings(filter.Status))
 	}
 	if filter.CustomerID != nil {
 		q = q.Where("customer_id = ?", *filter.CustomerID)

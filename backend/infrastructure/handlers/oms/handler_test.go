@@ -511,7 +511,7 @@ func newTestRouterWithPicking(
 		addLineItem, startPicking, getPicking, touchPicking, resetPicking, scan, substitute, refund, resolve, deleteScan, pause, complete, bulk,
 		&stubListSalesOrderActivities{},
 		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{})
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -524,7 +524,7 @@ func newTestRouterWithPacking(packStubs packingStubs) *gin.Engine {
 		&stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{},
 		&stubListSalesOrderActivities{},
-		packStubs.start, packStubs.get, packStubs.touch, packStubs.reset, packStubs.scan, packStubs.deleteScan, packStubs.complete)
+		packStubs.start, packStubs.get, packStubs.touch, packStubs.reset, packStubs.scan, packStubs.deleteScan, packStubs.complete, &stubBuildPickList{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -867,7 +867,7 @@ func newTestRouterWithActivities(activities *stubListSalesOrderActivities) *gin.
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{},
 		&stubBulkUpdateSalesOrderStatus{}, activities,
 		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{})
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -945,6 +945,20 @@ func TestStartOrResumePicking_lockedByAnotherUserIsConflict(t *testing.T) {
 		"POST", "/api/v1/sales-orders/so-1/picking", nil)
 
 	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestStartOrResumePicking_packingInProgressIsConflict(t *testing.T) {
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.startPicking.err = omsDomain.ErrOrderPackingInProgress }),
+		"POST", "/api/v1/sales-orders/so-1/picking", nil)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestStartOrResumePicking_alreadyPackedIsUnprocessable(t *testing.T) {
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.startPicking.err = omsDomain.ErrOrderAlreadyPacked }),
+		"POST", "/api/v1/sales-orders/so-1/picking", nil)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
 func TestTouchPickingSession_success(t *testing.T) {

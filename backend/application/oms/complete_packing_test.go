@@ -28,7 +28,8 @@ func TestCompletePacking_completesAndMarksOrderPacked(t *testing.T) {
 	assert.Equal(t, "user-1", sessionRepo.updated[0].CompletedBy)
 	assert.Equal(t, []string{"session-1"}, sessionRepo.released)
 	assert.Equal(t, "order-1", salesOrderRepo.gotUpdateID)
-	assert.Equal(t, map[string]any{"packed": true}, salesOrderRepo.gotUpdateFields)
+	assert.Equal(t, map[string]any{"packed": true, "fulfilled": true}, salesOrderRepo.gotUpdateFields,
+		"packing also marks the order fulfilled -- picking is optional")
 }
 
 func TestCompletePacking_reportsMissingItemsButStillCompletes(t *testing.T) {

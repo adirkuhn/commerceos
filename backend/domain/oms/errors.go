@@ -105,9 +105,23 @@ var (
 	// completion is a one-way door here too, same reasoning as
 	// ErrPickingSessionAlreadyCompleted.
 	ErrPackingSessionAlreadyCompleted = errors.New("packing session is already completed")
-	// ErrOrderNotYetPicked guards StartOrResumePackingUseCase -- packing has
-	// nothing to do until the order's Fulfilled flag says picking finished.
-	ErrOrderNotYetPicked = errors.New("sales order has not been fully picked yet")
+	// ErrOrderNotPackable guards SalesOrder.CanStartPacking -- an order that
+	// skipped picking may only go straight to packing while its status is
+	// still pickable (see SalesOrderStatus.IsPickable).
+	ErrOrderNotPackable = errors.New("sales order status does not allow packing")
+	// ErrOrderPickingInProgress guards SalesOrder.CanStartPacking against an
+	// order with an open (in_progress/paused) picking session -- finish or
+	// reset that session first.
+	ErrOrderPickingInProgress = errors.New("sales order has a picking session in progress")
+	// ErrOrderPackingInProgress guards SalesOrder.CanStartPicking against an
+	// order already being packed.
+	ErrOrderPackingInProgress = errors.New("sales order has a packing session in progress")
+	// ErrPickListOrderIDsRequired guards BuildPickListUseCase against an
+	// empty selection.
+	ErrPickListOrderIDsRequired = errors.New("at least one sales order id is required")
+	// ErrPickListTooManyOrders guards BuildPickListUseCase against a
+	// selection larger than MaxPickListOrders.
+	ErrPickListTooManyOrders = errors.New("too many sales orders for one pick list")
 	// ErrOrderAlreadyPacked guards StartOrResumePackingUseCase against
 	// starting a new packing session for an order that's already packed.
 	ErrOrderAlreadyPacked = errors.New("sales order is already packed")

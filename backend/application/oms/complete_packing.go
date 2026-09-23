@@ -36,7 +36,10 @@ type CompletePackingInput struct {
 // "completion always succeeds" philosophy as picking, since a manager may
 // knowingly ship a partial box), marks the session completed, releases its
 // lock, and flips the order's Packed flag so it drops off the packing
-// screens' order list.
+// screens' order list. Fulfilled is set too: picking is optional, and a
+// packed order has by definition been physically collected -- shipping and
+// reconcile logic keyed on Fulfilled keeps working for orders that skipped
+// the picking module.
 type CompletePackingUseCase struct {
 	db             *gorm.DB
 	sessionRepo    omsDomain.PackingSessionRepository
@@ -90,7 +93,7 @@ func (uc *CompletePackingUseCase) Execute(ctx context.Context, in CompletePackin
 		if err := uc.sessionRepo.ReleaseLock(ctx, session.ID); err != nil {
 			return err
 		}
-		if err := uc.salesOrderRepo.Update(ctx, session.SalesOrderID, map[string]any{"packed": true}); err != nil {
+		if err := uc.salesOrderRepo.Update(ctx, session.SalesOrderID, map[string]any{"packed": true, "fulfilled": true}); err != nil {
 			return err
 		}
 

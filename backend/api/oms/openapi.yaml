@@ -80,9 +80,16 @@ paths:
         - name: packed
           in: query
           description: >
-            Filter by the order's packing status -- combined with
-            fulfilled=true, false powers the packing screens' "orders ready
-            to pack" search.
+            Filter by the order's packing status.
+          schema: { type: boolean }
+        - name: ready_to_pack
+          in: query
+          description: >
+            true narrows to orders a packing session may start for -- the
+            packing screens' queue. Picking is optional, so this is: not
+            packed, no open (in_progress/paused) picking session, and either
+            already fulfilled or still in a pickable status
+            (pending/processing/on-hold). Omitted or false means no filter.
           schema: { type: boolean }
       responses:
         '200':
@@ -131,6 +138,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BulkUpdateSalesOrderStatusResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /sales-orders/pick-list:
+    get:
+      operationId: getPickList
+      summary: >
+        Read-only pick list across several sales orders -- what to fetch
+        off the shelves, quantities summed per SKU with a per-order
+        breakdown. The lightweight alternative to a picking session: the
+        item-by-item scanning then happens during packing. Refunded
+        quantities are excluded. Nothing is written.
+      parameters:
+        - name: sales_order_id
+          in: query
+          required: true
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 100
+            items: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickListResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
         '422':
           $ref: '#/components/responses/Error'
 
@@ -319,9 +359,10 @@ paths:
       operationId: startOrResumePicking
       summary: >
         Scanner app -- start a new picking session for this order, or
-        resume its existing in_progress/paused one. Rejected if the order
-        is already fulfilled, or if another user currently holds the
-        session's lock (409 -- see PickingSession.locked_by).
+        resume its existing in_progress/paused one. Picking is optional.
+        Rejected (422) if the order is already fulfilled or packed; 409 if
+        the order has a packing session in progress, or another user
+        currently holds the session's lock (see PickingSession.locked_by).
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -593,9 +634,13 @@ paths:
       operationId: startOrResumePacking
       summary: >
         Packing screen -- start a new packing session for this order, or
-        resume its existing in_progress one. Rejected (422) if the order
-        hasn't been fully picked yet (fulfilled=false) or is already packed,
-        or if another user currently holds the session's lock (409).
+        resume its existing in_progress one. Picking is optional: an order
+        that was never picked may be packed directly while its status is
+        pending/processing/on-hold. Rejected (422) if the order is already
+        packed, or unpicked in any other status; 409 if the order has an
+        open (in_progress/paused) picking session, or another user
+        currently holds the session's lock. Completing packing also marks
+        the order fulfilled.
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -941,6 +986,46 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/SalesOrderList' }
+        error: { nullable: true }
+
+    PickListOrderLine:
+      type: object
+      required: [sales_order_id, order_number, line_item_id, quantity]
+      properties:
+        sales_order_id: { type: string }
+        order_number: { type: string }
+        line_item_id: { type: string }
+        quantity: { type: integer, format: int64 }
+
+    PickListItem:
+      type: object
+      required: [sku_id, sku_code, barcode, name, total_quantity, orders]
+      properties:
+        sku_id:
+          type: string
+          nullable: true
+          description: null when the order line was never linked to a catalog SKU -- such lines are grouped by name.
+        sku_code: { type: string }
+        barcode: { type: string }
+        name: { type: string }
+        total_quantity: { type: integer, format: int64 }
+        orders:
+          type: array
+          items: { $ref: '#/components/schemas/PickListOrderLine' }
+
+    PickList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: Sorted by sku_code, then name; lines without a sku_code last.
+          items: { $ref: '#/components/schemas/PickListItem' }
+
+    PickListResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PickList' }
         error: { nullable: true }
 
     SalesOrderDetailResponse:

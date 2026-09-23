@@ -236,16 +236,17 @@ type SalesOrder struct {
 	// the moment Status transitions to Completed (any path: manual edit,
 	// WooCommerce import/sync) and at creation for an order that arrives
 	// already completed, and explicitly by CompletePickingUseCase when a
-	// picking session finishes. Never auto-cleared by a later status change
+	// picking session finishes (or CompletePackingUseCase, for an order that
+	// skipped picking). Never auto-cleared by a later status change
 	// -- see UpdateSalesOrderInput.Fulfilled for the manual override escape
 	// hatch.
 	Fulfilled bool
 
 	// Packed is Fulfilled's packing-phase counterpart -- true once a
 	// PackingSession has completed for this order (see
-	// CompletePackingUseCase). Always false while Fulfilled is false (packing
-	// can't start before picking finishes, see
-	// StartOrResumePackingUseCase.ErrOrderNotYetPicked). Never auto-cleared.
+	// CompletePackingUseCase). Picking is optional (see
+	// SalesOrder.CanStartPacking), so completing packing also sets Fulfilled
+	// -- a packed order is always fulfilled. Never auto-cleared.
 	Packed bool
 }
 
@@ -339,4 +340,13 @@ type SalesOrderLineItem struct {
 	// picking staff want the *current* one, not what it looked like at
 	// order time.
 	ProductID *string
+}
+
+// DisplayNumber is the human-facing order reference: Number when the
+// source set one, otherwise the source's own ExternalOrderID.
+func (o SalesOrder) DisplayNumber() string {
+	if o.Number != "" {
+		return o.Number
+	}
+	return o.ExternalOrderID
 }

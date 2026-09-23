@@ -50,6 +50,12 @@ type ListSalesOrdersFilter struct {
 	// true, false powers the packing screens' "orders ready to pack" search
 	// (see SalesOrder.Packed's doc).
 	Packed *bool
+	// ReadyToPack true narrows to orders SalesOrder.CanStartPacking would
+	// accept: not packed, no open (in_progress/paused) picking session, and
+	// either already fulfilled or still in a pickable status (see
+	// PickableStatuses) -- the packing screens' queue, now that picking is
+	// optional. false means "don't filter on this".
+	ReadyToPack bool
 	// Status empty means "don't filter on this". Non-empty narrows to those
 	// statuses only -- powers the picking screens' exclusion of
 	// completed/cancelled/refunded/failed orders (a terminal-status order
