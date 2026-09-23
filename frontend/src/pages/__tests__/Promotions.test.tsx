@@ -109,7 +109,7 @@ describe('Promotion edit page', () => {
     renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
 
-    expect(await screen.findByText('New Promotion', { selector: 'h1' })).toBeInTheDocument()
+    expect(await screen.findByText('New promotion', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toHaveValue('')
     expect(screen.getByRole('button', { name: 'Create promotion' })).toBeInTheDocument()
   })
@@ -262,7 +262,7 @@ describe('Promotions URLs (refresh + Back)', () => {
     const { router } = renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByRole('button', { name: /Add promotion/ }))
     expect(router.state.location.pathname).toBe('/promotions/new')
-    expect(screen.getByText('New Promotion')).toBeInTheDocument()
+    expect(screen.getByText('New promotion')).toBeInTheDocument()
 
     await act(() => router.navigate(-1))
     expect(router.state.location.pathname).toBe('/promotions')

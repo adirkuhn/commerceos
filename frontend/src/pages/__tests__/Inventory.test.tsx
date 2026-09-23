@@ -153,14 +153,14 @@ describe('Inventory page', () => {
     await screen.findByText('Low Stock Widget')
     await screen.findByText('Empty Widget')
 
-    await user.click(screen.getByRole('button', { name: 'Low Stock' }))
+    await user.click(screen.getByRole('button', { name: 'Low stock' }))
     await waitFor(() => {
       expect(screen.getByText('Low Stock Widget')).toBeInTheDocument()
       expect(screen.queryByText('Widget')).not.toBeInTheDocument()
       expect(screen.queryByText('Empty Widget')).not.toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: 'Out of Stock' }))
+    await user.click(screen.getByRole('button', { name: 'Out of stock' }))
     await waitFor(() => {
       expect(screen.getByText('Empty Widget')).toBeInTheDocument()
       expect(screen.queryByText('Widget')).not.toBeInTheDocument()

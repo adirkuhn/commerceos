@@ -37,7 +37,7 @@ const CARRIER_COLORS: Record<string, string> = {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   label_created: { label: 'Label created', color: 'text-ink-4', icon: Printer },
-  picked_up: { label: 'Picked Up', color: 'text-accent', icon: Package },
+  picked_up: { label: 'Picked up', color: 'text-accent', icon: Package },
   in_transit: { label: 'In transit', color: 'text-warning', icon: Truck },
   out_for_delivery: { label: 'Out for delivery', color: 'text-accent', icon: Truck },
   delivered: { label: 'Delivered', color: 'text-success', icon: CheckCircle },
@@ -82,7 +82,7 @@ export default function Shipping() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-0 border-b border-line shrink-0">
         {[
-          ['Shipped Today', stats.today.toString(), 'blue'],
+          ['Shipped today', stats.today.toString(), 'blue'],
           ['In transit', stats.inTransit.toString(), 'amber'],
           ['Delivered', stats.delivered.toString(), 'green'],
           ['Exceptions', stats.exceptions.toString(), 'red'],

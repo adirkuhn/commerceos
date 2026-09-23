@@ -135,7 +135,7 @@ describe('Supplier edit page', () => {
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add supplier' }))
 
-    expect(await screen.findByText('New Supplier', { selector: 'h1' })).toBeInTheDocument()
+    expect(await screen.findByText('New supplier', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toHaveValue('')
     expect(screen.getByRole('button', { name: 'Create supplier' })).toBeInTheDocument()
   })

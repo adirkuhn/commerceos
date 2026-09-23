@@ -1902,8 +1902,8 @@ export default function Inventory() {
         <div className="flex items-center rounded-lg border border-line overflow-hidden shrink-0">
           {([
             ['all', 'All'],
-            ['low', 'Low Stock'],
-            ['out', 'Out of Stock'],
+            ['low', 'Low stock'],
+            ['out', 'Out of stock'],
           ] as const).map(([value, label]) => (
             <button aria-pressed={stockFilter === value}
               key={value}

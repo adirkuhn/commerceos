@@ -285,7 +285,7 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
             <ArrowLeft size={11} /> Promotions
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {promotionId ? name || 'Edit Promotion' : 'New Promotion'}
+            {promotionId ? name || 'Edit promotion' : 'New promotion'}
           </h1>
         </div>
         <div className="flex items-center gap-2">

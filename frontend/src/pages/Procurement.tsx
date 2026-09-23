@@ -60,9 +60,9 @@ const LINE_TYPE_LABELS: Record<Exclude<LineItemType, ''>, string> = {
   product: 'Product',
   shipping: 'Shipping',
   discount: 'Discount',
-  credit_note: 'Credit Note',
+  credit_note: 'Credit note',
   fee: 'Fee',
-  other_charge: 'Other Charge',
+  other_charge: 'Other charge',
 }
 
 function isChargeLineType(type: LineItemType): boolean {
@@ -1944,7 +1944,7 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
   })).filter(g => g.items.length > 0)
 
   function handleExportCsv() {
-    const header = ['Type', 'Expected Qty', 'Received Qty', 'Status', 'Details']
+    const header = ['Type', 'Expected qty', 'Received qty', 'Status', 'Details']
     const rows = discrepancies.map(d => [
       DISCREPANCY_LABEL[d.type], String(d.expected_qty), String(d.received_qty), d.status, d.details,
     ])

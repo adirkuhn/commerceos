@@ -208,7 +208,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
             <ArrowLeft size={11} /> Warehouses
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {warehouse ? name || 'Edit Warehouse' : 'New warehouse'}
+            {warehouse ? name || 'Edit warehouse' : 'New warehouse'}
           </h1>
         </div>
         <div className="flex items-center gap-2">

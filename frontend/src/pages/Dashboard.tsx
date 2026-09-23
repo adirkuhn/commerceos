@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   Package, Warehouse, ShoppingCart, AlertTriangle,
   TrendingUp, TrendingDown, XCircle, DollarSign, Calendar,
 } from 'lucide-react'
@@ -43,7 +44,7 @@ function StatCard({ label, value, sub, icon: Icon, trend, trendValue, color = 'b
     <div className={clsx(
       'bg-raised rounded-xl p-4 border',
       alert
-        ? 'dark:border-red-500/30 border-red-200'
+        ? 'border-danger/40'
         : 'border-line',
     )}>
       <div className="flex items-start justify-between mb-3">
@@ -65,6 +66,11 @@ function StatCard({ label, value, sub, icon: Icon, trend, trendValue, color = 'b
       </div>
       <p className="text-2xl font-semibold text-ink mb-1">{value ?? '—'}</p>
       {sub && <p className="text-xs text-ink-4">{sub}</p>}
+      {alert && (
+        <p className="mt-2 flex items-center gap-1 text-xs font-medium text-danger">
+          <AlertCircle size={12} aria-hidden /> Needs attention
+        </p>
+      )}
       {trend && trendValue && (
         <div className={clsx(
           'flex items-center gap-1 mt-2 text-xs font-medium',
@@ -86,7 +92,7 @@ function ExpiringSoonWidget() {
     <div className="bg-raised rounded-xl border border-line overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <h3 className="text-sm font-semibold text-ink">Expiring soon</h3>
-        <span className="text-2xs bg-amber-500/20 text-warning px-2 py-0.5 rounded-full font-medium">
+        <span className={clsx('text-2xs px-2 py-0.5 rounded-full font-medium', batches.length > 0 ? 'bg-amber-500/20 text-warning' : 'bg-fill text-ink-3')}>
           {batches.length} within 30 days
         </span>
       </div>
@@ -144,7 +150,7 @@ export default function Dashboard() {
         <StatCard label="Total orders" value={stats?.totalOrders.toLocaleString()} sub="all time" icon={ShoppingCart} color="blue" />
         <StatCard label="Stock Issues" value={stats?.stockIssues.toLocaleString()} sub="orders need stock resolution" icon={ShoppingCart} color="amber" />
         <StatCard label="Expiring (7d)" value={stats?.expiringSoon.toLocaleString()} sub="batches near expiry" icon={AlertTriangle} color="amber" />
-        <StatCard label="Expired" value={stats?.expired.toLocaleString()} sub="need disposal" icon={XCircle} color="red" alert />
+        <StatCard label="Expired" value={stats?.expired.toLocaleString()} sub="need disposal" icon={XCircle} color="red" alert={(stats?.expired ?? 0) > 0} />
         <StatCard
           label="Est. revenue"
           value={stats ? formatMoney(stats.revenueThisMonthMinorUnits, currency) : undefined}

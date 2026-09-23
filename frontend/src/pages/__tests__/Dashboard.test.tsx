@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Dashboard from '../Dashboard'
 import type { ExpiringBatch } from '../../inventory/types'
@@ -136,6 +136,20 @@ describe('Dashboard — stat cards', () => {
     render(<Dashboard />)
     expect(await screen.findByText('1')).toBeInTheDocument()
     expect(inventoryApi.listPendingExpiredBatches).toHaveBeenCalledWith('test-token')
+  })
+
+  it('flags expired batches as needing attention only when there are some', async () => {
+    vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([])
+    const { unmount } = render(<Dashboard />)
+    await waitFor(() => expect(inventoryApi.listPendingExpiredBatches).toHaveBeenCalled())
+    expect(screen.queryByText('Needs attention')).not.toBeInTheDocument()
+    unmount()
+
+    vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([
+      { batch_id: 'b1', sku_id: 's1', sku_code: 'SKU-1', product_name: 'Widget', warehouse_id: 'w1', warehouse_name: 'Main DC', lot_number: 'L1', expiry_date: '2026-01-01T00:00:00Z', quantity: 3 },
+    ])
+    render(<Dashboard />)
+    expect(await screen.findByText('Needs attention')).toBeInTheDocument()
   })
 
   it('renders real total stock and revenue figures', async () => {

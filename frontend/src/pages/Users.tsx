@@ -365,7 +365,7 @@ export default function Users() {
             <table className="w-full text-xs">
               <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                 <tr>
-                  {['User', 'Role', 'Status', 'Last Login', ''].map(h => (
+                  {['User', 'Role', 'Status', 'Last login', ''].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">
                       {h}
                     </th>

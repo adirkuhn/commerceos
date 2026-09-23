@@ -243,7 +243,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
             <ArrowLeft size={11} /> Suppliers
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {supplier ? name || 'Edit Supplier' : 'New Supplier'}
+            {supplier ? name || 'Edit supplier' : 'New supplier'}
           </h1>
         </div>
         <div className="flex items-center gap-2">

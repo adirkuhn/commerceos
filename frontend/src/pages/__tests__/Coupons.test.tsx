@@ -86,7 +86,7 @@ describe('Coupon edit page', () => {
     renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByRole('button', { name: 'Add coupon' }))
 
-    expect(await screen.findByText('New Coupon', { selector: 'h1' })).toBeInTheDocument()
+    expect(await screen.findByText('New coupon', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Code')).toHaveValue('')
     expect(screen.getByRole('button', { name: 'Create coupon' })).toBeInTheDocument()
   })

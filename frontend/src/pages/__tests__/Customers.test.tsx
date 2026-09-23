@@ -290,7 +290,7 @@ describe('Customer edit page', () => {
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add customer' }))
 
-    expect(await screen.findByText('New Customer', { selector: 'h1' })).toBeInTheDocument()
+    expect(await screen.findByText('New customer', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toHaveValue('')
     expect(screen.getByRole('button', { name: 'Create customer' })).toBeInTheDocument()
   })

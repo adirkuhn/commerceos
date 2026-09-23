@@ -338,7 +338,7 @@ function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEditPageP
             <ArrowLeft size={11} /> Coupons
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {coupon ? coupon.code : 'New Coupon'}
+            {coupon ? coupon.code : 'New coupon'}
           </h1>
         </div>
         <div className="flex items-center gap-2">

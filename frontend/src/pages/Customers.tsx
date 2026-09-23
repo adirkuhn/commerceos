@@ -576,7 +576,7 @@ function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: CustomerEdi
             <ArrowLeft size={11} /> Customer
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {customer ? [firstName, lastName].filter(Boolean).join(' ') || 'Edit Customer' : 'New Customer'}
+            {customer ? [firstName, lastName].filter(Boolean).join(' ') || 'Edit customer' : 'New customer'}
           </h1>
         </div>
         <div className="flex items-center gap-2">

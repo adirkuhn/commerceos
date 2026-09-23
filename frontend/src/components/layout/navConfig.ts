@@ -37,7 +37,7 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    id: 'fulfil', label: 'Fulfil', items: [
+    id: 'fulfill', label: 'Fulfill', items: [
       { id: 'picking', label: 'Picking', icon: ScanBarcode },
       { id: 'packing', label: 'Packing', icon: PackageCheck },
       { id: 'stock-issues', label: 'Stock Issues', icon: AlertTriangle },

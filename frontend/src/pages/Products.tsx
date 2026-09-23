@@ -706,7 +706,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
             <ArrowLeft size={11} /> Products
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {savedProductId ? name || 'Edit Product' : 'New product'}
+            {savedProductId ? name || 'Edit product' : 'New product'}
           </h1>
         </div>
         <div className="flex items-center gap-2">

@@ -133,7 +133,6 @@ export default function Settings() {
               >
                 <Icon size={14} className={active ? 'text-accent' : ''} />
                 <span className="text-xs font-medium flex-1">{s.label}</span>
-                {active && <ChevronRight size={12} className="text-accent" />}
               </button>
             )
           })}
@@ -150,10 +149,10 @@ export default function Settings() {
             </div>
             <div className="space-y-4">
               {[
-                ['Company Name', 'OmniStock Operations BV', 'text'],
-                ['VAT Number', 'NL123456789B01', 'text'],
+                ['Company name', 'OmniStock Operations BV', 'text'],
+                ['VAT number', 'NL123456789B01', 'text'],
                 ['Chamber of Commerce', '12345678', 'text'],
-                ['Business Email', 'ops@omnistock.io', 'email'],
+                ['Business email', 'ops@omnistock.io', 'email'],
                 ['Phone', '+31 20 123 4567', 'tel'],
               ].map(([label, defaultValue, type]) => (
                 <div key={label}>
