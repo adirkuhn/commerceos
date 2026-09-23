@@ -28,6 +28,7 @@ import { Dialog } from '../components/common/Dialog'
 import { toInput } from '../settings/tenantSettingsInput'
 import { PickingModeSection } from '../settings/PickingModeSection'
 import { CompanyProfileSection } from '../settings/company/CompanyProfileSection'
+import { NotificationPreferencesSection } from '../settings/notifications/NotificationPreferencesSection'
 import { AutomationSection, SecuritySection } from '../settings/ManagedElsewhereSections'
 import { lm2Origin } from '../auth/loginConfig'
 import { useConfirm } from '../components/common/useConfirm'
@@ -50,7 +51,7 @@ const SECTIONS: SettingSection[] = [
   { id: 'pricing', label: 'Pricing', icon: TrendingUp, description: 'Default target markup for recommended prices' },
   { id: 'automation', label: 'Automation', icon: Zap, description: 'Trigger-based rules and workflows' },
   { id: 'security', label: 'Security', icon: Shield, description: 'SSO, 2FA, IP restrictions' },
-  { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Email, webhook, Slack alerts' },
+  { id: 'notifications', label: 'Notifications', icon: Bell, description: 'What shows in the bell and what is emailed' },
 ]
 
 type SectionId = typeof SECTIONS[number]['id']
@@ -200,49 +201,8 @@ export default function Settings() {
 
         {activeSection === 'security' && <SecuritySection lm2Url={lm2Origin()} />}
 
-        {activeSection === 'notifications' && (
-          <div className="max-w-2xl space-y-6">
-            <div>
-              <h2 className="text-base font-semibold text-ink mb-1">Notifications</h2>
-              <p className="text-xs text-ink-4">Configure alerts across channels</p>
-            </div>
-            {[
-              { channel: 'Email', events: ['Critical stock alert', 'Expiry alert', 'Integration failure', 'New order'] },
-              { channel: 'Webhook', events: ['Order status change', 'Stock adjustment', 'Sync complete'] },
-              { channel: 'Slack', events: ['Critical stock alert', 'Integration failure'] },
-            ].map(section => (
-              <div key={section.channel} className="bg-raised rounded-xl border border-line overflow-hidden">
-                <div className="px-4 py-3 border-b border-line flex items-center justify-between">
-                  <p className="text-xs font-semibold text-ink">{section.channel}</p>
-                  <span className="text-2xs text-success bg-green-500/15 px-2 py-0.5 rounded-full">configured</span>
-                </div>
-                <div className="p-4 space-y-2">
-                  {section.events.map(ev => (
-                    <label key={ev} className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" defaultChecked className="rounded accent-accent-solid w-3 h-3" />
-                      <span className="text-xs text-ink-2">{ev}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {activeSection === 'notifications' && <NotificationPreferencesSection />}
 
-        {!['company', 'integrations', 'inventory', 'localization', 'automation', 'security', 'notifications', 'tax', 'pricing'].includes(activeSection) && (
-          <div className="max-w-2xl">
-            <h2 className="text-base font-semibold text-ink mb-1 capitalize">{activeSection}</h2>
-            <p className="text-xs text-ink-4">
-              {SECTIONS.find(s => s.id === activeSection)?.description}
-            </p>
-            <div className="mt-8 flex flex-col items-center text-center">
-              <div className="w-12 h-12 bg-raised border border-line rounded-xl flex items-center justify-center mb-3">
-                {(() => { const Icon = SECTIONS.find(s => s.id === activeSection)?.icon ?? Zap; return <Icon size={20} className="text-ink-4" /> })()}
-              </div>
-              <p className="text-xs text-ink-4">Configuration coming soon</p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

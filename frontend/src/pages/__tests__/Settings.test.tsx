@@ -39,6 +39,15 @@ vi.mock('../../inventory/api', () => ({
   deleteWarehouse: vi.fn(),
 }))
 
+vi.mock('../../settings/notifications/api', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../settings/notifications/api')>()
+  return {
+    ...actual,
+    getNotificationPreferences: vi.fn().mockResolvedValue({ categories: [], email_recipients: [], updated_at: null }),
+    updateNotificationPreferences: vi.fn(),
+  }
+})
+
 vi.mock('../../settings/company/api', async importOriginal => {
   const actual = await importOriginal<typeof import('../../settings/company/api')>()
   return {
@@ -1377,6 +1386,15 @@ describe('Settings URLs (refresh + Back)', () => {
     renderAt(<Settings />, '/settings', '/settings/tax')
     expect(await screen.findByText('Tax classes')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Tax' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('no section shows a "coming soon" placeholder', async () => {
+    for (const section of ['fulfillment', 'notifications', 'security', 'automation']) {
+      const { unmount } = renderAt(<Settings />, '/settings', `/settings/${section}`)
+      await screen.findAllByRole('heading')
+      expect(screen.queryByText('Configuration coming soon'), section).not.toBeInTheDocument()
+      unmount()
+    }
   })
 
   it('an unknown section falls back to Company', async () => {
