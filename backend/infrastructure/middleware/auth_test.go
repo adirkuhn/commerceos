@@ -191,3 +191,52 @@ func TestJWT_superAdminWithTenantID_stillSetsTenantContext(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"tenant_id":"tenant-456"`)
 	assert.Contains(t, w.Body.String(), `"is_super_admin":true`)
 }
+
+func writeGuardRouter() *gin.Engine {
+	r := gin.New()
+	r.Use(middleware.JWT([]byte(testSecret)))
+	r.Use(middleware.RequireRoleForWrites(middleware.RoleCustomerOwner, middleware.RoleCustomerAdmin, middleware.RoleSuperAdmin))
+	ok := func(c *gin.Context) { c.Status(http.StatusOK) }
+	r.GET("/settings", ok)
+	r.PUT("/settings", ok)
+	r.PATCH("/settings", ok)
+	r.POST("/settings", ok)
+	r.DELETE("/settings", ok)
+	return r
+}
+
+func TestRequireRoleForWrites_readOnlyRoleCanRead(t *testing.T) {
+	claims := validClaims()
+	claims.Role = middleware.RoleCustomerUser
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/settings", nil)
+	req.Header.Set("Authorization", "Bearer "+makeToken(t, claims))
+
+	writeGuardRouter().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestRequireRoleForWrites_readOnlyRoleCannotWrite(t *testing.T) {
+	claims := validClaims()
+	claims.Role = middleware.RoleCustomerUser
+	for _, method := range []string{http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete} {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(method, "/settings", nil)
+		req.Header.Set("Authorization", "Bearer "+makeToken(t, claims))
+
+		writeGuardRouter().ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusForbidden, w.Code, method)
+	}
+}
+
+func TestRequireRoleForWrites_allowedRoleCanWrite(t *testing.T) {
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/settings", nil)
+	req.Header.Set("Authorization", "Bearer "+makeToken(t, validClaims()))
+
+	writeGuardRouter().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}

@@ -92,6 +92,21 @@ func RequireRole(roles ...Role) gin.HandlerFunc {
 	}
 }
 
+// RequireRoleForWrites lets every authenticated role read (GET/HEAD) but
+// requires one of roles for anything that changes state -- for route groups
+// where customer_user is read-only (CLAUDE.md: customer_user is read-only
+// by default) but reads must stay open to everyone.
+func RequireRoleForWrites(roles ...Role) gin.HandlerFunc {
+	requireRole := RequireRole(roles...)
+	return func(c *gin.Context) {
+		if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead {
+			c.Next()
+			return
+		}
+		requireRole(c)
+	}
+}
+
 func ClaimsFromGin(c *gin.Context) *Claims {
 	v, exists := c.Get(claimsGinKey)
 	if !exists {

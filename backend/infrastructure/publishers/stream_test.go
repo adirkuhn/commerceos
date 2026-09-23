@@ -24,6 +24,7 @@ func TestSubjectsCoverEveryPublishedDomain(t *testing.T) {
 		"inventory.>",
 		"oms.>",
 		"shipping.>",
+		"settings.>",
 	}
 
 	for _, want := range wantPrefixes {
