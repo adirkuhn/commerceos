@@ -218,3 +218,32 @@ func TestRevokeApiKeyHandler_notFound(t *testing.T) {
 
 	require.Equal(t, http.StatusNotFound, w.Code)
 }
+
+func TestUpdateTenantSettingsHandler_passesPickingMode(t *testing.T) {
+	update := &stubUpdateTenantSettings{}
+	h := newTestHandler(&stubGetTenantSettings{}, update)
+
+	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", map[string]any{"picking_mode": "list"})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, "list", update.gotInput.PickingMode)
+}
+
+func TestUpdateTenantSettingsHandler_invalidPickingModeIsUnprocessable(t *testing.T) {
+	update := &stubUpdateTenantSettings{err: settingsDomain.ErrInvalidPickingMode}
+	h := newTestHandler(&stubGetTenantSettings{}, update)
+
+	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", map[string]any{"picking_mode": "list"})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestGetTenantSettingsHandler_returnsPickingMode(t *testing.T) {
+	get := &stubGetTenantSettings{out: &settingsDomain.TenantSettings{TenantID: "t", PickingMode: settingsDomain.PickingModeList}}
+	h := newTestHandler(get, &stubUpdateTenantSettings{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/settings/tenant", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"picking_mode":"list"`)
+}

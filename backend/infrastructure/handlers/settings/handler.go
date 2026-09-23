@@ -98,6 +98,7 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 		BundleConfidenceThreshold:      float64PtrOr(req.BundleConfidenceThreshold),
 		RecommendationsMinSupport:      intPtrOr(req.RecommendationsMinSupport),
 		RecommendationsLookbackDays:    intPtrOr(req.RecommendationsLookbackDays),
+		PickingMode:                    pickingModeOr(req.PickingMode),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -170,8 +171,16 @@ func toGenTenantSettings(s settingsDomain.TenantSettings) gensettings.TenantSett
 		BundleConfidenceThreshold:      float32(s.BundleConfidenceThreshold),
 		RecommendationsMinSupport:      s.RecommendationsMinSupport,
 		RecommendationsLookbackDays:    s.RecommendationsLookbackDays,
+		PickingMode:                    gensettings.PickingMode(s.PickingMode),
 		UpdatedAt:                      s.UpdatedAt,
 	}
+}
+
+func pickingModeOr(m *gensettings.PickingMode) string {
+	if m == nil {
+		return ""
+	}
+	return string(*m)
 }
 
 func strPtrOr(s *string) string {
@@ -199,7 +208,7 @@ func mapError(c *gin.Context, err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsLookbackDays) || errors.Is(err, apikeysDomain.ErrNameRequired) {
+	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsLookbackDays) || errors.Is(err, settingsDomain.ErrInvalidPickingMode) || errors.Is(err, apikeysDomain.ErrNameRequired) {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return err
 	}

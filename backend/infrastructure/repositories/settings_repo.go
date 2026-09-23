@@ -27,6 +27,7 @@ type tenantSettingsModel struct {
 	BundleConfidenceThreshold      float64 `gorm:"column:bundle_confidence_threshold;not null;default:0.30"`
 	RecommendationsMinSupport      int     `gorm:"column:recommendations_min_support;not null;default:2"`
 	RecommendationsLookbackDays    int     `gorm:"column:recommendations_lookback_days;not null;default:180"`
+	PickingMode                    string  `gorm:"column:picking_mode;not null;default:scan"`
 	UpdatedAt                      time.Time
 }
 
@@ -55,13 +56,17 @@ func (r *TenantSettingsRepo) Get(ctx context.Context) (*settingsDomain.TenantSet
 	if err := tx.Limit(1).Find(&m).Error; err != nil {
 		return nil, fmt.Errorf("tenantSettingsRepo.Get: %w", err)
 	}
-	return toTenantSettingsDomain(m), nil
+	return toTenantSettingsDomain(m)
 }
 
 func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.TenantSettings) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return err
+	}
+	pickingMode, err := settingsDomain.ParsePickingMode(string(s.PickingMode))
+	if err != nil {
+		return fmt.Errorf("tenantSettingsRepo.Upsert: %w", err)
 	}
 	m := tenantSettingsModel{
 		TenantID: s.TenantID, DefaultCurrency: s.DefaultCurrency, Timezone: s.Timezone,
@@ -71,7 +76,7 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 		DefaultTargetMarkupBasisPoints: s.DefaultTargetMarkupBasisPoints,
 		BundleConfidenceThreshold:   s.BundleConfidenceThreshold,
 		RecommendationsMinSupport:   s.RecommendationsMinSupport,
-		RecommendationsLookbackDays: s.RecommendationsLookbackDays, UpdatedAt: s.UpdatedAt,
+		RecommendationsLookbackDays: s.RecommendationsLookbackDays, PickingMode: string(pickingMode), UpdatedAt: s.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "tenant_id"}},
@@ -80,7 +85,7 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 			"prices_include_tax", "default_tax_country",
 			"inventory_sync_rules_enabled", "batch_expiry_threshold_days",
 			"default_target_markup_basis_points", "bundle_confidence_threshold",
-			"recommendations_min_support", "recommendations_lookback_days", "updated_at",
+			"recommendations_min_support", "recommendations_lookback_days", "picking_mode", "updated_at",
 		}),
 	}).Create(&m).Error
 	if err != nil {
@@ -89,7 +94,13 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 	return nil
 }
 
-func toTenantSettingsDomain(m tenantSettingsModel) *settingsDomain.TenantSettings {
+// toTenantSettingsDomain maps a row -- including the zero row a never-saved
+// tenant reads as, whose empty picking_mode parses to the default.
+func toTenantSettingsDomain(m tenantSettingsModel) (*settingsDomain.TenantSettings, error) {
+	pickingMode, err := settingsDomain.ParsePickingMode(m.PickingMode)
+	if err != nil {
+		return nil, fmt.Errorf("tenantSettingsRepo: picking_mode %q: %w", m.PickingMode, err)
+	}
 	return &settingsDomain.TenantSettings{
 		TenantID: m.TenantID, DefaultCurrency: m.DefaultCurrency, Timezone: m.Timezone,
 		DateFormat: m.DateFormat, Language: m.Language, PricesIncludeTax: m.PricesIncludeTax,
@@ -98,6 +109,6 @@ func toTenantSettingsDomain(m tenantSettingsModel) *settingsDomain.TenantSetting
 		DefaultTargetMarkupBasisPoints: m.DefaultTargetMarkupBasisPoints,
 		BundleConfidenceThreshold:      m.BundleConfidenceThreshold,
 		RecommendationsMinSupport:      m.RecommendationsMinSupport,
-		RecommendationsLookbackDays:    m.RecommendationsLookbackDays, UpdatedAt: m.UpdatedAt,
-	}
+		RecommendationsLookbackDays:    m.RecommendationsLookbackDays, PickingMode: pickingMode, UpdatedAt: m.UpdatedAt,
+	}, nil
 }

@@ -103,7 +103,7 @@ components:
   schemas:
     TenantSettings:
       type: object
-      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, recommendations_min_support, recommendations_lookback_days, updated_at]
+      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, recommendations_min_support, recommendations_lookback_days, picking_mode, updated_at]
       properties:
         tenant_id: { type: string }
         default_currency: { type: string }
@@ -162,6 +162,8 @@ components:
             tenant means "unset"; GetCartRecommendationsUseCase falls back
             to a documented default (180) in that case, the same
             zero-value convention as every other field here.
+        picking_mode:
+          $ref: '#/components/schemas/PickingMode'
         updated_at: { type: string, format: date-time }
 
     UpdateTenantSettingsRequest:
@@ -179,6 +181,18 @@ components:
         bundle_confidence_threshold: { type: number, minimum: 0, maximum: 1 }
         recommendations_min_support: { type: integer, minimum: 0 }
         recommendations_lookback_days: { type: integer, minimum: 0 }
+        picking_mode:
+          $ref: '#/components/schemas/PickingMode'
+
+    PickingMode:
+      type: string
+      enum: [scan, list]
+      description: >-
+        How the picking module works. scan -- pickers scan each item into a
+        picking session. list -- pickers see an order's items as a plain
+        list and mark the whole order picked with one action (no scanning,
+        no session). Picking is optional either way: packing is where items
+        are scanned and labels made. Omitted on update means scan.
 
     TenantSettingsResponse:
       type: object

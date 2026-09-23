@@ -23,6 +23,8 @@ type UpdateTenantSettingsInput struct {
 	BundleConfidenceThreshold      float64
 	RecommendationsMinSupport      int
 	RecommendationsLookbackDays    int
+	// PickingMode empty means the default, scan -- see settings.ParsePickingMode.
+	PickingMode string
 }
 
 type UpdateTenantSettingsUseCase struct {
@@ -48,8 +50,13 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 		return nil, fmt.Errorf("updateTenantSettings: %w", settingsDomain.ErrInvalidRecommendationsLookbackDays)
 	}
 
+	pickingMode, err := settingsDomain.ParsePickingMode(in.PickingMode)
+	if err != nil {
+		return nil, fmt.Errorf("updateTenantSettings: %w", err)
+	}
+
 	var result settingsDomain.TenantSettings
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		result = settingsDomain.TenantSettings{
 			TenantID:                       tenant.IDFromContext(ctx),
 			DefaultCurrency:                in.DefaultCurrency,
@@ -64,6 +71,7 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 			BundleConfidenceThreshold:      in.BundleConfidenceThreshold,
 			RecommendationsMinSupport:      in.RecommendationsMinSupport,
 			RecommendationsLookbackDays:    in.RecommendationsLookbackDays,
+			PickingMode:                    pickingMode,
 			UpdatedAt:                      time.Now(),
 		}
 		return uc.repo.Upsert(ctx, &result)

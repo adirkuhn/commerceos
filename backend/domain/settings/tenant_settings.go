@@ -71,5 +71,7 @@ type TenantSettings struct {
 	// falls back to its own documented default rather than treating an
 	// explicit 0 (no history at all) as a real merchant choice.
 	RecommendationsLookbackDays int
+	// PickingMode is how the picking module works -- see PickingMode.
+	PickingMode PickingMode
 	UpdatedAt                   time.Time
 }

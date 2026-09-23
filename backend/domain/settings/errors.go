@@ -21,3 +21,6 @@ var ErrInvalidRecommendationsMinSupport = errors.New("recommendations min suppor
 // TenantSettings.RecommendationsLookbackDays: must be >= 0 (0 means
 // "unset, use the default" -- see the field's own doc comment).
 var ErrInvalidRecommendationsLookbackDays = errors.New("recommendations lookback days must be at least 0")
+
+// ErrInvalidPickingMode guards TenantSettings.PickingMode: scan or list.
+var ErrInvalidPickingMode = errors.New("picking mode must be scan or list")

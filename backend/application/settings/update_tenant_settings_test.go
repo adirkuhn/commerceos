@@ -156,3 +156,34 @@ func TestUpdateTenantSettings_allowsMarkupOf100PercentAndAbove(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 30000, result.DefaultTargetMarkupBasisPoints)
 }
+
+func TestUpdateTenantSettings_setsPickingMode(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	result, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{PickingMode: "list"})
+
+	require.NoError(t, err)
+	require.Equal(t, settingsDomain.PickingModeList, result.PickingMode)
+	require.Equal(t, settingsDomain.PickingModeList, repo.upserted[0].PickingMode)
+}
+
+func TestUpdateTenantSettings_emptyPickingModeMeansScan(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	result, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{})
+
+	require.NoError(t, err)
+	require.Equal(t, settingsDomain.PickingModeScan, result.PickingMode)
+}
+
+func TestUpdateTenantSettings_rejectsUnknownPickingMode(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{PickingMode: "barcode"})
+
+	require.ErrorIs(t, err, settingsDomain.ErrInvalidPickingMode)
+	require.Empty(t, repo.upserted)
+}

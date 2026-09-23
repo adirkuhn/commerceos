@@ -28,6 +28,35 @@ func TestTenantSettingsRepo_Integration_GetReturnsZeroValueWhenNoRowSaved(t *tes
 	require.NoError(t, err)
 	require.False(t, found.InventorySyncRulesEnabled)
 	require.Equal(t, 0, found.BatchExpiryThresholdDays)
+	require.Equal(t, settingsDomain.PickingModeScan, found.PickingMode, "a never-saved tenant picks by scanning")
+}
+
+func TestTenantSettingsRepo_Integration_UpsertRoundTripsPickingMode(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	repo := repositories.NewTenantSettingsRepo(db)
+	get := func() settingsDomain.PickingMode {
+		var found *settingsDomain.TenantSettings
+		require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			found, err = repo.Get(ctx)
+			return err
+		}))
+		return found.PickingMode
+	}
+	upsert := func(mode settingsDomain.PickingMode) error {
+		return tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			return repo.Upsert(ctx, &settingsDomain.TenantSettings{TenantID: tenantID, PickingMode: mode, UpdatedAt: time.Now()})
+		})
+	}
+
+	require.NoError(t, upsert(settingsDomain.PickingModeList))
+	require.Equal(t, settingsDomain.PickingModeList, get())
+
+	require.NoError(t, upsert(""), "an unset mode is stored as the default")
+	require.Equal(t, settingsDomain.PickingModeScan, get())
+
+	require.ErrorIs(t, upsert("barcode"), settingsDomain.ErrInvalidPickingMode)
 }
 
 func TestTenantSettingsRepo_Integration_UpsertRoundTripsInventorySyncRuleFields(t *testing.T) {
