@@ -507,7 +507,7 @@ export default function Integrations() {
               onClick={route.openBrowse}
               className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
             >
-              Browse Integrations
+              Browse integrations
             </button>
           </div>
         ) : (
@@ -518,7 +518,7 @@ export default function Integrations() {
                 onClick={route.openBrowse}
                 className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
               >
-                Browse Integrations
+                Browse integrations
               </button>
             </div>
             {error && <p className="text-xs text-danger">{error}</p>}
@@ -706,7 +706,7 @@ export default function Integrations() {
           />
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-ink">Browse Integrations</h3>
+              <h3 className="text-sm font-semibold text-ink">Browse integrations</h3>
               <button onClick={closeBrowse} aria-label="Close" className="p-1 -m-1 rounded hover:bg-hover">
                 <X size={14} className="text-ink-4" />
               </button>
@@ -1118,7 +1118,7 @@ export default function Integrations() {
                     </div>
                     <div>
                       <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                        Consumer Key
+                        Consumer key
                       </label>
                       <input
                         type="text"
@@ -1131,7 +1131,7 @@ export default function Integrations() {
                     </div>
                     <div>
                       <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                        Consumer Secret
+                        Consumer secret
                       </label>
                       <input
                         type="password"

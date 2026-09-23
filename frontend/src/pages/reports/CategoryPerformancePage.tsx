@@ -16,7 +16,7 @@ export default function CategoryPerformancePage() {
 
   return (
     <ReportPageShell title="Category Performance" period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
-      <ReportCard title="Revenue by Category" description="Selected period">
+      <ReportCard title="Revenue by category" description="Selected period">
         {categories.length === 0 ? (
           <EmptyState>No category sales in this period</EmptyState>
         ) : (

@@ -939,7 +939,7 @@ describe('Sales order detail page', () => {
 
     await userEvent.click(screen.getByTitle('Print picking list'))
 
-    expect(await screen.findByText('Picking List')).toBeInTheDocument()
+    expect(await screen.findByText('Picking list')).toBeInTheDocument()
     expect(printSpy).toHaveBeenCalled()
 
     await userEvent.click(screen.getByTitle('Close'))
@@ -1091,7 +1091,7 @@ describe('Sales order detail page', () => {
 
     await acceptConfirm()
     expect(omsApi.deleteSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
-    expect(await screen.findByRole('button', { name: 'New Sales Order' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'New sales order' })).toBeInTheDocument()
   })
 
   it('does not delete when the confirm dialog is dismissed', async () => {
@@ -1112,9 +1112,9 @@ describe('Sales order detail page', () => {
 describe('Create sales order', () => {
   it('opening New Sales Order shows a blank create form', async () => {
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
 
-    expect(screen.getByText('New Sales Order', { selector: 'h1' })).toBeInTheDocument()
+    expect(screen.getByText('New sales order', { selector: 'h1' })).toBeInTheDocument()
     expect(await screen.findByText('Main Warehouse')).toBeInTheDocument()
   })
 
@@ -1146,7 +1146,7 @@ describe('Create sales order', () => {
     vi.mocked(omsApi.createSalesOrder).mockResolvedValue(detail())
 
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
     await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
 
     await userEvent.click(screen.getByRole('button', { name: /Add product/ }))
@@ -1154,7 +1154,7 @@ describe('Create sales order', () => {
     await userEvent.click(await screen.findByText('Widget Product'))
     await userEvent.click(await screen.findByText('WID-001'))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create Sales Order' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create sales order' }))
 
     await waitFor(() => expect(omsApi.createSalesOrder).toHaveBeenCalledWith('test-token', expect.objectContaining({
       warehouse_id: 'wh-1',
@@ -1164,10 +1164,10 @@ describe('Create sales order', () => {
 
   it('requires at least one line item', async () => {
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
     await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create Sales Order' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create sales order' }))
 
     expect(await screen.findByText('Add at least one line item')).toBeInTheDocument()
     expect(omsApi.createSalesOrder).not.toHaveBeenCalled()
@@ -1211,7 +1211,7 @@ describe('Create sales order', () => {
     vi.mocked(omsApi.createSalesOrder).mockResolvedValue(detail())
 
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
     await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
 
     await userEvent.click(screen.getByRole('button', { name: /Add product/ }))
@@ -1221,7 +1221,7 @@ describe('Create sales order', () => {
 
     expect(await screen.findByText(/Tax/)).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create Sales Order' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create sales order' }))
 
     await waitFor(() => expect(omsApi.createSalesOrder).toHaveBeenCalledWith('test-token', expect.objectContaining({
       tax_total_minor_units: 173,
@@ -1235,10 +1235,10 @@ describe('Create sales order', () => {
 
   it('Discard returns to the list without creating', async () => {
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 
     expect(omsApi.createSalesOrder).not.toHaveBeenCalled()
-    expect(await screen.findByRole('button', { name: 'New Sales Order' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'New sales order' })).toBeInTheDocument()
   })
 })

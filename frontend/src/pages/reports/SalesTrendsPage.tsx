@@ -37,7 +37,7 @@ export default function SalesTrendsPage() {
         <ReportCard
           title={
             <div className="flex items-center justify-between">
-              <span>Sales Trend</span>
+              <span>Sales trend</span>
               <div className="flex items-center gap-0.5 bg-sunken border border-line rounded-lg p-0.5">
                 {TREND_GRANULARITIES.map(g => (
                   <button aria-pressed={granularity === g}
@@ -73,7 +73,7 @@ export default function SalesTrendsPage() {
           )}
         </ReportCard>
 
-        <ReportCard title="Seasonality by Weekday" description="Revenue summed across every occurrence of each weekday">
+        <ReportCard title="Seasonality by weekday" description="Revenue summed across every occurrence of each weekday">
           {weekdaySales.length === 0 ? (
             <EmptyState>No sales to break down by weekday in this period</EmptyState>
           ) : (

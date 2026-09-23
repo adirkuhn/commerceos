@@ -41,7 +41,7 @@ describe('MessageCenter', () => {
     renderAt(<MessageCenter />, '/message-center')
     await screen.findByPlaceholderText('Search templates...')
 
-    await userEvent.click(screen.getByText('Automation Rules'))
+    await userEvent.click(screen.getByText('Automation rules'))
 
     expect(await screen.findByText('When an event fires and every condition matches, the chosen template is sent.')).toBeInTheDocument()
   })
@@ -61,7 +61,7 @@ describe('MessageCenter URLs (refresh + Back)', () => {
 
   it('each tab has its own URL, and Back returns to the previous tab', async () => {
     const { router } = renderAt(<MessageCenter />, '/message-center')
-    await userEvent.click(await screen.findByText('Automation Rules'))
+    await userEvent.click(await screen.findByText('Automation rules'))
     expect(router.state.location.pathname).toBe('/message-center/rules')
 
     await act(() => router.navigate(-1))

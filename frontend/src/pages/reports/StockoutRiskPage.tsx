@@ -30,8 +30,8 @@ export default function StockoutRiskPage() {
                 <tr className="dark:bg-night-900/50 bg-gray-50">
                   <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">Product</th>
                   <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">Stock</th>
-                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">Days Left</th>
-                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">Suggested Reorder</th>
+                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">Days left</th>
+                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">Suggested reorder</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/50">

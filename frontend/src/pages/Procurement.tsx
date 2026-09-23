@@ -202,13 +202,13 @@ export default function Procurement() {
             onClick={() => setUploadModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
           >
-            <Upload size={13} /> Upload Document
+            <Upload size={13} /> Upload document
           </button>
           <button
             onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
-            <Plus size={13} /> Add Purchase Order
+            <Plus size={13} /> Add purchase order
           </button>
         </div>
       </div>
@@ -352,7 +352,7 @@ function BookingDiscrepanciesPage({ token, onClose }: { token: string; onClose: 
           >
             <ArrowLeft size={11} /> Procurement
           </button>
-          <h1 className="text-xl font-semibold text-ink leading-tight">Booking Discrepancies</h1>
+          <h1 className="text-xl font-semibold text-ink leading-tight">Booking discrepancies</h1>
           <p className="text-xs text-ink-4 mt-0.5">Every completed booking's under-scanned line items and damaged/lost stock</p>
         </div>
       </div>
@@ -494,7 +494,7 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
     <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-surface border border-line shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
-          <h2 className="text-sm font-semibold text-ink">Upload Document</h2>
+          <h2 className="text-sm font-semibold text-ink">Upload document</h2>
           <button aria-label="Close" type="button" onClick={onClose} title="Close">
             <X size={16} className="text-ink-4" />
           </button>
@@ -519,7 +519,7 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
             </button>
             <button type="submit" disabled={status !== 'idle' || !file}
               className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
-              {status === 'uploading' ? 'Uploading…' : 'Upload & Create'}
+              {status === 'uploading' ? 'Uploading…' : 'Upload & create'}
             </button>
           </div>
         </form>
@@ -685,7 +685,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
             <ArrowLeft size={11} /> Purchase Orders
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {isNew ? 'New Purchase Order' : 'Edit Purchase Order'}
+            {isNew ? 'New purchase order' : 'Edit purchase order'}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -699,7 +699,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
             type="submit" form="po-form" disabled={saving || !supplierId}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : isNew ? 'Create Purchase Order' : 'Save'}
+            {saving ? 'Saving…' : isNew ? 'Create purchase order' : 'Save'}
           </button>
         </div>
       </div>
@@ -892,7 +892,7 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAs
         />
         <button type="submit" disabled={saving || !name.trim()}
           className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 whitespace-nowrap">
-          {saving ? (matchedSupplier ? 'Assigning…' : 'Creating…') : (matchedSupplier ? 'Assign existing supplier' : 'Create & Assign')}
+          {saving ? (matchedSupplier ? 'Assigning…' : 'Creating…') : (matchedSupplier ? 'Assign existing supplier' : 'Create & assign')}
         </button>
       </form>
       {error && <p className="text-2xs text-danger">{error}</p>}
@@ -1097,7 +1097,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
   return (
     <div className="rounded-xl border border-line overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 dark:bg-night-900/50 bg-gray-50 border-b border-line">
-        <h3 className="text-xs font-semibold text-ink">Line Items</h3>
+        <h3 className="text-xs font-semibold text-ink">Line items</h3>
         <div className="flex items-center gap-2">
           {uploadStatus === 'uploading' && (
             <span className="flex items-center gap-1 text-2xs text-ink-4">
@@ -1117,7 +1117,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
             disabled={uploadStatus !== 'idle'}
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-line bg-raised text-2xs text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
           >
-            <Upload size={11} /> Upload Document
+            <Upload size={11} /> Upload document
           </button>
           {!adding && (
             <button
@@ -1125,7 +1125,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
               onClick={() => setAdding(true)}
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover"
             >
-              <Plus size={11} /> Add Line Item
+              <Plus size={11} /> Add line item
             </button>
           )}
         </div>
@@ -1142,7 +1142,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
             <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Linked SKU</th>
             <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Batch</th>
             <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Qty</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Unit Cost</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Unit cost</th>
             <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Total</th>
             <th className="px-4 py-2 w-20" />
           </tr>
@@ -1278,7 +1278,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                   onClick={() => setAdding(true)}
                   className="flex items-center gap-1 text-2xs font-medium text-accent hover:underline"
                 >
-                  <Plus size={11} /> Add Line Item
+                  <Plus size={11} /> Add line item
                 </button>
               </td>
             </tr>
@@ -1470,7 +1470,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
               type="button" disabled={saving} onClick={handleSubmit}
               className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50"
             >
-              <Check size={12} /> Save Line
+              <Check size={12} /> Save line
             </button>
             <button
               type="button" onClick={onCancel}
@@ -1540,7 +1540,7 @@ function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onAssignWa
             disabled={uploadStatus !== 'idle'}
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-line bg-raised text-2xs text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
           >
-            <Upload size={11} /> Upload Invoice
+            <Upload size={11} /> Upload invoice
           </button>
         </div>
       </div>
@@ -1688,7 +1688,7 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
           type="button" onClick={() => setReportOpen(true)}
           className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 text-ink-2 text-2xs font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
         >
-          <ClipboardList size={11} /> Generate Report
+          <ClipboardList size={11} /> Generate report
         </button>
         {isApplied ? (
           <span className="flex items-center gap-1 text-2xs font-medium text-success">
@@ -1699,7 +1699,7 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
             type="button" onClick={handleComplete} disabled={completing}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
           >
-            <PackageCheck size={11} /> {completing ? 'Completing…' : 'Mark Receiving Complete'}
+            <PackageCheck size={11} /> {completing ? 'Completing…' : 'Mark receiving complete'}
           </button>
         )}
       </div>
@@ -1966,7 +1966,7 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
     <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl dark:bg-night-900 bg-white border border-line shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
-          <h2 className="text-sm font-semibold text-ink">Receiving Discrepancy Report</h2>
+          <h2 className="text-sm font-semibold text-ink">Receiving discrepancy report</h2>
           <button aria-label="Close" type="button" onClick={onClose} title="Close">
             <X size={16} className="text-ink-4" />
           </button>
@@ -2219,7 +2219,7 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
           <div className="flex items-center gap-2">
             <button type="submit" disabled={saving}
               className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50">
-              {saving ? 'Creating…' : 'Create & Link'}
+              {saving ? 'Creating…' : 'Create & link'}
             </button>
             <button type="button" onClick={() => setMode('choose')} className="text-2xs text-ink-4 hover:underline">
               Back

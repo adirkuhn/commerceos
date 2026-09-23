@@ -16,7 +16,7 @@ describe('StockShortfallDialog', () => {
     expect(screen.getByText('Widget')).toBeInTheDocument()
     expect(screen.getByText('Needed 5, 3 short')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm & complete' }))
     expect(onConfirm).toHaveBeenCalledWith({ 'scan-1': 'with_item' })
   })
 
@@ -25,7 +25,7 @@ describe('StockShortfallDialog', () => {
     render(<StockShortfallDialog shortfalls={[shortfall()]} submitting={false} onConfirm={onConfirm} onCancel={vi.fn()} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Skip it' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     expect(onConfirm).toHaveBeenCalledWith({ 'scan-1': 'without_item' })
   })
@@ -41,7 +41,7 @@ describe('StockShortfallDialog', () => {
 
     const skipButtons = screen.getAllByRole('button', { name: 'Skip it' })
     fireEvent.click(skipButtons[0])
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     expect(onConfirm).toHaveBeenCalledWith({ 'scan-1': 'without_item', 'scan-2': 'with_item' })
   })

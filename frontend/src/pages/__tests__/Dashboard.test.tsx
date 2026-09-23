@@ -153,7 +153,7 @@ describe('Dashboard — stat cards', () => {
       stock_flow_last_7_days: [{ date: '2026-08-16', in: 142, out: 89 }],
     }))
     render(<Dashboard />)
-    expect(await screen.findByText('Stock Flow')).toBeInTheDocument()
+    expect(await screen.findByText('Stock flow')).toBeInTheDocument()
     // recharts renders an SVG; presence of the container confirms the
     // chart mounted instead of the old "Coming soon" placeholder.
     await screen.findByText('Inbound vs outbound')

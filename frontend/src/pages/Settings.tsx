@@ -55,8 +55,8 @@ interface SettingSection {
 const SECTIONS: SettingSection[] = [
   { id: 'company', label: 'Company', icon: Building2, description: 'Business name, address, tax IDs' },
   { id: 'integrations', label: 'Integrations', icon: Plug, description: 'Connect and configure external services' },
-  { id: 'inventory', label: 'Inventory Rules', icon: Package, description: 'FEFO, min stock, reorder points' },
-  { id: 'shipping', label: 'Shipping Rules', icon: Truck, description: 'Default carriers, label format, zones' },
+  { id: 'inventory', label: 'Inventory rules', icon: Package, description: 'FEFO, min stock, reorder points' },
+  { id: 'shipping', label: 'Shipping rules', icon: Truck, description: 'Default carriers, label format, zones' },
   { id: 'localization', label: 'Localization', icon: Globe, description: 'Currency, timezone, language' },
   { id: 'tax', label: 'Tax', icon: Percent, description: 'Tax classes and rates' },
   { id: 'pricing', label: 'Pricing', icon: TrendingUp, description: 'Default target markup for recommended prices' },
@@ -145,7 +145,7 @@ export default function Settings() {
         {activeSection === 'company' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h2 className="text-base font-semibold text-ink mb-1">Company Settings</h2>
+              <h2 className="text-base font-semibold text-ink mb-1">Company settings</h2>
               <p className="text-xs text-ink-4">Business information used on invoices, labels, and reports</p>
             </div>
             <div className="space-y-4">
@@ -167,7 +167,7 @@ export default function Settings() {
               ))}
             </div>
             <button className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">
-              Save Changes
+              Save changes
             </button>
           </div>
         )}
@@ -177,7 +177,7 @@ export default function Settings() {
         {activeSection === 'inventory' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h2 className="text-base font-semibold text-ink mb-1">Inventory Rules</h2>
+              <h2 className="text-base font-semibold text-ink mb-1">Inventory rules</h2>
               <p className="text-xs text-ink-4">Configure stock management behavior</p>
             </div>
 
@@ -185,7 +185,7 @@ export default function Settings() {
 
             <div className="bg-raised rounded-xl border border-line overflow-hidden">
               <div className="px-4 py-3 border-b border-line">
-                <h3 className="text-xs font-semibold text-ink">FEFO Settings</h3>
+                <h3 className="text-xs font-semibold text-ink">FEFO settings</h3>
                 <p className="text-2xs text-ink-4 mt-0.5">First Expire, First Out — for perishable products</p>
               </div>
               <div className="p-4 space-y-3">
@@ -205,7 +205,7 @@ export default function Settings() {
 
             <div className="bg-raised rounded-xl border border-line overflow-hidden">
               <div className="px-4 py-3 border-b border-line">
-                <h3 className="text-xs font-semibold text-ink">Stock Thresholds</h3>
+                <h3 className="text-xs font-semibold text-ink">Stock thresholds</h3>
               </div>
               <div className="p-4 space-y-3">
                 {[
@@ -224,7 +224,7 @@ export default function Settings() {
                 ))}
               </div>
             </div>
-            <button className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">Save Changes</button>
+            <button className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">Save changes</button>
           </div>
         )}
 
@@ -249,7 +249,7 @@ export default function Settings() {
           <div className="max-w-2xl space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-ink mb-1">Automation Rules</h2>
+                <h2 className="text-base font-semibold text-ink mb-1">Automation rules</h2>
                 <p className="text-xs text-ink-4">Trigger-based workflows that run automatically</p>
               </div>
               <button className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">
@@ -889,7 +889,7 @@ function AIIntegrationCard() {
               {provider !== 'ollama' && (
                 <div>
                   <label htmlFor="ai-api-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    API Key
+                    API key
                   </label>
                   <input
                     id="ai-api-key"
@@ -1171,9 +1171,9 @@ function LocalizationSettingsSection() {
   }
 
   const fields: { id: string; label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }[] = [
-    { id: 'localization-currency', label: 'Default Currency', value: defaultCurrency, onChange: setDefaultCurrency, options: CURRENCY_OPTIONS },
+    { id: 'localization-currency', label: 'Default currency', value: defaultCurrency, onChange: setDefaultCurrency, options: CURRENCY_OPTIONS },
     { id: 'localization-timezone', label: 'Timezone', value: timezone, onChange: setTimezone, options: TIMEZONE_OPTIONS },
-    { id: 'localization-date-format', label: 'Date Format', value: dateFormat, onChange: setDateFormat, options: DATE_FORMAT_OPTIONS },
+    { id: 'localization-date-format', label: 'Date format', value: dateFormat, onChange: setDateFormat, options: DATE_FORMAT_OPTIONS },
     { id: 'localization-language', label: 'Language', value: language, onChange: setLanguage, options: LANGUAGE_OPTIONS },
   ]
 
@@ -1206,7 +1206,7 @@ function LocalizationSettingsSection() {
         disabled={saving}
         className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50"
       >
-        {saving ? 'Saving…' : 'Save Changes'}
+        {saving ? 'Saving…' : 'Save changes'}
       </button>
 
       <ExchangeRatesCard />

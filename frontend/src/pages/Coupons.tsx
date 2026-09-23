@@ -86,7 +86,7 @@ export default function Coupons() {
             onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
-            <Plus size={13} /> Add Coupon
+            <Plus size={13} /> Add coupon
           </button>
         </div>
       </div>
@@ -352,7 +352,7 @@ function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEditPageP
             type="submit" form="coupon-form" disabled={saving || !code.trim()}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : coupon ? 'Save' : 'Create Coupon'}
+            {saving ? 'Saving…' : coupon ? 'Save' : 'Create coupon'}
           </button>
         </div>
       </div>

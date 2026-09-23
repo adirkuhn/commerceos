@@ -157,7 +157,7 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
   }, [token, selectedSkuId, period])
 
   return (
-    <ReportCard title="Product Recommendations" description="Search a product to see what's frequently bought with it" overflowVisible>
+    <ReportCard title="Product recommendations" description="Search a product to see what's frequently bought with it" overflowVisible>
       <div className="p-4 space-y-3">
         {!selectedProduct ? (
           <div className="relative">

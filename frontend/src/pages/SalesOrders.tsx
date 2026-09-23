@@ -289,7 +289,7 @@ export default function SalesOrders() {
           onClick={() => navigate('/sales-orders/new')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
         >
-          <Plus size={13} /> New Sales Order
+          <Plus size={13} /> New sales order
         </button>
       </div>
 
@@ -614,7 +614,7 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
           >
             <ArrowLeft size={11} /> Sales Order
           </button>
-          <h1 className="text-xl font-semibold text-ink leading-tight">New Sales Order</h1>
+          <h1 className="text-xl font-semibold text-ink leading-tight">New sales order</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -627,7 +627,7 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
             type="submit" form="create-sales-order-form" disabled={saving || !warehouseId}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Creating…' : 'Create Sales Order'}
+            {saving ? 'Creating…' : 'Create sales order'}
           </button>
         </div>
       </div>

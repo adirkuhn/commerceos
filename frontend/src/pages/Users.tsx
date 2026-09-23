@@ -48,7 +48,7 @@ function InviteForm({ onSubmit, onCancel }: { onSubmit: (email: string, role: Me
   return (
     <div className="absolute right-5 top-14 z-20 w-80 bg-raised rounded-xl border border-line shadow-lg p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-ink">Invite User</h3>
+        <h3 className="text-sm font-semibold text-ink">Invite user</h3>
         <button onClick={onCancel} aria-label="Close" className="p-1 -m-1 rounded hover:bg-hover"><X size={14} className="text-ink-3" /></button>
       </div>
       {error && <p className="text-xs text-danger mb-2">{error}</p>}
@@ -75,7 +75,7 @@ function InviteForm({ onSubmit, onCancel }: { onSubmit: (email: string, role: Me
         disabled={submitting || !email}
         className="w-full py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50"
       >
-        {submitting ? 'Sending…' : 'Send Invite'}
+        {submitting ? 'Sending…' : 'Send invite'}
       </button>
     </div>
   )
@@ -211,7 +211,7 @@ function GroupsPanel({ token, members, groupId, editing, onSelect, onCreate, onE
   return (
     <div className="w-[480px] border-l border-line flex flex-col overflow-hidden">
       <div className="px-4 py-3 border-b border-line shrink-0">
-        <h3 className="text-sm font-semibold text-ink">Groups & Permissions</h3>
+        <h3 className="text-sm font-semibold text-ink">Groups & permissions</h3>
         <p className="text-2xs text-ink-4 mt-0.5">Fine-grained access on top of owner/user roles</p>
       </div>
       <div className="flex-1 overflow-auto p-4">
@@ -323,7 +323,7 @@ export default function Users() {
           onClick={route.openInvite}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover ml-auto font-medium"
         >
-          <Plus size={13} /> Invite User
+          <Plus size={13} /> Invite user
         </button>
       </div>
 
@@ -345,7 +345,7 @@ export default function Users() {
           <div className="flex-1 overflow-auto">
             {invitesState.invites.length > 0 && (
               <div className="px-5 py-3 border-b border-line">
-                <h3 className="text-xs font-semibold text-ink-2 uppercase tracking-wider mb-2">Pending Invites</h3>
+                <h3 className="text-xs font-semibold text-ink-2 uppercase tracking-wider mb-2">Pending invites</h3>
                 <ul className="space-y-1.5">
                   {invitesState.invites.map(inv => (
                     <li key={inv.id} className="flex items-center justify-between text-xs text-ink-2">

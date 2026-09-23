@@ -193,7 +193,7 @@ describe('ProductBolTab', () => {
     render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
     await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
 
-    await userEvent.type(screen.getByLabelText('GPC Code'), '80006362')
+    await userEvent.type(screen.getByLabelText('GPC code'), '80006362')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(integrationsApi.upsertBolProductOverride).toHaveBeenCalledWith(

@@ -36,10 +36,10 @@ const CARRIER_COLORS: Record<string, string> = {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  label_created: { label: 'Label Created', color: 'text-ink-4', icon: Printer },
+  label_created: { label: 'Label created', color: 'text-ink-4', icon: Printer },
   picked_up: { label: 'Picked Up', color: 'text-accent', icon: Package },
-  in_transit: { label: 'In Transit', color: 'text-warning', icon: Truck },
-  out_for_delivery: { label: 'Out for Delivery', color: 'text-accent', icon: Truck },
+  in_transit: { label: 'In transit', color: 'text-warning', icon: Truck },
+  out_for_delivery: { label: 'Out for delivery', color: 'text-accent', icon: Truck },
   delivered: { label: 'Delivered', color: 'text-success', icon: CheckCircle },
   exception: { label: 'Exception', color: 'text-danger', icon: AlertTriangle },
 }
@@ -83,7 +83,7 @@ export default function Shipping() {
       <div className="grid grid-cols-4 gap-0 border-b border-line shrink-0">
         {[
           ['Shipped Today', stats.today.toString(), 'blue'],
-          ['In Transit', stats.inTransit.toString(), 'amber'],
+          ['In transit', stats.inTransit.toString(), 'amber'],
           ['Delivered', stats.delivered.toString(), 'green'],
           ['Exceptions', stats.exceptions.toString(), 'red'],
         ].map(([label, val, color]) => (
@@ -109,7 +109,7 @@ export default function Shipping() {
                 : 'text-ink-4 hover:text-ink-2',
             )}
           >
-            {t === 'shipments' ? 'Shipments' : 'Carrier Rules'}
+            {t === 'shipments' ? 'Shipments' : 'Carrier rules'}
           </button>
         ))}
 
@@ -194,7 +194,7 @@ export default function Shipping() {
           <div className="bg-raised rounded-xl border border-line overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-line">
               <div>
-                <h3 className="text-sm font-semibold text-ink">Auto-Carrier Rules</h3>
+                <h3 className="text-sm font-semibold text-ink">Auto-carrier rules</h3>
                 <p className="text-2xs text-ink-4 mt-0.5">Rules applied automatically based on weight, region, and cost</p>
               </div>
               <button className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">

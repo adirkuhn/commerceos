@@ -308,7 +308,7 @@ describe('InventoryApp SKU screen', () => {
     expect(screen.getAllByText('LOT-1').length).toBeGreaterThan(1) // row label + sheet header
     expect(screen.getByRole('button', { name: /Adjust/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Move/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Damaged.*Lost/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Damaged.*lost/ })).toBeInTheDocument()
   })
 
   it('Adjust records a stock movement scoped to the tapped batch, with the entered quantity and reason', async () => {
@@ -419,7 +419,7 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch()])
 
     await userEvent.click(screen.getByText('LOT-1'))
-    await userEvent.click(await screen.findByRole('button', { name: /Damaged.*Lost/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Damaged.*lost/ }))
     await userEvent.type(await screen.findByLabelText('Quantity'), '2')
     await userEvent.type(screen.getByLabelText('Reason'), 'dropped')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
@@ -459,7 +459,7 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [generalLedgerRow({ quantity: 20 })])
 
     await userEvent.click(screen.getByText('General ledger'))
-    await userEvent.click(await screen.findByRole('button', { name: /Damaged.*Lost/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Damaged.*lost/ }))
     await userEvent.type(await screen.findByLabelText('Quantity'), '99')
 
     expect(screen.getByLabelText('Quantity')).toHaveValue('20')

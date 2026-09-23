@@ -389,7 +389,7 @@ export function ProductBolTab({
                 placeholder={sku?.barcode ?? ''} className={inputClass} />
             </div>
             <div>
-              <label htmlFor="bol-gpc-code" className={labelClass}>GPC Code</label>
+              <label htmlFor="bol-gpc-code" className={labelClass}>GPC code</label>
               <input id="bol-gpc-code" value={gpcCode} onChange={e => setGpcCode(e.target.value)} className={inputClass} />
               <p className="text-2xs text-ink-4 mt-1">Only required if this EAN doesn't already exist in Bol's catalog.</p>
             </div>

@@ -44,7 +44,7 @@ export default function MessageCenter() {
               : 'border-transparent text-ink-4 hover:text-ink-2',
           )}
         >
-          Automation Rules
+          Automation rules
         </button>
         <button aria-pressed={tab === 'conversations'}
           onClick={() => setTab('conversations')}

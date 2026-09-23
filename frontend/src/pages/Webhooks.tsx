@@ -274,7 +274,7 @@ function FanOutTab({
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-ink-4 border-b border-line">
-                  <th className="py-2 pr-3 font-medium">Provider / Topic</th>
+                  <th className="py-2 pr-3 font-medium">Provider / topic</th>
                   <th className="py-2 pr-3 font-medium">Target URL</th>
                   <th className="py-2 pr-3 font-medium">Status</th>
                   <th className="py-2 pr-3 font-medium">Attempts</th>

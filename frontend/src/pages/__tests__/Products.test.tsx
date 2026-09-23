@@ -229,7 +229,7 @@ describe('which product is open survives a page refresh', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByRole('button', { name: 'Create Product' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Create product' })).toBeInTheDocument()
     expect(pmsApi.getProduct).not.toHaveBeenCalled()
   })
 
@@ -408,7 +408,7 @@ describe('editing an existing product infers variants mode from variant count', 
 describe('editing a product\'s slug', () => {
   it('shows no slug field when creating a new product', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'New Product' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'New product' }))
 
     expect(screen.queryByLabelText('Slug')).not.toBeInTheDocument()
   })
@@ -519,7 +519,7 @@ describe('editing a product\'s slug', () => {
   })
 })
 
-describe('Add Variant / Add SKU are not nested <form> elements', () => {
+describe('Add variant / Add SKU are not nested <form> elements', () => {
   // Regression: these inline "forms" render inside the page's outer
   // <form id="product-general-form">. Nested <form> is invalid HTML — a
   // real browser normalizes it away, so the inner submit button ends up
@@ -547,7 +547,7 @@ describe('Add Variant / Add SKU are not nested <form> elements', () => {
     expect(container.querySelectorAll('form')).toHaveLength(1)
   })
 
-  it('clicking "Add Variant" calls the API via a plain button click, not form submit', async () => {
+  it('clicking "Add variant" calls the API via a plain button click, not form submit', async () => {
     const detail: ProductDetail = {
       product: product({ has_variants: true }),
       variants: [{ ...baseVariant, id: 'var-1', name: 'Small', skus: [] }],
@@ -561,7 +561,7 @@ describe('Add Variant / Add SKU are not nested <form> elements', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '+ Add Variant' }))
     await userEvent.type(await screen.findByPlaceholderText('Variant name (e.g. Large)'), 'Large')
-    await userEvent.click(screen.getByRole('button', { name: 'Add Variant' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add variant' }))
 
     await waitFor(() => expect(pmsApi.createVariant).toHaveBeenCalledWith('test-token', 'prod-1', { name: 'Large' }))
   })
@@ -614,13 +614,13 @@ describe('creating a new product', () => {
     })
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     await userEvent.type(await screen.findByLabelText('Name'), 'New Shirt')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'NEWSHIRT-1')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create product' }))
 
     await waitFor(() => expect(pmsApi.createProduct).toHaveBeenCalled())
     expect(pmsApi.createProduct).toHaveBeenCalledWith('test-token', expect.objectContaining({ has_variants: false }))
@@ -637,12 +637,12 @@ describe('creating a new product', () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: created, variants: [] })
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     await userEvent.type(await screen.findByLabelText('Name'), 'Configurable Shirt')
 
     await userEvent.click(screen.getByRole('button', { name: '+ Add variants like size or color' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Create Product' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Create product' }))
 
     await waitFor(() => expect(pmsApi.createProduct).toHaveBeenCalled())
     expect(pmsApi.createProduct).toHaveBeenCalledWith('test-token', expect.objectContaining({ has_variants: true }))
@@ -660,7 +660,7 @@ describe('creating a new product', () => {
 describe('Tags', () => {
   it('adds a tag on Enter and removes it via its remove button', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     const tagsInput = await screen.findByLabelText('Tags')
     await userEvent.type(tagsInput, 'summer{Enter}')
@@ -673,7 +673,7 @@ describe('Tags', () => {
 
   it('adds a tag on comma and ignores a duplicate', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     const tagsInput = await screen.findByLabelText('Tags')
     await userEvent.type(tagsInput, 'sale,sale,')
@@ -687,13 +687,13 @@ describe('Tags', () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: created, variants: [] })
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     await userEvent.type(await screen.findByLabelText('Name'), 'Tagged Shirt')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'TAGGEDSHIRT-1')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
     await userEvent.type(screen.getByLabelText('Tags'), 'summer{Enter}sale{Enter}')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create product' }))
 
     await waitFor(() => expect(pmsApi.createProduct).toHaveBeenCalled())
     expect(pmsApi.createProduct).toHaveBeenCalledWith('test-token', expect.objectContaining({ tags: ['summer', 'sale'] }))
@@ -1360,7 +1360,7 @@ describe('alternate barcodes / scale codes (VariantRow)', () => {
 describe('weight pool (unit_type / portioned_from_sku_id)', () => {
   it('is shown for a brand-new, not-yet-saved product (no two-step create-then-edit needed)', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     expect(await screen.findByText('Weight pool')).toBeInTheDocument()
     expect(screen.getByLabelText(/item type/i)).toBeInTheDocument()
@@ -1377,7 +1377,7 @@ describe('weight pool (unit_type / portioned_from_sku_id)', () => {
     })
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     await userEvent.type(await screen.findByLabelText('Name'), 'Dried Beef')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'DRIED-BEEF')
@@ -1388,7 +1388,7 @@ describe('weight pool (unit_type / portioned_from_sku_id)', () => {
     await userEvent.selectOptions(screen.getByLabelText(/pricing/i), 'per_weight')
     await userEvent.type(screen.getByLabelText(/price per kilo/i), '19.99')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create product' }))
 
     await waitFor(() => expect(pmsApi.createSKU).toHaveBeenCalled())
     expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'new-var', expect.objectContaining({
@@ -1407,12 +1407,12 @@ describe('weight pool (unit_type / portioned_from_sku_id)', () => {
     })
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
     await userEvent.type(await screen.findByLabelText('Name'), 'New Shirt')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'NEWSHIRT-1')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create product' }))
 
     await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalled())
 
@@ -1460,7 +1460,7 @@ describe('weight pool (unit_type / portioned_from_sku_id)', () => {
 describe('WooCommerce tab', () => {
   it('is not shown for a brand-new, not-yet-saved product', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     expect(screen.queryByRole('button', { name: /WooCommerce/ })).not.toBeInTheDocument()
   })
@@ -1651,7 +1651,7 @@ describe('WooCommerce tab', () => {
 describe('Resync to channels button', () => {
   it('is not shown for a brand-new, not-yet-saved product', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     expect(screen.queryByRole('button', { name: /Resync to channels/ })).not.toBeInTheDocument()
   })
@@ -1700,7 +1700,7 @@ describe('Resync to channels button', () => {
 describe('SKU weight/dimensions and virtual flag', () => {
   it('shows weight/dimensions fields and a virtual-product toggle for a simple product', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     expect(await screen.findByLabelText('Weight (g)')).toBeInTheDocument()
     expect(screen.getByLabelText('Length (mm)')).toBeInTheDocument()
@@ -1711,7 +1711,7 @@ describe('SKU weight/dimensions and virtual flag', () => {
 
   it('hides weight/dimensions fields once the product is marked virtual', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     await userEvent.click(await screen.findByRole('switch', { name: 'Virtual product (no shipping)' }))
 
@@ -1729,7 +1729,7 @@ describe('SKU weight/dimensions and virtual flag', () => {
     })
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     await userEvent.type(await screen.findByLabelText('Name'), 'New Shirt')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'NEWSHIRT-1')
@@ -1739,7 +1739,7 @@ describe('SKU weight/dimensions and virtual flag', () => {
     await userEvent.type(screen.getByLabelText('Width (mm)'), '80')
     await userEvent.type(screen.getByLabelText('Height (mm)'), '20')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create product' }))
 
     await waitFor(() => expect(pmsApi.createSKU).toHaveBeenCalled())
     expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'new-var', expect.objectContaining({
@@ -1758,14 +1758,14 @@ describe('SKU weight/dimensions and virtual flag', () => {
     })
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     await userEvent.type(await screen.findByLabelText('Name'), 'E-Book')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'EBOOK-1')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '9.99')
     await userEvent.click(screen.getByRole('switch', { name: 'Virtual product (no shipping)' }))
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Create Product' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Create product' }))
 
     await waitFor(() => expect(pmsApi.createSKU).toHaveBeenCalled())
     expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'new-var', expect.objectContaining({
@@ -1782,7 +1782,7 @@ describe('Tax class picker + price preview', () => {
     ])
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     const select = await screen.findByLabelText('Tax class')
     expect(within(select as HTMLElement).getByText('Standard')).toBeInTheDocument()
@@ -1804,14 +1804,14 @@ describe('Tax class picker + price preview', () => {
     })
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     await userEvent.type(await screen.findByLabelText('Name'), 'New Shirt')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'NEWSHIRT-1')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
     await userEvent.selectOptions(await screen.findByLabelText('Tax class'), 'class-2')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create product' }))
 
     await waitFor(() => expect(pmsApi.createSKU).toHaveBeenCalled())
     expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'new-var', expect.objectContaining({
@@ -1848,7 +1848,7 @@ describe('Tax class picker + price preview', () => {
     ])
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
     await screen.findByLabelText('Tax class')
 
     await userEvent.type(screen.getByPlaceholderText('0.00'), '121.00')
@@ -1861,7 +1861,7 @@ describe('Tax class picker + price preview', () => {
 describe('product edit page chrome', () => {
   it('Discard closes the editor without saving', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     await userEvent.type(await screen.findByLabelText('Name'), 'Abandoned Product')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
@@ -1872,7 +1872,7 @@ describe('product edit page chrome', () => {
 
   it('shows the not-yet-supported fields as disabled placeholders', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     for (const label of ['Vendor', 'Collections', 'Page title', 'Meta description']) {
       const field = screen.getByLabelText(label)
@@ -1889,7 +1889,7 @@ describe('product edit page chrome', () => {
     ])
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     const options = screen.getByLabelText('Category').querySelectorAll('option')
     const names = Array.from(options).map(o => o.textContent?.trim())
@@ -2004,7 +2004,7 @@ describe('Media section', () => {
 
   it('shows a save-first message for a new (unsaved) product instead of the upload UI', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByText('New Product'))
+    await userEvent.click(await screen.findByText('New product'))
 
     expect(await screen.findByText('Save the product first, then add images.')).toBeInTheDocument()
   })
@@ -2414,7 +2414,7 @@ describe('Products URLs (refresh + Back)', () => {
     await userEvent.type(await screen.findByLabelText('Name'), 'New Shirt')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'NEWSHIRT-1')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create product' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/products/new-prod'))
     expect(router.state.historyAction).toBe('REPLACE')

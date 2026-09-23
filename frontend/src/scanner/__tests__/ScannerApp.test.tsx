@@ -547,7 +547,7 @@ describe('ScannerApp booking screen', () => {
 
     await enterBookingScreen()
     await userEvent.click(await screen.findByText('Widget A'))
-    await userEvent.click(await screen.findByRole('button', { name: 'Damaged/Lost' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Damaged/lost' }))
 
     await userEvent.click(await screen.findByText('LOT-9'))
     await userEvent.type(await screen.findByLabelText('Quantity'), '2')
@@ -677,7 +677,7 @@ describe('ScannerApp booking screen', () => {
     await enterBookingScreen()
     await userEvent.click(screen.getByRole('button', { name: 'Finish' }))
     await screen.findByText('Review before finishing')
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     expect(await screen.findByText('Booking complete')).toBeInTheDocument()
     expect(screen.getByText(/weren't fully scanned/)).toBeInTheDocument()
@@ -1030,7 +1030,7 @@ describe('ScannerApp picking screen', () => {
     await enterPickingScreen()
     await userEvent.click(screen.getByRole('button', { name: 'Finish' }))
     await screen.findByText('Review before finishing')
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     expect(await screen.findByText('Order picked')).toBeInTheDocument()
     expect(screen.getByText(/weren't fully picked/)).toBeInTheDocument()

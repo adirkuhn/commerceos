@@ -75,7 +75,7 @@ export default function Warehouses() {
             onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
-            <Plus size={13} /> New Warehouse
+            <Plus size={13} /> New warehouse
           </button>
         </div>
       </div>
@@ -208,7 +208,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
             <ArrowLeft size={11} /> Warehouses
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {warehouse ? name || 'Edit Warehouse' : 'New Warehouse'}
+            {warehouse ? name || 'Edit Warehouse' : 'New warehouse'}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -222,7 +222,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
             type="submit" form="warehouse-form" disabled={saving || !name.trim()}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : warehouse ? 'Save' : 'Create Warehouse'}
+            {saving ? 'Saving…' : warehouse ? 'Save' : 'Create warehouse'}
           </button>
         </div>
       </div>
@@ -293,7 +293,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
                   />
                 </div>
                 <div>
-                  <label htmlFor="warehouse-province" className={labelClass}>Province / State</label>
+                  <label htmlFor="warehouse-province" className={labelClass}>Province / state</label>
                   <input
                     id="warehouse-province"
                     type="text" value={province} onChange={e => setProvince(e.target.value)}

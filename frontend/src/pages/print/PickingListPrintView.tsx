@@ -31,7 +31,7 @@ export function PickingListPrintView({ order, lineItems, onClose }: PickingListP
         <X size={16} />
       </button>
       <div className="max-w-2xl mx-auto p-10 text-gray-900">
-        <h1 className="text-2xl font-bold mb-1">Picking List</h1>
+        <h1 className="text-2xl font-bold mb-1">Picking list</h1>
         <p className="text-sm text-gray-600 mb-6">
           Order #{order.number || order.external_order_id} · {new Date(order.occurred_at).toLocaleDateString()}
         </p>

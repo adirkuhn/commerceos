@@ -110,7 +110,7 @@ async function openIntegrationsSection() {
 }
 
 async function openInventorySection() {
-  await userEvent.click(await screen.findByText('Inventory Rules'))
+  await userEvent.click(await screen.findByText('Inventory rules'))
 }
 
 describe('Settings > Integrations overview', () => {
@@ -480,7 +480,7 @@ describe('Settings > Integrations > AI', () => {
     renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
-    await userEvent.type(await screen.findByLabelText('API Key'), 'sk-test-key')
+    await userEvent.type(await screen.findByLabelText('API key'), 'sk-test-key')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(integrationsApi.connectAIProvider).toHaveBeenCalledWith('test-token', {
@@ -503,7 +503,7 @@ describe('Settings > Integrations > AI', () => {
     await userEvent.selectOptions(screen.getByLabelText('Provider'), 'gemini')
     expect(screen.getByLabelText(/Fallback models/)).toBeInTheDocument()
 
-    await userEvent.type(screen.getByLabelText('API Key'), 'gm-test-key')
+    await userEvent.type(screen.getByLabelText('API key'), 'gm-test-key')
     await userEvent.type(screen.getByLabelText(/Fallback models/), 'gemini-3.5-flash-lite,gemini-3.1-flash-lite')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
@@ -534,7 +534,7 @@ describe('Settings > Integrations > AI', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
     await userEvent.selectOptions(await screen.findByLabelText('Provider'), 'ollama')
 
-    expect(screen.queryByLabelText('API Key')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Server URL')).toBeInTheDocument()
   })
 
@@ -545,7 +545,7 @@ describe('Settings > Integrations > AI', () => {
     renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
-    await userEvent.type(await screen.findByLabelText('API Key'), 'sk-test')
+    await userEvent.type(await screen.findByLabelText('API key'), 'sk-test')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('an API key is required for this provider')).toBeInTheDocument()
@@ -967,7 +967,7 @@ describe('Settings > Localization', () => {
     await openLocalizationSection()
 
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
-    expect(screen.getByLabelText('Default Currency')).toHaveValue('EUR')
+    expect(screen.getByLabelText('Default currency')).toHaveValue('EUR')
     expect(screen.getByLabelText('Timezone')).toHaveValue('Europe/Amsterdam')
   })
 
@@ -982,9 +982,9 @@ describe('Settings > Localization', () => {
     renderAt(<Settings />, '/settings')
     await openLocalizationSection()
 
-    await waitFor(() => expect(screen.getByLabelText('Default Currency')).toHaveValue('USD'))
+    await waitFor(() => expect(screen.getByLabelText('Default currency')).toHaveValue('USD'))
     expect(screen.getByLabelText('Timezone')).toHaveValue('America/New_York')
-    expect(screen.getByLabelText('Date Format')).toHaveValue('MM/DD/YYYY')
+    expect(screen.getByLabelText('Date format')).toHaveValue('MM/DD/YYYY')
     expect(screen.getByLabelText('Language')).toHaveValue('fr')
   })
 
@@ -1000,11 +1000,11 @@ describe('Settings > Localization', () => {
     await openLocalizationSection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
-    await userEvent.selectOptions(screen.getByLabelText('Default Currency'), 'USD')
+    await userEvent.selectOptions(screen.getByLabelText('Default currency'), 'USD')
     await userEvent.selectOptions(screen.getByLabelText('Timezone'), 'Europe/London')
-    await userEvent.selectOptions(screen.getByLabelText('Date Format'), 'YYYY-MM-DD')
+    await userEvent.selectOptions(screen.getByLabelText('Date format'), 'YYYY-MM-DD')
     await userEvent.selectOptions(screen.getByLabelText('Language'), 'nl')
-    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', {
       default_currency: 'USD', timezone: 'Europe/London', date_format: 'YYYY-MM-DD', language: 'nl',
@@ -1024,7 +1024,7 @@ describe('Settings > Localization', () => {
     await openLocalizationSection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
-    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
       prices_include_tax: true, default_tax_country: 'NL',
@@ -1037,7 +1037,7 @@ describe('Settings > Localization', () => {
     renderAt(<Settings />, '/settings')
     await openLocalizationSection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
-    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByText('save failed')).toBeInTheDocument()
   })
@@ -1369,7 +1369,7 @@ describe('Settings URLs (refresh + Back)', () => {
 
   it('an unknown section falls back to Company', async () => {
     renderAt(<Settings />, '/settings', '/settings/nope')
-    expect(await screen.findByRole('heading', { name: 'Company Settings' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Company settings' })).toBeInTheDocument()
   })
 
   it('Configure pushes /settings/integrations/:connectionId, which also works on load', async () => {

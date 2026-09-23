@@ -77,28 +77,28 @@ describe('Coupons list', () => {
 
     await acceptConfirm()
     await waitFor(() => expect(couponsApi.deleteCoupon).toHaveBeenCalledWith('test-token', 'coupon-1'))
-    expect(screen.getByText('Add Coupon')).toBeInTheDocument()
+    expect(screen.getByText('Add coupon')).toBeInTheDocument()
   })
 })
 
 describe('Coupon edit page', () => {
   it('opening Add Coupon shows a blank create form', async () => {
     renderAt(<Coupons />, '/coupons')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Coupon' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add coupon' }))
 
     expect(await screen.findByText('New Coupon', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Code')).toHaveValue('')
-    expect(screen.getByRole('button', { name: 'Create Coupon' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create coupon' })).toBeInTheDocument()
   })
 
   it('creates a new coupon with code, type, and value', async () => {
     vi.mocked(couponsApi.createCoupon).mockResolvedValue(coupon({ id: 'coupon-2', code: 'WINTER20', discount_value: 2000 }))
 
     renderAt(<Coupons />, '/coupons')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Coupon' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add coupon' }))
     await userEvent.type(await screen.findByLabelText('Code'), 'winter20')
     await userEvent.type(screen.getByLabelText('Percent off'), '20')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Coupon' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create coupon' }))
 
     await waitFor(() => expect(couponsApi.createCoupon).toHaveBeenCalledWith('test-token', expect.objectContaining({
       code: 'WINTER20',
@@ -110,10 +110,10 @@ describe('Coupon edit page', () => {
 
   it('rejects creating a coupon with a zero discount value', async () => {
     renderAt(<Coupons />, '/coupons')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Coupon' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add coupon' }))
     await userEvent.type(await screen.findByLabelText('Code'), 'EMPTY')
     await userEvent.type(screen.getByLabelText('Percent off'), '0')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Coupon' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create coupon' }))
 
     expect(await screen.findByText('Discount value must be a positive number')).toBeInTheDocument()
     expect(couponsApi.createCoupon).not.toHaveBeenCalled()
@@ -183,7 +183,7 @@ describe('Coupon edit page', () => {
 
   it('Discard returns to the list without saving', async () => {
     renderAt(<Coupons />, '/coupons')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Coupon' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add coupon' }))
     await userEvent.type(await screen.findByLabelText('Code'), 'DRAFT')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 
@@ -195,7 +195,7 @@ describe('Coupon edit page', () => {
 describe('Coupons URLs (refresh + Back)', () => {
   it('Add Coupon pushes /coupons/new and Back returns to the list', async () => {
     const { router } = renderAt(<Coupons />, '/coupons')
-    await userEvent.click(await screen.findByRole('button', { name: /Add Coupon/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Add coupon/ }))
     expect(router.state.location.pathname).toBe('/coupons/new')
 
     await act(() => router.navigate(-1))

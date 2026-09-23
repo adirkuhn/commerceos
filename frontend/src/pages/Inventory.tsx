@@ -137,7 +137,7 @@ function BatchFormModal({
   }
 
   return (
-    <Modal title={batch ? 'Edit Batch' : 'New Batch'} onClose={onClose}>
+    <Modal title={batch ? 'Edit batch' : 'New batch'} onClose={onClose}>
       <div className="space-y-3">
         <div>
           <label className={labelClass} htmlFor="batch-warehouse">Warehouse</label>
@@ -206,7 +206,7 @@ function AdjustStockModal({
   }
 
   return (
-    <Modal title="Adjust Stock" onClose={onClose}>
+    <Modal title="Adjust stock" onClose={onClose}>
       <div className="space-y-3">
         <div>
           <label className={labelClass} htmlFor="adjust-type">Type</label>
@@ -298,7 +298,7 @@ function RecountModal({
   }
 
   return (
-    <Modal title="Recount Stock" onClose={onClose}>
+    <Modal title="Recount stock" onClose={onClose}>
       <div className="space-y-3">
         {scope ? (
           <LockedField label="Warehouse" value={warehouses.find(w => w.id === scope.warehouseId)?.name ?? scope.warehouseId} />
@@ -388,7 +388,7 @@ function TransferModal({
   }
 
   return (
-    <Modal title="Transfer Stock" onClose={onClose}>
+    <Modal title="Transfer stock" onClose={onClose}>
       <div className="space-y-3">
         <p className="text-2xs text-ink-4">
           Leaving a batch empty means the general ledger (un-lotted stock) — use this to move stock into or out of a batch too.
@@ -487,7 +487,7 @@ function SplitCaseModal({
   }
 
   return (
-    <Modal title="Split Case Into Units" onClose={onClose}>
+    <Modal title="Split case into units" onClose={onClose}>
       <div className="space-y-3">
         <p className="text-2xs text-ink-4">
           One-way: the cases you split leave stock, and that many times the case size arrives as units of the linked product. This can't be undone by re-assembling units back into cases.
@@ -572,7 +572,7 @@ function DamagedLostModal({
   }
 
   return (
-    <Modal title="Mark Damaged / Lost" onClose={onClose}>
+    <Modal title="Mark damaged / lost" onClose={onClose}>
       <div className="space-y-3">
         <div>
           <label className={labelClass} htmlFor="dl-type">Type</label>
@@ -655,7 +655,7 @@ function PriceModal({ sku, onSave, onClose }: {
   const discountPct = salePriceNum != null && priceNum > 0 ? Math.round((1 - salePriceNum / priceNum) * 100) : null
 
   return (
-    <Modal title="Edit Price" onClose={onClose}>
+    <Modal title="Edit price" onClose={onClose}>
       <div className="space-y-3">
         <div>
           <label className={labelClass} htmlFor="price-edit-price">Regular price ({sku.currency_code})</label>
@@ -731,7 +731,7 @@ function BatchRowActionModal({ scope, onChoose, onClose }: {
     { key: 'adjust', label: 'Adjust (add/remove)', icon: <Plus size={13} /> },
     { key: 'recount', label: 'Recount', icon: <ClipboardList size={13} /> },
     { key: 'transfer', label: 'Transfer', icon: <ArrowRightLeft size={13} /> },
-    { key: 'damaged-lost', label: 'Damaged / Lost', icon: <PackageMinus size={13} />, danger: true },
+    { key: 'damaged-lost', label: 'Damaged / lost', icon: <PackageMinus size={13} />, danger: true },
   ]
   return (
     <Modal title={scope.label} onClose={onClose}>
@@ -892,7 +892,7 @@ function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUp
             </button>
           )}
           <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-danger hover:bg-hover">
-            <PackageMinus size={11} /> Damaged/Lost
+            <PackageMinus size={11} /> Damaged/lost
           </button>
         </div>
       </div>
@@ -1504,7 +1504,7 @@ const EXPIRY_TABS = ['expired', 'expiring', 'discarded'] as const
 type ExpiryTab = typeof EXPIRY_TABS[number]
 
 // The tab lives in ?tab= (see inventoryRoutes). Defaults to 'expired' --
-// the permanent "Damaged / Lost / Discarded" submenu entry opens straight
+// the permanent "Damaged / lost / discarded" submenu entry opens straight
 // to 'discarded' instead, since that's the whole reason it exists: unlike
 // the red "Expired batches" alert (only shown when something needs review
 // right now), this history is only reachable through an explicit menu
@@ -1597,7 +1597,7 @@ function ExpiryDiscardPage({
           >
             <ArrowLeft size={11} /> Inventory
           </button>
-          <h1 className="text-xl font-semibold text-ink leading-tight">Expiry & Discards</h1>
+          <h1 className="text-xl font-semibold text-ink leading-tight">Expiry & discards</h1>
           <p className="text-xs text-ink-4 mt-0.5">Review expired/expiring stock, discard it, and see what's already been thrown away</p>
         </div>
       </div>
@@ -1932,7 +1932,7 @@ export default function Inventory() {
           onClick={() => open(`${inventoryPaths.expiry}?tab=discarded`)}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-raised border border-line text-ink-3 text-2xs font-medium hover:bg-hover transition-colors shrink-0"
         >
-          <Trash2 size={12} /> Damaged / Lost / Discarded
+          <Trash2 size={12} /> Damaged / lost / discarded
         </button>
         <span className="text-xs text-ink-4 ml-auto">{total} product{total === 1 ? '' : 's'}</span>
       </div>
@@ -1951,7 +1951,7 @@ export default function Inventory() {
               <th className="px-2 py-2.5 w-8" />
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Product</th>
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Price</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Sale Price</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Sale price</th>
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Stock</th>
               <th className="px-3 py-2.5 w-8" />
             </tr>

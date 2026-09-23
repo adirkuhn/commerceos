@@ -35,7 +35,7 @@ describe('Topbar Pair Scanner', () => {
     })
 
     renderTopbar()
-    await userEvent.click(screen.getByTitle('Pair Scanner'))
+    await userEvent.click(screen.getByTitle('Pair scanner'))
 
     expect(await screen.findByRole('img', { name: 'Scan to pair' })).toBeInTheDocument()
     expect(screen.getByText('Waiting for scanner…')).toBeInTheDocument()
@@ -48,7 +48,7 @@ describe('Topbar Pair Scanner', () => {
     })
 
     renderTopbar()
-    await userEvent.click(screen.getByTitle('Pair Scanner'))
+    await userEvent.click(screen.getByTitle('Pair scanner'))
     await screen.findByRole('img', { name: 'Scan to pair' })
     await userEvent.click(screen.getByTitle('Close'))
 
@@ -71,7 +71,7 @@ describe('Topbar appearance control', () => {
 
   it('labels the Pair Scanner button for screen readers', () => {
     renderTopbar()
-    expect(screen.getByRole('button', { name: 'Pair Scanner' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pair scanner' })).toBeInTheDocument()
   })
 })
 

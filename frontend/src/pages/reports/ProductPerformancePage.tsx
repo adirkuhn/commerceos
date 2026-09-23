@@ -21,7 +21,7 @@ export default function ProductPerformancePage() {
 
   return (
     <ReportPageShell title="Product Performance" period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
-      <ReportCard title="Top Products by Revenue" description="Selected period">
+      <ReportCard title="Top products by revenue" description="Selected period">
         {topProducts.length === 0 ? (
           <EmptyState>No sales in this period</EmptyState>
         ) : (

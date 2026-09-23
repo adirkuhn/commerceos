@@ -102,7 +102,7 @@ describe('Customers list', () => {
 
     await acceptConfirm()
     await waitFor(() => expect(customersApi.deleteCustomer).toHaveBeenCalledWith('test-token', 'customer-1'))
-    expect(screen.queryByText('Add Customer')).toBeInTheDocument()
+    expect(screen.queryByText('Add customer')).toBeInTheDocument()
   })
 
   it('does not delete when the confirm dialog is dismissed', async () => {
@@ -288,11 +288,11 @@ describe('Customer edit page', () => {
 
   it('opening Add Customer shows a blank create form', async () => {
     render(<MemoryRouter><Customers /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Customer' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add customer' }))
 
     expect(await screen.findByText('New Customer', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toHaveValue('')
-    expect(screen.getByRole('button', { name: 'Create Customer' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create customer' })).toBeInTheDocument()
   })
 
   it('creates a new customer and returns to the list', async () => {
@@ -301,11 +301,11 @@ describe('Customer edit page', () => {
     )
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Customer' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add customer' }))
     await userEvent.type(await screen.findByLabelText('First name'), 'Bob')
     await userEvent.type(screen.getByLabelText('Last name'), 'Smith')
     await userEvent.type(screen.getByLabelText('Email'), 'bob@example.com')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Customer' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
 
     await waitFor(() => expect(customersApi.createCustomer).toHaveBeenCalledWith('test-token', expect.objectContaining({
       email: 'bob@example.com', first_name: 'Bob', last_name: 'Smith',
@@ -319,12 +319,12 @@ describe('Customer edit page', () => {
     )
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Customer' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add customer' }))
     await userEvent.type(await screen.findByLabelText('First name'), 'Bob')
     await userEvent.type(screen.getByLabelText('Last name'), 'Smith')
     await userEvent.type(screen.getByLabelText('Email'), 'bob@example.com')
     await userEvent.type(screen.getByLabelText('Billing city'), 'Rotterdam')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Customer' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
 
     await waitFor(() => expect(customersApi.createCustomer).toHaveBeenCalledWith('test-token', expect.objectContaining({
       billing: expect.objectContaining({ city: 'Rotterdam' }),
@@ -335,9 +335,9 @@ describe('Customer edit page', () => {
     vi.mocked(customersApi.createCustomer).mockRejectedValue(new Error('email already taken'))
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Customer' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add customer' }))
     await userEvent.type(await screen.findByLabelText('Email'), 'bob@example.com')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Customer' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
 
     expect(await screen.findByText('email already taken')).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toBeInTheDocument()

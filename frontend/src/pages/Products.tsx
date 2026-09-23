@@ -131,7 +131,7 @@ export default function Products() {
 
   // Swaps /products/new for the real id the instant creation succeeds --
   // without this, a refresh in the gap between "create" and the next
-  // explicit navigation would reopen a blank "New Product" form instead of
+  // explicit navigation would reopen a blank "New product" form instead of
   // the product that was just created. Replace, not push: Back shouldn't
   // land on the blank create form either.
   const handleCreateProduct = async (payload: Parameters<typeof createProduct>[0]) => {
@@ -172,7 +172,7 @@ export default function Products() {
             onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
-            <Plus size={13} /> New Product
+            <Plus size={13} /> New product
           </button>
         </div>
       </div>
@@ -192,7 +192,7 @@ export default function Products() {
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Product</th>
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Category</th>
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Price</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Sale Price</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Sale price</th>
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
               <th className="px-3 py-2.5 w-8" />
             </tr>
@@ -706,7 +706,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
             <ArrowLeft size={11} /> Products
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {savedProductId ? name || 'Edit Product' : 'New Product'}
+            {savedProductId ? name || 'Edit Product' : 'New product'}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -731,7 +731,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
             type="submit" form="product-general-form" disabled={saving || activeTab !== 'general'}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : savedProductId ? 'Save' : 'Create Product'}
+            {saving ? 'Saving…' : savedProductId ? 'Save' : 'Create product'}
           </button>
         </div>
       </div>
@@ -2227,7 +2227,7 @@ function VariantsSection({ detail, productId }: VariantsSectionProps) {
         // inner one, so its submit button ends up submitting the OUTER
         // form as a real (non-JS-intercepted) navigation — a full page
         // reload back to the app's initial route, which looked like the
-        // "Add Variant" button redirecting home.
+        // "Add variant" button redirecting home.
         <div className="p-3 rounded-lg border border-line space-y-2">
           <input
             type="text" required placeholder="Variant name (e.g. Large)" value={variantName} onChange={e => setVariantName(e.target.value)}
@@ -2236,7 +2236,7 @@ function VariantsSection({ detail, productId }: VariantsSectionProps) {
           />
           {addError && <p className="text-xs text-danger">{addError}</p>}
           <button type="button" onClick={handleAddVariant} disabled={submitting} className="w-full py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
-            {submitting ? 'Adding…' : 'Add Variant'}
+            {submitting ? 'Adding…' : 'Add variant'}
           </button>
           <p className="text-2xs text-ink-4">Add a SKU (price/barcode) to the variant after creating it.</p>
         </div>

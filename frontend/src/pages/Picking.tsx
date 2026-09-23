@@ -517,7 +517,7 @@ export default function Picking() {
       {/* Order queue */}
       <div className="w-64 border-r border-line bg-sunken flex flex-col overflow-hidden shrink-0">
         <div className="px-4 py-3 border-b border-line">
-          <p className="text-xs font-semibold text-ink">Orders to Pick</p>
+          <p className="text-xs font-semibold text-ink">Orders to pick</p>
           <p className="text-2xs text-ink-4 mt-0.5">{orders.length} unfulfilled</p>
         </div>
         <div className="px-3 py-2 border-b border-line">
@@ -597,7 +597,7 @@ export default function Picking() {
               type="button" onClick={continueToPacking}
               className="mt-5 px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover flex items-center gap-1.5"
             >
-              <PackageCheck size={13} /> Continue to Packing
+              <PackageCheck size={13} /> Continue to packing
             </button>
 
             <button
@@ -666,7 +666,7 @@ export default function Picking() {
                 onClick={() => handleConfirmComplete()} disabled={completing}
                 className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
               >
-                {completing ? 'Completing…' : 'Confirm & Complete'}
+                {completing ? 'Completing…' : 'Confirm & complete'}
               </button>
               <button
                 onClick={() => setConfirmingFinish(false)}

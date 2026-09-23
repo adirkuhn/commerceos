@@ -208,7 +208,7 @@ export default function Customers() {
             onClick={() => navigate('/customers/new')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
-            <Plus size={13} /> Add Customer
+            <Plus size={13} /> Add customer
           </button>
         </div>
       </div>
@@ -590,7 +590,7 @@ function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: CustomerEdi
             type="submit" form="customer-form" disabled={saving || !email.trim()}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : customer ? 'Save' : 'Create Customer'}
+            {saving ? 'Saving…' : customer ? 'Save' : 'Create customer'}
           </button>
         </div>
       </div>

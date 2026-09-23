@@ -12,7 +12,7 @@ const RFM_SEGMENTS: { id: RFMSegment; label: string; hint: string }[] = [
   { id: 'potential_loyalists', label: 'Potential Loyalists', hint: 'Recent, not yet frequent' },
   { id: 'at_risk', label: 'At Risk', hint: 'Used to order often, hasn’t recently' },
   { id: 'lost', label: 'Lost', hint: 'Neither recent nor frequent' },
-  { id: 'needs_attention', label: 'Needs Attention', hint: 'Mid-range on every axis' },
+  { id: 'needs_attention', label: 'Needs attention', hint: 'Mid-range on every axis' },
 ]
 
 export default function CustomerRFMPage() {

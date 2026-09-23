@@ -381,7 +381,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
             disabled={finishing}
             className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
           >
-            {finishing ? 'Completing…' : 'Confirm & Complete'}
+            {finishing ? 'Completing…' : 'Confirm & complete'}
           </button>
           <button onClick={() => setConfirmingFinish(false)} className="w-full py-2.5 rounded-xl bg-night-800 text-gray-300 text-sm font-medium">
             Back, scan more
@@ -598,7 +598,7 @@ type LineSheetMode = 'receive' | 'remove' | 'damaged-lost'
 const LINE_SHEET_TABS: { id: LineSheetMode; label: string; icon: typeof PackagePlus; help: string }[] = [
   { id: 'receive', label: 'Receive', icon: PackagePlus, help: 'Add stock for this item, into an existing or a new batch.' },
   { id: 'remove', label: 'Remove', icon: Undo2, help: "Fix a mistake -- you scanned more than actually arrived. Reduces what's counted as received." },
-  { id: 'damaged-lost', label: 'Damaged/Lost', icon: AlertTriangle, help: "It did arrive, but isn't sellable. Stays counted as received; written off separately." },
+  { id: 'damaged-lost', label: 'Damaged/lost', icon: AlertTriangle, help: "It did arrive, but isn't sellable. Stays counted as received; written off separately." },
 ]
 
 function formatBatchExpiry(iso?: string | null): string {

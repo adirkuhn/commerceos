@@ -244,7 +244,7 @@ describe('Packing page', () => {
     await screen.findByText('Widget')
     await user.click(screen.getByRole('button', { name: 'Complete' }))
     await screen.findByText('Review before completing')
-    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     expect(await screen.findByText('#1001 packed')).toBeInTheDocument()
     expect(screen.getByText('Widget: 0/2')).toBeInTheDocument()

@@ -106,7 +106,7 @@ export default function Orders() {
             <RefreshCw size={13} /> Sync
           </button>
           <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover ml-auto font-medium">
-            <Plus size={13} /> Manual Order
+            <Plus size={13} /> Manual order
           </button>
         </div>
 
@@ -205,7 +205,7 @@ export default function Orders() {
 
           {/* Status flow */}
           <div className="px-4 py-3 border-b border-line">
-            <p className="text-2xs text-ink-4 uppercase tracking-wider mb-2">Order Flow</p>
+            <p className="text-2xs text-ink-4 uppercase tracking-wider mb-2">Order flow</p>
             <div className="flex items-center gap-1 flex-wrap">
               {ORDER_STATUS_FLOW.filter(s => s !== 'cancelled').map((s, i) => {
                 const steps = ORDER_STATUS_FLOW.filter(x => x !== 'cancelled')
@@ -251,10 +251,10 @@ export default function Orders() {
           {/* Actions */}
           <div className="px-4 py-3 space-y-2 mt-auto">
             <button className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors">
-              Start Picking
+              Start picking
             </button>
             <button className="w-full py-2 rounded-lg bg-raised border border-line text-ink-2 text-xs hover:bg-hover transition-colors flex items-center justify-center gap-2">
-              Change Status <ChevronDown size={12} />
+              Change status <ChevronDown size={12} />
             </button>
           </div>
         </div>

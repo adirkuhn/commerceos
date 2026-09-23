@@ -69,7 +69,7 @@ export function PortionFromBulkModal({
   }
 
   return (
-    <Modal title="Add Item From Weight Pool" onClose={onClose}>
+    <Modal title="Add item from weight pool" onClose={onClose}>
       <div className="space-y-3">
         <p className="text-2xs text-ink-4">
           Peels one sellable unit off the linked weight pool. Repeatable as many times as you like.

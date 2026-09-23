@@ -260,7 +260,7 @@ describe('Inventory page', () => {
     await screen.findByText('LOT-1')
 
     await user.click(screen.getByRole('button', { name: '+ New batch' }))
-    const dialog = await screen.findByText('New Batch')
+    const dialog = await screen.findByText('New batch')
     const modal = dialog.closest('div')!.parentElement!
     await user.type(within(modal).getByLabelText(/lot number/i), 'LOT-NEW')
     await user.click(within(modal).getByRole('button', { name: /save/i }))
@@ -312,7 +312,7 @@ describe('Inventory page', () => {
     await screen.findByText('WIDGET-1')
 
     await user.click(screen.getByRole('button', { name: /adjust/i }))
-    const dialog = await screen.findByText('Adjust Stock')
+    const dialog = await screen.findByText('Adjust stock')
     const modal = dialog.closest('div')!.parentElement!
     await user.type(within(modal).getByLabelText(/quantity/i), '5')
     await user.click(within(modal).getByRole('button', { name: /record/i }))
@@ -334,7 +334,7 @@ describe('Inventory page', () => {
     await screen.findByText('WIDGET-1')
 
     await user.click(screen.getByRole('button', { name: /adjust/i }))
-    const dialog = await screen.findByText('Adjust Stock')
+    const dialog = await screen.findByText('Adjust stock')
     const modal = dialog.closest('div')!.parentElement!
 
     await user.type(within(modal).getByLabelText(/quantity/i), '5')
@@ -364,7 +364,7 @@ describe('Inventory page', () => {
     await screen.findByText('WIDGET-1')
 
     await user.click(screen.getByRole('button', { name: /adjust/i }))
-    const dialog = await screen.findByText('Adjust Stock')
+    const dialog = await screen.findByText('Adjust stock')
     const modal = dialog.closest('div')!.parentElement!
     await user.type(within(modal).getByLabelText(/quantity/i), '5')
     await user.click(within(modal).getByRole('button', { name: /record/i }))
@@ -381,7 +381,7 @@ describe('Inventory page', () => {
     await screen.findByText('WIDGET-1')
 
     await user.click(screen.getByRole('button', { name: /adjust/i }))
-    const dialog = await screen.findByText('Adjust Stock')
+    const dialog = await screen.findByText('Adjust stock')
     const modal = dialog.closest('div')!.parentElement!
     await user.type(within(modal).getByLabelText(/quantity/i), '5')
     await user.click(within(modal).getByRole('button', { name: /record/i }))
@@ -398,7 +398,7 @@ describe('Inventory page', () => {
     await screen.findByText('WIDGET-1')
 
     await user.click(screen.getByRole('button', { name: /^Price$/ }))
-    const dialog = await screen.findByText('Edit Price')
+    const dialog = await screen.findByText('Edit price')
     const modal = dialog.closest('div')!.parentElement!
 
     const priceInput = within(modal).getByLabelText(/^Regular price/)
@@ -427,7 +427,7 @@ describe('Inventory page', () => {
     await screen.findByText('WIDGET-1')
 
     await user.click(screen.getByRole('button', { name: /^Price$/ }))
-    const dialog = await screen.findByText('Edit Price')
+    const dialog = await screen.findByText('Edit price')
     const modal = dialog.closest('div')!.parentElement!
     await user.click(within(modal).getByRole('button', { name: /save/i }))
 
@@ -461,7 +461,7 @@ describe('Inventory page', () => {
     await screen.findByText('WIDGET-1')
 
     await user.click(screen.getByRole('button', { name: /Split case/i }))
-    const dialog = await screen.findByText('Split Case Into Units')
+    const dialog = await screen.findByText('Split case into units')
     const modal = dialog.closest('div')!.parentElement!
     await user.type(within(modal).getByLabelText(/cases to split/i), '2')
     await user.click(within(modal).getByRole('button', { name: /^Split$/ }))
@@ -500,7 +500,7 @@ describe('Inventory page', () => {
     await screen.findByText('WIDGET-1')
 
     await user.click(screen.getByRole('button', { name: /Add item from weight pool/i }))
-    const dialog = await screen.findByText('Add Item From Weight Pool')
+    const dialog = await screen.findByRole('dialog', { name: 'Add item from weight pool' })
     const modal = dialog.closest('div')!.parentElement!
     await user.click(within(modal).getByRole('button', { name: /^Add item$/ }))
 
@@ -529,7 +529,7 @@ describe('Inventory page', () => {
     await screen.findByText('WIDGET-1')
 
     await user.click(screen.getByRole('button', { name: /Add item from weight pool/i }))
-    const dialog = await screen.findByText('Add Item From Weight Pool')
+    const dialog = await screen.findByRole('dialog', { name: 'Add item from weight pool' })
     const modal = dialog.closest('div')!.parentElement!
     await user.type(within(modal).getByLabelText(/actual weight/i), '412')
     await user.click(within(modal).getByRole('button', { name: /^Add item$/ }))
@@ -564,7 +564,7 @@ describe('Inventory page', () => {
     await screen.findByText('WIDGET-1')
 
     await user.click(screen.getByRole('button', { name: /Add item from weight pool/i }))
-    const dialog = await screen.findByText('Add Item From Weight Pool')
+    const dialog = await screen.findByRole('dialog', { name: 'Add item from weight pool' })
     const modal = dialog.closest('div')!.parentElement!
 
     await waitFor(() => expect(inventoryApi.listBatches).toHaveBeenCalledWith('test-token', 'sku-bulk-1'))
@@ -627,7 +627,7 @@ describe('Clicking a batch row opens a scoped action window', () => {
     expect(within(modal).getByRole('button', { name: /Damaged/ })).toBeInTheDocument()
 
     await user.click(within(modal).getByRole('button', { name: 'Cancel' }))
-    expect(screen.queryByText('Adjust Stock')).not.toBeInTheDocument()
+    expect(screen.queryByText('Adjust stock')).not.toBeInTheDocument()
   })
 
   it('Adjust from a clicked batch row locks warehouse/batch and records the movement against that exact batch', async () => {
@@ -647,7 +647,7 @@ describe('Clicking a batch row opens a scoped action window', () => {
     const chooser = chooserTitle.closest('div')!.parentElement!
     await user.click(within(chooser).getByRole('button', { name: 'Adjust (add/remove)' }))
 
-    const dialog = await screen.findByText('Adjust Stock')
+    const dialog = await screen.findByText('Adjust stock')
     const modal = dialog.closest('div')!.parentElement!
     // Locked from the row click -- no editable warehouse/batch select here.
     expect(within(modal).queryByLabelText(/warehouse/i)).not.toBeInTheDocument()
@@ -685,7 +685,7 @@ describe('Clicking a batch row opens a scoped action window', () => {
     const chooser = chooserTitle.closest('div')!.parentElement!
     await user.click(within(chooser).getByRole('button', { name: 'Adjust (add/remove)' }))
 
-    const dialog = await screen.findByText('Adjust Stock')
+    const dialog = await screen.findByText('Adjust stock')
     const modal = dialog.closest('div')!.parentElement!
     await user.type(within(modal).getByLabelText(/quantity/i), '5')
     await user.click(within(modal).getByRole('button', { name: /record/i }))
@@ -713,7 +713,7 @@ describe('Clicking a batch row opens a scoped action window', () => {
     const chooser = chooserTitle.closest('div')!.parentElement!
     await user.click(within(chooser).getByRole('button', { name: 'Transfer' }))
 
-    const dialog = await screen.findByText('Transfer Stock')
+    const dialog = await screen.findByText('Transfer stock')
     const modal = dialog.closest('div')!.parentElement!
     expect(within(modal).queryByLabelText(/from warehouse/i)).not.toBeInTheDocument()
     expect(within(modal).queryByLabelText(/from batch/i)).not.toBeInTheDocument()
@@ -738,7 +738,7 @@ describe('Clicking a batch row opens a scoped action window', () => {
 
     await user.click(screen.getByLabelText(/Edit batch/))
 
-    expect(await screen.findByText('Edit Batch')).toBeInTheDocument()
+    expect(await screen.findByText('Edit batch')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Adjust (add/remove)' })).not.toBeInTheDocument()
   })
 })
@@ -900,9 +900,9 @@ describe('Expired batch review queue', () => {
     await screen.findByText('Widget')
     expect(screen.queryByText(/Expired batches/)).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: /Damaged \/ Lost \/ Discarded/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Damaged \/ lost \/ discarded/ }))
 
-    expect(await screen.findByText('Expiry & Discards')).toBeInTheDocument()
+    expect(await screen.findByText('Expiry & discards')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Discarded' })).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -913,7 +913,7 @@ describe('Expired batch review queue', () => {
     const badge = await screen.findByRole('button', { name: /Expired batches \(1\)/ })
     await userEvent.click(badge)
 
-    expect(await screen.findByText('Expiry & Discards')).toBeInTheDocument()
+    expect(await screen.findByText('Expiry & discards')).toBeInTheDocument()
     expect(screen.getByText('WIDGET-1')).toBeInTheDocument()
     expect(screen.getByText('LOT-2')).toBeInTheDocument()
   })
@@ -1008,7 +1008,7 @@ describe('Expired batch review queue', () => {
 
     renderAt(<Inventory />, '/inventory')
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
-    await screen.findByText('Expiry & Discards')
+    await screen.findByText('Expiry & discards')
 
     await userEvent.click(screen.getByRole('button', { name: /Inventory/ }))
 
@@ -1145,16 +1145,16 @@ describe('Inventory rows and SKU actions in the URL', () => {
     await user.click(screen.getByRole('button', { name: /^Adjust$/ }))
     expect(router.state.location.pathname).toBe('/inventory/products/prod-1/skus/sku-1/adjust')
     expect(router.state.location.search).toBe('?open=prod-1')
-    expect(await screen.findByText('Adjust Stock')).toBeInTheDocument()
+    expect(await screen.findByText('Adjust stock')).toBeInTheDocument()
 
     await act(() => router.navigate(-1))
-    await waitFor(() => expect(screen.queryByText('Adjust Stock')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Adjust stock')).not.toBeInTheDocument())
     expect(screen.getByText('WIDGET-1')).toBeInTheDocument()
   })
 
   it('loading an action URL opens the list with that product expanded and the modal on top', async () => {
     renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/recount')
-    expect(await screen.findByText('Recount Stock')).toBeInTheDocument()
+    expect(await screen.findByText('Recount stock')).toBeInTheDocument()
     expect(screen.getByText('WIDGET-1')).toBeInTheDocument()
   })
 
@@ -1169,13 +1169,13 @@ describe('Inventory rows and SKU actions in the URL', () => {
     await user.click(within(chooser).getByRole('button', { name: 'Recount' }))
     expect(router.state.location.pathname).toBe('/inventory/products/prod-1/skus/sku-1/recount')
     expect(router.state.historyAction).toBe('REPLACE')
-    const modal = (await screen.findByText('Recount Stock')).closest('div')!.parentElement!
+    const modal = (await screen.findByText('Recount stock')).closest('div')!.parentElement!
     expect(within(modal).getByText('LOT-1')).toBeInTheDocument()
   })
 
   it('a batch-scoped action URL reopens locked to that batch on load', async () => {
     renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/adjust?batch=batch-1')
-    const modal = (await screen.findByText('Adjust Stock')).closest('div')!.parentElement!
+    const modal = (await screen.findByText('Adjust stock')).closest('div')!.parentElement!
     expect(within(modal).queryByLabelText(/batch/i)).not.toBeInTheDocument()
     expect(within(modal).getByText('LOT-1')).toBeInTheDocument()
   })
@@ -1191,7 +1191,7 @@ describe('Inventory rows and SKU actions in the URL', () => {
 
   it('/edit-batch?batch= opens the batch editor prefilled', async () => {
     renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/edit-batch?batch=batch-1')
-    expect(await screen.findByText('Edit Batch')).toBeInTheDocument()
+    expect(await screen.findByText('Edit batch')).toBeInTheDocument()
     expect(screen.getByDisplayValue('LOT-1')).toBeInTheDocument()
   })
 
@@ -1207,7 +1207,7 @@ describe('Inventory rows and SKU actions in the URL', () => {
   it('an action URL for a product not on the current list page still opens it', async () => {
     vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [], total: 0 })
     renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/adjust')
-    expect(await screen.findByText('Adjust Stock')).toBeInTheDocument()
+    expect(await screen.findByText('Adjust stock')).toBeInTheDocument()
   })
 
   it('an action URL naming an unknown SKU shows not-found', async () => {

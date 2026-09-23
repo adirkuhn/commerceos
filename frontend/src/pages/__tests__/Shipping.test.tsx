@@ -11,7 +11,7 @@ import { renderAt } from '../../test/renderAt'
 describe('Shipping URLs (refresh + Back)', () => {
   it('the Rules tab is /shipping/rules, and Back returns to shipments', async () => {
     const { router } = renderAt(<Shipping />, '/shipping')
-    await userEvent.click(await screen.findByRole('button', { name: 'Carrier Rules' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Carrier rules' }))
     expect(router.state.location.pathname).toBe('/shipping/rules')
 
     await act(() => router.navigate(-1))

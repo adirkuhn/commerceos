@@ -20,7 +20,7 @@ export default function CustomerPerformancePage() {
 
   return (
     <ReportPageShell title="Customer Performance" period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
-      <ReportCard title="Top Customers by Revenue" description="Selected period — guest orders excluded">
+      <ReportCard title="Top customers by revenue" description="Selected period — guest orders excluded">
         {topCustomers.length === 0 ? (
           <EmptyState>No customer orders in this period</EmptyState>
         ) : (

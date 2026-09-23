@@ -86,7 +86,7 @@ export default function Promotions() {
             onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
-            <Plus size={13} /> Add Promotion
+            <Plus size={13} /> Add promotion
           </button>
         </div>
       </div>
@@ -299,7 +299,7 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
             type="submit" form="promotion-form" disabled={saving || !name.trim() || lines.length === 0}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : promotionId ? 'Save' : 'Create Promotion'}
+            {saving ? 'Saving…' : promotionId ? 'Save' : 'Create promotion'}
           </button>
         </div>
       </div>

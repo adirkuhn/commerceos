@@ -262,12 +262,12 @@ export default function BolSyncSettingsPage({
                 className="w-full px-3 py-2 rounded-lg text-sm bg-surface border border-line text-ink" />
             </div>
             <div>
-              <label htmlFor="bol-client-secret" className="block text-xs font-medium text-ink-3 mb-1">Client Secret</label>
+              <label htmlFor="bol-client-secret" className="block text-xs font-medium text-ink-3 mb-1">Client secret</label>
               <input id="bol-client-secret" type="password" value={clientSecret} onChange={e => setClientSecret(e.target.value)} required
                 className="w-full px-3 py-2 rounded-lg text-sm bg-surface border border-line text-ink" />
             </div>
             <div>
-              <label htmlFor="bol-economic-operator-id" className="block text-xs font-medium text-ink-3 mb-1">Economic Operator ID</label>
+              <label htmlFor="bol-economic-operator-id" className="block text-xs font-medium text-ink-3 mb-1">Economic operator ID</label>
               <input id="bol-economic-operator-id" value={economicOperatorId} onChange={e => setEconomicOperatorId(e.target.value)} required
                 className="w-full px-3 py-2 rounded-lg text-sm bg-surface border border-line text-ink" />
               <p className="text-2xs text-ink-4 mt-1">Your EU operator identifier, required on every offer.</p>
@@ -290,7 +290,7 @@ export default function BolSyncSettingsPage({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="bol-config-economic-operator-id" className="block text-xs font-medium text-ink-3 mb-1">
-                    Economic Operator ID
+                    Economic operator ID
                   </label>
                   <div className="flex gap-2">
                     <input

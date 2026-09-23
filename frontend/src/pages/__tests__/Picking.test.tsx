@@ -522,7 +522,7 @@ describe('Picking page', () => {
     // Complete no longer fires the API directly -- it opens a review step
     // showing the divergences first.
     expect(await screen.findByText('Review before completing')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     expect(await screen.findByText('#1001 marked fulfilled')).toBeInTheDocument()
     const missing = screen.getByText('Not fully picked').closest('div')!
@@ -545,11 +545,11 @@ describe('Picking page', () => {
     await screen.findByText('Widget')
     await user.click(screen.getByRole('button', { name: 'Complete' }))
     expect(await screen.findByText('Review before completing')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     expect(await screen.findByText('Not enough stock')).toBeInTheDocument()
     expect(screen.getByText('Needed 5, 3 short')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     expect(await screen.findByText('#1001 marked fulfilled')).toBeInTheDocument()
     expect(pickingApi.completePicking).toHaveBeenLastCalledWith('test-token', 'ps-1', { 'scan-1': 'with_item' })
@@ -577,7 +577,7 @@ describe('Picking page', () => {
   })
 
   // Label creation moved out of Picking.tsx entirely once packing became its
-  // own screen -- completing picking now only offers "Continue to Packing"
+  // own screen -- completing picking now only offers "Continue to packing"
   // (navigating to /packing?order=<id>), regardless of MyParcel connection
   // state. See Packing.tsx for the address/label flow's new home.
   it('offers Continue to Packing after completing, and navigates to the packing screen', async () => {
@@ -591,11 +591,11 @@ describe('Picking page', () => {
     await screen.findByText('Widget')
     await user.click(screen.getByRole('button', { name: 'Complete' }))
     await screen.findByText('Review before completing')
-    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     await screen.findByText('#1001 marked fulfilled')
     expect(screen.queryByRole('button', { name: 'Create shipping label' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Continue to Packing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue to packing' })).toBeInTheDocument()
   })
 
 })

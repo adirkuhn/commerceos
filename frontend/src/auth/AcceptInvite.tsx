@@ -39,7 +39,7 @@ export function AcceptInvite() {
 
   return (
     <AuthLayout
-      title="Accept Invite"
+      title="Accept invite"
       subtitle="Already have an Akantio account? Just click Accept. New here? Fill in your name and pick a password."
     >
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -59,7 +59,7 @@ export function AcceptInvite() {
         {error && <p role="alert" className="text-xs text-danger">{error}</p>}
 
         <button type="submit" disabled={submitting} className={`${primaryButtonClass} !mt-5`}>
-          {submitting ? 'Accepting…' : 'Accept Invite'}
+          {submitting ? 'Accepting…' : 'Accept invite'}
         </button>
       </form>
     </AuthLayout>

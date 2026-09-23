@@ -39,7 +39,7 @@ export function GroupForm({ group, onSubmit, onCancel }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 max-w-[400px]">
-      <h3 className="text-xs font-semibold text-ink">{group ? 'Edit Group' : 'New Group'}</h3>
+      <h3 className="text-xs font-semibold text-ink">{group ? 'Edit group' : 'New group'}</h3>
 
       {error && <p className="text-xs text-danger">{error}</p>}
 

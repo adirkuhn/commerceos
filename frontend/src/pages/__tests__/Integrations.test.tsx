@@ -433,7 +433,7 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
       webhook_url: 'https://api.example.com/api/v1/webhooks/v1/tenant-1/whatsapp/secret-token',
     })
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse integrations' }))
     await userEvent.click(await screen.findByText('WhatsApp'))
 
     await userEvent.type(await screen.findByPlaceholderText('https://evolution.example.com'), 'https://evolution.example.com')
@@ -454,7 +454,7 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
       webhook_url: 'https://api.example.com/api/v1/webhooks/v1/tenant-1/stripe',
     })
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse integrations' }))
     await userEvent.click(await screen.findByText('Stripe'))
 
     await userEvent.type(await screen.findByPlaceholderText('sk_live_...'), 'sk_test_secret')
@@ -473,7 +473,7 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     })
     vi.mocked(integrationsApi.setWebhookSecret).mockResolvedValue({ connection_id: 'conn-stripe-1', webhook_secret: 'whsec_from_dashboard' })
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse integrations' }))
     await userEvent.click(await screen.findByText('Stripe'))
     await userEvent.type(await screen.findByPlaceholderText('sk_live_...'), 'sk_test_secret')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
@@ -492,7 +492,7 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
       webhook_url: 'https://api.example.com/api/v1/webhooks/v1/tenant-1/revolut',
     })
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse integrations' }))
     await userEvent.click(await screen.findByText('Revolut'))
 
     await userEvent.type(await screen.findByLabelText(/merchant api secret key/i), 'revolut-secret')
@@ -509,7 +509,7 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
       webhook_url: 'https://api.example.com/api/v1/webhooks/v1/tenant-1/revolut',
     })
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse integrations' }))
     await userEvent.click(await screen.findByText('Revolut'))
     await userEvent.type(await screen.findByLabelText(/merchant api secret key/i), 'revolut-secret')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
@@ -524,7 +524,7 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
   it('shows an error if connecting Stripe fails', async () => {
     vi.mocked(integrationsApi.connectStripe).mockRejectedValue(new Error('invalid key'))
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse integrations' }))
     await userEvent.click(await screen.findByText('Stripe'))
     await userEvent.type(await screen.findByPlaceholderText('sk_live_...'), 'sk_bad')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
@@ -537,7 +537,7 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
       { id: 'conn-email-1', provider: 'email', store_url: 'smtp.mystore.com', status: 'connected', created_at: '' },
     )
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse integrations' }))
     await userEvent.click(await screen.findByText('Email'))
 
     await userEvent.type(await screen.findByLabelText('SMTP host'), 'smtp.mystore.com')
@@ -556,7 +556,7 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
   it('shows an error if connecting Email fails', async () => {
     vi.mocked(integrationsApi.connectEmail).mockRejectedValue(new Error('connection refused'))
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse integrations' }))
     await userEvent.click(await screen.findByText('Email'))
     await userEvent.type(await screen.findByLabelText('SMTP host'), 'smtp.mystore.com')
     await userEvent.type(screen.getByLabelText('From address'), 'orders@mystore.com')
@@ -821,7 +821,7 @@ describe('Integrations URLs (refresh + Back)', () => {
 
   it('/integrations/connect opens the catalog on load, and picking a provider pushes its form URL', async () => {
     const { router } = renderIntegrationsAt('/integrations/connect')
-    expect(await screen.findByRole('heading', { name: 'Browse Integrations' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Browse integrations' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /WooCommerce/ }))
     expect(router.state.location.pathname).toBe('/integrations/connect/woocommerce')
   })

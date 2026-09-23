@@ -164,7 +164,7 @@ describe('PickingScreen', () => {
     expect(screen.getByText("1 line(s) aren't fully picked yet:")).toBeInTheDocument()
     expect(api.completePicking).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm & complete' }))
     expect(await screen.findByText('Order picked')).toBeInTheDocument()
     expect(screen.getByText("1 line(s) weren't fully picked:")).toBeInTheDocument()
   })
@@ -233,10 +233,10 @@ describe('PickingScreen', () => {
     await screen.findByText('Widget')
     await user.click(screen.getByRole('button', { name: 'Finish' }))
     await screen.findByText('Review before finishing')
-    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     expect(await screen.findByText('Not enough stock')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     expect(await screen.findByText('Order picked')).toBeInTheDocument()
     expect(api.completePicking).toHaveBeenLastCalledWith(TOKEN, 'ps-1', { 'scan-1': 'with_item' })
@@ -271,7 +271,7 @@ describe('PickingScreen', () => {
   })
 
   // Label creation moved out of PickingScreen entirely once packing became
-  // its own screen -- finishing now only offers "Continue to Packing",
+  // its own screen -- finishing now only offers "Continue to packing",
   // which starts (or resumes) a packing session and hands off to
   // PackingScreen. See PackingScreen.tsx for the address/label flow's new
   // home.
@@ -290,12 +290,12 @@ describe('PickingScreen', () => {
     await screen.findByText('Widget')
     await user.click(screen.getByRole('button', { name: 'Finish' }))
     await screen.findByText('Review before finishing')
-    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     await screen.findByText('Order picked')
     expect(screen.queryByRole('button', { name: 'Create shipping label' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Continue to Packing' }))
+    await user.click(screen.getByRole('button', { name: 'Continue to packing' }))
     expect(api.startOrResumePacking).toHaveBeenCalledWith(TOKEN, 'so-1')
     await waitFor(() => expect(onContinueToPacking).toHaveBeenCalledWith('pack-1', salesOrder()))
   })

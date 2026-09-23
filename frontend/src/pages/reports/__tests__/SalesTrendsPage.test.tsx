@@ -42,14 +42,14 @@ describe('SalesTrendsPage', () => {
   it('fetches with the default day granularity', async () => {
     renderAt(<SalesTrendsPage />, '/reports')
 
-    await screen.findByText('Sales Trend')
+    await screen.findByText('Sales trend')
     expect(reportsApi.getSalesTrendsReport).toHaveBeenCalledWith('test-token', expect.any(String), expect.any(String), 'day')
   })
 
   it('refetches with the chosen granularity when switched', async () => {
     const user = userEvent.setup()
     renderAt(<SalesTrendsPage />, '/reports')
-    await screen.findByText('Sales Trend')
+    await screen.findByText('Sales trend')
 
     await user.click(screen.getByRole('button', { name: 'week' }))
 

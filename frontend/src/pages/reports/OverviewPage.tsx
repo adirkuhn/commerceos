@@ -82,10 +82,10 @@ export default function OverviewPage() {
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const kpis = [
-    { label: 'Total Revenue', value: salesSummary ? formatMoney(salesSummary.current.revenue_minor_units, currency) : '—', change: salesSummary?.revenue_change_percent ?? null },
-    { label: 'Total Orders', value: salesSummary ? String(salesSummary.current.order_count) : '—', change: salesSummary?.order_count_change_percent ?? null },
-    { label: 'Units Sold', value: salesSummary ? String(salesSummary.current.units_sold) : '—', change: salesSummary?.units_sold_change_percent ?? null },
-    { label: 'Avg Order Value', value: salesSummary ? formatMoney(salesSummary.current.average_order_value_minor_units, currency) : '—', change: salesSummary?.aov_change_percent ?? null },
+    { label: 'Total revenue', value: salesSummary ? formatMoney(salesSummary.current.revenue_minor_units, currency) : '—', change: salesSummary?.revenue_change_percent ?? null },
+    { label: 'Total orders', value: salesSummary ? String(salesSummary.current.order_count) : '—', change: salesSummary?.order_count_change_percent ?? null },
+    { label: 'Units sold', value: salesSummary ? String(salesSummary.current.units_sold) : '—', change: salesSummary?.units_sold_change_percent ?? null },
+    { label: 'Avg order value', value: salesSummary ? formatMoney(salesSummary.current.average_order_value_minor_units, currency) : '—', change: salesSummary?.aov_change_percent ?? null },
   ]
 
   const profitabilityTrendPoints = (profitabilityTrend?.points ?? []).map((p: ProfitabilityPoint) => ({ ...p, label: dayLabel(p.period_start) }))
@@ -198,7 +198,7 @@ export default function OverviewPage() {
         )}
       </ReportCard>
 
-      <ReportCard title="Revenue by Channel" description={showDaily ? 'Daily revenue per sales channel' : 'Total revenue per sales channel'}>
+      <ReportCard title="Revenue by channel" description={showDaily ? 'Daily revenue per sales channel' : 'Total revenue per sales channel'}>
         {showDaily ? (
           channelTrendRows.length === 0 ? (
             <EmptyState>No revenue in this period</EmptyState>

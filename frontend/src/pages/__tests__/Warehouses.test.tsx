@@ -70,7 +70,7 @@ describe('Warehouses list', () => {
 
     await acceptConfirm()
     await waitFor(() => expect(inventoryApi.deleteWarehouse).toHaveBeenCalledWith('test-token', 'wh-1'))
-    expect(screen.queryByText('New Warehouse')).toBeInTheDocument()
+    expect(screen.queryByText('New warehouse')).toBeInTheDocument()
   })
 
   it('does not delete when the confirm dialog is dismissed', async () => {
@@ -123,20 +123,20 @@ describe('Warehouse edit page', () => {
 
   it('opening New Warehouse shows a blank create form', async () => {
     renderAt(<Warehouses />, '/warehouses')
-    await userEvent.click(await screen.findByRole('button', { name: 'New Warehouse' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'New warehouse' }))
 
-    expect(await screen.findByText('New Warehouse', { selector: 'h1' })).toBeInTheDocument()
+    expect(await screen.findByText('New warehouse', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toHaveValue('')
-    expect(screen.getByRole('button', { name: 'Create Warehouse' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create warehouse' })).toBeInTheDocument()
   })
 
   it('creates a new warehouse and returns to the list', async () => {
     vi.mocked(inventoryApi.createWarehouse).mockResolvedValue(warehouse({ id: 'wh-2', name: 'East Coast' }))
 
     renderAt(<Warehouses />, '/warehouses')
-    await userEvent.click(await screen.findByRole('button', { name: 'New Warehouse' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'New warehouse' }))
     await userEvent.type(await screen.findByLabelText('Name'), 'East Coast')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Warehouse' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create warehouse' }))
 
     await waitFor(() => expect(inventoryApi.createWarehouse).toHaveBeenCalledWith('test-token', expect.objectContaining({ name: 'East Coast' })))
     expect(await screen.findByText('East Coast')).toBeInTheDocument()
@@ -146,17 +146,17 @@ describe('Warehouse edit page', () => {
     vi.mocked(inventoryApi.createWarehouse).mockResolvedValue(warehouse({ id: 'wh-2', name: 'East Coast' }))
 
     renderAt(<Warehouses />, '/warehouses')
-    await userEvent.click(await screen.findByRole('button', { name: 'New Warehouse' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'New warehouse' }))
     await userEvent.type(await screen.findByLabelText('Name'), 'East Coast')
     await userEvent.type(screen.getByLabelText('Address line 1'), '1 Main St')
     await userEvent.type(screen.getByLabelText('Address line 2'), 'Suite 100')
     await userEvent.type(screen.getByLabelText('City'), 'Springfield')
-    await userEvent.type(screen.getByLabelText('Province / State'), 'IL')
+    await userEvent.type(screen.getByLabelText('Province / state'), 'IL')
     await userEvent.type(screen.getByLabelText('ZIP / Postal code'), '62701')
     await userEvent.type(screen.getByLabelText('Country'), 'US')
     await userEvent.type(screen.getByLabelText('Phone'), '+1 555-0100')
     await userEvent.click(screen.getByRole('switch', { name: 'Active' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Create Warehouse' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Create warehouse' }))
 
     await waitFor(() => expect(inventoryApi.createWarehouse).toHaveBeenCalledWith('test-token', {
       name: 'East Coast', address1: '1 Main St', address2: 'Suite 100', city: 'Springfield',
@@ -168,9 +168,9 @@ describe('Warehouse edit page', () => {
     vi.mocked(inventoryApi.createWarehouse).mockRejectedValue(new Error('name already taken'))
 
     renderAt(<Warehouses />, '/warehouses')
-    await userEvent.click(await screen.findByRole('button', { name: 'New Warehouse' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'New warehouse' }))
     await userEvent.type(await screen.findByLabelText('Name'), 'East Coast')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Warehouse' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create warehouse' }))
 
     expect(await screen.findByText('name already taken')).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toBeInTheDocument()
@@ -194,7 +194,7 @@ describe('Warehouse edit page', () => {
     // The editor's heading also shows the new name -- wait until we're
     // actually back on the list URL before asserting on it.
     // (router state flips before React commits, so wait on the list's own UI)
-    await screen.findByRole('button', { name: /New Warehouse/ })
+    await screen.findByRole('button', { name: /New warehouse/ })
     expect(router.state.location.pathname).toBe('/warehouses')
     expect(await screen.findByText('Main Distribution Center')).toBeInTheDocument()
   })
@@ -209,7 +209,7 @@ describe('Warehouse edit page', () => {
 
     expect(await screen.findByLabelText('Address line 1')).toHaveValue('1 Main St')
     expect(screen.getByLabelText('City')).toHaveValue('Springfield')
-    expect(screen.getByLabelText('Province / State')).toHaveValue('IL')
+    expect(screen.getByLabelText('Province / state')).toHaveValue('IL')
     expect(screen.getByLabelText('ZIP / Postal code')).toHaveValue('62701')
     expect(screen.getByLabelText('Country')).toHaveValue('US')
     expect(screen.getByLabelText('Phone')).toHaveValue('+1 555-0100')
@@ -232,7 +232,7 @@ describe('Warehouse edit page', () => {
 describe('Warehouses URLs (refresh + Back)', () => {
   it('New Warehouse pushes /warehouses/new and Back returns to the list', async () => {
     const { router } = renderAt(<Warehouses />, '/warehouses')
-    await userEvent.click(await screen.findByRole('button', { name: /New Warehouse/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /New warehouse/ }))
     expect(router.state.location.pathname).toBe('/warehouses/new')
 
     await act(() => router.navigate(-1))

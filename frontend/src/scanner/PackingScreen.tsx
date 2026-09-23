@@ -308,7 +308,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
             disabled={finishing}
             className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
           >
-            {finishing ? 'Completing…' : 'Confirm & Complete'}
+            {finishing ? 'Completing…' : 'Confirm & complete'}
           </button>
           <button onClick={() => setConfirmingFinish(false)} className="w-full py-2.5 rounded-xl bg-night-800 text-gray-300 text-sm font-medium">
             Back, scan more

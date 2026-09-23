@@ -85,7 +85,7 @@ function ExpiringSoonWidget() {
   return (
     <div className="bg-raised rounded-xl border border-line overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-        <h3 className="text-sm font-semibold text-ink">Expiring Soon</h3>
+        <h3 className="text-sm font-semibold text-ink">Expiring soon</h3>
         <span className="text-2xs bg-amber-500/20 text-warning px-2 py-0.5 rounded-full font-medium">
           {batches.length} within 30 days
         </span>
@@ -139,14 +139,14 @@ export default function Dashboard() {
     <div className="p-5 space-y-5 overflow-auto h-full">
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <StatCard label="Total Products" value={stats?.totalProducts.toLocaleString()} sub="across all channels" icon={Package} color="blue" />
-        <StatCard label="Total Stock" value={stats?.totalStockUnits.toLocaleString()} sub="units in all locations" icon={Warehouse} color="green" />
-        <StatCard label="Total Orders" value={stats?.totalOrders.toLocaleString()} sub="all time" icon={ShoppingCart} color="blue" />
+        <StatCard label="Total products" value={stats?.totalProducts.toLocaleString()} sub="across all channels" icon={Package} color="blue" />
+        <StatCard label="Total stock" value={stats?.totalStockUnits.toLocaleString()} sub="units in all locations" icon={Warehouse} color="green" />
+        <StatCard label="Total orders" value={stats?.totalOrders.toLocaleString()} sub="all time" icon={ShoppingCart} color="blue" />
         <StatCard label="Stock Issues" value={stats?.stockIssues.toLocaleString()} sub="orders need stock resolution" icon={ShoppingCart} color="amber" />
         <StatCard label="Expiring (7d)" value={stats?.expiringSoon.toLocaleString()} sub="batches near expiry" icon={AlertTriangle} color="amber" />
         <StatCard label="Expired" value={stats?.expired.toLocaleString()} sub="need disposal" icon={XCircle} color="red" alert />
         <StatCard
-          label="Est. Revenue"
+          label="Est. revenue"
           value={stats ? formatMoney(stats.revenueThisMonthMinorUnits, currency) : undefined}
           sub="this month"
           icon={DollarSign}
@@ -160,7 +160,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2 bg-raised rounded-xl p-4 border border-line">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-semibold text-ink">Stock Flow</h3>
+              <h3 className="text-sm font-semibold text-ink">Stock flow</h3>
               <p className="text-xs text-ink-4 mt-0.5">Inbound vs outbound</p>
             </div>
           </div>
@@ -189,7 +189,7 @@ export default function Dashboard() {
 
         {/* Channel sales */}
         <div className="bg-raised rounded-xl p-4 border border-line">
-          <h3 className="text-sm font-semibold text-ink mb-1">Sales by Channel</h3>
+          <h3 className="text-sm font-semibold text-ink mb-1">Sales by channel</h3>
           <p className="text-xs text-ink-4 mb-4">This month</p>
           {channelData.length === 0 ? (
             <p className="text-xs text-ink-4">No sales yet this month.</p>
@@ -226,7 +226,7 @@ export default function Dashboard() {
         {/* Top products */}
         <div className="bg-raised rounded-xl border border-line overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-            <h3 className="text-sm font-semibold text-ink">Top Products</h3>
+            <h3 className="text-sm font-semibold text-ink">Top products</h3>
           </div>
           {(stats?.topProductsThisMonth.length ?? 0) === 0 ? (
             <p className="px-4 py-4 text-xs text-ink-4">No products sold yet this month.</p>

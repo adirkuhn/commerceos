@@ -100,18 +100,18 @@ describe('Promotions list', () => {
 
     await acceptConfirm()
     await waitFor(() => expect(promotionsApi.deletePromotion).toHaveBeenCalledWith('test-token', 'promo-1'))
-    expect(screen.getByText('Add Promotion')).toBeInTheDocument()
+    expect(screen.getByText('Add promotion')).toBeInTheDocument()
   })
 })
 
 describe('Promotion edit page', () => {
   it('opening Add Promotion shows a blank create form', async () => {
     renderAt(<Promotions />, '/promotions')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
 
     expect(await screen.findByText('New Promotion', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toHaveValue('')
-    expect(screen.getByRole('button', { name: 'Create Promotion' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create promotion' })).toBeInTheDocument()
   })
 
   it('adding a SKU line resolves the code and shows product name', async () => {
@@ -122,7 +122,7 @@ describe('Promotion edit page', () => {
     })
 
     renderAt(<Promotions />, '/promotions')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
     await userEvent.type(await screen.findByPlaceholderText('SKU code'), 'ACAI-1L')
     await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
 
@@ -134,7 +134,7 @@ describe('Promotion edit page', () => {
     vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
 
     renderAt(<Promotions />, '/promotions')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
     await userEvent.type(await screen.findByPlaceholderText('SKU code'), 'MISSING')
     await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
 
@@ -150,14 +150,14 @@ describe('Promotion edit page', () => {
     vi.mocked(promotionsApi.createPromotion).mockResolvedValue({ promotion: promotionDetail({ id: 'promo-2', name: 'Winter Sale' }), warnings: [] })
 
     renderAt(<Promotions />, '/promotions')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
     await userEvent.type(await screen.findByLabelText('Name'), 'Winter Sale')
     await userEvent.type(screen.getByLabelText('Starts at'), '2026-07-01T00:00')
     await userEvent.type(screen.getByPlaceholderText('SKU code'), 'ACAI-1L')
     await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
     await screen.findByText('Acai 1L')
     await userEvent.type(screen.getByLabelText('Discount value'), '1000')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Promotion' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create promotion' }))
 
     await waitFor(() => expect(promotionsApi.createPromotion).toHaveBeenCalledWith('test-token', expect.objectContaining({
       name: 'Winter Sale',
@@ -180,14 +180,14 @@ describe('Promotion edit page', () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
 
     renderAt(<Promotions />, '/promotions')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
     await userEvent.type(await screen.findByLabelText('Name'), 'Winter Sale')
     await userEvent.type(screen.getByLabelText('Starts at'), '2026-07-01T00:00')
     await userEvent.type(screen.getByPlaceholderText('SKU code'), 'ACAI-1L')
     await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
     await screen.findByText('Acai 1L')
     await userEvent.type(screen.getByLabelText('Discount value'), '1000')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Promotion' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create promotion' }))
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('already has a manual sale price')))
     alertSpy.mockRestore()
@@ -195,10 +195,10 @@ describe('Promotion edit page', () => {
 
   it('rejects creating a promotion with no SKU lines', async () => {
     renderAt(<Promotions />, '/promotions')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
     await userEvent.type(await screen.findByLabelText('Name'), 'Empty Promo')
 
-    expect(screen.getByRole('button', { name: 'Create Promotion' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Create promotion' })).toBeDisabled()
   })
 
   it('editing an existing promotion fetches and prefills its lines', async () => {
@@ -240,7 +240,7 @@ describe('Promotion edit page', () => {
 
   it('does not show a performance card for a new (unsaved) promotion', async () => {
     renderAt(<Promotions />, '/promotions')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
 
     expect(screen.queryByText('Performance')).not.toBeInTheDocument()
     expect(reportsApi.getPromotionPerformanceReport).not.toHaveBeenCalled()
@@ -248,7 +248,7 @@ describe('Promotion edit page', () => {
 
   it('Discard returns to the list without saving', async () => {
     renderAt(<Promotions />, '/promotions')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
     await userEvent.type(await screen.findByLabelText('Name'), 'Draft Promo')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 
@@ -260,7 +260,7 @@ describe('Promotion edit page', () => {
 describe('Promotions URLs (refresh + Back)', () => {
   it('Add Promotion pushes /promotions/new and Back returns to the list', async () => {
     const { router } = renderAt(<Promotions />, '/promotions')
-    await userEvent.click(await screen.findByRole('button', { name: /Add Promotion/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Add promotion/ }))
     expect(router.state.location.pathname).toBe('/promotions/new')
     expect(screen.getByText('New Promotion')).toBeInTheDocument()
 

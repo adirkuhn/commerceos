@@ -40,7 +40,7 @@ describe('PairScannerModal', () => {
     await screen.findByRole('img', { name: 'Scan to pair' })
 
     const tabs = screen.getAllByRole('button').map(b => b.textContent)
-    expect(tabs.filter(t => ['QR Code', 'Barcode', 'Digits'].includes(t ?? ''))).toEqual(['QR Code', 'Barcode', 'Digits'])
+    expect(tabs.filter(t => ['QR code', 'Barcode', 'Digits'].includes(t ?? ''))).toEqual(['QR code', 'Barcode', 'Digits'])
   })
 
   it('shows a barcode encoding the token when the Barcode tab is selected', async () => {

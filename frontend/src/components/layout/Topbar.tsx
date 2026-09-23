@@ -42,8 +42,8 @@ export default function Topbar() {
         {/* Pair a handheld scanner -- global, not tied to any one page */}
         <button
           onClick={() => setPairScannerOpen(true)}
-          title="Pair Scanner"
-          aria-label="Pair Scanner"
+          title="Pair scanner"
+          aria-label="Pair scanner"
           className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-hover transition-colors"
         >
           <QrCode size={16} className="text-ink-3" />

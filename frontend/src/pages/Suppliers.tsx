@@ -86,7 +86,7 @@ export default function Suppliers() {
             onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
-            <Plus size={13} /> Add Supplier
+            <Plus size={13} /> Add supplier
           </button>
         </div>
       </div>
@@ -105,7 +105,7 @@ export default function Suppliers() {
               <th className="px-2 py-2.5 w-8" />
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Supplier</th>
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Country</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Lead Time</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Lead time</th>
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
@@ -257,7 +257,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
             type="submit" form="supplier-form" disabled={saving || !name.trim()}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : supplier ? 'Save' : 'Create Supplier'}
+            {saving ? 'Saving…' : supplier ? 'Save' : 'Create supplier'}
           </button>
         </div>
       </div>

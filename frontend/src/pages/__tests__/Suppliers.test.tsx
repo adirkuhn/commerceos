@@ -79,7 +79,7 @@ describe('Suppliers list', () => {
 
     await acceptConfirm()
     await waitFor(() => expect(suppliersApi.deleteSupplier).toHaveBeenCalledWith('test-token', 'supplier-1'))
-    expect(screen.queryByText('Add Supplier')).toBeInTheDocument()
+    expect(screen.queryByText('Add supplier')).toBeInTheDocument()
   })
 
   it('does not delete when the confirm dialog is dismissed', async () => {
@@ -133,20 +133,20 @@ describe('Supplier edit page', () => {
 
   it('opening Add Supplier shows a blank create form', async () => {
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Supplier' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add supplier' }))
 
     expect(await screen.findByText('New Supplier', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toHaveValue('')
-    expect(screen.getByRole('button', { name: 'Create Supplier' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create supplier' })).toBeInTheDocument()
   })
 
   it('creates a new supplier and returns to the list', async () => {
     vi.mocked(suppliersApi.createSupplier).mockResolvedValue(supplier({ id: 'supplier-2', name: 'Beta Supply' }))
 
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Supplier' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add supplier' }))
     await userEvent.type(await screen.findByLabelText('Name'), 'Beta Supply')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Supplier' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create supplier' }))
 
     await waitFor(() => expect(suppliersApi.createSupplier).toHaveBeenCalledWith('test-token', expect.objectContaining({ name: 'Beta Supply' })))
     expect(await screen.findByText('Beta Supply')).toBeInTheDocument()
@@ -156,7 +156,7 @@ describe('Supplier edit page', () => {
     vi.mocked(suppliersApi.createSupplier).mockResolvedValue(supplier({ id: 'supplier-2', name: 'Beta Supply' }))
 
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Supplier' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add supplier' }))
     await userEvent.type(await screen.findByLabelText('Name'), 'Beta Supply')
     await userEvent.type(screen.getByLabelText('Email'), 'hi@beta.example')
     await userEvent.type(screen.getByLabelText('Phone'), '+1 555-0100')
@@ -164,7 +164,7 @@ describe('Supplier edit page', () => {
     await userEvent.type(screen.getByLabelText('Lead time (days)'), '14')
     await userEvent.selectOptions(screen.getByLabelText('Status'), 'inactive')
     await userEvent.type(screen.getByLabelText('Notes'), 'net-30')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Supplier' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create supplier' }))
 
     await waitFor(() => expect(suppliersApi.createSupplier).toHaveBeenCalledWith('test-token', {
       name: 'Beta Supply', email: 'hi@beta.example', phone: '+1 555-0100', country: 'US',
@@ -176,9 +176,9 @@ describe('Supplier edit page', () => {
     vi.mocked(suppliersApi.createSupplier).mockRejectedValue(new Error('name already taken'))
 
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Supplier' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add supplier' }))
     await userEvent.type(await screen.findByLabelText('Name'), 'Beta Supply')
-    await userEvent.click(screen.getByRole('button', { name: 'Create Supplier' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create supplier' }))
 
     expect(await screen.findByText('name already taken')).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toBeInTheDocument()
@@ -202,7 +202,7 @@ describe('Supplier edit page', () => {
     // The editor's heading also shows the new name -- wait until we're
     // actually back on the list URL before asserting on it.
     // (router state flips before React commits, so wait on the list's own UI)
-    await screen.findByRole('button', { name: /Add Supplier/ })
+    await screen.findByRole('button', { name: /Add supplier/ })
     expect(router.state.location.pathname).toBe('/suppliers')
     expect(await screen.findByText('Acme Foods Ltd')).toBeInTheDocument()
   })

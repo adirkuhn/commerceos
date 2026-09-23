@@ -42,8 +42,8 @@ describe('BolSyncSettingsPage', () => {
     render(<BolSyncSettingsPage onClose={vi.fn()} onConnected={onConnected} />)
 
     await userEvent.type(screen.getByLabelText('Client ID'), 'client-1')
-    await userEvent.type(screen.getByLabelText('Client Secret'), 'secret-1')
-    await userEvent.type(screen.getByLabelText('Economic Operator ID'), 'op-1')
+    await userEvent.type(screen.getByLabelText('Client secret'), 'secret-1')
+    await userEvent.type(screen.getByLabelText('Economic operator ID'), 'op-1')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
 
     expect(api.connectBol).toHaveBeenCalledWith('test-token', {
@@ -58,8 +58,8 @@ describe('BolSyncSettingsPage', () => {
     render(<BolSyncSettingsPage onClose={vi.fn()} onConnected={onConnected} />)
 
     await userEvent.type(screen.getByLabelText('Client ID'), 'client-1')
-    await userEvent.type(screen.getByLabelText('Client Secret'), 'secret-1')
-    await userEvent.type(screen.getByLabelText('Economic Operator ID'), 'op-1')
+    await userEvent.type(screen.getByLabelText('Client secret'), 'secret-1')
+    await userEvent.type(screen.getByLabelText('Economic operator ID'), 'op-1')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
 
     expect(await screen.findByText('invalid credentials')).toBeInTheDocument()
@@ -129,11 +129,11 @@ describe('BolSyncSettingsPage', () => {
     )
 
     await screen.findByText('Sync schedule')
-    expect(screen.getByLabelText('Economic Operator ID')).toHaveValue('old-op-id')
+    expect(screen.getByLabelText('Economic operator ID')).toHaveValue('old-op-id')
     expect(screen.getByLabelText('Delivery promise')).toHaveValue('2-3d')
 
-    await userEvent.clear(screen.getByLabelText('Economic Operator ID'))
-    await userEvent.type(screen.getByLabelText('Economic Operator ID'), '3fa85f64-5717-4562-b3fc-2c963f66afa6')
+    await userEvent.clear(screen.getByLabelText('Economic operator ID'))
+    await userEvent.type(screen.getByLabelText('Economic operator ID'), '3fa85f64-5717-4562-b3fc-2c963f66afa6')
     await userEvent.selectOptions(screen.getByLabelText('Delivery promise'), '1-2d')
     await userEvent.click(screen.getByRole('button', { name: 'Save configuration' }))
 
@@ -156,7 +156,7 @@ describe('BolSyncSettingsPage', () => {
     const select = await screen.findByLabelText('Select from Bol')
     expect(screen.getByText(/Cantinho Brasileiro/)).toBeInTheDocument()
     await userEvent.selectOptions(select, '3fa85f64-5717-4562-b3fc-2c963f66afa6')
-    expect(screen.getByLabelText('Economic Operator ID')).toHaveValue('3fa85f64-5717-4562-b3fc-2c963f66afa6')
+    expect(screen.getByLabelText('Economic operator ID')).toHaveValue('3fa85f64-5717-4562-b3fc-2c963f66afa6')
   })
 
   it('fetching from Bol lets picking among multiple operators via the select', async () => {
@@ -173,7 +173,7 @@ describe('BolSyncSettingsPage', () => {
     expect(screen.getByText(/Operator One/)).toBeInTheDocument()
     expect(screen.getByText(/Operator Two/)).toBeInTheDocument()
     await userEvent.selectOptions(select, 'op-2')
-    expect(screen.getByLabelText('Economic Operator ID')).toHaveValue('op-2')
+    expect(screen.getByLabelText('Economic operator ID')).toHaveValue('op-2')
   })
 
   it('fetching from Bol shows an error and leaves manual entry available on failure', async () => {
@@ -184,7 +184,7 @@ describe('BolSyncSettingsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Fetch from Bol' }))
 
     expect(await screen.findByText('missing scope economic-operators.read')).toBeInTheDocument()
-    expect(screen.getByLabelText('Economic Operator ID')).not.toBeDisabled()
+    expect(screen.getByLabelText('Economic operator ID')).not.toBeDisabled()
   })
 
   it('prefills an already-saved schedule', async () => {

@@ -14,7 +14,7 @@ interface PairScannerModalProps {
 type PairingTab = 'digits' | 'qr' | 'barcode'
 
 const TABS: { id: PairingTab; label: string; icon: typeof QrCode }[] = [
-  { id: 'qr', label: 'QR Code', icon: QrCode },
+  { id: 'qr', label: 'QR code', icon: QrCode },
   { id: 'barcode', label: 'Barcode', icon: BarcodeIcon },
   { id: 'digits', label: 'Digits', icon: Hash },
 ]
@@ -76,7 +76,7 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
     <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-xl bg-surface border border-line shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
-          <h2 className="text-sm font-semibold text-ink">Pair a Scanner</h2>
+          <h2 className="text-sm font-semibold text-ink">Pair a scanner</h2>
           <button aria-label="Close" type="button" onClick={onClose} title="Close">
             <X size={16} className="text-ink-4" />
           </button>

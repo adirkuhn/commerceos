@@ -67,7 +67,7 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
             type="button" onClick={() => onConfirm(choices)} disabled={submitting}
             className="flex-1 px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {submitting ? 'Completing…' : 'Confirm & Complete'}
+            {submitting ? 'Completing…' : 'Confirm & complete'}
           </button>
         </div>
       </div>

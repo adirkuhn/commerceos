@@ -431,7 +431,7 @@ type RowActionMode = 'adjust' | 'move' | 'damaged-lost'
 const ROW_ACTION_TABS: { id: RowActionMode; label: string; icon: typeof Plus; help: string }[] = [
   { id: 'adjust', label: 'Adjust', icon: Plus, help: 'Correct a count -- add or remove stock directly on this row.' },
   { id: 'move', label: 'Move', icon: ArrowRightLeft, help: 'Move stock from this row to another warehouse or batch.' },
-  { id: 'damaged-lost', label: 'Damaged/Lost', icon: PackageMinus, help: "It's not sellable anymore -- written off from this row." },
+  { id: 'damaged-lost', label: 'Damaged/lost', icon: PackageMinus, help: "It's not sellable anymore -- written off from this row." },
 ]
 
 const NEW_BATCH = 'new'
