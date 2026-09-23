@@ -58,13 +58,14 @@ describe('CommandPalette', () => {
     expect(screen.getByPlaceholderText('Search everything...')).toBeInTheDocument()
   })
 
-  it('opens on Cmd+K and closes on Escape', () => {
+  it('opens on Cmd+K as a search dialog and closes on Escape', async () => {
     renderPalette()
 
     act(() => { fireEvent.keyDown(window, { key: 'k', metaKey: true }) })
-    expect(screen.getByPlaceholderText('Search everything...')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Search' })).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Search everything...')).toHaveFocus()
 
-    act(() => { fireEvent.keyDown(window, { key: 'Escape' }) })
+    await userEvent.keyboard('{Escape}')
     expect(screen.queryByPlaceholderText('Search everything...')).not.toBeInTheDocument()
   })
 

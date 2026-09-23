@@ -8,6 +8,7 @@ import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
 import { navItemToPath } from '../../routes'
 import { globalSearch } from '../../search/api'
+import { Dialog } from '../common/Dialog'
 import type { GlobalSearchResult } from '../../search/types'
 import type { NavItem } from '../../types'
 
@@ -65,7 +66,6 @@ export default function CommandPalette() {
         e.preventDefault()
         setCommandOpen(true)
       }
-      if (e.key === 'Escape') setCommandOpen(false)
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -168,7 +168,7 @@ export default function CommandPalette() {
   let renderedIndex = -1
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]">
+    <Dialog onClose={() => setCommandOpen(false)} label="Search" className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]">
       <div
         className="absolute inset-0 dark:bg-black/60 bg-black/30 backdrop-blur-sm"
         onClick={() => setCommandOpen(false)}
@@ -235,6 +235,6 @@ export default function CommandPalette() {
           ))}
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

@@ -36,7 +36,9 @@ export default function NotificationBell() {
     <div className="relative">
       <button
         onClick={toggleOpen}
-        aria-label="Notifications"
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+        aria-haspopup="true"
+        aria-expanded={open}
         className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-hover transition-colors"
       >
         <Bell size={16} className="text-ink-3" />
@@ -50,7 +52,10 @@ export default function NotificationBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-10 z-50 w-80 max-h-96 flex flex-col bg-raised rounded-xl shadow-2xl border border-line overflow-hidden">
+          <div
+            onKeyDown={e => { if (e.key === 'Escape') setOpen(false) }}
+            className="absolute right-0 top-10 z-50 w-80 max-h-96 flex flex-col bg-raised rounded-xl shadow-2xl border border-line overflow-hidden"
+          >
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-line shrink-0">
               <p className="text-xs font-semibold text-ink">Notifications</p>
               {unreadCount > 0 && (
