@@ -109,6 +109,9 @@ var (
 	// skipped picking may only go straight to packing while its status is
 	// still pickable (see SalesOrderStatus.IsPickable).
 	ErrOrderNotPackable = errors.New("sales order status does not allow packing")
+	// ErrOrderNotPickable guards SalesOrder.CanMarkPicked -- only a
+	// pending/processing/on-hold order can still be picked.
+	ErrOrderNotPickable = errors.New("sales order status does not allow picking")
 	// ErrOrderPickingInProgress guards SalesOrder.CanStartPacking against an
 	// order with an open (in_progress/paused) picking session -- finish or
 	// reset that session first.

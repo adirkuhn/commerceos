@@ -39,6 +39,7 @@ type lockStubs struct {
 	queue        *stubListPackingQueue
 	startPacking *stubStartOrResumePacking
 	startPicking *stubStartOrResumePicking
+	markPicked   *stubMarkOrderPicked
 }
 
 // newTestRouterAs injects claims the way middleware.JWT would, so the
@@ -51,7 +52,7 @@ func newTestRouterAs(role middleware.Role, s lockStubs) *gin.Engine {
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{},
 		&stubListSalesOrderActivities{},
 		s.startPacking, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, s.queue)
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, s.queue, s.markPicked)
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
 		c.Set("jwt_claims", &middleware.Claims{UserID: "user-1", TenantID: "tenant-1", Role: role})
@@ -62,7 +63,7 @@ func newTestRouterAs(role middleware.Role, s lockStubs) *gin.Engine {
 }
 
 func newLockStubs() lockStubs {
-	return lockStubs{queue: &stubListPackingQueue{}, startPacking: &stubStartOrResumePacking{}, startPicking: &stubStartOrResumePicking{}}
+	return lockStubs{queue: &stubListPackingQueue{}, startPacking: &stubStartOrResumePacking{}, startPicking: &stubStartOrResumePicking{}, markPicked: &stubMarkOrderPicked{}}
 }
 
 func TestListPackingQueue_returnsEntriesWithLocks(t *testing.T) {
@@ -133,4 +134,45 @@ func TestStartOrResumePacking_pendingPickingChangesIsConflict(t *testing.T) {
 	w := doRequest(newTestRouterAs(middleware.RoleCustomerUser, s), "POST", "/api/v1/sales-orders/so-1/packing", nil)
 
 	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+type stubMarkOrderPicked struct {
+	err        error
+	gotOrderID string
+	gotActor   omsDomain.LockActor
+}
+
+func (s *stubMarkOrderPicked) Execute(_ context.Context, salesOrderID string, actor omsDomain.LockActor) error {
+	s.gotOrderID, s.gotActor = salesOrderID, actor
+	return s.err
+}
+
+func TestMarkOrderPicked_success(t *testing.T) {
+	s := newLockStubs()
+	w := doRequest(newTestRouterAs(middleware.RoleCustomerUser, s), "POST", "/api/v1/sales-orders/so-1/mark-picked", nil)
+
+	require.Equal(t, http.StatusNoContent, w.Code)
+	assert.Equal(t, "so-1", s.markPicked.gotOrderID)
+	assert.Equal(t, omsDomain.LockActor{UserID: "user-1"}, s.markPicked.gotActor)
+}
+
+func TestMarkOrderPicked_errors(t *testing.T) {
+	cases := []struct {
+		err  error
+		code int
+	}{
+		{omsDomain.ErrSalesOrderNotFound, http.StatusNotFound},
+		{omsDomain.ErrOrderAlreadyFulfilled, http.StatusUnprocessableEntity},
+		{omsDomain.ErrOrderNotPickable, http.StatusUnprocessableEntity},
+		{omsDomain.ErrOrderPackingInProgress, http.StatusConflict},
+		{omsDomain.ErrOrderPickingInProgress, http.StatusConflict},
+	}
+	for _, tc := range cases {
+		t.Run(tc.err.Error(), func(t *testing.T) {
+			s := newLockStubs()
+			s.markPicked.err = tc.err
+			w := doRequest(newTestRouterAs(middleware.RoleCustomerUser, s), "POST", "/api/v1/sales-orders/so-1/mark-picked", nil)
+			assert.Equal(t, tc.code, w.Code)
+		})
+	}
 }

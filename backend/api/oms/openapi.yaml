@@ -370,6 +370,30 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /sales-orders/{id}/mark-picked:
+    post:
+      operationId: markOrderPicked
+      summary: >
+        Picking module's list mode -- mark the whole order picked in one
+        action, no scanning and no session. The order leaves the picking
+        list and waits in the packing queue. An open scan-mode picking
+        session on the order is closed (abandoned) under the same takeover
+        rules as packing. Logged to the order's activity feed. Rejected
+        (422) if the order is already picked/packed or no longer
+        pending/processing/on-hold; 409 if it is being packed, or someone
+        else is actively scan-picking it (admins may take over).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: marked picked
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /sales-orders/{id}/picking:
     post:
       operationId: startOrResumePicking

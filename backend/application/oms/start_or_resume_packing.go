@@ -26,18 +26,6 @@ type StartOrResumePackingUseCase struct {
 	pickScanRepo   pickScanLister
 }
 
-// pickingSessionTakeover is what packing needs from PickingSessionRepository
-// to find and close the order's open picking session.
-type pickingSessionTakeover interface {
-	FindActiveBySalesOrder(ctx context.Context, salesOrderID string) (*omsDomain.PickingSession, error)
-	Update(ctx context.Context, s *omsDomain.PickingSession) error
-	ReleaseLock(ctx context.Context, id string) error
-}
-
-type pickScanLister interface {
-	ListBySession(ctx context.Context, sessionID string) ([]omsDomain.PickScan, error)
-}
-
 func NewStartOrResumePackingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, sessionRepo omsDomain.PackingSessionRepository, pickingRepo pickingSessionTakeover, pickScanRepo pickScanLister) *StartOrResumePackingUseCase {
 	return &StartOrResumePackingUseCase{db: db, salesOrderRepo: salesOrderRepo, sessionRepo: sessionRepo, pickingRepo: pickingRepo, pickScanRepo: pickScanRepo}
 }
@@ -53,7 +41,7 @@ func (uc *StartOrResumePackingUseCase) Execute(ctx context.Context, salesOrderID
 			return err
 		}
 		now := time.Now()
-		if err := uc.takeOverPicking(ctx, salesOrderID, actor, now); err != nil {
+		if err := abandonOpenPicking(ctx, uc.pickingRepo, uc.pickScanRepo, salesOrderID, actor, now); err != nil {
 			return err
 		}
 
@@ -84,33 +72,4 @@ func (uc *StartOrResumePackingUseCase) Execute(ctx context.Context, salesOrderID
 		return nil, fmt.Errorf("startOrResumePacking: %w", err)
 	}
 	return &session, nil
-}
-
-// takeOverPicking closes the order's open picking session, if any, as
-// abandoned -- refusing while someone else actively holds it (unless actor
-// is an admin), or while it still holds unapplied order changes that
-// abandoning would drop.
-func (uc *StartOrResumePackingUseCase) takeOverPicking(ctx context.Context, salesOrderID string, actor omsDomain.LockActor, now time.Time) error {
-	picking, err := uc.pickingRepo.FindActiveBySalesOrder(ctx, salesOrderID)
-	if err != nil || picking == nil {
-		return err
-	}
-	if !picking.Lock().CanTakeOver(actor, now) {
-		return omsDomain.ErrOrderPickingInProgress
-	}
-	scans, err := uc.pickScanRepo.ListBySession(ctx, picking.ID)
-	if err != nil {
-		return err
-	}
-	if omsDomain.HasPendingPickChanges(scans) {
-		return omsDomain.ErrPickingSessionHasPendingChanges
-	}
-	picking.Status = omsDomain.PickingSessionStatusAbandoned
-	picking.CompletedAt = &now
-	picking.CompletedBy = actor.UserID
-	picking.ApplyLock(omsDomain.SessionLock{})
-	if err := uc.pickingRepo.Update(ctx, picking); err != nil {
-		return err
-	}
-	return uc.pickingRepo.ReleaseLock(ctx, picking.ID)
 }

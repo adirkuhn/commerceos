@@ -14,6 +14,10 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 )
 
+type markOrderPickedUC interface {
+	Execute(ctx context.Context, salesOrderID string, actor omsDomain.LockActor) error
+}
+
 type listPackingQueueUC interface {
 	Execute(ctx context.Context, page, perPage int) (*appoms.ListPackingQueueResult, error)
 }
@@ -58,4 +62,13 @@ func toGenQueueLock(l *omsDomain.QueueLock) *genoms.PackingQueueLock {
 		return nil
 	}
 	return &genoms.PackingQueueLock{Activity: genoms.PackingQueueLockActivity(l.Activity), UserId: l.UserID, Since: l.Since}
+}
+
+// MarkOrderPicked is the picking module's list mode -- see
+// appoms.MarkOrderPickedUseCase.
+func (h *Handler) MarkOrderPicked(c *gin.Context, id genoms.Id) {
+	if err := mapError(c, h.markOrderPicked.Execute(c.Request.Context(), id, lockActorFrom(middleware.ClaimsFromGin(c)))); err != nil {
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

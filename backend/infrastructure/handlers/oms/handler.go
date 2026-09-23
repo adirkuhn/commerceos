@@ -132,6 +132,7 @@ type Handler struct {
 
 	buildPickList    buildPickListUC
 	listPackingQueue listPackingQueueUC
+	markOrderPicked  markOrderPickedUC
 }
 
 func NewHandler(
@@ -149,7 +150,7 @@ func NewHandler(
 	startOrResumePacking startOrResumePackingUC, getPackingSession getPackingSessionUC,
 	touchPackingSession touchPackingSessionUC, resetPackingSession resetPackingSessionUC,
 	scanPackItem scanPackItemUC, deletePackScan deletePackScanUC, completePacking completePackingUC,
-	buildPickList buildPickListUC, listPackingQueue listPackingQueueUC,
+	buildPickList buildPickListUC, listPackingQueue listPackingQueueUC, markOrderPicked markOrderPickedUC,
 ) *Handler {
 	return &Handler{
 		listSalesOrders: listSalesOrders, getSalesOrder: getSalesOrder,
@@ -166,7 +167,7 @@ func NewHandler(
 		startOrResumePacking:       startOrResumePacking, getPackingSession: getPackingSession,
 		touchPackingSession: touchPackingSession, resetPackingSession: resetPackingSession,
 		scanPackItem: scanPackItem, deletePackScan: deletePackScan, completePacking: completePacking,
-		buildPickList: buildPickList, listPackingQueue: listPackingQueue,
+		buildPickList: buildPickList, listPackingQueue: listPackingQueue, markOrderPicked: markOrderPicked,
 	}
 }
 
@@ -264,6 +265,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewCompletePackingUseCase(db, packingSessionRepo, salesOrderRepo, lineItemRepo, packScanRepo),
 		appoms.NewBuildPickListUseCase(db, salesOrderRepo, lineItemRepo),
 		appoms.NewListPackingQueueUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo),
+		appoms.NewMarkOrderPickedUseCase(db, salesOrderRepo, packingSessionRepo, pickingSessionRepo, pickScanRepo, repositories.NewSalesOrderActivityRepo(db)),
 	)
 	genoms.RegisterHandlers(rg, h)
 }
@@ -836,7 +838,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, omsDomain.ErrRefundRequiresLinkedSKU), errors.Is(err, pmsDomain.ErrWeightRequiredForPerWeightSKU),
 		errors.Is(err, pmsDomain.ErrInvalidCheckDigit), errors.Is(err, omsDomain.ErrPickingSessionAlreadyCompleted),
 		errors.Is(err, omsDomain.ErrPackingSessionNotActive), errors.Is(err, omsDomain.ErrPackingSessionAlreadyCompleted),
-		errors.Is(err, omsDomain.ErrOrderNotPackable), errors.Is(err, omsDomain.ErrOrderAlreadyPacked),
+		errors.Is(err, omsDomain.ErrOrderNotPackable), errors.Is(err, omsDomain.ErrOrderAlreadyPacked), errors.Is(err, omsDomain.ErrOrderNotPickable),
 		errors.Is(err, omsDomain.ErrPickListOrderIDsRequired), errors.Is(err, omsDomain.ErrPickListTooManyOrders),
 		errors.Is(err, omsDomain.ErrPackScanCodeOrSKURequired), errors.Is(err, omsDomain.ErrPackScanSKUMismatch),
 		errors.Is(err, omsDomain.ErrPackQuantityExceedsOrdered):

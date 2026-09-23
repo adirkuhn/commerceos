@@ -95,3 +95,27 @@ func TestPickingSession_IsOpen(t *testing.T) {
 	assert.False(t, omsDomain.PickingSession{Status: omsDomain.PickingSessionStatusCompleted}.IsOpen())
 	assert.False(t, omsDomain.PickingSession{Status: omsDomain.PickingSessionStatusAbandoned}.IsOpen())
 }
+
+func TestCanMarkPicked(t *testing.T) {
+	cases := []struct {
+		name              string
+		order             omsDomain.SalesOrder
+		packingInProgress bool
+		want              error
+	}{
+		{"unpicked processing order", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusProcessing}, false, nil},
+		{"already picked", omsDomain.SalesOrder{Fulfilled: true, Status: omsDomain.SalesOrderStatusProcessing}, false, omsDomain.ErrOrderAlreadyFulfilled},
+		{"packing in progress", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusProcessing}, true, omsDomain.ErrOrderPackingInProgress},
+		{"cancelled order", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusCancelled}, false, omsDomain.ErrOrderNotPickable},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.order.CanMarkPicked(tc.packingInProgress)
+			if tc.want == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, tc.want)
+			}
+		})
+	}
+}

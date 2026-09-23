@@ -68,3 +68,16 @@ func HasPendingPickChanges(scans []PickScan) bool {
 func (s PickingSession) IsOpen() bool {
 	return s.Status == PickingSessionStatusInProgress || s.Status == PickingSessionStatusPaused
 }
+
+// CanMarkPicked decides whether the whole order may be marked picked in one
+// action (the picking module's list mode): the same rules as starting a
+// picking session, and the order must still be in a pickable status.
+func (o SalesOrder) CanMarkPicked(packingInProgress bool) error {
+	if err := o.CanStartPicking(packingInProgress); err != nil {
+		return err
+	}
+	if !o.Status.IsPickable() {
+		return ErrOrderNotPickable
+	}
+	return nil
+}

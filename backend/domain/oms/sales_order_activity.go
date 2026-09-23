@@ -39,3 +39,7 @@ type SalesOrderActivityRepository interface {
 	// activity panel.
 	ListByUser(ctx context.Context, userID string) ([]SalesOrderActivity, error)
 }
+
+// ActivityTypeMarkedPicked is logged when an order is marked picked in one
+// action from the picking module's list mode (MarkOrderPickedUseCase).
+const ActivityTypeMarkedPicked = "marked_picked"
