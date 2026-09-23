@@ -2,15 +2,15 @@ import { useState, useCallback, useMemo } from 'react'
 import { AlertTriangle, Info } from 'lucide-react'
 import clsx from 'clsx'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, ResponsiveContainer } from 'recharts'
+import { channelSeriesColor, seriesColor, useChartTheme } from '../../charts/chartTheme'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useReport } from '../../reports/hooks/useSingleReport'
 import { dateRange, customDateRange, REPORTS_PERIODS, DEFAULT_REPORTS_PERIOD, type ReportsPeriod } from '../../reports/period'
 import { useQueryEnum, useQueryString } from '../../routing/useQueryState'
 import type { ChannelRevenuePoint, ProfitabilityPoint } from '../../reports/types'
-import { ReportPageShell, ReportCard, EmptyState, DateRangeControl, ViewToggle, formatMoney, ChangeBadge, TOOLTIP_STYLE, type ReportsRangeMode } from './shared'
+import { ReportPageShell, ReportCard, EmptyState, DateRangeControl, ViewToggle, formatMoney, ChangeBadge, type ReportsRangeMode } from './shared'
 
-const CHANNEL_COLORS = ['#2563EB', '#16A34A', '#D97706', '#DC2626', '#7C3AED']
 
 function isoDateToday(): string {
   return new Date().toISOString().slice(0, 10)
@@ -32,6 +32,7 @@ function isIsoDate(value: string | null): value is string {
 }
 
 export default function OverviewPage() {
+  const chart = useChartTheme()
   const { token } = useAuth()
   // Range (?period=, plus ?from=&to= for a custom range) and the
   // summary/daily view (?view=daily) live in the URL -- a refresh or a
@@ -157,13 +158,13 @@ export default function OverviewPage() {
             <div className="px-3 pb-3 pt-1">
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={profitabilityTrendPoints} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} tickMargin={8} />
-                  <YAxis width={72} tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, name: string) => [formatMoney(v, currency), name]} />
-                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
-                  <Line type="monotone" dataKey="revenue_minor_units" name="Revenue" stroke="#2563EB" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="profit_minor_units" name="Profit" stroke="#16A34A" strokeWidth={2} dot={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} tickMargin={8} />
+                  <YAxis width={72} tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
+                  <Tooltip contentStyle={chart.tooltip} formatter={(v: number, name: string) => [formatMoney(v, currency), name]} />
+                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12, color: chart.label }} />
+                  <Line type="monotone" dataKey="revenue_minor_units" name="Revenue" stroke={seriesColor(chart, 0)} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="profit_minor_units" name="Profit" stroke={seriesColor(chart, 1)} strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -209,20 +210,21 @@ export default function OverviewPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5 px-4 pt-2">
-                {channelSources.map((source, i) => {
+                {channelSources.map(source => {
                   const visible = !hiddenChannels.has(source)
-                  const color = CHANNEL_COLORS[i % CHANNEL_COLORS.length]
+                  const color = channelSeriesColor(chart, source)
                   return (
                     <button
                       key={source}
                       onClick={() => toggleChannel(source)}
+                      aria-pressed={visible}
                       className={clsx(
-                        'px-2 py-1 rounded-md text-2xs font-medium border transition-colors',
-                        visible ? 'text-white border-transparent' : 'border-line text-ink-4 opacity-60',
+                        'flex items-center gap-1.5 px-2 py-1 rounded-md text-2xs font-medium border transition-colors',
+                        visible ? 'border-line bg-raised text-ink-2' : 'border-line text-ink-4 opacity-60',
                       )}
-                      style={visible ? { backgroundColor: color } : undefined}
                       title={visible ? `Hide ${source}` : `Show ${source}`}
                     >
+                      <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: visible ? color : 'transparent', border: `1.5px solid ${color}` }} aria-hidden />
                       {source} · {formatMoney(channelTotalBySource[source] ?? 0, currency)}
                     </button>
                   )
@@ -234,18 +236,18 @@ export default function OverviewPage() {
                 <div className="px-3 pb-3 pt-1">
                   <ResponsiveContainer width="100%" height={280}>
                     <BarChart data={channelTrendRowsWithTotal} margin={{ top: 28, right: 16, left: 0, bottom: 8 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
-                      <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} tickMargin={8} />
-                      <YAxis width={72} tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
-                      <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, name: string) => [formatMoney(v, currency), name === 'dayTotal' ? 'Total' : name]} />
-                      <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} tickMargin={8} />
+                      <YAxis width={72} tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
+                      <Tooltip contentStyle={chart.tooltip} formatter={(v: number, name: string) => [formatMoney(v, currency), name === 'dayTotal' ? 'Total' : name]} />
+                      <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12, color: chart.label }} />
                       {visibleChannelSources.map((source, i) => (
                         <Bar
                           key={source} dataKey={source} name={source} stackId="revenue"
-                          fill={CHANNEL_COLORS[channelSources.indexOf(source) % CHANNEL_COLORS.length]}
+                          fill={channelSeriesColor(chart, source)} stroke={chart.surface} strokeWidth={1}
                         >
                           {i === visibleChannelSources.length - 1 && (
-                            <LabelList dataKey="dayTotal" position="top" formatter={(v: number) => formatMoney(v, currency)} style={{ fontSize: 11, fill: '#9CA3AF' }} />
+                            <LabelList dataKey="dayTotal" position="top" formatter={(v: number) => formatMoney(v, currency)} style={{ fontSize: 11, fill: chart.label }} />
                           )}
                         </Bar>
                       ))}
@@ -262,11 +264,11 @@ export default function OverviewPage() {
             <div className="px-3 pb-3 pt-1">
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={revenueByChannel.channels} margin={{ top: 10, right: 10, left: 0, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
-                  <XAxis dataKey="source" tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} tickMargin={8} />
-                  <YAxis width={72} tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatMoney(v, currency), 'Revenue']} />
-                  <Bar dataKey="total_minor_units" fill="#2563EB" radius={4} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />
+                  <XAxis dataKey="source" tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} tickMargin={8} />
+                  <YAxis width={72} tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
+                  <Tooltip contentStyle={chart.tooltip} formatter={(v: number) => [formatMoney(v, currency), 'Revenue']} />
+                  <Bar dataKey="total_minor_units" fill={seriesColor(chart, 0)} radius={4} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

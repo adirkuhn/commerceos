@@ -3,9 +3,10 @@ import {
   TrendingUp, TrendingDown, XCircle, DollarSign, Calendar,
 } from 'lucide-react'
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  AreaChart, Area, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
+import { channelSeriesColor, seriesColor, useChartTheme } from '../charts/chartTheme'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useExpiringBatches } from '../inventory/hooks/useExpiringBatches'
@@ -21,7 +22,6 @@ function formatMoney(minorUnits: number, currencyCode: string): string {
 }
 
 const CHANNEL_LABELS: Record<string, string> = { pos: 'POS', manual: 'Manual', woocommerce: 'WooCommerce' }
-const CHANNEL_COLORS = ['#2563EB', '#8B5CF6', '#22C55E', '#F59E0B']
 
 function channelLabel(source: string): string {
   return CHANNEL_LABELS[source] ?? source
@@ -123,23 +123,16 @@ function ExpiringSoonWidget() {
   )
 }
 
-const TOOLTIP_STYLE = {
-  backgroundColor: '#1F2937',
-  border: '1px solid #2D3748',
-  borderRadius: '8px',
-  fontSize: '12px',
-  color: '#F9FAFB',
-}
-
 export default function Dashboard() {
   const { token } = useAuth()
   const { stats } = useDashboardStats(token ?? '')
   const currency = stats?.currencyCode ?? 'USD'
+  const chart = useChartTheme()
 
   const stockFlowData = (stats?.stockFlowLast7Days ?? []).map(f => ({ day: f.date.slice(5), in: f.in, out: f.out }))
   const channelData: (ChannelRevenue & { label: string; color: string })[] =
-    (stats?.salesByChannelThisMonth ?? []).map((c, i) => ({
-      ...c, label: channelLabel(c.source), color: CHANNEL_COLORS[i % CHANNEL_COLORS.length],
+    (stats?.salesByChannelThisMonth ?? []).map(c => ({
+      ...c, label: channelLabel(c.source), color: channelSeriesColor(chart, c.source),
     }))
 
   return (
@@ -175,21 +168,21 @@ export default function Dashboard() {
             <AreaChart data={stockFlowData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="inGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563EB" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
+                  <stop offset="5%" stopColor={seriesColor(chart, 0)} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={seriesColor(chart, 0)} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="outGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22C55E" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#22C55E" stopOpacity={0} />
+                  <stop offset="5%" stopColor={seriesColor(chart, 1)} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={seriesColor(chart, 1)} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
-              <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <Legend iconSize={10} wrapperStyle={{ fontSize: '11px' }} />
-              <Area type="monotone" dataKey="in" name="Inbound" stroke="#2563EB" strokeWidth={2} fill="url(#inGrad)" />
-              <Area type="monotone" dataKey="out" name="Outbound" stroke="#22C55E" strokeWidth={2} fill="url(#outGrad)" />
+              <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={chart.tooltip} />
+              <Legend iconSize={10} wrapperStyle={{ fontSize: '11px', color: chart.label }} />
+              <Area type="monotone" dataKey="in" name="Inbound" stroke={seriesColor(chart, 0)} strokeWidth={2} fill="url(#inGrad)" />
+              <Area type="monotone" dataKey="out" name="Outbound" stroke={seriesColor(chart, 1)} strokeWidth={2} fill="url(#outGrad)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -205,9 +198,11 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={100}>
                 <BarChart data={channelData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
                   <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} width={80} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatMoney(v, currency), 'Revenue']} />
-                  <Bar dataKey="total_minor_units" radius={4} fill="#2563EB" />
+                  <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} width={80} />
+                  <Tooltip contentStyle={chart.tooltip} formatter={(v: number) => [formatMoney(v, currency), 'Revenue']} />
+                  <Bar dataKey="total_minor_units" radius={4}>
+                    {channelData.map(c => <Cell key={c.source} fill={c.color} />)}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
               <div className="mt-3 space-y-2">

@@ -4,14 +4,6 @@ import clsx from 'clsx'
 import { dateRange, REPORTS_PERIODS, type ReportsPeriod } from '../../reports/period'
 
 
-export const TOOLTIP_STYLE = {
-  backgroundColor: '#1F2937',
-  border: '1px solid #2D3748',
-  borderRadius: '8px',
-  fontSize: '11px',
-  color: '#F9FAFB',
-}
-
 export function formatMoney(minorUnits: number, currencyCode: string): string {
   try {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'USD' }).format(minorUnits / 100)
