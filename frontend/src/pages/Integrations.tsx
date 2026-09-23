@@ -706,7 +706,7 @@ export default function Integrations() {
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-ink">Browse Integrations</h3>
-              <button onClick={closeBrowse}>
+              <button onClick={closeBrowse} aria-label="Close" className="p-1 -m-1 rounded hover:bg-hover">
                 <X size={14} className="text-ink-4" />
               </button>
             </div>

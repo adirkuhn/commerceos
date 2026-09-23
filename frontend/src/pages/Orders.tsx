@@ -186,7 +186,7 @@ export default function Orders() {
                   <td className="px-3 py-2.5 text-ink-3 capitalize">{o.fulfillmentStatus}</td>
                   <td className="px-3 py-2.5 text-ink-4 font-mono whitespace-nowrap">{o.date}</td>
                   <td className="px-3 py-2.5">
-                    <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 text-ink-4" />
+                    <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 text-ink-4" />
                   </td>
                 </tr>
               ))}

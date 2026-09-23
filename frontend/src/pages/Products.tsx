@@ -238,7 +238,7 @@ export default function Products() {
                   </span>
                 </td>
                 <td className="px-3 py-2.5">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                     <button
                       onClick={e => { e.stopPropagation(); openEditor(p.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
@@ -891,7 +891,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                     onKeyDown={handleTagInputKeyDown}
                     onBlur={() => addTag(tagInput)}
                     placeholder={tags.length === 0 ? 'summer, sale…' : ''}
-                    className="flex-1 min-w-[6rem] bg-transparent outline-none text-xs text-ink-2"
+                    className="flex-1 min-w-[6rem] bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-focus/60 text-xs text-ink-2"
                   />
                 </div>
                 <p className="mt-1.5 text-2xs text-ink-4">
@@ -1284,7 +1284,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                   <input
                     type="text" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)}
                     placeholder="+ new category name"
-                    className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
+                    className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
                   />
                   <button type="button" onClick={handleAddCategory} className="px-3 py-1.5 rounded-lg dark:bg-night-800 bg-gray-100 text-2xs font-medium text-ink-2 hover:bg-hover transition-colors">
                     Add
@@ -1661,7 +1661,7 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
           <input
             type="number" step="0.01" min="0" placeholder={currency}
             value={value} onChange={e => setValue(e.target.value)}
-            className="w-24 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
+            className="w-24 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
           />
           <button
             type="button" onClick={handleSet} disabled={saving || value.trim() === ''}
@@ -1708,7 +1708,7 @@ function CategoryMarginEditor({ category, onSave }: { category: Category | null;
       <input
         type="number" step="0.1" min="0" placeholder="Tenant default"
         value={value} onChange={e => { setValue(e.target.value); setSavedMsg(false) }}
-        className="w-28 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
+        className="w-28 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
       />
       <span className="text-2xs text-ink-4">% target markup for this category</span>
       <button type="button" onClick={handleSave} disabled={saving} className="px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-2xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50">
@@ -1829,7 +1829,7 @@ function ProductWooCommerceTab({
     }
   }
 
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-800/60 bg-gray-100 border border-line outline-none cursor-not-allowed'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-800/60 bg-gray-100 border border-line outline-none focus-visible:ring-2 focus-visible:ring-focus/60 cursor-not-allowed'
   const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
 
   return (
@@ -2078,7 +2078,7 @@ function MediaSection({ productId }: { productId: string }) {
                 type="button"
                 onClick={() => remove(featured.id)}
                 aria-label="Remove image"
-                className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
               >
                 <X size={12} />
               </button>
@@ -2102,7 +2102,7 @@ function MediaSection({ productId }: { productId: string }) {
                 type="button"
                 onClick={() => remove(m.id)}
                 aria-label="Remove image"
-                className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
               >
                 <X size={10} />
               </button>
@@ -2112,6 +2112,8 @@ function MediaSection({ productId }: { productId: string }) {
             type="button"
             disabled={uploading}
             onClick={() => fileInputRef.current?.click()}
+            aria-label="Add image"
+            title="Add image"
             className="aspect-square rounded-lg border-2 border-dashed border-line flex items-center justify-center text-ink-4 hover:text-ink-3 disabled:opacity-50"
           >
             <ImagePlus size={16} />
@@ -2129,7 +2131,7 @@ function MediaSection({ productId }: { productId: string }) {
             value={titleDraft}
             onChange={e => setTitleDraft(e.target.value)}
             placeholder="Describe this image"
-            className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
+            className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
           />
           {titleError && <p className="text-2xs text-danger">{titleError}</p>}
           <div className="flex justify-end gap-2">
@@ -2227,7 +2229,7 @@ function VariantsSection({ detail, productId }: VariantsSectionProps) {
           <input
             type="text" required placeholder="Variant name (e.g. Large)" value={variantName} onChange={e => setVariantName(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddVariant() } }}
-            className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
+            className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
           />
           {addError && <p className="text-xs text-danger">{addError}</p>}
           <button type="button" onClick={handleAddVariant} disabled={submitting} className="w-full py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
@@ -3156,7 +3158,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               id={`variant-sku-barcode-${sku.id}`} type="text"
               placeholder={sku.scale_code ? 'Not used — see scale code below' : 'Barcode / EAN'}
               disabled={!!sku.scale_code} value={sku.scale_code ? '' : barcodeEdit} onChange={e => setBarcodeEdit(e.target.value)}
-              className="flex-1 min-w-0 px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none"
+              className="flex-1 min-w-0 px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
             />
             {!sku.scale_code && barcodeEdit !== (sku.barcode ?? '') && (
               <button
@@ -3322,7 +3324,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
                 setUnitType(next)
                 if (next === 'kilo') { setPortionedFromSKUID(null); setPortionedFromLabel('') }
               }}
-              className="px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none"
+              className="px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
             >
               <option value="unit">Unit</option>
               <option value="box">Box</option>

@@ -938,7 +938,7 @@ function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelP
             aria-label="Bulk add by category"
             value={bulkCategoryId}
             onChange={e => setBulkCategoryId(e.target.value)}
-            className="px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none"
+            className="px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
           >
             <option value="">By category…</option>
             {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
@@ -958,7 +958,7 @@ function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelP
             value={bulkTag}
             onChange={e => setBulkTag(e.target.value)}
             placeholder="By tag…"
-            className="w-28 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none"
+            className="w-28 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
           />
           <button
             onClick={() => bulkTag && applyRule('tag', null, bulkTag)}

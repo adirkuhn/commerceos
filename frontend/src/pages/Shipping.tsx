@@ -171,11 +171,11 @@ export default function Shipping() {
                     <td className="px-3 py-2.5 text-ink font-medium">€{s.cost.toFixed(2)}</td>
                     <td className="px-3 py-2.5 text-ink-4 font-mono text-2xs">{s.created}</td>
                     <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                        <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+                        <button aria-label="Print label" title="Print label" className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover">
                           <Printer size={12} className="text-ink-3" />
                         </button>
-                        <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover">
+                        <button aria-label="Open tracking" title="Open tracking" className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover">
                           <ExternalLink size={12} className="text-ink-3" />
                         </button>
                       </div>

@@ -78,6 +78,33 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* One keyboard focus indicator everywhere (keyboard only, not on click). */
+  :focus-visible {
+    outline: 2px solid rgb(var(--focus));
+    outline-offset: 2px;
+  }
+
+  /* Quantities, prices and dates line up in columns. */
+  table,
+  input[type='number'] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Reduce Motion: stop decorative and repeating animation. Spinners keep
+   * turning -- for them the motion is the "still working" signal.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *:not(.animate-spin),
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;

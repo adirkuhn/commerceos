@@ -228,7 +228,7 @@ export default function BolSyncSettingsPage({
     }
   }
 
-  const inputClass = 'px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none'
+  const inputClass = 'px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60'
 
   return (
     <div className="flex flex-col h-full">

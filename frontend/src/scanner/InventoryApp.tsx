@@ -592,11 +592,11 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label htmlFor="row-move-new-lot" className="block text-xs text-gray-400 mb-1.5">Lot number</label>
-                    <input id="row-move-new-lot" value={newLotNumber} onChange={e => setNewLotNumber(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none" />
+                    <input id="row-move-new-lot" value={newLotNumber} onChange={e => setNewLotNumber(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60" />
                   </div>
                   <div>
                     <label htmlFor="row-move-new-expiry" className="block text-xs text-gray-400 mb-1.5">Expiry date</label>
-                    <input id="row-move-new-expiry" type="date" value={newExpiryDate} onChange={e => setNewExpiryDate(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none" />
+                    <input id="row-move-new-expiry" type="date" value={newExpiryDate} onChange={e => setNewExpiryDate(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60" />
                   </div>
                 </div>
               )}

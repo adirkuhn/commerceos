@@ -336,7 +336,7 @@ export default function SalesOrders() {
         <select
           aria-label="Filter by fulfilled substatus" value={fulfilledFilter}
           onChange={e => changeFulfilledFilter(e.target.value as '' | 'true' | 'false')}
-          className="px-2 py-1.5 text-xs rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink-2 outline-none"
+          className="px-2 py-1.5 text-xs rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
         >
           <option value="">Any fulfillment</option>
           <option value="true">Only fulfilled</option>
@@ -366,14 +366,14 @@ export default function SalesOrders() {
           <span className="text-xs font-medium text-ink-2">{checkedIds.size} selected</span>
           <select
             aria-label="Bulk change status" value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} disabled={bulkApplying}
-            className="px-2 py-1 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none disabled:opacity-50"
+            className="px-2 py-1 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60 disabled:opacity-50"
           >
             <option value="">Status…</option>
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select
             aria-label="Bulk change fulfilled" value={bulkFulfilled} onChange={e => setBulkFulfilled(e.target.value)} disabled={bulkApplying}
-            className="px-2 py-1 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none disabled:opacity-50"
+            className="px-2 py-1 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60 disabled:opacity-50"
           >
             <option value="">Fulfilled…</option>
             <option value="true">Fulfilled</option>
@@ -707,7 +707,7 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
                           />
                         </td>
                         <td className="py-1.5 text-right">
-                          <button type="button" onClick={() => removeLineItem(li.key)}>
+                          <button type="button" onClick={() => removeLineItem(li.key)} aria-label="Remove line item" title="Remove line item" className="p-1 -m-1 rounded hover:bg-hover">
                             <Trash2 size={12} className="text-ink-4 hover:text-danger" />
                           </button>
                         </td>
@@ -1012,7 +1012,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
               disabled={savingStatus}
               onChange={e => handleStatusChange(e.target.value as SalesOrderStatus)}
               className={clsx(
-                'px-2.5 py-1.5 rounded-lg text-xs font-medium border border-line outline-none cursor-pointer disabled:opacity-50',
+                'px-2.5 py-1.5 rounded-lg text-xs font-medium border border-line outline-none focus-visible:ring-2 focus-visible:ring-focus/60 cursor-pointer disabled:opacity-50',
                 'bg-raised text-ink',
               )}
             >

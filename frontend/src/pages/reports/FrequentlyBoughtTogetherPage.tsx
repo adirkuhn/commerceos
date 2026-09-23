@@ -190,7 +190,7 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
         ) : (
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-ink">{selectedProduct.name}</p>
-            <button onClick={clearSelection} className="text-ink-4 hover:text-ink-2">
+            <button onClick={clearSelection} aria-label="Clear selection" className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
               <X size={14} />
             </button>
           </div>

@@ -138,7 +138,7 @@ export default function Suppliers() {
                   </span>
                 </td>
                 <td className="px-3 py-2.5">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                     <button
                       onClick={e => { e.stopPropagation(); openEditor(s.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
@@ -269,7 +269,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
                   aria-label="Status"
                   value={status}
                   onChange={e => setStatus(e.target.value as SupplierStatus)}
-                  className="px-2 py-1 text-2xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
+                  className="px-2 py-1 text-2xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>

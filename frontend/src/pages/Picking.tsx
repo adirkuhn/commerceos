@@ -734,7 +734,7 @@ export default function Picking() {
                   onKeyDown={e => e.key === 'Enter' && handleScanSubmit()}
                   placeholder="Scan barcode or type and press Enter..."
                   disabled={busy || !!pickLine || !!addItemOpen || !!scanErrorAlert}
-                  className="flex-1 bg-transparent text-sm text-ink outline-none placeholder-ink-4 font-mono disabled:opacity-50"
+                  className="flex-1 bg-transparent text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus/60 placeholder-ink-4 font-mono disabled:opacity-50"
                 />
               </div>
               {error && <p className="text-2xs text-danger mt-2">{error}</p>}
@@ -822,7 +822,7 @@ export default function Picking() {
         <div className="w-80 border-l border-line bg-sunken flex flex-col shrink-0">
           <div className="flex items-center justify-between px-4 py-3 border-b border-line">
             <p className="text-xs font-semibold text-ink">{pickLine.lineItem.name}</p>
-            <button type="button" onClick={() => setPickLine(null)} className="text-ink-4 dark:hover:text-ink-2">
+            <button type="button" onClick={() => setPickLine(null)} aria-label="Close" className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
               <X size={14} />
             </button>
           </div>
@@ -967,7 +967,7 @@ export default function Picking() {
         <div className="w-80 border-l border-line bg-sunken flex flex-col shrink-0">
           <div className="flex items-center justify-between px-4 py-3 border-b border-line">
             <p className="text-xs font-semibold text-ink">Add item not on order</p>
-            <button type="button" onClick={() => setAddItemOpen(null)} className="text-ink-4 dark:hover:text-ink-2">
+            <button type="button" onClick={() => setAddItemOpen(null)} aria-label="Close" className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
               <X size={14} />
             </button>
           </div>

@@ -290,7 +290,7 @@ export default function Procurement() {
                   {formatMoney(po.total_minor_units, po.currency_code)}
                 </td>
                 <td className="px-3 py-2.5">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                     <button
                       onClick={e => { e.stopPropagation(); openEdit(po.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
@@ -711,7 +711,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
                     aria-label="Status"
                     value={status}
                     onChange={e => setStatus(e.target.value as PurchaseOrderStatus)}
-                    className="px-2 py-1 text-2xs rounded-lg bg-raised border border-line text-ink-2 outline-none capitalize"
+                    className="px-2 py-1 text-2xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60 capitalize"
                   >
                     {(['draft', 'sent', 'partially_received', 'received', 'cancelled', 'needs_review'] as const).map(s => (
                       <option key={s} value={s} className="capitalize">{s.replace('_', ' ')}</option>

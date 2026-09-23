@@ -1610,7 +1610,7 @@ function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (tax
           value={country}
           maxLength={2}
           onChange={e => setCountry(e.target.value.toUpperCase())}
-          className="w-16 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none"
+          className="w-16 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
         />
       </div>
       <div>
@@ -1623,7 +1623,7 @@ function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (tax
           step="0.01"
           value={ratePercent}
           onChange={e => setRatePercent(e.target.value)}
-          className="w-20 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none"
+          className="w-20 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
         />
       </div>
       <button

@@ -48,7 +48,7 @@ function InviteForm({ onSubmit, onCancel }: { onSubmit: (email: string, role: Me
     <div className="absolute right-5 top-14 z-20 w-80 bg-raised rounded-xl border border-line shadow-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-ink">Invite User</h3>
-        <button onClick={onCancel}><X size={14} className="text-ink-3" /></button>
+        <button onClick={onCancel} aria-label="Close" className="p-1 -m-1 rounded hover:bg-hover"><X size={14} className="text-ink-3" /></button>
       </div>
       {error && <p className="text-xs text-danger mb-2">{error}</p>}
       <label className="block text-xs text-ink-3 mb-1" htmlFor="invite-email">Email</label>
@@ -64,7 +64,7 @@ function InviteForm({ onSubmit, onCancel }: { onSubmit: (email: string, role: Me
         id="invite-role"
         value={role}
         onChange={e => setRole(e.target.value as MemberRole)}
-        className="w-full mb-4 px-3 py-1.5 text-xs rounded-lg bg-sunken border border-line text-ink outline-none"
+        className="w-full mb-4 px-3 py-1.5 text-xs rounded-lg bg-sunken border border-line text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
       >
         <option value="customer_user">User</option>
         <option value="customer_owner">Owner</option>
@@ -168,7 +168,7 @@ function UserActivityPanel({ token, member, onClose }: { token: string; member: 
           <h3 className="text-sm font-semibold text-ink">{fullName(member)}</h3>
           <p className="text-2xs text-ink-4 mt-0.5">Activity across all their orders</p>
         </div>
-        <button onClick={onClose}><X size={14} className="text-ink-3" /></button>
+        <button onClick={onClose} aria-label="Close" className="p-1 -m-1 rounded hover:bg-hover"><X size={14} className="text-ink-3" /></button>
       </div>
       <div className="flex-1 overflow-auto p-4 space-y-2">
         {error && <p className="text-xs text-danger">{error}</p>}
@@ -395,7 +395,7 @@ export default function Users() {
                         aria-label={`Role for ${fullName(m)}`}
                         value={m.role}
                         onChange={e => membersState.updateRole(m.membership_id, e.target.value as MemberRole)}
-                        className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium border-0 outline-none', ROLE_COLORS[m.role])}
+                        className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium border-0 outline-none focus-visible:ring-2 focus-visible:ring-focus/60', ROLE_COLORS[m.role])}
                       >
                         <option value="customer_owner">Owner</option>
                         <option value="customer_user">User</option>
@@ -420,7 +420,7 @@ export default function Users() {
                         <button
                           aria-label={`Remove ${fullName(m)}`}
                           onClick={() => handleRemove(m)}
-                          className="opacity-0 group-hover:opacity-100 text-2xs text-danger hover:text-red-300"
+                          className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 text-2xs text-danger hover:text-red-300"
                         >
                           Remove
                         </button>

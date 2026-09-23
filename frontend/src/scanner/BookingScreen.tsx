@@ -541,11 +541,11 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           <div className="grid grid-cols-2 gap-2">
             <input
               value={lotNumber} onChange={e => setLotNumber(e.target.value)} placeholder="Lot number"
-              className="px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none"
+              className="px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
             />
             <input
               type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)}
-              className="px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none"
+              className="px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
             />
           </div>
         )}
@@ -834,7 +834,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
                   id="line-lot"
                   value={lotNumber}
                   onChange={e => setLotNumber(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none"
+                  className="w-full px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
                 />
               </div>
               <div>
@@ -844,7 +844,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
                   type="date"
                   value={expiryDate}
                   onChange={e => setExpiryDate(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none"
+                  className="w-full px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
                 />
               </div>
             </div>
