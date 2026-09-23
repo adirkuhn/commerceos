@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Search, LogOut, ShoppingCart, ArrowLeft } from 'lucide-react'
 import * as omsApi from '../oms/api'
+import { PICKABLE_STATUSES } from '../oms/pickable'
+import { usePickingMode } from '../picking/usePickingMode'
 import * as api from './api'
 import type { SalesOrder } from '../oms/types'
 
 interface SalesOrderPickerScreenProps {
   token: string
   onPickingStarted: (sessionId: string, order: SalesOrder) => void
+  // List mode (Settings > Fulfillment): open the order's plain item list
+  // instead of starting a scan session.
+  onOrderChosenForList: (orderId: string) => void
   onLogout: () => void
   onBack: () => void
 }
@@ -27,8 +32,9 @@ function customerName(order: SalesOrder): string {
 
 // Unlike PurchaseOrderPickerScreen, there's no warehouse-assignment step --
 // SalesOrder.WarehouseID is always set, so selecting an order starts a
-// picking session directly.
-export function SalesOrderPickerScreen({ token, onPickingStarted, onLogout, onBack }: SalesOrderPickerScreenProps) {
+// picking session directly -- or, in list mode, opens its item list.
+export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenForList, onLogout, onBack }: SalesOrderPickerScreenProps) {
+  const { mode, error: modeError } = usePickingMode(token)
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -36,7 +42,7 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onLogout, onBa
   const [startingId, setStartingId] = useState<string | null>(null)
 
   useEffect(() => {
-    omsApi.listSalesOrders(token, { fulfilled: false, status: ['pending', 'processing', 'on-hold'], perPage: 100 })
+    omsApi.listSalesOrders(token, { fulfilled: false, status: PICKABLE_STATUSES, perPage: 100 })
       .then(result => setSalesOrders(result.salesOrders))
       .catch(err => setError(err instanceof Error ? err.message : 'Failed to load sales orders'))
       .finally(() => setLoading(false))
@@ -49,6 +55,10 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onLogout, onBa
   )
 
   async function handleSelect(order: SalesOrder) {
+    if (mode === 'list') {
+      onOrderChosenForList(order.id)
+      return
+    }
     setError('')
     setStartingId(order.id)
     try {
@@ -82,7 +92,7 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onLogout, onBa
           />
         </div>
       </div>
-      {error && <p className="mx-4 mb-2 text-sm text-red-400">{error}</p>}
+      {(error || modeError) && <p className="mx-4 mb-2 text-sm text-red-400">{error || `Couldn't load the picking mode (${modeError}) -- using scan mode.`}</p>}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
         {loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
         {!loading && filtered.length === 0 && (
@@ -92,7 +102,7 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onLogout, onBa
           <button
             key={o.id}
             onClick={() => handleSelect(o)}
-            disabled={startingId !== null}
+            disabled={startingId !== null || mode === null}
             className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700 text-left hover:border-accent disabled:opacity-50 transition-colors"
           >
             <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0">

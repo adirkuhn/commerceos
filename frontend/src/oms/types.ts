@@ -84,6 +84,9 @@ export interface SalesOrderLineItem {
   subtotal_minor_units: number
   subtotal_tax_minor_units: number
   total_minor_units: number
+  // How much of quantity has been refunded -- the rest is still owed.
+  // Optional: older fixtures omit it; missing means 0.
+  refunded_quantity?: number
   total_tax_minor_units: number
   // What WooCommerce reported as the expiry date sold, snapshotted at
   // import time from the commerceos-woo plugin's order-item meta -- null

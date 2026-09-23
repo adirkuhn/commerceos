@@ -63,6 +63,19 @@ describe('listPackingQueue', () => {
   })
 })
 
+describe('markOrderPicked', () => {
+  it('posts to the order mark-picked endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204, json: () => Promise.resolve(null) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.markOrderPicked(TOKEN, 'so-1')
+
+    const [url, options] = fetchMock.mock.calls[0]
+    expect(url).toMatch(/\/sales-orders\/so-1\/mark-picked$/)
+    expect((options as RequestInit).method).toBe('POST')
+  })
+})
+
 describe('getPickList', () => {
   it('repeats sales_order_id per order and returns the pick list', async () => {
     const pickList = { items: [{ sku_id: 'sku-a', sku_code: 'A', barcode: '', name: 'Apple', total_quantity: 3, orders: [] }] }

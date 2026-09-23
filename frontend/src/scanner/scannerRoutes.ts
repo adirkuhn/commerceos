@@ -21,6 +21,7 @@ export const scannerPaths = {
   discardSku: (code: string) => `${SCANNER_BASE}/discard/${enc(code)}`,
   pick: `${SCANNER_BASE}/pick`,
   pickSession: (sessionId: string) => `${SCANNER_BASE}/pick/${enc(sessionId)}`,
+  pickOrder: (orderId: string) => `${SCANNER_BASE}/pick/order/${enc(orderId)}`,
   pack: `${SCANNER_BASE}/pack`,
   packSession: (sessionId: string) => `${SCANNER_BASE}/pack/${enc(sessionId)}`,
 } as const

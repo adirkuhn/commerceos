@@ -82,6 +82,11 @@ export function listPackingQueue(token: string, params: { page?: number; perPage
   return request<PackingQueue>(`${import.meta.env.VITE_API_BASE_URL}/packing-queue${query ? `?${query}` : ''}`, token)
 }
 
+// Picking list mode: marks the whole order picked in one action.
+export function markOrderPicked(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/${id}/mark-picked`, token, { method: 'POST' })
+}
+
 export function getPickList(token: string, salesOrderIds: string[]): Promise<PickList> {
   const qs = new URLSearchParams()
   for (const id of salesOrderIds) qs.append('sales_order_id', id)

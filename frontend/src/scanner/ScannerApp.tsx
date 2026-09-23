@@ -8,7 +8,7 @@ import { DiscardApp } from './DiscardApp'
 import { PurchaseOrderPickerScreen } from './PurchaseOrderPickerScreen'
 import { SalesOrderPickerScreen } from './SalesOrderPickerScreen'
 import { SalesOrderPackerScreen } from './SalesOrderPackerScreen'
-import { BookingRoute, PackSessionRoute, PickSessionRoute } from './sessionRoutes'
+import { BookingRoute, PackSessionRoute, PickOrderRoute, PickSessionRoute } from './sessionRoutes'
 import { scannerPaths } from './scannerRoutes'
 import { useStackNavigation } from '../routing/useStackNavigation'
 
@@ -65,8 +65,9 @@ function ScannerAppContent() {
 
       <Route
         path="pick"
-        element={<SalesOrderPickerScreen token={token} onPickingStarted={id => open(scannerPaths.pickSession(id))} onLogout={clearToken} onBack={toLauncher} />}
+        element={<SalesOrderPickerScreen token={token} onPickingStarted={id => open(scannerPaths.pickSession(id))} onOrderChosenForList={id => open(scannerPaths.pickOrder(id))} onLogout={clearToken} onBack={toLauncher} />}
       />
+      <Route path="pick/order/:orderId" element={<PickOrderRoute token={token} />} />
       <Route path="pick/:sessionId" element={<PickSessionRoute token={token} onAuthError={clearToken} />} />
 
       <Route

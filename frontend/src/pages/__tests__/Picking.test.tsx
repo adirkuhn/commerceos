@@ -18,6 +18,10 @@ vi.mock('../../oms/api', () => ({
   getSalesOrder: vi.fn(),
 }))
 
+vi.mock('../../settings/api', () => ({
+  getTenantSettings: vi.fn().mockResolvedValue({ picking_mode: 'scan' }),
+}))
+
 vi.mock('../../scanner/api', () => ({
   startOrResumePicking: vi.fn(),
   getPickingSession: vi.fn(),
@@ -649,5 +653,17 @@ describe('Picking page product thumbnail', () => {
 
     await waitFor(() => expect(pmsApi.listProductMedia).toHaveBeenCalledWith('test-token', 'product-1'))
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+})
+
+describe('Picking page mode', () => {
+  it('list mode shows the plain pick list instead of scanning', async () => {
+    const settingsApi = await import('../../settings/api')
+    vi.mocked(settingsApi.getTenantSettings).mockResolvedValueOnce({ picking_mode: 'list' } as Awaited<ReturnType<typeof settingsApi.getTenantSettings>>)
+
+    renderAt(<Picking />, '/picking')
+
+    expect(await screen.findByText('Select an order to see what to pick')).toBeInTheDocument()
+    expect(vi.mocked(omsApi.listSalesOrders)).toHaveBeenCalledWith('test-token', { fulfilled: false, status: ['pending', 'processing', 'on-hold'], perPage: 100 })
   })
 })

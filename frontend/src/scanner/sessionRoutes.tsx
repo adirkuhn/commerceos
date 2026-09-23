@@ -7,6 +7,7 @@ import { ScannerLoadGate } from './ScannerLoadGate'
 import { PickingScreen } from './PickingScreen'
 import { PackingScreen } from './PackingScreen'
 import { BookingScreen } from './BookingScreen'
+import { PickOrderListScreen } from './PickOrderListScreen'
 import { scannerPaths } from './scannerRoutes'
 import type { SalesOrder } from '../oms/types'
 
@@ -51,6 +52,14 @@ export function PickSessionRoute({ token, onAuthError }: SessionRouteProps) {
       )}
     </ScannerLoadGate>
   )
+}
+
+// List-mode picking: one order's item list, no session.
+export function PickOrderRoute({ token }: { token: string }) {
+  const { orderId = '' } = useParams()
+  const { exitTo } = useStackNavigation()
+  const toOrders = () => exitTo(scannerPaths.pick)
+  return <PickOrderListScreen key={orderId} token={token} orderId={orderId} onDone={toOrders} onBack={toOrders} />
 }
 
 export function PackSessionRoute({ token, onAuthError }: SessionRouteProps) {

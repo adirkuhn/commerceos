@@ -4,6 +4,9 @@ import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, Repeat, Gift, P
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as omsApi from '../oms/api'
+import { PICKABLE_STATUSES } from '../oms/pickable'
+import { usePickingMode } from '../picking/usePickingMode'
+import { PickingListMode } from '../picking/PickingListMode'
 import type { SalesOrder } from '../oms/types'
 import * as pickingApi from '../scanner/api'
 import type { PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult, StockShortfall, StockShortfallResolution } from '../scanner/types'
@@ -78,12 +81,31 @@ function newSubstituteRow(): SubstituteRowState {
 
 const PICKING_PATH = '/picking'
 
+// Picking follows the tenant's picking mode (Settings > Fulfillment): list
+// mode is just "see the items, mark the order picked"; scan mode is the
+// full scan-into-a-session flow below.
+export default function Picking() {
+  const { token } = useAuth()
+  const { mode, error } = usePickingMode(token ?? '')
+  if (!token || mode === null) {
+    return <div className="flex h-full items-center justify-center text-sm text-ink-4">Loading…</div>
+  }
+  return (
+    <div className="flex flex-col h-full">
+      {error && <p role="alert" className="px-4 py-2 text-2xs text-danger border-b border-line">Couldn&apos;t load the picking mode ({error}) -- showing scan mode.</p>}
+      <div className="flex-1 min-h-0">
+        {mode === 'list' ? <PickingListMode token={token} /> : <ScanPicking />}
+      </div>
+    </div>
+  )
+}
+
 // Each open session has its own URL (/picking/:sessionId) so a refresh or the
 // browser Back button keeps the picker on the order they were working on.
 // Session id rather than order id: reopening is a read (get session -> get
 // its order), never a startOrResume, which would fail once the order is
 // fulfilled by completing the session.
-export default function Picking() {
+function ScanPicking() {
   const { token } = useAuth()
 
   const [orders, setOrders] = useState<SalesOrder[]>([])
@@ -138,7 +160,7 @@ export default function Picking() {
     setOrdersLoading(true)
     setOrdersError('')
     try {
-      const result = await omsApi.listSalesOrders(token, { fulfilled: false, status: ['pending', 'processing', 'on-hold'], perPage: 100 })
+      const result = await omsApi.listSalesOrders(token, { fulfilled: false, status: PICKABLE_STATUSES, perPage: 100 })
       setOrders(result.salesOrders)
     } catch (err) {
       setOrdersError(err instanceof Error ? err.message : 'Failed to load orders')
