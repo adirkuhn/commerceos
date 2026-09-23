@@ -7,7 +7,7 @@ interface Props {
   onCancel: () => void
 }
 
-const inputClass = 'block w-full mt-1 px-3 py-1.5 text-xs rounded-lg bg-sunken border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500'
+const inputClass = 'block w-full mt-1 px-3 py-1.5 text-xs rounded-lg bg-sunken border border-line text-ink outline-none focus:ring-1 focus:ring-focus'
 
 export function GroupForm({ group, onSubmit, onCancel }: Props) {
   const [name, setName] = useState(group?.name ?? '')
@@ -70,7 +70,7 @@ export function GroupForm({ group, onSubmit, onCancel }: Props) {
         <button
           type="submit"
           disabled={submitting}
-          className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 font-medium"
+          className="px-3 py-1.5 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50 font-medium"
         >
           {submitting ? 'Saving...' : group ? 'Update' : 'Create'}
         </button>

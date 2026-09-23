@@ -58,7 +58,7 @@ function InviteForm({ onSubmit, onCancel }: { onSubmit: (email: string, role: Me
         type="email"
         value={email}
         onChange={e => setEmail(e.target.value)}
-        className="w-full mb-3 px-3 py-1.5 text-xs rounded-lg bg-sunken border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full mb-3 px-3 py-1.5 text-xs rounded-lg bg-sunken border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
       />
       <label className="block text-xs text-ink-3 mb-1" htmlFor="invite-role">Role</label>
       <select
@@ -73,7 +73,7 @@ function InviteForm({ onSubmit, onCancel }: { onSubmit: (email: string, role: Me
       <button
         onClick={handleSubmit}
         disabled={submitting || !email}
-        className="w-full py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+        className="w-full py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50"
       >
         {submitting ? 'Sending…' : 'Send Invite'}
       </button>
@@ -119,7 +119,7 @@ function GroupDetail({ token, group, members }: { token: string; group: Group; m
           <button
             onClick={() => { if (pickUserId) { groupMembers.add(pickUserId); setPickUserId('') } }}
             disabled={!pickUserId}
-            className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
+            className="px-3 py-1 text-xs rounded bg-accent-solid text-white disabled:opacity-50"
           >
             Add
           </button>
@@ -149,7 +149,7 @@ function GroupDetail({ token, group, members }: { token: string; group: Group; m
           <button
             onClick={() => { if (newRule) { groupPerms.assign(newRule); setNewRule('') } }}
             disabled={!newRule}
-            className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
+            className="px-3 py-1 text-xs rounded bg-accent-solid text-white disabled:opacity-50"
           >
             Assign
           </button>
@@ -305,7 +305,7 @@ export default function Users() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search users..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <button
@@ -313,7 +313,7 @@ export default function Users() {
           className={clsx(
             'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors',
             showGroups
-              ? 'bg-blue-600/15 border-blue-500/30 text-accent'
+              ? 'bg-accent/15 border-accent/30 text-accent'
               : 'bg-raised border-line text-ink-2',
           )}
         >
@@ -321,7 +321,7 @@ export default function Users() {
         </button>
         <button
           onClick={route.openInvite}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 ml-auto font-medium"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover ml-auto font-medium"
         >
           <Plus size={13} /> Invite User
         </button>

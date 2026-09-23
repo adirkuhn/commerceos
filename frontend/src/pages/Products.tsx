@@ -164,13 +164,13 @@ export default function Products() {
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             placeholder="Search by name or slug..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <button
             onClick={openNew}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
             <Plus size={13} /> New Product
           </button>
@@ -692,7 +692,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
     }
   }
 
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
   const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
 
   return (
@@ -729,7 +729,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
           </button>
           <button
             type="submit" form="product-general-form" disabled={saving || activeTab !== 'general'}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving…' : savedProductId ? 'Save' : 'Create Product'}
           </button>
@@ -742,7 +742,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
           className={clsx(
             'px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
             activeTab === 'general'
-              ? 'border-blue-500 text-accent'
+              ? 'border-accent text-accent'
               : 'border-transparent text-ink-4 hover:text-ink-2',
           )}
         >
@@ -754,7 +754,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
             className={clsx(
               'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
               activeTab === 'woocommerce'
-                ? 'border-blue-500 text-accent'
+                ? 'border-accent text-accent'
                 : 'border-transparent text-ink-4 hover:text-ink-2',
             )}
           >
@@ -767,7 +767,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
             className={clsx(
               'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
               activeTab === 'bol'
-                ? 'border-blue-500 text-accent'
+                ? 'border-accent text-accent'
                 : 'border-transparent text-ink-4 hover:text-ink-2',
             )}
           >
@@ -1746,7 +1746,7 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
         onClick={onChange}
         className={clsx(
           'relative w-9 h-5 rounded-full shrink-0 transition-colors',
-          checked ? 'bg-blue-600' : 'dark:bg-night-700 bg-gray-300',
+          checked ? 'bg-accent-solid' : 'dark:bg-night-700 bg-gray-300',
         )}
       >
         <span className={clsx(
@@ -1882,12 +1882,12 @@ function ProductWooCommerceTab({
               value={linkSku}
               onChange={e => setLinkSku(e.target.value)}
               placeholder="SKU on WooCommerce"
-              className="flex-1 px-3 py-2 text-xs rounded-lg bg-raised border border-line outline-none focus:ring-1 focus:ring-blue-500 text-ink"
+              className="flex-1 px-3 py-2 text-xs rounded-lg bg-raised border border-line outline-none focus:ring-1 focus:ring-focus text-ink"
             />
             <button
               type="submit"
               disabled={linking || !linkSku.trim()}
-              className="px-3 py-2 text-2xs font-medium rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white shrink-0"
+              className="px-3 py-2 text-2xs font-medium rounded-lg bg-accent-solid hover:bg-accent-solid-hover disabled:opacity-50 text-white shrink-0"
             >
               {linking ? 'Linking…' : 'Link existing product'}
             </button>
@@ -2063,7 +2063,7 @@ function MediaSection({ productId }: { productId: string }) {
         onDrop={handleDrop}
         className={clsx(
           'grid grid-cols-2 gap-3 rounded-xl transition-colors',
-          dragging && 'ring-2 ring-blue-500 ring-offset-2 ring-offset-transparent',
+          dragging && 'ring-2 ring-focus ring-offset-2 ring-offset-transparent',
         )}
       >
         <div className="group relative aspect-square rounded-xl border border-line overflow-hidden flex items-center justify-center text-2xs text-ink-4">
@@ -2149,7 +2149,7 @@ function MediaSection({ productId }: { productId: string }) {
               type="button"
               disabled={titleSaving}
               onClick={handleSaveTitle}
-              className="text-2xs font-medium px-2.5 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="text-2xs font-medium px-2.5 py-1 rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
             >
               {titleSaving ? 'Saving…' : 'Save title'}
             </button>
@@ -2235,7 +2235,7 @@ function VariantsSection({ detail, productId }: VariantsSectionProps) {
             className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
           />
           {addError && <p className="text-xs text-danger">{addError}</p>}
-          <button type="button" onClick={handleAddVariant} disabled={submitting} className="w-full py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+          <button type="button" onClick={handleAddVariant} disabled={submitting} className="w-full py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
             {submitting ? 'Adding…' : 'Add Variant'}
           </button>
           <p className="text-2xs text-ink-4">Add a SKU (price/barcode) to the variant after creating it.</p>
@@ -2291,7 +2291,7 @@ function CaseOfSKUPicker({ excludeSKUID, filterSku, onSelect, onClose }: CaseOfS
           <input
             autoFocus value={query} onChange={e => setQuery(e.target.value)}
             placeholder="Search products by name…"
-            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <button type="button" onClick={onClose} title="Close">
@@ -2388,7 +2388,7 @@ function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
   }, [open, token, skuId])
 
   const label = 'block text-2xs font-medium text-ink-4 uppercase tracking-wide mb-0.5'
-  const input = 'w-full px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
+  const input = 'w-full px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
 
   const handleAdd = async () => {
     if (!token || !newPrice) return
@@ -2467,7 +2467,7 @@ function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
             type="button"
             onClick={handleAdd}
             disabled={saving || !newPrice}
-            className="w-full py-1 rounded bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full py-1 rounded bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving…' : 'Add / update'}
           </button>
@@ -2499,7 +2499,7 @@ function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
   }, [open, token, skuId])
 
   const label = 'block text-2xs font-medium text-ink-4 uppercase tracking-wide mb-0.5'
-  const input = 'w-full px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
+  const input = 'w-full px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
 
   const handleAdd = async () => {
     if (!token || !newCode.trim()) return
@@ -2562,7 +2562,7 @@ function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
           </div>
           <button
             type="button" onClick={handleAdd} disabled={saving || !newCode.trim()}
-            className="w-full py-1 rounded bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full py-1 rounded bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving…' : 'Add'}
           </button>
@@ -2593,7 +2593,7 @@ function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
   }, [open, token, skuId])
 
   const label = 'block text-2xs font-medium text-ink-4 uppercase tracking-wide mb-0.5'
-  const input = 'w-full px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
+  const input = 'w-full px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
 
   const handleAdd = async () => {
     if (!token || !newCode.trim()) return
@@ -2648,7 +2648,7 @@ function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
           </div>
           <button
             type="button" onClick={handleAdd} disabled={saving || !newCode.trim()}
-            className="w-full py-1 rounded bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full py-1 rounded bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving…' : 'Add'}
           </button>
@@ -2714,7 +2714,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   }
 
   const fieldLabelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wide mb-0.5'
-  const fieldInputClass = 'w-full px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
+  const fieldInputClass = 'w-full px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
 
   const handleAddSKU = async () => {
     setError('')
@@ -3106,7 +3106,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           <div className="flex items-center gap-2 pt-1 border-t border-line">
             <button
               type="button" disabled={editSaving || !editName || (!!sku && !editSkuCode)} onClick={saveEdit}
-              className="px-2.5 py-1 rounded bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="px-2.5 py-1 rounded bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
             >
               {editSaving ? 'Saving…' : 'Save'}
             </button>
@@ -3128,7 +3128,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             aria-label="No image"
             className={clsx(
               'w-8 h-8 rounded-md border flex items-center justify-center text-2xs text-ink-4 shrink-0',
-              !variant.featured_media_id ? 'border-blue-500' : 'border-line',
+              !variant.featured_media_id ? 'border-accent' : 'border-line',
             )}
           >
             <X size={12} />
@@ -3141,7 +3141,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               aria-label={m.alt_text || 'Product image'}
               className={clsx(
                 'w-8 h-8 rounded-md overflow-hidden border shrink-0',
-                m.id === variant.featured_media_id ? 'border-blue-500' : 'border-line',
+                m.id === variant.featured_media_id ? 'border-accent' : 'border-line',
               )}
             >
               <img src={m.url} alt={m.alt_text} className="w-full h-full object-cover" />
@@ -3378,7 +3378,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           )}
           {error && <p className="text-2xs text-danger">{error}</p>}
           <div className="flex gap-1.5">
-            <button type="button" onClick={handleAddSKU} disabled={submitting} className="flex-1 py-1 rounded bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+            <button type="button" onClick={handleAddSKU} disabled={submitting} className="flex-1 py-1 rounded bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
               {submitting ? 'Adding…' : 'Add'}
             </button>
             <button type="button" onClick={() => setAddingSKU(false)} className="px-2 py-1 rounded bg-fill text-2xs text-ink-3 transition-colors">

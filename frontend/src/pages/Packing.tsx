@@ -388,7 +388,7 @@ export default function Packing() {
     return (o.number || o.external_order_id).toLowerCase().includes(q) || customerName(o).toLowerCase().includes(q)
   })
 
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
 
   return (
     <div className="flex h-full">
@@ -405,7 +405,7 @@ export default function Packing() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search orders..."
-              className="w-full pl-7 pr-2 py-1.5 text-2xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full pl-7 pr-2 py-1.5 text-2xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
             />
           </div>
         </div>
@@ -422,7 +422,7 @@ export default function Packing() {
               className={clsx(
                 'w-full text-left px-4 py-3 border-b border-line transition-colors',
                 activeOrder?.id === o.id
-                  ? 'dark:bg-blue-600/10 bg-blue-50 border-l-2 border-l-blue-500'
+                  ? ' bg-accent/10 border-l-2 border-l-accent'
                   : 'hover:bg-raised',
               )}
             >
@@ -490,7 +490,7 @@ export default function Packing() {
 
             <button
               type="button" onClick={backToOrders}
-              className="mt-3 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700"
+              className="mt-3 px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover"
             >
               Back to orders
             </button>
@@ -629,7 +629,7 @@ export default function Packing() {
 
             {/* Scan input */}
             <div className="px-6 py-4 border-b border-line shrink-0 dark:bg-night-900/80 bg-gray-50">
-              <div className="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border-2 dark:border-blue-500 border-blue-400 bg-raised">
+              <div className="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border-2  border-accent bg-raised">
                 <ScanBarcode size={20} className="text-accent" />
                 <input
                   ref={codeRef}
@@ -653,7 +653,7 @@ export default function Packing() {
               </div>
               <div className="h-2 dark:bg-night-700 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className={clsx('h-full rounded-full transition-all duration-500', allPacked ? 'bg-green-500' : 'bg-blue-500')}
+                  className={clsx('h-full rounded-full transition-all duration-500', allPacked ? 'bg-green-500' : 'bg-accent-solid')}
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -737,7 +737,7 @@ export default function Packing() {
             </div>
             <button
               type="button" onClick={confirmPack} disabled={busy}
-              className="w-full px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+              className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
             >
               Confirm pack
             </button>

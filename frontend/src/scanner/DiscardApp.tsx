@@ -231,7 +231,7 @@ function DiscardSheet({ row, submitting, error, onCancel, onConfirm }: {
             <label htmlFor="discard-reason" className="block text-xs text-gray-400 mb-1.5">Reason</label>
             <input
               id="discard-reason" value={reason} onChange={e => setReason(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
             />
           </div>
 

@@ -168,7 +168,7 @@ export default function ScheduledJobs() {
                           value={edit.interval_minutes}
                           onChange={e => setEdits(prev => ({ ...prev, [j.job_key]: { ...edit, interval_minutes: e.target.value } }))}
                           aria-label={`Interval minutes: ${j.job_key}`}
-                          className="w-20 px-2 py-1 rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-20 px-2 py-1 rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                         />
                       </td>
                       <td className="py-2 text-ink-3">{formatDate(j.last_run_at)}</td>
@@ -187,7 +187,7 @@ export default function ScheduledJobs() {
                         <button
                           onClick={() => handleRunJobNow(j.job_key)}
                           disabled={runningKey === j.job_key}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                          className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                         >
                           {runningKey === j.job_key ? 'Running…' : 'Run now'}
                         </button>
@@ -232,7 +232,7 @@ export default function ScheduledJobs() {
                         onClick={() => handleRunScheduleNow(s.id)}
                         disabled={runningKey === s.id || !s.enabled}
                         title={!s.enabled ? 'Schedule is disabled' : undefined}
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                       >
                         {runningKey === s.id ? 'Running…' : 'Run now'}
                       </button>

@@ -66,7 +66,7 @@ export default function ProviderWebhooksPanel({ token, connectionId }: { token: 
           </div>
           <button
             type="submit" disabled={submitting}
-            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {submitting ? 'Creating…' : 'Create'}
           </button>

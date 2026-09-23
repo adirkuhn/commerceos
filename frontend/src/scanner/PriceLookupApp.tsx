@@ -143,8 +143,8 @@ function PriceLookupResult({ token, resolved, onViewInventory, onLookUpAnother }
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-blue-600/20 flex items-center justify-center">
-        <Tag size={28} className="text-blue-400" />
+      <div className="w-16 h-16 rounded-2xl bg-accent/20 flex items-center justify-center">
+        <Tag size={28} className="text-accent" />
       </div>
       <div>
         <p className="text-lg font-semibold">{productName}</p>
@@ -153,7 +153,7 @@ function PriceLookupResult({ token, resolved, onViewInventory, onLookUpAnother }
       <div className="space-y-1">
         {sku.sale_price_minor_units != null ? (
           <>
-            <p className="text-3xl font-bold text-blue-400">{formatPrice(sku.sale_price_minor_units, sku.currency_code)}</p>
+            <p className="text-3xl font-bold text-accent">{formatPrice(sku.sale_price_minor_units, sku.currency_code)}</p>
             <p className="text-sm text-gray-400 line-through">{formatPrice(sku.price_minor_units, sku.currency_code)}</p>
           </>
         ) : (
@@ -166,7 +166,7 @@ function PriceLookupResult({ token, resolved, onViewInventory, onLookUpAnother }
       <div className="w-full max-w-xs space-y-2">
         <button
           onClick={onViewInventory}
-          className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-blue-600 text-white font-medium"
+          className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-accent-solid text-white font-medium"
         >
           <Boxes size={16} /> View in Inventory
         </button>

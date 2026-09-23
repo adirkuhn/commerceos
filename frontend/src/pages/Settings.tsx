@@ -126,7 +126,7 @@ export default function Settings() {
                 className={clsx(
                   'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left mb-0.5 transition-colors',
                   active
-                    ? 'dark:bg-blue-600/15 bg-blue-50 text-accent'
+                    ? 'bg-accent/10 text-accent'
                     : 'text-ink-3 hover:bg-raised',
                 )}
               >
@@ -160,12 +160,12 @@ export default function Settings() {
                   <input
                     type={type}
                     defaultValue={defaultValue}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
                   />
                 </div>
               ))}
             </div>
-            <button className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">
+            <button className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">
               Save Changes
             </button>
           </div>
@@ -195,7 +195,7 @@ export default function Settings() {
                   ['Block picking of expired stock', false],
                 ].map(([label, defaultChecked]) => (
                   <label key={label as string} className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" defaultChecked={defaultChecked as boolean} className="rounded accent-blue-600 w-3.5 h-3.5" />
+                    <input type="checkbox" defaultChecked={defaultChecked as boolean} className="rounded accent-accent-solid w-3.5 h-3.5" />
                     <span className="text-xs text-ink-2">{label as string}</span>
                   </label>
                 ))}
@@ -217,13 +217,13 @@ export default function Settings() {
                     <input
                       type="number"
                       defaultValue={val}
-                      className="w-24 px-2 py-1.5 text-xs rounded-lg bg-sunken border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500 text-right"
+                      className="w-24 px-2 py-1.5 text-xs rounded-lg bg-sunken border border-line text-ink outline-none focus:ring-1 focus:ring-focus text-right"
                     />
                   </div>
                 ))}
               </div>
             </div>
-            <button className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">Save Changes</button>
+            <button className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">Save Changes</button>
           </div>
         )}
 
@@ -251,7 +251,7 @@ export default function Settings() {
                 <h2 className="text-base font-semibold text-ink mb-1">Automation Rules</h2>
                 <p className="text-xs text-ink-4">Trigger-based workflows that run automatically</p>
               </div>
-              <button className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">
+              <button className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">
                 + New Rule
               </button>
             </div>
@@ -273,12 +273,12 @@ export default function Settings() {
                         <span className="bg-hover text-ink-2 px-2 py-0.5 rounded">{auto.trigger}</span>
                         <ChevronRight size={10} className="text-ink-4" />
                         <span className="text-ink-4">Then:</span>
-                        <span className="dark:bg-blue-500/10 bg-blue-50 text-accent px-2 py-0.5 rounded">{auto.action}</span>
+                        <span className=" bg-accent/10 text-accent px-2 py-0.5 rounded">{auto.action}</span>
                       </div>
                     </div>
                     <label className="relative flex cursor-pointer items-center shrink-0">
                       <input type="checkbox" defaultChecked={auto.active} className="sr-only peer" />
-                      <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                      <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
                       <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                     </label>
                   </div>
@@ -310,7 +310,7 @@ export default function Settings() {
                 { label: 'Audit log all actions', checked: true },
               ].map(item => (
                 <label key={item.label} className="flex items-center gap-3 cursor-pointer bg-raised border border-line rounded-xl p-3.5">
-                  <input type="checkbox" defaultChecked={item.checked} className="rounded accent-blue-600 w-3.5 h-3.5 shrink-0" />
+                  <input type="checkbox" defaultChecked={item.checked} className="rounded accent-accent-solid w-3.5 h-3.5 shrink-0" />
                   <span className="text-xs text-ink-2">{item.label}</span>
                   {item.checked && <Check size={12} className="text-success ml-auto" />}
                 </label>
@@ -338,7 +338,7 @@ export default function Settings() {
                 <div className="p-4 space-y-2">
                   {section.events.map(ev => (
                     <label key={ev} className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" defaultChecked className="rounded accent-blue-600 w-3 h-3" />
+                      <input type="checkbox" defaultChecked className="rounded accent-accent-solid w-3 h-3" />
                       <span className="text-xs text-ink-2">{ev}</span>
                     </label>
                   ))}
@@ -507,7 +507,7 @@ function RecommendationsSettingsCard() {
             value={confidencePercent}
             onChange={e => { setConfidencePercent(e.target.value); setSaved(false) }}
             placeholder="30"
-            className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <div>
@@ -520,7 +520,7 @@ function RecommendationsSettingsCard() {
             value={minSupport}
             onChange={e => { setMinSupport(e.target.value); setSaved(false) }}
             placeholder="2"
-            className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <div>
@@ -533,7 +533,7 @@ function RecommendationsSettingsCard() {
             value={lookbackDays}
             onChange={e => { setLookbackDays(e.target.value); setSaved(false) }}
             placeholder="180"
-            className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
       </div>
@@ -708,7 +708,7 @@ function ApiKeysCard() {
         )}
         <button
           type="submit" disabled={creating}
-          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
           {creating ? 'Creating…' : 'Create key'}
         </button>
@@ -878,7 +878,7 @@ function AIIntegrationCard() {
                   id="ai-provider"
                   value={provider}
                   onChange={e => setProvider(e.target.value as AIProvider)}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
                   {(Object.keys(AI_PROVIDER_LABELS) as AIProvider[]).map(p => (
                     <option key={p} value={p}>{AI_PROVIDER_LABELS[p]}</option>
@@ -898,7 +898,7 @@ function AIIntegrationCard() {
                     value={apiKey}
                     onChange={e => setApiKey(e.target.value)}
                     placeholder="sk-..."
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                 </div>
               )}
@@ -914,7 +914,7 @@ function AIIntegrationCard() {
                   value={baseUrl}
                   onChange={e => setBaseUrl(e.target.value)}
                   placeholder={provider === 'ollama' ? 'http://localhost:11434' : 'https://...'}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
               </div>
               <div>
@@ -927,7 +927,7 @@ function AIIntegrationCard() {
                   value={model}
                   onChange={e => setModel(e.target.value)}
                   placeholder="Uses the provider's default"
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
               </div>
               {provider === 'gemini' && (
@@ -941,7 +941,7 @@ function AIIntegrationCard() {
                     value={fallbackModels}
                     onChange={e => setFallbackModels(e.target.value)}
                     placeholder="gemini-3.5-flash-lite, gemini-3.1-flash-lite"
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                   <p className="mt-1.5 text-2xs text-ink-4">
                     Comma-separated. Tried in order when Model hits a rate limit (Gemini's free tier caps some models at 20 requests/day, others at 500).
@@ -954,7 +954,7 @@ function AIIntegrationCard() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
                 {saving ? 'Saving…' : 'Save'}
               </button>
@@ -1037,7 +1037,7 @@ function InventorySyncRulesSection() {
             onChange={e => { setEnabled(e.target.checked); setSaved(false) }}
             className="sr-only peer"
           />
-          <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+          <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
           <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
         </label>
       </div>
@@ -1051,7 +1051,7 @@ function InventorySyncRulesSection() {
           min={0}
           value={thresholdDays}
           onChange={e => { setThresholdDays(parseInt(e.target.value, 10) || 0); setSaved(false) }}
-          className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
         />
       </div>
       {saveError && <p className="text-xs text-danger">{saveError}</p>}
@@ -1114,7 +1114,7 @@ function PricingMarginSection() {
           value={markupPercent}
           onChange={e => { setMarkupPercent(e.target.value); setSaved(false) }}
           placeholder="e.g. 30"
-          className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
         />
         <p className="text-2xs text-ink-4 mt-1">
           Markup is profit as a % of cost (e.g. 300% markup means selling at 4x cost) -- no upper bound, unlike margin.
@@ -1191,7 +1191,7 @@ function LocalizationSettingsSection() {
               id={id}
               value={value}
               onChange={e => { onChange(e.target.value); setSaved(false) }}
-              className="w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
             >
               {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -1203,7 +1203,7 @@ function LocalizationSettingsSection() {
       <button
         onClick={handleSave}
         disabled={saving}
-        className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+        className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50"
       >
         {saving ? 'Saving…' : 'Save Changes'}
       </button>
@@ -1296,7 +1296,7 @@ function ExchangeRatesCard() {
             maxLength={3}
             placeholder="USD"
             onChange={e => setCurrencyCode(e.target.value.toUpperCase())}
-            className="w-full px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <div className="w-28">
@@ -1306,13 +1306,13 @@ function ExchangeRatesCard() {
             value={rateValue}
             placeholder="1.0876"
             onChange={e => setRateValue(e.target.value)}
-            className="w-full px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <button
           type="submit"
           disabled={saving || currencyCode.length !== 3 || !rateValue}
-          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
           {saving ? 'Saving…' : 'Add / update'}
         </button>
@@ -1449,7 +1449,7 @@ function TaxSettingsSection() {
               onChange={e => { setPricesIncludeTax(e.target.checked); setDefaultsSaved(false) }}
               className="sr-only peer"
             />
-            <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+            <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
             <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
           </label>
         </div>
@@ -1462,7 +1462,7 @@ function TaxSettingsSection() {
             value={defaultTaxCountry}
             maxLength={2}
             onChange={e => { setDefaultTaxCountry(e.target.value.toUpperCase()); setDefaultsSaved(false) }}
-            className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         {defaultsError && <p className="text-xs text-danger">{defaultsError}</p>}
@@ -1480,7 +1480,7 @@ function TaxSettingsSection() {
         <h3 className="text-sm font-semibold text-ink">Tax classes</h3>
         <button
           onClick={openCreateClass}
-          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+          className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
         >
           Add tax class
         </button>
@@ -1497,7 +1497,7 @@ function TaxSettingsSection() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-ink">{c.name}</span>
                 {c.is_default && (
-                  <span className="text-2xs px-2 py-0.5 rounded-full dark:bg-blue-500/10 bg-blue-50 text-accent">Default</span>
+                  <span className="text-2xs px-2 py-0.5 rounded-full  bg-accent/10 text-accent">Default</span>
                 )}
               </div>
               <div className="flex gap-2">
@@ -1558,7 +1558,7 @@ function TaxSettingsSection() {
                   autoFocus
                   value={classForm.name}
                   onChange={e => setClassForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -1572,7 +1572,7 @@ function TaxSettingsSection() {
                     onChange={e => setClassForm(f => ({ ...f, isDefault: e.target.checked }))}
                     className="sr-only peer"
                   />
-                  <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                  <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
                   <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                 </label>
               </div>
@@ -1582,7 +1582,7 @@ function TaxSettingsSection() {
               <button
                 type="submit"
                 disabled={classSaving}
-                className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
                 {classSaving ? 'Saving…' : editingClass ? 'Save changes' : 'Add class'}
               </button>

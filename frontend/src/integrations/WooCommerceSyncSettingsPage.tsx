@@ -270,7 +270,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
@@ -290,7 +290,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
             className={clsx(
               'px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
               tab === t.id
-                ? 'border-blue-500 text-accent'
+                ? 'border-accent text-accent'
                 : 'border-transparent text-ink-4 hover:text-ink-2',
             )}
           >
@@ -324,7 +324,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                   id="store-default-currency"
                   value={storeCurrency}
                   onChange={e => { setStoreCurrency(e.target.value); setCurrencySaved(false) }}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
                   <option value="" disabled>Select a currency…</option>
                   {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -338,7 +338,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                   id="store-default-location"
                   value={storeWarehouse}
                   onChange={e => { setStoreWarehouse(e.target.value); setCurrencySaved(false) }}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
                   <option value="">No preference</option>
                   {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -372,13 +372,13 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                   value={fetchOrderNumber}
                   onChange={e => { setFetchOrderNumber(e.target.value); setFetchOrderResult(null); setFetchOrderError('') }}
                   placeholder="e.g. 1234"
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
               </div>
               <button
                 type="submit"
                 disabled={fetchingOrder || !fetchOrderNumber.trim()}
-                className="px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
                 {fetchingOrder ? 'Fetching…' : 'Fetch order'}
               </button>
@@ -450,7 +450,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                               onChange={e => updateCell(row.entity, direction, { enabled: e.target.checked })}
                               className="sr-only peer"
                             />
-                            <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                            <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
                             <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                           </label>
                         </div>
@@ -550,7 +550,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                 )}
                 <button
                   onClick={closeDeleteModal}
-                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                  className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
                 >
                   Done
                 </button>
@@ -610,7 +610,7 @@ function WooTaxesTab({ token, connectionId }: { token: string; connectionId: str
   const { links, error: linksError, upsert: upsertLink, remove: removeLink } = useExternalTaxClassLinks(token)
   const wooLinks = links.filter(l => l.provider === WOO_PROVIDER)
 
-  const inputClass = 'px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
+  const inputClass = 'px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
 
   const [rowError, setRowError] = useState('')
   const [newSlug, setNewSlug] = useState('')
@@ -753,7 +753,7 @@ function WooCategoriesTab({ token, connectionId }: { token: string; connectionId
   const { categories } = useCategories(token)
   const { links, error: linksError, upsert: upsertLink, remove: removeLink } = useExternalCategoryLinks(token, connectionId)
 
-  const inputClass = 'px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
+  const inputClass = 'px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
 
   const [rowError, setRowError] = useState('')
   const [newCategoryId, setNewCategoryId] = useState('')
@@ -1008,7 +1008,7 @@ function WebhooksTab({ token, connectionId, tenantId, provider }: { token: strin
             type="button"
             onClick={handleGenerate}
             disabled={generating}
-            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {generating ? 'Generating…' : secret ? 'Regenerate secret' : 'Generate secret'}
           </button>

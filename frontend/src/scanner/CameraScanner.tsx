@@ -72,13 +72,13 @@ export function CameraScanner({ onDecode, onClose, frameShape = 'square', varian
             data-shape={frameShape}
             className={`relative rounded-lg ${frameShape === 'square' ? 'w-60 h-60' : 'w-64 h-28'}`}
           >
-            <span className="absolute -top-0.5 -left-0.5 w-6 h-6 border-t-2 border-l-2 border-blue-400 rounded-tl-lg" />
-            <span className="absolute -top-0.5 -right-0.5 w-6 h-6 border-t-2 border-r-2 border-blue-400 rounded-tr-lg" />
-            <span className="absolute -bottom-0.5 -left-0.5 w-6 h-6 border-b-2 border-l-2 border-blue-400 rounded-bl-lg" />
-            <span className="absolute -bottom-0.5 -right-0.5 w-6 h-6 border-b-2 border-r-2 border-blue-400 rounded-br-lg" />
+            <span className="absolute -top-0.5 -left-0.5 w-6 h-6 border-t-2 border-l-2 border-accent rounded-tl-lg" />
+            <span className="absolute -top-0.5 -right-0.5 w-6 h-6 border-t-2 border-r-2 border-accent rounded-tr-lg" />
+            <span className="absolute -bottom-0.5 -left-0.5 w-6 h-6 border-b-2 border-l-2 border-accent rounded-bl-lg" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-6 h-6 border-b-2 border-r-2 border-accent rounded-br-lg" />
             <div
               data-testid="scan-line"
-              className="absolute left-0 right-0 h-0.5 bg-blue-400 shadow-[0_0_6px_2px_rgba(96,165,250,0.8)] animate-scan-line"
+              className="absolute left-0 right-0 h-0.5 bg-accent shadow-[0_0_6px_2px_rgb(var(--accent)/0.8)] animate-scan-line"
             />
           </div>
         </div>

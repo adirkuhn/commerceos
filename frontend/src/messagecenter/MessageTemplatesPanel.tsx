@@ -119,12 +119,12 @@ export default function MessageTemplatesPanel() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search templates..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <button
           onClick={openCreate}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover transition-colors"
         >
           <Plus size={13} /> New template
         </button>
@@ -220,7 +220,7 @@ export default function MessageTemplatesPanel() {
                   autoFocus
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
               </div>
 
@@ -232,7 +232,7 @@ export default function MessageTemplatesPanel() {
                   id="template-category"
                   value={form.category}
                   onChange={e => setForm(f => ({ ...f, category: e.target.value as MessageCategory }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
                   {ALL_CATEGORIES.map(c => (
                     <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
@@ -269,7 +269,7 @@ export default function MessageTemplatesPanel() {
                     type="text"
                     value={form.subject}
                     onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                 </div>
               )}
@@ -285,7 +285,7 @@ export default function MessageTemplatesPanel() {
                   value={form.body}
                   onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
                   placeholder="Hi {{customer_name}}, your order #{{order_number}} is confirmed."
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
                 <p className="text-2xs text-ink-4 mt-1">
                   Use {'{{token}}'} placeholders -- available tokens depend on which event sends this template.
@@ -304,7 +304,7 @@ export default function MessageTemplatesPanel() {
                       onChange={e => setForm(f => ({ ...f, enabled: e.target.checked }))}
                       className="sr-only peer"
                     />
-                    <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                    <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
                     <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                   </label>
                 </div>
@@ -317,7 +317,7 @@ export default function MessageTemplatesPanel() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
                 {saving ? 'Saving…' : editingTemplate ? 'Save changes' : 'Create template'}
               </button>

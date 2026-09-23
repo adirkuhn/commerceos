@@ -160,7 +160,7 @@ export default function AutomationRulesPanel() {
           onClick={openCreate}
           disabled={templates.length === 0}
           title={templates.length === 0 ? 'Create a message template first' : undefined}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
           <Plus size={13} /> New rule
         </button>
@@ -251,7 +251,7 @@ export default function AutomationRulesPanel() {
                   autoFocus
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
               </div>
 
@@ -263,7 +263,7 @@ export default function AutomationRulesPanel() {
                   id="rule-trigger"
                   value={form.triggerSubject}
                   onChange={e => setForm(f => ({ ...f, triggerSubject: e.target.value as TriggerSubject }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
                   {ALL_TRIGGERS.map(t => (
                     <option key={t} value={t}>{TRIGGER_LABELS[t]}</option>
@@ -288,12 +288,12 @@ export default function AutomationRulesPanel() {
                         placeholder="field"
                         value={c.field}
                         onChange={e => updateCondition(i, { field: e.target.value })}
-                        className="w-24 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-24 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                       />
                       <select
                         value={c.operator}
                         onChange={e => updateCondition(i, { operator: e.target.value as Operator })}
-                        className="px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                       >
                         {ALL_OPERATORS.map(op => (
                           <option key={op} value={op}>{OPERATOR_LABELS[op]}</option>
@@ -304,7 +304,7 @@ export default function AutomationRulesPanel() {
                         placeholder={c.operator === 'in' ? 'value1, value2' : 'value'}
                         value={c.valueText}
                         onChange={e => updateCondition(i, { valueText: e.target.value })}
-                        className="flex-1 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="flex-1 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                       />
                       <button type="button" onClick={() => removeCondition(i)} aria-label="Remove condition">
                         <X size={13} className="text-ink-4" />
@@ -323,7 +323,7 @@ export default function AutomationRulesPanel() {
                   required
                   value={form.templateId}
                   onChange={e => setForm(f => ({ ...f, templateId: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
                   <option value="" disabled>Select a template</option>
                   {templates.map(t => (
@@ -340,7 +340,7 @@ export default function AutomationRulesPanel() {
                   id="rule-channel-override"
                   value={form.channelOverride}
                   onChange={e => setForm(f => ({ ...f, channelOverride: e.target.value as MessageChannel | '' }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
                   <option value="">Use template's own channels</option>
                   {ALL_CHANNELS.map(ch => (
@@ -361,7 +361,7 @@ export default function AutomationRulesPanel() {
                       onChange={e => setForm(f => ({ ...f, enabled: e.target.checked }))}
                       className="sr-only peer"
                     />
-                    <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                    <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
                     <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                   </label>
                 </div>
@@ -374,7 +374,7 @@ export default function AutomationRulesPanel() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
                 {saving ? 'Saving…' : editingRule ? 'Save changes' : 'Create rule'}
               </button>

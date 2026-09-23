@@ -158,7 +158,7 @@ function BatchFormModal({
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
-          <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+          <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50">
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
@@ -252,7 +252,7 @@ function AdjustStockModal({
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
-          <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+          <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50">
             {saving ? 'Saving…' : 'Record'}
           </button>
         </div>
@@ -334,7 +334,7 @@ function RecountModal({
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
-          <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+          <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50">
             {saving ? 'Saving…' : 'Record'}
           </button>
         </div>
@@ -442,7 +442,7 @@ function TransferModal({
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
-          <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+          <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50">
             {saving ? 'Saving…' : 'Transfer'}
           </button>
         </div>
@@ -520,7 +520,7 @@ function SplitCaseModal({
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
-          <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+          <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50">
             {saving ? 'Splitting…' : 'Split'}
           </button>
         </div>
@@ -689,7 +689,7 @@ function PriceModal({ sku, onSave, onClose }: {
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
-          <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+          <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50">
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
@@ -1466,7 +1466,7 @@ function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
           <label htmlFor="discard-reason" className="block text-xs text-ink-3 mb-1.5">Reason</label>
           <input
             id="discard-reason" value={reason} onChange={e => setReason(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <div>
@@ -1607,10 +1607,11 @@ function ExpiryDiscardPage({
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
+            aria-pressed={tab === t.id}
             className={clsx(
               'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
               tab === t.id
-                ? 'bg-blue-600 text-white'
+                ? 'bg-accent-solid text-white'
                 : 'bg-raised text-ink-3 hover:bg-hover',
             )}
           >
@@ -1657,12 +1658,12 @@ function ExpiryDiscardPage({
                               aria-label="New expiry date"
                               value={newExpiryDate}
                               onChange={e => setNewExpiryDate(e.target.value)}
-                              className="px-2 py-1 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
+                              className="px-2 py-1 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
                             />
                             <button
                               onClick={() => handleConfirmExtend(b.batch_id)}
                               disabled={!newExpiryDate || actingBatchId === b.batch_id}
-                              className="px-2 py-1 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50"
+                              className="px-2 py-1 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50"
                             >
                               Confirm
                             </button>
@@ -1895,7 +1896,7 @@ export default function Inventory() {
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             placeholder="Search product..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <div className="flex items-center rounded-lg border border-line overflow-hidden shrink-0">
@@ -1911,7 +1912,7 @@ export default function Inventory() {
               className={clsx(
                 'px-2.5 py-1.5 text-2xs font-medium transition-colors',
                 stockFilter === value
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-accent-solid text-white'
                   : 'bg-raised text-ink-3 hover:bg-hover',
               )}
             >

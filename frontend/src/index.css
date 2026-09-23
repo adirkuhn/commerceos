@@ -22,11 +22,13 @@
     --ink-2: 55 65 81;       /* strong secondary text */
     --ink-3: 75 85 99;       /* secondary text */
     --ink-4: 100 108 121;    /* meta, captions, placeholders (≥4.8:1) */
-    --accent: 37 99 235;
+    --accent: 47 51 184;          /* postmark ultramarine #2F33B8, 9.2:1 */
+    --accent-solid: 47 51 184;    /* filled buttons, white text 9.2:1 */
+    --accent-solid-hover: 37 40 150;
     --danger: 220 38 38;
     --success: 21 128 61;
     --warning: 180 83 9;
-    --focus: 37 99 235;
+    --focus: 47 51 184;
   }
 
   .dark {
@@ -42,11 +44,13 @@
     --ink-2: 209 213 219;
     --ink-3: 156 163 175;
     --ink-4: 147 156 171;    /* ≥5.3:1 on raised */
-    --accent: 96 165 250;
+    --accent: 165 168 255;        /* #A5A8FF, 6.7:1 on raised */
+    --accent-solid: 68 71 217;    /* #4447D9, white text 6.7:1 */
+    --accent-solid-hover: 59 63 209;
     --danger: 248 113 113;
     --success: 74 222 128;
     --warning: 251 191 36;
-    --focus: 96 165 250;
+    --focus: 165 168 255;
   }
 
   /* Increase Contrast / Windows high-contrast preference */

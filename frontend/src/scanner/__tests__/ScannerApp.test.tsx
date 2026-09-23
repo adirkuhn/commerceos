@@ -296,6 +296,12 @@ describe('ScannerApp launcher', () => {
     expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
   })
 
+  it('always renders in the dark appearance, whatever the device setting', async () => {
+    renderAt(<ScannerApp />, '/scanner')
+    const tile = await screen.findByText('Receive PO')
+    expect(tile.closest('.dark')).not.toBeNull()
+  })
+
   it('no tiles are disabled', async () => {
     renderAt(<ScannerApp />, '/scanner')
     await screen.findByText('Receive PO')

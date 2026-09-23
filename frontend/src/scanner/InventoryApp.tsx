@@ -122,14 +122,14 @@ function InventoryScanScreen({ token, onResolved, onExit }: { token: string; onR
         <button
           type="button"
           onClick={() => setTab('code')}
-          className={`flex-1 py-2 rounded-lg text-xs font-medium ${tab === 'code' ? 'bg-blue-600 text-white' : 'bg-night-800 text-gray-400'}`}
+          className={`flex-1 py-2 rounded-lg text-xs font-medium ${tab === 'code' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
         >
           Scan code
         </button>
         <button
           type="button"
           onClick={() => setTab('name')}
-          className={`flex-1 py-2 rounded-lg text-xs font-medium ${tab === 'name' ? 'bg-blue-600 text-white' : 'bg-night-800 text-gray-400'}`}
+          className={`flex-1 py-2 rounded-lg text-xs font-medium ${tab === 'name' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
         >
           Search by name
         </button>
@@ -197,13 +197,13 @@ function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="Product name…"
-          className="w-full px-4 py-4 text-center text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-4 py-4 text-center text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
         />
         {error && <p className="text-sm text-red-400">{error}</p>}
         <button
           type="submit"
           disabled={loading || name.trim().length === 0}
-          className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
           {loading ? 'Searching…' : 'Search'}
         </button>
@@ -318,7 +318,7 @@ function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBack }: {
           </h1>
           {level && <p className="text-xs text-gray-400">Total stock: {level.total}</p>}
         </div>
-        <button type="button" onClick={() => setPriceOpen(true)} className="flex items-baseline gap-1.5 text-sm font-semibold text-blue-400 shrink-0" title="Edit price" aria-label="Price">
+        <button type="button" onClick={() => setPriceOpen(true)} className="flex items-baseline gap-1.5 text-sm font-semibold text-accent shrink-0" title="Edit price" aria-label="Price">
           <Tag size={15} className="self-center" />
           {sku.sale_price_minor_units != null ? (
             <>
@@ -349,7 +349,7 @@ function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBack }: {
         {batches.map(b => (
           <div
             key={b.is_general_ledger ? `general-${b.warehouse_id}` : b.id}
-            className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700 hover:border-blue-500 transition-colors"
+            className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700 hover:border-accent transition-colors"
           >
             <button
               type="button"
@@ -442,14 +442,14 @@ function BatchOption({ selected, onClick, title, subtitle }: { selected: boolean
       type="button"
       onClick={onClick}
       className={`w-full flex items-center gap-2 p-2.5 rounded-lg border text-left transition-colors ${
-        selected ? 'border-blue-500 bg-blue-500/10' : 'border-night-700 bg-night-800'
+        selected ? 'border-accent bg-accent/10' : 'border-night-700 bg-night-800'
       }`}
     >
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{title}</p>
         <p className="text-xs text-gray-400 truncate">{subtitle}</p>
       </div>
-      {selected && <Check size={14} className="text-blue-400 shrink-0" />}
+      {selected && <Check size={14} className="text-accent shrink-0" />}
     </button>
   )
 }
@@ -539,7 +539,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
                 type="button"
                 onClick={() => setMode(t.id)}
                 className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${
-                  mode === t.id ? 'bg-blue-600 text-white' : 'bg-night-800 text-gray-400'
+                  mode === t.id ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'
                 }`}
               >
                 <t.icon size={15} />
@@ -555,7 +555,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
               <QuantityStepper id="row-adjust-qty" label="Quantity change" value={adjustQty} onChange={setAdjustQty} />
               <div>
                 <label htmlFor="row-adjust-reason" className="block text-xs text-gray-400 mb-1.5">Reason</label>
-                <input id="row-adjust-reason" value={adjustReason} onChange={e => setAdjustReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+                <input id="row-adjust-reason" value={adjustReason} onChange={e => setAdjustReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus" />
               </div>
             </>
           )}
@@ -568,7 +568,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
                   id="row-move-to-warehouse"
                   value={toWarehouseId}
                   onChange={e => setToWarehouseId(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
                 >
                   {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
@@ -604,7 +604,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
               <QuantityStepper id="row-move-qty" label="Quantity to move" value={moveQty} onChange={setMoveQty} min={0} max={availableQty} />
               <div>
                 <label htmlFor="row-move-reason" className="block text-xs text-gray-400 mb-1.5">Reason (optional)</label>
-                <input id="row-move-reason" value={moveReason} onChange={e => setMoveReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+                <input id="row-move-reason" value={moveReason} onChange={e => setMoveReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus" />
               </div>
             </>
           )}
@@ -626,7 +626,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
               <QuantityStepper id="row-dl-qty" label="Quantity" value={dlQty} onChange={setDlQty} min={0} max={availableQty} />
               <div>
                 <label htmlFor="row-dl-reason" className="block text-xs text-gray-400 mb-1.5">Reason</label>
-                <input id="row-dl-reason" value={dlReason} onChange={e => setDlReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+                <input id="row-dl-reason" value={dlReason} onChange={e => setDlReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus" />
               </div>
             </>
           )}
@@ -634,7 +634,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
           <button
             onClick={handleConfirm}
             disabled={confirmDisabled}
-            className={`w-full py-3 rounded-xl text-white font-semibold disabled:opacity-50 ${mode === 'damaged-lost' ? 'bg-red-600' : 'bg-blue-600'}`}
+            className={`w-full py-3 rounded-xl text-white font-semibold disabled:opacity-50 ${mode === 'damaged-lost' ? 'bg-red-600' : 'bg-accent-solid'}`}
           >
             Confirm
           </button>
@@ -681,28 +681,28 @@ function AddBatchSheet({ warehouses, error, onCancel, onCreate }: {
               id="add-batch-warehouse"
               value={warehouseId}
               onChange={e => setWarehouseId(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
             >
               {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
           <div>
             <label htmlFor="add-batch-lot" className="block text-xs text-gray-400 mb-1.5">Lot number</label>
-            <input id="add-batch-lot" value={lotNumber} onChange={e => setLotNumber(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+            <input id="add-batch-lot" value={lotNumber} onChange={e => setLotNumber(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus" />
           </div>
           <div>
             <label htmlFor="add-batch-expiry" className="block text-xs text-gray-400 mb-1.5">Expiry date (optional)</label>
-            <input id="add-batch-expiry" type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+            <input id="add-batch-expiry" type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus" />
           </div>
           <QuantityStepper id="add-batch-qty" label="Initial quantity" value={quantity} onChange={setQuantity} />
           <div>
             <label htmlFor="add-batch-reason" className="block text-xs text-gray-400 mb-1.5">Reason</label>
-            <input id="add-batch-reason" value={reason} onChange={e => setReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+            <input id="add-batch-reason" value={reason} onChange={e => setReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus" />
           </div>
           <button
             onClick={() => onCreate(warehouseId, lotNumber.trim(), expiryDate, Number(quantity) || 0, reason)}
             disabled={disabled}
-            className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold disabled:opacity-50"
+            className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold disabled:opacity-50"
           >
             Create
           </button>
@@ -735,14 +735,14 @@ function PriceSheet({ sku, error, onCancel, onSave }: {
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div>
             <label htmlFor="price-sheet-price" className="block text-xs text-gray-400 mb-1.5">Regular price ({sku.currency_code})</label>
-            <input id="price-sheet-price" type="number" step="0.01" min="0" value={price} onChange={e => setPrice(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+            <input id="price-sheet-price" type="number" step="0.01" min="0" value={price} onChange={e => setPrice(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus" />
           </div>
           <div>
             <label htmlFor="price-sheet-sale-price" className="block text-xs text-gray-400 mb-1.5">Sale price (optional)</label>
             <input
               id="price-sheet-sale-price" type="number" step="0.01" min="0" value={salePrice}
               onChange={e => { setSalePrice(e.target.value); if (e.target.value.trim() === '') setSaleEndDate('') }}
-              className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
             />
           </div>
           <div>
@@ -750,12 +750,12 @@ function PriceSheet({ sku, error, onCancel, onSave }: {
             <input
               id="price-sheet-sale-end" type="date" value={saleEndDate} onChange={e => setSaleEndDate(e.target.value)}
               disabled={salePrice.trim() === ''}
-              className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus disabled:opacity-50"
             />
           </div>
           <button
             onClick={() => onSave(price, salePrice, saleEndDate)}
-            className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold"
+            className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold"
           >
             Save
           </button>

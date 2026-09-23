@@ -74,7 +74,7 @@ export function WhatsAppTestModeModal({ connection, onClose, onSaved }: {
               value={testPhone}
               onChange={e => setTestPhone(e.target.value)}
               placeholder="31612345678"
-              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
             />
             <p className="mt-1.5 text-2xs text-ink-4">
               E.164, no leading '+' (e.g. 31612345678, not +31612345678).
@@ -87,7 +87,7 @@ export function WhatsAppTestModeModal({ connection, onClose, onSaved }: {
         <button
           onClick={handleSave}
           disabled={saving || (enabled && testPhone.trim() === '')}
-          className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>

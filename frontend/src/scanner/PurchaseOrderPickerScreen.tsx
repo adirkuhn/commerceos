@@ -93,13 +93,13 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
               key={w.id}
               onClick={() => startBooking(pendingPO, w.id)}
               disabled={startingId !== null}
-              className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700 text-left hover:border-blue-500 disabled:opacity-50 transition-colors"
+              className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700 text-left hover:border-accent disabled:opacity-50 transition-colors"
             >
               <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0">
                 <WarehouseIcon size={16} className="text-gray-400" />
               </div>
               <p className="text-sm font-medium flex-1 truncate">{w.name}</p>
-              {startingId === pendingPO.id && <span className="text-xs text-blue-400 shrink-0">Starting…</span>}
+              {startingId === pendingPO.id && <span className="text-xs text-accent shrink-0">Starting…</span>}
             </button>
           ))}
         </div>
@@ -125,7 +125,7 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search by supplier…"
-            className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
           />
         </div>
       </div>
@@ -140,7 +140,7 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
             key={po.id}
             onClick={() => handleSelect(po)}
             disabled={startingId !== null}
-            className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700 text-left hover:border-blue-500 disabled:opacity-50 transition-colors"
+            className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700 text-left hover:border-accent disabled:opacity-50 transition-colors"
           >
             <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0">
               <Package size={16} className="text-gray-400" />
@@ -155,7 +155,7 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
               </p>
             </div>
             <p className="text-xs font-medium text-gray-300 shrink-0">{formatPrice(po.total_minor_units, po.currency_code)}</p>
-            {startingId === po.id && <span className="text-xs text-blue-400 shrink-0">Starting…</span>}
+            {startingId === po.id && <span className="text-xs text-accent shrink-0">Starting…</span>}
           </button>
         ))}
       </div>

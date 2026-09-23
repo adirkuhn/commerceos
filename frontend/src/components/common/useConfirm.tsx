@@ -64,7 +64,7 @@ function ConfirmDialog({ options, onCancel, onConfirm }: { options: ConfirmOptio
             onClick={onConfirm}
             className={clsx(
               'px-3 py-1.5 rounded-lg text-xs font-medium text-white',
-              options.destructive ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700',
+              options.destructive ? 'bg-red-600 hover:bg-red-700' : 'bg-accent-solid hover:bg-accent-solid-hover',
             )}
           >
             {options.confirmLabel}

@@ -91,7 +91,7 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
                 onClick={() => setTab(t.id)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors ${
                   tab === t.id
-                    ? 'text-accent border-b-2 border-blue-500'
+                    ? 'text-accent border-b-2 border-accent'
                     : 'text-ink-4'
                 }`}
               >
@@ -116,7 +116,7 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
             <>
               {tab === 'digits' && (
                 <>
-                  <div className="w-14 h-14 rounded-2xl bg-blue-500/15 flex items-center justify-center">
+                  <div className="w-14 h-14 rounded-2xl bg-accent/15 flex items-center justify-center">
                     <Hash size={24} className="text-accent" />
                   </div>
                   <p className="text-4xl font-bold tracking-[0.3em] text-ink">{pairing.code}</p>

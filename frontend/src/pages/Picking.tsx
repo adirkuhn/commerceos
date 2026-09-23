@@ -510,7 +510,7 @@ export default function Picking() {
     return (o.number || o.external_order_id).toLowerCase().includes(q) || customerName(o).toLowerCase().includes(q)
   })
 
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
 
   return (
     <div className="flex h-full">
@@ -527,7 +527,7 @@ export default function Picking() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search orders..."
-              className="w-full pl-7 pr-2 py-1.5 text-2xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full pl-7 pr-2 py-1.5 text-2xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
             />
           </div>
         </div>
@@ -544,7 +544,7 @@ export default function Picking() {
               className={clsx(
                 'w-full text-left px-4 py-3 border-b border-line transition-colors',
                 activeOrder?.id === o.id
-                  ? 'dark:bg-blue-600/10 bg-blue-50 border-l-2 border-l-blue-500'
+                  ? ' bg-accent/10 border-l-2 border-l-accent'
                   : 'hover:bg-raised',
               )}
             >
@@ -595,7 +595,7 @@ export default function Picking() {
 
             <button
               type="button" onClick={continueToPacking}
-              className="mt-5 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 flex items-center gap-1.5"
+              className="mt-5 px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover flex items-center gap-1.5"
             >
               <PackageCheck size={13} /> Continue to Packing
             </button>
@@ -725,7 +725,7 @@ export default function Picking() {
 
             {/* Scan input */}
             <div className="px-6 py-4 border-b border-line shrink-0 dark:bg-night-900/80 bg-gray-50">
-              <div className="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border-2 dark:border-blue-500 border-blue-400 bg-raised">
+              <div className="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border-2  border-accent bg-raised">
                 <ScanBarcode size={20} className="text-accent" />
                 <input
                   ref={codeRef}
@@ -749,7 +749,7 @@ export default function Picking() {
               </div>
               <div className="h-2 dark:bg-night-700 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className={clsx('h-full rounded-full transition-all duration-500', allPicked ? 'bg-green-500' : 'bg-blue-500')}
+                  className={clsx('h-full rounded-full transition-all duration-500', allPicked ? 'bg-green-500' : 'bg-accent-solid')}
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -831,19 +831,19 @@ export default function Picking() {
             <div className="flex items-center rounded-lg border border-line overflow-hidden">
               <button
                 type="button" onClick={() => setPickPanelMode('pick')}
-                className={clsx('flex-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'pick' ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
+                className={clsx('flex-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'pick' ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
               >
                 Pick
               </button>
               <button
                 type="button" onClick={() => { setPickPanelMode('substitute'); setSubstituteRows([newSubstituteRow()]) }}
-                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'substitute' ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
+                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'substitute' ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
               >
                 <Repeat size={11} /> Substitute
               </button>
               <button
                 type="button" onClick={() => setPickPanelMode('refund')}
-                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'refund' ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
+                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'refund' ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
               >
                 <Undo2 size={11} /> Refund
               </button>
@@ -872,7 +872,7 @@ export default function Picking() {
                 </label>
                 <button
                   type="button" onClick={confirmRefund} disabled={busy || !refundReady}
-                  className="w-full px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                  className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
                 >
                   Confirm refund
                 </button>
@@ -889,7 +889,7 @@ export default function Picking() {
                 </div>
                 <button
                   type="button" onClick={confirmPick} disabled={busy}
-                  className="w-full px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                  className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
                 >
                   Confirm pick
                 </button>
@@ -953,7 +953,7 @@ export default function Picking() {
                 </p>
                 <button
                   type="button" onClick={confirmSubstitute} disabled={busy || !substituteReady}
-                  className="w-full px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                  className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
                 >
                   Confirm substitute
                 </button>
@@ -988,13 +988,13 @@ export default function Picking() {
                 <div className="flex items-center rounded-lg border border-line overflow-hidden">
                   <button
                     type="button" onClick={() => setAddItemFreebie(true)}
-                    className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', addItemFreebie ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
+                    className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', addItemFreebie ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
                   >
                     <Gift size={11} /> Freebie
                   </button>
                   <button
                     type="button" onClick={() => setAddItemFreebie(false)}
-                    className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', !addItemFreebie ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
+                    className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', !addItemFreebie ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
                   >
                     <PackagePlus size={11} /> New item
                   </button>
@@ -1019,7 +1019,7 @@ export default function Picking() {
                 )}
                 <button
                   type="button" onClick={confirmAddItem} disabled={busy}
-                  className="w-full px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                  className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
                 >
                   Add to order
                 </button>

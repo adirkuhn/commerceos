@@ -20,7 +20,14 @@ export default {
           3: 'rgb(var(--ink-3) / <alpha-value>)',
           4: 'rgb(var(--ink-4) / <alpha-value>)',
         },
-        accent: 'rgb(var(--accent) / <alpha-value>)',
+        // Brand accent: "postmark ultramarine" -- the ink of parcel stamps
+        // and carrier labels. accent = text/icons/tints, accent-solid =
+        // filled primary buttons (white text).
+        accent: {
+          DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
+          solid: 'rgb(var(--accent-solid) / <alpha-value>)',
+          'solid-hover': 'rgb(var(--accent-solid-hover) / <alpha-value>)',
+        },
         danger: 'rgb(var(--danger) / <alpha-value>)',
         success: 'rgb(var(--success) / <alpha-value>)',
         warning: 'rgb(var(--warning) / <alpha-value>)',

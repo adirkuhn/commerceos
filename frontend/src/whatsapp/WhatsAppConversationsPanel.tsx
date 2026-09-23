@@ -128,12 +128,12 @@ export default function WhatsAppConversationsPanel() {
                     <div
                       className={
                         m.direction === 'outbound'
-                          ? 'max-w-[70%] rounded-lg px-3 py-2 bg-blue-600 text-white'
+                          ? 'max-w-[70%] rounded-lg px-3 py-2 bg-accent-solid text-white'
                           : 'max-w-[70%] rounded-lg px-3 py-2 dark:bg-night-800 bg-gray-100 text-ink'
                       }
                     >
                       <p className="text-xs whitespace-pre-wrap">{m.body}</p>
-                      <p className={`text-2xs mt-0.5 ${m.direction === 'outbound' ? 'text-blue-100' : 'text-ink-4'}`}>
+                      <p className={`text-2xs mt-0.5 ${m.direction === 'outbound' ? 'text-white/80' : 'text-ink-4'}`}>
                         {new Date(m.created_at).toLocaleString()}
                       </p>
                     </div>

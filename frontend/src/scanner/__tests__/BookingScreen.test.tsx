@@ -129,7 +129,7 @@ describe('BookingScreen / BookLineSheet suggested batch pre-fill', () => {
     const row = await screen.findByText('Unlabeled Widget')
     await userEvent.click(row)
 
-    await waitFor(() => expect(screen.getByText('General ledger').closest('button')).toHaveClass('border-blue-500'))
+    await waitFor(() => expect(screen.getByText('General ledger').closest('button')).toHaveAttribute('aria-pressed', 'true'))
     expect(screen.queryByLabelText('Lot number')).not.toBeInTheDocument()
   })
 })

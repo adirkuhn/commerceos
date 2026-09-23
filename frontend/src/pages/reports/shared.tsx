@@ -60,7 +60,7 @@ export function PeriodSelector({ period, onChange }: { period: ReportsPeriod; on
           className={clsx(
             'px-3 py-1 rounded-md text-xs font-medium transition-colors',
             period === p
-              ? 'bg-blue-600 text-white'
+              ? 'bg-accent-solid text-white'
               : 'text-ink-3 hover:text-ink-2',
           )}
         >
@@ -98,7 +98,7 @@ export function DateRangeControl({
             className={clsx(
               'px-3 py-1 rounded-md text-xs font-medium capitalize transition-colors',
               mode === p
-                ? 'bg-blue-600 text-white'
+                ? 'bg-accent-solid text-white'
                 : 'text-ink-3 hover:text-ink-2',
             )}
           >
@@ -113,7 +113,7 @@ export function DateRangeControl({
             value={customFrom}
             max={customTo || undefined}
             onChange={e => onCustomFromChange(e.target.value)}
-            className="px-2 py-1 rounded-lg border border-line bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="px-2 py-1 rounded-lg border border-line bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-focus"
           />
           <span className="text-ink-4">–</span>
           <input
@@ -121,7 +121,7 @@ export function DateRangeControl({
             value={customTo}
             min={customFrom || undefined}
             onChange={e => onCustomToChange(e.target.value)}
-            className="px-2 py-1 rounded-lg border border-line bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="px-2 py-1 rounded-lg border border-line bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
       )}
@@ -142,7 +142,7 @@ export function ViewToggle({ showDaily, onChange }: { showDaily: boolean; onChan
           className={clsx(
             'px-3 py-1 rounded-md text-xs font-medium transition-colors',
             showDaily === opt.value
-              ? 'bg-blue-600 text-white'
+              ? 'bg-accent-solid text-white'
               : 'text-ink-3 hover:text-ink-2',
           )}
         >

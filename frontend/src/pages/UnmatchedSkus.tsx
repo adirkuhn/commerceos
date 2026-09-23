@@ -117,7 +117,7 @@ function UnmatchedLineItems({ salesOrderId, onLinked }: { salesOrderId: string; 
               <button
                 onClick={() => setPickerForLineItemId(id => (id === li.id ? null : li.id))}
                 disabled={linkingId === li.id}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors shrink-0"
+                className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors shrink-0"
               >
                 {linkingId === li.id ? 'Linking…' : 'Link to product'}
               </button>

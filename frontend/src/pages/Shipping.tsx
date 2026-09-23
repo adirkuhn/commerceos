@@ -29,7 +29,7 @@ const SHIPMENTS: Shipment[] = [
 
 const CARRIER_COLORS: Record<string, string> = {
   sendcloud: 'bg-purple-500/15 text-purple-400',
-  myparcel: 'bg-blue-500/15 text-accent',
+  myparcel: 'bg-accent/15 text-accent',
   packlink: 'bg-orange-500/15 text-orange-400',
   dhl: 'bg-yellow-500/15 text-warning',
   postnl: 'bg-orange-600/15 text-orange-500',
@@ -105,7 +105,7 @@ export default function Shipping() {
             className={clsx(
               'text-xs font-medium capitalize transition-colors pb-0.5',
               tab === t
-                ? 'text-ink border-b-2 border-blue-500'
+                ? 'text-ink border-b-2 border-accent'
                 : 'text-ink-4 hover:text-ink-2',
             )}
           >
@@ -120,7 +120,7 @@ export default function Shipping() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Order, customer, tracking..."
-              className="pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500 w-60"
+              className="pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus w-60"
             />
           </div>
         )}
@@ -133,7 +133,7 @@ export default function Shipping() {
             <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
               <tr>
                 <th className="px-4 py-2.5 w-8">
-                  <input type="checkbox" className="rounded accent-blue-600 w-3 h-3" />
+                  <input type="checkbox" className="rounded accent-accent-solid w-3 h-3" />
                 </th>
                 {['Shipment', 'Order', 'Customer', 'Carrier', 'Service', 'Weight', 'Tracking', 'Status', 'Cost', 'Date', ''].map(h => (
                   <th key={h} className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -147,7 +147,7 @@ export default function Shipping() {
                 return (
                   <tr key={s.id} className="hover:bg-hover/60 transition-colors group">
                     <td className="px-4 py-2.5">
-                      <input type="checkbox" className="rounded accent-blue-600 w-3 h-3" />
+                      <input type="checkbox" className="rounded accent-accent-solid w-3 h-3" />
                     </td>
                     <td className="px-3 py-2.5 font-mono font-medium text-ink">{s.id}</td>
                     <td className="px-3 py-2.5 font-mono text-ink-3 text-2xs">{s.orderId}</td>
@@ -197,7 +197,7 @@ export default function Shipping() {
                 <h3 className="text-sm font-semibold text-ink">Auto-Carrier Rules</h3>
                 <p className="text-2xs text-ink-4 mt-0.5">Rules applied automatically based on weight, region, and cost</p>
               </div>
-              <button className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">
+              <button className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">
                 + Add Rule
               </button>
             </div>

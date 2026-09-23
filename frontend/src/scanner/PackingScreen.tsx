@@ -343,7 +343,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
           {myParcelConnection && !createdShipmentId && (
             <button
               type="button" onClick={handleCreateLabelClick}
-              className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
+              className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-200 text-sm font-medium hover:border-accent transition-colors"
             >
               Create shipping label
             </button>
@@ -351,12 +351,12 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
           {createdShipmentId && (
             <button
               type="button" onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
-              className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
+              className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-200 text-sm font-medium hover:border-accent transition-colors"
             >
               {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
             </button>
           )}
-          <button onClick={onExit} className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700">
+          <button onClick={onExit} className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold hover:bg-accent-solid-hover">
             Done
           </button>
         </div>
@@ -461,7 +461,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
               key={li.id}
               type="button"
               onClick={() => setPackLine({ lineItem: li, packedSoFar: packedQty })}
-              className="w-full flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3 text-left hover:border-blue-500 transition-colors"
+              className="w-full flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3 text-left hover:border-accent transition-colors"
             >
               <LineItemThumb token={token} name={li.name} productId={li.product_id} />
               {done && <Check size={16} className="text-green-400 shrink-0" />}
@@ -486,7 +486,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
             onChange={e => setCode(e.target.value)}
             placeholder="Scan or type barcode…"
             disabled={scanning || !!scanErrorAlert}
-            className="flex-1 px-3 py-3 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="flex-1 px-3 py-3 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus disabled:opacity-50"
           />
           <button
             type="button"
@@ -499,7 +499,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
         </div>
         <button
           type="submit" disabled={scanning || !code.trim() || !!scanErrorAlert}
-          className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50"
+          className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
         >
           {scanning ? 'Looking up…' : 'Scan'}
         </button>
@@ -610,7 +610,7 @@ function PackLineSheet({ lineItem, packedSoFar, scans, onDeleteScan, onCancel, o
           <button
             onClick={() => onPack(n)}
             disabled={n <= 0}
-            className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold disabled:opacity-50"
+            className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold disabled:opacity-50"
           >
             Confirm pack
           </button>

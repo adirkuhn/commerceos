@@ -67,13 +67,13 @@ export default function Warehouses() {
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
             placeholder="Search by name..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <button
             onClick={openNew}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
             <Plus size={13} /> New Warehouse
           </button>
@@ -195,7 +195,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
   }
 
   const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
 
   return (
     <div className="flex flex-col h-full">
@@ -220,7 +220,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
           </button>
           <button
             type="submit" form="warehouse-form" disabled={saving || !name.trim()}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving…' : warehouse ? 'Save' : 'Create Warehouse'}
           </button>
@@ -244,7 +244,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
                       onChange={e => setActive(e.target.checked)}
                       className="sr-only peer"
                     />
-                    <span className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                    <span className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
                     <span className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                   </span>
                 </label>

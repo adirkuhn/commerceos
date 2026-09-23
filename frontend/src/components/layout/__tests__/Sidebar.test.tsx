@@ -62,6 +62,16 @@ describe('Sidebar product count badge', () => {
   })
 })
 
+describe('Sidebar brand', () => {
+  beforeEach(() => vi.mocked(listProducts).mockResolvedValue({ products: [], total: 0 }))
+
+  it('shows the product name beside a decorative mark', () => {
+    const { container } = renderSidebar()
+    expect(screen.getByText('CommerceOS')).toBeInTheDocument()
+    expect(container.querySelector('aside svg[aria-hidden="true"]')).not.toBeNull()
+  })
+})
+
 describe('Sidebar groups', () => {
   beforeEach(() => {
     vi.mocked(listProducts).mockResolvedValue({ products: [], total: 0 })

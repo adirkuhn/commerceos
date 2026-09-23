@@ -43,7 +43,7 @@ const SOURCE_FILTER_OPTIONS: { value: SalesOrderSource; label: string }[] = [
 
 const STATUS_COLORS: Record<SalesOrderStatus, string> = {
   pending: 'bg-gray-500/15 text-ink-4',
-  processing: 'bg-blue-500/15 text-accent',
+  processing: 'bg-accent/15 text-accent',
   'on-hold': 'bg-amber-500/15 text-warning',
   shipped: 'bg-indigo-500/15 text-indigo-400',
   completed: 'bg-green-500/15 text-success',
@@ -287,7 +287,7 @@ export default function SalesOrders() {
       <div className="flex items-center justify-end gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <button
           onClick={() => navigate('/sales-orders/new')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
         >
           <Plus size={13} /> New Sales Order
         </button>
@@ -305,7 +305,7 @@ export default function SalesOrders() {
               className={clsx(
                 'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
                 sourceFilter.includes(value)
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-accent-solid text-white'
                   : 'bg-raised text-ink-3 hover:bg-hover',
               )}
             >
@@ -327,7 +327,7 @@ export default function SalesOrders() {
               className={clsx(
                 'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors',
                 statusFilter.includes(s)
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-accent-solid text-white'
                   : 'dark:bg-night-800 bg-gray-50 text-ink-3 hover:bg-hover',
               )}
             >
@@ -345,7 +345,7 @@ export default function SalesOrders() {
           <option value="false">Only unfulfilled</option>
         </select>
         {customerId && (
-          <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-blue-500/15 text-accent">
+          <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-accent/15 text-accent">
             Filtered to one customer
             <button type="button" onClick={() => setCustomerId(null)} aria-label="Clear customer filter" className="hover:opacity-70">
               <X size={12} />
@@ -364,7 +364,7 @@ export default function SalesOrders() {
 
       {/* Bulk action bar */}
       {checkedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-5 py-2.5 border-b border-line dark:bg-night-800 bg-blue-50 shrink-0">
+        <div className="flex items-center gap-3 px-5 py-2.5 border-b border-line dark:bg-night-800 bg-accent/10 shrink-0">
           <span className="text-xs font-medium text-ink-2">{checkedIds.size} selected</span>
           <select
             aria-label="Bulk change status" value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} disabled={bulkApplying}
@@ -384,7 +384,7 @@ export default function SalesOrders() {
           <button
             onClick={applyBulkChange}
             disabled={bulkApplying || (!bulkStatus && !bulkFulfilled)}
-            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {bulkApplying ? 'Applying…' : 'Apply'}
           </button>
@@ -602,7 +602,7 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
   }
 
   const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
 
   return (
     <div className="flex flex-col h-full">
@@ -625,7 +625,7 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
           </button>
           <button
             type="submit" form="create-sales-order-form" disabled={saving || !warehouseId}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {saving ? 'Creating…' : 'Create Sales Order'}
           </button>
@@ -744,7 +744,7 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
 
 function CreateAddressFields({ title, prefix, value, onChange, showPhone }: { title: string; prefix: string; value: Address; onChange: (a: Address) => void; showPhone?: boolean }) {
   const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
   const set = (field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [field]: e.target.value })
   const id = (field: string) => `${prefix}-${field}`
   const label = (text: string) => `${title.replace(' address', '')} ${text}`
@@ -1161,13 +1161,13 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
                         value={noteDraft}
                         onChange={e => setNoteDraft(e.target.value)}
                         rows={3}
-                        className="w-full px-2 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
                       />
                       <div className="flex items-center gap-2">
                         <button
                           onClick={saveNote}
                           disabled={savingNote}
-                          className="px-2.5 py-1 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                          className="px-2.5 py-1 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors disabled:opacity-50"
                         >
                           Save note
                         </button>

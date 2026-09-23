@@ -40,7 +40,7 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
                   type="button"
                   onClick={() => setChoices(prev => ({ ...prev, [s.scan_id]: 'with_item' }))}
                   aria-pressed={choices[s.scan_id] === 'with_item'}
-                  className={`flex-1 px-2 py-2.5 rounded-lg text-xs font-medium transition-colors ${choices[s.scan_id] === 'with_item' ? 'bg-blue-600 text-white' : 'bg-fill text-ink-2'}`}
+                  className={`flex-1 px-2 py-2.5 rounded-lg text-xs font-medium transition-colors ${choices[s.scan_id] === 'with_item' ? 'bg-accent-solid text-white' : 'bg-fill text-ink-2'}`}
                 >
                   Send it (fix inventory)
                 </button>
@@ -48,7 +48,7 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
                   type="button"
                   onClick={() => setChoices(prev => ({ ...prev, [s.scan_id]: 'without_item' }))}
                   aria-pressed={choices[s.scan_id] === 'without_item'}
-                  className={`flex-1 px-2 py-2.5 rounded-lg text-xs font-medium transition-colors ${choices[s.scan_id] === 'without_item' ? 'bg-blue-600 text-white' : 'bg-fill text-ink-2'}`}
+                  className={`flex-1 px-2 py-2.5 rounded-lg text-xs font-medium transition-colors ${choices[s.scan_id] === 'without_item' ? 'bg-accent-solid text-white' : 'bg-fill text-ink-2'}`}
                 >
                   Skip it
                 </button>
@@ -65,7 +65,7 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
           </button>
           <button
             type="button" onClick={() => onConfirm(choices)} disabled={submitting}
-            className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="flex-1 px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {submitting ? 'Completing…' : 'Confirm & Complete'}
           </button>

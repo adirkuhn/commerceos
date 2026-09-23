@@ -45,8 +45,8 @@ export function ScanCodeScreen({
         </div>
       )}
       <div className="flex-1 flex flex-col items-center justify-center gap-6">
-        <div className="w-16 h-16 rounded-2xl bg-blue-600/20 flex items-center justify-center">
-          <Icon size={28} className="text-blue-400" />
+        <div className="w-16 h-16 rounded-2xl bg-accent/20 flex items-center justify-center">
+          <Icon size={28} className="text-accent" />
         </div>
         <p className="text-sm text-gray-400">{prompt}</p>
         <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-3">
@@ -55,13 +55,13 @@ export function ScanCodeScreen({
             value={code}
             onChange={e => setCode(e.target.value)}
             placeholder={placeholder}
-            className="w-full px-4 py-4 text-center text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-4 text-center text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
           />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             type="submit"
             disabled={loading || code.trim().length === 0}
-            className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {loading ? loadingLabel : submitLabel}
           </button>

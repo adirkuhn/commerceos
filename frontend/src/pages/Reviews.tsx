@@ -64,7 +64,7 @@ export default function Reviews() {
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
             placeholder="Search by customer, product, or text..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
       </div>

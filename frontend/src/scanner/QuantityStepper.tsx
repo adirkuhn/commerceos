@@ -19,13 +19,13 @@ export function QuantityStepper({ id, label, value, onChange, min, max }: { id: 
       <div className="flex items-center justify-between mb-1.5">
         <label htmlFor={id} className="block text-xs text-gray-400">{label}</label>
         {max !== undefined && (
-          <button type="button" onClick={() => onChange(String(clamp(max)))} className="text-xs font-medium text-blue-400">
+          <button type="button" onClick={() => onChange(String(clamp(max)))} className="text-xs font-medium text-accent">
             Max
           </button>
         )}
       </div>
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => onChange(String(clamp(n - 1)))} className="w-9 h-9 shrink-0 rounded-xl bg-night-800 flex items-center justify-center" aria-label={`Decrease ${label}`}>
+        <button type="button" onClick={() => onChange(String(clamp(n - 1)))} className="w-11 h-11 shrink-0 rounded-xl bg-night-800 flex items-center justify-center" aria-label={`Decrease ${label}`}>
           <Minus size={14} />
         </button>
         <input
@@ -36,9 +36,9 @@ export function QuantityStepper({ id, label, value, onChange, min, max }: { id: 
             const digits = e.target.value.replace(/(?!^-)[^\d]/g, '')
             onChange(digits === '' || digits === '-' ? digits : String(clamp(Number(digits))))
           }}
-          className="flex-1 min-w-0 px-2 py-2 text-center text-base rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 min-w-0 px-2 py-2 text-center text-base rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
         />
-        <button type="button" onClick={() => onChange(String(clamp(n + 1)))} className="w-9 h-9 shrink-0 rounded-xl bg-night-800 flex items-center justify-center" aria-label={`Increase ${label}`}>
+        <button type="button" onClick={() => onChange(String(clamp(n + 1)))} className="w-11 h-11 shrink-0 rounded-xl bg-night-800 flex items-center justify-center" aria-label={`Increase ${label}`}>
           <Plus size={14} />
         </button>
       </div>

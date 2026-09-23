@@ -43,7 +43,7 @@ function todayDateString(): string {
 
 const STATUS_STYLE: Record<PurchaseOrderStatus, string> = {
   draft: 'bg-gray-500/15 text-ink-4',
-  sent: 'bg-blue-500/15 text-accent',
+  sent: 'bg-accent/15 text-accent',
   partially_received: 'bg-amber-500/15 text-warning',
   received: 'bg-green-500/15 text-success',
   cancelled: 'bg-red-500/15 text-danger',
@@ -206,7 +206,7 @@ export default function Procurement() {
           </button>
           <button
             onClick={openNew}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
             <Plus size={13} /> Add Purchase Order
           </button>
@@ -365,7 +365,7 @@ function BookingDiscrepanciesPage({ token, onClose }: { token: string; onClose: 
             className={clsx(
               'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
               tab === t.id
-                ? 'bg-blue-600 text-white'
+                ? 'bg-accent-solid text-white'
                 : 'bg-raised text-ink-3 hover:bg-hover',
             )}
           >
@@ -509,7 +509,7 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
             <input id="upload-file" type="file" accept=".pdf,.csv,.xlsx"
               disabled={status !== 'idle'}
               onChange={e => setFile(e.target.files?.[0] ?? null)}
-              className="w-full text-xs text-ink-2 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:text-xs file:font-medium file:cursor-pointer disabled:opacity-50" />
+              className="w-full text-xs text-ink-2 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-accent-solid file:text-white file:text-xs file:font-medium file:cursor-pointer disabled:opacity-50" />
           </div>
           {formError && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>}
           <div className="flex items-center justify-end gap-2 pt-1">
@@ -518,7 +518,7 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
               Cancel
             </button>
             <button type="submit" disabled={status !== 'idle' || !file}
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
               {status === 'uploading' ? 'Uploading…' : 'Upload & Create'}
             </button>
           </div>
@@ -672,7 +672,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
   }
 
   const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
 
   return (
     <div className="flex flex-col h-full">
@@ -697,7 +697,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
           </button>
           <button
             type="submit" form="po-form" disabled={saving || !supplierId}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving…' : isNew ? 'Create Purchase Order' : 'Save'}
           </button>
@@ -888,10 +888,10 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAs
         <input
           aria-label="New supplier name" required value={name} onChange={e => setName(e.target.value)}
           placeholder="New supplier name"
-          className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
         />
         <button type="submit" disabled={saving || !name.trim()}
-          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
+          className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 whitespace-nowrap">
           {saving ? (matchedSupplier ? 'Assigning…' : 'Creating…') : (matchedSupplier ? 'Assign existing supplier' : 'Create & Assign')}
         </button>
       </form>
@@ -1123,7 +1123,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover"
             >
               <Plus size={11} /> Add Line Item
             </button>
@@ -1351,11 +1351,11 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
   }
 
   const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-950 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-950 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-focus'
   const idPrefix = initial?.id ?? 'new'
 
   return (
-    <tr className="dark:bg-night-900/40 bg-blue-50/30">
+    <tr className="bg-accent/5">
       <td colSpan={8} className="px-4 py-3">
           <div className="grid grid-cols-4 gap-3">
             <div className="col-span-2">
@@ -1468,7 +1468,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
           <div className="flex items-center gap-2 mt-3">
             <button
               type="button" disabled={saving} onClick={handleSubmit}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50"
             >
               <Check size={12} /> Save Line
             </button>
@@ -1697,7 +1697,7 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
         ) : (
           <button
             type="button" onClick={handleComplete} disabled={completing}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
           >
             <PackageCheck size={11} /> {completing ? 'Completing…' : 'Mark Receiving Complete'}
           </button>
@@ -2066,7 +2066,7 @@ function ReceiveDiscrepancyForm({ skuId, warehouseId, warehouses, onAssignWareho
     return <p className="text-2xs font-medium text-green-400">Stock received.</p>
   }
 
-  const inputClass = 'w-full px-2 py-1 text-2xs rounded dark:bg-night-950 bg-white border dark:border-night-700 text-ink outline-none focus:ring-1 focus:ring-blue-500'
+  const inputClass = 'w-full px-2 py-1 text-2xs rounded dark:bg-night-950 bg-white border dark:border-night-700 text-ink outline-none focus:ring-1 focus:ring-focus'
 
   return (
     <form onSubmit={handleSubmit} className="flex items-end gap-2 pt-1 flex-wrap">
@@ -2097,7 +2097,7 @@ function ReceiveDiscrepancyForm({ skuId, warehouseId, warehouses, onAssignWareho
         <label htmlFor={`receive-expiry-${skuId}`} className="block text-2xs text-ink-4 mb-0.5">Expiry</label>
         <input id={`receive-expiry-${skuId}`} type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className={inputClass} />
       </div>
-      <button type="submit" disabled={saving} className="px-2.5 py-1 rounded-lg bg-blue-600 text-white text-2xs font-semibold hover:bg-blue-700 disabled:opacity-50">
+      <button type="submit" disabled={saving} className="px-2.5 py-1 rounded-lg bg-accent-solid text-white text-2xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50">
         {saving ? 'Saving…' : 'Save receipt'}
       </button>
       <button type="button" onClick={onDone} className="px-2 py-1 text-2xs text-ink-4 hover:underline">
@@ -2158,7 +2158,7 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
     }
   }
 
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
   const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1'
 
   return (
@@ -2170,7 +2170,7 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
       {mode === 'choose' && (
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => setMode('link')}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700">
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover">
             <Search size={10} /> Link to existing product
           </button>
           <button type="button" onClick={() => setMode('create')}
@@ -2218,7 +2218,7 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
           </div>
           <div className="flex items-center gap-2">
             <button type="submit" disabled={saving}
-              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-semibold hover:bg-blue-700 disabled:opacity-50">
+              className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50">
               {saving ? 'Creating…' : 'Create & Link'}
             </button>
             <button type="button" onClick={() => setMode('choose')} className="text-2xs text-ink-4 hover:underline">
@@ -2271,7 +2271,7 @@ export function ProductSkuPicker({ onSelect, onClose }: ProductSkuPickerProps) {
           <input
             autoFocus value={query} onChange={e => setQuery(e.target.value)}
             placeholder="Search products by name…"
-            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <button type="button" onClick={onClose} title="Close">

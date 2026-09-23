@@ -80,11 +80,11 @@ export default function NotificationBell() {
                   onClick={() => handleClick(n)}
                   className={clsx(
                     'w-full text-left px-3 py-2.5 border-b border-line/60 hover:bg-sunken transition-colors',
-                    !n.read && 'dark:bg-blue-500/5 bg-blue-50/50',
+                    !n.read && 'bg-accent/10',
                   )}
                 >
                   <div className="flex items-start gap-2">
-                    {!n.read && <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                    {!n.read && <span className="mt-1 w-1.5 h-1.5 rounded-full bg-accent-solid shrink-0" />}
                     <div className={clsx('min-w-0 flex-1', n.read && 'pl-3.5')}>
                       <p className="text-xs font-medium text-ink truncate">{n.title}</p>
                       {n.message && <p className="text-2xs text-ink-4 mt-0.5 line-clamp-2">{n.message}</p>}

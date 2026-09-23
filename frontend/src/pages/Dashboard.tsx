@@ -50,7 +50,7 @@ function StatCard({ label, value, sub, icon: Icon, trend, trendValue, color = 'b
         <span className="text-xs text-ink-3 font-medium">{label}</span>
         <div className={clsx(
           'w-7 h-7 rounded-lg flex items-center justify-center',
-          color === 'blue' && 'bg-blue-500/15',
+          color === 'blue' && 'bg-accent/15',
           color === 'green' && 'bg-green-500/15',
           color === 'amber' && 'bg-amber-500/15',
           color === 'red' && 'bg-red-500/15',

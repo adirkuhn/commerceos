@@ -94,7 +94,7 @@ function PaymentWebhookSetupStep({
           <p className="text-xs text-success bg-green-50 dark:bg-green-500/10 rounded-lg px-2 py-1.5">Webhook secret saved.</p>
           <button
             onClick={onDone}
-            className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+            className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
           >
             Done
           </button>
@@ -112,7 +112,7 @@ function PaymentWebhookSetupStep({
               autoFocus
               value={secret}
               onChange={e => onSecretChange(e.target.value)}
-              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
             />
           </div>
           {error && (
@@ -129,7 +129,7 @@ function PaymentWebhookSetupStep({
             <button
               type="submit"
               disabled={saving}
-              className="py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
@@ -481,10 +481,10 @@ export default function Integrations() {
         {showWebhookAdmin && (
           <button
             onClick={() => setActiveNav('webhooks')}
-            className="flex items-center justify-between px-4 py-3 rounded-xl bg-raised border border-line hover:border-blue-500 transition-colors text-left"
+            className="flex items-center justify-between px-4 py-3 rounded-xl bg-raised border border-line hover:border-accent transition-colors text-left"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg dark:bg-blue-600/15 bg-blue-50 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
                 <Webhook size={15} className="text-accent" />
               </div>
               <div>
@@ -505,7 +505,7 @@ export default function Integrations() {
             <p className="text-xs text-ink-4 mb-4">Connect a store to start syncing orders and inventory</p>
             <button
               onClick={route.openBrowse}
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
             >
               Browse Integrations
             </button>
@@ -516,7 +516,7 @@ export default function Integrations() {
               <h2 className="text-sm font-semibold text-ink">Connected integrations</h2>
               <button
                 onClick={route.openBrowse}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
               >
                 Browse Integrations
               </button>
@@ -547,7 +547,7 @@ export default function Integrations() {
                       </p>
                     )}
                     {conn.provider === 'whatsapp' && conn.whatsapp_ai_parsing_enabled && (
-                      <p className="mt-2 text-2xs px-2 py-1 rounded-lg text-accent bg-blue-500/10">
+                      <p className="mt-2 text-2xs px-2 py-1 rounded-lg text-accent bg-accent/10">
                         AI-assisted parsing on
                       </p>
                     )}
@@ -789,7 +789,7 @@ export default function Integrations() {
                   </p>
                   <button
                     onClick={closeBrowse}
-                    className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                    className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
                   >
                     Done
                   </button>
@@ -807,7 +807,7 @@ export default function Integrations() {
                       value={waBaseUrl}
                       onChange={e => setWaBaseUrl(e.target.value)}
                       placeholder="https://evolution.example.com"
-                      className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                     />
                     <p className="mt-1.5 text-2xs text-ink-4">
                       Your own self-hosted Evolution API instance (unofficial WhatsApp gateway) — not an official WhatsApp Business API.
@@ -823,7 +823,7 @@ export default function Integrations() {
                       required
                       value={waInstanceName}
                       onChange={e => setWaInstanceName(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                     />
                   </div>
                   <div>
@@ -836,7 +836,7 @@ export default function Integrations() {
                       required
                       value={waApiKey}
                       onChange={e => setWaApiKey(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                     />
                   </div>
                   {connectError && (
@@ -845,7 +845,7 @@ export default function Integrations() {
                   <button
                     type="submit"
                     disabled={starting}
-                    className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                   >
                     {starting ? 'Connecting…' : 'Connect'}
                   </button>
@@ -879,7 +879,7 @@ export default function Integrations() {
                     value={stripeSecretKey}
                     onChange={e => setStripeSecretKey(e.target.value)}
                     placeholder="sk_live_..."
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                   <p className="mt-1.5 text-2xs text-ink-4">
                     From your Stripe Dashboard → Developers → API keys.
@@ -895,7 +895,7 @@ export default function Integrations() {
                     value={stripePublishableKey}
                     onChange={e => setStripePublishableKey(e.target.value)}
                     placeholder="pk_live_..."
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                   <p className="mt-1.5 text-2xs text-ink-4">
                     Optional — required only to offer an embedded card form at checkout instead of a hosted payment link.
@@ -907,7 +907,7 @@ export default function Integrations() {
                 <button
                   type="submit"
                   disabled={starting}
-                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                 >
                   {starting ? 'Connecting…' : 'Connect'}
                 </button>
@@ -940,7 +940,7 @@ export default function Integrations() {
                     autoFocus
                     value={revolutApiKey}
                     onChange={e => setRevolutApiKey(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                   <p className="mt-1.5 text-2xs text-ink-4">
                     From your Revolut Business account → Merchant API settings.
@@ -952,7 +952,7 @@ export default function Integrations() {
                 <button
                   type="submit"
                   disabled={starting}
-                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                 >
                   {starting ? 'Connecting…' : 'Connect'}
                 </button>
@@ -972,7 +972,7 @@ export default function Integrations() {
                     value={emailHost}
                     onChange={e => setEmailHost(e.target.value)}
                     placeholder="smtp.example.com"
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                 </div>
                 <div>
@@ -986,7 +986,7 @@ export default function Integrations() {
                     value={emailPort}
                     onChange={e => setEmailPort(e.target.value)}
                     placeholder="587"
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                 </div>
                 <div>
@@ -998,7 +998,7 @@ export default function Integrations() {
                     type="text"
                     value={emailUsername}
                     onChange={e => setEmailUsername(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                 </div>
                 <div>
@@ -1010,7 +1010,7 @@ export default function Integrations() {
                     type="password"
                     value={emailPassword}
                     onChange={e => setEmailPassword(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                   <p className="mt-1.5 text-2xs text-ink-4">
                     Leave username/password blank for a relay that needs no auth.
@@ -1027,7 +1027,7 @@ export default function Integrations() {
                     value={emailFrom}
                     onChange={e => setEmailFrom(e.target.value)}
                     placeholder="orders@mystore.com"
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                 </div>
                 {connectError && (
@@ -1036,7 +1036,7 @@ export default function Integrations() {
                 <button
                   type="submit"
                   disabled={starting}
-                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                 >
                   {starting ? 'Connecting…' : 'Connect'}
                 </button>
@@ -1050,7 +1050,7 @@ export default function Integrations() {
                     className={clsx(
                       'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
                       connectMode === 'auto'
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-accent-solid text-white'
                         : 'text-ink-3',
                     )}
                   >
@@ -1062,7 +1062,7 @@ export default function Integrations() {
                     className={clsx(
                       'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
                       connectMode === 'manual'
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-accent-solid text-white'
                         : 'text-ink-3',
                     )}
                   >
@@ -1083,7 +1083,7 @@ export default function Integrations() {
                         value={storeUrl}
                         onChange={e => setStoreUrl(e.target.value)}
                         placeholder="https://mystore.com"
-                        className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                       />
                       <p className="mt-1.5 text-2xs text-ink-4">
                         Redirects to your store to approve access. Requires your store to reach this server.
@@ -1095,7 +1095,7 @@ export default function Integrations() {
                     <button
                       type="submit"
                       disabled={starting}
-                      className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                     >
                       {starting ? 'Connecting…' : 'Connect'}
                     </button>
@@ -1113,7 +1113,7 @@ export default function Integrations() {
                         value={storeUrl}
                         onChange={e => setStoreUrl(e.target.value)}
                         placeholder="https://mystore.com"
-                        className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                       />
                     </div>
                     <div>
@@ -1126,7 +1126,7 @@ export default function Integrations() {
                         value={consumerKey}
                         onChange={e => setConsumerKey(e.target.value)}
                         placeholder="ck_..."
-                        className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                       />
                     </div>
                     <div>
@@ -1139,7 +1139,7 @@ export default function Integrations() {
                         value={consumerSecret}
                         onChange={e => setConsumerSecret(e.target.value)}
                         placeholder="cs_..."
-                        className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                       />
                       <p className="mt-1.5 text-2xs text-ink-4">
                         Generate under WooCommerce → Settings → Advanced → REST API.
@@ -1151,7 +1151,7 @@ export default function Integrations() {
                     <button
                       type="submit"
                       disabled={starting}
-                      className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                     >
                       {starting ? 'Connecting…' : 'Connect'}
                     </button>
@@ -1181,7 +1181,7 @@ export default function Integrations() {
                 </p>
                 <button
                   onClick={closeImport}
-                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                  className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
                 >
                   Done
                 </button>
@@ -1201,7 +1201,7 @@ export default function Integrations() {
                     autoFocus
                     value={importWarehouseId}
                     onChange={e => setImportWarehouseId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
                     <option value="" disabled>Select a warehouse…</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -1219,7 +1219,7 @@ export default function Integrations() {
                     required
                     value={importCurrency}
                     onChange={e => setImportCurrency(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
                     <option value="" disabled>Select a currency…</option>
                     {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -1231,7 +1231,7 @@ export default function Integrations() {
                 <button
                   type="submit"
                   disabled={importing}
-                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                 >
                   {importing ? 'Importing…' : 'Start import'}
                 </button>
@@ -1271,7 +1271,7 @@ export default function Integrations() {
                 )}
                 <button
                   onClick={closeDelete}
-                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                  className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
                 >
                   Done
                 </button>

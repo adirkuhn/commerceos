@@ -32,7 +32,7 @@ export function ScannerCallbackPage() {
       <div className="fixed inset-0 flex items-center justify-center bg-night-950 p-6 text-center">
         <div>
           <p className="text-sm text-red-400">{error}</p>
-          <a href="/scanner" className="mt-2 inline-block text-sm text-blue-400">Back to pairing</a>
+          <a href="/scanner" className="mt-2 inline-block text-sm text-accent">Back to pairing</a>
         </div>
       </div>
     )

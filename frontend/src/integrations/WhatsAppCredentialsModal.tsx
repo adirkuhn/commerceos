@@ -61,7 +61,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
               value={baseUrl}
               onChange={e => setBaseUrl(e.target.value)}
               placeholder="https://evolution.example.com"
-              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
             />
           </div>
 
@@ -75,7 +75,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
               required
               value={instanceName}
               onChange={e => setInstanceName(e.target.value)}
-              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
             />
           </div>
 
@@ -90,7 +90,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
               value={apiKey}
               onChange={e => setApiKey(e.target.value)}
               placeholder="Leave blank to keep the current key"
-              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
             />
             <p className="mt-1.5 text-2xs text-ink-4">
               Never shown once saved -- leave blank unless you're rotating it.
@@ -103,7 +103,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
         <button
           onClick={handleSave}
           disabled={saving || baseUrl.trim() === '' || instanceName.trim() === ''}
-          className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>

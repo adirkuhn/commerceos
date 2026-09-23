@@ -168,7 +168,7 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder="Search products…"
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-line bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-line bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-focus"
               />
             </div>
             {searching && <p className="text-2xs text-ink-4 mt-1">Searching…</p>}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, LogOut, Zap } from 'lucide-react'
+import { ChevronDown, ChevronRight, LogOut } from 'lucide-react'
+import { BrandMark } from '../brand/BrandMark'
 import clsx from 'clsx'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
@@ -65,8 +66,8 @@ export default function Sidebar() {
   return (
     <aside className="w-60 shrink-0 flex flex-col h-full bg-surface border-r border-line">
       <div className="h-14 flex items-center gap-2 px-4 border-b border-line shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
-          <Zap size={14} className="text-white" aria-hidden />
+        <div className="w-7 h-7 rounded-lg bg-accent-solid flex items-center justify-center">
+          <BrandMark size={18} className="text-white" />
         </div>
         <span className="font-semibold text-sm text-ink tracking-tight">CommerceOS</span>
       </div>

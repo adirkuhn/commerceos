@@ -22,5 +22,5 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
   )
 }
 
-export const inputClass = 'w-full px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500'
+export const inputClass = 'w-full px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-focus'
 export const labelClass = 'block text-2xs font-medium text-ink-3 mb-1'

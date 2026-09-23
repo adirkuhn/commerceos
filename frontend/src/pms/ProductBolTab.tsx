@@ -43,7 +43,7 @@ function fmt(n: number): string {
   return n.toFixed(2)
 }
 
-const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500'
+const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-focus'
 const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
 
 function defaultBolProductContent(): UpsertBolProductContentPayload {
@@ -362,7 +362,7 @@ export function ProductBolTab({
                 {onSaveBarcode && barcodeEdit !== (sku.barcode ?? '') && (
                   <button
                     type="button" onClick={handleSaveBarcode} disabled={barcodeSaving}
-                    className="px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors shrink-0"
+                    className="px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors shrink-0"
                   >
                     {barcodeSaving ? 'Saving…' : 'Save'}
                   </button>
@@ -420,7 +420,7 @@ export function ProductBolTab({
           {saveError && <p className="text-2xs text-danger">{saveError}</p>}
           <div className="flex items-center gap-2">
             <button type="button" onClick={handleSave} disabled={saving}
-              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
@@ -501,7 +501,7 @@ export function ProductBolTab({
                     {contentSaveError && <p className="text-2xs text-danger">{contentSaveError}</p>}
                     <div className="flex items-center gap-2">
                       <button type="button" onClick={handleSaveContent} disabled={contentSaving}
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                        className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
                         {contentSaving ? 'Saving…' : 'Save product content'}
                       </button>
                       {contentSaved && <span className="text-2xs text-success">Saved</span>}

@@ -44,7 +44,7 @@ export default function SalesTrendsPage() {
                     className={clsx(
                       'px-2 py-1 rounded-md text-2xs font-medium capitalize transition-colors',
                       granularity === g
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-accent-solid text-white'
                         : 'text-ink-3 hover:text-ink-2',
                     )}
                   >

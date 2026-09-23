@@ -358,7 +358,7 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
           <button
             type="submit"
             disabled={submitting}
-            className="w-full px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {submitting ? 'Checking address…' : 'Review label'}
           </button>

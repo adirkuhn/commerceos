@@ -60,7 +60,7 @@ export function ExistingShipmentConfirmModal({ token, shipment, onReprint, onCre
               </button>
               <button
                 type="button" onClick={onReprint}
-                className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                className="flex-1 px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
               >
                 Download & print again
               </button>
@@ -86,7 +86,7 @@ export function ExistingShipmentConfirmModal({ token, shipment, onReprint, onCre
               </button>
               <button
                 type="button" onClick={onCreateNew}
-                className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                className="flex-1 px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
               >
                 Create new shipment
               </button>

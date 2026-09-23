@@ -93,7 +93,7 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
                 aria-pressed={labelSize === s}
                 className={clsx(
                   'flex-1 py-2 text-xs font-medium',
-                  labelSize === s ? 'bg-blue-600 text-white' : 'bg-surface text-ink-3',
+                  labelSize === s ? 'bg-accent-solid text-white' : 'bg-surface text-ink-3',
                 )}
               >
                 {s}
@@ -114,7 +114,7 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
           </button>
           <button
             type="button" onClick={handlePrint} disabled={printing}
-            className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="flex-1 px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {printing ? 'Creating…' : 'Print label'}
           </button>

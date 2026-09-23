@@ -243,7 +243,7 @@ export default function BolSyncSettingsPage({
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
@@ -274,7 +274,7 @@ export default function BolSyncSettingsPage({
             </div>
             {connectError && <p className="text-xs text-danger">{connectError}</p>}
             <button type="submit" disabled={connecting}
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
               {connecting ? 'Connecting…' : 'Connect'}
             </button>
           </form>
@@ -346,7 +346,7 @@ export default function BolSyncSettingsPage({
                 <button
                   onClick={handleSaveConfig}
                   disabled={configSaving}
-                  className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                 >
                   {configSaving ? 'Saving…' : 'Save configuration'}
                 </button>
@@ -399,7 +399,7 @@ export default function BolSyncSettingsPage({
                                 onChange={e => updateCell(row.entity, direction, { enabled: e.target.checked })}
                                 className="sr-only peer"
                               />
-                              <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                              <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
                               <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                             </label>
                           </div>

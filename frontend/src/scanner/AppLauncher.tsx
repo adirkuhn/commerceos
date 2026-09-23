@@ -1,3 +1,4 @@
+import { BrandMark } from '../components/brand/BrandMark'
 import { Boxes, PackageCheck, Tag, ClipboardList, LogOut, Trash2, Package } from 'lucide-react'
 
 export type ScannerAppID = 'receive-po' | 'inventory' | 'price-lookup' | 'pick-order' | 'pack-order' | 'discard'
@@ -23,8 +24,11 @@ export function AppLauncher({ onSelect, onLogout }: AppLauncherProps) {
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
+        <span className="w-8 h-8 rounded-lg bg-accent-solid flex items-center justify-center shrink-0">
+          <BrandMark size={18} className="text-white" />
+        </span>
         <h1 className="flex-1 text-base font-semibold">CommerceOS Scanner</h1>
-        <button onClick={onLogout} className="p-2 rounded-lg hover:bg-night-800" title="Unpair">
+        <button onClick={onLogout} className="w-11 h-11 -my-2 -mr-2 flex items-center justify-center rounded-lg hover:bg-night-800" title="Unpair">
           <LogOut size={16} className="text-gray-400" />
         </button>
       </div>
@@ -34,7 +38,7 @@ export function AppLauncher({ onSelect, onLogout }: AppLauncherProps) {
             key={app.id}
             onClick={() => app.enabled && onSelect(app.id)}
             disabled={!app.enabled}
-            className="flex flex-col items-center justify-center gap-3 aspect-square rounded-2xl bg-night-800 border border-night-700 disabled:opacity-40 hover:border-blue-500 disabled:hover:border-night-700 transition-colors"
+            className="flex flex-col items-center justify-center gap-3 aspect-square rounded-2xl bg-night-800 border border-night-700 disabled:opacity-40 hover:border-accent disabled:hover:border-night-700 transition-colors"
           >
             <div className="w-12 h-12 rounded-xl bg-night-700 flex items-center justify-center">
               <app.icon size={22} className="text-gray-300" />

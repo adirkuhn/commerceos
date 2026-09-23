@@ -903,7 +903,7 @@ describe('Expired batch review queue', () => {
     await userEvent.click(screen.getByRole('button', { name: /Damaged \/ Lost \/ Discarded/ }))
 
     expect(await screen.findByText('Expiry & Discards')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Discarded' })).toHaveClass('bg-blue-600')
+    expect(screen.getByRole('button', { name: 'Discarded' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('shows a badge button with the count when batches are pending review, opens the queue on click', async () => {

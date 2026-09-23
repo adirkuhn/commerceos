@@ -27,7 +27,17 @@ const APP_PATHS: Record<ScannerAppID, string> = {
 // its own URL (see ./scannerRoutes) so a refresh or the device's Back
 // button keeps the operator where they were instead of resetting to the
 // launcher. Route paths below are relative to /scanner.
+// The scanner is dark in every device appearance (dim warehouse floors,
+// glare on handhelds), so its subtree always resolves the dark tokens.
 export default function ScannerApp() {
+  return (
+    <div className="dark contents">
+      <ScannerAppContent />
+    </div>
+  )
+}
+
+function ScannerAppContent() {
   const { token, setToken, clearToken } = useScannerAuth()
   const { open, exitTo } = useStackNavigation()
 

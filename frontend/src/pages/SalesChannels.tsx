@@ -328,7 +328,7 @@ export default function SalesChannels() {
           <p className="text-xs text-ink-4 mb-4">Add a channel to control which products sync where</p>
           <button
             onClick={openCreate}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
           >
             Add sales channel
           </button>
@@ -339,7 +339,7 @@ export default function SalesChannels() {
             <h2 className="text-sm font-semibold text-ink">Sales channels</h2>
             <button
               onClick={openCreate}
-              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
             >
               Add sales channel
             </button>
@@ -424,7 +424,7 @@ export default function SalesChannels() {
                   autoFocus
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
               </div>
               {!editingChannel && (
@@ -436,7 +436,7 @@ export default function SalesChannels() {
                     id="channel-type"
                     value={form.channelType}
                     onChange={e => setForm(f => ({ ...f, channelType: e.target.value as ChannelType, connectionId: '', defaultWarehouseId: '', channelWarehouseId: '' }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
                     {(Object.keys(TYPE_LABELS) as ChannelType[]).map(t => (
                       <option key={t} value={t}>{TYPE_LABELS[t]}</option>
@@ -458,7 +458,7 @@ export default function SalesChannels() {
                     id="channel-currency"
                     value={form.currencyCode}
                     onChange={e => setForm(f => ({ ...f, currencyCode: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
                     <option value="">Default (tenant's own currency)</option>
                     {CURRENCY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
@@ -485,7 +485,7 @@ export default function SalesChannels() {
                       const defaultWarehouseId = connections.find(c => c.id === connectionId)?.default_warehouse_id ?? ''
                       setForm(f => ({ ...f, connectionId, defaultWarehouseId }))
                     }}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
                     <option value="" disabled>Select a connection…</option>
                     {connections
@@ -503,7 +503,7 @@ export default function SalesChannels() {
                     id="channel-default-warehouse"
                     value={form.defaultWarehouseId}
                     onChange={e => setForm(f => ({ ...f, defaultWarehouseId: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
                     <option value="">No preference</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -523,7 +523,7 @@ export default function SalesChannels() {
                     required
                     value={form.channelWarehouseId}
                     onChange={e => setForm(f => ({ ...f, channelWarehouseId: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
                     <option value="" disabled>Select a warehouse…</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -541,7 +541,7 @@ export default function SalesChannels() {
                   id="channel-enrollment-mode"
                   value={form.enrollmentMode}
                   onChange={e => setForm(f => ({ ...f, enrollmentMode: e.target.value as EnrollmentMode }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
                   {(Object.keys(ENROLLMENT_LABELS) as EnrollmentMode[]).map(mode => (
                     <option key={mode} value={mode}>{ENROLLMENT_LABELS[mode]}</option>
@@ -561,7 +561,7 @@ export default function SalesChannels() {
                     required
                     value={form.enrollmentCategoryId}
                     onChange={e => setForm(f => ({ ...f, enrollmentCategoryId: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
                     <option value="" disabled>Select a category…</option>
                     {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
@@ -580,7 +580,7 @@ export default function SalesChannels() {
                     value={form.enrollmentTag}
                     onChange={e => setForm(f => ({ ...f, enrollmentTag: e.target.value }))}
                     placeholder="summer"
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                 </div>
               )}
@@ -593,7 +593,7 @@ export default function SalesChannels() {
                     id="channel-payment-method"
                     value={form.paymentConnectionId}
                     onChange={e => setForm(f => ({ ...f, paymentConnectionId: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
                     <option value="">Disabled — no payment link sent</option>
                     {connections
@@ -617,7 +617,7 @@ export default function SalesChannels() {
                       onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
                       className="sr-only peer"
                     />
-                    <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                    <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
                     <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                   </label>
                 </div>
@@ -628,7 +628,7 @@ export default function SalesChannels() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
                 {saving ? 'Saving…' : editingChannel ? 'Save changes' : 'Add channel'}
               </button>
@@ -705,7 +705,7 @@ export default function SalesChannels() {
                   <span
                     className={clsx(
                       'shrink-0 w-14 text-center text-2xs font-bold uppercase tracking-wide rounded px-1 py-0.5',
-                      ep.method === 'GET' && 'bg-blue-500/10 text-accent',
+                      ep.method === 'GET' && 'bg-accent/10 text-accent',
                       ep.method === 'POST' && 'bg-green-500/10 text-success',
                       ep.method === 'PUT' && 'bg-amber-500/10 text-warning',
                       ep.method === 'DELETE' && 'bg-red-500/10 text-danger',
@@ -788,7 +788,7 @@ function PricingSection({ channel, update }: PricingSectionProps) {
           value={percent}
           onChange={e => { setPercent(e.target.value); setDirty(true) }}
           placeholder="0"
-          className="w-full max-w-xs px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full max-w-xs px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
         />
         <p className="mt-1.5 text-2xs text-ink-4">
           Applied to every product's price on this storefront -- e.g. 20 for a wholesale channel selling at 20% off retail.
@@ -820,7 +820,7 @@ function PricingSection({ channel, update }: PricingSectionProps) {
                   setDirty(true)
                 }}
                 placeholder="Qty"
-                className="w-20 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-20 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
               />
               <span className="text-2xs text-ink-4">units or more →</span>
               <input
@@ -832,7 +832,7 @@ function PricingSection({ channel, update }: PricingSectionProps) {
                   setDirty(true)
                 }}
                 placeholder="0"
-                className="w-20 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-20 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
               />
               <span className="text-2xs text-ink-4">% off</span>
               <button
@@ -854,7 +854,7 @@ function PricingSection({ channel, update }: PricingSectionProps) {
       <button
         onClick={handleSave}
         disabled={saving || !dirty}
-        className="mt-3 px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        className="mt-3 px-4 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
       >
         {saving ? 'Saving…' : 'Save pricing'}
       </button>
@@ -991,7 +991,7 @@ function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelP
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search products…"
-            className="w-full pl-8 pr-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
       </div>

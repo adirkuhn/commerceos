@@ -19,7 +19,7 @@ export function GroupList({ groups, loading, error, onSelect, onDelete, onCreate
         <h2 className="text-xs font-semibold text-ink">Groups</h2>
         <button
           onClick={onCreateClick}
-          className="px-2.5 py-1 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+          className="px-2.5 py-1 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover font-medium"
         >
           + New Group
         </button>

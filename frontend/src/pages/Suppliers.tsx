@@ -78,13 +78,13 @@ export default function Suppliers() {
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
             placeholder="Search by name or country..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <button
             onClick={openNew}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
             <Plus size={13} /> Add Supplier
           </button>
@@ -230,7 +230,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
   }
 
   const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
 
   return (
     <div className="flex flex-col h-full">
@@ -255,7 +255,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
           </button>
           <button
             type="submit" form="supplier-form" disabled={saving || !name.trim()}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving…' : supplier ? 'Save' : 'Create Supplier'}
           </button>

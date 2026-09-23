@@ -78,7 +78,7 @@ export default function Webhooks() {
   return (
     <div className="flex flex-col p-5 gap-4">
       <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg dark:bg-blue-600/15 bg-blue-50 flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 rounded-lg dark:bg-accent/15 bg-accent/10 flex items-center justify-center shrink-0">
           <Webhook size={15} className="text-accent" />
         </div>
         <h1 className="text-sm font-semibold text-ink">Webhooks</h1>
@@ -88,7 +88,7 @@ export default function Webhooks() {
         <button
           onClick={() => setTab('fanout')}
           className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
-            tab === 'fanout' ? 'border-blue-500 text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
+            tab === 'fanout' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
           }`}
         >
           Fan-out
@@ -96,7 +96,7 @@ export default function Webhooks() {
         <button
           onClick={() => setTab('subscriptions')}
           className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
-            tab === 'subscriptions' ? 'border-blue-500 text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
+            tab === 'subscriptions' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
           }`}
         >
           Subscriptions
@@ -104,7 +104,7 @@ export default function Webhooks() {
         <button
           onClick={() => setTab('messages')}
           className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
-            tab === 'messages' ? 'border-blue-500 text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
+            tab === 'messages' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
           }`}
         >
           Messages
@@ -223,7 +223,7 @@ function FanOutTab({
           </div>
           <button
             type="submit" disabled={submitting}
-            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {submitting ? 'Adding…' : 'Add rule'}
           </button>
@@ -343,7 +343,7 @@ function SubscriptionsTab({
           </div>
           <button
             type="button" onClick={onRegisterWebhook}
-            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors shrink-0"
+            className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors shrink-0"
           >
             Register a webhook
           </button>
@@ -497,7 +497,7 @@ function MessagesTab({
             {view === 'needsAttention' && displayedEvents.length > 0 && (
               <button
                 type="button" onClick={handleRetryAll} disabled={bulkRetrying}
-                className="px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="px-2.5 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
                 {bulkRetrying ? 'Retrying…' : `Retry all (${displayedEvents.length})`}
               </button>
@@ -509,7 +509,7 @@ function MessagesTab({
           <button
             type="button" onClick={() => setView('all')}
             className={`px-2.5 py-1.5 text-xs font-medium border-b-2 transition-colors ${
-              view === 'all' ? 'border-blue-500 text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
+              view === 'all' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
             }`}
           >
             All messages
@@ -517,7 +517,7 @@ function MessagesTab({
           <button
             type="button" onClick={() => setView('needsAttention')}
             className={`px-2.5 py-1.5 text-xs font-medium border-b-2 transition-colors ${
-              view === 'needsAttention' ? 'border-blue-500 text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
+              view === 'needsAttention' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
             }`}
           >
             Needs attention{events.filter(needsAttention).length > 0 && ` (${events.filter(needsAttention).length})`}
