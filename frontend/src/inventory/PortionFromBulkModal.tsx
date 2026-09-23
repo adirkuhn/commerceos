@@ -71,7 +71,7 @@ export function PortionFromBulkModal({
   return (
     <Modal title="Add Item From Weight Pool" onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-[10px] dark:text-gray-500 text-gray-400">
+        <p className="text-[10px] text-ink-4">
           Peels one sellable unit off the linked weight pool. Repeatable as many times as you like.
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -87,7 +87,7 @@ export function PortionFromBulkModal({
               <option value="">General ledger</option>
               {batches.filter(b => !b.is_general_ledger).map(b => <option key={b.id} value={b.id}>{formatBatchOption(b)}</option>)}
             </select>
-            {batchesError && <p className="mt-1 text-[10px] text-red-500">{batchesError}</p>}
+            {batchesError && <p className="mt-1 text-[10px] text-danger">{batchesError}</p>}
           </div>
         </div>
         <div>
@@ -103,9 +103,9 @@ export function PortionFromBulkModal({
           <label className={labelClass} htmlFor="portion-reason">Reason (optional)</label>
           <input id="portion-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        {error && <p className="text-[10px] text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
           <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">

@@ -41,14 +41,14 @@ const SOURCE_FILTER_OPTIONS: { value: SalesOrderSource; label: string }[] = [
 ]
 
 const STATUS_COLORS: Record<SalesOrderStatus, string> = {
-  pending: 'bg-gray-500/15 text-gray-400',
-  processing: 'bg-blue-500/15 text-blue-400',
-  'on-hold': 'bg-amber-500/15 text-amber-400',
+  pending: 'bg-gray-500/15 text-ink-4',
+  processing: 'bg-blue-500/15 text-accent',
+  'on-hold': 'bg-amber-500/15 text-warning',
   shipped: 'bg-indigo-500/15 text-indigo-400',
-  completed: 'bg-green-500/15 text-green-400',
-  cancelled: 'bg-gray-500/15 text-gray-400',
+  completed: 'bg-green-500/15 text-success',
+  cancelled: 'bg-gray-500/15 text-ink-4',
   refunded: 'bg-purple-500/15 text-purple-400',
-  failed: 'bg-red-500/15 text-red-400',
+  failed: 'bg-red-500/15 text-danger',
 }
 
 function formatMoney(minorUnits: number, currencyCode: string): string {
@@ -91,9 +91,9 @@ function SortableTh({ field, label, sortBy, sortDir, onSort, align = 'left' }: {
   return (
     <th
       className={clsx(
-        'px-3 py-2.5 font-medium uppercase tracking-wider cursor-pointer select-none hover:dark:text-gray-300 hover:text-gray-600 transition-colors',
+        'px-3 py-2.5 font-medium uppercase tracking-wider cursor-pointer select-none hover:text-ink-2 transition-colors',
         align === 'right' ? 'text-right' : 'text-left',
-        active ? 'dark:text-gray-300 text-gray-600' : 'dark:text-gray-500 text-gray-400',
+        active ? 'text-ink-2' : 'text-ink-4',
       )}
       onClick={() => onSort(field)}
     >
@@ -282,7 +282,7 @@ export default function SalesOrders() {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center justify-end gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center justify-end gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <button
           onClick={() => navigate('/sales-orders/new')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
@@ -292,8 +292,8 @@ export default function SalesOrders() {
       </div>
 
       {/* Stats strip */}
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
-        <span className="text-xs dark:text-gray-500 text-gray-400 whitespace-nowrap">{total} sales order{total === 1 ? '' : 's'}</span>
+      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
+        <span className="text-xs text-ink-4 whitespace-nowrap">{total} sales order{total === 1 ? '' : 's'}</span>
         <div className="flex items-center gap-1.5" role="group" aria-label="Filter by channel">
           {SOURCE_FILTER_OPTIONS.map(({ value, label }) => (
             <button
@@ -304,18 +304,18 @@ export default function SalesOrders() {
                 'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
                 sourceFilter.includes(value)
                   ? 'bg-blue-600 text-white'
-                  : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-100',
+                  : 'bg-raised text-ink-3 hover:bg-hover',
               )}
             >
               {label}
             </button>
           ))}
         </div>
-        {error && <span className="text-xs text-red-400 ml-auto">{error}</span>}
+        {error && <span className="text-xs text-danger ml-auto">{error}</span>}
       </div>
 
       {/* Status + substatus filter strip */}
-      <div className="flex items-center flex-wrap gap-3 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
+      <div className="flex items-center flex-wrap gap-3 px-5 py-2.5 border-b border-line bg-surface shrink-0">
         <div className="flex items-center flex-wrap gap-1.5" role="group" aria-label="Filter by status">
           {STATUS_OPTIONS.map(s => (
             <button
@@ -326,7 +326,7 @@ export default function SalesOrders() {
                 'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors',
                 statusFilter.includes(s)
                   ? 'bg-blue-600 text-white'
-                  : 'dark:bg-[#1F2937] bg-gray-50 dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-100',
+                  : 'dark:bg-night-800 bg-gray-50 text-ink-3 hover:bg-hover',
               )}
             >
               {s}
@@ -336,14 +336,14 @@ export default function SalesOrders() {
         <select
           aria-label="Filter by fulfilled substatus" value={fulfilledFilter}
           onChange={e => changeFulfilledFilter(e.target.value as '' | 'true' | 'false')}
-          className="px-2 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+          className="px-2 py-1.5 text-xs rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink-2 outline-none"
         >
           <option value="">Any fulfillment</option>
           <option value="true">Only fulfilled</option>
           <option value="false">Only unfulfilled</option>
         </select>
         {customerId && (
-          <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-blue-500/15 text-blue-500">
+          <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-blue-500/15 text-accent">
             Filtered to one customer
             <button type="button" onClick={() => setCustomerId(null)} aria-label="Clear customer filter" className="hover:opacity-70">
               <X size={12} />
@@ -353,7 +353,7 @@ export default function SalesOrders() {
         {hasActiveFilters && (
           <button
             type="button" onClick={clearFilters}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-800 transition-colors ml-auto"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-ink-3 hover:text-ink transition-colors ml-auto"
           >
             <X size={12} /> Clear filters
           </button>
@@ -362,18 +362,18 @@ export default function SalesOrders() {
 
       {/* Bulk action bar */}
       {checkedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-blue-50 shrink-0">
-          <span className="text-xs font-medium dark:text-gray-200 text-gray-700">{checkedIds.size} selected</span>
+        <div className="flex items-center gap-3 px-5 py-2.5 border-b border-line dark:bg-night-800 bg-blue-50 shrink-0">
+          <span className="text-xs font-medium text-ink-2">{checkedIds.size} selected</span>
           <select
             aria-label="Bulk change status" value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} disabled={bulkApplying}
-            className="px-2 py-1 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none disabled:opacity-50"
+            className="px-2 py-1 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none disabled:opacity-50"
           >
             <option value="">Status…</option>
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select
             aria-label="Bulk change fulfilled" value={bulkFulfilled} onChange={e => setBulkFulfilled(e.target.value)} disabled={bulkApplying}
-            className="px-2 py-1 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none disabled:opacity-50"
+            className="px-2 py-1 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none disabled:opacity-50"
           >
             <option value="">Fulfilled…</option>
             <option value="true">Fulfilled</option>
@@ -389,24 +389,24 @@ export default function SalesOrders() {
           <button
             onClick={() => { setCheckedIds(new Set()); setBulkStatus(''); setBulkFulfilled(''); setBulkError('') }}
             disabled={bulkApplying}
-            className="text-xs font-medium dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700 disabled:opacity-50"
+            className="text-xs font-medium text-ink-3 hover:text-ink-2 disabled:opacity-50"
           >
             Clear
           </button>
-          {bulkError && <span className="text-xs text-red-400 ml-auto">{bulkError}</span>}
+          {bulkError && <span className="text-xs text-danger ml-auto">{bulkError}</span>}
         </div>
       )}
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+          <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-3 py-2.5 w-8">
                 <input
                   type="checkbox" aria-label="Select all orders on this page"
                   checked={allOnPageChecked} onChange={toggleAllOnPage}
-                  className="rounded border dark:border-[#2D3748] border-gray-300"
+                  className="rounded border dark:border-night-700 border-gray-300"
                 />
               </th>
               <th className="px-2 py-2.5 w-8" />
@@ -417,37 +417,37 @@ export default function SalesOrders() {
               <SortableTh field="total" label="Total" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} align="right" />
             </tr>
           </thead>
-          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+          <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
             )}
             {!loading && salesOrders.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No sales orders yet</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">No sales orders yet</td></tr>
             )}
             {salesOrders.map(o => (
               <tr
                 key={o.id}
                 onClick={() => navigate(`/sales-orders/${o.id}`)}
-                className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
+                className="group hover:bg-hover/60 transition-colors cursor-pointer"
               >
                 <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
                   <input
                     type="checkbox" aria-label={`Select order #${o.number || o.external_order_id}`}
                     checked={checkedIds.has(o.id)} onChange={() => toggleOne(o.id)}
-                    className="rounded border dark:border-[#2D3748] border-gray-300"
+                    className="rounded border dark:border-night-700 border-gray-300"
                   />
                 </td>
                 <td className="px-2 py-2.5">
-                  <div className="w-6 h-6 rounded dark:bg-[#2D3748] bg-gray-200 flex items-center justify-center">
-                    <ShoppingCart size={12} className="dark:text-gray-500 text-gray-400" />
+                  <div className="w-6 h-6 rounded dark:bg-night-700 bg-gray-200 flex items-center justify-center">
+                    <ShoppingCart size={12} className="text-ink-4" />
                   </div>
                 </td>
                 <td className="px-3 py-2.5 max-w-[200px]">
-                  <p className="font-medium dark:text-gray-100 text-gray-900 truncate">#{o.number || o.external_order_id}</p>
-                  <p className="text-[10px] dark:text-gray-500 text-gray-400 truncate">{new Date(o.occurred_at).toLocaleString()}</p>
+                  <p className="font-medium text-ink truncate">#{o.number || o.external_order_id}</p>
+                  <p className="text-[10px] text-ink-4 truncate">{new Date(o.occurred_at).toLocaleString()}</p>
                 </td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500 max-w-[220px] truncate">{customerName(o)}</td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{o.source}</td>
+                <td className="px-3 py-2.5 text-ink-3 max-w-[220px] truncate">{customerName(o)}</td>
+                <td className="px-3 py-2.5 text-ink-3">{o.source}</td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', STATUS_COLORS[o.status])}>
@@ -455,18 +455,18 @@ export default function SalesOrders() {
                     </span>
                     <span className={clsx(
                       'px-2 py-0.5 rounded-full text-[10px] font-medium',
-                      o.fulfilled ? 'bg-green-500/15 text-green-400' : 'bg-gray-500/15 text-gray-400',
+                      o.fulfilled ? 'bg-green-500/15 text-success' : 'bg-gray-500/15 text-ink-4',
                     )}>
                       {o.fulfilled ? 'Fulfilled' : 'Unfulfilled'}
                     </span>
                     {(o.needs_stock_review || o.needs_sku_review) && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-500">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-warning">
                         Needs review
                       </span>
                     )}
                   </div>
                 </td>
-                <td className="px-3 py-2.5 text-right font-medium dark:text-gray-100 text-gray-900">
+                <td className="px-3 py-2.5 text-right font-medium text-ink">
                   {formatMoney(o.total_minor_units, o.currency_code)}
                 </td>
               </tr>
@@ -598,25 +598,25 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
     }
   }
 
-  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Sales Order
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">New Sales Order</h1>
+          <h1 className="text-xl font-semibold text-ink leading-tight">New Sales Order</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button" onClick={onClose}
-            className="px-4 py-2 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-semibold dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
           >
             Discard
           </button>
@@ -632,8 +632,8 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto p-6 space-y-5">
           <form id="create-sales-order-form" onSubmit={handleCreate} className="space-y-5">
-            <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
-              <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">General</h3>
+            <div className="rounded-xl border border-line p-4 space-y-3">
+              <h3 className="text-xs font-semibold text-ink">General</h3>
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label htmlFor="so-warehouse" className={labelClass}>Warehouse</label>
@@ -662,53 +662,53 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
                 <input id="so-note" type="text" value={customerNote} onChange={e => setCustomerNote(e.target.value)} className={inputClass} />
               </div>
               {formError && (
-                <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
+                <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
               )}
             </div>
 
-            <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+            <div className="rounded-xl border border-line p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Line items</h3>
+                <h3 className="text-xs font-semibold text-ink">Line items</h3>
                 <button
                   type="button" onClick={() => setPickerOpen(v => !v)}
-                  className="flex items-center gap-1 text-[11px] font-medium text-blue-500 hover:text-blue-600"
+                  className="flex items-center gap-1 text-[11px] font-medium text-accent hover:text-accent"
                 >
                   <Plus size={12} /> Add product
                 </button>
               </div>
               {pickerOpen && <ProductSkuPicker onSelect={addSku} onClose={() => setPickerOpen(false)} />}
-              {lineItems.length === 0 && <p className="text-xs dark:text-gray-500 text-gray-400">No line items yet</p>}
+              {lineItems.length === 0 && <p className="text-xs text-ink-4">No line items yet</p>}
               {lineItems.length > 0 && (
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b dark:border-[#2D3748] border-gray-200">
-                      <th className="text-left py-1.5 font-medium dark:text-gray-500 text-gray-400">Product</th>
-                      <th className="text-right py-1.5 font-medium dark:text-gray-500 text-gray-400 w-20">Qty</th>
-                      <th className="text-right py-1.5 font-medium dark:text-gray-500 text-gray-400 w-24">Price</th>
+                    <tr className="border-b border-line">
+                      <th className="text-left py-1.5 font-medium text-ink-4">Product</th>
+                      <th className="text-right py-1.5 font-medium text-ink-4 w-20">Qty</th>
+                      <th className="text-right py-1.5 font-medium text-ink-4 w-24">Price</th>
                       <th className="w-8" />
                     </tr>
                   </thead>
-                  <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                  <tbody className="divide-y divide-line/60">
                     {lineItems.map(li => (
                       <tr key={li.key}>
-                        <td className="py-1.5 dark:text-gray-200 text-gray-800">{li.label}</td>
+                        <td className="py-1.5 text-ink">{li.label}</td>
                         <td className="py-1.5">
                           <input
                             type="number" min="1" value={li.quantity}
                             onChange={e => updateLineItem(li.key, 'quantity', e.target.value)}
-                            className="w-16 px-2 py-1 text-xs text-right rounded dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700"
+                            className="w-16 px-2 py-1 text-xs text-right rounded bg-raised border border-line text-ink-2"
                           />
                         </td>
                         <td className="py-1.5">
                           <input
                             type="number" step="0.01" min="0" value={li.price}
                             onChange={e => updateLineItem(li.key, 'price', e.target.value)}
-                            className="w-20 px-2 py-1 text-xs text-right rounded dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700"
+                            className="w-20 px-2 py-1 text-xs text-right rounded bg-raised border border-line text-ink-2"
                           />
                         </td>
                         <td className="py-1.5 text-right">
                           <button type="button" onClick={() => removeLineItem(li.key)}>
-                            <Trash2 size={12} className="dark:text-gray-500 text-gray-400 hover:text-red-400" />
+                            <Trash2 size={12} className="text-ink-4 hover:text-danger" />
                           </button>
                         </td>
                       </tr>
@@ -717,13 +717,13 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
                 </table>
               )}
               {lineItems.length > 0 && taxTotalMinorUnits > 0 && (
-                <div className="flex justify-between text-xs dark:text-gray-400 text-gray-500 pt-2 border-t dark:border-[#2D3748] border-gray-200">
+                <div className="flex justify-between text-xs text-ink-3 pt-2 border-t border-line">
                   <span>Tax</span>
                   <span>{formatMoney(taxTotalMinorUnits, currencyCode)}</span>
                 </div>
               )}
               {lineItems.length > 0 && (
-                <div className={clsx('flex justify-between text-xs font-semibold dark:text-gray-100 text-gray-900', taxTotalMinorUnits > 0 ? 'pt-1' : 'pt-2 border-t dark:border-[#2D3748] border-gray-200')}>
+                <div className={clsx('flex justify-between text-xs font-semibold text-ink', taxTotalMinorUnits > 0 ? 'pt-1' : 'pt-2 border-t border-line')}>
                   <span>Total</span>
                   <span>{formatMoney(totalMinorUnits, currencyCode)}</span>
                 </div>
@@ -740,15 +740,15 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
 }
 
 function CreateAddressFields({ title, prefix, value, onChange, showPhone }: { title: string; prefix: string; value: Address; onChange: (a: Address) => void; showPhone?: boolean }) {
-  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
   const set = (field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [field]: e.target.value })
   const id = (field: string) => `${prefix}-${field}`
   const label = (text: string) => `${title.replace(' address', '')} ${text}`
 
   return (
-    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
-      <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">{title}</h3>
+    <div className="rounded-xl border border-line p-4 space-y-3">
+      <h3 className="text-xs font-semibold text-ink">{title}</h3>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor={id('first-name')} className={labelClass}>{label('first name')}</label>
@@ -952,21 +952,21 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Sales Order
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight flex items-center gap-2">
+          <h1 className="text-xl font-semibold text-ink leading-tight flex items-center gap-2">
             {detail ? `#${detail.sales_order.number || detail.sales_order.external_order_id}` : 'Sales Order'}
             {detail?.sales_order.needs_stock_review && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-500">Stock issue</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-warning">Stock issue</span>
             )}
             {detail?.sales_order.needs_sku_review && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-500">Unmatched SKU</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-warning">Unmatched SKU</span>
             )}
           </h1>
         </div>
@@ -975,14 +975,14 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
             <button
               onClick={() => setPrintMode('picking-list')}
               title="Print picking list"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
             >
               <Printer size={13} /> Picking list
             </button>
             <button
               onClick={() => setPrintMode('invoice')}
               title="Print invoice"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
             >
               <Printer size={13} /> Invoice
             </button>
@@ -990,7 +990,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
               <button
                 onClick={handleCreateLabelClick}
                 title="Create a MyParcel shipping label for this order"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
               >
                 Create label
               </button>
@@ -999,7 +999,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
               <button
                 onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
                 title="Print shipping label"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
               >
                 {/* auto_print_enabled already opened the print view once on
                     creation -- this button is then for re-printing (paper
@@ -1012,8 +1012,8 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
               disabled={savingStatus}
               onChange={e => handleStatusChange(e.target.value as SalesOrderStatus)}
               className={clsx(
-                'px-2.5 py-1.5 rounded-lg text-xs font-medium border dark:border-[#2D3748] border-gray-200 outline-none cursor-pointer disabled:opacity-50',
-                'dark:bg-[#1F2937] bg-white dark:text-gray-200 text-gray-800',
+                'px-2.5 py-1.5 rounded-lg text-xs font-medium border border-line outline-none cursor-pointer disabled:opacity-50',
+                'bg-raised text-ink',
               )}
             >
               {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1022,9 +1022,9 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
               onClick={handleDelete}
               disabled={deleting}
               title="Delete sales order"
-              className="w-8 h-8 flex items-center justify-center rounded-lg border dark:border-[#2D3748] border-gray-200 dark:hover:bg-[#2D3748] hover:bg-gray-100 disabled:opacity-50 transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-line hover:bg-hover disabled:opacity-50 transition-colors"
             >
-              <Trash2 size={14} className="dark:text-gray-400 text-gray-500" />
+              <Trash2 size={14} className="text-ink-3" />
             </button>
           </div>
         )}
@@ -1032,49 +1032,49 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto p-6 space-y-5">
-          {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
-          {(error || actionError) && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error || actionError}</p>}
+          {loading && <p className="text-xs text-ink-4">Loading…</p>}
+          {(error || actionError) && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error || actionError}</p>}
 
           {detail && (
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
               {/* Main column */}
               <div className="space-y-5 min-w-0">
-                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
-                  <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Line items</h3>
+                <div className="rounded-xl border border-line p-4 space-y-3">
+                  <h3 className="text-xs font-semibold text-ink">Line items</h3>
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b dark:border-[#2D3748] border-gray-200">
-                        <th className="text-left py-1.5 font-medium dark:text-gray-500 text-gray-400">Product</th>
-                        <th className="text-right py-1.5 font-medium dark:text-gray-500 text-gray-400">Qty</th>
-                        <th className="text-right py-1.5 font-medium dark:text-gray-500 text-gray-400">Price</th>
-                        <th className="text-right py-1.5 font-medium dark:text-gray-500 text-gray-400">Total</th>
+                      <tr className="border-b border-line">
+                        <th className="text-left py-1.5 font-medium text-ink-4">Product</th>
+                        <th className="text-right py-1.5 font-medium text-ink-4">Qty</th>
+                        <th className="text-right py-1.5 font-medium text-ink-4">Price</th>
+                        <th className="text-right py-1.5 font-medium text-ink-4">Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                    <tbody className="divide-y divide-line/60">
                       {detail.line_items.map(li => (
                         <tr key={li.id}>
                           <td className="py-1.5">
-                            <p className="dark:text-gray-200 text-gray-800">{li.name}</p>
+                            <p className="text-ink">{li.name}</p>
                             {li.sku_code && (
-                              <p className="text-[10px] dark:text-gray-500 text-gray-400">{li.sku_code}</p>
+                              <p className="text-[10px] text-ink-4">{li.sku_code}</p>
                             )}
                             {li.barcode && (
-                              <p className="text-[10px] dark:text-gray-500 text-gray-400">{li.barcode}</p>
+                              <p className="text-[10px] text-ink-4">{li.barcode}</p>
                             )}
                             {li.sold_expiry_date && (
-                              <p className="text-[10px] dark:text-gray-500 text-gray-400" title="Reported by WooCommerce at checkout -- may not match the batch actually allocated">
+                              <p className="text-[10px] text-ink-4" title="Reported by WooCommerce at checkout -- may not match the batch actually allocated">
                                 Sold exp. {formatDate(li.sold_expiry_date)}
                               </p>
                             )}
                             {!li.sku_id && (
-                              <p className="text-[10px] text-amber-500">Not linked to a product yet</p>
+                              <p className="text-[10px] text-warning">Not linked to a product yet</p>
                             )}
                           </td>
-                          <td className="py-1.5 text-right dark:text-gray-300 text-gray-700">{li.quantity}</td>
-                          <td className="py-1.5 text-right dark:text-gray-300 text-gray-700">
+                          <td className="py-1.5 text-right text-ink-2">{li.quantity}</td>
+                          <td className="py-1.5 text-right text-ink-2">
                             {formatMoney(li.price_minor_units, detail.sales_order.currency_code)}
                           </td>
-                          <td className="py-1.5 text-right font-medium dark:text-gray-100 text-gray-900">
+                          <td className="py-1.5 text-right font-medium text-ink">
                             {formatMoney(li.total_minor_units, detail.sales_order.currency_code)}
                           </td>
                         </tr>
@@ -1082,50 +1082,50 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
                     </tbody>
                   </table>
 
-                  <div className="pt-2 border-t dark:border-[#2D3748] border-gray-200 space-y-1 text-xs">
-                    <div className="flex justify-between dark:text-gray-400 text-gray-500">
+                  <div className="pt-2 border-t border-line space-y-1 text-xs">
+                    <div className="flex justify-between text-ink-3">
                       <span>Discount</span>
                       <span>{formatMoney(detail.sales_order.discount_total_minor_units, detail.sales_order.currency_code)}</span>
                     </div>
-                    <div className="flex justify-between dark:text-gray-400 text-gray-500">
+                    <div className="flex justify-between text-ink-3">
                       <span>Shipping</span>
                       <span>{formatMoney(detail.sales_order.shipping_total_minor_units, detail.sales_order.currency_code)}</span>
                     </div>
-                    <div className="flex justify-between dark:text-gray-400 text-gray-500">
+                    <div className="flex justify-between text-ink-3">
                       <span>Tax</span>
                       <span>{formatMoney(detail.sales_order.tax_total_minor_units, detail.sales_order.currency_code)}</span>
                     </div>
-                    <div className="flex justify-between font-semibold dark:text-gray-100 text-gray-900 pt-1">
+                    <div className="flex justify-between font-semibold text-ink pt-1">
                       <span>Total</span>
                       <span>{formatMoney(detail.sales_order.total_minor_units, detail.sales_order.currency_code)}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-1 text-xs">
-                  <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900 mb-2">Payment</h3>
-                  <p className="dark:text-gray-400 text-gray-500">Source: <span className="dark:text-gray-200 text-gray-800 capitalize">{detail.sales_order.source}</span></p>
+                <div className="rounded-xl border border-line p-4 space-y-1 text-xs">
+                  <h3 className="text-xs font-semibold text-ink mb-2">Payment</h3>
+                  <p className="text-ink-3">Source: <span className="text-ink capitalize">{detail.sales_order.source}</span></p>
                   {(detail.sales_order.payment_method_title || detail.sales_order.payment_method) && (
-                    <p className="dark:text-gray-400 text-gray-500">Payment: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.payment_method_title || detail.sales_order.payment_method}</span></p>
+                    <p className="text-ink-3">Payment: <span className="text-ink">{detail.sales_order.payment_method_title || detail.sales_order.payment_method}</span></p>
                   )}
                   {detail.sales_order.shipping_method_title && (
-                    <p className="dark:text-gray-400 text-gray-500">Shipping method: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.shipping_method_title}</span></p>
+                    <p className="text-ink-3">Shipping method: <span className="text-ink">{detail.sales_order.shipping_method_title}</span></p>
                   )}
                 </div>
 
                 {shipments.length > 0 && token && (
-                  <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3 text-xs">
-                    <p className="font-medium dark:text-gray-300 text-gray-700">Shipments</p>
+                  <div className="rounded-xl border border-line p-4 space-y-3 text-xs">
+                    <p className="font-medium text-ink-2">Shipments</p>
                     {shipments.map(s => <ShipmentTrackingSection key={s.id} token={token} shipment={s} onCancelled={loadShipments} />)}
                   </div>
                 )}
 
                 {activities.length > 0 && (
-                  <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-2 text-xs">
-                    <p className="font-medium dark:text-gray-300 text-gray-700">Timeline</p>
+                  <div className="rounded-xl border border-line p-4 space-y-2 text-xs">
+                    <p className="font-medium text-ink-2">Timeline</p>
                     {activities.map(a => (
-                      <div key={a.id} className="flex justify-between gap-3 dark:text-gray-400 text-gray-500">
-                        <span className="dark:text-gray-200 text-gray-800">{a.summary}</span>
+                      <div key={a.id} className="flex justify-between gap-3 text-ink-3">
+                        <span className="text-ink">{a.summary}</span>
                         <span className="shrink-0">{new Date(a.created_at).toLocaleString()}</span>
                       </div>
                     ))}
@@ -1135,17 +1135,17 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
 
               {/* Aside column */}
               <div className="space-y-5 min-w-0">
-                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-2 text-xs">
+                <div className="rounded-xl border border-line p-4 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Notes</h3>
+                    <h3 className="text-xs font-semibold text-ink">Notes</h3>
                     {!editingNote && (
                       <button
                         onClick={startEditingNote}
                         title="Edit notes"
                         aria-label="Edit notes"
-                        className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       >
-                        <Edit3 size={12} className="dark:text-gray-400 text-gray-500" />
+                        <Edit3 size={12} className="text-ink-3" />
                       </button>
                     )}
                   </div>
@@ -1157,7 +1157,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
                         value={noteDraft}
                         onChange={e => setNoteDraft(e.target.value)}
                         rows={3}
-                        className="w-full px-2 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
                       />
                       <div className="flex items-center gap-2">
                         <button
@@ -1170,47 +1170,47 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
                         <button
                           onClick={() => setEditingNote(false)}
                           disabled={savingNote}
-                          className="px-2.5 py-1 rounded-lg border dark:border-[#2D3748] border-gray-200 text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors disabled:opacity-50"
+                          className="px-2.5 py-1 rounded-lg border border-line text-xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50"
                         >
                           Cancel
                         </button>
                       </div>
                     </div>
                   ) : detail.sales_order.customer_note ? (
-                    <p className="dark:text-gray-200 text-gray-800 whitespace-pre-wrap">{detail.sales_order.customer_note}</p>
+                    <p className="text-ink whitespace-pre-wrap">{detail.sales_order.customer_note}</p>
                   ) : (
-                    <p className="dark:text-gray-500 text-gray-400">No notes</p>
+                    <p className="text-ink-4">No notes</p>
                   )}
                 </div>
 
-                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3 text-xs">
-                  <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Customer</h3>
+                <div className="rounded-xl border border-line p-4 space-y-3 text-xs">
+                  <h3 className="text-xs font-semibold text-ink">Customer</h3>
                   <p>
                     {detail.sales_order.customer_id ? (
-                      <Link to={`/customers/${detail.sales_order.customer_id}`} className="text-blue-500 hover:underline">
+                      <Link to={`/customers/${detail.sales_order.customer_id}`} className="text-accent hover:underline">
                         {customerName(detail.sales_order)}
                       </Link>
                     ) : (
-                      <span className="dark:text-gray-200 text-gray-800">{customerName(detail.sales_order)}</span>
+                      <span className="text-ink">{customerName(detail.sales_order)}</span>
                     )}
                   </p>
 
                   {detail.sales_order.billing?.email && (
                     <div>
-                      <h4 className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Contact information</h4>
-                      <p className="dark:text-gray-200 text-gray-800">{detail.sales_order.billing.email}</p>
+                      <h4 className="text-[10px] font-semibold uppercase tracking-wider text-ink-4 mb-1">Contact information</h4>
+                      <p className="text-ink">{detail.sales_order.billing.email}</p>
                     </div>
                   )}
 
                   <div>
-                    <h4 className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Shipping address</h4>
+                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-ink-4 mb-1">Shipping address</h4>
                     <AddressLines address={detail.sales_order.shipping} />
                   </div>
 
                   <div>
-                    <h4 className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Billing address</h4>
+                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-ink-4 mb-1">Billing address</h4>
                     {addressesEqual(detail.sales_order.billing, detail.sales_order.shipping) ? (
-                      <p className="dark:text-gray-500 text-gray-400">Same as shipping address</p>
+                      <p className="text-ink-4">Same as shipping address</p>
                     ) : (
                       <AddressLines address={detail.sales_order.billing} />
                     )}
@@ -1327,15 +1327,15 @@ function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: stri
   const carrierLabel = CARRIERS.find(c => c.id === shipment.carrier)?.label ?? `Carrier ${shipment.carrier}`
 
   return (
-    <div className="border dark:border-[#2D3748] border-gray-100 rounded-lg p-3 space-y-2">
+    <div className="border border-line rounded-lg p-3 space-y-2">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <span className="dark:text-gray-200 text-gray-800 font-medium">{carrierLabel}</span>
-          <span className="dark:text-gray-500 text-gray-400">
+          <span className="text-ink font-medium">{carrierLabel}</span>
+          <span className="text-ink-4">
             {' · '}
             {shipment.barcode ? (
               shipment.tracking_url ? (
-                <a href={shipment.tracking_url} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">
+                <a href={shipment.tracking_url} target="_blank" rel="noreferrer" className="text-accent hover:underline">
                   {shipment.barcode}
                 </a>
               ) : (
@@ -1346,13 +1346,13 @@ function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: stri
             )}
           </span>
           {shipment.cancelled_at && (
-            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-400">Cancelled</span>
+            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-500/10 text-danger">Cancelled</span>
           )}
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button" onClick={handleRefresh} disabled={refreshing}
-            className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700 disabled:opacity-50 transition-colors"
+            className="px-2 py-1 rounded bg-fill text-ink-3 hover:text-ink-2 disabled:opacity-50 transition-colors"
           >
             {refreshing ? 'Fetching…' : 'Refresh from provider'}
           </button>
@@ -1361,30 +1361,30 @@ function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: stri
               type="button" onClick={handleCancel} disabled={cancelling}
               title="Wrong carrier? Cancel this shipment so a corrected one can be created"
               aria-label="Delete"
-              className="w-7 h-7 flex items-center justify-center rounded dark:bg-[#111827] bg-gray-100 dark:hover:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded bg-fill hover:bg-hover disabled:opacity-50 transition-colors"
             >
               {cancelling ? (
-                <span className="text-[10px] text-red-500">…</span>
+                <span className="text-[10px] text-danger">…</span>
               ) : (
-                <Trash2 size={13} className="dark:text-gray-500 text-gray-400 hover:text-red-500" />
+                <Trash2 size={13} className="text-ink-4 hover:text-danger" />
               )}
             </button>
           )}
         </div>
       </div>
 
-      {(shipment.cancel_note || cancelMessage) && <p className="text-amber-500">{shipment.cancel_note || cancelMessage}</p>}
-      {error && <p className="text-red-400">{error}</p>}
+      {(shipment.cancel_note || cancelMessage) && <p className="text-warning">{shipment.cancel_note || cancelMessage}</p>}
+      {error && <p className="text-danger">{error}</p>}
 
       {loading ? (
-        <p className="dark:text-gray-500 text-gray-400">Loading tracking…</p>
+        <p className="text-ink-4">Loading tracking…</p>
       ) : events.length === 0 ? (
-        <p className="dark:text-gray-500 text-gray-400">No tracking updates yet.</p>
+        <p className="text-ink-4">No tracking updates yet.</p>
       ) : (
         <div className="space-y-1">
           {events.map(e => (
-            <div key={e.id} className="flex justify-between gap-3 dark:text-gray-400 text-gray-500">
-              <span className="dark:text-gray-200 text-gray-800">{e.status_label}</span>
+            <div key={e.id} className="flex justify-between gap-3 text-ink-3">
+              <span className="text-ink">{e.status_label}</span>
               <span className="shrink-0">{new Date(e.occurred_at).toLocaleString()} · {e.source}</span>
             </div>
           ))}
@@ -1395,7 +1395,7 @@ function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: stri
 }
 
 function AddressLines({ address }: { address?: { first_name?: string; last_name?: string; company?: string; address_1?: string; address_2?: string; city?: string; state?: string; postcode?: string; country?: string; email?: string; phone?: string } }) {
-  if (!address) return <p className="text-xs dark:text-gray-500 text-gray-400">—</p>
+  if (!address) return <p className="text-xs text-ink-4">—</p>
   const name = [address.first_name, address.last_name].filter(Boolean).join(' ')
   const lines = [
     name,
@@ -1408,12 +1408,12 @@ function AddressLines({ address }: { address?: { first_name?: string; last_name?
     address.phone,
   ].filter(Boolean)
 
-  if (lines.length === 0) return <p className="text-xs dark:text-gray-500 text-gray-400">—</p>
+  if (lines.length === 0) return <p className="text-xs text-ink-4">—</p>
 
   return (
     <>
       {lines.map((line, i) => (
-        <p key={i} className="text-xs dark:text-gray-300 text-gray-600">{line}</p>
+        <p key={i} className="text-xs text-ink-2">{line}</p>
       ))}
     </>
   )

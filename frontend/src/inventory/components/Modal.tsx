@@ -8,10 +8,10 @@ import type { ReactNode } from 'react'
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-sm rounded-xl dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 shadow-xl">
-        <div className="flex items-center justify-between px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
-          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">{title}</h3>
-          <button type="button" onClick={onClose} aria-label="Close" className="dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600">
+      <div className="w-full max-w-sm rounded-xl bg-raised border border-line shadow-xl">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+          <h3 className="text-sm font-semibold text-ink">{title}</h3>
+          <button type="button" onClick={onClose} aria-label="Close" className="text-ink-4 hover:text-ink-2">
             <X size={16} />
           </button>
         </div>
@@ -21,5 +21,5 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
   )
 }
 
-export const inputClass = 'w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500'
-export const labelClass = 'block text-[10px] font-medium dark:text-gray-400 text-gray-500 mb-1'
+export const inputClass = 'w-full px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500'
+export const labelClass = 'block text-[10px] font-medium text-ink-3 mb-1'

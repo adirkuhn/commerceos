@@ -15,8 +15,8 @@ export default function Pagination({ page, pageSize, totalItems, onPageChange }:
   const to = Math.min(page * pageSize, totalItems)
 
   return (
-    <div className="flex items-center justify-between px-5 py-2.5 border-t dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
-      <span className="text-[10px] dark:text-gray-500 text-gray-400">
+    <div className="flex items-center justify-between px-5 py-2.5 border-t border-line bg-sunken shrink-0">
+      <span className="text-[10px] text-ink-4">
         {from}–{to} of {totalItems}
       </span>
       <div className="flex items-center gap-1">
@@ -24,20 +24,20 @@ export default function Pagination({ page, pageSize, totalItems, onPageChange }:
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
           aria-label="Previous page"
-          className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
-          <ChevronLeft size={13} className="dark:text-gray-400 text-gray-500" />
+          <ChevronLeft size={13} className="text-ink-3" />
         </button>
-        <span className="text-[10px] dark:text-gray-400 text-gray-500 px-1.5">
+        <span className="text-[10px] text-ink-3 px-1.5">
           Page {page} of {totalPages}
         </span>
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
           aria-label="Next page"
-          className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
-          <ChevronRight size={13} className="dark:text-gray-400 text-gray-500" />
+          <ChevronRight size={13} className="text-ink-3" />
         </button>
       </div>
     </div>

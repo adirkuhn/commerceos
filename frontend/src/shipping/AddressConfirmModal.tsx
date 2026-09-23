@@ -251,16 +251,16 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
     onNext({ carrier, packageType, recipient })
   }
 
-  const inputClass = 'w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900'
-  const labelClass = 'block text-[11px] font-medium dark:text-gray-400 text-gray-500 mb-1'
+  const inputClass = 'w-full px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink'
+  const labelClass = 'block text-[11px] font-medium text-ink-3 mb-1'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-md dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5 max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-md bg-raised rounded-xl shadow-2xl border border-line p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Confirm shipping address</h3>
-          <button onClick={onClose} aria-label="Close"><X size={14} className="dark:text-gray-500 text-gray-400" /></button>
+          <h3 className="text-sm font-semibold text-ink">Confirm shipping address</h3>
+          <button onClick={onClose} aria-label="Close"><X size={14} className="text-ink-4" /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
@@ -293,24 +293,24 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
           </div>
 
           {addressCheck.status === 'checking' && (
-            <p className="text-[11px] dark:text-gray-500 text-gray-400">Checking address…</p>
+            <p className="text-[11px] text-ink-4">Checking address…</p>
           )}
           {addressCheck.status === 'not_found' && (
-            <p className="text-[11px] text-amber-500">No match found for that postal code/number — enter manually.</p>
+            <p className="text-[11px] text-warning">No match found for that postal code/number — enter manually.</p>
           )}
           {addressCheck.status === 'error' && (
-            <p className="text-[11px] dark:text-gray-500 text-gray-400">Couldn't verify the address right now.</p>
+            <p className="text-[11px] text-ink-4">Couldn't verify the address right now.</p>
           )}
           {addressCheck.status === 'mismatch' && (
             <div className="flex items-start gap-2 rounded-lg px-3 py-2 bg-amber-50 dark:bg-amber-500/10">
-              <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
-              <div className="flex-1 text-[11px] text-amber-600 dark:text-amber-400">
+              <AlertTriangle size={13} className="text-warning mt-0.5 shrink-0" />
+              <div className="flex-1 text-[11px] text-warning">
                 <p>Possible typo: you entered <strong>{recipient.street}, {recipient.city}</strong>, the registry has <strong>{addressCheck.suggested.street}, {addressCheck.suggested.city}</strong>.</p>
                 <div className="flex gap-2 mt-1.5">
                   <button type="button" onClick={useSuggestedAddress} className="px-2 py-1 rounded bg-amber-500 text-white text-[11px] font-medium hover:bg-amber-600 transition-colors">
                     Use suggested
                   </button>
-                  <button type="button" onClick={() => setAddressCheck({ status: 'dismissed' })} className="px-2 py-1 rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 text-[11px] dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors">
+                  <button type="button" onClick={() => setAddressCheck({ status: 'dismissed' })} className="px-2 py-1 rounded bg-surface border border-line text-[11px] text-ink-2 hover:bg-hover transition-colors">
                     Keep mine
                   </button>
                 </div>
@@ -347,10 +347,10 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
             </div>
           </div>
           {estimate.status === 'loading' && (
-            <p className="text-[11px] dark:text-gray-500 text-gray-400">Estimating label cost…</p>
+            <p className="text-[11px] text-ink-4">Estimating label cost…</p>
           )}
           {estimate.status === 'ready' && cheapestEstimate && (
-            <p className="text-[11px] dark:text-gray-400 text-gray-600">
+            <p className="text-[11px] text-ink-3">
               Estimated cost: <strong>{formatMoney(cheapestEstimate.amount_minor_units, cheapestEstimate.currency)}</strong> ({cheapestEstimate.price_comment})
             </p>
           )}

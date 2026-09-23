@@ -36,15 +36,15 @@ export function WhatsAppTestModeModal({ connection, onClose, onSaved }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+      <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">WhatsApp test mode</h3>
+          <h3 className="text-sm font-semibold text-ink">WhatsApp test mode</h3>
           <button onClick={onClose} aria-label="Close">
-            <X size={14} className="dark:text-gray-500 text-gray-400" />
+            <X size={14} className="text-ink-4" />
           </button>
         </div>
 
-        <p className="text-xs dark:text-gray-500 text-gray-400 mb-4">
+        <p className="text-xs text-ink-4 mb-4">
           While enabled, every outbound WhatsApp message from this connection — replies, order/shipment
           notifications, automation rules — is redirected to the number below instead of the real customer.
           Nothing reaches a real customer until you turn this off.
@@ -57,12 +57,12 @@ export function WhatsAppTestModeModal({ connection, onClose, onSaved }: {
             onChange={e => setEnabled(e.target.checked)}
             className="rounded"
           />
-          <span className="text-xs dark:text-gray-300 text-gray-700">Enable test mode</span>
+          <span className="text-xs text-ink-2">Enable test mode</span>
         </label>
 
         {enabled && (
           <div className="mb-4">
-            <label htmlFor="wa-test-phone" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+            <label htmlFor="wa-test-phone" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
               Test phone number
             </label>
             <input
@@ -73,15 +73,15 @@ export function WhatsAppTestModeModal({ connection, onClose, onSaved }: {
               value={testPhone}
               onChange={e => setTestPhone(e.target.value)}
               placeholder="31612345678"
-              className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
             />
-            <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+            <p className="mt-1.5 text-[10px] text-ink-4">
               E.164, no leading '+' (e.g. 31612345678, not +31612345678).
             </p>
           </div>
         )}
 
-        {error && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{error}</p>}
+        {error && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{error}</p>}
 
         <button
           onClick={handleSave}

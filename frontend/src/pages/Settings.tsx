@@ -109,9 +109,9 @@ export default function Settings() {
   return (
     <div className="flex h-full overflow-hidden">
       {/* Sidebar */}
-      <div className="w-56 border-r dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 flex flex-col overflow-y-auto">
-        <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
-          <p className="text-xs font-semibold dark:text-gray-200 text-gray-800">Settings</p>
+      <div className="w-56 border-r border-line bg-sunken flex flex-col overflow-y-auto">
+        <div className="px-4 py-3 border-b border-line">
+          <p className="text-xs font-semibold text-ink">Settings</p>
         </div>
         <nav className="flex-1 py-2 px-2">
           {SECTIONS.map(s => {
@@ -124,13 +124,13 @@ export default function Settings() {
                 className={clsx(
                   'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left mb-0.5 transition-colors',
                   active
-                    ? 'dark:bg-blue-600/15 bg-blue-50 text-blue-400'
-                    : 'dark:text-gray-400 text-gray-600 hover:dark:bg-[#1F2937] hover:bg-white',
+                    ? 'dark:bg-blue-600/15 bg-blue-50 text-accent'
+                    : 'text-ink-3 hover:bg-raised',
                 )}
               >
-                <Icon size={14} className={active ? 'text-blue-400' : ''} />
+                <Icon size={14} className={active ? 'text-accent' : ''} />
                 <span className="text-xs font-medium flex-1">{s.label}</span>
-                {active && <ChevronRight size={12} className="text-blue-400" />}
+                {active && <ChevronRight size={12} className="text-accent" />}
               </button>
             )
           })}
@@ -142,8 +142,8 @@ export default function Settings() {
         {activeSection === 'company' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Company Settings</h2>
-              <p className="text-xs dark:text-gray-500 text-gray-400">Business information used on invoices, labels, and reports</p>
+              <h2 className="text-base font-semibold text-ink mb-1">Company Settings</h2>
+              <p className="text-xs text-ink-4">Business information used on invoices, labels, and reports</p>
             </div>
             <div className="space-y-4">
               {[
@@ -154,11 +154,11 @@ export default function Settings() {
                 ['Phone', '+31 20 123 4567', 'tel'],
               ].map(([label, defaultValue, type]) => (
                 <div key={label}>
-                  <label className="block text-xs font-medium dark:text-gray-300 text-gray-700 mb-1.5">{label}</label>
+                  <label className="block text-xs font-medium text-ink-2 mb-1.5">{label}</label>
                   <input
                     type={type}
                     defaultValue={defaultValue}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               ))}
@@ -174,16 +174,16 @@ export default function Settings() {
         {activeSection === 'inventory' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Inventory Rules</h2>
-              <p className="text-xs dark:text-gray-500 text-gray-400">Configure stock management behavior</p>
+              <h2 className="text-base font-semibold text-ink mb-1">Inventory Rules</h2>
+              <p className="text-xs text-ink-4">Configure stock management behavior</p>
             </div>
 
             <InventorySyncRulesSection />
 
-            <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
-              <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
-                <h3 className="text-xs font-semibold dark:text-gray-200 text-gray-800">FEFO Settings</h3>
-                <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">First Expire, First Out — for perishable products</p>
+            <div className="bg-raised rounded-xl border border-line overflow-hidden">
+              <div className="px-4 py-3 border-b border-line">
+                <h3 className="text-xs font-semibold text-ink">FEFO Settings</h3>
+                <p className="text-[10px] text-ink-4 mt-0.5">First Expire, First Out — for perishable products</p>
               </div>
               <div className="p-4 space-y-3">
                 {[
@@ -194,15 +194,15 @@ export default function Settings() {
                 ].map(([label, defaultChecked]) => (
                   <label key={label as string} className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" defaultChecked={defaultChecked as boolean} className="rounded accent-blue-600 w-3.5 h-3.5" />
-                    <span className="text-xs dark:text-gray-300 text-gray-700">{label as string}</span>
+                    <span className="text-xs text-ink-2">{label as string}</span>
                   </label>
                 ))}
               </div>
             </div>
 
-            <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
-              <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
-                <h3 className="text-xs font-semibold dark:text-gray-200 text-gray-800">Stock Thresholds</h3>
+            <div className="bg-raised rounded-xl border border-line overflow-hidden">
+              <div className="px-4 py-3 border-b border-line">
+                <h3 className="text-xs font-semibold text-ink">Stock Thresholds</h3>
               </div>
               <div className="p-4 space-y-3">
                 {[
@@ -211,11 +211,11 @@ export default function Settings() {
                   ['Overstock threshold (%)', '200'],
                 ].map(([label, val]) => (
                   <div key={label} className="flex items-center gap-4">
-                    <label className="text-xs dark:text-gray-300 text-gray-700 flex-1">{label}</label>
+                    <label className="text-xs text-ink-2 flex-1">{label}</label>
                     <input
                       type="number"
                       defaultValue={val}
-                      className="w-24 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500 text-right"
+                      className="w-24 px-2 py-1.5 text-xs rounded-lg bg-sunken border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500 text-right"
                     />
                   </div>
                 ))}
@@ -235,8 +235,8 @@ export default function Settings() {
         {activeSection === 'pricing' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Pricing</h2>
-              <p className="text-xs dark:text-gray-500 text-gray-400">Default target markup used to compute recommended prices</p>
+              <h2 className="text-base font-semibold text-ink mb-1">Pricing</h2>
+              <p className="text-xs text-ink-4">Default target markup used to compute recommended prices</p>
             </div>
             <PricingMarginSection />
           </div>
@@ -246,8 +246,8 @@ export default function Settings() {
           <div className="max-w-2xl space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Automation Rules</h2>
-                <p className="text-xs dark:text-gray-500 text-gray-400">Trigger-based workflows that run automatically</p>
+                <h2 className="text-base font-semibold text-ink mb-1">Automation Rules</h2>
+                <p className="text-xs text-ink-4">Trigger-based workflows that run automatically</p>
               </div>
               <button className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">
                 + New Rule
@@ -256,27 +256,27 @@ export default function Settings() {
 
             <div className="space-y-3">
               {AUTOMATIONS.map(auto => (
-                <div key={auto.id} className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+                <div key={auto.id} className="bg-raised rounded-xl border border-line p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <p className="text-xs font-medium dark:text-gray-100 text-gray-900">{auto.name}</p>
+                        <p className="text-xs font-medium text-ink">{auto.name}</p>
                         {auto.active
-                          ? <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-green-500/15 text-green-400">active</span>
-                          : <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium dark:bg-gray-500/15 bg-gray-100 dark:text-gray-400 text-gray-500">inactive</span>
+                          ? <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-green-500/15 text-success">active</span>
+                          : <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium dark:bg-gray-500/15 bg-gray-100 text-ink-3">inactive</span>
                         }
                       </div>
                       <div className="flex items-center gap-2 text-[10px]">
-                        <span className="dark:text-gray-500 text-gray-400">When:</span>
-                        <span className="dark:bg-[#2D3748] bg-gray-100 dark:text-gray-300 text-gray-600 px-2 py-0.5 rounded">{auto.trigger}</span>
-                        <ChevronRight size={10} className="dark:text-gray-600 text-gray-400" />
-                        <span className="dark:text-gray-500 text-gray-400">Then:</span>
-                        <span className="dark:bg-blue-500/10 bg-blue-50 text-blue-400 px-2 py-0.5 rounded">{auto.action}</span>
+                        <span className="text-ink-4">When:</span>
+                        <span className="bg-hover text-ink-2 px-2 py-0.5 rounded">{auto.trigger}</span>
+                        <ChevronRight size={10} className="text-ink-4" />
+                        <span className="text-ink-4">Then:</span>
+                        <span className="dark:bg-blue-500/10 bg-blue-50 text-accent px-2 py-0.5 rounded">{auto.action}</span>
                       </div>
                     </div>
                     <label className="relative flex cursor-pointer items-center shrink-0">
                       <input type="checkbox" defaultChecked={auto.active} className="sr-only peer" />
-                      <div className="w-8 h-4 dark:bg-[#2D3748] bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                      <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
                       <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                     </label>
                   </div>
@@ -289,13 +289,13 @@ export default function Settings() {
         {activeSection === 'security' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Security</h2>
-              <p className="text-xs dark:text-gray-500 text-gray-400">Authentication and access control</p>
+              <h2 className="text-base font-semibold text-ink mb-1">Security</h2>
+              <p className="text-xs text-ink-4">Authentication and access control</p>
             </div>
             <div className="dark:bg-amber-500/5 bg-amber-50 border dark:border-amber-500/20 border-amber-200 rounded-xl p-4 flex items-start gap-3">
-              <AlertTriangle size={15} className="text-amber-400 mt-0.5 shrink-0" />
+              <AlertTriangle size={15} className="text-warning mt-0.5 shrink-0" />
               <div>
-                <p className="text-xs font-medium text-amber-400">2FA not enabled for all users</p>
+                <p className="text-xs font-medium text-warning">2FA not enabled for all users</p>
                 <p className="text-[10px] text-amber-400/70 mt-0.5">3 users have not enabled two-factor authentication.</p>
               </div>
             </div>
@@ -307,10 +307,10 @@ export default function Settings() {
                 { label: 'IP allowlist restriction', checked: false },
                 { label: 'Audit log all actions', checked: true },
               ].map(item => (
-                <label key={item.label} className="flex items-center gap-3 cursor-pointer dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 rounded-xl p-3.5">
+                <label key={item.label} className="flex items-center gap-3 cursor-pointer bg-raised border border-line rounded-xl p-3.5">
                   <input type="checkbox" defaultChecked={item.checked} className="rounded accent-blue-600 w-3.5 h-3.5 shrink-0" />
-                  <span className="text-xs dark:text-gray-300 text-gray-700">{item.label}</span>
-                  {item.checked && <Check size={12} className="text-green-400 ml-auto" />}
+                  <span className="text-xs text-ink-2">{item.label}</span>
+                  {item.checked && <Check size={12} className="text-success ml-auto" />}
                 </label>
               ))}
             </div>
@@ -320,24 +320,24 @@ export default function Settings() {
         {activeSection === 'notifications' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Notifications</h2>
-              <p className="text-xs dark:text-gray-500 text-gray-400">Configure alerts across channels</p>
+              <h2 className="text-base font-semibold text-ink mb-1">Notifications</h2>
+              <p className="text-xs text-ink-4">Configure alerts across channels</p>
             </div>
             {[
               { channel: 'Email', events: ['Critical stock alert', 'Expiry alert', 'Integration failure', 'New order'] },
               { channel: 'Webhook', events: ['Order status change', 'Stock adjustment', 'Sync complete'] },
               { channel: 'Slack', events: ['Critical stock alert', 'Integration failure'] },
             ].map(section => (
-              <div key={section.channel} className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
-                <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200 flex items-center justify-between">
-                  <p className="text-xs font-semibold dark:text-gray-200 text-gray-800">{section.channel}</p>
-                  <span className="text-[10px] text-green-400 bg-green-500/15 px-2 py-0.5 rounded-full">configured</span>
+              <div key={section.channel} className="bg-raised rounded-xl border border-line overflow-hidden">
+                <div className="px-4 py-3 border-b border-line flex items-center justify-between">
+                  <p className="text-xs font-semibold text-ink">{section.channel}</p>
+                  <span className="text-[10px] text-success bg-green-500/15 px-2 py-0.5 rounded-full">configured</span>
                 </div>
                 <div className="p-4 space-y-2">
                   {section.events.map(ev => (
                     <label key={ev} className="flex items-center gap-3 cursor-pointer">
                       <input type="checkbox" defaultChecked className="rounded accent-blue-600 w-3 h-3" />
-                      <span className="text-xs dark:text-gray-300 text-gray-700">{ev}</span>
+                      <span className="text-xs text-ink-2">{ev}</span>
                     </label>
                   ))}
                 </div>
@@ -348,15 +348,15 @@ export default function Settings() {
 
         {!['company', 'integrations', 'inventory', 'localization', 'automation', 'security', 'notifications', 'tax', 'pricing'].includes(activeSection) && (
           <div className="max-w-2xl">
-            <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1 capitalize">{activeSection}</h2>
-            <p className="text-xs dark:text-gray-500 text-gray-400">
+            <h2 className="text-base font-semibold text-ink mb-1 capitalize">{activeSection}</h2>
+            <p className="text-xs text-ink-4">
               {SECTIONS.find(s => s.id === activeSection)?.description}
             </p>
             <div className="mt-8 flex flex-col items-center text-center">
-              <div className="w-12 h-12 dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 rounded-xl flex items-center justify-center mb-3">
-                {(() => { const Icon = SECTIONS.find(s => s.id === activeSection)?.icon ?? Zap; return <Icon size={20} className="dark:text-gray-500 text-gray-400" /> })()}
+              <div className="w-12 h-12 bg-raised border border-line rounded-xl flex items-center justify-center mb-3">
+                {(() => { const Icon = SECTIONS.find(s => s.id === activeSection)?.icon ?? Zap; return <Icon size={20} className="text-ink-4" /> })()}
               </div>
-              <p className="text-xs dark:text-gray-500 text-gray-400">Configuration coming soon</p>
+              <p className="text-xs text-ink-4">Configuration coming soon</p>
             </div>
           </div>
         )}
@@ -368,8 +368,8 @@ export default function Settings() {
 // ── Integrations settings section ─────────────────────────────────────────────
 
 const STATUS_STYLES: Record<Connection['status'], string> = {
-  connected: 'bg-green-500/15 text-green-400',
-  error: 'bg-red-500/15 text-red-400',
+  connected: 'bg-green-500/15 text-success',
+  error: 'bg-red-500/15 text-danger',
 }
 
 function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (connection: Connection) => void }) {
@@ -379,8 +379,8 @@ function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (connection
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Integrations</h2>
-        <p className="text-xs dark:text-gray-500 text-gray-400">Connected external services. Configure sync schedules for each.</p>
+        <h2 className="text-base font-semibold text-ink mb-1">Integrations</h2>
+        <p className="text-xs text-ink-4">Connected external services. Configure sync schedules for each.</p>
       </div>
 
       <AIIntegrationCard />
@@ -389,36 +389,36 @@ function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (connection
 
       <RecommendationsSettingsCard />
 
-      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {loading && <p className="text-xs text-ink-4">Loading…</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
 
       {!loading && connections.length === 0 && (
-        <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-6 text-center">
-          <p className="text-xs dark:text-gray-500 text-gray-400">No integrations connected yet.</p>
+        <div className="bg-raised rounded-xl border border-line p-6 text-center">
+          <p className="text-xs text-ink-4">No integrations connected yet.</p>
         </div>
       )}
 
       <div className="space-y-3">
         {connections.map(conn => (
-          <div key={conn.id} className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 flex items-center justify-between gap-4">
+          <div key={conn.id} className="bg-raised rounded-xl border border-line p-4 flex items-center justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <p className="text-xs font-medium dark:text-gray-200 text-gray-800 capitalize">{conn.provider}</p>
+                <p className="text-xs font-medium text-ink capitalize">{conn.provider}</p>
                 <span className={clsx('px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize', STATUS_STYLES[conn.status])}>
                   {conn.status}
                 </span>
               </div>
-              <p className="text-[10px] dark:text-gray-500 text-gray-400 truncate mt-0.5">{conn.store_url}</p>
+              <p className="text-[10px] text-ink-4 truncate mt-0.5">{conn.store_url}</p>
             </div>
             {conn.provider === 'woocommerce' ? (
               <button
                 onClick={() => onConfigure(conn)}
-                className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors shrink-0"
+                className="px-3 py-1.5 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover transition-colors shrink-0"
               >
                 Configure
               </button>
             ) : (
-              <span className="text-[10px] dark:text-gray-600 text-gray-400 shrink-0">Coming soon</span>
+              <span className="text-[10px] text-ink-4 shrink-0">Coming soon</span>
             )}
           </div>
         ))}
@@ -488,15 +488,15 @@ function RecommendationsSettingsCard() {
   }
 
   return (
-    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
-      <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Cross-sell recommendations</h3>
-      <p className="text-[10px] dark:text-gray-500 text-gray-400">
+    <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
+      <h3 className="text-sm font-semibold text-ink">Cross-sell recommendations</h3>
+      <p className="text-[10px] text-ink-4">
         Tunes the pattern-mining behind "You may also like" and "Frequently bought together" on connected storefronts. Leave blank to use CommerceOS' defaults.
       </p>
 
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label htmlFor="bundle-confidence" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+          <label htmlFor="bundle-confidence" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
             Bundle confidence (%)
           </label>
           <input
@@ -505,11 +505,11 @@ function RecommendationsSettingsCard() {
             value={confidencePercent}
             onChange={e => { setConfidencePercent(e.target.value); setSaved(false) }}
             placeholder="30"
-            className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div>
-          <label htmlFor="min-support" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+          <label htmlFor="min-support" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
             Minimum support (orders)
           </label>
           <input
@@ -518,11 +518,11 @@ function RecommendationsSettingsCard() {
             value={minSupport}
             onChange={e => { setMinSupport(e.target.value); setSaved(false) }}
             placeholder="2"
-            className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div>
-          <label htmlFor="lookback-days" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+          <label htmlFor="lookback-days" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
             Lookback window (days)
           </label>
           <input
@@ -531,23 +531,23 @@ function RecommendationsSettingsCard() {
             value={lookbackDays}
             onChange={e => { setLookbackDays(e.target.value); setSaved(false) }}
             placeholder="180"
-            className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
       </div>
 
-      <ul className="text-[10px] dark:text-gray-500 text-gray-400 space-y-0.5 list-disc list-inside">
+      <ul className="text-[10px] text-ink-4 space-y-0.5 list-disc list-inside">
         <li><span className="font-medium">Bundle confidence</span> — of orders containing a cart item, the % that must also contain a candidate before it's flagged bundle-worthy. Higher = fewer, more reliable bundle suggestions.</li>
         <li><span className="font-medium">Minimum support</span> — orders a product pairing must appear in before it counts as a real pattern rather than coincidence. Raise this on a high-volume store to cut noise; keep it low on a small catalog or recommendations may disappear entirely.</li>
         <li><span className="font-medium">Lookback window</span> — how far back order history is mined. Shorter favors recent behavior over stale, since-discontinued patterns; longer gives more data for a seasonal or slow-moving catalog.</li>
       </ul>
 
-      {saveError && <p className="text-xs text-red-400">{saveError}</p>}
-      {saved && <p className="text-xs text-green-400">Saved.</p>}
+      {saveError && <p className="text-xs text-danger">{saveError}</p>}
+      {saved && <p className="text-xs text-success">Saved.</p>}
       <button
         onClick={handleSave}
         disabled={saving}
-        className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
+        className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
       >
         {saving ? 'Saving…' : 'Save recommendation settings'}
       </button>
@@ -635,10 +635,10 @@ function ApiKeysCard() {
   }
 
   return (
-    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+    <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
       <div>
-        <p className="text-xs font-medium dark:text-gray-200 text-gray-800">API keys</p>
-        <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">
+        <p className="text-xs font-medium text-ink">API keys</p>
+        <p className="text-[10px] text-ink-4 mt-0.5">
           Each key lets a storefront (e.g. the CommerceOS Sync WordPress plugin) call CommerceOS' cart recommendations
           API. Name each key for the storefront it's for, so you can revoke just that one later without affecting others.
         </p>
@@ -646,58 +646,58 @@ function ApiKeysCard() {
 
       {justCreatedKey && (
         <div>
-          <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+          <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
             New key (shown once -- copy it now)
           </label>
           <div className="flex items-center gap-2">
-            <code className="flex-1 px-3 py-2 text-[11px] font-mono rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 overflow-x-auto whitespace-nowrap">
+            <code className="flex-1 px-3 py-2 text-[11px] font-mono rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
               {justCreatedKey}
             </code>
             <button
               type="button"
               onClick={handleCopy}
-              className="px-2.5 py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors shrink-0"
+              className="px-2.5 py-2 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors shrink-0"
             >
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
-          <p className="mt-1.5 text-[10px] text-amber-500">
+          <p className="mt-1.5 text-[10px] text-warning">
             This won't be shown again -- if you lose it, revoke it below and create a new one.
           </p>
         </div>
       )}
 
-      {error && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error}</p>}
+      {error && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error}</p>}
 
       <form onSubmit={handleCreate} className="flex items-end gap-2">
         <div className="flex-1">
-          <label htmlFor="api-key-name" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+          <label htmlFor="api-key-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
             Name
           </label>
           <input
             id="api-key-name" required value={name} onChange={e => setName(e.target.value)}
             placeholder="e.g. Main storefront"
-            className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+            className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink"
           />
         </div>
         <div className="flex-1">
-          <label htmlFor="api-key-description" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+          <label htmlFor="api-key-description" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
             Description
           </label>
           <input
             id="api-key-description" value={description} onChange={e => setDescription(e.target.value)}
             placeholder="Optional"
-            className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+            className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink"
           />
         </div>
         {internalChannels.length > 0 && (
           <div className="flex-1">
-            <label htmlFor="api-key-channel" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+            <label htmlFor="api-key-channel" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
               Sales channel
             </label>
             <select
               id="api-key-channel" value={salesChannelId} onChange={e => setSalesChannelId(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+              className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink"
             >
               <option value="">All channels (tenant-wide)</option>
               {internalChannels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -713,14 +713,14 @@ function ApiKeysCard() {
       </form>
 
       {loading ? (
-        <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+        <p className="text-xs text-ink-4">Loading…</p>
       ) : keys.length === 0 ? (
-        <p className="text-xs dark:text-gray-500 text-gray-400">No keys yet -- create one above.</p>
+        <p className="text-xs text-ink-4">No keys yet -- create one above.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-left dark:text-gray-500 text-gray-400 border-b dark:border-[#2D3748] border-gray-200">
+              <tr className="text-left text-ink-4 border-b border-line">
                 <th className="py-2 pr-3 font-medium">Name</th>
                 <th className="py-2 pr-3 font-medium">Description</th>
                 <th className="py-2 pr-3 font-medium">Scope</th>
@@ -730,15 +730,15 @@ function ApiKeysCard() {
             </thead>
             <tbody>
               {keys.map(k => (
-                <tr key={k.id} className="border-b dark:border-[#2D3748] border-gray-100 last:border-0">
-                  <td className="py-2 pr-3 dark:text-gray-300 text-gray-700">{k.name}</td>
-                  <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 truncate max-w-[220px]">{k.description}</td>
-                  <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{channelName(k.sales_channel_id)}</td>
+                <tr key={k.id} className="border-b border-line last:border-0">
+                  <td className="py-2 pr-3 text-ink-2">{k.name}</td>
+                  <td className="py-2 pr-3 text-ink-3 truncate max-w-[220px]">{k.description}</td>
+                  <td className="py-2 pr-3 text-ink-3">{channelName(k.sales_channel_id)}</td>
                   <td className="py-2 pr-3">
                     {k.revoked_at ? (
-                      <span className="text-[10px] dark:text-gray-500 text-gray-400">revoked</span>
+                      <span className="text-[10px] text-ink-4">revoked</span>
                     ) : (
-                      <span className="text-[10px] text-green-400 bg-green-500/15 px-2 py-0.5 rounded-full">active</span>
+                      <span className="text-[10px] text-success bg-green-500/15 px-2 py-0.5 rounded-full">active</span>
                     )}
                   </td>
                   <td className="py-2 pr-3">
@@ -746,7 +746,7 @@ function ApiKeysCard() {
                       <button
                         onClick={() => handleRevoke(k.id)}
                         disabled={busyId === k.id}
-                        className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:text-red-400 disabled:opacity-50 transition-colors"
+                        className="px-2 py-1 rounded bg-fill text-ink-3 hover:text-danger disabled:opacity-50 transition-colors"
                       >
                         Revoke
                       </button>
@@ -815,7 +815,7 @@ function AIIntegrationCard() {
   }
 
   return (
-    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+    <div className="bg-raised rounded-xl border border-line p-4">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white shrink-0">
@@ -823,14 +823,14 @@ function AIIntegrationCard() {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="text-xs font-medium dark:text-gray-200 text-gray-800">AI</p>
+              <p className="text-xs font-medium text-ink">AI</p>
               {connection && (
                 <span className={clsx('px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize', STATUS_STYLES[connection.status])}>
                   {connection.status}
                 </span>
               )}
             </div>
-            <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">
+            <p className="text-[10px] text-ink-4 mt-0.5">
               {loading ? 'Loading…' : connection
                 ? AI_PROVIDER_LABELS[connection.provider]
                 : 'Used for procurement document parsing (PDF invoices) and optional WhatsApp AI-assisted message parsing. Not configured.'}
@@ -840,42 +840,42 @@ function AIIntegrationCard() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={openConfigure}
-            className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover transition-colors"
           >
             {connection ? 'Configure' : 'Connect'}
           </button>
           {connection && (
             <button
               onClick={handleDisconnect}
-              className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-400 text-gray-500 hover:text-red-400 transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-3 hover:text-danger transition-colors"
             >
               Disconnect
             </button>
           )}
         </div>
       </div>
-      {error && <p className="mt-2 text-[10px] text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-[10px] text-danger">{error}</p>}
 
       {configuring && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={() => setConfiguring(false)} />
-          <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+          <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Configure AI</h3>
+              <h3 className="text-sm font-semibold text-ink">Configure AI</h3>
               <button onClick={() => setConfiguring(false)} aria-label="Close">
-                <X size={14} className="dark:text-gray-500 text-gray-400" />
+                <X size={14} className="text-ink-4" />
               </button>
             </div>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
-                <label htmlFor="ai-provider" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="ai-provider" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   Provider
                 </label>
                 <select
                   id="ai-provider"
                   value={provider}
                   onChange={e => setProvider(e.target.value as AIProvider)}
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {(Object.keys(AI_PROVIDER_LABELS) as AIProvider[]).map(p => (
                     <option key={p} value={p}>{AI_PROVIDER_LABELS[p]}</option>
@@ -884,7 +884,7 @@ function AIIntegrationCard() {
               </div>
               {provider !== 'ollama' && (
                 <div>
-                  <label htmlFor="ai-api-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="ai-api-key" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     API Key
                   </label>
                   <input
@@ -895,12 +895,12 @@ function AIIntegrationCard() {
                     value={apiKey}
                     onChange={e => setApiKey(e.target.value)}
                     placeholder="sk-..."
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               )}
               <div>
-                <label htmlFor="ai-base-url" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="ai-base-url" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   {provider === 'ollama' ? 'Server URL' : 'Base URL (optional)'}
                 </label>
                 <input
@@ -911,11 +911,11 @@ function AIIntegrationCard() {
                   value={baseUrl}
                   onChange={e => setBaseUrl(e.target.value)}
                   placeholder={provider === 'ollama' ? 'http://localhost:11434' : 'https://...'}
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label htmlFor="ai-model" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="ai-model" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   Model (optional)
                 </label>
                 <input
@@ -924,12 +924,12 @@ function AIIntegrationCard() {
                   value={model}
                   onChange={e => setModel(e.target.value)}
                   placeholder="Uses the provider's default"
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               {provider === 'gemini' && (
                 <div>
-                  <label htmlFor="ai-fallback-models" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="ai-fallback-models" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Fallback models (optional)
                   </label>
                   <input
@@ -938,15 +938,15 @@ function AIIntegrationCard() {
                     value={fallbackModels}
                     onChange={e => setFallbackModels(e.target.value)}
                     placeholder="gemini-3.5-flash-lite, gemini-3.1-flash-lite"
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                  <p className="mt-1.5 text-[10px] text-ink-4">
                     Comma-separated. Tried in order when Model hits a rate limit (Gemini's free tier caps some models at 20 requests/day, others at 500).
                   </p>
                 </div>
               )}
               {formError && (
-                <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
+                <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
               )}
               <button
                 type="submit"
@@ -1015,12 +1015,12 @@ function InventorySyncRulesSection() {
   }
 
   return (
-    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
-      <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Sync & expiry rules</h3>
+    <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
+      <h3 className="text-sm font-semibold text-ink">Sync & expiry rules</h3>
       <div className="flex items-center justify-between">
         <div>
-          <span className="text-xs dark:text-gray-300 text-gray-700 block">Enable inventory sync rules</span>
-          <span className="text-[10px] dark:text-gray-500 text-gray-400">
+          <span className="text-xs text-ink-2 block">Enable inventory sync rules</span>
+          <span className="text-[10px] text-ink-4">
             Controls what quantity syncs to channels: no batches → ledger total · batches with no expiry → summed together · batches with an expiry → only the nearest-expiring batch's quantity, so channels sell through the oldest stock first.
           </span>
         </div>
@@ -1033,12 +1033,12 @@ function InventorySyncRulesSection() {
             onChange={e => { setEnabled(e.target.checked); setSaved(false) }}
             className="sr-only peer"
           />
-          <div className="w-8 h-4 dark:bg-[#2D3748] bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+          <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
           <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
         </label>
       </div>
       <div className="max-w-[220px]">
-        <label htmlFor="batch-expiry-threshold-days" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+        <label htmlFor="batch-expiry-threshold-days" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
           Auto-expire batches after (days)
         </label>
         <input
@@ -1047,15 +1047,15 @@ function InventorySyncRulesSection() {
           min={0}
           value={thresholdDays}
           onChange={e => { setThresholdDays(parseInt(e.target.value, 10) || 0); setSaved(false) }}
-          className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
-      {saveError && <p className="text-xs text-red-400">{saveError}</p>}
-      {saved && <p className="text-xs text-green-400">Saved.</p>}
+      {saveError && <p className="text-xs text-danger">{saveError}</p>}
+      {saved && <p className="text-xs text-success">Saved.</p>}
       <button
         onClick={handleSave}
         disabled={saving}
-        className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
+        className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
       >
         {saving ? 'Saving…' : 'Save inventory rules'}
       </button>
@@ -1098,10 +1098,10 @@ function PricingMarginSection() {
   }
 
   return (
-    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
-      <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Pricing & markup</h3>
+    <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
+      <h3 className="text-sm font-semibold text-ink">Pricing & markup</h3>
       <div className="max-w-[220px]">
-        <label htmlFor="default-target-markup" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+        <label htmlFor="default-target-markup" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
           Default target markup (%)
         </label>
         <input
@@ -1110,19 +1110,19 @@ function PricingMarginSection() {
           value={markupPercent}
           onChange={e => { setMarkupPercent(e.target.value); setSaved(false) }}
           placeholder="e.g. 30"
-          className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
         />
-        <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+        <p className="text-[10px] text-ink-4 mt-1">
           Markup is profit as a % of cost (e.g. 300% markup means selling at 4x cost) -- no upper bound, unlike margin.
           Used to compute each product's recommended price from its cost price, unless its category has its own target markup set.
         </p>
       </div>
-      {saveError && <p className="text-xs text-red-400">{saveError}</p>}
-      {saved && <p className="text-xs text-green-400">Saved.</p>}
+      {saveError && <p className="text-xs text-danger">{saveError}</p>}
+      {saved && <p className="text-xs text-success">Saved.</p>}
       <button
         onClick={handleSave}
         disabled={saving}
-        className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
+        className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
       >
         {saving ? 'Saving…' : 'Save pricing settings'}
       </button>
@@ -1175,27 +1175,27 @@ function LocalizationSettingsSection() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Localization</h2>
-        <p className="text-xs dark:text-gray-500 text-gray-400">Currency, timezone, date formats</p>
+        <h2 className="text-base font-semibold text-ink mb-1">Localization</h2>
+        <p className="text-xs text-ink-4">Currency, timezone, date formats</p>
       </div>
-      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      {loading && <p className="text-xs text-ink-4">Loading…</p>}
       <div className="space-y-4">
         {fields.map(({ id, label, value, onChange, options }) => (
           <div key={id}>
-            <label htmlFor={id} className="block text-xs font-medium dark:text-gray-300 text-gray-700 mb-1.5">{label}</label>
+            <label htmlFor={id} className="block text-xs font-medium text-ink-2 mb-1.5">{label}</label>
             <select
               id={id}
               value={value}
               onChange={e => { onChange(e.target.value); setSaved(false) }}
-              className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
             >
               {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
         ))}
       </div>
-      {(error || saveError) && <p className="text-xs text-red-400">{error || saveError}</p>}
-      {saved && <p className="text-xs text-green-400">Saved.</p>}
+      {(error || saveError) && <p className="text-xs text-danger">{error || saveError}</p>}
+      {saved && <p className="text-xs text-success">Saved.</p>}
       <button
         onClick={handleSave}
         disabled={saving}
@@ -1255,53 +1255,53 @@ function ExchangeRatesCard() {
   }
 
   return (
-    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+    <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
       <div>
-        <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Exchange rates</h3>
-        <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">
+        <h3 className="text-sm font-semibold text-ink">Exchange rates</h3>
+        <p className="text-xs text-ink-4 mt-0.5">
           How much 1 unit of your default currency is worth in another currency -- used to price a sales channel
           running in that currency, unless a product/coupon has a manual override.
         </p>
       </div>
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
-      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
+      {loading && <p className="text-xs text-ink-4">Loading…</p>}
 
       <div className="space-y-1.5">
         {rates.map(r => (
-          <div key={r.currency_code} className="flex items-center justify-between text-xs dark:text-gray-300 text-gray-700 py-1">
+          <div key={r.currency_code} className="flex items-center justify-between text-xs text-ink-2 py-1">
             <span>1 {defaultCurrencyLabel} = <span className="font-medium">{(r.rate_basis_points / 10000).toFixed(4)}</span> {r.currency_code}</span>
             <button
               onClick={() => handleDelete(r.currency_code)}
-              className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors"
+              className="text-[10px] text-ink-4 hover:text-danger transition-colors"
             >
               Delete
             </button>
           </div>
         ))}
-        {!loading && rates.length === 0 && <p className="text-xs dark:text-gray-500 text-gray-400">No exchange rates configured yet.</p>}
+        {!loading && rates.length === 0 && <p className="text-xs text-ink-4">No exchange rates configured yet.</p>}
       </div>
 
-      <form onSubmit={handleAdd} className="flex items-end gap-2 pt-2 border-t dark:border-[#2D3748] border-gray-100">
+      <form onSubmit={handleAdd} className="flex items-end gap-2 pt-2 border-t border-line">
         <div className="w-20">
-          <label htmlFor="fx-currency" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">Currency</label>
+          <label htmlFor="fx-currency" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">Currency</label>
           <input
             id="fx-currency"
             value={currencyCode}
             maxLength={3}
             placeholder="USD"
             onChange={e => setCurrencyCode(e.target.value.toUpperCase())}
-            className="w-full px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div className="w-28">
-          <label htmlFor="fx-rate" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">Rate</label>
+          <label htmlFor="fx-rate" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">Rate</label>
           <input
             id="fx-rate"
             value={rateValue}
             placeholder="1.0876"
             onChange={e => setRateValue(e.target.value)}
-            className="w-full px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <button
@@ -1312,7 +1312,7 @@ function ExchangeRatesCard() {
           {saving ? 'Saving…' : 'Add / update'}
         </button>
       </form>
-      {formError && <p className="text-xs text-red-400">{formError}</p>}
+      {formError && <p className="text-xs text-danger">{formError}</p>}
     </div>
   )
 }
@@ -1425,14 +1425,14 @@ function TaxSettingsSection() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Tax</h2>
-        <p className="text-xs dark:text-gray-500 text-gray-400">Tax classes and their per-country rates</p>
+        <h2 className="text-base font-semibold text-ink mb-1">Tax</h2>
+        <p className="text-xs text-ink-4">Tax classes and their per-country rates</p>
       </div>
 
-      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
-        <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Store defaults</h3>
+      <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-ink">Store defaults</h3>
         <div className="flex items-center justify-between">
-          <span className="text-xs dark:text-gray-300 text-gray-700">Prices include tax</span>
+          <span className="text-xs text-ink-2">Prices include tax</span>
           <label className="relative flex items-center shrink-0 cursor-pointer">
             <input
               type="checkbox"
@@ -1442,12 +1442,12 @@ function TaxSettingsSection() {
               onChange={e => { setPricesIncludeTax(e.target.checked); setDefaultsSaved(false) }}
               className="sr-only peer"
             />
-            <div className="w-8 h-4 dark:bg-[#2D3748] bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+            <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
             <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
           </label>
         </div>
         <div className="max-w-[160px]">
-          <label htmlFor="default-tax-country" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+          <label htmlFor="default-tax-country" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
             Default tax country
           </label>
           <input
@@ -1455,22 +1455,22 @@ function TaxSettingsSection() {
             value={defaultTaxCountry}
             maxLength={2}
             onChange={e => { setDefaultTaxCountry(e.target.value.toUpperCase()); setDefaultsSaved(false) }}
-            className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
-        {defaultsError && <p className="text-xs text-red-400">{defaultsError}</p>}
-        {defaultsSaved && <p className="text-xs text-green-400">Saved.</p>}
+        {defaultsError && <p className="text-xs text-danger">{defaultsError}</p>}
+        {defaultsSaved && <p className="text-xs text-success">Saved.</p>}
         <button
           onClick={handleSaveDefaults}
           disabled={savingDefaults}
-          className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
+          className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
         >
           {savingDefaults ? 'Saving…' : 'Save tax defaults'}
         </button>
       </div>
 
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Tax classes</h3>
+        <h3 className="text-sm font-semibold text-ink">Tax classes</h3>
         <button
           onClick={openCreateClass}
           className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
@@ -1478,31 +1478,31 @@ function TaxSettingsSection() {
           Add tax class
         </button>
       </div>
-      {classesError && <p className="text-xs text-red-400">{classesError}</p>}
-      {ratesError && <p className="text-xs text-red-400">{ratesError}</p>}
-      {rowError && <p className="text-xs text-red-400">{rowError}</p>}
-      {classesLoading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      {classesError && <p className="text-xs text-danger">{classesError}</p>}
+      {ratesError && <p className="text-xs text-danger">{ratesError}</p>}
+      {rowError && <p className="text-xs text-danger">{rowError}</p>}
+      {classesLoading && <p className="text-xs text-ink-4">Loading…</p>}
 
       <div className="space-y-3">
         {classes.map(c => (
-          <div key={c.id} className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+          <div key={c.id} className="bg-raised rounded-xl border border-line p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium dark:text-gray-100 text-gray-900">{c.name}</span>
+                <span className="text-sm font-medium text-ink">{c.name}</span>
                 {c.is_default && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full dark:bg-blue-500/10 bg-blue-50 text-blue-500">Default</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full dark:bg-blue-500/10 bg-blue-50 text-accent">Default</span>
                 )}
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => openEditClass(c)}
-                  className="py-1 px-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                  className="py-1 px-2 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => handleDeleteClass(c)}
-                  className="py-1 px-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-red-400 transition-colors"
+                  className="py-1 px-2 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-danger transition-colors"
                 >
                   Delete
                 </button>
@@ -1510,12 +1510,12 @@ function TaxSettingsSection() {
             </div>
             <div className="mt-3 space-y-1.5">
               {rates.filter(r => r.tax_class_id === c.id).map(r => (
-                <div key={r.id} className="flex items-center justify-between text-xs dark:text-gray-300 text-gray-700">
+                <div key={r.id} className="flex items-center justify-between text-xs text-ink-2">
                   <span>{r.country}</span>
                   <span>{(r.rate_basis_points / 100).toFixed(2)}%</span>
                   <button
                     onClick={() => handleRemoveRate(r.id)}
-                    className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors flex items-center gap-1"
+                    className="text-[10px] text-ink-4 hover:text-danger transition-colors flex items-center gap-1"
                   >
                     <Trash2 size={11} /> Remove rate
                   </button>
@@ -1530,18 +1530,18 @@ function TaxSettingsSection() {
       {classFormReady && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeClassForm} />
-          <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+          <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">
+              <h3 className="text-sm font-semibold text-ink">
                 {editingClass ? 'Edit tax class' : 'Add tax class'}
               </h3>
               <button onClick={closeClassForm} aria-label="Close">
-                <X size={14} className="dark:text-gray-500 text-gray-400" />
+                <X size={14} className="text-ink-4" />
               </button>
             </div>
             <form onSubmit={handleClassSubmit} className="space-y-3">
               <div>
-                <label htmlFor="tax-class-name" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="tax-class-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   Name
                 </label>
                 <input
@@ -1551,11 +1551,11 @@ function TaxSettingsSection() {
                   autoFocus
                   value={classForm.name}
                   onChange={e => setClassForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider">Default tax class</span>
+                <span className="text-[10px] text-ink-4 uppercase tracking-wider">Default tax class</span>
                 <label className="relative flex items-center shrink-0 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1565,12 +1565,12 @@ function TaxSettingsSection() {
                     onChange={e => setClassForm(f => ({ ...f, isDefault: e.target.checked }))}
                     className="sr-only peer"
                   />
-                  <div className="w-8 h-4 dark:bg-[#2D3748] bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                  <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
                   <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                 </label>
               </div>
               {classFormError && (
-                <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{classFormError}</p>
+                <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{classFormError}</p>
               )}
               <button
                 type="submit"
@@ -1599,10 +1599,10 @@ function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (tax
         setCountry('')
         setRatePercent('')
       }}
-      className="mt-3 pt-3 border-t dark:border-[#2D3748] border-gray-200 flex items-end gap-2"
+      className="mt-3 pt-3 border-t border-line flex items-end gap-2"
     >
       <div>
-        <label htmlFor={`tax-rate-country-${taxClassId}`} className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+        <label htmlFor={`tax-rate-country-${taxClassId}`} className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
           Country
         </label>
         <input
@@ -1610,11 +1610,11 @@ function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (tax
           value={country}
           maxLength={2}
           onChange={e => setCountry(e.target.value.toUpperCase())}
-          className="w-16 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+          className="w-16 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none"
         />
       </div>
       <div>
-        <label htmlFor={`tax-rate-percent-${taxClassId}`} className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+        <label htmlFor={`tax-rate-percent-${taxClassId}`} className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
           Rate %
         </label>
         <input
@@ -1623,12 +1623,12 @@ function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (tax
           step="0.01"
           value={ratePercent}
           onChange={e => setRatePercent(e.target.value)}
-          className="w-20 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+          className="w-20 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none"
         />
       </div>
       <button
         type="submit"
-        className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+        className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
       >
         Add rate
       </button>

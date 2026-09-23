@@ -25,16 +25,16 @@ export default function ProductPerformancePage() {
         {topProducts.length === 0 ? (
           <EmptyState>No sales in this period</EmptyState>
         ) : (
-          <div className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+          <div className="divide-y divide-line/50">
             {topProducts.map(p => (
               <div key={p.sku_id ?? p.sku_code} className="flex items-center gap-3 px-4 py-2.5">
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs dark:text-gray-200 text-gray-800 truncate">{p.product_name || p.sku_code}</p>
-                  <p className="text-[10px] font-mono dark:text-gray-500 text-gray-400">{p.sku_code}</p>
+                  <p className="text-xs text-ink truncate">{p.product_name || p.sku_code}</p>
+                  <p className="text-[10px] font-mono text-ink-4">{p.sku_code}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-xs font-medium dark:text-gray-200 text-gray-800">{formatMoney(p.revenue_minor_units, currency)}</p>
-                  <p className={clsx('text-[10px] font-medium', p.margin_basis_points === null ? 'dark:text-gray-500 text-gray-400' : p.margin_basis_points >= 5000 ? 'text-green-400' : 'text-amber-400')}>
+                  <p className="text-xs font-medium text-ink">{formatMoney(p.revenue_minor_units, currency)}</p>
+                  <p className={clsx('text-[10px] font-medium', p.margin_basis_points === null ? 'text-ink-4' : p.margin_basis_points >= 5000 ? 'text-success' : 'text-warning')}>
                     {p.margin_basis_points === null ? 'margin n/a' : `${(p.margin_basis_points / 100).toFixed(1)}%`}
                   </p>
                 </div>

@@ -41,13 +41,13 @@ interface StatCardProps {
 function StatCard({ label, value, sub, icon: Icon, trend, trendValue, color = 'blue', alert }: StatCardProps) {
   return (
     <div className={clsx(
-      'dark:bg-[#1F2937] bg-white rounded-xl p-4 border',
+      'bg-raised rounded-xl p-4 border',
       alert
         ? 'dark:border-red-500/30 border-red-200'
-        : 'dark:border-[#2D3748] border-gray-200',
+        : 'border-line',
     )}>
       <div className="flex items-start justify-between mb-3">
-        <span className="text-xs dark:text-gray-400 text-gray-500 font-medium">{label}</span>
+        <span className="text-xs text-ink-3 font-medium">{label}</span>
         <div className={clsx(
           'w-7 h-7 rounded-lg flex items-center justify-center',
           color === 'blue' && 'bg-blue-500/15',
@@ -56,19 +56,19 @@ function StatCard({ label, value, sub, icon: Icon, trend, trendValue, color = 'b
           color === 'red' && 'bg-red-500/15',
         )}>
           <Icon size={14} className={clsx(
-            color === 'blue' && 'text-blue-400',
-            color === 'green' && 'text-green-400',
-            color === 'amber' && 'text-amber-400',
-            color === 'red' && 'text-red-400',
+            color === 'blue' && 'text-accent',
+            color === 'green' && 'text-success',
+            color === 'amber' && 'text-warning',
+            color === 'red' && 'text-danger',
           )} />
         </div>
       </div>
-      <p className="text-2xl font-semibold dark:text-gray-100 text-gray-900 mb-1">{value ?? '—'}</p>
-      {sub && <p className="text-xs dark:text-gray-500 text-gray-400">{sub}</p>}
+      <p className="text-2xl font-semibold text-ink mb-1">{value ?? '—'}</p>
+      {sub && <p className="text-xs text-ink-4">{sub}</p>}
       {trend && trendValue && (
         <div className={clsx(
           'flex items-center gap-1 mt-2 text-xs font-medium',
-          trend === 'up' ? 'text-green-400' : 'text-red-400',
+          trend === 'up' ? 'text-success' : 'text-danger',
         )}>
           {trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
           {trendValue} vs last week
@@ -83,34 +83,34 @@ function ExpiringSoonWidget() {
   const { batches, loading, error } = useExpiringBatches(token ?? '', 30)
 
   return (
-    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
-        <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Expiring Soon</h3>
-        <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium">
+    <div className="bg-raised rounded-xl border border-line overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+        <h3 className="text-sm font-semibold text-ink">Expiring Soon</h3>
+        <span className="text-[10px] bg-amber-500/20 text-warning px-2 py-0.5 rounded-full font-medium">
           {batches.length} within 30 days
         </span>
       </div>
-      {loading && <p className="px-4 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
-      {error && <p className="px-4 py-4 text-xs text-red-400">{error}</p>}
+      {loading && <p className="px-4 py-4 text-xs text-ink-4">Loading…</p>}
+      {error && <p className="px-4 py-4 text-xs text-danger">{error}</p>}
       {!loading && !error && batches.length === 0 && (
-        <p className="px-4 py-4 text-xs dark:text-gray-500 text-gray-400">Nothing expiring in the next 30 days.</p>
+        <p className="px-4 py-4 text-xs text-ink-4">Nothing expiring in the next 30 days.</p>
       )}
       {!loading && !error && batches.length > 0 && (
-        <div className="divide-y dark:divide-[#2D3748] divide-gray-100 max-h-64 overflow-auto">
+        <div className="divide-y divide-line max-h-64 overflow-auto">
           {batches.map(b => {
             const expired = new Date(b.expiry_date).getTime() < Date.now()
             return (
-              <div key={b.batch_id} className="flex items-start gap-3 px-4 py-3 hover:dark:bg-[#2D3748]/30 hover:bg-gray-50 transition-colors">
-                <Calendar size={13} className={clsx('mt-0.5 shrink-0', expired ? 'text-red-400' : 'text-amber-400')} />
+              <div key={b.batch_id} className="flex items-start gap-3 px-4 py-3 hover:bg-hover/30 transition-colors">
+                <Calendar size={13} className={clsx('mt-0.5 shrink-0', expired ? 'text-danger' : 'text-warning')} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs dark:text-gray-200 text-gray-700 truncate">{b.product_name}</p>
-                  <p className="text-[10px] dark:text-gray-500 text-gray-400 font-mono">
+                  <p className="text-xs text-ink-2 truncate">{b.product_name}</p>
+                  <p className="text-[10px] text-ink-4 font-mono">
                     {b.sku_code} · lot {b.lot_number || '—'} · {b.warehouse_name}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-xs font-medium dark:text-gray-200 text-gray-800">{b.quantity} units</p>
-                  <p className={clsx('text-[10px] font-mono', expired ? 'text-red-400' : 'text-amber-400')}>
+                  <p className="text-xs font-medium text-ink">{b.quantity} units</p>
+                  <p className={clsx('text-[10px] font-mono', expired ? 'text-danger' : 'text-warning')}>
                     {new Date(b.expiry_date).toLocaleDateString()}
                   </p>
                 </div>
@@ -164,11 +164,11 @@ export default function Dashboard() {
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Stock flow */}
-        <div className="lg:col-span-2 dark:bg-[#1F2937] bg-white rounded-xl p-4 border dark:border-[#2D3748] border-gray-200">
+        <div className="lg:col-span-2 bg-raised rounded-xl p-4 border border-line">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Stock Flow</h3>
-              <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Inbound vs outbound</p>
+              <h3 className="text-sm font-semibold text-ink">Stock Flow</h3>
+              <p className="text-xs text-ink-4 mt-0.5">Inbound vs outbound</p>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={180}>
@@ -195,11 +195,11 @@ export default function Dashboard() {
         </div>
 
         {/* Channel sales */}
-        <div className="dark:bg-[#1F2937] bg-white rounded-xl p-4 border dark:border-[#2D3748] border-gray-200">
-          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Sales by Channel</h3>
-          <p className="text-xs dark:text-gray-500 text-gray-400 mb-4">This month</p>
+        <div className="bg-raised rounded-xl p-4 border border-line">
+          <h3 className="text-sm font-semibold text-ink mb-1">Sales by Channel</h3>
+          <p className="text-xs text-ink-4 mb-4">This month</p>
           {channelData.length === 0 ? (
-            <p className="text-xs dark:text-gray-500 text-gray-400">No sales yet this month.</p>
+            <p className="text-xs text-ink-4">No sales yet this month.</p>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={100}>
@@ -215,9 +215,9 @@ export default function Dashboard() {
                   <div key={c.source} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full" style={{ background: c.color }} />
-                      <span className="text-xs dark:text-gray-400 text-gray-500">{c.label}</span>
+                      <span className="text-xs text-ink-3">{c.label}</span>
                     </div>
-                    <span className="text-xs font-medium dark:text-gray-200 text-gray-700">{formatMoney(c.total_minor_units, currency)}</span>
+                    <span className="text-xs font-medium text-ink-2">{formatMoney(c.total_minor_units, currency)}</span>
                   </div>
                 ))}
               </div>
@@ -229,33 +229,33 @@ export default function Dashboard() {
       {/* Bottom row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Top products */}
-        <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
-            <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Top Products</h3>
+        <div className="bg-raised rounded-xl border border-line overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+            <h3 className="text-sm font-semibold text-ink">Top Products</h3>
           </div>
           {(stats?.topProductsThisMonth.length ?? 0) === 0 ? (
-            <p className="px-4 py-4 text-xs dark:text-gray-500 text-gray-400">No products sold yet this month.</p>
+            <p className="px-4 py-4 text-xs text-ink-4">No products sold yet this month.</p>
           ) : (
             <table className="w-full">
               <thead>
-                <tr className="border-b dark:border-[#2D3748] border-gray-100">
-                  <th className="text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider px-4 py-2">Product</th>
-                  <th className="text-right text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider px-4 py-2">Sold</th>
-                  <th className="text-right text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider px-4 py-2">Revenue</th>
+                <tr className="border-b border-line">
+                  <th className="text-left text-[10px] font-medium text-ink-4 uppercase tracking-wider px-4 py-2">Product</th>
+                  <th className="text-right text-[10px] font-medium text-ink-4 uppercase tracking-wider px-4 py-2">Sold</th>
+                  <th className="text-right text-[10px] font-medium text-ink-4 uppercase tracking-wider px-4 py-2">Revenue</th>
                 </tr>
               </thead>
               <tbody>
                 {stats?.topProductsThisMonth.map(p => (
-                  <tr key={p.sku_id ?? p.sku_code} className="border-b dark:border-[#2D3748]/50 border-gray-50 last:border-0 hover:dark:bg-[#2D3748]/30 hover:bg-gray-50 transition-colors">
+                  <tr key={p.sku_id ?? p.sku_code} className="border-b dark:border-night-700/50 border-gray-50 last:border-0 hover:bg-hover/30 transition-colors">
                     <td className="px-4 py-2.5">
-                      <p className="text-xs font-medium dark:text-gray-200 text-gray-800">{p.product_name}</p>
-                      <p className="text-[10px] dark:text-gray-500 text-gray-400 font-mono">{p.sku_code}</p>
+                      <p className="text-xs font-medium text-ink">{p.product_name}</p>
+                      <p className="text-[10px] text-ink-4 font-mono">{p.sku_code}</p>
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <span className="text-xs dark:text-gray-300 text-gray-700">{p.quantity_sold}</span>
+                      <span className="text-xs text-ink-2">{p.quantity_sold}</span>
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <span className="text-xs font-medium dark:text-gray-200 text-gray-800">{formatMoney(p.revenue_minor_units, currency)}</span>
+                      <span className="text-xs font-medium text-ink">{formatMoney(p.revenue_minor_units, currency)}</span>
                     </td>
                   </tr>
                 ))}

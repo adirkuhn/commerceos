@@ -152,9 +152,9 @@ function BatchFormModal({
           <label className={labelClass} htmlFor="batch-expiry">Expiry date (leave empty for no expiry)</label>
           <input id="batch-expiry" type="date" value={expiryDate ?? ''} onChange={e => setExpiryDate(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        {error && <p className="text-[10px] text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
           <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
@@ -246,9 +246,9 @@ function AdjustStockModal({
           <label className={labelClass} htmlFor="adjust-reason">Reason (optional)</label>
           <input id="adjust-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        {error && <p className="text-[10px] text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
           <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
@@ -328,9 +328,9 @@ function RecountModal({
           <label className={labelClass} htmlFor="recount-reason">Reason (optional)</label>
           <input id="recount-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        {error && <p className="text-[10px] text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
           <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
@@ -389,7 +389,7 @@ function TransferModal({
   return (
     <Modal title="Transfer Stock" onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-[10px] dark:text-gray-500 text-gray-400">
+        <p className="text-[10px] text-ink-4">
           Leaving a batch empty means the general ledger (un-lotted stock) — use this to move stock into or out of a batch too.
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -436,9 +436,9 @@ function TransferModal({
           <label className={labelClass} htmlFor="transfer-reason">Reason (optional)</label>
           <input id="transfer-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        {error && <p className="text-[10px] text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
           <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
@@ -488,7 +488,7 @@ function SplitCaseModal({
   return (
     <Modal title="Split Case Into Units" onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-[10px] dark:text-gray-500 text-gray-400">
+        <p className="text-[10px] text-ink-4">
           One-way: the cases you split leave stock, and that many times the case size arrives as units of the linked product. This can't be undone by re-assembling units back into cases.
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -514,9 +514,9 @@ function SplitCaseModal({
           <label className={labelClass} htmlFor="split-reason">Reason (optional)</label>
           <input id="split-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        {error && <p className="text-[10px] text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
           <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
@@ -609,9 +609,9 @@ function DamagedLostModal({
           <label className={labelClass} htmlFor="dl-reason">Reason (optional)</label>
           <input id="dl-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        {error && <p className="text-[10px] text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
           <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
@@ -661,14 +661,14 @@ function PriceModal({ sku, onSave, onClose }: {
           <input id="price-edit-price" type="number" step="0.01" min="0" value={price} onChange={e => setPrice(e.target.value)} className={inputClass} />
         </div>
 
-        <div className="rounded-lg border dark:border-[#2D3748] border-gray-200 p-2.5 space-y-2">
+        <div className="rounded-lg border border-line p-2.5 space-y-2">
           <div className="flex items-center justify-between">
             <label className={clsx(labelClass, 'mb-0')} htmlFor="price-edit-sale-price">Sale price (optional)</label>
             {discountPct != null && discountPct > 0 && (
-              <span className="text-[9px] px-1.5 py-px rounded bg-green-500/15 text-green-400 font-medium">-{discountPct}%</span>
+              <span className="text-[9px] px-1.5 py-px rounded bg-green-500/15 text-success font-medium">-{discountPct}%</span>
             )}
             {discountPct != null && discountPct <= 0 && (
-              <span className="text-[9px] text-red-400">must be below regular price</span>
+              <span className="text-[9px] text-danger">must be below regular price</span>
             )}
           </div>
           <input id="price-edit-sale-price" type="number" step="0.01" min="0" value={salePrice} onChange={e => {
@@ -679,13 +679,13 @@ function PriceModal({ sku, onSave, onClose }: {
           <div>
             <label className={labelClass} htmlFor="price-edit-sale-end-date">Sale ends (optional)</label>
             <input id="price-edit-sale-end-date" type="date" value={saleEndDate} onChange={e => setSaleEndDate(e.target.value)} className={inputClass} disabled={salePriceNum == null} />
-            <p className="text-[9px] dark:text-gray-500 text-gray-400 mt-1">Reverts to the regular price automatically the day after this date.</p>
+            <p className="text-[9px] text-ink-4 mt-1">Reverts to the regular price automatically the day after this date.</p>
           </div>
         </div>
 
-        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        {error && <p className="text-[10px] text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
           <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
@@ -739,14 +739,14 @@ function BatchRowActionModal({ scope, onChoose, onClose }: {
           <button
             key={a.key} type="button" onClick={() => onChoose(a.key)}
             className={clsx(
-              'w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-100',
-              a.danger ? 'text-red-400' : 'dark:text-gray-200 text-gray-800',
+              'w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg border border-line hover:bg-hover',
+              a.danger ? 'text-danger' : 'text-ink',
             )}
           >
             {a.icon} {a.label}
           </button>
         ))}
-        <button type="button" onClick={onClose} className="w-full px-3 py-2 text-xs rounded-lg dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+        <button type="button" onClick={onClose} className="w-full px-3 py-2 text-xs rounded-lg text-ink-3 hover:bg-hover">
           Cancel
         </button>
       </div>
@@ -839,18 +839,18 @@ function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUp
   }
 
   return (
-    <div className="pl-8 pr-4 py-3 border-t dark:border-[#2D3748]/60 border-gray-100 dark:bg-[#0B1220]/40 bg-gray-50/60">
+    <div className="pl-8 pr-4 py-3 border-t border-line/60 dark:bg-night-950/40 bg-gray-50/60">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
-          <span className="font-mono text-[11px] dark:text-gray-300 text-gray-700">
-            {variantName && <span className="font-sans dark:text-gray-400 text-gray-500">{variantName} · </span>}
+          <span className="font-mono text-[11px] text-ink-2">
+            {variantName && <span className="font-sans text-ink-3">{variantName} · </span>}
             {sku.sku_code}
           </span>
           <button
             type="button"
             onClick={() => setModal('price')}
             title="Edit price"
-            className="flex items-center gap-1 text-[10px] dark:text-gray-500 text-gray-400 hover:text-blue-400"
+            className="flex items-center gap-1 text-[10px] text-ink-4 hover:text-accent"
           >
             <Tag size={11} /> Price
           </button>
@@ -858,77 +858,77 @@ function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUp
             type="button"
             onClick={() => onViewHistory(sku)}
             title="View movement history"
-            className="flex items-center gap-1 text-[10px] dark:text-gray-500 text-gray-400 hover:text-blue-400"
+            className="flex items-center gap-1 text-[10px] text-ink-4 hover:text-accent"
           >
             <History size={11} /> History
           </button>
           {level && (
-            <span data-testid="stock-level" className="text-[10px] dark:text-gray-400 text-gray-500">
-              Total: <strong className="dark:text-gray-200 text-gray-800">{formatSKUQuantity(sku, level.total)}</strong>
-              {' · '}Syncable: <strong className="dark:text-gray-200 text-gray-800">{formatSKUQuantity(sku, level.syncable)}</strong>
+            <span data-testid="stock-level" className="text-[10px] text-ink-3">
+              Total: <strong className="text-ink">{formatSKUQuantity(sku, level.total)}</strong>
+              {' · '}Syncable: <strong className="text-ink">{formatSKUQuantity(sku, level.syncable)}</strong>
             </span>
           )}
-          {loading && <span className="text-[10px] dark:text-gray-600 text-gray-400">Loading…</span>}
+          {loading && <span className="text-[10px] text-ink-4">Loading…</span>}
         </div>
         <div className="flex items-center gap-1.5">
-          <button type="button" onClick={() => setModal('adjust')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={() => setModal('adjust')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-raised border border-line text-ink-2 hover:bg-hover">
             <Plus size={11} /> Adjust
           </button>
-          <button type="button" onClick={() => setModal('recount')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={() => setModal('recount')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-raised border border-line text-ink-2 hover:bg-hover">
             <ClipboardList size={11} /> Recount
           </button>
-          <button type="button" onClick={() => setModal('transfer')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={() => setModal('transfer')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-raised border border-line text-ink-2 hover:bg-hover">
             <ArrowRightLeft size={11} /> Transfer
           </button>
           {sku.case_of_sku_id && (
-            <button type="button" onClick={() => setModal('split-case')} title="Split sealed cases into individual units" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            <button type="button" onClick={() => setModal('split-case')} title="Split sealed cases into individual units" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-raised border border-line text-ink-2 hover:bg-hover">
               <Boxes size={11} /> Split case
             </button>
           )}
           {sku.portioned_from_sku_id && (
-            <button type="button" onClick={() => setModal('portion')} title="Add a sellable item peeled off the linked weight pool" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            <button type="button" onClick={() => setModal('portion')} title="Add a sellable item peeled off the linked weight pool" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-raised border border-line text-ink-2 hover:bg-hover">
               <Scale size={11} /> Add item from weight pool
             </button>
           )}
-          <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-red-400 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-raised border border-line text-danger hover:bg-hover">
             <PackageMinus size={11} /> Damaged/Lost
           </button>
         </div>
       </div>
 
-      {error && <p className="text-[10px] text-red-500 mb-2">{error}</p>}
-      {deleteError && <p className="text-[10px] text-red-500 mb-2">{deleteError}</p>}
+      {error && <p className="text-[10px] text-danger mb-2">{error}</p>}
+      {deleteError && <p className="text-[10px] text-danger mb-2">{deleteError}</p>}
 
-      <div className="rounded-lg border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+      <div className="rounded-lg border border-line overflow-hidden">
         <table className="w-full text-[10px]">
-          <thead className="dark:bg-[#111827] bg-gray-100">
+          <thead className="bg-fill">
             <tr>
               {['Lot', 'Warehouse', 'Qty', 'Expiry', ''].map(h => (
-                <th key={h} className="px-2.5 py-1.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                <th key={h} className="px-2.5 py-1.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+          <tbody className="divide-y divide-line/60">
             {visibleBatches.map(b => (
               <tr
                 key={b.is_general_ledger ? `general-${b.warehouse_id}` : b.id}
                 onClick={() => openRowAction(b)}
                 title="Click to adjust, recount, transfer, or mark damaged/lost"
                 className={clsx(
-                  'cursor-pointer hover:dark:bg-[#1F2937] hover:bg-gray-100/80',
-                  b.is_general_ledger && 'dark:bg-[#111827]/40 bg-gray-100/60',
+                  'cursor-pointer dark:hover:bg-night-800 hover:bg-gray-100/80',
+                  b.is_general_ledger && 'dark:bg-night-900/40 bg-gray-100/60',
                 )}
               >
-                <td className="px-2.5 py-1.5 font-mono dark:text-gray-300 text-gray-700">
+                <td className="px-2.5 py-1.5 font-mono text-ink-2">
                   {b.is_general_ledger ? 'General ledger' : (b.lot_number || '—')}
                 </td>
-                <td className="px-2.5 py-1.5 dark:text-gray-400 text-gray-500">{warehouses.find(w => w.id === b.warehouse_id)?.name ?? b.warehouse_id}</td>
-                <td className="px-2.5 py-1.5 font-mono dark:text-gray-300 text-gray-700">{b.quantity}</td>
+                <td className="px-2.5 py-1.5 text-ink-3">{warehouses.find(w => w.id === b.warehouse_id)?.name ?? b.warehouse_id}</td>
+                <td className="px-2.5 py-1.5 font-mono text-ink-2">{b.quantity}</td>
                 <td className="px-2.5 py-1.5">
                   {!b.is_general_ledger && (
                     <span className={clsx(
                       'font-mono',
-                      isExpired(b.expiry_date) ? 'text-red-400' : isExpiringSoon(b.expiry_date) ? 'text-amber-400' : 'dark:text-gray-400 text-gray-500',
+                      isExpired(b.expiry_date) ? 'text-danger' : isExpiringSoon(b.expiry_date) ? 'text-warning' : 'text-ink-3',
                     )}>
                       {formatDate(b.expiry_date)}
                     </span>
@@ -937,13 +937,13 @@ function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUp
                 <td className="px-2.5 py-1.5" onClick={e => e.stopPropagation()}>
                   {!b.is_general_ledger && (
                     <div className="flex items-center justify-end gap-2">
-                      <button type="button" onClick={() => onViewBatchHistory(sku, b)} aria-label={`View movement history for batch ${b.lot_number}`} title="View movement history" className="dark:text-gray-500 text-gray-400 hover:text-blue-400">
+                      <button type="button" onClick={() => onViewBatchHistory(sku, b)} aria-label={`View movement history for batch ${b.lot_number}`} title="View movement history" className="text-ink-4 hover:text-accent">
                         <History size={11} />
                       </button>
-                      <button type="button" onClick={() => route.openAction('edit-batch', { batch: b.id })} aria-label={`Edit batch ${b.lot_number}`} className="dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600">
+                      <button type="button" onClick={() => route.openAction('edit-batch', { batch: b.id })} aria-label={`Edit batch ${b.lot_number}`} className="text-ink-4 hover:text-ink-2">
                         <Edit3 size={11} />
                       </button>
-                      <button type="button" onClick={() => handleDeleteBatch(b.id)} aria-label={`Delete batch ${b.lot_number}`} className="dark:text-gray-500 text-gray-400 hover:text-red-400">
+                      <button type="button" onClick={() => handleDeleteBatch(b.id)} aria-label={`Delete batch ${b.lot_number}`} className="text-ink-4 hover:text-danger">
                         <Trash2 size={11} />
                       </button>
                     </div>
@@ -953,24 +953,24 @@ function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUp
             ))}
             {batches.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-2.5 py-3 text-center dark:text-gray-600 text-gray-400">No batches — all stock is in the general ledger.</td>
+                <td colSpan={5} className="px-2.5 py-3 text-center text-ink-4">No batches — all stock is in the general ledger.</td>
               </tr>
             )}
             {batches.length > 0 && visibleBatches.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-2.5 py-3 text-center dark:text-gray-600 text-gray-400">
+                <td colSpan={5} className="px-2.5 py-3 text-center text-ink-4">
                   All {zeroStockBatchCount} batch{zeroStockBatchCount === 1 ? '' : 'es'} for this SKU {zeroStockBatchCount === 1 ? 'has' : 'have'} zero stock.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-        <div className="px-2.5 py-1.5 border-t dark:border-[#2D3748] border-gray-200 flex items-center gap-3">
-          <button type="button" onClick={() => setModal('new-batch')} className="text-[10px] text-blue-400 hover:text-blue-300">
+        <div className="px-2.5 py-1.5 border-t border-line flex items-center gap-3">
+          <button type="button" onClick={() => setModal('new-batch')} className="text-[10px] text-accent hover:text-accent/80">
             + New batch
           </button>
           {zeroStockBatchCount > 0 && (
-            <button type="button" onClick={() => allBatches.toggle(sku.id)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-blue-400">
+            <button type="button" onClick={() => allBatches.toggle(sku.id)} className="text-[10px] text-ink-4 hover:text-accent">
               {showAllBatches ? 'Hide zero-stock batches' : `Show ${zeroStockBatchCount} zero-stock batch${zeroStockBatchCount === 1 ? '' : 'es'}`}
             </button>
           )}
@@ -1094,52 +1094,52 @@ function ProductStockRow({ token, productId, productName, productImageUrl, wareh
 
   return (
     <>
-      <tr className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer" onClick={toggleExpanded}>
+      <tr className="hover:bg-hover/60 transition-colors cursor-pointer" onClick={toggleExpanded}>
         <td className="px-4 py-2.5 w-8">
-          {expanded ? <ChevronDown size={13} className="dark:text-gray-500 text-gray-400" /> : <ChevronRight size={13} className="dark:text-gray-500 text-gray-400" />}
+          {expanded ? <ChevronDown size={13} className="text-ink-4" /> : <ChevronRight size={13} className="text-ink-4" />}
         </td>
         <td className="px-2 py-2.5">
           {productImageUrl ? (
-            <img src={productImageUrl} alt="" className="w-6 h-6 rounded object-cover dark:bg-[#2D3748] bg-gray-200" />
+            <img src={productImageUrl} alt="" className="w-6 h-6 rounded object-cover dark:bg-night-700 bg-gray-200" />
           ) : (
-            <div className="w-6 h-6 rounded dark:bg-[#2D3748] bg-gray-200 flex items-center justify-center">
-              <ImageIcon size={12} className="dark:text-gray-500 text-gray-400" />
+            <div className="w-6 h-6 rounded dark:bg-night-700 bg-gray-200 flex items-center justify-center">
+              <ImageIcon size={12} className="text-ink-4" />
             </div>
           )}
         </td>
-        <td className="px-3 py-2.5 font-medium dark:text-gray-100 text-gray-900">{productName || detail?.product.name}</td>
+        <td className="px-3 py-2.5 font-medium text-ink">{productName || detail?.product.name}</td>
         <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
           {singleSKU ? (
-            <span className="text-xs dark:text-gray-300 text-gray-700">{formatPrice(singleSKU.price_minor_units, singleSKU.currency_code)}</span>
+            <span className="text-xs text-ink-2">{formatPrice(singleSKU.price_minor_units, singleSKU.currency_code)}</span>
           ) : priceRange ? (
-            <span className="text-xs dark:text-gray-300 text-gray-700">
+            <span className="text-xs text-ink-2">
               {priceRange[0] === priceRange[1]
                 ? formatPrice(priceRange[0], skus[0].currency_code)
                 : `${formatPrice(priceRange[0], skus[0].currency_code)} – ${formatPrice(priceRange[1], skus[0].currency_code)}`}
             </span>
           ) : (
-            <span className="text-xs dark:text-gray-600 text-gray-300">—</span>
+            <span className="text-xs text-ink-4">—</span>
           )}
         </td>
         <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
           {singleSKU && singleSKU.sale_price_minor_units != null ? (
             <span className="flex items-center gap-1">
-              <span className="text-xs font-medium text-green-400">{formatPrice(singleSKU.sale_price_minor_units, singleSKU.currency_code)}</span>
+              <span className="text-xs font-medium text-success">{formatPrice(singleSKU.sale_price_minor_units, singleSKU.currency_code)}</span>
               {singleSKU.sale_end_date && (
-                <span className="text-[9px] dark:text-gray-500 text-gray-400">until {formatDate(singleSKU.sale_end_date)}</span>
+                <span className="text-[9px] text-ink-4">until {formatDate(singleSKU.sale_end_date)}</span>
               )}
             </span>
           ) : (
-            <span className="text-xs dark:text-gray-600 text-gray-300">—</span>
+            <span className="text-xs text-ink-4">—</span>
           )}
         </td>
         <td className="px-3 py-2.5">
           {stockLoading ? (
-            <span className="text-xs dark:text-gray-600 text-gray-400">…</span>
+            <span className="text-xs text-ink-4">…</span>
           ) : (
             <span className={clsx(
               'text-xs font-medium tabular-nums',
-              totalStock <= 0 ? 'text-red-400' : totalStock <= LOW_STOCK_THRESHOLD ? 'text-amber-400' : 'dark:text-gray-300 text-gray-700',
+              totalStock <= 0 ? 'text-danger' : totalStock <= LOW_STOCK_THRESHOLD ? 'text-warning' : 'text-ink-2',
             )}>
               {totalStock}
             </span>
@@ -1151,7 +1151,7 @@ function ProductStockRow({ token, productId, productName, productImageUrl, wareh
             onClick={() => onViewProductHistory(productName, skus)}
             aria-label="View full movement history"
             title="View full movement history"
-            className="flex items-center gap-1 text-[10px] dark:text-gray-500 text-gray-400 hover:text-blue-400"
+            className="flex items-center gap-1 text-[10px] text-ink-4 hover:text-accent"
           >
             <History size={11} /> History
           </button>
@@ -1160,8 +1160,8 @@ function ProductStockRow({ token, productId, productName, productImageUrl, wareh
       {expanded && (
         <tr>
           <td colSpan={7} className="p-0">
-            {loading && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">Loading SKUs…</p>}
-            {!loading && skus.length === 0 && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">No SKUs on this product yet.</p>}
+            {loading && <p className="pl-8 py-3 text-xs text-ink-4">Loading SKUs…</p>}
+            {!loading && skus.length === 0 && <p className="pl-8 py-3 text-xs text-ink-4">No SKUs on this product yet.</p>}
             {!loading && detail && routeSkuId && !skus.some(s => s.id === routeSkuId) && (
               <div className="py-4"><RecordNotFound label="SKU" onBack={() => navigateToList()} /></div>
             )}
@@ -1234,47 +1234,47 @@ function ProductMovementHistoryPage({ token, productName, skus, warehouses, onCl
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Inventory
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">Movement History</h1>
-          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">{productName} — every SKU, running balance</p>
+          <h1 className="text-xl font-semibold text-ink leading-tight">Movement History</h1>
+          <p className="text-xs text-ink-4 mt-0.5">{productName} — every SKU, running balance</p>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto">
-        {error && <p className="px-6 py-4 text-xs text-red-400">{error}</p>}
-        {!error && rows === null && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+        {error && <p className="px-6 py-4 text-xs text-danger">{error}</p>}
+        {!error && rows === null && <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>}
         {!error && rows !== null && rows.length === 0 && (
-          <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">No stock movements recorded for this product yet.</p>
+          <p className="px-6 py-4 text-xs text-ink-4">No stock movements recorded for this product yet.</p>
         )}
         {!error && rows !== null && rows.length > 0 && (
           <table className="w-full text-xs">
-            <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+            <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
               <tr>
                 {['Date', 'SKU', 'Type', 'Warehouse', 'Batch', 'Quantity', 'Balance', 'Reason'].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                  <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+            <tbody className="divide-y divide-line/60">
               {rows.map(m => (
-                <tr key={m.id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500 whitespace-nowrap">{formatDateTime(m.occurred_at)}</td>
-                  <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{m.skuCode}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{MOVEMENT_TYPE_LABEL[m.type]}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{warehouseName(m.warehouse_id)}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{batchLabel(m.batch_id)}</td>
-                  <td className={clsx('px-4 py-2.5 font-medium tabular-nums', m.quantity_delta >= 0 ? 'text-green-400' : 'text-red-400')}>
+                <tr key={m.id} className="hover:bg-hover/60 transition-colors">
+                  <td className="px-4 py-2.5 text-ink-3 whitespace-nowrap">{formatDateTime(m.occurred_at)}</td>
+                  <td className="px-4 py-2.5 font-mono text-ink-2">{m.skuCode}</td>
+                  <td className="px-4 py-2.5 text-ink">{MOVEMENT_TYPE_LABEL[m.type]}</td>
+                  <td className="px-4 py-2.5 text-ink-3">{warehouseName(m.warehouse_id)}</td>
+                  <td className="px-4 py-2.5 text-ink-3">{batchLabel(m.batch_id)}</td>
+                  <td className={clsx('px-4 py-2.5 font-medium tabular-nums', m.quantity_delta >= 0 ? 'text-success' : 'text-danger')}>
                     {m.quantity_delta >= 0 ? '+' : ''}{m.quantity_delta}
                   </td>
-                  <td className="px-4 py-2.5 font-medium tabular-nums dark:text-gray-200 text-gray-800">{m.balance}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-500 text-gray-400">{m.reason || '—'}</td>
+                  <td className="px-4 py-2.5 font-medium tabular-nums text-ink">{m.balance}</td>
+                  <td className="px-4 py-2.5 text-ink-4">{m.reason || '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -1309,45 +1309,45 @@ function SKUMovementHistoryPage({ token, sku, warehouses, onClose }: {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Inventory
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">Movement History</h1>
-          <p className="text-xs font-mono dark:text-gray-500 text-gray-400 mt-0.5">{sku.sku_code}</p>
+          <h1 className="text-xl font-semibold text-ink leading-tight">Movement History</h1>
+          <p className="text-xs font-mono text-ink-4 mt-0.5">{sku.sku_code}</p>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto">
-        {error && <p className="px-6 py-4 text-xs text-red-400">{error}</p>}
-        {!error && movements === null && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+        {error && <p className="px-6 py-4 text-xs text-danger">{error}</p>}
+        {!error && movements === null && <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>}
         {!error && movements !== null && movements.length === 0 && (
-          <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">No stock movements recorded for this SKU yet.</p>
+          <p className="px-6 py-4 text-xs text-ink-4">No stock movements recorded for this SKU yet.</p>
         )}
         {!error && movements !== null && movements.length > 0 && (
           <table className="w-full text-xs">
-            <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+            <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
               <tr>
                 {['Date', 'Type', 'Warehouse', 'Batch', 'Quantity', 'Reason'].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                  <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+            <tbody className="divide-y divide-line/60">
               {[...movements].reverse().map(m => (
-                <tr key={m.id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500 whitespace-nowrap">{formatDateTime(m.occurred_at)}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{MOVEMENT_TYPE_LABEL[m.type]}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{warehouseName(m.warehouse_id)}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{batchLabel(m.batch_id)}</td>
-                  <td className={clsx('px-4 py-2.5 font-medium tabular-nums', m.quantity_delta >= 0 ? 'text-green-400' : 'text-red-400')}>
+                <tr key={m.id} className="hover:bg-hover/60 transition-colors">
+                  <td className="px-4 py-2.5 text-ink-3 whitespace-nowrap">{formatDateTime(m.occurred_at)}</td>
+                  <td className="px-4 py-2.5 text-ink">{MOVEMENT_TYPE_LABEL[m.type]}</td>
+                  <td className="px-4 py-2.5 text-ink-3">{warehouseName(m.warehouse_id)}</td>
+                  <td className="px-4 py-2.5 text-ink-3">{batchLabel(m.batch_id)}</td>
+                  <td className={clsx('px-4 py-2.5 font-medium tabular-nums', m.quantity_delta >= 0 ? 'text-success' : 'text-danger')}>
                     {m.quantity_delta >= 0 ? '+' : ''}{m.quantity_delta}
                   </td>
-                  <td className="px-4 py-2.5 dark:text-gray-500 text-gray-400">{m.reason || '—'}</td>
+                  <td className="px-4 py-2.5 text-ink-4">{m.reason || '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -1376,44 +1376,44 @@ function BatchMovementHistoryPage({ token, sku, batch, warehouses, onClose }: {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Inventory
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">Batch Movement History</h1>
-          <p className="text-xs font-mono dark:text-gray-500 text-gray-400 mt-0.5">{sku.sku_code} · Lot {batch.lot_number || '—'}</p>
+          <h1 className="text-xl font-semibold text-ink leading-tight">Batch Movement History</h1>
+          <p className="text-xs font-mono text-ink-4 mt-0.5">{sku.sku_code} · Lot {batch.lot_number || '—'}</p>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto">
-        {error && <p className="px-6 py-4 text-xs text-red-400">{error}</p>}
-        {!error && movements === null && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+        {error && <p className="px-6 py-4 text-xs text-danger">{error}</p>}
+        {!error && movements === null && <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>}
         {!error && movements !== null && movements.length === 0 && (
-          <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">No stock movements recorded for this batch yet.</p>
+          <p className="px-6 py-4 text-xs text-ink-4">No stock movements recorded for this batch yet.</p>
         )}
         {!error && movements !== null && movements.length > 0 && (
           <table className="w-full text-xs">
-            <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+            <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
               <tr>
                 {['Date', 'Type', 'Warehouse', 'Quantity', 'Reason'].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                  <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+            <tbody className="divide-y divide-line/60">
               {[...movements].reverse().map(m => (
-                <tr key={m.id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500 whitespace-nowrap">{formatDateTime(m.occurred_at)}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{MOVEMENT_TYPE_LABEL[m.type]}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{warehouseName(m.warehouse_id)}</td>
-                  <td className={clsx('px-4 py-2.5 font-medium tabular-nums', m.quantity_delta >= 0 ? 'text-green-400' : 'text-red-400')}>
+                <tr key={m.id} className="hover:bg-hover/60 transition-colors">
+                  <td className="px-4 py-2.5 text-ink-3 whitespace-nowrap">{formatDateTime(m.occurred_at)}</td>
+                  <td className="px-4 py-2.5 text-ink">{MOVEMENT_TYPE_LABEL[m.type]}</td>
+                  <td className="px-4 py-2.5 text-ink-3">{warehouseName(m.warehouse_id)}</td>
+                  <td className={clsx('px-4 py-2.5 font-medium tabular-nums', m.quantity_delta >= 0 ? 'text-success' : 'text-danger')}>
                     {m.quantity_delta >= 0 ? '+' : ''}{m.quantity_delta}
                   </td>
-                  <td className="px-4 py-2.5 dark:text-gray-500 text-gray-400">{m.reason || '—'}</td>
+                  <td className="px-4 py-2.5 text-ink-4">{m.reason || '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -1448,29 +1448,29 @@ function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-sm rounded-2xl dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 p-5 space-y-4">
+      <div className="w-full max-w-sm rounded-2xl bg-surface border border-line p-5 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Discard {target.label}</h2>
-            <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">
+            <h2 className="text-sm font-semibold text-ink">Discard {target.label}</h2>
+            <p className="text-xs text-ink-4 mt-0.5">
               Records a Lost movement for {target.quantity} unit{target.quantity === 1 ? '' : 's'} — cannot be undone.
             </p>
           </div>
-          <button onClick={onCancel} title="Close" className="shrink-0 dark:text-gray-500 text-gray-400 hover:dark:text-gray-300">
+          <button onClick={onCancel} title="Close" className="shrink-0 text-ink-4 dark:hover:text-ink-2">
             <X size={16} />
           </button>
         </div>
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
         <div>
-          <label htmlFor="discard-reason" className="block text-xs dark:text-gray-400 text-gray-500 mb-1.5">Reason</label>
+          <label htmlFor="discard-reason" className="block text-xs text-ink-3 mb-1.5">Reason</label>
           <input
             id="discard-reason" value={reason} onChange={e => setReason(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg dark:bg-[#1F2937] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div>
-          <label className="block text-xs dark:text-gray-400 text-gray-500 mb-1.5">Photo (optional)</label>
-          <label className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 cursor-pointer">
+          <label className="block text-xs text-ink-3 mb-1.5">Photo (optional)</label>
+          <label className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink-2 cursor-pointer">
             <ImageIcon size={14} />
             <span className="truncate">{photo ? photo.name : 'Choose a photo'}</span>
             <input
@@ -1482,7 +1482,7 @@ function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
         <div className="flex gap-2">
           <button
             onClick={onCancel}
-            className="flex-1 py-2 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-300 text-gray-600 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200"
+            className="flex-1 py-2 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 text-xs font-medium hover:bg-hover"
           >
             Cancel
           </button>
@@ -1588,16 +1588,16 @@ function ExpiryDiscardPage({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Inventory
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">Expiry & Discards</h1>
-          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Review expired/expiring stock, discard it, and see what's already been thrown away</p>
+          <h1 className="text-xl font-semibold text-ink leading-tight">Expiry & Discards</h1>
+          <p className="text-xs text-ink-4 mt-0.5">Review expired/expiring stock, discard it, and see what's already been thrown away</p>
         </div>
       </div>
 
@@ -1610,7 +1610,7 @@ function ExpiryDiscardPage({
               'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
               tab === t.id
                 ? 'bg-blue-600 text-white'
-                : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-100',
+                : 'bg-raised text-ink-3 hover:bg-hover',
             )}
           >
             {t.label}
@@ -1621,33 +1621,33 @@ function ExpiryDiscardPage({
       <div className="flex-1 overflow-auto">
         {/* discardHook.error is deliberately not shown here -- the modal (still open on failure) already surfaces it inline. */}
         {(error || rowError) && (
-          <p className="px-6 py-4 text-xs text-red-400">{error || rowError}</p>
+          <p className="px-6 py-4 text-xs text-danger">{error || rowError}</p>
         )}
 
         {tab === 'expired' && (
           <>
-            {!error && loading && batches.length === 0 && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+            {!error && loading && batches.length === 0 && <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>}
             {!error && !loading && batches.length === 0 && (
-              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">No expired batches pending review.</p>
+              <p className="px-6 py-4 text-xs text-ink-4">No expired batches pending review.</p>
             )}
             {batches.length > 0 && (
               <table className="w-full text-xs">
-                <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+                <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
                     {['SKU', 'Product', 'Warehouse', 'Lot', 'Expired', 'Qty', ''].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                      <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                <tbody className="divide-y divide-line/60">
                   {batches.map(b => (
-                    <tr key={b.batch_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{b.sku_code}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{b.product_name}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{b.warehouse_name}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{b.lot_number || '—'}</td>
-                      <td className="px-4 py-2.5 text-red-400">{formatDate(b.expiry_date)}</td>
-                      <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{b.quantity}</td>
+                    <tr key={b.batch_id} className="hover:bg-hover/60 transition-colors">
+                      <td className="px-4 py-2.5 font-mono text-ink-2">{b.sku_code}</td>
+                      <td className="px-4 py-2.5 text-ink">{b.product_name}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{b.warehouse_name}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{b.lot_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-danger">{formatDate(b.expiry_date)}</td>
+                      <td className="px-4 py-2.5 tabular-nums text-ink-2">{b.quantity}</td>
                       <td className="px-4 py-2.5">
                         {extendingBatchId === b.batch_id ? (
                           <div className="flex items-center gap-1.5">
@@ -1656,7 +1656,7 @@ function ExpiryDiscardPage({
                               aria-label="New expiry date"
                               value={newExpiryDate}
                               onChange={e => setNewExpiryDate(e.target.value)}
-                              className="px-2 py-1 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+                              className="px-2 py-1 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
                             />
                             <button
                               onClick={() => handleConfirmExtend(b.batch_id)}
@@ -1667,7 +1667,7 @@ function ExpiryDiscardPage({
                             </button>
                             <button
                               onClick={() => setExtendingBatchId(null)}
-                              className="px-2 py-1 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200"
+                              className="px-2 py-1 rounded-lg bg-fill text-ink-2 text-[11px] font-medium hover:bg-hover"
                             >
                               Cancel
                             </button>
@@ -1677,21 +1677,21 @@ function ExpiryDiscardPage({
                             <button
                               onClick={() => openDiscard('expired', b)}
                               disabled={actingBatchId === b.batch_id}
-                              className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-red-400 text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100 disabled:opacity-50"
+                              className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100 disabled:opacity-50"
                             >
                               Discard
                             </button>
                             <button
                               onClick={() => openExtend(b.batch_id)}
                               disabled={actingBatchId === b.batch_id}
-                              className="px-2 py-1 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50"
+                              className="px-2 py-1 rounded-lg bg-fill text-ink-2 text-[11px] font-medium hover:bg-hover disabled:opacity-50"
                             >
                               Extend
                             </button>
                             <button
                               onClick={() => handleDismiss(b.batch_id)}
                               disabled={actingBatchId === b.batch_id}
-                              className="px-2 py-1 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50"
+                              className="px-2 py-1 rounded-lg bg-fill text-ink-2 text-[11px] font-medium hover:bg-hover disabled:opacity-50"
                             >
                               Dismiss
                             </button>
@@ -1709,33 +1709,33 @@ function ExpiryDiscardPage({
         {tab === 'expiring' && (
           <>
             {!expiringBatches.error && expiringBatches.loading && expiringBatches.batches.length === 0 && (
-              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+              <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>
             )}
             {!expiringBatches.error && !expiringBatches.loading && expiringBatches.batches.length === 0 && (
-              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Nothing expiring soon.</p>
+              <p className="px-6 py-4 text-xs text-ink-4">Nothing expiring soon.</p>
             )}
             {expiringBatches.batches.length > 0 && (
               <table className="w-full text-xs">
-                <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+                <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
                     {['SKU', 'Product', 'Warehouse', 'Lot', 'Expires', 'Qty', ''].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                      <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                <tbody className="divide-y divide-line/60">
                   {expiringBatches.batches.map(b => (
-                    <tr key={b.batch_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{b.sku_code}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{b.product_name}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{b.warehouse_name}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{b.lot_number || '—'}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-300 text-gray-700">{formatDate(b.expiry_date)}</td>
-                      <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{b.quantity}</td>
+                    <tr key={b.batch_id} className="hover:bg-hover/60 transition-colors">
+                      <td className="px-4 py-2.5 font-mono text-ink-2">{b.sku_code}</td>
+                      <td className="px-4 py-2.5 text-ink">{b.product_name}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{b.warehouse_name}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{b.lot_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-ink-2">{formatDate(b.expiry_date)}</td>
+                      <td className="px-4 py-2.5 tabular-nums text-ink-2">{b.quantity}</td>
                       <td className="px-4 py-2.5">
                         <button
                           onClick={() => openDiscard('expiring', b)}
-                          className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-red-400 text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100"
+                          className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100"
                         >
                           Discard
                         </button>
@@ -1751,48 +1751,48 @@ function ExpiryDiscardPage({
         {tab === 'discarded' && (
           <>
             {!discardsReport.error && discardsReport.loading && discardsReport.discards.length === 0 && (
-              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+              <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>
             )}
             {!discardsReport.error && !discardsReport.loading && discardsReport.discards.length === 0 && (
-              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Nothing discarded yet.</p>
+              <p className="px-6 py-4 text-xs text-ink-4">Nothing discarded yet.</p>
             )}
             {discardsReport.discards.length > 0 && (
               <table className="w-full text-xs">
-                <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+                <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
                     {['Photo', 'SKU', 'Product', 'Type', 'Warehouse', 'Lot', 'Qty', 'Reason', 'By', 'Discarded'].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                      <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                <tbody className="divide-y divide-line/60">
                   {discardsReport.discards.map(d => (
-                    <tr key={d.id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
+                    <tr key={d.id} className="hover:bg-hover/60 transition-colors">
                       <td className="px-4 py-2.5">
                         {d.photo_url ? (
                           <img src={d.photo_url} alt={`${d.product_name} discard photo`} className="w-8 h-8 rounded object-cover" />
                         ) : (
-                          <div className="w-8 h-8 rounded dark:bg-[#1F2937] bg-gray-100 flex items-center justify-center">
-                            <ImageIcon size={12} className="dark:text-gray-600 text-gray-300" />
+                          <div className="w-8 h-8 rounded dark:bg-night-800 bg-gray-100 flex items-center justify-center">
+                            <ImageIcon size={12} className="text-ink-4" />
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{d.sku_code}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{d.product_name}</td>
+                      <td className="px-4 py-2.5 font-mono text-ink-2">{d.sku_code}</td>
+                      <td className="px-4 py-2.5 text-ink">{d.product_name}</td>
                       <td className="px-4 py-2.5">
                         <span className={clsx(
                           'px-1.5 py-0.5 rounded text-[10px] font-medium capitalize',
-                          d.type === 'damaged' ? 'bg-amber-500/15 text-amber-500' : 'bg-red-500/15 text-red-500',
+                          d.type === 'damaged' ? 'bg-amber-500/15 text-warning' : 'bg-red-500/15 text-danger',
                         )}>
                           {d.type}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.warehouse_name}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.lot_number || '—'}</td>
-                      <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{d.quantity}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.reason || '—'}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.discarded_by || '—'}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{formatDate(d.discarded_at)}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{d.warehouse_name}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{d.lot_number || '—'}</td>
+                      <td className="px-4 py-2.5 tabular-nums text-ink-2">{d.quantity}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{d.reason || '—'}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{d.discarded_by || '—'}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{formatDate(d.discarded_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1887,17 +1887,17 @@ export default function Inventory() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <div className="relative flex-1 max-w-sm">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
           <input
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             placeholder="Search product..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
-        <div className="flex items-center rounded-lg border dark:border-[#2D3748] border-gray-200 overflow-hidden shrink-0">
+        <div className="flex items-center rounded-lg border border-line overflow-hidden shrink-0">
           {([
             ['all', 'All'],
             ['low', 'Low Stock'],
@@ -1911,7 +1911,7 @@ export default function Inventory() {
                 'px-2.5 py-1.5 text-[11px] font-medium transition-colors',
                 stockFilter === value
                   ? 'bg-blue-600 text-white'
-                  : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-100',
+                  : 'bg-raised text-ink-3 hover:bg-hover',
               )}
             >
               {label}
@@ -1921,45 +1921,45 @@ export default function Inventory() {
         {expiredReview.batches.length > 0 && (
           <button
             onClick={() => open(inventoryPaths.expiry)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg dark:bg-red-500/10 bg-red-50 text-red-400 text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100 transition-colors shrink-0"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100 transition-colors shrink-0"
           >
             <AlertTriangle size={12} /> Expired batches ({expiredReview.batches.length})
           </button>
         )}
         <button
           onClick={() => open(`${inventoryPaths.expiry}?tab=discarded`)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-400 text-gray-500 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-100 transition-colors shrink-0"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-raised border border-line text-ink-3 text-[11px] font-medium hover:bg-hover transition-colors shrink-0"
         >
           <Trash2 size={12} /> Damaged / Lost / Discarded
         </button>
-        <span className="text-xs dark:text-gray-500 text-gray-400 ml-auto">{total} product{total === 1 ? '' : 's'}</span>
+        <span className="text-xs text-ink-4 ml-auto">{total} product{total === 1 ? '' : 's'}</span>
       </div>
 
       {error && (
-        <div className="flex items-center gap-1.5 px-5 py-2 text-xs text-red-400">
+        <div className="flex items-center gap-1.5 px-5 py-2 text-xs text-danger">
           <AlertTriangle size={12} /> {error}
         </div>
       )}
 
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+          <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Product</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Price</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Sale Price</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Stock</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Product</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Price</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Sale Price</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Stock</th>
               <th className="px-3 py-2.5 w-8" />
             </tr>
           </thead>
-          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+          <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
             )}
             {!loading && visibleProducts.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products found.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">No products found.</td></tr>
             )}
             {/* A SKU action URL for a product not on this list page (shared
                 link, or the list moved on) still opens -- pinned on top. */}

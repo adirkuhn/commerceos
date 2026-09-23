@@ -11,11 +11,11 @@ export function WhatsAppConversationPanel({ customerId }: { customerId: string }
   if (!loading && messages.length === 0 && !error) return null
 
   return (
-    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-2 text-xs">
-      <p className="font-medium dark:text-gray-300 text-gray-700">WhatsApp conversation</p>
-      {error && <p className="text-red-400">{error}</p>}
+    <div className="rounded-xl border border-line p-4 space-y-2 text-xs">
+      <p className="font-medium text-ink-2">WhatsApp conversation</p>
+      {error && <p className="text-danger">{error}</p>}
       {loading ? (
-        <p className="dark:text-gray-500 text-gray-400">Loading…</p>
+        <p className="text-ink-4">Loading…</p>
       ) : (
         <div className="space-y-2 max-h-80 overflow-y-auto">
           {messages.map(m => (
@@ -24,11 +24,11 @@ export function WhatsAppConversationPanel({ customerId }: { customerId: string }
                 className={
                   m.direction === 'outbound'
                     ? 'max-w-[80%] rounded-lg px-2.5 py-1.5 bg-blue-600 text-white'
-                    : 'max-w-[80%] rounded-lg px-2.5 py-1.5 dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-800'
+                    : 'max-w-[80%] rounded-lg px-2.5 py-1.5 dark:bg-night-800 bg-gray-100 text-ink'
                 }
               >
                 <p className="whitespace-pre-wrap">{m.body}</p>
-                <p className={`text-[10px] mt-0.5 ${m.direction === 'outbound' ? 'text-blue-100' : 'dark:text-gray-500 text-gray-400'}`}>
+                <p className={`text-[10px] mt-0.5 ${m.direction === 'outbound' ? 'text-blue-100' : 'text-ink-4'}`}>
                   {new Date(m.created_at).toLocaleString()}
                 </p>
               </div>

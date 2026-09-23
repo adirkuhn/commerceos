@@ -88,7 +88,7 @@ export function BulkAddWeightPortionsModal({
   return (
     <Modal title="Bulk add by weight" onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-[10px] dark:text-gray-500 text-gray-400">
+        <p className="text-[10px] text-ink-4">
           Type or paste each physical package's weight (grams), one per line or comma-separated. Each becomes its
           own sellable SKU, auto-priced from this pool's price per kilo and auto-barcoded to match your scale.
         </p>
@@ -109,7 +109,7 @@ export function BulkAddWeightPortionsModal({
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-[10px] dark:text-gray-500 text-gray-400">
+            <p className="mt-1 text-[10px] text-ink-4">
               Picking a lot copies its expiry onto every new package -- synced to WooCommerce automatically.
             </p>
           </div>
@@ -120,7 +120,7 @@ export function BulkAddWeightPortionsModal({
             id="bulk-portion-weights" rows={4} value={weightsRaw} onChange={e => setWeightsRaw(e.target.value)}
             placeholder={'404\n442\n458'} className={inputClass}
           />
-          {parseError && <p className="mt-1 text-[10px] text-red-500">{parseError}</p>}
+          {parseError && <p className="mt-1 text-[10px] text-danger">{parseError}</p>}
         </div>
         <div>
           <label className={labelClass} htmlFor="bulk-portion-prefix">SKU code prefix (optional)</label>
@@ -134,18 +134,18 @@ export function BulkAddWeightPortionsModal({
           <input id="bulk-portion-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
         {weights.length > 0 && !parseError && (
-          <div className="rounded-lg border dark:border-[#2D3748] border-gray-200 divide-y dark:divide-[#2D3748] divide-gray-100 max-h-40 overflow-y-auto">
+          <div className="rounded-lg border border-line divide-y divide-line max-h-40 overflow-y-auto">
             {weights.map((w, i) => (
               <div key={i} className="flex items-center justify-between px-2 py-1 text-[10px]">
-                <span className="dark:text-gray-300 text-gray-700">{w}g</span>
-                <span className="dark:text-gray-400 text-gray-500">{formatPrice(previewPriceMinorUnits(pricePerKiloMinorUnits, w), currencyCode)}</span>
+                <span className="text-ink-2">{w}g</span>
+                <span className="text-ink-3">{formatPrice(previewPriceMinorUnits(pricePerKiloMinorUnits, w), currencyCode)}</span>
               </div>
             ))}
           </div>
         )}
-        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        {error && <p className="text-[10px] text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
           </button>
           <button

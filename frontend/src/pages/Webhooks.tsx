@@ -69,8 +69,8 @@ export default function Webhooks() {
   if (!allowed) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
-        <ShieldAlert size={24} className="dark:text-gray-500 text-gray-400 mb-2" />
-        <p className="text-sm dark:text-gray-300 text-gray-700">You don't have permission to manage webhooks.</p>
+        <ShieldAlert size={24} className="text-ink-4 mb-2" />
+        <p className="text-sm text-ink-2">You don't have permission to manage webhooks.</p>
       </div>
     )
   }
@@ -79,16 +79,16 @@ export default function Webhooks() {
     <div className="flex flex-col p-5 gap-4">
       <div className="flex items-center gap-2.5">
         <div className="w-8 h-8 rounded-lg dark:bg-blue-600/15 bg-blue-50 flex items-center justify-center shrink-0">
-          <Webhook size={15} className="text-blue-400" />
+          <Webhook size={15} className="text-accent" />
         </div>
-        <h1 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Webhooks</h1>
+        <h1 className="text-sm font-semibold text-ink">Webhooks</h1>
       </div>
 
-      <div className="flex gap-1 border-b dark:border-[#2D3748] border-gray-200">
+      <div className="flex gap-1 border-b border-line">
         <button
           onClick={() => setTab('fanout')}
           className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
-            tab === 'fanout' ? 'border-blue-500 text-blue-400' : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600'
+            tab === 'fanout' ? 'border-blue-500 text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
           }`}
         >
           Fan-out
@@ -96,7 +96,7 @@ export default function Webhooks() {
         <button
           onClick={() => setTab('subscriptions')}
           className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
-            tab === 'subscriptions' ? 'border-blue-500 text-blue-400' : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600'
+            tab === 'subscriptions' ? 'border-blue-500 text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
           }`}
         >
           Subscriptions
@@ -104,7 +104,7 @@ export default function Webhooks() {
         <button
           onClick={() => setTab('messages')}
           className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
-            tab === 'messages' ? 'border-blue-500 text-blue-400' : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600'
+            tab === 'messages' ? 'border-blue-500 text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
           }`}
         >
           Messages
@@ -186,23 +186,23 @@ function FanOutTab({
     }
   }
 
-  const inputClass = 'px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900'
+  const inputClass = 'px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink'
 
   return (
     <div className="max-w-4xl space-y-4">
-      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
-        <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Webhook forwarding</h2>
-        <p className="text-xs dark:text-gray-500 text-gray-400 mb-3">
+      <div className="bg-raised rounded-xl border border-line p-4">
+        <h2 className="text-sm font-semibold text-ink mb-1">Webhook forwarding</h2>
+        <p className="text-xs text-ink-4 mb-3">
           Fan out a received webhook to other systems -- every event matching provider/topic is also POSTed to the target
           URL (its exact original payload, byte for byte). Leave topic blank to match every event for that provider.
         </p>
 
-        {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
-        {formError && <p className="text-xs text-red-400 mb-2">{formError}</p>}
+        {error && <p className="text-xs text-danger mb-2">{error}</p>}
+        {formError && <p className="text-xs text-danger mb-2">{formError}</p>}
 
         <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2 mb-4">
           <div>
-            <label htmlFor="forward-provider" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Provider</label>
+            <label htmlFor="forward-provider" className="block text-[11px] text-ink-3 mb-1">Provider</label>
             <input
               id="forward-provider" required value={provider}
               onChange={e => setProvider(e.target.value)}
@@ -210,7 +210,7 @@ function FanOutTab({
             />
           </div>
           <div>
-            <label htmlFor="forward-topic" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Topic</label>
+            <label htmlFor="forward-topic" className="block text-[11px] text-ink-3 mb-1">Topic</label>
             <select id="forward-topic" value={topic} onChange={e => setTopic(e.target.value)} className={inputClass}>
               <option value="">Any topic (match everything)</option>
               {providerOptgroups(topics.active_webhooks, 'active')}
@@ -218,7 +218,7 @@ function FanOutTab({
             </select>
           </div>
           <div className="flex-1 min-w-[220px]">
-            <label htmlFor="forward-target-url" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Target URL</label>
+            <label htmlFor="forward-target-url" className="block text-[11px] text-ink-3 mb-1">Target URL</label>
             <input id="forward-target-url" required value={targetUrl} onChange={e => setTargetUrl(e.target.value)} placeholder="https://shop.example.com/hook" className={`${inputClass} w-full`} />
           </div>
           <button
@@ -230,14 +230,14 @@ function FanOutTab({
         </form>
 
         {loading ? (
-          <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+          <p className="text-xs text-ink-4">Loading…</p>
         ) : rules.length === 0 ? (
-          <p className="text-xs dark:text-gray-500 text-gray-400">No forwarding rules configured yet.</p>
+          <p className="text-xs text-ink-4">No forwarding rules configured yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left dark:text-gray-500 text-gray-400 border-b dark:border-[#2D3748] border-gray-200">
+                <tr className="text-left text-ink-4 border-b border-line">
                   <th className="py-2 pr-3 font-medium">Provider</th>
                   <th className="py-2 pr-3 font-medium">Topic</th>
                   <th className="py-2 pr-3 font-medium">Target URL</th>
@@ -246,15 +246,15 @@ function FanOutTab({
               </thead>
               <tbody>
                 {rules.map(r => (
-                  <tr key={r.id} className="border-b dark:border-[#2D3748] border-gray-100 last:border-0">
-                    <td className="py-2 pr-3 dark:text-gray-300 text-gray-700 capitalize">{r.provider}</td>
-                    <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{r.topic || 'any'}</td>
-                    <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 font-mono truncate max-w-[280px]" title={r.target_url}>{r.target_url}</td>
+                  <tr key={r.id} className="border-b border-line last:border-0">
+                    <td className="py-2 pr-3 text-ink-2 capitalize">{r.provider}</td>
+                    <td className="py-2 pr-3 text-ink-3">{r.topic || 'any'}</td>
+                    <td className="py-2 pr-3 text-ink-3 font-mono truncate max-w-[280px]" title={r.target_url}>{r.target_url}</td>
                     <td className="py-2 pr-3">
                       <button
                         onClick={() => handleRemove(r.id)}
                         disabled={busyId === r.id}
-                        className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:text-red-400 disabled:opacity-50 transition-colors"
+                        className="px-2 py-1 rounded bg-fill text-ink-3 hover:text-danger disabled:opacity-50 transition-colors"
                       >
                         Remove
                       </button>
@@ -268,12 +268,12 @@ function FanOutTab({
       </div>
 
       {deliveries.length > 0 && (
-        <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
-          <h3 className="text-xs font-semibold dark:text-gray-300 text-gray-700 mb-2">Recent deliveries</h3>
+        <div className="bg-raised rounded-xl border border-line p-4">
+          <h3 className="text-xs font-semibold text-ink-2 mb-2">Recent deliveries</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left dark:text-gray-500 text-gray-400 border-b dark:border-[#2D3748] border-gray-200">
+                <tr className="text-left text-ink-4 border-b border-line">
                   <th className="py-2 pr-3 font-medium">Provider / Topic</th>
                   <th className="py-2 pr-3 font-medium">Target URL</th>
                   <th className="py-2 pr-3 font-medium">Status</th>
@@ -282,11 +282,11 @@ function FanOutTab({
               </thead>
               <tbody>
                 {deliveries.map(d => (
-                  <tr key={d.id} className="border-b dark:border-[#2D3748] border-gray-100 last:border-0">
-                    <td className="py-2 pr-3 dark:text-gray-300 text-gray-700">{d.provider} / {d.topic || 'any'}</td>
-                    <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 font-mono truncate max-w-[240px]" title={d.target_url}>{d.target_url}</td>
-                    <td className="py-2 pr-3 dark:text-gray-400 text-gray-500" title={d.last_error}>{d.status}</td>
-                    <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{d.attempts}</td>
+                  <tr key={d.id} className="border-b border-line last:border-0">
+                    <td className="py-2 pr-3 text-ink-2">{d.provider} / {d.topic || 'any'}</td>
+                    <td className="py-2 pr-3 text-ink-3 font-mono truncate max-w-[240px]" title={d.target_url}>{d.target_url}</td>
+                    <td className="py-2 pr-3 text-ink-3" title={d.last_error}>{d.status}</td>
+                    <td className="py-2 pr-3 text-ink-3">{d.attempts}</td>
                   </tr>
                 ))}
               </tbody>
@@ -332,11 +332,11 @@ function SubscriptionsTab({
 
   return (
     <div className="max-w-4xl">
-      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+      <div className="bg-raised rounded-xl border border-line p-4">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
-            <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Active provider subscriptions</h2>
-            <p className="text-xs dark:text-gray-500 text-gray-400">
+            <h2 className="text-sm font-semibold text-ink mb-1">Active provider subscriptions</h2>
+            <p className="text-xs text-ink-4">
               Every webhook subscription actually registered at WooCommerce/MyParcel, across every connection this tenant has --
               not necessarily pointed at CommerceOS itself.
             </p>
@@ -350,24 +350,24 @@ function SubscriptionsTab({
         </div>
 
         {noneTargetCommerceOS && (
-          <p className="text-xs text-amber-500 bg-amber-50 dark:bg-amber-500/10 rounded-lg px-3 py-2 mb-3">
+          <p className="text-xs text-warning bg-amber-50 dark:bg-amber-500/10 rounded-lg px-3 py-2 mb-3">
             None of these are registered with CommerceOS -- they're all pointed at other systems. Click "Register a webhook"
             above to open a connection's settings and subscribe CommerceOS too.
           </p>
         )}
 
-        {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
-        {rowError && <p className="text-xs text-red-400 mb-2">{rowError}</p>}
+        {error && <p className="text-xs text-danger mb-2">{error}</p>}
+        {rowError && <p className="text-xs text-danger mb-2">{rowError}</p>}
 
         {loading ? (
-          <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+          <p className="text-xs text-ink-4">Loading…</p>
         ) : webhooks.length === 0 ? (
-          <p className="text-xs dark:text-gray-500 text-gray-400">Nothing registered yet at any connection.</p>
+          <p className="text-xs text-ink-4">Nothing registered yet at any connection.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left dark:text-gray-500 text-gray-400 border-b dark:border-[#2D3748] border-gray-200">
+                <tr className="text-left text-ink-4 border-b border-line">
                   <th className="py-2 pr-3 font-medium">Connection</th>
                   <th className="py-2 pr-3 font-medium">Topic</th>
                   <th className="py-2 pr-3 font-medium">Delivery URL</th>
@@ -379,19 +379,19 @@ function SubscriptionsTab({
                 {webhooks.map(w => {
                   const key = `${w.connection_id}:${w.id}`
                   return (
-                    <tr key={key} className="border-b dark:border-[#2D3748] border-gray-100 last:border-0">
-                      <td className="py-2 pr-3 dark:text-gray-300 text-gray-700">
+                    <tr key={key} className="border-b border-line last:border-0">
+                      <td className="py-2 pr-3 text-ink-2">
                         <span className="capitalize">{w.provider}</span>
-                        {w.store_label && <span className="dark:text-gray-500 text-gray-400"> · {w.store_label}</span>}
+                        {w.store_label && <span className="text-ink-4"> · {w.store_label}</span>}
                       </td>
-                      <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{w.topic || 'any'}</td>
-                      <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 font-mono truncate max-w-[240px]" title={w.delivery_url}>{w.delivery_url}</td>
-                      <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{w.status}</td>
+                      <td className="py-2 pr-3 text-ink-3">{w.topic || 'any'}</td>
+                      <td className="py-2 pr-3 text-ink-3 font-mono truncate max-w-[240px]" title={w.delivery_url}>{w.delivery_url}</td>
+                      <td className="py-2 pr-3 text-ink-3">{w.status}</td>
                       <td className="py-2 pr-3">
                         <button
                           onClick={() => w.connection_id && handleRemove(w.connection_id, w.id)}
                           disabled={busyKey === key || !w.connection_id}
-                          className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:text-red-400 disabled:opacity-50 transition-colors"
+                          className="px-2 py-1 rounded bg-fill text-ink-3 hover:text-danger disabled:opacity-50 transition-colors"
                         >
                           Remove
                         </button>
@@ -475,20 +475,20 @@ function MessagesTab({
 
   return (
     <div className="max-w-4xl">
-      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+      <div className="bg-raised rounded-xl border border-line p-4">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
-            <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Received messages</h2>
-            <p className="text-xs dark:text-gray-500 text-gray-400">
+            <h2 className="text-sm font-semibold text-ink mb-1">Received messages</h2>
+            <p className="text-xs text-ink-4">
               Every webhook this tenant has actually received, newest first.
             </p>
           </div>
           <div className="flex items-end gap-2">
             <div>
-              <label htmlFor="message-sender" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Sender</label>
+              <label htmlFor="message-sender" className="block text-[11px] text-ink-3 mb-1">Sender</label>
               <select
                 id="message-sender" value={provider} onChange={e => onProviderChange(e.target.value)}
-                className="px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+                className="px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink"
               >
                 <option value="">Any sender</option>
                 {senders.map(s => <option key={s} value={s}>{providerLabel(s)}</option>)}
@@ -505,11 +505,11 @@ function MessagesTab({
           </div>
         </div>
 
-        <div className="flex gap-1 mb-3 border-b dark:border-[#2D3748] border-gray-200">
+        <div className="flex gap-1 mb-3 border-b border-line">
           <button
             type="button" onClick={() => setView('all')}
             className={`px-2.5 py-1.5 text-xs font-medium border-b-2 transition-colors ${
-              view === 'all' ? 'border-blue-500 text-blue-400' : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600'
+              view === 'all' ? 'border-blue-500 text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
             }`}
           >
             All messages
@@ -517,27 +517,27 @@ function MessagesTab({
           <button
             type="button" onClick={() => setView('needsAttention')}
             className={`px-2.5 py-1.5 text-xs font-medium border-b-2 transition-colors ${
-              view === 'needsAttention' ? 'border-blue-500 text-blue-400' : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600'
+              view === 'needsAttention' ? 'border-blue-500 text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
             }`}
           >
             Needs attention{events.filter(needsAttention).length > 0 && ` (${events.filter(needsAttention).length})`}
           </button>
         </div>
 
-        {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
-        {retryError && <p className="text-xs text-red-400 mb-2">{retryError}</p>}
+        {error && <p className="text-xs text-danger mb-2">{error}</p>}
+        {retryError && <p className="text-xs text-danger mb-2">{retryError}</p>}
 
         {loading ? (
-          <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+          <p className="text-xs text-ink-4">Loading…</p>
         ) : displayedEvents.length === 0 ? (
-          <p className="text-xs dark:text-gray-500 text-gray-400">
+          <p className="text-xs text-ink-4">
             {view === 'needsAttention' ? 'Nothing needs attention.' : 'No messages received yet.'}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left dark:text-gray-500 text-gray-400 border-b dark:border-[#2D3748] border-gray-200">
+                <tr className="text-left text-ink-4 border-b border-line">
                   <th className="py-2 pr-3 font-medium">Sender</th>
                   <th className="py-2 pr-3 font-medium">Topic</th>
                   <th className="py-2 pr-3 font-medium">Received at</th>
@@ -548,19 +548,19 @@ function MessagesTab({
               </thead>
               <tbody>
                 {displayedEvents.map(e => (
-                  <tr key={e.id} className="border-b dark:border-[#2D3748] border-gray-100 last:border-0 align-top">
-                    <td className="py-2 pr-3 dark:text-gray-300 text-gray-700">{providerLabel(e.provider)}</td>
-                    <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{e.topic}</td>
-                    <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 whitespace-nowrap">{new Date(e.received_at).toLocaleString()}</td>
+                  <tr key={e.id} className="border-b border-line last:border-0 align-top">
+                    <td className="py-2 pr-3 text-ink-2">{providerLabel(e.provider)}</td>
+                    <td className="py-2 pr-3 text-ink-3">{e.topic}</td>
+                    <td className="py-2 pr-3 text-ink-3 whitespace-nowrap">{new Date(e.received_at).toLocaleString()}</td>
                     <td className="py-2 pr-3"><MessageStatusBadge status={e.status} dispatchError={e.dispatch_error} /></td>
-                    <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 font-mono max-w-[360px]">
+                    <td className="py-2 pr-3 text-ink-3 font-mono max-w-[360px]">
                       <PayloadPreview payload={e.payload} />
                     </td>
                     <td className="py-2 pr-3">
                       {needsAttention(e) && (
                         <button
                           type="button" onClick={() => handleRetry(e.id)} disabled={retryingId === e.id || bulkRetrying}
-                          className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700 disabled:opacity-50 transition-colors"
+                          className="px-2 py-1 rounded bg-fill text-ink-3 hover:text-ink-2 disabled:opacity-50 transition-colors"
                         >
                           {retryingId === e.id ? 'Retrying…' : 'Retry'}
                         </button>
@@ -586,16 +586,16 @@ function MessageStatusBadge({ status, dispatchError }: { status: WebhookEvent['s
     return (
       <span
         title={dispatchError || undefined}
-        className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-red-500/15 text-red-500 cursor-help"
+        className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-red-500/15 text-danger cursor-help"
       >
         Failed
       </span>
     )
   }
   if (status === 'processed') {
-    return <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-emerald-500/15 text-emerald-500">Processed</span>
+    return <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-emerald-500/15 text-success">Processed</span>
   }
-  return <span className="px-1.5 py-0.5 rounded text-[11px] font-medium dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500">Received</span>
+  return <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-fill text-ink-3">Received</span>
 }
 
 // Truncated one-line preview that expands into the full formatted JSON on
@@ -607,14 +607,14 @@ function PayloadPreview({ payload }: { payload: unknown }) {
   const pretty = JSON.stringify(payload, null, 2)
 
   if (!json || json === 'null') {
-    return <span className="dark:text-gray-600 text-gray-400">—</span>
+    return <span className="text-ink-4">—</span>
   }
 
   if (expanded) {
     return (
       <div>
-        <pre className="whitespace-pre-wrap break-all text-[11px] dark:bg-[#111827] bg-gray-50 rounded-lg p-2 max-h-64 overflow-y-auto">{pretty}</pre>
-        <button type="button" onClick={() => setExpanded(false)} className="text-blue-400 hover:underline mt-1">Collapse</button>
+        <pre className="whitespace-pre-wrap break-all text-[11px] bg-sunken rounded-lg p-2 max-h-64 overflow-y-auto">{pretty}</pre>
+        <button type="button" onClick={() => setExpanded(false)} className="text-accent hover:underline mt-1">Collapse</button>
       </div>
     )
   }

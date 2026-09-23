@@ -20,8 +20,8 @@ function NotFoundPage() {
   return (
     <div className="flex h-full items-center justify-center">
       <div className="text-center">
-        <p className="text-sm font-medium dark:text-gray-200 text-gray-800">Page not found</p>
-        <p className="text-xs dark:text-gray-500 text-gray-400 mt-1">This page doesn&apos;t exist.</p>
+        <p className="text-sm font-medium text-ink">Page not found</p>
+        <p className="text-xs text-ink-4 mt-1">This page doesn&apos;t exist.</p>
       </div>
     </div>
   )
@@ -29,11 +29,11 @@ function NotFoundPage() {
 
 function AppContent() {
   return (
-    <div className="flex h-screen dark:bg-[#0B1220] bg-[#F9FAFB] overflow-hidden">
+    <div className="flex h-screen bg-canvas overflow-hidden">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Topbar />
-        <main className="flex-1 overflow-y-auto dark:bg-[#0B1220] bg-[#F9FAFB]">
+        <main className="flex-1 overflow-y-auto bg-canvas">
           <Routes>
             {PAGE_ROUTES.map(({ path, Component }) => (
               <Route key={path} path={path} element={<Component />} />

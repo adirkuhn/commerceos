@@ -17,8 +17,8 @@ import type { Group } from '../iam/types'
 
 const ROLE_LABELS: Record<MemberRole, string> = { customer_owner: 'Owner', customer_user: 'User' }
 const ROLE_COLORS: Record<MemberRole, string> = {
-  customer_owner: 'bg-red-500/15 text-red-400',
-  customer_user: 'bg-gray-500/15 text-gray-400',
+  customer_owner: 'bg-red-500/15 text-danger',
+  customer_user: 'bg-gray-500/15 text-ink-4',
 }
 
 function fullName(m: CompanyMember): string {
@@ -45,26 +45,26 @@ function InviteForm({ onSubmit, onCancel }: { onSubmit: (email: string, role: Me
   }
 
   return (
-    <div className="absolute right-5 top-14 z-20 w-80 dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 shadow-lg p-4">
+    <div className="absolute right-5 top-14 z-20 w-80 bg-raised rounded-xl border border-line shadow-lg p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Invite User</h3>
-        <button onClick={onCancel}><X size={14} className="dark:text-gray-400 text-gray-500" /></button>
+        <h3 className="text-sm font-semibold text-ink">Invite User</h3>
+        <button onClick={onCancel}><X size={14} className="text-ink-3" /></button>
       </div>
-      {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
-      <label className="block text-xs dark:text-gray-400 text-gray-500 mb-1" htmlFor="invite-email">Email</label>
+      {error && <p className="text-xs text-danger mb-2">{error}</p>}
+      <label className="block text-xs text-ink-3 mb-1" htmlFor="invite-email">Email</label>
       <input
         id="invite-email"
         type="email"
         value={email}
         onChange={e => setEmail(e.target.value)}
-        className="w-full mb-3 px-3 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full mb-3 px-3 py-1.5 text-xs rounded-lg bg-sunken border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
       />
-      <label className="block text-xs dark:text-gray-400 text-gray-500 mb-1" htmlFor="invite-role">Role</label>
+      <label className="block text-xs text-ink-3 mb-1" htmlFor="invite-role">Role</label>
       <select
         id="invite-role"
         value={role}
         onChange={e => setRole(e.target.value as MemberRole)}
-        className="w-full mb-4 px-3 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none"
+        className="w-full mb-4 px-3 py-1.5 text-xs rounded-lg bg-sunken border border-line text-ink outline-none"
       >
         <option value="customer_user">User</option>
         <option value="customer_owner">Owner</option>
@@ -92,23 +92,23 @@ function GroupDetail({ token, group, members }: { token: string; group: Group; m
   return (
     <div className="p-4 space-y-5">
       <div>
-        <h4 className="text-xs font-semibold dark:text-gray-300 text-gray-600 uppercase tracking-wider mb-2">Members</h4>
-        {groupMembers.error && <p className="text-xs text-red-400 mb-2">{groupMembers.error}</p>}
+        <h4 className="text-xs font-semibold text-ink-2 uppercase tracking-wider mb-2">Members</h4>
+        {groupMembers.error && <p className="text-xs text-danger mb-2">{groupMembers.error}</p>}
         <ul className="space-y-1 mb-3">
           {groupMembers.members.map(userId => (
-            <li key={userId} className="flex items-center justify-between text-xs dark:text-gray-300 text-gray-700">
+            <li key={userId} className="flex items-center justify-between text-xs text-ink-2">
               <span>{memberByID.get(userId)?.email ?? userId}</span>
-              <button onClick={() => groupMembers.remove(userId)} className="text-red-400 hover:text-red-300">Remove</button>
+              <button onClick={() => groupMembers.remove(userId)} className="text-danger hover:text-red-300">Remove</button>
             </li>
           ))}
-          {groupMembers.members.length === 0 && <li className="text-xs dark:text-gray-500 text-gray-400">No members yet.</li>}
+          {groupMembers.members.length === 0 && <li className="text-xs text-ink-4">No members yet.</li>}
         </ul>
         <div className="flex gap-2">
           <select
             aria-label="Add member to group"
             value={pickUserId}
             onChange={e => setPickUserId(e.target.value)}
-            className="flex-1 px-2 py-1 text-xs rounded border dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 dark:text-gray-200 text-gray-800"
+            className="flex-1 px-2 py-1 text-xs rounded border border-line bg-sunken text-ink"
           >
             <option value="">Select a member…</option>
             {notInGroup.map(m => (
@@ -126,16 +126,16 @@ function GroupDetail({ token, group, members }: { token: string; group: Group; m
       </div>
 
       <div>
-        <h4 className="text-xs font-semibold dark:text-gray-300 text-gray-600 uppercase tracking-wider mb-2">Permissions</h4>
-        {groupPerms.error && <p className="text-xs text-red-400 mb-2">{groupPerms.error}</p>}
+        <h4 className="text-xs font-semibold text-ink-2 uppercase tracking-wider mb-2">Permissions</h4>
+        {groupPerms.error && <p className="text-xs text-danger mb-2">{groupPerms.error}</p>}
         <ul className="space-y-1 mb-3">
           {groupPerms.permissions.map(rule => (
-            <li key={rule} className="flex items-center justify-between text-xs font-mono dark:text-gray-300 text-gray-700">
+            <li key={rule} className="flex items-center justify-between text-xs font-mono text-ink-2">
               <span>{rule}</span>
-              <button onClick={() => groupPerms.revoke(rule)} className="text-red-400 hover:text-red-300 font-sans">Revoke</button>
+              <button onClick={() => groupPerms.revoke(rule)} className="text-danger hover:text-red-300 font-sans">Revoke</button>
             </li>
           ))}
-          {groupPerms.permissions.length === 0 && <li className="text-xs dark:text-gray-500 text-gray-400">No permissions yet.</li>}
+          {groupPerms.permissions.length === 0 && <li className="text-xs text-ink-4">No permissions yet.</li>}
         </ul>
         <div className="flex gap-2">
           <input
@@ -143,7 +143,7 @@ function GroupDetail({ token, group, members }: { token: string; group: Group; m
             placeholder="pms.product.create"
             value={newRule}
             onChange={e => setNewRule(e.target.value)}
-            className="flex-1 px-2 py-1 text-xs rounded border dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 dark:text-gray-200 text-gray-800 font-mono"
+            className="flex-1 px-2 py-1 text-xs rounded border border-line bg-sunken text-ink font-mono"
           />
           <button
             onClick={() => { if (newRule) { groupPerms.assign(newRule); setNewRule('') } }}
@@ -162,23 +162,23 @@ function UserActivityPanel({ token, member, onClose }: { token: string; member: 
   const { activities, loading, error } = useUserActivities(token, member.user_id)
 
   return (
-    <div className="w-[480px] border-l dark:border-[#2D3748] border-gray-200 flex flex-col overflow-hidden">
-      <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200 shrink-0 flex items-center justify-between">
+    <div className="w-[480px] border-l border-line flex flex-col overflow-hidden">
+      <div className="px-4 py-3 border-b border-line shrink-0 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">{fullName(member)}</h3>
-          <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">Activity across all their orders</p>
+          <h3 className="text-sm font-semibold text-ink">{fullName(member)}</h3>
+          <p className="text-[10px] text-ink-4 mt-0.5">Activity across all their orders</p>
         </div>
-        <button onClick={onClose}><X size={14} className="dark:text-gray-400 text-gray-500" /></button>
+        <button onClick={onClose}><X size={14} className="text-ink-3" /></button>
       </div>
       <div className="flex-1 overflow-auto p-4 space-y-2">
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
         {!loading && activities.length === 0 && !error && (
-          <p className="text-xs dark:text-gray-500 text-gray-400">No activity yet.</p>
+          <p className="text-xs text-ink-4">No activity yet.</p>
         )}
         {activities.map(a => (
           <div key={a.id} className="flex justify-between gap-3 text-xs">
-            <span className="dark:text-gray-200 text-gray-800">{a.summary}</span>
-            <span className="shrink-0 dark:text-gray-500 text-gray-400">{new Date(a.created_at).toLocaleString()}</span>
+            <span className="text-ink">{a.summary}</span>
+            <span className="shrink-0 text-ink-4">{new Date(a.created_at).toLocaleString()}</span>
           </div>
         ))}
       </div>
@@ -208,10 +208,10 @@ function GroupsPanel({ token, members, groupId, editing, onSelect, onCreate, onE
   const showForm = editing && (groupId === null || selected !== null)
 
   return (
-    <div className="w-[480px] border-l dark:border-[#2D3748] border-gray-200 flex flex-col overflow-hidden">
-      <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200 shrink-0">
-        <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Groups & Permissions</h3>
-        <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">Fine-grained access on top of owner/user roles</p>
+    <div className="w-[480px] border-l border-line flex flex-col overflow-hidden">
+      <div className="px-4 py-3 border-b border-line shrink-0">
+        <h3 className="text-sm font-semibold text-ink">Groups & Permissions</h3>
+        <p className="text-[10px] text-ink-4 mt-0.5">Fine-grained access on top of owner/user roles</p>
       </div>
       <div className="flex-1 overflow-auto p-4">
         {showForm ? (
@@ -236,10 +236,10 @@ function GroupsPanel({ token, members, groupId, editing, onSelect, onCreate, onE
           />
         )}
         {selected && !showForm && (
-          <div className="mt-4 border-t dark:border-[#2D3748] border-gray-200">
+          <div className="mt-4 border-t border-line">
             <div className="flex items-center justify-between px-0 pt-3">
-              <h4 className="text-xs font-semibold dark:text-gray-200 text-gray-800">{selected.name}</h4>
-              <button onClick={() => onEdit(selected.id)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+              <h4 className="text-xs font-semibold text-ink">{selected.name}</h4>
+              <button onClick={() => onEdit(selected.id)} className="text-xs text-accent hover:text-accent/80">Edit</button>
             </div>
             <GroupDetail token={token} group={selected} members={members} />
           </div>
@@ -274,7 +274,7 @@ export default function Users() {
   if (!isOwner) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-sm dark:text-gray-400 text-gray-500">Only company owners can manage users.</p>
+        <p className="text-sm text-ink-3">Only company owners can manage users.</p>
       </div>
     )
   }
@@ -296,14 +296,14 @@ export default function Users() {
 
   return (
     <div className="flex flex-col h-full relative">
-      <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 shrink-0">
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-line shrink-0">
         <div className="relative flex-1 max-w-sm">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search users..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <button
@@ -311,8 +311,8 @@ export default function Users() {
           className={clsx(
             'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors',
             showGroups
-              ? 'bg-blue-600/15 border-blue-500/30 text-blue-400'
-              : 'dark:bg-[#1F2937] bg-white dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600',
+              ? 'bg-blue-600/15 border-blue-500/30 text-accent'
+              : 'bg-raised border-line text-ink-2',
           )}
         >
           <Shield size={13} /> Groups
@@ -333,7 +333,7 @@ export default function Users() {
       )}
 
       {(membersState.error || invitesState.error || actionError) && (
-        <p className="px-5 py-2 text-xs text-red-400 border-b dark:border-[#2D3748] border-gray-200">
+        <p className="px-5 py-2 text-xs text-danger border-b border-line">
           {membersState.error ?? invitesState.error ?? actionError}
         </p>
       )}
@@ -342,16 +342,16 @@ export default function Users() {
         <div className={clsx('flex flex-col overflow-hidden', (showGroups || selectedUser) ? 'flex-1' : 'w-full')}>
           <div className="flex-1 overflow-auto">
             {invitesState.invites.length > 0 && (
-              <div className="px-5 py-3 border-b dark:border-[#2D3748] border-gray-200">
-                <h3 className="text-xs font-semibold dark:text-gray-300 text-gray-600 uppercase tracking-wider mb-2">Pending Invites</h3>
+              <div className="px-5 py-3 border-b border-line">
+                <h3 className="text-xs font-semibold text-ink-2 uppercase tracking-wider mb-2">Pending Invites</h3>
                 <ul className="space-y-1.5">
                   {invitesState.invites.map(inv => (
-                    <li key={inv.id} className="flex items-center justify-between text-xs dark:text-gray-300 text-gray-700">
-                      <span>{inv.email} <span className="dark:text-gray-500 text-gray-400">({ROLE_LABELS[inv.role]})</span></span>
+                    <li key={inv.id} className="flex items-center justify-between text-xs text-ink-2">
+                      <span>{inv.email} <span className="text-ink-4">({ROLE_LABELS[inv.role]})</span></span>
                       <button
                         aria-label={`Revoke invite for ${inv.email}`}
                         onClick={() => invitesState.revoke(inv.id)}
-                        className="text-red-400 hover:text-red-300"
+                        className="text-danger hover:text-red-300"
                       >
                         Revoke
                       </button>
@@ -361,18 +361,18 @@ export default function Users() {
               </div>
             )}
             <table className="w-full text-xs">
-              <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+              <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                 <tr>
                   {['User', 'Role', 'Status', 'Last Login', ''].map(h => (
-                    <th key={h} className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">
+                    <th key={h} className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+              <tbody className="divide-y divide-line/60">
                 {filtered.map(m => (
-                  <tr key={m.membership_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors group">
+                  <tr key={m.membership_id} className="hover:bg-hover/60 transition-colors group">
                     <td className="px-3 py-3">
                       <button
                         onClick={() => route.openMember(m.user_id)}
@@ -383,8 +383,8 @@ export default function Users() {
                           {fullName(m).slice(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-medium dark:text-gray-100 text-gray-900">{fullName(m)}</p>
-                          <p className="text-[10px] dark:text-gray-500 text-gray-400">{m.email}</p>
+                          <p className="font-medium text-ink">{fullName(m)}</p>
+                          <p className="text-[10px] text-ink-4">{m.email}</p>
                         </div>
                       </button>
                     </td>
@@ -404,15 +404,15 @@ export default function Users() {
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1.5">
                         {m.status === 'active'
-                          ? <CheckCircle size={12} className="text-green-400" />
-                          : <XCircle size={12} className="text-gray-400" />
+                          ? <CheckCircle size={12} className="text-success" />
+                          : <XCircle size={12} className="text-ink-4" />
                         }
-                        <span className={clsx('text-[10px] font-medium', m.status === 'active' ? 'text-green-400' : 'dark:text-gray-500 text-gray-400')}>
+                        <span className={clsx('text-[10px] font-medium', m.status === 'active' ? 'text-success' : 'text-ink-4')}>
                           {m.status === 'active' ? 'Active' : m.status}
                         </span>
                       </div>
                     </td>
-                    <td className="px-3 py-3 dark:text-gray-500 text-gray-400">
+                    <td className="px-3 py-3 text-ink-4">
                       {m.last_login_at ? new Date(m.last_login_at).toLocaleDateString() : 'Never'}
                     </td>
                     <td className="px-3 py-3">
@@ -420,7 +420,7 @@ export default function Users() {
                         <button
                           aria-label={`Remove ${fullName(m)}`}
                           onClick={() => handleRemove(m)}
-                          className="opacity-0 group-hover:opacity-100 text-[10px] text-red-400 hover:text-red-300"
+                          className="opacity-0 group-hover:opacity-100 text-[10px] text-danger hover:text-red-300"
                         >
                           Remove
                         </button>
@@ -431,7 +431,7 @@ export default function Users() {
               </tbody>
             </table>
             {!membersState.loading && filtered.length === 0 && (
-              <p className="px-5 py-4 text-xs dark:text-gray-500 text-gray-400">No members found.</p>
+              <p className="px-5 py-4 text-xs text-ink-4">No members found.</p>
             )}
           </div>
         </div>

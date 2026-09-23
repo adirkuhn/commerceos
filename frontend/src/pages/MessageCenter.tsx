@@ -23,14 +23,14 @@ export default function MessageCenter() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-1 px-5 pt-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center gap-1 px-5 pt-3 border-b border-line bg-sunken shrink-0">
         <button
           onClick={() => setTab('templates')}
           className={clsx(
             'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
             tab === 'templates'
-              ? 'border-blue-500 dark:text-gray-100 text-gray-900'
-              : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+              ? 'border-blue-500 text-ink'
+              : 'border-transparent text-ink-4 hover:text-ink-2',
           )}
         >
           Templates
@@ -40,8 +40,8 @@ export default function MessageCenter() {
           className={clsx(
             'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
             tab === 'rules'
-              ? 'border-blue-500 dark:text-gray-100 text-gray-900'
-              : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+              ? 'border-blue-500 text-ink'
+              : 'border-transparent text-ink-4 hover:text-ink-2',
           )}
         >
           Automation Rules
@@ -51,8 +51,8 @@ export default function MessageCenter() {
           className={clsx(
             'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
             tab === 'conversations'
-              ? 'border-blue-500 dark:text-gray-100 text-gray-900'
-              : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+              ? 'border-blue-500 text-ink'
+              : 'border-transparent text-ink-4 hover:text-ink-2',
           )}
         >
           Conversations

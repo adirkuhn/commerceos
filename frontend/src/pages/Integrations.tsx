@@ -55,8 +55,8 @@ const STATUS_ICON = {
 }
 
 const STATUS_COLOR = {
-  connected: 'text-green-400',
-  error: 'text-red-400',
+  connected: 'text-success',
+  error: 'text-danger',
 }
 
 interface PaymentWebhookSetupStepProps {
@@ -82,15 +82,15 @@ function PaymentWebhookSetupStep({
 }: PaymentWebhookSetupStepProps) {
   return (
     <div className="space-y-3">
-      <p className="text-xs dark:text-gray-300 text-gray-700">
+      <p className="text-xs text-ink-2">
         Connected! Register this URL as a webhook endpoint in {dashboardHint}, then paste the signing secret it gives you below.
       </p>
-      <p className="text-[11px] font-mono break-all dark:bg-[#111827] bg-gray-100 rounded-lg px-2 py-1.5 dark:text-gray-300 text-gray-700">
+      <p className="text-[11px] font-mono break-all bg-fill rounded-lg px-2 py-1.5 text-ink-2">
         {webhookUrl}
       </p>
       {saved ? (
         <>
-          <p className="text-xs text-green-400 bg-green-50 dark:bg-green-500/10 rounded-lg px-2 py-1.5">Webhook secret saved.</p>
+          <p className="text-xs text-success bg-green-50 dark:bg-green-500/10 rounded-lg px-2 py-1.5">Webhook secret saved.</p>
           <button
             onClick={onDone}
             className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
@@ -101,7 +101,7 @@ function PaymentWebhookSetupStep({
       ) : (
         <form onSubmit={onSubmit} className="space-y-3">
           <div>
-            <label htmlFor="payment-webhook-secret" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+            <label htmlFor="payment-webhook-secret" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
               {providerLabel} webhook signing secret
             </label>
             <input
@@ -111,17 +111,17 @@ function PaymentWebhookSetupStep({
               autoFocus
               value={secret}
               onChange={e => onSecretChange(e.target.value)}
-              className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
           {error && (
-            <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error}</p>
+            <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error}</p>
           )}
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={onDone}
-              className="py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 transition-colors"
+              className="py-2 rounded-lg bg-fill text-xs font-medium text-ink-2 transition-colors"
             >
               Skip for now
             </button>
@@ -480,28 +480,28 @@ export default function Integrations() {
         {showWebhookAdmin && (
           <button
             onClick={() => setActiveNav('webhooks')}
-            className="flex items-center justify-between px-4 py-3 rounded-xl dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 hover:border-blue-500 transition-colors text-left"
+            className="flex items-center justify-between px-4 py-3 rounded-xl bg-raised border border-line hover:border-blue-500 transition-colors text-left"
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg dark:bg-blue-600/15 bg-blue-50 flex items-center justify-center shrink-0">
-                <Webhook size={15} className="text-blue-400" />
+                <Webhook size={15} className="text-accent" />
               </div>
               <div>
-                <p className="text-xs font-semibold dark:text-gray-100 text-gray-900">Webhooks</p>
-                <p className="text-[11px] dark:text-gray-500 text-gray-400">Fan-out rules and every active provider subscription, in one place</p>
+                <p className="text-xs font-semibold text-ink">Webhooks</p>
+                <p className="text-[11px] text-ink-4">Fan-out rules and every active provider subscription, in one place</p>
               </div>
             </div>
-            <ChevronRight size={16} className="dark:text-gray-500 text-gray-400 shrink-0" />
+            <ChevronRight size={16} className="text-ink-4 shrink-0" />
           </button>
         )}
 
         {connections.length === 0 && !loading ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <div className="w-12 h-12 rounded-xl dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 flex items-center justify-center mb-3">
-              <Plug size={20} className="dark:text-gray-500 text-gray-400" />
+            <div className="w-12 h-12 rounded-xl bg-raised border border-line flex items-center justify-center mb-3">
+              <Plug size={20} className="text-ink-4" />
             </div>
-            <p className="text-sm font-medium dark:text-gray-300 text-gray-700 mb-1">No integrations connected</p>
-            <p className="text-xs dark:text-gray-500 text-gray-400 mb-4">Connect a store to start syncing orders and inventory</p>
+            <p className="text-sm font-medium text-ink-2 mb-1">No integrations connected</p>
+            <p className="text-xs text-ink-4 mb-4">Connect a store to start syncing orders and inventory</p>
             <button
               onClick={route.openBrowse}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
@@ -512,7 +512,7 @@ export default function Integrations() {
         ) : (
           <>
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Connected integrations</h2>
+              <h2 className="text-sm font-semibold text-ink">Connected integrations</h2>
               <button
                 onClick={route.openBrowse}
                 className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
@@ -520,14 +520,14 @@ export default function Integrations() {
                 Browse Integrations
               </button>
             </div>
-            {error && <p className="text-xs text-red-400">{error}</p>}
+            {error && <p className="text-xs text-danger">{error}</p>}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {connections.map(conn => {
                 const Icon = STATUS_ICON[conn.status]
                 return (
                   <div
                     key={conn.id}
-                    className="text-left p-4 rounded-xl border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white"
+                    className="text-left p-4 rounded-xl border border-line bg-raised"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className={clsx(
@@ -538,22 +538,22 @@ export default function Integrations() {
                       </div>
                       <Icon size={14} className={STATUS_COLOR[conn.status]} />
                     </div>
-                    <p className="text-sm font-semibold dark:text-gray-100 text-gray-900 capitalize">{conn.provider}</p>
-                    <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5 truncate">{conn.store_url}</p>
+                    <p className="text-sm font-semibold text-ink capitalize">{conn.provider}</p>
+                    <p className="text-[10px] text-ink-4 mt-0.5 truncate">{conn.store_url}</p>
                     {conn.provider === 'whatsapp' && conn.whatsapp_test_mode_enabled && (
-                      <p className="mt-2 text-[10px] px-2 py-1 rounded-lg text-amber-400 bg-amber-500/10">
+                      <p className="mt-2 text-[10px] px-2 py-1 rounded-lg text-warning bg-amber-500/10">
                         Test mode on — all messages go to {conn.whatsapp_test_phone_e164}
                       </p>
                     )}
                     {conn.provider === 'whatsapp' && conn.whatsapp_ai_parsing_enabled && (
-                      <p className="mt-2 text-[10px] px-2 py-1 rounded-lg text-blue-400 bg-blue-500/10">
+                      <p className="mt-2 text-[10px] px-2 py-1 rounded-lg text-accent bg-blue-500/10">
                         AI-assisted parsing on
                       </p>
                     )}
                     {testResult && testResult.id === conn.id && (
                       <p className={clsx(
                         'mt-2 text-[10px] px-2 py-1 rounded-lg',
-                        testResult.ok ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10',
+                        testResult.ok ? 'text-success bg-green-500/10' : 'text-danger bg-red-500/10',
                       )}>
                         {testResult.message}
                       </p>
@@ -562,7 +562,7 @@ export default function Integrations() {
                       {conn.provider === 'woocommerce' && (
                         <button
                           onClick={() => openPanel(conn, 'settings')}
-                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
                         >
                           Configure
                         </button>
@@ -570,7 +570,7 @@ export default function Integrations() {
                       {conn.provider === 'myparcel' && (
                         <button
                           onClick={() => openPanel(conn, 'settings')}
-                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
                         >
                           Configure
                         </button>
@@ -578,7 +578,7 @@ export default function Integrations() {
                       {conn.provider === 'myparcel' && (
                         <button
                           onClick={() => openPanel(conn, 'webhooks')}
-                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
                         >
                           Register webhook
                         </button>
@@ -586,7 +586,7 @@ export default function Integrations() {
                       {conn.provider === 'bol' && (
                         <button
                           onClick={() => openPanel(conn, 'settings')}
-                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
                         >
                           Configure
                         </button>
@@ -594,7 +594,7 @@ export default function Integrations() {
                       {conn.provider === 'whatsapp' && (
                         <button
                           onClick={() => openPanel(conn, 'test-mode')}
-                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
                         >
                           Test mode
                         </button>
@@ -602,7 +602,7 @@ export default function Integrations() {
                       {conn.provider === 'whatsapp' && (
                         <button
                           onClick={() => openPanel(conn, 'ai-parsing')}
-                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
                         >
                           AI parsing
                         </button>
@@ -610,7 +610,7 @@ export default function Integrations() {
                       {conn.provider === 'whatsapp' && (
                         <button
                           onClick={() => openPanel(conn, 'credentials')}
-                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
                         >
                           Edit credentials
                         </button>
@@ -618,7 +618,7 @@ export default function Integrations() {
                       {conn.provider === 'whatsapp' && (
                         <button
                           onClick={() => openPanel(conn, 'whatsapp-webhook')}
-                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
                         >
                           Webhook
                         </button>
@@ -627,7 +627,7 @@ export default function Integrations() {
                         <button
                           onClick={() => handleTestConnection(conn.id)}
                           disabled={testingId === conn.id}
-                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 disabled:opacity-50 transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent disabled:opacity-50 transition-colors"
                         >
                           {testingId === conn.id ? 'Testing…' : 'Test'}
                         </button>
@@ -635,7 +635,7 @@ export default function Integrations() {
                       {conn.provider === 'woocommerce' && (
                         <button
                           onClick={() => openPanel(conn, 'import')}
-                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
                         >
                           Import
                         </button>
@@ -643,14 +643,14 @@ export default function Integrations() {
                       {conn.provider === 'woocommerce' && (
                         <button
                           onClick={() => openPanel(conn, 'delete-products')}
-                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-red-400 transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-danger transition-colors"
                         >
                           Delete imported
                         </button>
                       )}
                       <button
                         onClick={() => disconnect(conn.id)}
-                        className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-red-400 transition-colors"
+                        className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-danger transition-colors"
                       >
                         Disconnect
                       </button>
@@ -703,11 +703,11 @@ export default function Integrations() {
             className="absolute inset-0 dark:bg-black/60 bg-black/30"
             onClick={closeBrowse}
           />
-          <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+          <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Browse Integrations</h3>
+              <h3 className="text-sm font-semibold text-ink">Browse Integrations</h3>
               <button onClick={closeBrowse}>
-                <X size={14} className="dark:text-gray-500 text-gray-400" />
+                <X size={14} className="text-ink-4" />
               </button>
             </div>
 
@@ -715,75 +715,75 @@ export default function Integrations() {
               <div className="space-y-2">
                 <button
                   onClick={() => route.openConnect('woocommerce')}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-line hover:bg-hover transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
                     W
                   </div>
-                  <span className="text-sm dark:text-gray-200 text-gray-800">WooCommerce</span>
+                  <span className="text-sm text-ink">WooCommerce</span>
                 </button>
                 <button
                   onClick={() => route.openNew('bol')}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-line hover:bg-hover transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
                     B
                   </div>
-                  <span className="text-sm dark:text-gray-200 text-gray-800">Bol.com</span>
+                  <span className="text-sm text-ink">Bol.com</span>
                 </button>
                 <button
                   onClick={() => route.openNew('myparcel')}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-line hover:bg-hover transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
                     M
                   </div>
-                  <span className="text-sm dark:text-gray-200 text-gray-800">MyParcel</span>
+                  <span className="text-sm text-ink">MyParcel</span>
                 </button>
                 <button
                   onClick={() => route.openConnect('whatsapp')}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-line hover:bg-hover transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
                     WA
                   </div>
-                  <span className="text-sm dark:text-gray-200 text-gray-800">WhatsApp</span>
+                  <span className="text-sm text-ink">WhatsApp</span>
                 </button>
                 <button
                   onClick={() => route.openConnect('stripe')}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-line hover:bg-hover transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
                     S
                   </div>
-                  <span className="text-sm dark:text-gray-200 text-gray-800">Stripe</span>
+                  <span className="text-sm text-ink">Stripe</span>
                 </button>
                 <button
                   onClick={() => route.openConnect('revolut')}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-line hover:bg-hover transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-black flex items-center justify-center text-white font-bold text-xs shrink-0">
                     R
                   </div>
-                  <span className="text-sm dark:text-gray-200 text-gray-800">Revolut</span>
+                  <span className="text-sm text-ink">Revolut</span>
                 </button>
                 <button
                   onClick={() => route.openConnect('email')}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-line hover:bg-hover transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
                     E
                   </div>
-                  <span className="text-sm dark:text-gray-200 text-gray-800">Email</span>
+                  <span className="text-sm text-ink">Email</span>
                 </button>
               </div>
             ) : connectingWhatsapp ? (
               waWebhookUrl ? (
                 <div className="space-y-3">
-                  <p className="text-xs dark:text-gray-300 text-gray-700">
+                  <p className="text-xs text-ink-2">
                     Connected! Paste this URL into Evolution API's own webhook settings (messages.upsert event) — it's shown only once.
                   </p>
-                  <p className="text-[11px] font-mono break-all dark:bg-[#111827] bg-gray-100 rounded-lg px-2 py-1.5 dark:text-gray-300 text-gray-700">
+                  <p className="text-[11px] font-mono break-all bg-fill rounded-lg px-2 py-1.5 text-ink-2">
                     {waWebhookUrl}
                   </p>
                   <button
@@ -796,7 +796,7 @@ export default function Integrations() {
               ) : (
                 <form onSubmit={handleConnectWhatsapp} className="space-y-3">
                   <div>
-                    <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                       Evolution API base URL
                     </label>
                     <input
@@ -806,14 +806,14 @@ export default function Integrations() {
                       value={waBaseUrl}
                       onChange={e => setWaBaseUrl(e.target.value)}
                       placeholder="https://evolution.example.com"
-                      className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                     />
-                    <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    <p className="mt-1.5 text-[10px] text-ink-4">
                       Your own self-hosted Evolution API instance (unofficial WhatsApp gateway) — not an official WhatsApp Business API.
                     </p>
                   </div>
                   <div>
-                    <label htmlFor="wa-instance-name" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    <label htmlFor="wa-instance-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                       Instance name
                     </label>
                     <input
@@ -822,11 +822,11 @@ export default function Integrations() {
                       required
                       value={waInstanceName}
                       onChange={e => setWaInstanceName(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label htmlFor="wa-api-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    <label htmlFor="wa-api-key" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                       API key
                     </label>
                     <input
@@ -835,11 +835,11 @@ export default function Integrations() {
                       required
                       value={waApiKey}
                       onChange={e => setWaApiKey(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
                   {connectError && (
-                    <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
+                    <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
                   )}
                   <button
                     type="submit"
@@ -867,7 +867,7 @@ export default function Integrations() {
               ) : (
               <form onSubmit={handleConnectStripe} className="space-y-3">
                 <div>
-                  <label htmlFor="stripe-secret-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="stripe-secret-key" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Secret key
                   </label>
                   <input
@@ -878,14 +878,14 @@ export default function Integrations() {
                     value={stripeSecretKey}
                     onChange={e => setStripeSecretKey(e.target.value)}
                     placeholder="sk_live_..."
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                  <p className="mt-1.5 text-[10px] text-ink-4">
                     From your Stripe Dashboard → Developers → API keys.
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="stripe-publishable-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="stripe-publishable-key" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Publishable key
                   </label>
                   <input
@@ -894,14 +894,14 @@ export default function Integrations() {
                     value={stripePublishableKey}
                     onChange={e => setStripePublishableKey(e.target.value)}
                     placeholder="pk_live_..."
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                  <p className="mt-1.5 text-[10px] text-ink-4">
                     Optional — required only to offer an embedded card form at checkout instead of a hosted payment link.
                   </p>
                 </div>
                 {connectError && (
-                  <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
+                  <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
                 )}
                 <button
                   type="submit"
@@ -929,7 +929,7 @@ export default function Integrations() {
               ) : (
               <form onSubmit={handleConnectRevolut} className="space-y-3">
                 <div>
-                  <label htmlFor="revolut-api-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="revolut-api-key" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Merchant API secret key
                   </label>
                   <input
@@ -939,14 +939,14 @@ export default function Integrations() {
                     autoFocus
                     value={revolutApiKey}
                     onChange={e => setRevolutApiKey(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                  <p className="mt-1.5 text-[10px] text-ink-4">
                     From your Revolut Business account → Merchant API settings.
                   </p>
                 </div>
                 {connectError && (
-                  <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
+                  <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
                 )}
                 <button
                   type="submit"
@@ -960,7 +960,7 @@ export default function Integrations() {
             ) : connectingEmail ? (
               <form onSubmit={handleConnectEmail} className="space-y-3">
                 <div>
-                  <label htmlFor="email-host" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="email-host" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     SMTP host
                   </label>
                   <input
@@ -971,11 +971,11 @@ export default function Integrations() {
                     value={emailHost}
                     onChange={e => setEmailHost(e.target.value)}
                     placeholder="smtp.example.com"
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label htmlFor="email-port" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="email-port" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Port
                   </label>
                   <input
@@ -985,11 +985,11 @@ export default function Integrations() {
                     value={emailPort}
                     onChange={e => setEmailPort(e.target.value)}
                     placeholder="587"
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label htmlFor="email-username" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="email-username" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Username (optional)
                   </label>
                   <input
@@ -997,11 +997,11 @@ export default function Integrations() {
                     type="text"
                     value={emailUsername}
                     onChange={e => setEmailUsername(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label htmlFor="email-password" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="email-password" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Password (optional)
                   </label>
                   <input
@@ -1009,14 +1009,14 @@ export default function Integrations() {
                     type="password"
                     value={emailPassword}
                     onChange={e => setEmailPassword(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                  <p className="mt-1.5 text-[10px] text-ink-4">
                     Leave username/password blank for a relay that needs no auth.
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="email-from" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="email-from" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     From address
                   </label>
                   <input
@@ -1026,11 +1026,11 @@ export default function Integrations() {
                     value={emailFrom}
                     onChange={e => setEmailFrom(e.target.value)}
                     placeholder="orders@mystore.com"
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 {connectError && (
-                  <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
+                  <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
                 )}
                 <button
                   type="submit"
@@ -1042,7 +1042,7 @@ export default function Integrations() {
               </form>
             ) : (
               <>
-                <div className="flex gap-1 mb-4 p-0.5 rounded-lg dark:bg-[#111827] bg-gray-100">
+                <div className="flex gap-1 mb-4 p-0.5 rounded-lg bg-fill">
                   <button
                     type="button"
                     onClick={() => setConnectMode('auto')}
@@ -1050,7 +1050,7 @@ export default function Integrations() {
                       'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
                       connectMode === 'auto'
                         ? 'bg-blue-600 text-white'
-                        : 'dark:text-gray-400 text-gray-500',
+                        : 'text-ink-3',
                     )}
                   >
                     Connect automatically
@@ -1062,7 +1062,7 @@ export default function Integrations() {
                       'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
                       connectMode === 'manual'
                         ? 'bg-blue-600 text-white'
-                        : 'dark:text-gray-400 text-gray-500',
+                        : 'text-ink-3',
                     )}
                   >
                     Manual setup
@@ -1072,7 +1072,7 @@ export default function Integrations() {
                 {connectMode === 'auto' ? (
                   <form onSubmit={handleStartConnect} className="space-y-3">
                     <div>
-                      <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                      <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                         Store URL
                       </label>
                       <input
@@ -1082,14 +1082,14 @@ export default function Integrations() {
                         value={storeUrl}
                         onChange={e => setStoreUrl(e.target.value)}
                         placeholder="https://mystore.com"
-                        className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                       />
-                      <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                      <p className="mt-1.5 text-[10px] text-ink-4">
                         Redirects to your store to approve access. Requires your store to reach this server.
                       </p>
                     </div>
                     {connectError && (
-                      <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
+                      <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
                     )}
                     <button
                       type="submit"
@@ -1102,7 +1102,7 @@ export default function Integrations() {
                 ) : (
                   <form onSubmit={handleManualConnect} className="space-y-3">
                     <div>
-                      <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                      <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                         Store URL
                       </label>
                       <input
@@ -1112,11 +1112,11 @@ export default function Integrations() {
                         value={storeUrl}
                         onChange={e => setStoreUrl(e.target.value)}
                         placeholder="https://mystore.com"
-                        className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                      <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                         Consumer Key
                       </label>
                       <input
@@ -1125,11 +1125,11 @@ export default function Integrations() {
                         value={consumerKey}
                         onChange={e => setConsumerKey(e.target.value)}
                         placeholder="ck_..."
-                        className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                      <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                         Consumer Secret
                       </label>
                       <input
@@ -1138,14 +1138,14 @@ export default function Integrations() {
                         value={consumerSecret}
                         onChange={e => setConsumerSecret(e.target.value)}
                         placeholder="cs_..."
-                        className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                       />
-                      <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                      <p className="mt-1.5 text-[10px] text-ink-4">
                         Generate under WooCommerce → Settings → Advanced → REST API.
                       </p>
                     </div>
                     {connectError && (
-                      <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
+                      <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
                     )}
                     <button
                       type="submit"
@@ -1165,17 +1165,17 @@ export default function Integrations() {
       {importingConnection && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeImport} />
-          <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+          <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Import products</h3>
+              <h3 className="text-sm font-semibold text-ink">Import products</h3>
               <button onClick={closeImport} aria-label="Close">
-                <X size={14} className="dark:text-gray-500 text-gray-400" />
+                <X size={14} className="text-ink-4" />
               </button>
             </div>
 
             {importJob ? (
               <div className="space-y-3">
-                <p className="text-xs dark:text-gray-300 text-gray-700">
+                <p className="text-xs text-ink-2">
                   Import started — it's running in the background. You'll see a notification when it's done (check the bell icon, top right).
                 </p>
                 <button
@@ -1187,11 +1187,11 @@ export default function Integrations() {
               </div>
             ) : (
               <form onSubmit={handleImport} className="space-y-3">
-                <p className="text-[10px] dark:text-gray-500 text-gray-400">
+                <p className="text-[10px] text-ink-4">
                   Imports every WooCommerce product not yet linked, along with its category. Existing categories are matched by name; missing ones are created.
                 </p>
                 <div>
-                  <label htmlFor="import-warehouse-id" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="import-warehouse-id" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Default warehouse ID
                   </label>
                   <select
@@ -1200,17 +1200,17 @@ export default function Integrations() {
                     autoFocus
                     value={importWarehouseId}
                     onChange={e => setImportWarehouseId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="" disabled>Select a warehouse…</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                  <p className="mt-1.5 text-[10px] text-ink-4">
                     Imported stock quantities are attributed to this warehouse — WooCommerce has no warehouse concept.
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="import-currency" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="import-currency" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Default currency
                   </label>
                   <select
@@ -1218,14 +1218,14 @@ export default function Integrations() {
                     required
                     value={importCurrency}
                     onChange={e => setImportCurrency(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="" disabled>Select a currency…</option>
                     {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 {importError && (
-                  <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{importError}</p>
+                  <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{importError}</p>
                 )}
                 <button
                   type="submit"
@@ -1243,19 +1243,19 @@ export default function Integrations() {
       {deletingConnection && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={deleteResult ? closeDelete : undefined} />
-          <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+          <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Delete imported products</h3>
+              <h3 className="text-sm font-semibold text-ink">Delete imported products</h3>
               {deleteResult && (
                 <button onClick={closeDelete} aria-label="Close">
-                  <X size={14} className="dark:text-gray-500 text-gray-400" />
+                  <X size={14} className="text-ink-4" />
                 </button>
               )}
             </div>
 
             {deleteResult ? (
               <div className="space-y-3">
-                <p className="text-xs dark:text-gray-300 text-gray-700">
+                <p className="text-xs text-ink-2">
                   Deleted{deleteResult.deleted_sales_orders > 0 && (
                     <> <strong>{deleteResult.deleted_sales_orders}</strong> sales order{deleteResult.deleted_sales_orders === 1 ? '' : 's'},</>
                   )} <strong>{deleteResult.deleted_products}</strong> product{deleteResult.deleted_products === 1 ? '' : 's'} and{' '}
@@ -1264,7 +1264,7 @@ export default function Integrations() {
                 {(deleteResult.errors ?? []).length > 0 && (
                   <div className="max-h-32 overflow-y-auto space-y-1">
                     {(deleteResult.errors ?? []).map((e, i) => (
-                      <p key={i} className="text-[10px] text-red-400 bg-red-50 dark:bg-red-500/10 rounded px-2 py-1">{e}</p>
+                      <p key={i} className="text-[10px] text-danger bg-red-50 dark:bg-red-500/10 rounded px-2 py-1">{e}</p>
                     ))}
                   </div>
                 )}
@@ -1278,13 +1278,13 @@ export default function Integrations() {
             ) : (
               <form onSubmit={handleDeleteImported} className="space-y-3">
                 <div className="dark:bg-red-500/10 bg-red-50 border dark:border-red-500/20 border-red-200 rounded-lg p-3">
-                  <p className="text-xs text-red-400">
+                  <p className="text-xs text-danger">
                     This permanently deletes every product imported from <strong>{deletingConnection.store_url}</strong> — including
                     their variants, SKUs, stock history, and images. Categories left empty afterward are also deleted. This cannot be undone.
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="delete-confirm" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="delete-confirm" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Type DELETE to confirm
                   </label>
                   <input
@@ -1294,17 +1294,17 @@ export default function Integrations() {
                     autoComplete="off"
                     value={deleteConfirmText}
                     onChange={e => setDeleteConfirmText(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-red-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-red-500"
                   />
                 </div>
                 {deleteError && (
-                  <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{deleteError}</p>
+                  <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{deleteError}</p>
                 )}
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={closeDelete}
-                    className="py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 transition-colors"
+                    className="py-2 rounded-lg bg-fill text-xs font-medium text-ink-2 transition-colors"
                   >
                     Cancel
                   </button>

@@ -109,14 +109,14 @@ export default function MessageTemplatesPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <div className="relative flex-1 max-w-sm">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search templates..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white dark:border-[#2D3748] border-gray-200 border dark:text-gray-200 text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <button
@@ -127,45 +127,45 @@ export default function MessageTemplatesPanel() {
         </button>
       </div>
 
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
-        <span className="text-xs dark:text-gray-500 text-gray-400">{filtered.length} template{filtered.length === 1 ? '' : 's'}</span>
-        {(error || actionError) && <span className="text-xs text-red-400 ml-auto">{error || actionError}</span>}
+      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
+        <span className="text-xs text-ink-4">{filtered.length} template{filtered.length === 1 ? '' : 's'}</span>
+        {(error || actionError) && <span className="text-xs text-danger ml-auto">{error || actionError}</span>}
       </div>
 
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+          <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Name</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Category</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Channels</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Body</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Name</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Category</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Channels</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Body</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>
-          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+          <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No message templates yet</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">No message templates yet</td></tr>
             )}
             {filtered.map(t => (
-              <tr key={t.id} className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
-                <td className="px-3 py-2.5 font-medium dark:text-gray-100 text-gray-900">{t.name}</td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{CATEGORY_LABELS[t.category]}</td>
+              <tr key={t.id} className="group hover:bg-hover/60 transition-colors">
+                <td className="px-3 py-2.5 font-medium text-ink">{t.name}</td>
+                <td className="px-3 py-2.5 text-ink-3">{CATEGORY_LABELS[t.category]}</td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1.5">
                     {t.channels.map(ch => {
                       const Icon = CHANNEL_ICONS[ch]
-                      return <span key={ch} title={CHANNEL_LABELS[ch]}><Icon size={12} className="dark:text-gray-400 text-gray-500" /></span>
+                      return <span key={ch} title={CHANNEL_LABELS[ch]}><Icon size={12} className="text-ink-3" /></span>
                     })}
                   </div>
                 </td>
-                <td className="px-3 py-2.5 max-w-[320px] truncate dark:text-gray-400 text-gray-500">{t.body}</td>
+                <td className="px-3 py-2.5 max-w-[320px] truncate text-ink-3">{t.body}</td>
                 <td className="px-3 py-2.5">
-                  <span className={t.enabled ? 'text-green-500' : 'dark:text-gray-500 text-gray-400'}>
+                  <span className={t.enabled ? 'text-success' : 'text-ink-4'}>
                     {t.enabled ? 'Enabled' : 'Disabled'}
                   </span>
                 </td>
@@ -173,17 +173,17 @@ export default function MessageTemplatesPanel() {
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => openEdit(t)}
-                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Edit"
                     >
-                      <Pencil size={12} className="dark:text-gray-400 text-gray-500" />
+                      <Pencil size={12} className="text-ink-3" />
                     </button>
                     <button
                       onClick={() => handleDelete(t)}
-                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Delete"
                     >
-                      <Trash2 size={12} className="dark:text-gray-400 text-gray-500 hover:text-red-400" />
+                      <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>
                   </div>
                 </td>
@@ -196,18 +196,18 @@ export default function MessageTemplatesPanel() {
       {formReady && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeForm} />
-          <div className="relative w-full max-w-md dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+          <div className="relative w-full max-w-md bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">
+              <h3 className="text-sm font-semibold text-ink">
                 {editingTemplate ? 'Edit message template' : 'New message template'}
               </h3>
               <button onClick={closeForm} aria-label="Close">
-                <X size={14} className="dark:text-gray-500 text-gray-400" />
+                <X size={14} className="text-ink-4" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label htmlFor="template-name" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="template-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   Name
                 </label>
                 <input
@@ -217,19 +217,19 @@ export default function MessageTemplatesPanel() {
                   autoFocus
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label htmlFor="template-category" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="template-category" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   Category
                 </label>
                 <select
                   id="template-category"
                   value={form.category}
                   onChange={e => setForm(f => ({ ...f, category: e.target.value as MessageCategory }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {ALL_CATEGORIES.map(c => (
                     <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
@@ -238,12 +238,12 @@ export default function MessageTemplatesPanel() {
               </div>
 
               <div>
-                <span className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <span className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   Channels
                 </span>
                 <div className="flex items-center gap-4">
                   {ALL_CHANNELS.map(ch => (
-                    <label key={ch} className="flex items-center gap-1.5 text-xs dark:text-gray-300 text-gray-700 cursor-pointer">
+                    <label key={ch} className="flex items-center gap-1.5 text-xs text-ink-2 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={form.channels.includes(ch)}
@@ -258,7 +258,7 @@ export default function MessageTemplatesPanel() {
 
               {form.channels.includes('email') && (
                 <div>
-                  <label htmlFor="template-subject" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="template-subject" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Subject (email only)
                   </label>
                   <input
@@ -266,13 +266,13 @@ export default function MessageTemplatesPanel() {
                     type="text"
                     value={form.subject}
                     onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               )}
 
               <div>
-                <label htmlFor="template-body" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="template-body" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   Body
                 </label>
                 <textarea
@@ -282,16 +282,16 @@ export default function MessageTemplatesPanel() {
                   value={form.body}
                   onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
                   placeholder="Hi {{customer_name}}, your order #{{order_number}} is confirmed."
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 />
-                <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+                <p className="text-[10px] text-ink-4 mt-1">
                   Use {'{{token}}'} placeholders -- available tokens depend on which event sends this template.
                 </p>
               </div>
 
               {editingTemplate && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider">Enabled</span>
+                  <span className="text-[10px] text-ink-4 uppercase tracking-wider">Enabled</span>
                   <label className="relative flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"
@@ -301,14 +301,14 @@ export default function MessageTemplatesPanel() {
                       onChange={e => setForm(f => ({ ...f, enabled: e.target.checked }))}
                       className="sr-only peer"
                     />
-                    <div className="w-8 h-4 dark:bg-[#2D3748] bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                    <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
                     <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                   </label>
                 </div>
               )}
 
               {formError && (
-                <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
+                <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
               )}
 
               <button

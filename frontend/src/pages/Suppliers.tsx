@@ -12,8 +12,8 @@ import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus
 const PAGE_SIZE = 20
 
 const STATUS_STYLE: Record<SupplierStatus, string> = {
-  active: 'bg-green-500/15 text-green-400',
-  inactive: 'bg-gray-500/15 text-gray-400',
+  active: 'bg-green-500/15 text-success',
+  inactive: 'bg-gray-500/15 text-ink-4',
 }
 
 export default function Suppliers() {
@@ -69,14 +69,14 @@ export default function Suppliers() {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <div className="relative flex-1 max-w-sm">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
           <input
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
             placeholder="Search by name or country..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white dark:border-[#2D3748] border-gray-200 border dark:text-gray-200 text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div className="flex items-center gap-2 ml-auto">
@@ -90,48 +90,48 @@ export default function Suppliers() {
       </div>
 
       {/* Stats strip */}
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
-        <span className="text-xs dark:text-gray-500 text-gray-400">{filtered.length} supplier{filtered.length === 1 ? '' : 's'}</span>
-        {(error || deleteError) && <span className="text-xs text-red-400 ml-auto">{error || deleteError}</span>}
+      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
+        <span className="text-xs text-ink-4">{filtered.length} supplier{filtered.length === 1 ? '' : 's'}</span>
+        {(error || deleteError) && <span className="text-xs text-danger ml-auto">{error || deleteError}</span>}
       </div>
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+          <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Supplier</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Country</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Lead Time</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Supplier</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Country</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Lead Time</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>
-          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+          <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No suppliers yet</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">No suppliers yet</td></tr>
             )}
             {paged.map(s => (
               <tr
                 key={s.id}
                 onClick={() => openEditor(s.id)}
-                className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
+                className="group hover:bg-hover/60 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
-                  <div className="w-6 h-6 rounded dark:bg-[#2D3748] bg-gray-200 flex items-center justify-center">
-                    <Truck size={12} className="dark:text-gray-500 text-gray-400" />
+                  <div className="w-6 h-6 rounded dark:bg-night-700 bg-gray-200 flex items-center justify-center">
+                    <Truck size={12} className="text-ink-4" />
                   </div>
                 </td>
                 <td className="px-3 py-2.5 max-w-[280px]">
-                  <p className="font-medium dark:text-gray-100 text-gray-900 truncate">{s.name}</p>
-                  {s.email && <p className="text-[10px] dark:text-gray-500 text-gray-400 truncate">{s.email}</p>}
+                  <p className="font-medium text-ink truncate">{s.name}</p>
+                  {s.email && <p className="text-[10px] text-ink-4 truncate">{s.email}</p>}
                 </td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{s.country || '—'}</td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{s.lead_time_days != null ? `${s.lead_time_days}d` : '—'}</td>
+                <td className="px-3 py-2.5 text-ink-3">{s.country || '—'}</td>
+                <td className="px-3 py-2.5 text-ink-3">{s.lead_time_days != null ? `${s.lead_time_days}d` : '—'}</td>
                 <td className="px-3 py-2.5">
                   <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', STATUS_STYLE[s.status])}>
                     {s.status}
@@ -141,17 +141,17 @@ export default function Suppliers() {
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={e => { e.stopPropagation(); openEditor(s.id) }}
-                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Edit"
                     >
-                      <Edit3 size={12} className="dark:text-gray-400 text-gray-500" />
+                      <Edit3 size={12} className="text-ink-3" />
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); handleDelete(s) }}
-                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Delete"
                     >
-                      <Trash2 size={12} className="dark:text-gray-400 text-gray-500 hover:text-red-400" />
+                      <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>
                   </div>
                 </td>
@@ -226,27 +226,27 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
     }
   }
 
-  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Suppliers
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">
+          <h1 className="text-xl font-semibold text-ink leading-tight">
             {supplier ? name || 'Edit Supplier' : 'New Supplier'}
           </h1>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button" onClick={onClose}
-            className="px-4 py-2 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-semibold dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
           >
             Discard
           </button>
@@ -262,14 +262,14 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto p-6 space-y-5">
           <form id="supplier-form" onSubmit={handleSave} className="space-y-5">
-            <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+            <div className="rounded-xl border border-line p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">General</h3>
+                <h3 className="text-xs font-semibold text-ink">General</h3>
                 <select
                   aria-label="Status"
                   value={status}
                   onChange={e => setStatus(e.target.value as SupplierStatus)}
-                  className="px-2 py-1 text-[10px] rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+                  className="px-2 py-1 text-[10px] rounded-lg bg-raised border border-line text-ink-2 outline-none"
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
@@ -326,7 +326,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
                 />
               </div>
               {formError && (
-                <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
+                <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
               )}
             </div>
           </form>

@@ -34,32 +34,32 @@ export default function UnmatchedSkus() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
-        <PackageSearch size={14} className="text-amber-500" />
-        <h1 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Unmatched SKUs</h1>
+      <div className="flex items-center gap-2 px-5 py-3 border-b border-line bg-sunken shrink-0">
+        <PackageSearch size={14} className="text-warning" />
+        <h1 className="text-sm font-semibold text-ink">Unmatched SKUs</h1>
       </div>
 
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
-        <span className="text-xs dark:text-gray-500 text-gray-400">{total} order{total === 1 ? '' : 's'} with an unmatched line item</span>
-        {error && <span className="text-xs text-red-400 ml-auto">{error}</span>}
+      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
+        <span className="text-xs text-ink-4">{total} order{total === 1 ? '' : 's'} with an unmatched line item</span>
+        {error && <span className="text-xs text-danger ml-auto">{error}</span>}
       </div>
 
       <div className="flex-1 overflow-auto">
-        {loading && <p className="px-5 py-6 text-center text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+        {loading && <p className="px-5 py-6 text-center text-xs text-ink-4">Loading…</p>}
         {!loading && salesOrders.length === 0 && (
-          <p className="px-5 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No unmatched SKUs — everything's linked</p>
+          <p className="px-5 py-6 text-center text-xs text-ink-4">No unmatched SKUs — everything's linked</p>
         )}
-        <div className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+        <div className="divide-y divide-line/60">
           {salesOrders.map(o => (
             <div key={o.id}>
               <button
                 onClick={() => setExpandedId(id => (id === o.id ? null : o.id))}
-                className="w-full flex items-center gap-2 px-5 py-2.5 text-left dark:hover:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center gap-2 px-5 py-2.5 text-left hover:bg-hover/60 transition-colors"
               >
-                {expandedId === o.id ? <ChevronDown size={12} className="dark:text-gray-500 text-gray-400" /> : <ChevronRight size={12} className="dark:text-gray-500 text-gray-400" />}
+                {expandedId === o.id ? <ChevronDown size={12} className="text-ink-4" /> : <ChevronRight size={12} className="text-ink-4" />}
                 <div className="flex-1">
-                  <p className="text-xs font-medium dark:text-gray-100 text-gray-900">#{o.number || o.external_order_id}</p>
-                  <p className="text-[10px] dark:text-gray-500 text-gray-400">{customerName(o)} · {new Date(o.occurred_at).toLocaleString()}</p>
+                  <p className="text-xs font-medium text-ink">#{o.number || o.external_order_id}</p>
+                  <p className="text-[10px] text-ink-4">{customerName(o)} · {new Date(o.occurred_at).toLocaleString()}</p>
                 </div>
               </button>
               {expandedId === o.id && (
@@ -101,18 +101,18 @@ function UnmatchedLineItems({ salesOrderId, onLinked }: { salesOrderId: string; 
 
   return (
     <div className="px-5 pb-3 pl-9">
-      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading line items…</p>}
-      {(error || linkError) && <p className="text-xs text-red-400">{error || linkError}</p>}
+      {loading && <p className="text-xs text-ink-4">Loading line items…</p>}
+      {(error || linkError) && <p className="text-xs text-danger">{error || linkError}</p>}
       {!loading && unmatched.length === 0 && (
-        <p className="text-xs dark:text-gray-500 text-gray-400">No unmatched line items remain on this order</p>
+        <p className="text-xs text-ink-4">No unmatched line items remain on this order</p>
       )}
       <div className="space-y-2">
         {unmatched.map(li => (
-          <div key={li.id} className="rounded-lg border dark:border-[#2D3748] border-gray-200 p-2.5">
+          <div key={li.id} className="rounded-lg border border-line p-2.5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs dark:text-gray-200 text-gray-800">{li.name}</p>
-                <p className="text-[10px] dark:text-gray-500 text-gray-400">Woo SKU: {li.sku_code || '(none)'} · Qty {li.quantity}</p>
+                <p className="text-xs text-ink">{li.name}</p>
+                <p className="text-[10px] text-ink-4">Woo SKU: {li.sku_code || '(none)'} · Qty {li.quantity}</p>
               </div>
               <button
                 onClick={() => setPickerForLineItemId(id => (id === li.id ? null : li.id))}

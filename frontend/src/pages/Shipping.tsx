@@ -29,19 +29,19 @@ const SHIPMENTS: Shipment[] = [
 
 const CARRIER_COLORS: Record<string, string> = {
   sendcloud: 'bg-purple-500/15 text-purple-400',
-  myparcel: 'bg-blue-500/15 text-blue-400',
+  myparcel: 'bg-blue-500/15 text-accent',
   packlink: 'bg-orange-500/15 text-orange-400',
-  dhl: 'bg-yellow-500/15 text-yellow-500',
+  dhl: 'bg-yellow-500/15 text-warning',
   postnl: 'bg-orange-600/15 text-orange-500',
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  label_created: { label: 'Label Created', color: 'text-gray-400', icon: Printer },
-  picked_up: { label: 'Picked Up', color: 'text-blue-400', icon: Package },
-  in_transit: { label: 'In Transit', color: 'text-amber-400', icon: Truck },
-  out_for_delivery: { label: 'Out for Delivery', color: 'text-blue-400', icon: Truck },
-  delivered: { label: 'Delivered', color: 'text-green-400', icon: CheckCircle },
-  exception: { label: 'Exception', color: 'text-red-400', icon: AlertTriangle },
+  label_created: { label: 'Label Created', color: 'text-ink-4', icon: Printer },
+  picked_up: { label: 'Picked Up', color: 'text-accent', icon: Package },
+  in_transit: { label: 'In Transit', color: 'text-warning', icon: Truck },
+  out_for_delivery: { label: 'Out for Delivery', color: 'text-accent', icon: Truck },
+  delivered: { label: 'Delivered', color: 'text-success', icon: CheckCircle },
+  exception: { label: 'Exception', color: 'text-danger', icon: AlertTriangle },
 }
 
 const CARRIER_RULES = [
@@ -80,24 +80,24 @@ export default function Shipping() {
   return (
     <div className="flex flex-col h-full">
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-0 border-b dark:border-[#2D3748] border-gray-200 shrink-0">
+      <div className="grid grid-cols-4 gap-0 border-b border-line shrink-0">
         {[
           ['Shipped Today', stats.today.toString(), 'blue'],
           ['In Transit', stats.inTransit.toString(), 'amber'],
           ['Delivered', stats.delivered.toString(), 'green'],
           ['Exceptions', stats.exceptions.toString(), 'red'],
         ].map(([label, val, color]) => (
-          <div key={label} className="px-5 py-3 border-r last:border-0 dark:border-[#2D3748] border-gray-200">
+          <div key={label} className="px-5 py-3 border-r last:border-0 border-line">
             <p className={clsx('text-2xl font-semibold',
-              color === 'blue' ? 'text-blue-400' : color === 'amber' ? 'text-amber-400' : color === 'green' ? 'text-green-400' : 'text-red-400',
+              color === 'blue' ? 'text-accent' : color === 'amber' ? 'text-warning' : color === 'green' ? 'text-success' : 'text-danger',
             )}>{val}</p>
-            <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">{label}</p>
+            <p className="text-[10px] text-ink-4 mt-0.5">{label}</p>
           </div>
         ))}
       </div>
 
       {/* Tabs + toolbar */}
-      <div className="flex items-center gap-4 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 shrink-0">
+      <div className="flex items-center gap-4 px-5 py-2.5 border-b border-line shrink-0">
         {(['shipments', 'rules'] as const).map(t => (
           <button
             key={t}
@@ -105,8 +105,8 @@ export default function Shipping() {
             className={clsx(
               'text-xs font-medium capitalize transition-colors pb-0.5',
               tab === t
-                ? 'dark:text-gray-100 text-gray-900 border-b-2 border-blue-500'
-                : 'dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+                ? 'text-ink border-b-2 border-blue-500'
+                : 'text-ink-4 hover:text-ink-2',
             )}
           >
             {t === 'shipments' ? 'Shipments' : 'Carrier Rules'}
@@ -115,12 +115,12 @@ export default function Shipping() {
 
         {tab === 'shipments' && (
           <div className="relative ml-4">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Order, customer, tracking..."
-              className="pl-8 pr-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500 w-60"
+              className="pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500 w-60"
             />
           </div>
         )}
@@ -130,37 +130,37 @@ export default function Shipping() {
       {tab === 'shipments' && (
         <div className="flex-1 overflow-auto">
           <table className="w-full text-xs">
-            <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+            <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
               <tr>
                 <th className="px-4 py-2.5 w-8">
                   <input type="checkbox" className="rounded accent-blue-600 w-3 h-3" />
                 </th>
                 {['Shipment', 'Order', 'Customer', 'Carrier', 'Service', 'Weight', 'Tracking', 'Status', 'Cost', 'Date', ''].map(h => (
-                  <th key={h} className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+            <tbody className="divide-y divide-line/60">
               {filtered.map(s => {
                 const cfg = STATUS_CONFIG[s.status]
                 const Icon = cfg.icon
                 return (
-                  <tr key={s.id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors group">
+                  <tr key={s.id} className="hover:bg-hover/60 transition-colors group">
                     <td className="px-4 py-2.5">
                       <input type="checkbox" className="rounded accent-blue-600 w-3 h-3" />
                     </td>
-                    <td className="px-3 py-2.5 font-mono font-medium dark:text-gray-200 text-gray-800">{s.id}</td>
-                    <td className="px-3 py-2.5 font-mono dark:text-gray-400 text-gray-500 text-[10px]">{s.orderId}</td>
-                    <td className="px-3 py-2.5 dark:text-gray-300 text-gray-700">{s.customer}</td>
+                    <td className="px-3 py-2.5 font-mono font-medium text-ink">{s.id}</td>
+                    <td className="px-3 py-2.5 font-mono text-ink-3 text-[10px]">{s.orderId}</td>
+                    <td className="px-3 py-2.5 text-ink-2">{s.customer}</td>
                     <td className="px-3 py-2.5">
                       <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', CARRIER_COLORS[s.carrier])}>
                         {s.carrier}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{s.service}</td>
-                    <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{s.weight}</td>
+                    <td className="px-3 py-2.5 text-ink-3">{s.service}</td>
+                    <td className="px-3 py-2.5 text-ink-3">{s.weight}</td>
                     <td className="px-3 py-2.5">
-                      <span className="font-mono text-[10px] dark:text-gray-500 text-gray-400">{s.tracking}</span>
+                      <span className="font-mono text-[10px] text-ink-4">{s.tracking}</span>
                     </td>
                     <td className="px-3 py-2.5">
                       <span className={clsx('flex items-center gap-1 w-fit font-medium text-[10px]', cfg.color)}>
@@ -168,15 +168,15 @@ export default function Shipping() {
                         {cfg.label}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 dark:text-gray-200 text-gray-800 font-medium">€{s.cost.toFixed(2)}</td>
-                    <td className="px-3 py-2.5 dark:text-gray-500 text-gray-400 font-mono text-[10px]">{s.created}</td>
+                    <td className="px-3 py-2.5 text-ink font-medium">€{s.cost.toFixed(2)}</td>
+                    <td className="px-3 py-2.5 text-ink-4 font-mono text-[10px]">{s.created}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                        <button className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200">
-                          <Printer size={12} className="dark:text-gray-400 text-gray-500" />
+                        <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover">
+                          <Printer size={12} className="text-ink-3" />
                         </button>
-                        <button className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200">
-                          <ExternalLink size={12} className="dark:text-gray-400 text-gray-500" />
+                        <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover">
+                          <ExternalLink size={12} className="text-ink-3" />
                         </button>
                       </div>
                     </td>
@@ -191,43 +191,43 @@ export default function Shipping() {
       {/* Carrier rules */}
       {tab === 'rules' && (
         <div className="flex-1 overflow-auto p-5">
-          <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+          <div className="bg-raised rounded-xl border border-line overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-line">
               <div>
-                <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Auto-Carrier Rules</h3>
-                <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">Rules applied automatically based on weight, region, and cost</p>
+                <h3 className="text-sm font-semibold text-ink">Auto-Carrier Rules</h3>
+                <p className="text-[10px] text-ink-4 mt-0.5">Rules applied automatically based on weight, region, and cost</p>
               </div>
               <button className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">
                 + Add Rule
               </button>
             </div>
             <table className="w-full text-xs">
-              <thead className="dark:bg-[#111827]/50 bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+              <thead className="dark:bg-night-900/50 bg-gray-50 border-b border-line">
                 <tr>
                   {['Service', 'Carrier', 'Condition', 'Cost', 'Auto', 'Priority'].map(h => (
-                    <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">{h}</th>
+                    <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+              <tbody className="divide-y divide-line/50">
                 {CARRIER_RULES.map((rule, i) => (
-                  <tr key={rule.name} className="hover:dark:bg-[#2D3748]/30 hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 dark:text-gray-200 text-gray-800 font-medium">{rule.name}</td>
+                  <tr key={rule.name} className="hover:bg-hover/30 transition-colors">
+                    <td className="px-4 py-3 text-ink font-medium">{rule.name}</td>
                     <td className="px-4 py-3">
                       <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', CARRIER_COLORS[rule.carrier])}>
                         {rule.carrier}
                       </span>
                     </td>
-                    <td className="px-4 py-3 dark:text-gray-400 text-gray-500">{rule.condition}</td>
-                    <td className="px-4 py-3 dark:text-gray-200 text-gray-800 font-medium">{rule.cost}</td>
+                    <td className="px-4 py-3 text-ink-3">{rule.condition}</td>
+                    <td className="px-4 py-3 text-ink font-medium">{rule.cost}</td>
                     <td className="px-4 py-3">
                       {rule.auto
-                        ? <CheckCircle size={14} className="text-green-400" />
-                        : <Clock size={14} className="dark:text-gray-500 text-gray-400" />
+                        ? <CheckCircle size={14} className="text-success" />
+                        : <Clock size={14} className="text-ink-4" />
                       }
                     </td>
                     <td className="px-4 py-3">
-                      <span className="dark:text-gray-400 text-gray-500 text-[10px]">#{i + 1}</span>
+                      <span className="text-ink-3 text-[10px]">#{i + 1}</span>
                     </td>
                   </tr>
                 ))}

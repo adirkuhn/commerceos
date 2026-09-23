@@ -12,8 +12,8 @@ import { useQueryEnum, useQueryPage } from '../routing/useQueryState'
 const PAGE_SIZE = 20
 
 const STATUS_STYLES: Record<SyncLogStatus, string> = {
-  success: 'bg-green-500/15 text-green-400',
-  error: 'bg-red-500/15 text-red-400',
+  success: 'bg-green-500/15 text-success',
+  error: 'bg-red-500/15 text-danger',
 }
 
 const DIRECTION_LABEL: Record<SyncLogDirection, string> = {
@@ -89,85 +89,85 @@ export default function SyncLog() {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
-        <h1 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Sync History</h1>
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
+        <h1 className="text-sm font-semibold text-ink">Sync History</h1>
         <div className="flex items-center gap-1 ml-4">
           <button
             onClick={() => switchView('all')}
             className={clsx('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-              view === 'all' ? 'bg-blue-600 text-white' : 'dark:text-gray-400 text-gray-500 hover:dark:bg-[#1F2937] hover:bg-gray-100')}
+              view === 'all' ? 'bg-blue-600 text-white' : 'text-ink-3 hover:bg-hover')}
           >
             All
           </button>
           <button
             onClick={() => switchView('needing-attention')}
             className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-              view === 'needing-attention' ? 'bg-amber-500 text-white' : 'dark:text-gray-400 text-gray-500 hover:dark:bg-[#1F2937] hover:bg-gray-100')}
+              view === 'needing-attention' ? 'bg-amber-500 text-white' : 'text-ink-3 hover:bg-hover')}
           >
             <AlertTriangle size={12} /> Needs attention
           </button>
         </div>
         <button
           onClick={refresh}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 text-xs dark:text-gray-300 text-gray-700 hover:dark:bg-[#1F2937] hover:bg-gray-100 transition-colors ml-auto"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line text-xs text-ink-2 hover:bg-hover transition-colors ml-auto"
         >
           <RefreshCw size={12} /> Refresh
         </button>
       </div>
 
       {/* Stats strip */}
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
-        <span className="text-xs dark:text-gray-500 text-gray-400">
+      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
+        <span className="text-xs text-ink-4">
           {total} {view === 'all' ? 'sync' : 'listing'}{total === 1 ? '' : 's'}
         </span>
-        {(error || actionError) && <span className="text-xs text-red-400 ml-auto">{error || actionError}</span>}
+        {(error || actionError) && <span className="text-xs text-danger ml-auto">{error || actionError}</span>}
       </div>
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+          <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Synced</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Product</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Channel</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Direction</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Changes</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Synced</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Product</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Channel</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Direction</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Changes</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
               {view === 'needing-attention' && <th className="px-3 py-2.5 w-56" />}
             </tr>
           </thead>
-          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+          <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={view === 'needing-attention' ? 7 : 6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={view === 'needing-attention' ? 7 : 6} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
             )}
             {!loading && entries.length === 0 && (
-              <tr><td colSpan={view === 'needing-attention' ? 7 : 6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">
+              <tr><td colSpan={view === 'needing-attention' ? 7 : 6} className="px-4 py-6 text-center text-ink-4">
                 {view === 'all' ? 'No syncs yet' : "No syncs need attention — everything's resolved"}
               </td></tr>
             )}
             {entries.map(entry => {
               const changedFields = Object.entries(entry.changes)
               return (
-                <tr key={entry.id} className="align-top hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
-                  <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500 whitespace-nowrap">{formatDateTime(entry.synced_at)}</td>
-                  <td className="px-3 py-2.5 dark:text-gray-200 text-gray-800">{entry.product_name || entry.product_id}</td>
-                  <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">
+                <tr key={entry.id} className="align-top hover:bg-hover/60 transition-colors">
+                  <td className="px-3 py-2.5 text-ink-3 whitespace-nowrap">{formatDateTime(entry.synced_at)}</td>
+                  <td className="px-3 py-2.5 text-ink">{entry.product_name || entry.product_id}</td>
+                  <td className="px-3 py-2.5 text-ink-3">
                     {entry.provider}
-                    {entry.store_url && <span className="dark:text-gray-500 text-gray-400"> · {entry.store_url}</span>}
+                    {entry.store_url && <span className="text-ink-4"> · {entry.store_url}</span>}
                   </td>
-                  <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500 whitespace-nowrap">{DIRECTION_LABEL[entry.direction]}</td>
+                  <td className="px-3 py-2.5 text-ink-3 whitespace-nowrap">{DIRECTION_LABEL[entry.direction]}</td>
                   <td className="px-3 py-2.5">
                     {changedFields.length === 0 ? (
-                      <span className="dark:text-gray-500 text-gray-400">No changes</span>
+                      <span className="text-ink-4">No changes</span>
                     ) : (
                       <div className="space-y-0.5">
                         {changedFields.map(([field, change]) => (
                           <div key={field} className="flex items-baseline gap-1.5">
-                            <span className="dark:text-gray-500 text-gray-400 shrink-0">{field}:</span>
-                            <span className="dark:text-gray-400 text-gray-500 truncate max-w-[220px]" title={change.from}>{formatValue(change.from)}</span>
-                            <span className="dark:text-gray-600 text-gray-300 shrink-0">→</span>
-                            <span className="dark:text-gray-100 text-gray-900 font-medium truncate max-w-[220px]" title={change.to}>{formatValue(change.to)}</span>
+                            <span className="text-ink-4 shrink-0">{field}:</span>
+                            <span className="text-ink-3 truncate max-w-[220px]" title={change.from}>{formatValue(change.from)}</span>
+                            <span className="text-ink-4 shrink-0">→</span>
+                            <span className="text-ink font-medium truncate max-w-[220px]" title={change.to}>{formatValue(change.to)}</span>
                           </div>
                         ))}
                       </div>
@@ -178,7 +178,7 @@ export default function SyncLog() {
                       {entry.status}
                     </span>
                     {entry.status === 'error' && entry.error_message && (
-                      <p className="text-[10px] text-red-400 mt-1 max-w-[220px]">{entry.error_message}</p>
+                      <p className="text-[10px] text-danger mt-1 max-w-[220px]">{entry.error_message}</p>
                     )}
                   </td>
                   {view === 'needing-attention' && (
@@ -187,7 +187,7 @@ export default function SyncLog() {
                         <button
                           onClick={() => handleDismiss(entry.id)}
                           disabled={busyId === entry.id}
-                          className="px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:bg-gray-500/10 disabled:opacity-50 transition-colors"
+                          className="px-3 py-1.5 rounded-lg border border-line text-ink-2 text-[11px] font-medium hover:bg-gray-500/10 disabled:opacity-50 transition-colors"
                         >
                           {busyId === entry.id && busyAction === 'dismiss' ? 'Dismissing…' : 'Dismiss'}
                         </button>

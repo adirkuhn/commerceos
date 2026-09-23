@@ -7,7 +7,7 @@ interface Props {
   onCancel: () => void
 }
 
-const inputClass = 'block w-full mt-1 px-3 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500'
+const inputClass = 'block w-full mt-1 px-3 py-1.5 text-xs rounded-lg bg-sunken border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500'
 
 export function GroupForm({ group, onSubmit, onCancel }: Props) {
   const [name, setName] = useState(group?.name ?? '')
@@ -39,11 +39,11 @@ export function GroupForm({ group, onSubmit, onCancel }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 max-w-[400px]">
-      <h3 className="text-xs font-semibold dark:text-gray-200 text-gray-800">{group ? 'Edit Group' : 'New Group'}</h3>
+      <h3 className="text-xs font-semibold text-ink">{group ? 'Edit Group' : 'New Group'}</h3>
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
 
-      <label className="block text-xs dark:text-gray-400 text-gray-500">
+      <label className="block text-xs text-ink-3">
         Name *
         <input
           type="text"
@@ -55,7 +55,7 @@ export function GroupForm({ group, onSubmit, onCancel }: Props) {
         />
       </label>
 
-      <label className="block text-xs dark:text-gray-400 text-gray-500">
+      <label className="block text-xs text-ink-3">
         Description
         <textarea
           value={description}
@@ -77,7 +77,7 @@ export function GroupForm({ group, onSubmit, onCancel }: Props) {
         <button
           type="button"
           onClick={onCancel}
-          className="px-3 py-1.5 text-xs rounded-lg border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#1F2937] hover:bg-gray-50"
+          className="px-3 py-1.5 text-xs rounded-lg border border-line text-ink-2 hover:bg-hover"
         >
           Cancel
         </button>

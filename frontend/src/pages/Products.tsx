@@ -27,14 +27,14 @@ import { useTaxRates } from '../tax/hooks/useTaxRates'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 
 const STATUS_STYLES: Record<ProductStatus, string> = {
-  active: 'bg-green-500/15 text-green-400',
-  archived: 'bg-gray-500/15 text-gray-400',
-  draft: 'bg-amber-500/15 text-amber-400',
+  active: 'bg-green-500/15 text-success',
+  archived: 'bg-gray-500/15 text-ink-4',
+  draft: 'bg-amber-500/15 text-warning',
 }
 
 const SKU_STATUS_STYLES: Record<SKUStatus, string> = {
-  active: 'bg-green-500/15 text-green-400',
-  inactive: 'bg-gray-500/15 text-gray-400',
+  active: 'bg-green-500/15 text-success',
+  inactive: 'bg-gray-500/15 text-ink-4',
 }
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
@@ -155,14 +155,14 @@ export default function Products() {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <div className="relative flex-1 max-w-sm">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
           <input
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             placeholder="Search by name or slug..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white dark:border-[#2D3748] border-gray-200 border dark:text-gray-200 text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div className="flex items-center gap-2 ml-auto">
@@ -176,60 +176,60 @@ export default function Products() {
       </div>
 
       {/* Stats strip */}
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
-        <span className="text-xs dark:text-gray-500 text-gray-400">{total} product{total === 1 ? '' : 's'}</span>
-        {(error || duplicateError) && <span className="text-xs text-red-400 ml-auto">{error || duplicateError}</span>}
+      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
+        <span className="text-xs text-ink-4">{total} product{total === 1 ? '' : 's'}</span>
+        {(error || duplicateError) && <span className="text-xs text-danger ml-auto">{error || duplicateError}</span>}
       </div>
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+          <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Product</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Category</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Price</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Sale Price</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Product</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Category</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Price</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Sale Price</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
               <th className="px-3 py-2.5 w-8" />
             </tr>
           </thead>
-          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+          <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
             )}
             {!loading && products.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products yet</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">No products yet</td></tr>
             )}
             {products.map(p => (
               <tr
                 key={p.id}
                 onClick={() => openEditor(p.id)}
-                className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
+                className="group hover:bg-hover/60 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
                   {p.image_url ? (
-                    <img src={p.image_url} alt="" className="w-6 h-6 rounded object-cover dark:bg-[#2D3748] bg-gray-200" />
+                    <img src={p.image_url} alt="" className="w-6 h-6 rounded object-cover dark:bg-night-700 bg-gray-200" />
                   ) : (
-                    <div className="w-6 h-6 rounded dark:bg-[#2D3748] bg-gray-200 flex items-center justify-center">
-                      <Package size={12} className="dark:text-gray-500 text-gray-400" />
+                    <div className="w-6 h-6 rounded dark:bg-night-700 bg-gray-200 flex items-center justify-center">
+                      <Package size={12} className="text-ink-4" />
                     </div>
                   )}
                 </td>
                 <td className="px-3 py-2.5 max-w-[220px]">
-                  <p className="font-medium dark:text-gray-100 text-gray-900 truncate">{p.name}</p>
-                  <p className="text-[10px] font-mono dark:text-gray-500 text-gray-400 truncate">{p.slug}</p>
+                  <p className="font-medium text-ink truncate">{p.name}</p>
+                  <p className="text-[10px] font-mono text-ink-4 truncate">{p.slug}</p>
                 </td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{categoryName(p.category_id)}</td>
-                <td className="px-3 py-2.5 dark:text-gray-300 text-gray-700">
+                <td className="px-3 py-2.5 text-ink-3">{categoryName(p.category_id)}</td>
+                <td className="px-3 py-2.5 text-ink-2">
                   {p.price_minor_units != null ? formatPrice(p.price_minor_units, p.currency_code ?? '') : '—'}
                 </td>
                 <td className="px-3 py-2.5">
                   {p.sale_price_minor_units != null ? (
-                    <span className="text-red-400 font-medium">{formatPrice(p.sale_price_minor_units, p.currency_code ?? '')}</span>
+                    <span className="text-danger font-medium">{formatPrice(p.sale_price_minor_units, p.currency_code ?? '')}</span>
                   ) : (
-                    <span className="dark:text-gray-600 text-gray-300">—</span>
+                    <span className="text-ink-4">—</span>
                   )}
                 </td>
                 <td className="px-3 py-2.5">
@@ -241,18 +241,18 @@ export default function Products() {
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={e => { e.stopPropagation(); openEditor(p.id) }}
-                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Edit"
                     >
-                      <Edit3 size={12} className="dark:text-gray-400 text-gray-500" />
+                      <Edit3 size={12} className="text-ink-3" />
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); handleDuplicate(p.id) }}
                       disabled={duplicatingId === p.id}
-                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors disabled:opacity-50"
                       title="Duplicate"
                     >
-                      <Copy size={12} className="dark:text-gray-400 text-gray-500" />
+                      <Copy size={12} className="text-ink-3" />
                     </button>
                     <button
                       onClick={e => {
@@ -261,10 +261,10 @@ export default function Products() {
                           removeProduct(p.id)
                         }
                       }}
-                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Delete"
                     >
-                      <Trash2 size={12} className="dark:text-gray-400 text-gray-500 hover:text-red-400" />
+                      <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>
                   </div>
                 </td>
@@ -689,30 +689,30 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
     }
   }
 
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
-  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Products
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">
+          <h1 className="text-xl font-semibold text-ink leading-tight">
             {savedProductId ? name || 'Edit Product' : 'New Product'}
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          {resyncMessage && <span className="text-[11px] dark:text-gray-500 text-gray-400 mr-1">{resyncMessage}</span>}
+          {resyncMessage && <span className="text-[11px] text-ink-4 mr-1">{resyncMessage}</span>}
           {savedProductId && wooConnection && (
             <button
               type="button" onClick={handleResync} disabled={resyncing}
               title="Force-push this product's current fields and stock to every linked channel, even if nothing changed"
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-semibold dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
             >
               <RefreshCw size={12} className={resyncing ? 'animate-spin' : undefined} />
               {resyncing ? 'Resyncing…' : 'Resync to channels'}
@@ -720,7 +720,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
           )}
           <button
             type="button" onClick={onClose}
-            className="px-4 py-2 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-semibold dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
           >
             Discard
           </button>
@@ -733,14 +733,14 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
         </div>
       </div>
 
-      <div className="flex items-center gap-1 px-5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
+      <div className="flex items-center gap-1 px-5 border-b border-line bg-surface shrink-0">
         <button
           onClick={() => setActiveTab('general')}
           className={clsx(
             'px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
             activeTab === 'general'
-              ? 'border-blue-500 text-blue-400'
-              : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+              ? 'border-blue-500 text-accent'
+              : 'border-transparent text-ink-4 hover:text-ink-2',
           )}
         >
           General
@@ -751,8 +751,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
             className={clsx(
               'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
               activeTab === 'woocommerce'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+                ? 'border-blue-500 text-accent'
+                : 'border-transparent text-ink-4 hover:text-ink-2',
             )}
           >
             <Plug size={12} /> WooCommerce
@@ -764,8 +764,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
             className={clsx(
               'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
               activeTab === 'bol'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+                ? 'border-blue-500 text-accent'
+                : 'border-transparent text-ink-4 hover:text-ink-2',
             )}
           >
             <Plug size={12} /> Bol.com
@@ -779,7 +779,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
         // without the user having to scroll past every FormCard to the
         // bottom of the page to notice the save silently failed.
         <div className="px-6 pt-3 shrink-0">
-          <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-3 py-2">{formError}</p>
+          <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-3 py-2">{formError}</p>
         </div>
       )}
 
@@ -875,11 +875,11 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                   {tags.map(tag => (
                     <span
                       key={tag}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] dark:bg-[#2D3748] bg-gray-100 dark:text-gray-300 text-gray-700"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-hover text-ink-2"
                     >
                       {tag}
                       <button type="button" onClick={() => removeTag(tag)} aria-label={`Remove tag ${tag}`}>
-                        <X size={10} className="dark:text-gray-500 text-gray-400" />
+                        <X size={10} className="text-ink-4" />
                       </button>
                     </span>
                   ))}
@@ -891,10 +891,10 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                     onKeyDown={handleTagInputKeyDown}
                     onBlur={() => addTag(tagInput)}
                     placeholder={tags.length === 0 ? 'summer, sale…' : ''}
-                    className="flex-1 min-w-[6rem] bg-transparent outline-none text-xs dark:text-gray-300 text-gray-700"
+                    className="flex-1 min-w-[6rem] bg-transparent outline-none text-xs text-ink-2"
                   />
                 </div>
-                <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                <p className="mt-1.5 text-[10px] text-ink-4">
                   Press Enter or comma to add. Used by Sales Channels' "by tag" enrollment rule.
                 </p>
               </div>
@@ -904,7 +904,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
               {savedProductId ? (
                 <MediaSection productId={savedProductId} />
               ) : (
-                <p className="text-[11px] dark:text-gray-500 text-gray-400">Save the product first, then add images.</p>
+                <p className="text-[11px] text-ink-4">Save the product first, then add images.</p>
               )}
             </FormCard>
 
@@ -921,8 +921,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                         onChange={e => setSyncVariantsAsWooVariations(e.target.checked)}
                         className="mt-0.5"
                       />
-                      <span className="text-[11px] dark:text-gray-400 text-gray-600">
-                        <span className="font-medium dark:text-gray-300 text-gray-800">Sync variants as WooCommerce variations</span>
+                      <span className="text-[11px] text-ink-3">
+                        <span className="font-medium text-ink-2">Sync variants as WooCommerce variations</span>
                         <br />
                         On: one Woo product with a variation per variant. Off (default): each variant becomes its own
                         separate Woo product. Changing this after the product is already synced deletes the old
@@ -933,13 +933,13 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                   {savedProductId ? (
                     <VariantsSection detail={detail} productId={savedProductId} />
                   ) : (
-                    <p className="text-[11px] dark:text-gray-500 text-gray-400">Save the product first, then add variants below.</p>
+                    <p className="text-[11px] text-ink-4">Save the product first, then add variants below.</p>
                   )}
                   {!savedProductId && (
                     <button
                       type="button"
                       onClick={() => setVariantsMode(false)}
-                      className="text-[11px] dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors"
+                      className="text-[11px] text-ink-4 hover:text-ink-2 transition-colors"
                     >
                       ← Actually, no variants
                     </button>
@@ -951,11 +951,11 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                     type="button"
                     onClick={handleEnableVariants}
                     disabled={enablingVariants}
-                    className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+                    className="text-xs font-medium text-accent hover:text-accent/80 transition-colors disabled:opacity-50"
                   >
                     {enablingVariants ? 'Enabling…' : '+ Add variants like size or color'}
                   </button>
-                  {enableVariantsError && <p className="text-[11px] text-red-500 mt-1.5">{enableVariantsError}</p>}
+                  {enableVariantsError && <p className="text-[11px] text-danger mt-1.5">{enableVariantsError}</p>}
                 </div>
               )}
             </FormCard>
@@ -980,7 +980,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                       className={inputClass}
                     />
                     {scaleCode && (
-                      <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+                      <p className="text-[10px] text-ink-4 mt-1">
                         Not used for this SKU — its real printed barcode changes per package (weight baked in).
                       </p>
                     )}
@@ -994,7 +994,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                       className={inputClass}
                     />
                     {taxPreview && (
-                      <p className="mt-1 text-[10px] dark:text-gray-500 text-gray-400">
+                      <p className="mt-1 text-[10px] text-ink-4">
                         Excl. tax: {currency} {taxPreview.exclusive.toFixed(2)} · Incl. tax: {currency} {taxPreview.inclusive.toFixed(2)} ({taxPreview.ratePercent}% {taxPreview.country})
                       </p>
                     )}
@@ -1063,7 +1063,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
               >
                 {caseOfSKUID ? (
                   <div className="flex items-center gap-2">
-                    <span className="flex-1 text-xs dark:text-gray-200 text-gray-800">
+                    <span className="flex-1 text-xs text-ink">
                       Case of <span className="font-medium">{caseOfSKULabel || caseOfSKUID}</span>
                     </span>
                     <div className="w-24">
@@ -1077,7 +1077,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                     <button
                       type="button"
                       onClick={() => { setCaseOfSKUID(null); setCaseOfSKULabel(''); setUnitsPerCase('') }}
-                      className="text-[10px] dark:text-gray-500 text-gray-400 hover:underline"
+                      className="text-[10px] text-ink-4 hover:underline"
                     >
                       Remove
                     </button>
@@ -1092,7 +1092,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                   <button
                     type="button"
                     onClick={() => setCasePickerOpen(true)}
-                    className="flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
+                    className="flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80 transition-colors"
                   >
                     <Search size={12} /> This is a case of another product
                   </button>
@@ -1114,7 +1114,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                     maxLength={7} inputMode="numeric"
                     className={inputClass}
                   />
-                  <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+                  <p className="text-[10px] text-ink-4 mt-1">
                     The full code programmed into the scale for this product, including its prefix (e.g. 2900633) — type it exactly as shown on the scale, leave blank if it has a normal fixed barcode.
                   </p>
                 </div>
@@ -1130,7 +1130,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                       <option value="per_weight">Per kilo — price = rate × scanned weight</option>
                     </select>
                     {pricingMode === 'per_weight' && !scaleCode && (
-                      <p className="text-[10px] text-amber-500 mt-1">
+                      <p className="text-[10px] text-warning mt-1">
                         Set a scale code above too — per-kilo pricing only applies once a package's weight can actually be scanned.
                       </p>
                     )}
@@ -1175,13 +1175,13 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                 {unitType !== 'kilo' && (
                   portionedFromSKUID ? (
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="flex-1 text-xs dark:text-gray-200 text-gray-800">
+                      <span className="flex-1 text-xs text-ink">
                         Portioned from <span className="font-medium">{portionedFromLabel || portionedFromSKUID}</span>
                       </span>
                       <button
                         type="button"
                         onClick={() => { setPortionedFromSKUID(null); setPortionedFromLabel('') }}
-                        className="text-[10px] dark:text-gray-500 text-gray-400 hover:underline"
+                        className="text-[10px] text-ink-4 hover:underline"
                       >
                         Remove
                       </button>
@@ -1199,7 +1199,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                     <button
                       type="button"
                       onClick={() => setPortionPickerOpen(true)}
-                      className="flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors mt-2"
+                      className="flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80 transition-colors mt-2"
                     >
                       <Search size={12} /> This is portioned from a weight pool
                     </button>
@@ -1254,7 +1254,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
 
           {/* Sidebar column */}
           <div className="space-y-5">
-            <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+            <div className="rounded-xl border border-line p-4 divide-y divide-line/60">
               <div className="pb-4">
                 <label htmlFor="product-status-sidebar" className={labelClass}>Status</label>
                 <select
@@ -1284,9 +1284,9 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                   <input
                     type="text" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)}
                     placeholder="+ new category name"
-                    className="flex-1 px-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+                    className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
                   />
-                  <button type="button" onClick={handleAddCategory} className="px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-gray-100 text-[10px] font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors">
+                  <button type="button" onClick={handleAddCategory} className="px-3 py-1.5 rounded-lg dark:bg-night-800 bg-gray-100 text-[10px] font-medium text-ink-2 hover:bg-hover transition-colors">
                     Add
                   </button>
                 </div>
@@ -1389,12 +1389,12 @@ function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesIncludeT
     const both = withBoth(sellingPriceMinorUnits, costMinorUnits)
     return (
       <div>
-        <div className="dark:text-gray-500 text-gray-400">{label}</div>
-        <div className={clsx('font-medium', profitMinorUnits < 0 ? 'text-red-400' : 'dark:text-gray-100 text-gray-900')}>
+        <div className="text-ink-4">{label}</div>
+        <div className={clsx('font-medium', profitMinorUnits < 0 ? 'text-danger' : 'text-ink')}>
           {money(profitMinorUnits)} <span className="font-normal">({pct(marginBps)} margin / {pct(markupBps)} markup)</span>
         </div>
         {both && (
-          <div className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">
+          <div className="text-[10px] text-ink-4 mt-0.5">
             Excl. BTW: {money(both.exclusive.profit)} ({pct(both.exclusive.marginBasisPoints)} margin / {pct(both.exclusive.markupBasisPoints)} markup)
             {' · '}
             Incl. BTW: {money(both.inclusive.profit)} ({pct(both.inclusive.marginBasisPoints)} margin / {pct(both.inclusive.markupBasisPoints)} markup)
@@ -1406,24 +1406,24 @@ function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesIncludeT
 
   return (
     <FormCard title="Cost & margin insight" description="Cost price is recomputed daily from purchase order receiving history; not a live figure.">
-      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
-      {!loading && error && <p className="text-xs text-red-400">{error}</p>}
+      {loading && <p className="text-xs text-ink-4">Loading…</p>}
+      {!loading && error && <p className="text-xs text-danger">{error}</p>}
       {!loading && !error && insight && !insight.cost_price_available && (
-        <p className="text-xs dark:text-gray-500 text-gray-400">
+        <p className="text-xs text-ink-4">
           No cost price yet — this SKU hasn't been received against a purchase order, or the daily cost-price job hasn't run since.
         </p>
       )}
       {!loading && !error && insight && insight.cost_price_available && (
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
           <div>
-            <div className="dark:text-gray-500 text-gray-400">Cost price</div>
-            <div className="font-medium dark:text-gray-100 text-gray-900">{money(insight.cost_price_minor_units)}</div>
+            <div className="text-ink-4">Cost price</div>
+            <div className="font-medium text-ink">{money(insight.cost_price_minor_units)}</div>
           </div>
           <div>
-            <div className="dark:text-gray-500 text-gray-400">Recommended price</div>
-            <div className="font-medium dark:text-gray-100 text-gray-900">
+            <div className="text-ink-4">Recommended price</div>
+            <div className="font-medium text-ink">
               {money(insight.recommended_price_minor_units)}
-              <span className="dark:text-gray-500 text-gray-400 font-normal"> ({pct(insight.effective_target_markup_basis_points)} target markup)</span>
+              <span className="text-ink-4 font-normal"> ({pct(insight.effective_target_markup_basis_points)} target markup)</span>
             </div>
           </div>
           {profitRow(
@@ -1437,17 +1437,17 @@ function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesIncludeT
             )
           )}
           <div>
-            <div className="dark:text-gray-500 text-gray-400">On hand</div>
-            <div className="font-medium dark:text-gray-100 text-gray-900">{insight.total_on_hand_quantity} units</div>
+            <div className="text-ink-4">On hand</div>
+            <div className="font-medium text-ink">{insight.total_on_hand_quantity} units</div>
           </div>
           <div>
-            <div className="dark:text-gray-500 text-gray-400">Total profit potential</div>
-            <div className="font-medium dark:text-gray-100 text-gray-900">{money(insight.total_profit_potential_minor_units)}</div>
+            <div className="text-ink-4">Total profit potential</div>
+            <div className="font-medium text-ink">{money(insight.total_profit_potential_minor_units)}</div>
           </div>
           {insight.shrinkage_minor_units > 0 && (
             <div className="col-span-2">
-              <div className="dark:text-gray-500 text-gray-400">Shrinkage (damaged/lost, last 30 days)</div>
-              <div className="font-medium text-amber-400">{money(insight.shrinkage_minor_units)}</div>
+              <div className="text-ink-4">Shrinkage (damaged/lost, last 30 days)</div>
+              <div className="font-medium text-warning">{money(insight.shrinkage_minor_units)}</div>
             </div>
           )}
         </div>
@@ -1494,15 +1494,15 @@ function PriceHistoryCard({ skuId, currency }: { skuId: string; currency: string
 
   return (
     <FormCard title="Price history" description="An immutable record of every effective price change -- not the same as the daily-computed cost price above.">
-      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
-      {!loading && error && <p className="text-xs text-red-400">{error}</p>}
+      {loading && <p className="text-xs text-ink-4">Loading…</p>}
+      {!loading && error && <p className="text-xs text-danger">{error}</p>}
       {!loading && !error && history && history.length === 0 && (
-        <p className="text-xs dark:text-gray-500 text-gray-400">No price changes recorded yet.</p>
+        <p className="text-xs text-ink-4">No price changes recorded yet.</p>
       )}
       {!loading && !error && history && history.length > 0 && (
         <table className="w-full text-xs">
           <thead>
-            <tr className="dark:text-gray-500 text-gray-400">
+            <tr className="text-ink-4">
               <th className="text-left font-medium pb-1.5 pr-3">Valid from</th>
               <th className="text-left font-medium pb-1.5 pr-3">Valid until</th>
               <th className="text-left font-medium pb-1.5 pr-3">Price</th>
@@ -1510,18 +1510,18 @@ function PriceHistoryCard({ skuId, currency }: { skuId: string; currency: string
               <th className="text-left font-medium pb-1.5">Reason</th>
             </tr>
           </thead>
-          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+          <tbody className="divide-y divide-line/60">
             {history.map(entry => (
               <tr key={entry.id}>
-                <td className="py-1.5 pr-3 dark:text-gray-300 text-gray-700">{formatDate(entry.valid_from)}</td>
-                <td className="py-1.5 pr-3 dark:text-gray-300 text-gray-700">
-                  {entry.valid_until ? formatDate(entry.valid_until) : <span className="text-green-400 font-medium">Current</span>}
+                <td className="py-1.5 pr-3 text-ink-2">{formatDate(entry.valid_from)}</td>
+                <td className="py-1.5 pr-3 text-ink-2">
+                  {entry.valid_until ? formatDate(entry.valid_until) : <span className="text-success font-medium">Current</span>}
                 </td>
-                <td className="py-1.5 pr-3 dark:text-gray-100 text-gray-900 font-medium">{money(entry.price_minor_units)}</td>
-                <td className="py-1.5 pr-3 dark:text-gray-100 text-gray-900">
+                <td className="py-1.5 pr-3 text-ink font-medium">{money(entry.price_minor_units)}</td>
+                <td className="py-1.5 pr-3 text-ink">
                   {entry.sale_price_minor_units != null ? money(entry.sale_price_minor_units) : '—'}
                 </td>
-                <td className="py-1.5 dark:text-gray-400 text-gray-500">{PRICE_HISTORY_REASON_LABEL[entry.reason]}</td>
+                <td className="py-1.5 text-ink-3">{PRICE_HISTORY_REASON_LABEL[entry.reason]}</td>
               </tr>
             ))}
           </tbody>
@@ -1557,28 +1557,28 @@ function ProductHistoryCard({ productId }: { productId: string }) {
 
   return (
     <FormCard title="Change history" description="Name and status changes -- an immutable audit trail.">
-      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
-      {!loading && error && <p className="text-xs text-red-400">{error}</p>}
+      {loading && <p className="text-xs text-ink-4">Loading…</p>}
+      {!loading && error && <p className="text-xs text-danger">{error}</p>}
       {!loading && !error && history && history.length === 0 && (
-        <p className="text-xs dark:text-gray-500 text-gray-400">No changes recorded yet.</p>
+        <p className="text-xs text-ink-4">No changes recorded yet.</p>
       )}
       {!loading && !error && history && history.length > 0 && (
         <table className="w-full text-xs">
           <thead>
-            <tr className="dark:text-gray-500 text-gray-400">
+            <tr className="text-ink-4">
               <th className="text-left font-medium pb-1.5 pr-3">When</th>
               <th className="text-left font-medium pb-1.5 pr-3">Field</th>
               <th className="text-left font-medium pb-1.5 pr-3">From</th>
               <th className="text-left font-medium pb-1.5">To</th>
             </tr>
           </thead>
-          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+          <tbody className="divide-y divide-line/60">
             {history.map(entry => (
               <tr key={entry.id}>
-                <td className="py-1.5 pr-3 dark:text-gray-300 text-gray-700">{formatDate(entry.changed_at)}</td>
-                <td className="py-1.5 pr-3 dark:text-gray-400 text-gray-500 capitalize">{entry.field}</td>
-                <td className="py-1.5 pr-3 dark:text-gray-300 text-gray-700">{entry.old_value}</td>
-                <td className="py-1.5 dark:text-gray-100 text-gray-900 font-medium">{entry.new_value}</td>
+                <td className="py-1.5 pr-3 text-ink-2">{formatDate(entry.changed_at)}</td>
+                <td className="py-1.5 pr-3 text-ink-3 capitalize">{entry.field}</td>
+                <td className="py-1.5 pr-3 text-ink-2">{entry.old_value}</td>
+                <td className="py-1.5 text-ink font-medium">{entry.new_value}</td>
               </tr>
             ))}
           </tbody>
@@ -1640,38 +1640,38 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
   }
 
   return (
-    <div className="pt-3 border-t dark:border-[#2D3748] border-gray-200">
+    <div className="pt-3 border-t border-line">
       {isManual ? (
         <div className="flex items-center gap-2 text-xs">
-          <span className="dark:text-gray-500 text-gray-400">
+          <span className="text-ink-4">
             Cost price set manually ({currency} {(insight.cost_price_minor_units / 100).toFixed(2)}) -- the daily job won't overwrite it.
           </span>
           <button
             type="button" onClick={handleClear} disabled={saving}
-            className="px-2 py-1 rounded-lg dark:bg-[#1F2937] bg-gray-100 text-[10px] font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors disabled:opacity-50 shrink-0"
+            className="px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-[10px] font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50 shrink-0"
           >
             {saving ? 'Reverting…' : 'Revert to automatic'}
           </button>
         </div>
       ) : (
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] dark:text-gray-500 text-gray-400 shrink-0">
+          <span className="text-[10px] text-ink-4 shrink-0">
             {insight.cost_price_available ? 'Override cost price' : 'Set cost price manually'}
           </span>
           <input
             type="number" step="0.01" min="0" placeholder={currency}
             value={value} onChange={e => setValue(e.target.value)}
-            className="w-24 px-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+            className="w-24 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
           />
           <button
             type="button" onClick={handleSet} disabled={saving || value.trim() === ''}
-            className="px-2 py-1 rounded-lg dark:bg-[#1F2937] bg-gray-100 text-[10px] font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors disabled:opacity-50"
+            className="px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-[10px] font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Set'}
           </button>
         </div>
       )}
-      {error && <p className="text-[10px] text-red-400 mt-1">{error}</p>}
+      {error && <p className="text-[10px] text-danger mt-1">{error}</p>}
     </div>
   )
 }
@@ -1708,23 +1708,23 @@ function CategoryMarginEditor({ category, onSave }: { category: Category | null;
       <input
         type="number" step="0.1" min="0" placeholder="Tenant default"
         value={value} onChange={e => { setValue(e.target.value); setSavedMsg(false) }}
-        className="w-28 px-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+        className="w-28 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
       />
-      <span className="text-[10px] dark:text-gray-500 text-gray-400">% target markup for this category</span>
-      <button type="button" onClick={handleSave} disabled={saving} className="px-2 py-1 rounded-lg dark:bg-[#1F2937] bg-gray-100 text-[10px] font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors disabled:opacity-50">
+      <span className="text-[10px] text-ink-4">% target markup for this category</span>
+      <button type="button" onClick={handleSave} disabled={saving} className="px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-[10px] font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50">
         {saving ? 'Saving…' : 'Save'}
       </button>
-      {savedMsg && <span className="text-[10px] text-green-400">Saved</span>}
+      {savedMsg && <span className="text-[10px] text-success">Saved</span>}
     </div>
   )
 }
 
 function FormCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+    <div className="rounded-xl border border-line p-4 space-y-3">
       <div>
-        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">{title}</h3>
-        {description && <p className="text-[11px] dark:text-gray-500 text-gray-400 mt-0.5">{description}</p>}
+        <h3 className="text-xs font-semibold text-ink">{title}</h3>
+        {description && <p className="text-[11px] text-ink-4 mt-0.5">{description}</p>}
       </div>
       {children}
     </div>
@@ -1734,7 +1734,7 @@ function FormCard({ title, description, children }: { title: string; description
 function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-xs font-medium dark:text-gray-200 text-gray-800">{label}</span>
+      <span className="text-xs font-medium text-ink">{label}</span>
       <button
         type="button"
         role="switch"
@@ -1743,7 +1743,7 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
         onClick={onChange}
         className={clsx(
           'relative w-9 h-5 rounded-full shrink-0 transition-colors',
-          checked ? 'bg-blue-600' : 'dark:bg-[#2D3748] bg-gray-300',
+          checked ? 'bg-blue-600' : 'dark:bg-night-700 bg-gray-300',
         )}
       >
         <span className={clsx(
@@ -1766,9 +1766,9 @@ const WOO_SYNC_STATUS_LABEL: Record<ProductChannelListingSyncStatus, string> = {
   pending: 'Pending', synced: 'Synced', error: 'Error',
 }
 const WOO_SYNC_STATUS_STYLE: Record<ProductChannelListingSyncStatus, string> = {
-  pending: 'dark:text-amber-400 text-amber-600',
-  synced: 'dark:text-green-400 text-green-600',
-  error: 'dark:text-red-400 text-red-600',
+  pending: 'text-warning',
+  synced: 'text-success',
+  error: 'text-danger',
 }
 
 function ProductWooCommerceTab({
@@ -1829,23 +1829,23 @@ function ProductWooCommerceTab({
     }
   }
 
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937]/60 bg-gray-100 border dark:border-[#2D3748] border-gray-200 outline-none cursor-not-allowed'
-  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-800/60 bg-gray-100 border border-line outline-none cursor-not-allowed'
+  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
 
   return (
-    <div data-testid="woocommerce-tab" className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+    <div data-testid="woocommerce-tab" className="rounded-xl border border-line p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <Plug size={13} className="dark:text-gray-400 text-gray-500" />
-        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">WooCommerce</h3>
-        <span className="text-[10px] dark:text-gray-500 text-gray-400">· {connection.store_url}</span>
+        <Plug size={13} className="text-ink-3" />
+        <h3 className="text-xs font-semibold text-ink">WooCommerce</h3>
+        <span className="text-[10px] text-ink-4">· {connection.store_url}</span>
       </div>
 
       {loading && (
-        <p className="text-[11px] dark:text-gray-500 text-gray-400">Loading sync status…</p>
+        <p className="text-[11px] text-ink-4">Loading sync status…</p>
       )}
 
       {!loading && error && (
-        <p className="text-[11px] dark:text-red-400 text-red-600">{error}</p>
+        <p className="text-[11px] text-danger">{error}</p>
       )}
 
       {!loading && !error && isMultiVariant && (
@@ -1869,7 +1869,7 @@ function ProductWooCommerceTab({
 
       {!loading && !error && !isMultiVariant && !listing && (
         <div className="space-y-2">
-          <p className="text-[11px] dark:text-gray-500 text-gray-400">
+          <p className="text-[11px] text-ink-4">
             Not linked to this WooCommerce store yet — import it from WooCommerce or push it from CommerceOS to start syncing.
             If the product already exists on WooCommerce (e.g. after a reconnect), link it by SKU instead:
           </p>
@@ -1879,7 +1879,7 @@ function ProductWooCommerceTab({
               value={linkSku}
               onChange={e => setLinkSku(e.target.value)}
               placeholder="SKU on WooCommerce"
-              className="flex-1 px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 outline-none focus:ring-1 focus:ring-blue-500 dark:text-gray-100 text-gray-900"
+              className="flex-1 px-3 py-2 text-xs rounded-lg bg-raised border border-line outline-none focus:ring-1 focus:ring-blue-500 text-ink"
             />
             <button
               type="submit"
@@ -1889,7 +1889,7 @@ function ProductWooCommerceTab({
               {linking ? 'Linking…' : 'Link existing product'}
             </button>
           </form>
-          {linkError && <p className="text-[11px] dark:text-red-400 text-red-600">{linkError}</p>}
+          {linkError && <p className="text-[11px] text-danger">{linkError}</p>}
         </div>
       )}
 
@@ -1897,7 +1897,7 @@ function ProductWooCommerceTab({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>WooCommerce product ID</label>
-            <input disabled readOnly value={listing.external_id} className={clsx(inputClass, 'dark:text-gray-300 text-gray-700')} />
+            <input disabled readOnly value={listing.external_id} className={clsx(inputClass, 'text-ink-2')} />
           </div>
           <div>
             <label className={labelClass}>Sync status</label>
@@ -1914,7 +1914,7 @@ function ProductWooCommerceTab({
               disabled
               readOnly
               value={listing.last_synced_at ? new Date(listing.last_synced_at).toLocaleString() : '—'}
-              className={clsx(inputClass, 'dark:text-gray-300 text-gray-700')}
+              className={clsx(inputClass, 'text-ink-2')}
             />
           </div>
         </div>
@@ -1925,7 +1925,7 @@ function ProductWooCommerceTab({
           products" removes the listing but not this SKU) -- shown whenever
           this SKU actually came from Woo, not gated on listing being present. */}
       {sku?.woo_tax_class_slug != null && (
-        <div className="grid grid-cols-2 gap-3 pt-3 border-t dark:border-[#2D3748] border-gray-200">
+        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-line">
           <div>
             <label htmlFor="product-woo-tax-class" className={labelClass}>Tax class (Woo)</label>
             <input
@@ -1933,7 +1933,7 @@ function ProductWooCommerceTab({
               disabled
               readOnly
               value={sku.woo_tax_class_slug || 'Standard'}
-              className={clsx(inputClass, 'dark:text-gray-300 text-gray-700')}
+              className={clsx(inputClass, 'text-ink-2')}
             />
           </div>
           <div>
@@ -1943,7 +1943,7 @@ function ProductWooCommerceTab({
               disabled
               readOnly
               value={sku.woo_tax_status || '—'}
-              className={clsx(inputClass, 'dark:text-gray-300 text-gray-700')}
+              className={clsx(inputClass, 'text-ink-2')}
             />
           </div>
         </div>
@@ -1956,20 +1956,20 @@ function ProductWooCommerceTab({
 // the variable parent) alongside whatever listing matches it, if any.
 function WooListingRow({ label, sku, listing }: { label: string; sku: string | null; listing: ProductChannelListing | null }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg px-3 py-2 dark:bg-[#1F2937]/40 bg-gray-50 text-[11px]">
+    <div className="flex items-center gap-3 rounded-lg px-3 py-2 dark:bg-night-800/40 bg-gray-50 text-[11px]">
       <div className="flex-1 min-w-0">
-        <div className="font-medium truncate dark:text-gray-200 text-gray-800">{label}</div>
-        {sku && <div className="dark:text-gray-500 text-gray-400 truncate">{sku}</div>}
+        <div className="font-medium truncate text-ink">{label}</div>
+        {sku && <div className="text-ink-4 truncate">{sku}</div>}
       </div>
       {listing ? (
         <>
-          <span className="dark:text-gray-400 text-gray-500 shrink-0">Woo ID {listing.external_id}</span>
+          <span className="text-ink-3 shrink-0">Woo ID {listing.external_id}</span>
           <span className={clsx('font-medium shrink-0', WOO_SYNC_STATUS_STYLE[listing.sync_status])}>
             {WOO_SYNC_STATUS_LABEL[listing.sync_status]}
           </span>
         </>
       ) : (
-        <span className="dark:text-gray-500 text-gray-400 shrink-0">Not linked</span>
+        <span className="text-ink-4 shrink-0">Not linked</span>
       )}
     </div>
   )
@@ -2063,7 +2063,7 @@ function MediaSection({ productId }: { productId: string }) {
           dragging && 'ring-2 ring-blue-500 ring-offset-2 ring-offset-transparent',
         )}
       >
-        <div className="group relative aspect-square rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden flex items-center justify-center text-[11px] dark:text-gray-600 text-gray-400">
+        <div className="group relative aspect-square rounded-xl border border-line overflow-hidden flex items-center justify-center text-[11px] text-ink-4">
           {featured ? (
             <>
               <button
@@ -2089,7 +2089,7 @@ function MediaSection({ productId }: { productId: string }) {
         </div>
         <div className="grid grid-cols-2 gap-2 content-start">
           {rest.map(m => (
-            <div key={m.id} className="group relative aspect-square rounded-lg border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+            <div key={m.id} className="group relative aspect-square rounded-lg border border-line overflow-hidden">
               <button
                 type="button"
                 onClick={() => openTitleEditor(m)}
@@ -2112,15 +2112,15 @@ function MediaSection({ productId }: { productId: string }) {
             type="button"
             disabled={uploading}
             onClick={() => fileInputRef.current?.click()}
-            className="aspect-square rounded-lg border-2 border-dashed dark:border-[#2D3748] border-gray-200 flex items-center justify-center dark:text-gray-600 text-gray-400 hover:dark:text-gray-400 hover:text-gray-500 disabled:opacity-50"
+            className="aspect-square rounded-lg border-2 border-dashed border-line flex items-center justify-center text-ink-4 hover:text-ink-3 disabled:opacity-50"
           >
             <ImagePlus size={16} />
           </button>
         </div>
       </div>
       {editingId && (
-        <div className="p-2.5 rounded-lg border dark:border-[#2D3748] border-gray-200 space-y-2">
-          <label htmlFor="media-title" className="block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">
+        <div className="p-2.5 rounded-lg border border-line space-y-2">
+          <label htmlFor="media-title" className="block text-[10px] font-medium text-ink-4 uppercase tracking-wider">
             Title
           </label>
           <input
@@ -2129,14 +2129,14 @@ function MediaSection({ productId }: { productId: string }) {
             value={titleDraft}
             onChange={e => setTitleDraft(e.target.value)}
             placeholder="Describe this image"
-            className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+            className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
           />
-          {titleError && <p className="text-[10px] text-red-500">{titleError}</p>}
+          {titleError && <p className="text-[10px] text-danger">{titleError}</p>}
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setEditingId(null)}
-              className="text-[10px] dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors"
+              className="text-[10px] text-ink-4 hover:text-ink-2 transition-colors"
             >
               Cancel
             </button>
@@ -2151,9 +2151,9 @@ function MediaSection({ productId }: { productId: string }) {
           </div>
         </div>
       )}
-      {loading && <p className="text-[11px] dark:text-gray-500 text-gray-400">Loading…</p>}
+      {loading && <p className="text-[11px] text-ink-4">Loading…</p>}
       {(uploadError || error) && (
-        <p className="text-[11px] text-red-500">{uploadError ?? error}</p>
+        <p className="text-[11px] text-danger">{uploadError ?? error}</p>
       )}
     </div>
   )
@@ -2200,14 +2200,14 @@ function VariantsSection({ detail, productId }: VariantsSectionProps) {
         <button
           type="button"
           onClick={() => setAdding(v => !v)}
-          className="text-[10px] font-medium px-2 py-1 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+          className="text-[10px] font-medium px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 hover:bg-hover transition-colors"
         >
           {adding ? 'Cancel' : '+ Add Variant'}
         </button>
       </div>
 
-      {detail.loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
-      {detail.error && <p className="text-xs text-red-400">{detail.error}</p>}
+      {detail.loading && <p className="text-xs text-ink-4">Loading…</p>}
+      {detail.error && <p className="text-xs text-danger">{detail.error}</p>}
 
       <div className="space-y-2">
         {detail.detail?.variants.map(v => (
@@ -2223,17 +2223,17 @@ function VariantsSection({ detail, productId }: VariantsSectionProps) {
         // form as a real (non-JS-intercepted) navigation — a full page
         // reload back to the app's initial route, which looked like the
         // "Add Variant" button redirecting home.
-        <div className="p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 space-y-2">
+        <div className="p-3 rounded-lg border border-line space-y-2">
           <input
             type="text" required placeholder="Variant name (e.g. Large)" value={variantName} onChange={e => setVariantName(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddVariant() } }}
-            className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+            className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
           />
-          {addError && <p className="text-xs text-red-400">{addError}</p>}
+          {addError && <p className="text-xs text-danger">{addError}</p>}
           <button type="button" onClick={handleAddVariant} disabled={submitting} className="w-full py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
             {submitting ? 'Adding…' : 'Add Variant'}
           </button>
-          <p className="text-[10px] dark:text-gray-500 text-gray-400">Add a SKU (price/barcode) to the variant after creating it.</p>
+          <p className="text-[10px] text-ink-4">Add a SKU (price/barcode) to the variant after creating it.</p>
         </div>
       )}
     </div>
@@ -2279,43 +2279,43 @@ function CaseOfSKUPicker({ excludeSKUID, filterSku, onSelect, onClose }: CaseOfS
   }
 
   return (
-    <div className="rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#0B1220] bg-white p-3 space-y-2">
+    <div className="rounded-lg border border-line dark:bg-night-950 bg-white p-3 space-y-2">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-4" />
           <input
             autoFocus value={query} onChange={e => setQuery(e.target.value)}
             placeholder="Search products by name…"
-            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <button type="button" onClick={onClose} title="Close">
-          <X size={14} className="dark:text-gray-500 text-gray-400" />
+          <X size={14} className="text-ink-4" />
         </button>
       </div>
       <div className="max-h-48 overflow-auto space-y-1">
-        {products.length === 0 && <p className="text-[10px] dark:text-gray-500 text-gray-400 px-1">No matching products</p>}
+        {products.length === 0 && <p className="text-[10px] text-ink-4 px-1">No matching products</p>}
         {products.map(p => (
           <div key={p.id}>
             <button
               type="button"
               onClick={() => toggleProduct(p.id)}
-              className="w-full text-left px-2 py-1.5 text-xs rounded dark:hover:bg-[#1F2937] hover:bg-gray-50 dark:text-gray-200 text-gray-800"
+              className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-hover text-ink"
             >
               {p.name}
             </button>
             {expandedProductId === p.id && (
               <div className="pl-4 space-y-0.5">
-                {loadingSkus && <p className="text-[10px] dark:text-gray-500 text-gray-400">Loading…</p>}
-                {!loadingSkus && skus.length === 0 && <p className="text-[10px] dark:text-gray-500 text-gray-400">No other SKUs on this product</p>}
+                {loadingSkus && <p className="text-[10px] text-ink-4">Loading…</p>}
+                {!loadingSkus && skus.length === 0 && <p className="text-[10px] text-ink-4">No other SKUs on this product</p>}
                 {!loadingSkus && skus.map(s => (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => onSelect(s, `${p.name} — ${s.sku_code}`)}
-                    className="w-full flex items-center justify-between text-left px-2 py-1 text-[10px] rounded dark:hover:bg-[#1F2937] hover:bg-gray-50"
+                    className="w-full flex items-center justify-between text-left px-2 py-1 text-[10px] rounded hover:bg-hover"
                   >
-                    <span className="font-mono dark:text-gray-300 text-gray-600">{s.sku_code}</span>
+                    <span className="font-mono text-ink-2">{s.sku_code}</span>
                   </button>
                 ))}
               </div>
@@ -2348,7 +2348,7 @@ function StockBadge({ skuId }: { skuId: string }) {
       type="button"
       onClick={() => setActiveNav('inventory')}
       title="View in Inventory"
-      className="flex items-center gap-1 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 shrink-0"
+      className="flex items-center gap-1 text-[10px] text-ink-3 hover:text-accent shrink-0"
     >
       <Boxes size={11} />
       {level ? `${level.total} in stock` : '…'}
@@ -2382,8 +2382,8 @@ function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
       .finally(() => setLoading(false))
   }, [open, token, skuId])
 
-  const label = 'block text-[9px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wide mb-0.5'
-  const input = 'w-full px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500'
+  const label = 'block text-[9px] font-medium text-ink-4 uppercase tracking-wide mb-0.5'
+  const input = 'w-full px-2 py-1 text-[10px] rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
 
   const handleAdd = async () => {
     if (!token || !newPrice) return
@@ -2421,23 +2421,23 @@ function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
+        className="text-[10px] text-accent hover:text-accent/80 transition-colors"
       >
         {open ? '− Hide' : '+'} Currency overrides{prices.length > 0 ? ` (${prices.length})` : ''}
       </button>
       {open && (
-        <div className="p-2 rounded-lg dark:bg-[#111827]/60 bg-gray-100 border dark:border-[#2D3748] border-gray-200 space-y-1.5">
-          <p className="text-[9px] dark:text-gray-500 text-gray-400">
+        <div className="p-2 rounded-lg dark:bg-night-900/60 bg-gray-100 border border-line space-y-1.5">
+          <p className="text-[9px] text-ink-4">
             Set an exact price for a channel running in another currency, instead of the auto-converted rate.
           </p>
-          {loading && <p className="text-[10px] dark:text-gray-500 text-gray-400">Loading…</p>}
+          {loading && <p className="text-[10px] text-ink-4">Loading…</p>}
           {prices.map(p => (
-            <div key={p.currency_code} className="flex items-center justify-between text-[10px] dark:text-gray-300 text-gray-700">
+            <div key={p.currency_code} className="flex items-center justify-between text-[10px] text-ink-2">
               <span>
                 {p.currency_code}: {formatPrice(p.price_minor_units, p.currency_code)}
                 {p.sale_price_minor_units != null && <> (sale {formatPrice(p.sale_price_minor_units, p.currency_code)})</>}
               </span>
-              <button type="button" onClick={() => handleDelete(p.currency_code)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors">
+              <button type="button" onClick={() => handleDelete(p.currency_code)} className="text-[10px] text-ink-4 hover:text-danger transition-colors">
                 Delete
               </button>
             </div>
@@ -2466,7 +2466,7 @@ function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
           >
             {saving ? 'Saving…' : 'Add / update'}
           </button>
-          {error && <p className="text-[10px] text-red-400">{error}</p>}
+          {error && <p className="text-[10px] text-danger">{error}</p>}
         </div>
       )}
     </div>
@@ -2493,8 +2493,8 @@ function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
       .finally(() => setLoading(false))
   }, [open, token, skuId])
 
-  const label = 'block text-[9px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wide mb-0.5'
-  const input = 'w-full px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500'
+  const label = 'block text-[9px] font-medium text-ink-4 uppercase tracking-wide mb-0.5'
+  const input = 'w-full px-2 py-1 text-[10px] rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
 
   const handleAdd = async () => {
     if (!token || !newCode.trim()) return
@@ -2528,19 +2528,19 @@ function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
 
   return (
     <div className="space-y-1.5">
-      <button type="button" onClick={() => setOpen(o => !o)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
+      <button type="button" onClick={() => setOpen(o => !o)} className="text-[10px] text-accent hover:text-accent/80 transition-colors">
         {open ? '− Hide' : '+'} Alternate barcodes{aliases.length > 0 ? ` (${aliases.length})` : ''}
       </button>
       {open && (
-        <div className="p-2 rounded-lg dark:bg-[#111827]/60 bg-gray-100 border dark:border-[#2D3748] border-gray-200 space-y-1.5">
-          <p className="text-[9px] dark:text-gray-500 text-gray-400">
+        <div className="p-2 rounded-lg dark:bg-night-900/60 bg-gray-100 border border-line space-y-1.5">
+          <p className="text-[9px] text-ink-4">
             Extra barcodes that resolve to this same SKU/price — e.g. the same product repackaged by another supplier with its own EAN, or a case/box barcode (units/scan &gt; 1 books that many units at once).
           </p>
-          {loading && <p className="text-[10px] dark:text-gray-500 text-gray-400">Loading…</p>}
+          {loading && <p className="text-[10px] text-ink-4">Loading…</p>}
           {aliases.map(a => (
-            <div key={a.id} className="flex items-center justify-between text-[10px] dark:text-gray-300 text-gray-700">
+            <div key={a.id} className="flex items-center justify-between text-[10px] text-ink-2">
               <span>{a.code}{a.units_per_scan > 1 ? ` (×${a.units_per_scan}/scan)` : ''}</span>
-              <button type="button" onClick={() => handleDelete(a.id)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors">
+              <button type="button" onClick={() => handleDelete(a.id)} className="text-[10px] text-ink-4 hover:text-danger transition-colors">
                 Delete
               </button>
             </div>
@@ -2561,7 +2561,7 @@ function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
           >
             {saving ? 'Saving…' : 'Add'}
           </button>
-          {error && <p className="text-[10px] text-red-400">{error}</p>}
+          {error && <p className="text-[10px] text-danger">{error}</p>}
         </div>
       )}
     </div>
@@ -2587,8 +2587,8 @@ function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
       .finally(() => setLoading(false))
   }, [open, token, skuId])
 
-  const label = 'block text-[9px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wide mb-0.5'
-  const input = 'w-full px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500'
+  const label = 'block text-[9px] font-medium text-ink-4 uppercase tracking-wide mb-0.5'
+  const input = 'w-full px-2 py-1 text-[10px] rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
 
   const handleAdd = async () => {
     if (!token || !newCode.trim()) return
@@ -2618,19 +2618,19 @@ function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
 
   return (
     <div className="space-y-1.5">
-      <button type="button" onClick={() => setOpen(o => !o)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
+      <button type="button" onClick={() => setOpen(o => !o)} className="text-[10px] text-accent hover:text-accent/80 transition-colors">
         {open ? '− Hide' : '+'} Additional scale codes{aliases.length > 0 ? ` (${aliases.length})` : ''}
       </button>
       {open && (
-        <div className="p-2 rounded-lg dark:bg-[#111827]/60 bg-gray-100 border dark:border-[#2D3748] border-gray-200 space-y-1.5">
-          <p className="text-[9px] dark:text-gray-500 text-gray-400">
+        <div className="p-2 rounded-lg dark:bg-night-900/60 bg-gray-100 border border-line space-y-1.5">
+          <p className="text-[9px] text-ink-4">
             For a second (or third) physical scale programmed with its own code for this same product.
           </p>
-          {loading && <p className="text-[10px] dark:text-gray-500 text-gray-400">Loading…</p>}
+          {loading && <p className="text-[10px] text-ink-4">Loading…</p>}
           {aliases.map(a => (
-            <div key={a.id} className="flex items-center justify-between text-[10px] dark:text-gray-300 text-gray-700">
+            <div key={a.id} className="flex items-center justify-between text-[10px] text-ink-2">
               <span>{a.code}</span>
-              <button type="button" onClick={() => handleDelete(a.id)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors">
+              <button type="button" onClick={() => handleDelete(a.id)} className="text-[10px] text-ink-4 hover:text-danger transition-colors">
                 Delete
               </button>
             </div>
@@ -2647,7 +2647,7 @@ function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
           >
             {saving ? 'Saving…' : 'Add'}
           </button>
-          {error && <p className="text-[10px] text-red-400">{error}</p>}
+          {error && <p className="text-[10px] text-danger">{error}</p>}
         </div>
       )}
     </div>
@@ -2707,8 +2707,8 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
     setCurrencyDefaulted(true)
   }
 
-  const fieldLabelClass = 'block text-[9px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wide mb-0.5'
-  const fieldInputClass = 'w-full px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500'
+  const fieldLabelClass = 'block text-[9px] font-medium text-ink-4 uppercase tracking-wide mb-0.5'
+  const fieldInputClass = 'w-full px-2 py-1 text-[10px] rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
 
   const handleAddSKU = async () => {
     setError('')
@@ -2948,46 +2948,46 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   const thumbnailContent = selectedImage ? (
     <img src={selectedImage.url} alt={selectedImage.alt_text} className="w-full h-full object-cover" />
   ) : (
-    <Package size={14} className="dark:text-gray-500 text-gray-400" />
+    <Package size={14} className="text-ink-4" />
   )
 
   return (
-    <div className="p-3 rounded-lg border dark:border-[#2D3748] border-gray-200">
+    <div className="p-3 rounded-lg border border-line">
       <div className="flex items-center gap-3">
         {productMedia.length > 0 ? (
           <button
             type="button"
             aria-label={`${variant.name} image`}
             onClick={() => setPickerOpen(v => !v)}
-            className="w-10 h-10 rounded-lg dark:bg-[#1F2937] bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden"
+            className="w-10 h-10 rounded-lg dark:bg-night-800 bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden"
           >
             {thumbnailContent}
           </button>
         ) : (
-          <div className="w-10 h-10 rounded-lg dark:bg-[#1F2937] bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+          <div className="w-10 h-10 rounded-lg dark:bg-night-800 bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
             {thumbnailContent}
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium dark:text-gray-200 text-gray-800 truncate">{variant.name}</p>
-          <p className="text-[10px] font-mono dark:text-gray-500 text-gray-400 truncate">
+          <p className="text-xs font-medium text-ink truncate">{variant.name}</p>
+          <p className="text-[10px] font-mono text-ink-4 truncate">
             {sku ? sku.sku_code : 'No SKU yet'}
           </p>
         </div>
         {sku && sku.sale_price_minor_units != null ? (
           <span className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[10px] dark:text-gray-500 text-gray-400 line-through">
+            <span className="text-[10px] text-ink-4 line-through">
               {formatPrice(sku.price_minor_units, sku.currency_code)}
             </span>
-            <span className="text-xs font-medium text-green-400">
+            <span className="text-xs font-medium text-success">
               {formatPrice(sku.sale_price_minor_units, sku.currency_code)}
             </span>
             {sku.sale_end_date && (
-              <span className="text-[9px] dark:text-gray-500 text-gray-400">until {sku.sale_end_date}</span>
+              <span className="text-[9px] text-ink-4">until {sku.sale_end_date}</span>
             )}
           </span>
         ) : sku && (
-          <span className="text-xs font-medium dark:text-gray-200 text-gray-800 shrink-0">
+          <span className="text-xs font-medium text-ink shrink-0">
             {formatPrice(sku.price_minor_units, sku.currency_code)}
           </span>
         )}
@@ -3000,9 +3000,9 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         <div className="flex items-center gap-0.5 shrink-0">
           <button
             type="button" onClick={openEdit} title="Edit variant"
-            className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
           >
-            <Edit3 size={12} className="dark:text-gray-400 text-gray-500" />
+            <Edit3 size={12} className="text-ink-3" />
           </button>
           <button
             type="button"
@@ -3012,9 +3012,9 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               }
             }}
             title="Remove variant"
-            className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
           >
-            <Trash2 size={12} className="dark:text-gray-400 text-gray-500 hover:text-red-400" />
+            <Trash2 size={12} className="text-ink-3 hover:text-danger" />
           </button>
         </div>
       </div>
@@ -3022,7 +3022,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
       {editing && (
         // Plain div, not <form> -- same nested-<form>-inside-the-page's-
         // outer-form avoidance as the Add Variant/Add SKU panels.
-        <div className="mt-2 space-y-3 p-3 rounded-lg dark:bg-[#1F2937]/60 bg-gray-50 border dark:border-[#2D3748] border-gray-200">
+        <div className="mt-2 space-y-3 p-3 rounded-lg dark:bg-night-800/60 bg-gray-50 border border-line">
           <div>
             <label className={fieldLabelClass}>Variant name</label>
             <input
@@ -3033,7 +3033,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           {sku && (
             <>
               <div className="space-y-1.5">
-                <p className="text-[9px] font-semibold dark:text-gray-400 text-gray-500 uppercase tracking-wide">Pricing</p>
+                <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-wide">Pricing</p>
                 <div className="grid grid-cols-2 gap-1.5">
                   <div>
                     <label className={fieldLabelClass}>SKU code</label>
@@ -3068,8 +3068,8 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               </div>
               {sku && <SKUCurrencyPricesEditor skuId={sku.id} />}
               <div className="space-y-1.5">
-                <p className="text-[9px] font-semibold dark:text-gray-400 text-gray-500 uppercase tracking-wide">Shipping</p>
-                <label className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
+                <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-wide">Shipping</p>
+                <label className="flex items-center gap-1.5 text-[10px] text-ink-3">
                   <input type="checkbox" checked={editIsVirtual} onChange={e => setEditIsVirtual(e.target.checked)} />
                   Virtual (no shipping)
                 </label>
@@ -3096,8 +3096,8 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               </div>
             </>
           )}
-          {editError && <p className="text-[10px] text-red-400">{editError}</p>}
-          <div className="flex items-center gap-2 pt-1 border-t dark:border-[#2D3748] border-gray-200">
+          {editError && <p className="text-[10px] text-danger">{editError}</p>}
+          <div className="flex items-center gap-2 pt-1 border-t border-line">
             <button
               type="button" disabled={editSaving || !editName || (!!sku && !editSkuCode)} onClick={saveEdit}
               className="px-2.5 py-1 rounded bg-blue-600 text-white text-[10px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
@@ -3106,7 +3106,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             </button>
             <button
               type="button" disabled={editSaving} onClick={() => setEditing(false)}
-              className="px-2.5 py-1 rounded dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors disabled:opacity-50"
+              className="px-2.5 py-1 rounded bg-fill text-[10px] text-ink-3 hover:bg-hover transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
@@ -3115,14 +3115,14 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
       )}
 
       {pickerOpen && (
-        <div className="flex flex-wrap gap-1.5 mt-2 p-2 rounded-lg dark:bg-[#1F2937]/60 bg-gray-50 border dark:border-[#2D3748] border-gray-200">
+        <div className="flex flex-wrap gap-1.5 mt-2 p-2 rounded-lg dark:bg-night-800/60 bg-gray-50 border border-line">
           <button
             type="button"
             onClick={() => handleSelectImage(null)}
             aria-label="No image"
             className={clsx(
-              'w-8 h-8 rounded-md border flex items-center justify-center text-[10px] dark:text-gray-500 text-gray-400 shrink-0',
-              !variant.featured_media_id ? 'border-blue-500' : 'dark:border-[#2D3748] border-gray-200',
+              'w-8 h-8 rounded-md border flex items-center justify-center text-[10px] text-ink-4 shrink-0',
+              !variant.featured_media_id ? 'border-blue-500' : 'border-line',
             )}
           >
             <X size={12} />
@@ -3135,7 +3135,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               aria-label={m.alt_text || 'Product image'}
               className={clsx(
                 'w-8 h-8 rounded-md overflow-hidden border shrink-0',
-                m.id === variant.featured_media_id ? 'border-blue-500' : 'dark:border-[#2D3748] border-gray-200',
+                m.id === variant.featured_media_id ? 'border-blue-500' : 'border-line',
               )}
             >
               <img src={m.url} alt={m.alt_text} className="w-full h-full object-cover" />
@@ -3144,46 +3144,46 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         </div>
       )}
 
-      {imageError && <p className="text-[10px] text-red-500 mt-1.5">{imageError}</p>}
+      {imageError && <p className="text-[10px] text-danger mt-1.5">{imageError}</p>}
 
       {sku && (
         <div className="mt-1.5 space-y-1">
           <div className="flex items-center gap-1.5">
-            <label htmlFor={`variant-sku-barcode-${sku.id}`} className="text-[10px] dark:text-gray-400 text-gray-500 shrink-0">
+            <label htmlFor={`variant-sku-barcode-${sku.id}`} className="text-[10px] text-ink-3 shrink-0">
               EAN
             </label>
             <input
               id={`variant-sku-barcode-${sku.id}`} type="text"
               placeholder={sku.scale_code ? 'Not used — see scale code below' : 'Barcode / EAN'}
               disabled={!!sku.scale_code} value={sku.scale_code ? '' : barcodeEdit} onChange={e => setBarcodeEdit(e.target.value)}
-              className="flex-1 min-w-0 px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+              className="flex-1 min-w-0 px-2 py-1 text-[10px] rounded bg-surface border border-line text-ink-2 outline-none"
             />
             {!sku.scale_code && barcodeEdit !== (sku.barcode ?? '') && (
               <button
                 type="button" disabled={barcodeSaving} onClick={saveBarcode}
-                className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50 shrink-0"
+                className="text-[10px] text-accent hover:text-accent/80 transition-colors disabled:opacity-50 shrink-0"
               >
                 {barcodeSaving ? 'Saving…' : 'Save'}
               </button>
             )}
           </div>
-          {barcodeError && <p className="text-[10px] text-red-400">{barcodeError}</p>}
+          {barcodeError && <p className="text-[10px] text-danger">{barcodeError}</p>}
           {sku.scale_code ? <ScaleCodeAliasesEditor skuId={sku.id} /> : <BarcodeAliasesEditor skuId={sku.id} />}
           <div className="flex items-center justify-between">
             {sku.unit_type === 'kilo' ? (
-              <span className="text-[10px] dark:text-gray-400 text-gray-500 flex items-center gap-1.5">
+              <span className="text-[10px] text-ink-3 flex items-center gap-1.5">
                 Weight pool
                 <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: 'unit', portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
                   Turn off
                 </button>
                 {sku.pricing_mode === 'per_weight' && sku.scale_code && sku.price_per_kilo_minor_units != null && (
-                  <button type="button" onClick={() => setBulkAddOpen(true)} className="text-blue-400 hover:text-blue-300 transition-colors">
+                  <button type="button" onClick={() => setBulkAddOpen(true)} className="text-accent hover:text-accent/80 transition-colors">
                     Bulk add by weight
                   </button>
                 )}
               </span>
             ) : sku.portioned_from_sku_id ? (
-              <span className="text-[10px] dark:text-gray-400 text-gray-500 flex items-center gap-1.5">
+              <span className="text-[10px] text-ink-3 flex items-center gap-1.5">
                 Portioned from <span className="font-medium">{sku.portioned_from_sku_id}</span>
                 <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: sku.unit_type ?? 'unit', portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
                   Unlink
@@ -3191,10 +3191,10 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               </span>
             ) : existingPortionPickerOpen ? null : (
               <div className="flex items-center gap-2">
-                <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: 'kilo', portionedFromSkuId: null })} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50">
+                <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: 'kilo', portionedFromSkuId: null })} className="text-[10px] text-accent hover:text-accent/80 transition-colors disabled:opacity-50">
                   Make weight pool
                 </button>
-                <button type="button" onClick={() => setExistingPortionPickerOpen(true)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
+                <button type="button" onClick={() => setExistingPortionPickerOpen(true)} className="text-[10px] text-accent hover:text-accent/80 transition-colors">
                   Link to weight pool
                 </button>
               </div>
@@ -3206,7 +3206,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
                   detail.removeSKU(sku.id)
                 }
               }}
-              className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors"
+              className="text-[10px] text-ink-4 hover:text-danger transition-colors"
             >
               Remove SKU
             </button>
@@ -3226,10 +3226,10 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               onCreated={() => detail.refresh()} onClose={() => setBulkAddOpen(false)}
             />
           )}
-          {bulkError && <p className="text-[10px] text-red-400">{bulkError}</p>}
+          {bulkError && <p className="text-[10px] text-danger">{bulkError}</p>}
           <button
             type="button" onClick={() => setShowMargin(v => !v)}
-            className="flex items-center gap-1 text-[10px] font-medium dark:text-gray-400 text-gray-500 hover:dark:text-gray-300 hover:text-gray-700 transition-colors"
+            className="flex items-center gap-1 text-[10px] font-medium text-ink-3 hover:text-ink-2 transition-colors"
           >
             {showMargin ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
             Cost &amp; margin insight
@@ -3245,7 +3245,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
       )}
 
       {!sku && !addingSKU && (
-        <button type="button" onClick={() => setAddingSKU(true)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors mt-2">
+        <button type="button" onClick={() => setAddingSKU(true)} className="text-[10px] text-accent hover:text-accent/80 transition-colors mt-2">
           + Add SKU
         </button>
       )}
@@ -3253,7 +3253,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
       {addingSKU && (
         // Plain div, not <form> — same nested-<form>-inside-the-page's-outer-
         // form bug as the Add Variant form above (see comment there).
-        <div className="mt-2 space-y-1.5 p-2 rounded-lg dark:bg-[#1F2937]/60 bg-gray-50 border dark:border-[#2D3748] border-gray-200">
+        <div className="mt-2 space-y-1.5 p-2 rounded-lg dark:bg-night-800/60 bg-gray-50 border border-line">
           <div className="grid grid-cols-2 gap-1.5">
             <div>
               <label className={fieldLabelClass}>SKU code</label>
@@ -3289,7 +3289,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               <option value="inactive">Inactive</option>
             </select>
           </div>
-          <label className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
+          <label className="flex items-center gap-1.5 text-[10px] text-ink-3">
             <input type="checkbox" checked={isVirtual} onChange={e => setIsVirtual(e.target.checked)} />
             Virtual (no shipping)
           </label>
@@ -3313,7 +3313,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               </div>
             </div>
           )}
-          <label className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
+          <label className="flex items-center gap-1.5 text-[10px] text-ink-3">
             Item type
             <select
               value={unitType}
@@ -3322,7 +3322,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
                 setUnitType(next)
                 if (next === 'kilo') { setPortionedFromSKUID(null); setPortionedFromLabel('') }
               }}
-              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+              className="px-2 py-1 text-[10px] rounded bg-surface border border-line text-ink-2 outline-none"
             >
               <option value="unit">Unit</option>
               <option value="box">Box</option>
@@ -3331,7 +3331,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           </label>
           {unitType !== 'kilo' && (
             portionedFromSKUID ? (
-              <div className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
+              <div className="flex items-center gap-1.5 text-[10px] text-ink-3">
                 <span className="flex-1">Portioned from <span className="font-medium">{portionedFromLabel || portionedFromSKUID}</span></span>
                 <button type="button" onClick={() => { setPortionedFromSKUID(null); setPortionedFromLabel('') }} className="hover:underline">Unlink</button>
               </div>
@@ -3343,7 +3343,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
                 onClose={() => setPortionPickerOpen(false)}
               />
             ) : (
-              <button type="button" onClick={() => setPortionPickerOpen(true)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
+              <button type="button" onClick={() => setPortionPickerOpen(true)} className="text-[10px] text-accent hover:text-accent/80 transition-colors">
                 + Link to a weight pool
               </button>
             )
@@ -3353,7 +3353,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             <input type="text" placeholder="Not sold via a scale barcode" value={scaleCode} onChange={e => setScaleCode(normalizeScaleCodeInput(e.target.value))} maxLength={7} inputMode="numeric" className={fieldInputClass} />
           </div>
           <div className="grid grid-cols-2 gap-1.5">
-            <label className="flex flex-col gap-0.5 text-[10px] dark:text-gray-400 text-gray-500">
+            <label className="flex flex-col gap-0.5 text-[10px] text-ink-3">
               Pricing
               <select value={pricingMode} onChange={e => setPricingMode(e.target.value as SKUPricingMode)} className={fieldInputClass}>
                 <option value="fixed">Fixed / package</option>
@@ -3368,14 +3368,14 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             )}
           </div>
           {pricingMode === 'per_weight' && !scaleCode && (
-            <p className="text-[10px] text-amber-500">Set a scale code above too — per-kilo pricing only applies once a package's weight can actually be scanned.</p>
+            <p className="text-[10px] text-warning">Set a scale code above too — per-kilo pricing only applies once a package's weight can actually be scanned.</p>
           )}
-          {error && <p className="text-[10px] text-red-400">{error}</p>}
+          {error && <p className="text-[10px] text-danger">{error}</p>}
           <div className="flex gap-1.5">
             <button type="button" onClick={handleAddSKU} disabled={submitting} className="flex-1 py-1 rounded bg-blue-600 text-white text-[10px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
               {submitting ? 'Adding…' : 'Add'}
             </button>
-            <button type="button" onClick={() => setAddingSKU(false)} className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 transition-colors">
+            <button type="button" onClick={() => setAddingSKU(false)} className="px-2 py-1 rounded bg-fill text-[10px] text-ink-3 transition-colors">
               Cancel
             </button>
           </div>

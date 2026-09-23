@@ -40,12 +40,12 @@ function todayDateString(): string {
 }
 
 const STATUS_STYLE: Record<PurchaseOrderStatus, string> = {
-  draft: 'bg-gray-500/15 text-gray-400',
-  sent: 'bg-blue-500/15 text-blue-400',
-  partially_received: 'bg-amber-500/15 text-amber-400',
-  received: 'bg-green-500/15 text-green-400',
-  cancelled: 'bg-red-500/15 text-red-400',
-  needs_review: 'bg-amber-500/20 text-amber-400',
+  draft: 'bg-gray-500/15 text-ink-4',
+  sent: 'bg-blue-500/15 text-accent',
+  partially_received: 'bg-amber-500/15 text-warning',
+  received: 'bg-green-500/15 text-success',
+  cancelled: 'bg-red-500/15 text-danger',
+  needs_review: 'bg-amber-500/20 text-warning',
 }
 
 function formatMoney(minorUnits: number, currencyCode: string): string {
@@ -96,8 +96,8 @@ function friendlyParsingError(errorMessage: string): string {
 }
 
 const RECEIVING_STATUS_STYLE: Record<ReceivingRecord['status'], string> = {
-  pending_review: 'bg-amber-500/20 text-amber-400',
-  applied: 'bg-green-500/15 text-green-400',
+  pending_review: 'bg-amber-500/20 text-warning',
+  applied: 'bg-green-500/15 text-success',
 }
 
 const DISCREPANCY_LABEL: Record<DiscrepancyType, string> = {
@@ -171,7 +171,7 @@ export default function Procurement() {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto">
           {STATUS_TABS.map(s => (
             <button
@@ -180,8 +180,8 @@ export default function Procurement() {
               className={clsx(
                 'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors whitespace-nowrap',
                 statusFilter === s
-                  ? 'dark:bg-[#1F2937] bg-gray-100 dark:text-gray-100 text-gray-800'
-                  : 'dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+                  ? 'dark:bg-night-800 bg-gray-100 text-ink'
+                  : 'text-ink-4 hover:text-ink-2',
               )}
             >
               {s.replace('_', ' ')}
@@ -191,13 +191,13 @@ export default function Procurement() {
         <div className="flex items-center gap-2 ml-auto shrink-0">
           <button
             onClick={() => open(`${PROCUREMENT_PATH}/${DISCREPANCIES_SEGMENT}`)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors font-medium"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
           >
             <AlertTriangle size={13} /> Discrepancies
           </button>
           <button
             onClick={() => setUploadModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors font-medium"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
           >
             <Upload size={13} /> Upload Document
           </button>
@@ -222,49 +222,49 @@ export default function Procurement() {
       )}
 
       {/* Stats strip */}
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
-        <span className="text-xs dark:text-gray-500 text-gray-400">{filtered.length} purchase order{filtered.length === 1 ? '' : 's'}</span>
-        {(error || deleteError) && <span className="text-xs text-red-400 ml-auto">{error || deleteError}</span>}
+      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
+        <span className="text-xs text-ink-4">{filtered.length} purchase order{filtered.length === 1 ? '' : 's'}</span>
+        {(error || deleteError) && <span className="text-xs text-danger ml-auto">{error || deleteError}</span>}
       </div>
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+          <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Supplier</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Warehouse</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Status</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Expected</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Currency</th>
-              <th className="px-3 py-2.5 text-right font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Total</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Supplier</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Warehouse</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Expected</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Currency</th>
+              <th className="px-3 py-2.5 text-right font-medium text-ink-4 uppercase tracking-wider">Total</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>
-          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+          <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={8} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={8} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={8} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No purchase orders yet</td></tr>
+              <tr><td colSpan={8} className="px-4 py-6 text-center text-ink-4">No purchase orders yet</td></tr>
             )}
             {filtered.map(po => (
               <tr
                 key={po.id}
                 onClick={() => openEdit(po.id)}
-                className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
+                className="group hover:bg-hover/60 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
-                  <div className="w-6 h-6 rounded dark:bg-[#2D3748] bg-gray-200 flex items-center justify-center">
-                    <ShoppingBag size={12} className="dark:text-gray-500 text-gray-400" />
+                  <div className="w-6 h-6 rounded dark:bg-night-700 bg-gray-200 flex items-center justify-center">
+                    <ShoppingBag size={12} className="text-ink-4" />
                   </div>
                 </td>
                 <td className="px-3 py-2.5 max-w-[280px]">
                   {supplierName(po.supplier_id) ? (
-                    <p className="font-medium dark:text-gray-100 text-gray-900 truncate">{supplierName(po.supplier_id)}</p>
+                    <p className="font-medium text-ink truncate">{supplierName(po.supplier_id)}</p>
                   ) : (
-                    <p className="flex items-center gap-1 font-medium text-amber-400 truncate">
+                    <p className="flex items-center gap-1 font-medium text-warning truncate">
                       <Sparkles size={11} /> Missing supplier
                     </p>
                   )}
@@ -272,38 +272,38 @@ export default function Procurement() {
                     <button
                       type="button"
                       onClick={e => { e.stopPropagation(); if (po.duplicate_of_purchase_order_id) openEdit(po.duplicate_of_purchase_order_id) }}
-                      className="flex items-center gap-1 mt-0.5 text-[10px] font-medium text-red-400 hover:underline"
+                      className="flex items-center gap-1 mt-0.5 text-[10px] font-medium text-danger hover:underline"
                     >
                       <AlertTriangle size={10} /> Possible duplicate order
                     </button>
                   )}
                 </td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{warehouseName(po.warehouse_id) ?? '—'}</td>
+                <td className="px-3 py-2.5 text-ink-3">{warehouseName(po.warehouse_id) ?? '—'}</td>
                 <td className="px-3 py-2.5">
                   <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', STATUS_STYLE[po.status])}>
                     {po.status.replace('_', ' ')}
                   </span>
                 </td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{po.expected_date ?? '—'}</td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{po.currency_code}</td>
-                <td className="px-3 py-2.5 text-right dark:text-gray-200 text-gray-800 font-medium">
+                <td className="px-3 py-2.5 text-ink-3">{po.expected_date ?? '—'}</td>
+                <td className="px-3 py-2.5 text-ink-3">{po.currency_code}</td>
+                <td className="px-3 py-2.5 text-right text-ink font-medium">
                   {formatMoney(po.total_minor_units, po.currency_code)}
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={e => { e.stopPropagation(); openEdit(po.id) }}
-                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Edit"
                     >
-                      <Edit3 size={12} className="dark:text-gray-400 text-gray-500" />
+                      <Edit3 size={12} className="text-ink-3" />
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); handleDelete(po) }}
-                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Delete"
                     >
-                      <Trash2 size={12} className="dark:text-gray-400 text-gray-500 hover:text-red-400" />
+                      <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>
                   </div>
                 </td>
@@ -340,16 +340,16 @@ function BookingDiscrepanciesPage({ token, onClose }: { token: string; onClose: 
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Procurement
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">Booking Discrepancies</h1>
-          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Every completed booking's under-scanned line items and damaged/lost stock</p>
+          <h1 className="text-xl font-semibold text-ink leading-tight">Booking Discrepancies</h1>
+          <p className="text-xs text-ink-4 mt-0.5">Every completed booking's under-scanned line items and damaged/lost stock</p>
         </div>
       </div>
 
@@ -362,7 +362,7 @@ function BookingDiscrepanciesPage({ token, onClose }: { token: string; onClose: 
               'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
               tab === t.id
                 ? 'bg-blue-600 text-white'
-                : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-100',
+                : 'bg-raised text-ink-3 hover:bg-hover',
             )}
           >
             {t.label}
@@ -371,32 +371,32 @@ function BookingDiscrepanciesPage({ token, onClose }: { token: string; onClose: 
       </div>
 
       <div className="flex-1 overflow-auto">
-        {error && <p className="px-6 py-4 text-xs text-red-400">{error}</p>}
+        {error && <p className="px-6 py-4 text-xs text-danger">{error}</p>}
 
         {tab === 'missing' && (
           <>
-            {!error && loading && report.missing_items.length === 0 && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+            {!error && loading && report.missing_items.length === 0 && <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>}
             {!error && !loading && report.missing_items.length === 0 && (
-              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">No missing items -- every completed booking was fully scanned.</p>
+              <p className="px-6 py-4 text-xs text-ink-4">No missing items -- every completed booking was fully scanned.</p>
             )}
             {report.missing_items.length > 0 && (
               <table className="w-full text-xs">
-                <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+                <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
                     {['SKU', 'Product', 'Expected', 'Scanned', 'Missing', 'Completed'].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                      <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                <tbody className="divide-y divide-line/60">
                   {report.missing_items.map(m => (
-                    <tr key={m.line_item_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{m.sku_code ?? '—'}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{m.product_name ?? m.raw_description}</td>
-                      <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{m.expected_qty}</td>
-                      <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{m.scanned_qty}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-red-400">{m.missing_qty}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{formatDiscrepancyDate(m.completed_at)}</td>
+                    <tr key={m.line_item_id} className="hover:bg-hover/60 transition-colors">
+                      <td className="px-4 py-2.5 font-mono text-ink-2">{m.sku_code ?? '—'}</td>
+                      <td className="px-4 py-2.5 text-ink">{m.product_name ?? m.raw_description}</td>
+                      <td className="px-4 py-2.5 tabular-nums text-ink-2">{m.expected_qty}</td>
+                      <td className="px-4 py-2.5 tabular-nums text-ink-2">{m.scanned_qty}</td>
+                      <td className="px-4 py-2.5 tabular-nums text-danger">{m.missing_qty}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{formatDiscrepancyDate(m.completed_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -407,29 +407,29 @@ function BookingDiscrepanciesPage({ token, onClose }: { token: string; onClose: 
 
         {tab === 'damaged-lost' && (
           <>
-            {!error && loading && report.damaged_lost.length === 0 && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+            {!error && loading && report.damaged_lost.length === 0 && <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>}
             {!error && !loading && report.damaged_lost.length === 0 && (
-              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Nothing damaged or lost across any completed booking.</p>
+              <p className="px-6 py-4 text-xs text-ink-4">Nothing damaged or lost across any completed booking.</p>
             )}
             {report.damaged_lost.length > 0 && (
               <table className="w-full text-xs">
-                <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+                <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
                     {['SKU', 'Product', 'Type', 'Qty', 'Reason', 'Scanned by', 'Date'].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                      <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                <tbody className="divide-y divide-line/60">
                   {report.damaged_lost.map(d => (
-                    <tr key={d.scan_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{d.sku_code ?? '—'}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{d.product_name ?? '—'}</td>
-                      <td className="px-4 py-2.5 capitalize text-red-400">{d.action_type}</td>
-                      <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{d.quantity}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.reason || '—'}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.scanned_by || '—'}</td>
-                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{formatDiscrepancyDate(d.scanned_at)}</td>
+                    <tr key={d.scan_id} className="hover:bg-hover/60 transition-colors">
+                      <td className="px-4 py-2.5 font-mono text-ink-2">{d.sku_code ?? '—'}</td>
+                      <td className="px-4 py-2.5 text-ink">{d.product_name ?? '—'}</td>
+                      <td className="px-4 py-2.5 capitalize text-danger">{d.action_type}</td>
+                      <td className="px-4 py-2.5 tabular-nums text-ink-2">{d.quantity}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{d.reason || '—'}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{d.scanned_by || '—'}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{formatDiscrepancyDate(d.scanned_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -484,19 +484,19 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
     }
   }
 
-  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2D3748] border-gray-200">
-          <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Upload Document</h2>
+      <div className="w-full max-w-md rounded-xl bg-surface border border-line shadow-xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+          <h2 className="text-sm font-semibold text-ink">Upload Document</h2>
           <button type="button" onClick={onClose} title="Close">
-            <X size={16} className="dark:text-gray-500 text-gray-400" />
+            <X size={16} className="text-ink-4" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <p className="text-[11px] dark:text-gray-500 text-gray-400">
+          <p className="text-[11px] text-ink-4">
             Upload a supplier PDF, CSV, or XLSX. Supplier and line items are extracted and matched to products
             automatically — anything that can't be matched will need review.
           </p>
@@ -505,12 +505,12 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
             <input id="upload-file" type="file" accept=".pdf,.csv,.xlsx"
               disabled={status !== 'idle'}
               onChange={e => setFile(e.target.files?.[0] ?? null)}
-              className="w-full text-xs dark:text-gray-300 text-gray-700 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:text-xs file:font-medium file:cursor-pointer disabled:opacity-50" />
+              className="w-full text-xs text-ink-2 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:text-xs file:font-medium file:cursor-pointer disabled:opacity-50" />
           </div>
-          {formError && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>}
+          {formError && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>}
           <div className="flex items-center justify-end gap-2 pt-1">
             <button type="button" onClick={onClose}
-              className="px-4 py-2 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-semibold dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors">
+              className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors">
               Cancel
             </button>
             <button type="submit" disabled={status !== 'idle' || !file}
@@ -667,27 +667,27 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
     setWarehouseId(newWarehouseId)
   }
 
-  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Purchase Orders
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">
+          <h1 className="text-xl font-semibold text-ink leading-tight">
             {isNew ? 'New Purchase Order' : 'Edit Purchase Order'}
           </h1>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button" onClick={onClose}
-            className="px-4 py-2 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-semibold dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
           >
             Discard
           </button>
@@ -703,15 +703,15 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto p-6 space-y-5">
           <form id="po-form" onSubmit={handleSave} className="space-y-5">
-            <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+            <div className="rounded-xl border border-line p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">General</h3>
+                <h3 className="text-xs font-semibold text-ink">General</h3>
                 {!isNew && (
                   <select
                     aria-label="Status"
                     value={status}
                     onChange={e => setStatus(e.target.value as PurchaseOrderStatus)}
-                    className="px-2 py-1 text-[10px] rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none capitalize"
+                    className="px-2 py-1 text-[10px] rounded-lg bg-raised border border-line text-ink-2 outline-none capitalize"
                   >
                     {(['draft', 'sent', 'partially_received', 'received', 'cancelled', 'needs_review'] as const).map(s => (
                       <option key={s} value={s} className="capitalize">{s.replace('_', ' ')}</option>
@@ -726,7 +726,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
                     {suggestedSupplierMatch && !po?.supplier_id && (
                       <button
                         type="button" onClick={handleConfirmSuggestedSupplier} disabled={confirmingSuggestedSupplier}
-                        className="text-[10px] font-semibold text-blue-400 hover:underline disabled:opacity-50"
+                        className="text-[10px] font-semibold text-accent hover:underline disabled:opacity-50"
                       >
                         {confirmingSuggestedSupplier ? 'Confirming…' : 'Confirm'}
                       </button>
@@ -740,7 +740,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                   {suggestedSupplierMatch && !po?.supplier_id && (
-                    <p className="text-[10px] text-blue-400 mt-1">Suggested from the uploaded document — confirm to assign.</p>
+                    <p className="text-[10px] text-accent mt-1">Suggested from the uploaded document — confirm to assign.</p>
                   )}
                 </div>
                 <div>
@@ -778,7 +778,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
                 />
               </div>
               {(formError || detailError) && (
-                <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError || detailError}</p>
+                <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError || detailError}</p>
               )}
             </div>
           </form>
@@ -866,17 +866,17 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAs
 
   return (
     <div className="rounded-xl border dark:border-amber-500/30 border-amber-300 dark:bg-amber-500/5 bg-amber-50/40 p-4 space-y-2">
-      <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-400">
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-warning">
         <Sparkles size={12} /> Needs review: this purchase order has no supplier
       </p>
-      <p className="text-[11px] dark:text-gray-400 text-gray-500">
+      <p className="text-[11px] text-ink-3">
         Pick an existing supplier above, or create a new one and assign it in one step.
       </p>
       {suggestedName && (
-        <p className="text-[11px] text-blue-400">Suggested from the uploaded document — edit if it's wrong.</p>
+        <p className="text-[11px] text-accent">Suggested from the uploaded document — edit if it's wrong.</p>
       )}
       {matchedSupplier && (
-        <p className="text-[11px] text-emerald-400">
+        <p className="text-[11px] text-success">
           Matches existing supplier "{matchedSupplier.name}" — this will assign it, not create a new one.
         </p>
       )}
@@ -884,14 +884,14 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAs
         <input
           aria-label="New supplier name" required value={name} onChange={e => setName(e.target.value)}
           placeholder="New supplier name"
-          className="flex-1 px-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button type="submit" disabled={saving || !name.trim()}
           className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
           {saving ? (matchedSupplier ? 'Assigning…' : 'Creating…') : (matchedSupplier ? 'Assign existing supplier' : 'Create & Assign')}
         </button>
       </form>
-      {error && <p className="text-[10px] text-red-400">{error}</p>}
+      {error && <p className="text-[10px] text-danger">{error}</p>}
     </div>
   )
 }
@@ -938,20 +938,20 @@ function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSectionPr
   }
 
   return (
-    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
-      <div className="px-4 py-3 dark:bg-[#111827]/50 bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
-        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Documents</h3>
+    <div className="rounded-xl border border-line overflow-hidden">
+      <div className="px-4 py-3 dark:bg-night-900/50 bg-gray-50 border-b border-line">
+        <h3 className="text-xs font-semibold text-ink">Documents</h3>
       </div>
-      <div className="divide-y dark:divide-[#2D3748] divide-gray-200">
+      <div className="divide-y divide-line">
         {documents.map(doc => (
           <div key={doc.id} className="px-4 py-2.5">
-            <div className="flex items-center gap-2 text-xs dark:text-gray-300 text-gray-700">
-              <FileText size={13} className="dark:text-gray-500 text-gray-400 shrink-0" />
+            <div className="flex items-center gap-2 text-xs text-ink-2">
+              <FileText size={13} className="text-ink-4 shrink-0" />
               <a href={doc.file_url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 truncate hover:underline">
                 {doc.file_name}
               </a>
               {doc.is_potential_duplicate && (
-                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium text-amber-400 bg-amber-500/10 shrink-0">
+                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium text-warning bg-amber-500/10 shrink-0">
                   <AlertTriangle size={10} /> Possible duplicate
                 </span>
               )}
@@ -960,7 +960,7 @@ function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSectionPr
                 title="Reparse"
                 onClick={() => handleReparse(doc)}
                 disabled={reparsingId === doc.id}
-                className="p-1 rounded dark:text-gray-500 text-gray-400 hover:text-blue-400 disabled:opacity-50 transition-colors shrink-0"
+                className="p-1 rounded text-ink-4 hover:text-accent disabled:opacity-50 transition-colors shrink-0"
               >
                 <RefreshCw size={13} className={reparsingId === doc.id ? 'animate-spin' : ''} />
               </button>
@@ -969,13 +969,13 @@ function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSectionPr
                 title="Delete"
                 onClick={() => handleDelete(doc)}
                 disabled={deletingId === doc.id}
-                className="p-1 rounded dark:text-gray-500 text-gray-400 hover:text-red-400 disabled:opacity-50 transition-colors shrink-0"
+                className="p-1 rounded text-ink-4 hover:text-danger disabled:opacity-50 transition-colors shrink-0"
               >
                 <Trash2 size={13} />
               </button>
             </div>
             {reparseError?.id === doc.id && (
-              <p className="mt-1 text-[10px] text-red-400 pl-[21px]">{reparseError.message}</p>
+              <p className="mt-1 text-[10px] text-danger pl-[21px]">{reparseError.message}</p>
             )}
           </div>
         ))}
@@ -1087,17 +1087,17 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
   }
 
   return (
-    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 dark:bg-[#111827]/50 bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
-        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Line Items</h3>
+    <div className="rounded-xl border border-line overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 dark:bg-night-900/50 bg-gray-50 border-b border-line">
+        <h3 className="text-xs font-semibold text-ink">Line Items</h3>
         <div className="flex items-center gap-2">
           {uploadStatus === 'uploading' && (
-            <span className="flex items-center gap-1 text-[10px] dark:text-gray-500 text-gray-400">
+            <span className="flex items-center gap-1 text-[10px] text-ink-4">
               <Loader2 size={11} className="animate-spin" /> Uploading…
             </span>
           )}
           {uploadStatus === 'parsing' && (
-            <span className="flex items-center gap-1 text-[10px] text-amber-400">
+            <span className="flex items-center gap-1 text-[10px] text-warning">
               <Loader2 size={11} className="animate-spin" />
               {parsingSlow ? 'Still parsing… this can take a bit longer' : 'Parsing document…'}
             </span>
@@ -1107,7 +1107,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadStatus !== 'idle'}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-[10px] dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-line bg-raised text-[10px] text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
           >
             <Upload size={11} /> Upload Document
           </button>
@@ -1123,25 +1123,25 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
         </div>
       </div>
       {uploadError && (
-        <p className="text-[10px] text-red-400 bg-red-50 dark:bg-red-500/10 px-4 py-1.5">{uploadError}</p>
+        <p className="text-[10px] text-danger bg-red-50 dark:bg-red-500/10 px-4 py-1.5">{uploadError}</p>
       )}
 
       <table className="w-full text-xs">
         <thead>
-          <tr className="dark:bg-[#111827]/30 bg-gray-50">
-            <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Description</th>
-            <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Type</th>
-            <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Linked SKU</th>
-            <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Batch</th>
-            <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Qty</th>
-            <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Unit Cost</th>
-            <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Total</th>
+          <tr className="dark:bg-night-900/30 bg-gray-50">
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Description</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Type</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Linked SKU</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Batch</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Qty</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Unit Cost</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Total</th>
             <th className="px-4 py-2 w-20" />
           </tr>
         </thead>
-        <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+        <tbody className="divide-y divide-line/50">
           {lineItems.length === 0 && !adding && (
-            <tr><td colSpan={8} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No line items yet</td></tr>
+            <tr><td colSpan={8} className="px-4 py-6 text-center text-ink-4">No line items yet</td></tr>
           )}
           {lineItems.map(li => {
             const isCharge = isChargeLineType(li.line_type)
@@ -1155,9 +1155,9 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
               />
             ) : (
               <Fragment key={li.id}>
-                <tr className={clsx('transition-colors', li.sku_id || isCharge ? 'hover:dark:bg-[#2D3748]/30 hover:bg-gray-50' : 'dark:bg-amber-500/5 bg-amber-50/40')}>
-                  <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{li.raw_description}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">
+                <tr className={clsx('transition-colors', li.sku_id || isCharge ? 'hover:bg-hover/30' : 'dark:bg-amber-500/5 bg-amber-50/40')}>
+                  <td className="px-4 py-2.5 text-ink">{li.raw_description}</td>
+                  <td className="px-4 py-2.5 text-ink-3">
                     {isCharge && (
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px]">{LINE_TYPE_LABELS[li.line_type as Exclude<LineItemType, ''>]}</span>
@@ -1169,7 +1169,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                               quantity: li.quantity, unit_cost_minor_units: li.unit_cost_minor_units, line_type: li.line_type,
                             })}
                             title="AI-classified -- confirm this is correct"
-                            className="text-[10px] font-medium text-blue-400 hover:underline"
+                            className="text-[10px] font-medium text-accent hover:underline"
                           >
                             Confirm
                           </button>
@@ -1177,15 +1177,15 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">
+                  <td className="px-4 py-2.5 text-ink-3">
                     {isCharge ? (
                       <span className="text-[10px]">—</span>
                     ) : li.sku_id ? (
                       li.product_name ? (
                         <span className="text-[10px]">
-                          {li.product_name} <span className="font-mono dark:text-gray-500 text-gray-400">— {li.sku_code}</span>
+                          {li.product_name} <span className="font-mono text-ink-4">— {li.sku_code}</span>
                           {li.units_per_purchased_item > 1 && (
-                            <span className="ml-1 text-amber-400" title="Units per purchased item">
+                            <span className="ml-1 text-warning" title="Units per purchased item">
                               × {li.units_per_purchased_item}
                             </span>
                           )}
@@ -1197,27 +1197,27 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                       <button
                         type="button"
                         onClick={() => setReviewingLineId(reviewingLineId === li.id ? null : li.id)}
-                        className="flex items-center gap-1 text-[10px] font-medium text-amber-400 hover:underline"
+                        className="flex items-center gap-1 text-[10px] font-medium text-warning hover:underline"
                       >
                         <Sparkles size={10} /> Needs review
                       </button>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">
+                  <td className="px-4 py-2.5 text-ink-3">
                     {li.suggested_lot_number ? (
                       <span className="text-[10px]" title="Parsed from the uploaded document -- confirmed when the batch is assigned during booking">
                         {li.suggested_lot_number}
                         {li.suggested_expiry_date && (
-                          <span className="dark:text-gray-500 text-gray-400"> · exp {li.suggested_expiry_date}</span>
+                          <span className="text-ink-4"> · exp {li.suggested_expiry_date}</span>
                         )}
                       </span>
                     ) : (
                       <span className="text-[10px]">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{li.quantity}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{formatMoney(li.unit_cost_minor_units, currencyCode)}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800 font-medium">
+                  <td className="px-4 py-2.5 text-ink">{li.quantity}</td>
+                  <td className="px-4 py-2.5 text-ink">{formatMoney(li.unit_cost_minor_units, currencyCode)}</td>
+                  <td className="px-4 py-2.5 text-ink font-medium">
                     {formatMoney(signedLineItemAmount(li), currencyCode)}
                   </td>
                   <td className="px-4 py-2.5">
@@ -1225,18 +1225,18 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                       <button
                         type="button"
                         onClick={() => setEditingLineId(li.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                         title="Edit"
                       >
-                        <Edit3 size={12} className="dark:text-gray-400 text-gray-500" />
+                        <Edit3 size={12} className="text-ink-3" />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleRemove(li.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                         title="Remove"
                       >
-                        <Trash2 size={12} className="dark:text-gray-400 text-gray-500 hover:text-red-400" />
+                        <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                       </button>
                     </div>
                   </td>
@@ -1268,7 +1268,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                 <button
                   type="button"
                   onClick={() => setAdding(true)}
-                  className="flex items-center gap-1 text-[10px] font-medium text-blue-400 hover:underline"
+                  className="flex items-center gap-1 text-[10px] font-medium text-accent hover:underline"
                 >
                   <Plus size={11} /> Add Line Item
                 </button>
@@ -1278,11 +1278,11 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
         </tbody>
         {lineItems.length > 0 && (
           <tfoot>
-            <tr className="border-t dark:border-[#2D3748] border-gray-200 font-medium">
-              <td colSpan={6} className="px-4 py-2.5 text-right dark:text-gray-400 text-gray-500 uppercase tracking-wider text-[10px]">
+            <tr className="border-t border-line font-medium">
+              <td colSpan={6} className="px-4 py-2.5 text-right text-ink-3 uppercase tracking-wider text-[10px]">
                 Total
               </td>
-              <td className="px-4 py-2.5 dark:text-gray-100 text-gray-900">
+              <td className="px-4 py-2.5 text-ink">
                 {formatMoney(lineItems.reduce((sum, li) => sum + signedLineItemAmount(li), 0), currencyCode)}
               </td>
               <td className="px-4 py-2.5" />
@@ -1341,12 +1341,12 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
     }
   }
 
-  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#0B1220] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500'
+  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-950 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500'
   const idPrefix = initial?.id ?? 'new'
 
   return (
-    <tr className="dark:bg-[#111827]/40 bg-blue-50/30">
+    <tr className="dark:bg-night-900/40 bg-blue-50/30">
       <td colSpan={8} className="px-4 py-3">
           <div className="grid grid-cols-4 gap-3">
             <div className="col-span-2">
@@ -1381,18 +1381,18 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
             <div className="col-span-2">
               <span className={labelClass}>Linked product</span>
               {isCharge ? (
-                <p className="text-xs dark:text-gray-500 text-gray-400 py-2">— (charge rows don't link to a product)</p>
+                <p className="text-xs text-ink-4 py-2">— (charge rows don't link to a product)</p>
               ) : skuId ? (
                 <div className="flex items-center gap-2 py-1">
                   <span
-                    className={clsx('text-xs truncate', skuLabel ? 'dark:text-gray-200 text-gray-800' : 'font-mono dark:text-gray-400 text-gray-500')}
+                    className={clsx('text-xs truncate', skuLabel ? 'text-ink' : 'font-mono text-ink-3')}
                     title={skuLabel ?? skuId}
                   >
                     {skuLabel ?? skuId}
                   </span>
                   <button
                     type="button" onClick={() => { setSkuId(null); setSkuLabel(null) }}
-                    className="flex items-center gap-1 text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 shrink-0"
+                    className="flex items-center gap-1 text-[10px] text-ink-4 hover:text-danger shrink-0"
                   >
                     <X size={11} /> Unlink
                   </button>
@@ -1401,7 +1401,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
                 <button
                   type="button"
                   onClick={() => setPickerOpen(true)}
-                  className="flex items-center gap-1 text-xs dark:text-blue-400 text-blue-600 hover:underline py-2"
+                  className="flex items-center gap-1 text-xs text-accent hover:underline py-2"
                 >
                   <Search size={12} /> Link product
                 </button>
@@ -1416,7 +1416,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
                   value={unitsPerPurchasedItem} onChange={e => setUnitsPerPurchasedItem(e.target.value)}
                   className={inputClass}
                 />
-                <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+                <p className="text-[10px] text-ink-4 mt-1">
                   Stock units one purchased item holds — e.g. 36 if this line is a box of 36 units.
                 </p>
               </div>
@@ -1432,7 +1432,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
             </div>
             <div>
               <span className={labelClass}>Total</span>
-              <p className="px-3 py-2 text-xs dark:text-gray-300 text-gray-700">
+              <p className="px-3 py-2 text-xs text-ink-2">
                 {(signedLineItemAmount({
                   line_type: lineType, quantity: parseInt(quantity || '0', 10),
                   unit_cost_minor_units: Math.round(parseFloat(unitCost || '0') * 100),
@@ -1441,7 +1441,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
             </div>
           </div>
 
-          {rowError && <p className="text-[10px] text-red-400 mt-2">{rowError}</p>}
+          {rowError && <p className="text-[10px] text-danger mt-2">{rowError}</p>}
 
           {pickerOpen && (
             <div className="mt-3">
@@ -1465,7 +1465,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
             </button>
             <button
               type="button" onClick={onCancel}
-              className="px-3 py-1.5 rounded-lg text-xs dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100"
+              className="px-3 py-1.5 rounded-lg text-xs text-ink-2 hover:bg-hover"
             >
               Cancel
             </button>
@@ -1518,44 +1518,44 @@ function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onAssignWa
   }
 
   return (
-    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 dark:bg-[#111827]/50 bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
-        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Receiving</h3>
+    <div className="rounded-xl border border-line overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 dark:bg-night-900/50 bg-gray-50 border-b border-line">
+        <h3 className="text-xs font-semibold text-ink">Receiving</h3>
         <div className="flex items-center gap-2">
-          {uploadStatus === 'uploading' && <span className="text-[10px] dark:text-gray-500 text-gray-400">Uploading…</span>}
-          {uploadStatus === 'parsing' && <span className="text-[10px] text-amber-400">Parsing invoice…</span>}
+          {uploadStatus === 'uploading' && <span className="text-[10px] text-ink-4">Uploading…</span>}
+          {uploadStatus === 'parsing' && <span className="text-[10px] text-warning">Parsing invoice…</span>}
           <input ref={fileInputRef} type="file" aria-label="Upload invoice" accept=".pdf,.csv,.xlsx" className="hidden" onChange={handleFileSelected} />
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadStatus !== 'idle'}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-[10px] dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-line bg-raised text-[10px] text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
           >
             <Upload size={11} /> Upload Invoice
           </button>
         </div>
       </div>
       {(uploadError || error) && (
-        <p className="text-[10px] text-red-400 bg-red-50 dark:bg-red-500/10 px-4 py-1.5">{uploadError || error}</p>
+        <p className="text-[10px] text-danger bg-red-50 dark:bg-red-500/10 px-4 py-1.5">{uploadError || error}</p>
       )}
-      <div className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
-        {loading && <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      <div className="divide-y divide-line/50">
+        {loading && <p className="px-4 py-6 text-center text-xs text-ink-4">Loading…</p>}
         {!loading && records.length === 0 && (
-          <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No invoices uploaded yet</p>
+          <p className="px-4 py-6 text-center text-xs text-ink-4">No invoices uploaded yet</p>
         )}
         {records.map(record => (
           <div key={record.id}>
             <button
               type="button"
               onClick={() => setExpandedId(expandedId === record.id ? null : record.id)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:dark:bg-[#1F2937]/40 hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-hover/40 transition-colors"
             >
-              <FileText size={13} className="dark:text-gray-500 text-gray-400 shrink-0" />
-              <span className="flex-1 text-xs dark:text-gray-200 text-gray-800 truncate">{record.invoice_file_name}</span>
+              <FileText size={13} className="text-ink-4 shrink-0" />
+              <span className="flex-1 text-xs text-ink truncate">{record.invoice_file_name}</span>
               {record.is_potential_duplicate && (
                 <span
                   title="Another invoice with identical file content was already uploaded for this supplier"
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 dark:bg-amber-500/10 text-warning"
                 >
                   <AlertTriangle size={10} /> Possible duplicate
                 </span>
@@ -1565,7 +1565,7 @@ function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onAssignWa
               </span>
             </button>
             {expandedId === record.id && (
-              <div className="px-4 pb-3 dark:bg-[#0B1220]/40 bg-gray-50/60">
+              <div className="px-4 pb-3 dark:bg-night-950/40 bg-gray-50/60">
                 <ReceivingRecordCard
                   recordId={record.id}
                   lineItems={lineItems}
@@ -1631,8 +1631,8 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
     }
   }
 
-  if (loading) return <p className="text-[11px] dark:text-gray-500 text-gray-400 py-2">Loading…</p>
-  if (!detail) return error ? <p className="text-[10px] text-red-400 py-2">{error}</p> : null
+  if (loading) return <p className="text-[11px] text-ink-4 py-2">Loading…</p>
+  if (!detail) return error ? <p className="text-[10px] text-danger py-2">{error}</p> : null
 
   const record = detail.receiving_record
   const isApplied = record.status === 'applied'
@@ -1640,7 +1640,7 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
   return (
     <div className="space-y-2 pt-1">
       {detail.discrepancies.length === 0 ? (
-        <p className="text-[11px] dark:text-gray-400 text-gray-500">
+        <p className="text-[11px] text-ink-3">
           The invoice matched the purchase order exactly — no discrepancies.
         </p>
       ) : (
@@ -1661,14 +1661,14 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
           ))}
         </div>
       )}
-      {error && <p className="text-[10px] text-red-400">{error}</p>}
+      {error && <p className="text-[10px] text-danger">{error}</p>}
       {!isApplied && (
         damagedFormOpen ? (
           <FlagDamagedItemForm recordId={recordId} lineItems={lineItems} onDone={() => { setDamagedFormOpen(false); load() }} onCancel={() => setDamagedFormOpen(false)} />
         ) : (
           <button
             type="button" onClick={() => setDamagedFormOpen(true)}
-            className="flex items-center gap-1 text-[10px] font-medium dark:text-gray-500 text-gray-400 hover:underline"
+            className="flex items-center gap-1 text-[10px] font-medium text-ink-4 hover:underline"
           >
             <AlertTriangle size={10} /> Flag damaged item
           </button>
@@ -1677,12 +1677,12 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
       <div className="flex items-center justify-between pt-1">
         <button
           type="button" onClick={() => setReportOpen(true)}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 dark:text-gray-300 text-gray-600 text-[10px] font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 text-ink-2 text-[10px] font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
         >
           <ClipboardList size={11} /> Generate Report
         </button>
         {isApplied ? (
-          <span className="flex items-center gap-1 text-[10px] font-medium text-green-400">
+          <span className="flex items-center gap-1 text-[10px] font-medium text-success">
             <PackageCheck size={11} /> Receiving completed
           </span>
         ) : (
@@ -1775,16 +1775,16 @@ function DiscrepancyRow({
         : 'dark:border-amber-500/30 border-amber-300 dark:bg-amber-500/5 bg-amber-50/40',
     )}>
       <div className="flex items-center justify-between gap-2">
-        <span className={clsx('text-[10px] font-semibold', isAcknowledged ? 'dark:text-gray-500 text-gray-400' : 'text-amber-400')}>
+        <span className={clsx('text-[10px] font-semibold', isAcknowledged ? 'text-ink-4' : 'text-warning')}>
           {DISCREPANCY_LABEL[discrepancy.type]}
         </span>
-        <span className="text-[10px] dark:text-gray-500 text-gray-400">
+        <span className="text-[10px] text-ink-4">
           expected {discrepancy.expected_qty} · invoice {discrepancy.received_qty}
         </span>
       </div>
-      <p className="text-[11px] dark:text-gray-300 text-gray-600">{discrepancy.details}</p>
+      <p className="text-[11px] text-ink-2">{discrepancy.details}</p>
       {isAcknowledged ? (
-        <span className="flex items-center gap-1 text-[10px] font-medium text-green-400">
+        <span className="flex items-center gap-1 text-[10px] font-medium text-success">
           <Check size={10} /> Acknowledged
         </span>
       ) : (
@@ -1792,7 +1792,7 @@ function DiscrepancyRow({
           {canReceive && (
             <button
               type="button" onClick={() => setFormOpen(true)}
-              className="flex items-center gap-1 text-[10px] font-medium dark:text-blue-400 text-blue-600 hover:underline"
+              className="flex items-center gap-1 text-[10px] font-medium text-accent hover:underline"
             >
               <PackageCheck size={10} /> Receive stock
             </button>
@@ -1800,7 +1800,7 @@ function DiscrepancyRow({
           {!disabled && (
             <button
               type="button" onClick={handleAcknowledge} disabled={acting}
-              className="flex items-center gap-1 text-[10px] font-medium dark:text-gray-400 text-gray-500 hover:underline disabled:opacity-50"
+              className="flex items-center gap-1 text-[10px] font-medium text-ink-3 hover:underline disabled:opacity-50"
             >
               <Check size={10} /> Mark as valid
             </button>
@@ -1808,7 +1808,7 @@ function DiscrepancyRow({
           {!disabled && linkCandidates.length > 0 && !linkOpen && (
             <button
               type="button" onClick={() => setLinkOpen(true)}
-              className="flex items-center gap-1 text-[10px] font-medium dark:text-gray-400 text-gray-500 hover:underline"
+              className="flex items-center gap-1 text-[10px] font-medium text-ink-3 hover:underline"
             >
               <Link2 size={10} /> Link to…
             </button>
@@ -1820,25 +1820,25 @@ function DiscrepancyRow({
           <select
             aria-label="Link to discrepancy"
             value={linkTargetId} onChange={e => setLinkTargetId(e.target.value)}
-            className="flex-1 text-[10px] rounded-md border dark:border-[#2D3748] border-gray-200 dark:bg-[#0B0F19] bg-white dark:text-gray-200 text-gray-700 px-2 py-1"
+            className="flex-1 text-[10px] rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
           >
             <option value="">Select the matching item…</option>
             {linkCandidates.map(c => <option key={c.id} value={c.id}>{c.details}</option>)}
           </select>
           <button
             type="button" onClick={handleLink} disabled={acting || !linkTargetId}
-            className="text-[10px] font-medium dark:text-blue-400 text-blue-600 hover:underline disabled:opacity-50"
+            className="text-[10px] font-medium text-accent hover:underline disabled:opacity-50"
           >
             Confirm
           </button>
-          <button type="button" onClick={() => setLinkOpen(false)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:underline">
+          <button type="button" onClick={() => setLinkOpen(false)} className="text-[10px] text-ink-4 hover:underline">
             Cancel
           </button>
         </div>
       )}
-      {actionError && <p className="text-[10px] text-red-400">{actionError}</p>}
+      {actionError && <p className="text-[10px] text-danger">{actionError}</p>}
       {!disabled && lineItem && !lineItem.sku_id && discrepancy.received_qty > 0 && (
-        <p className="text-[10px] dark:text-gray-500 text-gray-400">Link this line item to a product before receiving stock for it.</p>
+        <p className="text-[10px] text-ink-4">Link this line item to a product before receiving stock for it.</p>
       )}
       {formOpen && lineItem?.sku_id && (
         <ReceiveDiscrepancyForm
@@ -1890,32 +1890,32 @@ function FlagDamagedItemForm({ recordId, lineItems, onDone, onCancel }: FlagDama
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border dark:border-[#2D3748] border-gray-200 p-2.5 space-y-2">
+    <form onSubmit={handleSubmit} className="rounded-lg border border-line p-2.5 space-y-2">
       <div className="flex items-center gap-2">
         <select
           value={lineItemId} onChange={e => setLineItemId(e.target.value)} required
-          className="flex-1 text-[10px] rounded-md border dark:border-[#2D3748] border-gray-200 dark:bg-[#0B0F19] bg-white dark:text-gray-200 text-gray-700 px-2 py-1"
+          className="flex-1 text-[10px] rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
         >
           {lineItems.map(li => <option key={li.id} value={li.id}>{li.raw_description}</option>)}
         </select>
         <input
           type="number" min="1" value={qty} onChange={e => setQty(e.target.value)} required
-          className="w-16 text-[10px] rounded-md border dark:border-[#2D3748] border-gray-200 dark:bg-[#0B0F19] bg-white dark:text-gray-200 text-gray-700 px-2 py-1"
+          className="w-16 text-[10px] rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
         />
       </div>
       <input
         type="text" placeholder="Note (optional)" value={note} onChange={e => setNote(e.target.value)}
-        className="w-full text-[10px] rounded-md border dark:border-[#2D3748] border-gray-200 dark:bg-[#0B0F19] bg-white dark:text-gray-200 text-gray-700 px-2 py-1"
+        className="w-full text-[10px] rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
       />
-      {error && <p className="text-[10px] text-red-400">{error}</p>}
+      {error && <p className="text-[10px] text-danger">{error}</p>}
       <div className="flex items-center gap-3">
         <button
           type="submit" disabled={saving}
-          className="text-[10px] font-medium dark:text-blue-400 text-blue-600 hover:underline disabled:opacity-50"
+          className="text-[10px] font-medium text-accent hover:underline disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Flag as damaged'}
         </button>
-        <button type="button" onClick={onCancel} className="text-[10px] dark:text-gray-500 text-gray-400 hover:underline">
+        <button type="button" onClick={onCancel} className="text-[10px] text-ink-4 hover:underline">
           Cancel
         </button>
       </div>
@@ -1955,25 +1955,25 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2D3748] border-gray-200">
-          <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Receiving Discrepancy Report</h2>
+      <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl dark:bg-night-900 bg-white border border-line shadow-xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line border-gray-200">
+          <h2 className="text-sm font-semibold text-gray-900">Receiving Discrepancy Report</h2>
           <button type="button" onClick={onClose} title="Close">
-            <X size={16} className="dark:text-gray-500 text-gray-400" />
+            <X size={16} className="dark:text-ink-4 text-gray-400" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {grouped.length === 0 ? (
-            <p className="text-[11px] dark:text-gray-400 text-gray-500">No discrepancies to report.</p>
+            <p className="text-[11px] text-ink-3">No discrepancies to report.</p>
           ) : (
             grouped.map(g => (
               <div key={g.type} className="space-y-1.5">
-                <h3 className="text-[11px] font-semibold dark:text-gray-200 text-gray-700">
-                  {DISCREPANCY_LABEL[g.type]} <span className="dark:text-gray-500 text-gray-400 font-normal">({g.items.length})</span>
+                <h3 className="text-[11px] font-semibold text-gray-700">
+                  {DISCREPANCY_LABEL[g.type]} <span className="dark:text-ink-4 font-normal">({g.items.length})</span>
                 </h3>
                 <ul className="space-y-1">
                   {g.items.map(d => (
-                    <li key={d.id} className="text-[10px] dark:text-gray-400 text-gray-500 flex items-center justify-between gap-2">
+                    <li key={d.id} className="text-[10px] text-ink-3 flex items-center justify-between gap-2">
                       <span>{d.details}</span>
                       <span className={clsx('shrink-0', d.status === 'acknowledged' ? 'text-green-400' : 'text-amber-400')}>
                         {d.status === 'acknowledged' ? 'Acknowledged' : 'Open'}
@@ -1985,10 +1985,10 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
             ))
           )}
         </div>
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t dark:border-[#2D3748] border-gray-200">
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t dark:border-night-700 border-gray-200">
           <button
             type="button" onClick={handleExportCsv}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 dark:text-gray-300 text-gray-600 text-[10px] font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 text-ink-2 text-[10px] font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
           >
             <Download size={11} /> Export CSV
           </button>
@@ -2057,13 +2057,13 @@ function ReceiveDiscrepancyForm({ skuId, warehouseId, warehouses, onAssignWareho
     return <p className="text-[10px] font-medium text-green-400">Stock received.</p>
   }
 
-  const inputClass = 'w-full px-2 py-1 text-[11px] rounded dark:bg-[#0B1220] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500'
+  const inputClass = 'w-full px-2 py-1 text-[11px] rounded dark:bg-night-950 bg-white border dark:border-night-700 text-ink outline-none focus:ring-1 focus:ring-blue-500'
 
   return (
     <form onSubmit={handleSubmit} className="flex items-end gap-2 pt-1 flex-wrap">
       {!warehouseId && (
         <div>
-          <label htmlFor={`receive-warehouse-${skuId}`} className="block text-[9px] dark:text-gray-500 text-gray-400 mb-0.5">Warehouse</label>
+          <label htmlFor={`receive-warehouse-${skuId}`} className="block text-[9px] text-ink-4 mb-0.5">Warehouse</label>
           <select
             id={`receive-warehouse-${skuId}`} required value={pickedWarehouseId}
             onChange={e => setPickedWarehouseId(e.target.value)} className={clsx(inputClass, 'w-28')}
@@ -2074,24 +2074,24 @@ function ReceiveDiscrepancyForm({ skuId, warehouseId, warehouses, onAssignWareho
         </div>
       )}
       <div>
-        <label htmlFor={`receive-qty-${skuId}`} className="block text-[9px] dark:text-gray-500 text-gray-400 mb-0.5">Qty</label>
+        <label htmlFor={`receive-qty-${skuId}`} className="block text-[9px] text-ink-4 mb-0.5">Qty</label>
         <input id={`receive-qty-${skuId}`} type="number" min="1" required value={quantity} onChange={e => setQuantity(e.target.value)} className={clsx(inputClass, 'w-14')} />
         {unitsPerPurchasedItem > 1 && Number.isFinite(parseInt(quantity, 10)) && (
-          <p className="text-[9px] dark:text-gray-500 text-gray-400 mt-0.5">= {parseInt(quantity, 10) * unitsPerPurchasedItem} units</p>
+          <p className="text-[9px] text-ink-4 mt-0.5">= {parseInt(quantity, 10) * unitsPerPurchasedItem} units</p>
         )}
       </div>
       <div>
-        <label htmlFor={`receive-lot-${skuId}`} className="block text-[9px] dark:text-gray-500 text-gray-400 mb-0.5">Lot #</label>
+        <label htmlFor={`receive-lot-${skuId}`} className="block text-[9px] text-ink-4 mb-0.5">Lot #</label>
         <input id={`receive-lot-${skuId}`} value={lotNumber} onChange={e => setLotNumber(e.target.value)} className={clsx(inputClass, 'w-20')} />
       </div>
       <div>
-        <label htmlFor={`receive-expiry-${skuId}`} className="block text-[9px] dark:text-gray-500 text-gray-400 mb-0.5">Expiry</label>
+        <label htmlFor={`receive-expiry-${skuId}`} className="block text-[9px] text-ink-4 mb-0.5">Expiry</label>
         <input id={`receive-expiry-${skuId}`} type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className={inputClass} />
       </div>
       <button type="submit" disabled={saving} className="px-2.5 py-1 rounded-lg bg-blue-600 text-white text-[10px] font-semibold hover:bg-blue-700 disabled:opacity-50">
         {saving ? 'Saving…' : 'Save receipt'}
       </button>
-      <button type="button" onClick={onDone} className="px-2 py-1 text-[10px] dark:text-gray-500 text-gray-400 hover:underline">
+      <button type="button" onClick={onDone} className="px-2 py-1 text-[10px] text-ink-4 hover:underline">
         Cancel
       </button>
       {error && <p className="text-[10px] text-red-400">{error}</p>}
@@ -2149,12 +2149,12 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
     }
   }
 
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500'
-  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
+  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1'
 
   return (
-    <div className="rounded-lg border dark:border-amber-500/30 border-amber-300 dark:bg-[#0B1220] bg-white p-3 space-y-2">
-      <div className="text-[11px] dark:text-gray-300 text-gray-600">
+    <div className="rounded-lg border dark:border-amber-500/30 border-amber-300 dark:bg-night-950 bg-white p-3 space-y-2">
+      <div className="text-[11px] text-gray-600">
         Extracted from document{lineItem.raw_sku ? <> — printed SKU/barcode <span className="font-mono">{lineItem.raw_sku}</span></> : null}, but no matching product was found automatically.
       </div>
 
@@ -2165,10 +2165,10 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
             <Search size={10} /> Link to existing product
           </button>
           <button type="button" onClick={() => setMode('create')}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg dark:bg-[#2D3748] bg-gray-100 text-[10px] dark:text-gray-300 text-gray-700 font-medium hover:dark:bg-[#374151] hover:bg-gray-200">
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg dark:bg-night-700 bg-gray-100 text-[10px] text-ink-2 font-medium dark:hover:bg-gray-700 hover:bg-gray-200">
             <Plus size={10} /> Create new product
           </button>
-          <button type="button" onClick={onCancel} className="text-[10px] dark:text-gray-500 text-gray-400 hover:underline ml-auto">
+          <button type="button" onClick={onCancel} className="text-[10px] text-ink-4 hover:underline ml-auto">
             Dismiss
           </button>
         </div>
@@ -2212,7 +2212,7 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
               className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-semibold hover:bg-blue-700 disabled:opacity-50">
               {saving ? 'Creating…' : 'Create & Link'}
             </button>
-            <button type="button" onClick={() => setMode('choose')} className="text-[10px] dark:text-gray-500 text-gray-400 hover:underline">
+            <button type="button" onClick={() => setMode('choose')} className="text-[10px] text-ink-4 hover:underline">
               Back
             </button>
           </div>
@@ -2255,41 +2255,41 @@ export function ProductSkuPicker({ onSelect, onClose }: ProductSkuPickerProps) {
   }
 
   return (
-    <div className="rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#0B1220] bg-white p-3 space-y-2">
+    <div className="rounded-lg border border-line dark:bg-night-950 bg-white p-3 space-y-2">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             autoFocus value={query} onChange={e => setQuery(e.target.value)}
             placeholder="Search products by name…"
-            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <button type="button" onClick={onClose} title="Close">
-          <X size={14} className="dark:text-gray-500 text-gray-400" />
+          <X size={14} className="dark:text-ink-4 text-gray-400" />
         </button>
       </div>
       <div className="max-h-48 overflow-auto space-y-1">
-        {products.length === 0 && <p className="text-[10px] dark:text-gray-500 text-gray-400 px-1">No matching products</p>}
+        {products.length === 0 && <p className="text-[10px] text-ink-4 px-1">No matching products</p>}
         {products.map(p => (
           <div key={p.id}>
             <button
               type="button"
               onClick={() => toggleProduct(p.id)}
-              className="w-full text-left px-2 py-1.5 text-xs rounded dark:hover:bg-[#1F2937] hover:bg-gray-50 dark:text-gray-200 text-gray-800"
+              className="w-full text-left px-2 py-1.5 text-xs rounded dark:hover:bg-night-800 hover:bg-gray-50 text-gray-800"
             >
               {p.name}
             </button>
             {expandedProductId === p.id && (
               <div className="pl-4 space-y-0.5">
-                {loadingSkus && <p className="text-[10px] dark:text-gray-500 text-gray-400">Loading…</p>}
-                {!loadingSkus && skus.length === 0 && <p className="text-[10px] dark:text-gray-500 text-gray-400">No SKUs on this product</p>}
+                {loadingSkus && <p className="text-[10px] text-gray-400">Loading…</p>}
+                {!loadingSkus && skus.length === 0 && <p className="text-[10px] text-gray-400">No SKUs on this product</p>}
                 {!loadingSkus && skus.map(s => (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => onSelect(s, `${p.name} — ${s.sku_code}`)}
-                    className="w-full flex items-center justify-between text-left px-2 py-1 text-[10px] rounded dark:hover:bg-[#1F2937] hover:bg-gray-50"
+                    className="w-full flex items-center justify-between text-left px-2 py-1 text-[10px] rounded hover:bg-hover"
                   >
                     <span className="font-mono dark:text-gray-300 text-gray-600">{s.sku_code}</span>
                     <span className="dark:text-gray-500 text-gray-400">{(s.price_minor_units / 100).toFixed(2)} {s.currency_code}</span>

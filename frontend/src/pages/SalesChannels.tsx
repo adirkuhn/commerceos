@@ -320,11 +320,11 @@ export default function SalesChannels() {
     <div className="flex-1 flex flex-col overflow-hidden p-5 gap-5">
       {channels.length === 0 && !loading ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <div className="w-12 h-12 rounded-xl dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 flex items-center justify-center mb-3">
-            <Radio size={20} className="dark:text-gray-500 text-gray-400" />
+          <div className="w-12 h-12 rounded-xl bg-raised border border-line flex items-center justify-center mb-3">
+            <Radio size={20} className="text-ink-4" />
           </div>
-          <p className="text-sm font-medium dark:text-gray-300 text-gray-700 mb-1">No sales channels yet</p>
-          <p className="text-xs dark:text-gray-500 text-gray-400 mb-4">Add a channel to control which products sync where</p>
+          <p className="text-sm font-medium text-ink-2 mb-1">No sales channels yet</p>
+          <p className="text-xs text-ink-4 mb-4">Add a channel to control which products sync where</p>
           <button
             onClick={openCreate}
             className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
@@ -335,7 +335,7 @@ export default function SalesChannels() {
       ) : (
         <>
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Sales channels</h2>
+            <h2 className="text-sm font-semibold text-ink">Sales channels</h2>
             <button
               onClick={openCreate}
               className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
@@ -343,24 +343,24 @@ export default function SalesChannels() {
               Add sales channel
             </button>
           </div>
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-danger">{error}</p>}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
             {channels.map(channel => (
               <div
                 key={channel.id}
-                className="text-left p-4 rounded-xl border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white"
+                className="text-left p-4 rounded-xl border border-line bg-raised"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{channel.name}</p>
+                  <p className="text-sm font-semibold text-ink">{channel.name}</p>
                   <span className={clsx('w-2 h-2 rounded-full mt-1.5', channel.active ? 'bg-green-400' : 'bg-gray-500')} />
                 </div>
-                <p className="text-[10px] dark:text-gray-500 text-gray-400 truncate">{connectionLabel(channel.connection_id)}</p>
+                <p className="text-[10px] text-ink-4 truncate">{connectionLabel(channel.connection_id)}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  <span className="inline-block text-[10px] px-2 py-0.5 rounded-full dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500">
+                  <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-fill text-ink-3">
                     {ENROLLMENT_LABELS[channel.enrollment_mode]}
                   </span>
                   {!!channel.price_adjustment_basis_points && (
-                    <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500">
+                    <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-warning">
                       {(channel.price_adjustment_basis_points / 100).toString()}% off
                     </span>
                   )}
@@ -368,7 +368,7 @@ export default function SalesChannels() {
                 {channel.type === INTERNAL_TYPE && (
                   <button
                     onClick={() => route.openApiDocs(channel.id)}
-                    className="mt-2 flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
+                    className="mt-2 flex items-center gap-1 text-[10px] text-accent hover:text-accent transition-colors"
                   >
                     <Code2 size={11} /> API docs
                   </button>
@@ -376,19 +376,19 @@ export default function SalesChannels() {
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <button
                     onClick={() => route.openManage(channel.id)}
-                    className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                    className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
                   >
                     Products
                   </button>
                   <button
                     onClick={() => openEdit(channel)}
-                    className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                    className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => setDeletingChannel(channel)}
-                    className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-red-400 transition-colors"
+                    className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-danger transition-colors"
                   >
                     Delete
                   </button>
@@ -402,18 +402,18 @@ export default function SalesChannels() {
       {formReady && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeForm} />
-          <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+          <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">
+              <h3 className="text-sm font-semibold text-ink">
                 {editingChannel ? 'Edit sales channel' : 'Add sales channel'}
               </h3>
               <button onClick={closeForm} aria-label="Close">
-                <X size={14} className="dark:text-gray-500 text-gray-400" />
+                <X size={14} className="text-ink-4" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label htmlFor="channel-name" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="channel-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   Name
                 </label>
                 <input
@@ -423,26 +423,26 @@ export default function SalesChannels() {
                   autoFocus
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               {!editingChannel && (
                 <div>
-                  <label htmlFor="channel-type" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-type" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Type
                   </label>
                   <select
                     id="channel-type"
                     value={form.channelType}
                     onChange={e => setForm(f => ({ ...f, channelType: e.target.value as ChannelType, connectionId: '', defaultWarehouseId: '', channelWarehouseId: '' }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     {(Object.keys(TYPE_LABELS) as ChannelType[]).map(t => (
                       <option key={t} value={t}>{TYPE_LABELS[t]}</option>
                     ))}
                   </select>
                   {form.channelType === INTERNAL_TYPE && (
-                    <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    <p className="mt-1.5 text-[10px] text-ink-4">
                       A storefront CommerceOS itself hosts checkout for — no external connection needed.
                     </p>
                   )}
@@ -450,19 +450,19 @@ export default function SalesChannels() {
               )}
               {!editingChannel && form.channelType === INTERNAL_TYPE && (
                 <div>
-                  <label htmlFor="channel-currency" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-currency" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Currency
                   </label>
                   <select
                     id="channel-currency"
                     value={form.currencyCode}
                     onChange={e => setForm(f => ({ ...f, currencyCode: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="">Default (tenant's own currency)</option>
                     {CURRENCY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                  <p className="mt-1.5 text-[10px] text-ink-4">
                     Fixed for this channel once created.
                     {form.currencyCode && !exchangeRates.some(r => r.currency_code === form.currencyCode)
                       ? ` No exchange rate configured for ${form.currencyCode} yet -- add one under Settings > Localization, or prices won't convert.`
@@ -472,7 +472,7 @@ export default function SalesChannels() {
               )}
               {(editingChannel ? CONNECTION_REQUIRED_TYPES.includes(editingChannel.type) : form.channelType !== INTERNAL_TYPE) && (
                 <div>
-                  <label htmlFor="channel-connection" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-connection" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Connection
                   </label>
                   <select
@@ -484,7 +484,7 @@ export default function SalesChannels() {
                       const defaultWarehouseId = connections.find(c => c.id === connectionId)?.default_warehouse_id ?? ''
                       setForm(f => ({ ...f, connectionId, defaultWarehouseId }))
                     }}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="" disabled>Select a connection…</option>
                     {connections
@@ -495,26 +495,26 @@ export default function SalesChannels() {
               )}
               {form.connectionId && (
                 <div>
-                  <label htmlFor="channel-default-warehouse" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-default-warehouse" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Default location
                   </label>
                   <select
                     id="channel-default-warehouse"
                     value={form.defaultWarehouseId}
                     onChange={e => setForm(f => ({ ...f, defaultWarehouseId: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="">No preference</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                  <p className="mt-1.5 text-[10px] text-ink-4">
                     Which warehouse this channel's orders and stock sync are attributed to.
                   </p>
                 </div>
               )}
               {WAREHOUSE_REQUIRED_TYPES.includes(editingChannel ? editingChannel.type : form.channelType) && (
                 <div>
-                  <label htmlFor="channel-fulfillment-warehouse" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-fulfillment-warehouse" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Fulfillment warehouse
                   </label>
                   <select
@@ -522,37 +522,37 @@ export default function SalesChannels() {
                     required
                     value={form.channelWarehouseId}
                     onChange={e => setForm(f => ({ ...f, channelWarehouseId: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="" disabled>Select a warehouse…</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                  <p className="mt-1.5 text-[10px] text-ink-4">
                     Required -- every order placed through this channel decrements stock from and ships from this warehouse.
                   </p>
                 </div>
               )}
               <div>
-                <label htmlFor="channel-enrollment-mode" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="channel-enrollment-mode" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   Default enrollment
                 </label>
                 <select
                   id="channel-enrollment-mode"
                   value={form.enrollmentMode}
                   onChange={e => setForm(f => ({ ...f, enrollmentMode: e.target.value as EnrollmentMode }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {(Object.keys(ENROLLMENT_LABELS) as EnrollmentMode[]).map(mode => (
                     <option key={mode} value={mode}>{ENROLLMENT_LABELS[mode]}</option>
                   ))}
                 </select>
-                <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                <p className="mt-1.5 text-[10px] text-ink-4">
                   Which products belong on this channel by default. Individual products can still be added or removed later.
                 </p>
               </div>
               {form.enrollmentMode === 'category' && (
                 <div>
-                  <label htmlFor="channel-enrollment-category" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-enrollment-category" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Category
                   </label>
                   <select
@@ -560,7 +560,7 @@ export default function SalesChannels() {
                     required
                     value={form.enrollmentCategoryId}
                     onChange={e => setForm(f => ({ ...f, enrollmentCategoryId: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="" disabled>Select a category…</option>
                     {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
@@ -569,7 +569,7 @@ export default function SalesChannels() {
               )}
               {form.enrollmentMode === 'tag' && (
                 <div>
-                  <label htmlFor="channel-enrollment-tag" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-enrollment-tag" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Tag
                   </label>
                   <input
@@ -579,34 +579,34 @@ export default function SalesChannels() {
                     value={form.enrollmentTag}
                     onChange={e => setForm(f => ({ ...f, enrollmentTag: e.target.value }))}
                     placeholder="summer"
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               )}
               {editingChannel && PAYMENT_CAPABLE_TYPES.includes(editingChannel.type) && (
                 <div>
-                  <label htmlFor="channel-payment-method" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-payment-method" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                     Payment method
                   </label>
                   <select
                     id="channel-payment-method"
                     value={form.paymentConnectionId}
                     onChange={e => setForm(f => ({ ...f, paymentConnectionId: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="">Disabled — no payment link sent</option>
                     {connections
                       .filter(c => (c.provider === 'stripe' || c.provider === 'revolut') && c.status === 'connected')
                       .map(c => <option key={c.id} value={c.id}>{capitalize(c.provider)}</option>)}
                   </select>
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                  <p className="mt-1.5 text-[10px] text-ink-4">
                     Which connected payment integration an order's payment link is generated through. Connect Stripe or Revolut from the Integrations page first.
                   </p>
                 </div>
               )}
               {editingChannel && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider">Active</span>
+                  <span className="text-[10px] text-ink-4 uppercase tracking-wider">Active</span>
                   <label className="relative flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"
@@ -616,13 +616,13 @@ export default function SalesChannels() {
                       onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
                       className="sr-only peer"
                     />
-                    <div className="w-8 h-4 dark:bg-[#2D3748] bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                    <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
                     <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                   </label>
                 </div>
               )}
               {formError && (
-                <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
+                <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
               )}
               <button
                 type="submit"
@@ -639,19 +639,19 @@ export default function SalesChannels() {
       {deletingChannel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={() => setDeletingChannel(null)} />
-          <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
-            <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-3">Delete sales channel</h3>
-            <p className="text-xs dark:text-gray-300 text-gray-700 mb-4">
+          <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
+            <h3 className="text-sm font-semibold text-ink mb-3">Delete sales channel</h3>
+            <p className="text-xs text-ink-2 mb-4">
               Delete <strong>{deletingChannel.name}</strong>? Products already synced to it stay listed there — this only removes
               the enrollment rule.
             </p>
             {deleteError && (
-              <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{deleteError}</p>
+              <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{deleteError}</p>
             )}
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setDeletingChannel(null)}
-                className="py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 transition-colors"
+                className="py-2 rounded-lg bg-fill text-xs font-medium text-ink-2 transition-colors"
               >
                 Cancel
               </button>
@@ -670,56 +670,56 @@ export default function SalesChannels() {
       {apiDocsChannel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={route.close} />
-          <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+          <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">{apiDocsChannel.name} — headless API</h3>
+              <h3 className="text-sm font-semibold text-ink">{apiDocsChannel.name} — headless API</h3>
               <button onClick={route.close} aria-label="Close">
-                <X size={14} className="dark:text-gray-500 text-gray-400" />
+                <X size={14} className="text-ink-4" />
               </button>
             </div>
-            <p className="text-[10px] dark:text-gray-500 text-gray-400 mb-3">
+            <p className="text-[10px] text-ink-4 mb-3">
               No storefront app is attached to this channel -- it's a plain REST API any frontend can call directly.
             </p>
-            <div className="shrink-0 mb-3 p-2.5 rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 space-y-1.5">
-              <p className="text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider">Base URL</p>
-              <code className="block text-xs dark:text-gray-200 text-gray-800 break-all">{apiBaseURL()}</code>
-              <p className="text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider pt-1">Auth (every request)</p>
+            <div className="shrink-0 mb-3 p-2.5 rounded-lg bg-sunken border border-line space-y-1.5">
+              <p className="text-[10px] text-ink-4 uppercase tracking-wider">Base URL</p>
+              <code className="block text-xs text-ink break-all">{apiBaseURL()}</code>
+              <p className="text-[10px] text-ink-4 uppercase tracking-wider pt-1">Auth (every request)</p>
               <div className="flex items-center gap-1.5">
-                <code className="flex-1 text-xs dark:text-gray-200 text-gray-800 break-all">Authorization: Bearer {apiDocsChannel.id}</code>
+                <code className="flex-1 text-xs text-ink break-all">Authorization: Bearer {apiDocsChannel.id}</code>
                 <button
                   onClick={() => copyAuthHeader(apiDocsChannel.id)}
-                  className="shrink-0 text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
+                  className="shrink-0 text-[10px] text-accent hover:text-accent transition-colors"
                 >
                   {copiedAuthHeader ? 'Copied' : 'Copy'}
                 </button>
               </div>
-              <p className="text-[10px] dark:text-gray-500 text-gray-400">
+              <p className="text-[10px] text-ink-4">
                 Public/anonymous-shopper privilege only -- this channel's own id doubles as its bearer key, same trust
                 model as a Stripe publishable key.
               </p>
             </div>
             <div className="flex-1 overflow-y-auto -mx-5 px-5">
               {HEADLESS_API_ENDPOINTS.map(ep => (
-                <div key={`${ep.method} ${ep.path}`} className="flex items-start gap-2 py-1.5 border-b dark:border-[#2D3748] border-gray-100 last:border-0">
+                <div key={`${ep.method} ${ep.path}`} className="flex items-start gap-2 py-1.5 border-b border-line last:border-0">
                   <span
                     className={clsx(
                       'shrink-0 w-14 text-center text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5',
-                      ep.method === 'GET' && 'bg-blue-500/10 text-blue-500',
-                      ep.method === 'POST' && 'bg-green-500/10 text-green-500',
-                      ep.method === 'PUT' && 'bg-amber-500/10 text-amber-500',
-                      ep.method === 'DELETE' && 'bg-red-500/10 text-red-500',
+                      ep.method === 'GET' && 'bg-blue-500/10 text-accent',
+                      ep.method === 'POST' && 'bg-green-500/10 text-success',
+                      ep.method === 'PUT' && 'bg-amber-500/10 text-warning',
+                      ep.method === 'DELETE' && 'bg-red-500/10 text-danger',
                     )}
                   >
                     {ep.method}
                   </span>
                   <div className="min-w-0">
-                    <code className="text-[11px] dark:text-gray-300 text-gray-700 break-all">{ep.path}</code>
-                    <p className="text-[10px] dark:text-gray-500 text-gray-400">{ep.summary}</p>
+                    <code className="text-[11px] text-ink-2 break-all">{ep.path}</code>
+                    <p className="text-[10px] text-ink-4">{ep.summary}</p>
                   </div>
                 </div>
               ))}
             </div>
-            <p className="shrink-0 pt-3 text-[10px] dark:text-gray-500 text-gray-400">
+            <p className="shrink-0 pt-3 text-[10px] text-ink-4">
               Full request/response contracts: backend/api/storefront/openapi.yaml.
             </p>
           </div>
@@ -775,10 +775,10 @@ function PricingSection({ channel, update }: PricingSectionProps) {
   }
 
   return (
-    <div className="mx-5 mt-4 p-4 rounded-xl border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white shrink-0">
-      <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900 mb-3">Pricing</h3>
+    <div className="mx-5 mt-4 p-4 rounded-xl border border-line bg-raised shrink-0">
+      <h3 className="text-xs font-semibold text-ink mb-3">Pricing</h3>
       <div>
-        <label htmlFor="pricing-discount" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+        <label htmlFor="pricing-discount" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
           Discount off list price (%)
         </label>
         <input
@@ -787,25 +787,25 @@ function PricingSection({ channel, update }: PricingSectionProps) {
           value={percent}
           onChange={e => { setPercent(e.target.value); setDirty(true) }}
           placeholder="0"
-          className="w-full max-w-xs px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full max-w-xs px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
         />
-        <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+        <p className="mt-1.5 text-[10px] text-ink-4">
           Applied to every product's price on this storefront -- e.g. 20 for a wholesale channel selling at 20% off retail.
         </p>
       </div>
       <div className="mt-4">
         <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider">Quantity tiers</label>
+          <label className="block text-[10px] text-ink-4 uppercase tracking-wider">Quantity tiers</label>
           <button
             type="button"
             onClick={() => { setQuantityBreaks(b => [...b, { minQuantity: '', discountPercent: '' }]); setDirty(true) }}
-            className="text-[10px] text-blue-500 hover:text-blue-400"
+            className="text-[10px] text-accent hover:text-accent"
           >
             + Add tier
           </button>
         </div>
         {quantityBreaks.length === 0 && (
-          <p className="text-[10px] dark:text-gray-500 text-gray-400">No quantity tiers -- every order uses the flat discount above.</p>
+          <p className="text-[10px] text-ink-4">No quantity tiers -- every order uses the flat discount above.</p>
         )}
         <div className="space-y-2">
           {quantityBreaks.map((row, i) => (
@@ -819,9 +819,9 @@ function PricingSection({ channel, update }: PricingSectionProps) {
                   setDirty(true)
                 }}
                 placeholder="Qty"
-                className="w-20 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-20 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
               />
-              <span className="text-[10px] dark:text-gray-500 text-gray-400">units or more →</span>
+              <span className="text-[10px] text-ink-4">units or more →</span>
               <input
                 type="number" step={0.01}
                 aria-label={`Quantity tier ${i + 1} discount percent`}
@@ -831,25 +831,25 @@ function PricingSection({ channel, update }: PricingSectionProps) {
                   setDirty(true)
                 }}
                 placeholder="0"
-                className="w-20 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-20 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
               />
-              <span className="text-[10px] dark:text-gray-500 text-gray-400">% off</span>
+              <span className="text-[10px] text-ink-4">% off</span>
               <button
                 type="button"
                 onClick={() => { setQuantityBreaks(qb => qb.filter((_, ri) => ri !== i)); setDirty(true) }}
                 aria-label={`Remove quantity tier ${i + 1}`}
-                className="ml-auto text-gray-400 hover:text-red-400"
+                className="ml-auto text-ink-4 hover:text-danger"
               >
                 <X size={12} />
               </button>
             </div>
           ))}
         </div>
-        <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+        <p className="mt-1.5 text-[10px] text-ink-4">
           Buy this many or more of one SKU in a single cart line and get this bigger discount instead of the flat rate above.
         </p>
       </div>
-      {error && <p className="mt-3 text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error}</p>}
+      {error && <p className="mt-3 text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error}</p>}
       <button
         onClick={handleSave}
         disabled={saving || !dirty}
@@ -910,26 +910,26 @@ function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelP
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Sales channels
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">{channel.name}</h1>
+          <h1 className="text-xl font-semibold text-ink leading-tight">{channel.name}</h1>
         </div>
-        <span className="text-[10px] px-2.5 py-1 rounded-full dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-400 text-gray-500">
+        <span className="text-[10px] px-2.5 py-1 rounded-full bg-raised border border-line text-ink-3">
           {ENROLLMENT_LABELS[channel.enrollment_mode]}
         </span>
       </div>
 
-      <div className="p-5 border-b dark:border-[#2D3748] border-gray-200 flex flex-wrap items-center gap-2 shrink-0">
+      <div className="p-5 border-b border-line flex flex-wrap items-center gap-2 shrink-0">
         <button
           onClick={() => applyRule('all', null, null)}
           disabled={bulkSaving}
-          className="px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          className="px-3 py-1.5 rounded-lg bg-raised border border-line text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
         >
           Add all
         </button>
@@ -938,7 +938,7 @@ function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelP
             aria-label="Bulk add by category"
             value={bulkCategoryId}
             onChange={e => setBulkCategoryId(e.target.value)}
-            className="px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+            className="px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none"
           >
             <option value="">By category…</option>
             {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
@@ -946,7 +946,7 @@ function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelP
           <button
             onClick={() => bulkCategoryId && applyRule('category', bulkCategoryId, null)}
             disabled={bulkSaving || !bulkCategoryId}
-            className="px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-raised border border-line text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
           >
             Apply
           </button>
@@ -958,12 +958,12 @@ function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelP
             value={bulkTag}
             onChange={e => setBulkTag(e.target.value)}
             placeholder="By tag…"
-            className="w-28 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+            className="w-28 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none"
           />
           <button
             onClick={() => bulkTag && applyRule('tag', null, bulkTag)}
             disabled={bulkSaving || !bulkTag}
-            className="px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-raised border border-line text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
           >
             Apply
           </button>
@@ -971,12 +971,12 @@ function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelP
         <button
           onClick={() => applyRule('manual', null, null)}
           disabled={bulkSaving}
-          className="px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          className="px-3 py-1.5 rounded-lg bg-raised border border-line text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
         >
           Manual only
         </button>
       </div>
-      {bulkError && <p className="px-5 pt-2 text-xs text-red-400 shrink-0">{bulkError}</p>}
+      {bulkError && <p className="px-5 pt-2 text-xs text-danger shrink-0">{bulkError}</p>}
 
       {channel.type === INTERNAL_TYPE && (
         <PricingSection channel={channel} update={update} />
@@ -984,30 +984,30 @@ function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelP
 
       <div className="px-5 pt-4 shrink-0">
         <div className="relative max-w-xs">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-4" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search products…"
-            className="w-full pl-8 pr-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
       </div>
 
-      {error && <p className="px-5 pt-3 text-xs text-red-400 shrink-0">{error}</p>}
+      {error && <p className="px-5 pt-3 text-xs text-danger shrink-0">{error}</p>}
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {!loading && items.length === 0 ? (
-          <p className="text-xs dark:text-gray-500 text-gray-400 text-center py-8">No products found.</p>
+          <p className="text-xs text-ink-4 text-center py-8">No products found.</p>
         ) : (
-          <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 divide-y dark:divide-[#2D3748] divide-gray-200">
+          <div className="bg-raised rounded-xl border border-line divide-y divide-line">
             {items.map(({ product, enrolled }) => (
               <div key={product.id} className="flex items-center justify-between px-4 py-2.5">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium dark:text-gray-200 text-gray-800 truncate">{product.name}</p>
+                  <p className="text-xs font-medium text-ink truncate">{product.name}</p>
                   {(product.tags ?? []).length > 0 && (
-                    <p className="text-[10px] dark:text-gray-500 text-gray-400 truncate">{(product.tags ?? []).join(', ')}</p>
+                    <p className="text-[10px] text-ink-4 truncate">{(product.tags ?? []).join(', ')}</p>
                   )}
                 </div>
                 <button
@@ -1015,8 +1015,8 @@ function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelP
                   className={clsx(
                     'px-3 py-1 rounded-lg text-[10px] font-medium transition-colors shrink-0',
                     enrolled
-                      ? 'bg-green-500/10 text-green-400 hover:bg-red-500/10 hover:text-red-400'
-                      : 'dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:text-blue-400',
+                      ? 'bg-green-500/10 text-success hover:bg-red-500/10 hover:text-danger'
+                      : 'bg-fill text-ink-3 hover:text-accent',
                   )}
                 >
                   {enrolled ? 'Enrolled — remove' : 'Add'}

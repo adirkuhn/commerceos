@@ -173,12 +173,12 @@ export default function CommandPalette() {
         className="absolute inset-0 dark:bg-black/60 bg-black/30 backdrop-blur-sm"
         onClick={() => setCommandOpen(false)}
       />
-      <div className="relative w-full max-w-lg dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+      <div className="relative w-full max-w-lg bg-raised rounded-xl shadow-2xl border border-line overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-line">
           {searching ? (
-            <Loader2 size={16} className="dark:text-gray-400 text-gray-400 shrink-0 animate-spin" />
+            <Loader2 size={16} className="text-ink-4 shrink-0 animate-spin" />
           ) : (
-            <Search size={16} className="dark:text-gray-400 text-gray-400 shrink-0" />
+            <Search size={16} className="text-ink-4 shrink-0" />
           )}
           <input
             ref={inputRef}
@@ -187,22 +187,22 @@ export default function CommandPalette() {
             onChange={e => { setQuery(e.target.value); setActiveIndex(0) }}
             onKeyDown={handleKeyDown}
             placeholder="Search everything..."
-            className="flex-1 bg-transparent text-sm dark:text-gray-100 text-gray-900 dark:placeholder-gray-500 placeholder-gray-400 outline-none"
+            className="flex-1 bg-transparent text-sm text-ink placeholder-ink-4 outline-none"
           />
-          <kbd className="text-[10px] dark:bg-[#111827] bg-gray-100 dark:text-gray-500 text-gray-400 px-1.5 py-1 rounded font-mono">ESC</kbd>
+          <kbd className="text-[10px] bg-fill text-ink-4 px-1.5 py-1 rounded font-mono">ESC</kbd>
         </div>
         <div className="py-2 max-h-96 overflow-y-auto">
           {searchError && (
-            <p className="px-4 py-2 text-xs text-red-400">{searchError}</p>
+            <p className="px-4 py-2 text-xs text-danger">{searchError}</p>
           )}
           {flatEntries.length === 0 && !searching && (
-            <p className="px-4 py-4 text-sm dark:text-gray-500 text-gray-400 text-center">
+            <p className="px-4 py-4 text-sm text-ink-4 text-center">
               {hasBackendSearch ? 'No results' : 'No matching commands'}
             </p>
           )}
           {sections.map(section => (
             <div key={section.title}>
-              <p className="px-4 py-1.5 text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">
+              <p className="px-4 py-1.5 text-[10px] font-medium text-ink-4 uppercase tracking-wider">
                 {section.title}
               </p>
               {section.entries.map(entry => {
@@ -215,18 +215,18 @@ export default function CommandPalette() {
                     onClick={entry.onSelect}
                     onMouseEnter={() => setActiveIndex(renderedIndex)}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${
-                      isActive ? 'dark:bg-[#2D3748] bg-gray-50' : 'hover:dark:bg-[#2D3748] hover:bg-gray-50'
+                      isActive ? 'bg-hover' : 'hover:bg-hover'
                     }`}
                   >
-                    <Icon size={15} className="dark:text-gray-400 text-gray-500 shrink-0" />
+                    <Icon size={15} className="text-ink-3 shrink-0" />
                     <span className="flex-1 min-w-0 text-left">
-                      <span className="block text-sm dark:text-gray-200 text-gray-700 truncate">{entry.label}</span>
+                      <span className="block text-sm text-ink-2 truncate">{entry.label}</span>
                       {entry.sublabel && (
-                        <span className="block text-[11px] dark:text-gray-500 text-gray-400 truncate">{entry.sublabel}</span>
+                        <span className="block text-[11px] text-ink-4 truncate">{entry.sublabel}</span>
                       )}
                     </span>
                     {entry.shortcut && (
-                      <span className="text-[10px] dark:text-gray-600 text-gray-400 font-mono shrink-0">{entry.shortcut}</span>
+                      <span className="text-[10px] text-ink-4 font-mono shrink-0">{entry.shortcut}</span>
                     )}
                   </button>
                 )

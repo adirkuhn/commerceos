@@ -55,35 +55,35 @@ export default function WhatsAppConversationsPanel() {
 
   return (
     <div className="flex h-full overflow-hidden">
-      <div className="w-72 shrink-0 border-r dark:border-[#2D3748] border-gray-200 flex flex-col overflow-hidden">
-        <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200 shrink-0">
-          <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Conversations</h2>
+      <div className="w-72 shrink-0 border-r border-line flex flex-col overflow-hidden">
+        <div className="px-4 py-3 border-b border-line shrink-0">
+          <h2 className="text-sm font-semibold text-ink">Conversations</h2>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {error && <p className="text-xs text-red-400 p-3">{error}</p>}
+          {error && <p className="text-xs text-danger p-3">{error}</p>}
           {loading && conversations.length === 0 ? (
-            <p className="text-xs dark:text-gray-500 text-gray-400 p-3">Loading…</p>
+            <p className="text-xs text-ink-4 p-3">Loading…</p>
           ) : conversations.length === 0 ? (
-            <p className="text-xs dark:text-gray-500 text-gray-400 p-3">No WhatsApp conversations yet.</p>
+            <p className="text-xs text-ink-4 p-3">No WhatsApp conversations yet.</p>
           ) : (
             conversations.map(conv => (
               <button
                 key={conv.phone_e164}
                 onClick={() => setSelectedPhone(conv.phone_e164)}
                 className={clsx(
-                  'w-full text-left px-4 py-2.5 border-b dark:border-[#2D3748] border-gray-100 transition-colors',
+                  'w-full text-left px-4 py-2.5 border-b border-line transition-colors',
                   conv.phone_e164 === selectedPhone
-                    ? 'dark:bg-[#1F2937] bg-gray-100'
-                    : 'hover:dark:bg-[#1F2937]/60 hover:bg-gray-50',
+                    ? 'dark:bg-night-800 bg-gray-100'
+                    : 'hover:bg-hover/60',
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium dark:text-gray-100 text-gray-900 truncate">{conversationLabel(conv)}</span>
-                  <span className="text-[10px] dark:text-gray-500 text-gray-400 shrink-0">
+                  <span className="text-xs font-medium text-ink truncate">{conversationLabel(conv)}</span>
+                  <span className="text-[10px] text-ink-4 shrink-0">
                     {new Date(conv.last_message_at).toLocaleDateString()}
                   </span>
                 </div>
-                <p className="text-[11px] dark:text-gray-500 text-gray-400 truncate mt-0.5">
+                <p className="text-[11px] text-ink-4 truncate mt-0.5">
                   {`${conv.last_direction === 'outbound' ? '↩ ' : ''}${conv.last_body}`}
                 </p>
               </button>
@@ -95,15 +95,15 @@ export default function WhatsAppConversationsPanel() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {!selected ? (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-xs dark:text-gray-500 text-gray-400">Select a conversation</p>
+            <p className="text-xs text-ink-4">Select a conversation</p>
           </div>
         ) : (
           <>
-            <div className="px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 shrink-0 flex items-center justify-between gap-3">
+            <div className="px-5 py-3 border-b border-line shrink-0 flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{conversationLabel(selected)}</p>
+                <p className="text-sm font-semibold text-ink">{conversationLabel(selected)}</p>
                 {selected.customer_name && (
-                  <p className="text-[11px] dark:text-gray-500 text-gray-400">{selected.phone_e164}</p>
+                  <p className="text-[11px] text-ink-4">{selected.phone_e164}</p>
                 )}
               </div>
               <button
@@ -111,15 +111,15 @@ export default function WhatsAppConversationsPanel() {
                 disabled={deleting}
                 title="Delete chat"
                 aria-label="Delete chat"
-                className="shrink-0 w-7 h-7 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                className="shrink-0 w-7 h-7 flex items-center justify-center rounded hover:bg-hover disabled:opacity-50 transition-colors"
               >
-                <Trash2 size={14} className="dark:text-gray-500 text-gray-400 hover:text-red-400" />
+                <Trash2 size={14} className="text-ink-4 hover:text-danger" />
               </button>
             </div>
-            {deleteError && <p className="text-xs text-red-400 px-5 pt-2">{deleteError}</p>}
+            {deleteError && <p className="text-xs text-danger px-5 pt-2">{deleteError}</p>}
             <div className="flex-1 overflow-y-auto p-5 space-y-2">
               {loadingMessages && messages.length === 0 ? (
-                <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+                <p className="text-xs text-ink-4">Loading…</p>
               ) : (
                 [...messages].reverse().map(m => (
                   <div key={m.id} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
@@ -127,11 +127,11 @@ export default function WhatsAppConversationsPanel() {
                       className={
                         m.direction === 'outbound'
                           ? 'max-w-[70%] rounded-lg px-3 py-2 bg-blue-600 text-white'
-                          : 'max-w-[70%] rounded-lg px-3 py-2 dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-800'
+                          : 'max-w-[70%] rounded-lg px-3 py-2 dark:bg-night-800 bg-gray-100 text-ink'
                       }
                     >
                       <p className="text-xs whitespace-pre-wrap">{m.body}</p>
-                      <p className={`text-[10px] mt-0.5 ${m.direction === 'outbound' ? 'text-blue-100' : 'dark:text-gray-500 text-gray-400'}`}>
+                      <p className={`text-[10px] mt-0.5 ${m.direction === 'outbound' ? 'text-blue-100' : 'text-ink-4'}`}>
                         {new Date(m.created_at).toLocaleString()}
                       </p>
                     </div>

@@ -40,17 +40,17 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+      <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">WhatsApp credentials</h3>
+          <h3 className="text-sm font-semibold text-ink">WhatsApp credentials</h3>
           <button onClick={onClose} aria-label="Close">
-            <X size={14} className="dark:text-gray-500 text-gray-400" />
+            <X size={14} className="text-ink-4" />
           </button>
         </div>
 
         <div className="space-y-3 mb-4">
           <div>
-            <label htmlFor="wa-base-url" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+            <label htmlFor="wa-base-url" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
               Base URL
             </label>
             <input
@@ -60,12 +60,12 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
               value={baseUrl}
               onChange={e => setBaseUrl(e.target.value)}
               placeholder="https://evolution.example.com"
-              className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label htmlFor="wa-instance-name" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+            <label htmlFor="wa-instance-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
               Instance name
             </label>
             <input
@@ -74,12 +74,12 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
               required
               value={instanceName}
               onChange={e => setInstanceName(e.target.value)}
-              className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label htmlFor="wa-api-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+            <label htmlFor="wa-api-key" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
               API key
             </label>
             <input
@@ -89,15 +89,15 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
               value={apiKey}
               onChange={e => setApiKey(e.target.value)}
               placeholder="Leave blank to keep the current key"
-              className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
             />
-            <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+            <p className="mt-1.5 text-[10px] text-ink-4">
               Never shown once saved -- leave blank unless you're rotating it.
             </p>
           </div>
         </div>
 
-        {error && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{error}</p>}
+        {error && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{error}</p>}
 
         <button
           onClick={handleSave}

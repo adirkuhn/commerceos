@@ -43,8 +43,8 @@ function fmt(n: number): string {
   return n.toFixed(2)
 }
 
-const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900 outline-none focus:ring-1 focus:ring-blue-500'
-const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
+const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500'
+const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
 
 function defaultBolProductContent(): UpsertBolProductContentPayload {
   return {
@@ -72,7 +72,7 @@ function ContentTextField({ id, label, value, onChange, multiline, hint }: {
       ) : (
         <input id={id} type="text" value={value} onChange={e => onChange(e.target.value)} className={inputClass} />
       )}
-      {hint && <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-[10px] text-ink-4 mt-1">{hint}</p>}
     </div>
   )
 }
@@ -90,7 +90,7 @@ function ContentSelectField({ id, label, value, onChange, options, hint }: {
         <option value="">-- not set --</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
-      {hint && <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-[10px] text-ink-4 mt-1">{hint}</p>}
     </div>
   )
 }
@@ -114,7 +114,7 @@ function ContentCheckField({ id, label, checked, onChange }: {
   id: string; label: string; checked: boolean | null | undefined; onChange: (v: boolean) => void
 }) {
   return (
-    <label htmlFor={id} className="flex items-center gap-1.5 text-[11px] dark:text-gray-300 text-gray-700">
+    <label htmlFor={id} className="flex items-center gap-1.5 text-[11px] text-ink-2">
       <input id={id} type="checkbox" checked={checked ?? false} onChange={e => onChange(e.target.checked)} />
       {label}
     </label>
@@ -333,21 +333,21 @@ export function ProductBolTab({
   })
 
   return (
-    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-4">
+    <div className="rounded-xl border border-line p-4 space-y-4">
       <div className="flex items-center gap-2">
-        <Package size={13} className="dark:text-gray-400 text-gray-500" />
-        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Bol.com</h3>
+        <Package size={13} className="text-ink-3" />
+        <h3 className="text-xs font-semibold text-ink">Bol.com</h3>
       </div>
 
       {notForSaleNote && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
-          <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">Not for sale on Bol</p>
-          <p className="text-[11px] dark:text-amber-300/90 text-amber-700 mt-0.5">{notForSaleNote}</p>
+          <p className="text-[11px] font-medium text-warning">Not for sale on Bol</p>
+          <p className="text-[11px] dark:text-amber-300/90 text-warning mt-0.5">{notForSaleNote}</p>
         </div>
       )}
 
-      {loading && <p className="text-[11px] dark:text-gray-500 text-gray-400">Loading…</p>}
-      {!loading && loadError && <p className="text-[11px] dark:text-red-400 text-red-600">{loadError}</p>}
+      {loading && <p className="text-[11px] text-ink-4">Loading…</p>}
+      {!loading && loadError && <p className="text-[11px] text-danger">{loadError}</p>}
 
       {!loading && !loadError && (
         <>
@@ -368,17 +368,17 @@ export function ProductBolTab({
                   </button>
                 )}
               </div>
-              <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+              <p className="text-[10px] text-ink-4 mt-1">
                 Required by Bol -- pushed as this offer's EAN unless overridden below.
               </p>
-              {barcodeError && <p className="text-[10px] text-red-400 mt-1">{barcodeError}</p>}
+              {barcodeError && <p className="text-[10px] text-danger mt-1">{barcodeError}</p>}
             </div>
           )}
           <div>
             <label htmlFor="bol-name-override" className={labelClass}>Product title override</label>
             <input id="bol-name-override" value={nameOverride} onChange={e => setNameOverride(e.target.value)}
               placeholder={productName} className={inputClass} />
-            <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+            <p className="text-[10px] text-ink-4 mt-1">
               Bol-only -- overrides the title synced to Bol without changing the product's real name. Every other channel keeps syncing the actual name.
             </p>
           </div>
@@ -391,7 +391,7 @@ export function ProductBolTab({
             <div>
               <label htmlFor="bol-gpc-code" className={labelClass}>GPC Code</label>
               <input id="bol-gpc-code" value={gpcCode} onChange={e => setGpcCode(e.target.value)} className={inputClass} />
-              <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">Only required if this EAN doesn't already exist in Bol's catalog.</p>
+              <p className="text-[10px] text-ink-4 mt-1">Only required if this EAN doesn't already exist in Bol's catalog.</p>
             </div>
             <div>
               <label htmlFor="bol-condition" className={labelClass}>Condition</label>
@@ -413,11 +413,11 @@ export function ProductBolTab({
               <label htmlFor="bol-custom-price" className={labelClass}>Custom price (optional)</label>
               <input id="bol-custom-price" value={customPrice} onChange={e => setCustomPrice(e.target.value)}
                 placeholder={fmt(defaultPrice)} className={inputClass} />
-              <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">Leave empty to use the product's default price ({fmt(defaultPrice)}).</p>
+              <p className="text-[10px] text-ink-4 mt-1">Leave empty to use the product's default price ({fmt(defaultPrice)}).</p>
             </div>
           </div>
 
-          {saveError && <p className="text-[11px] text-red-400">{saveError}</p>}
+          {saveError && <p className="text-[11px] text-danger">{saveError}</p>}
           <div className="flex items-center gap-2">
             <button type="button" onClick={handleSave} disabled={saving}
               className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
@@ -425,25 +425,25 @@ export function ProductBolTab({
             </button>
           </div>
 
-          <div className="pt-3 border-t dark:border-[#2D3748] border-gray-200 space-y-3">
+          <div className="pt-3 border-t border-line space-y-3">
             <button
               type="button" onClick={() => setContentExpanded(v => !v)}
               className="flex items-center justify-between w-full text-left"
             >
-              <h4 className="text-xs font-semibold dark:text-gray-100 text-gray-900">
-                Product content <span className="font-normal dark:text-gray-500 text-gray-400">(Bol's product-content requirements -- category, e.g. GPC Code, is set above)</span>
+              <h4 className="text-xs font-semibold text-ink">
+                Product content <span className="font-normal text-ink-4">(Bol's product-content requirements -- category, e.g. GPC Code, is set above)</span>
               </h4>
-              <span className="text-[10px] dark:text-gray-500 text-gray-400">{contentExpanded ? 'Hide' : 'Show'}</span>
+              <span className="text-[10px] text-ink-4">{contentExpanded ? 'Hide' : 'Show'}</span>
             </button>
 
             {contentExpanded && (
               <>
-                {contentLoading && <p className="text-[11px] dark:text-gray-500 text-gray-400">Loading…</p>}
-                {!contentLoading && contentLoadError && <p className="text-[11px] text-red-400">{contentLoadError}</p>}
+                {contentLoading && <p className="text-[11px] text-ink-4">Loading…</p>}
+                {!contentLoading && contentLoadError && <p className="text-[11px] text-danger">{contentLoadError}</p>}
                 {!contentLoading && !contentLoadError && (
                   <div className="space-y-4">
                     <div>
-                      <h5 className="text-[11px] font-semibold dark:text-gray-300 text-gray-600 mb-2 uppercase tracking-wider">Basic information</h5>
+                      <h5 className="text-[11px] font-semibold text-ink-2 mb-2 uppercase tracking-wider">Basic information</h5>
                       <div className="grid grid-cols-2 gap-3">
                         <ContentTextField id="bol-content-manufacturer-name" label="Manufacturer name" value={content.manufacturer_name ?? ''} onChange={v => setContentField('manufacturer_name', v)} />
                         <ContentTextField id="bol-content-manufacturer-address" label="Manufacturer address" value={content.manufacturer_address ?? ''} onChange={v => setContentField('manufacturer_address', v)} />
@@ -465,7 +465,7 @@ export function ProductBolTab({
                     </div>
 
                     <div>
-                      <h5 className="text-[11px] font-semibold dark:text-gray-300 text-gray-600 mb-2 uppercase tracking-wider">Optional</h5>
+                      <h5 className="text-[11px] font-semibold text-ink-2 mb-2 uppercase tracking-wider">Optional</h5>
                       <div className="grid grid-cols-2 gap-3">
                         <ContentTextField id="bol-content-brand" label="Brand" value={content.brand ?? ''} onChange={v => setContentField('brand', v)} />
                         <ContentNumberField id="bol-content-items-per-package" label="Items per package" value={content.items_per_package} onChange={v => setContentField('items_per_package', v)} />
@@ -498,13 +498,13 @@ export function ProductBolTab({
                       </div>
                     </div>
 
-                    {contentSaveError && <p className="text-[11px] text-red-400">{contentSaveError}</p>}
+                    {contentSaveError && <p className="text-[11px] text-danger">{contentSaveError}</p>}
                     <div className="flex items-center gap-2">
                       <button type="button" onClick={handleSaveContent} disabled={contentSaving}
                         className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
                         {contentSaving ? 'Saving…' : 'Save product content'}
                       </button>
-                      {contentSaved && <span className="text-[10px] text-green-500">Saved</span>}
+                      {contentSaved && <span className="text-[10px] text-success">Saved</span>}
                     </div>
                   </div>
                 )}
@@ -512,15 +512,15 @@ export function ProductBolTab({
             )}
           </div>
 
-          <div className="pt-3 border-t dark:border-[#2D3748] border-gray-200 space-y-3">
-            <h4 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Profit calculator</h4>
-            {commissionError && <p className="text-[11px] dark:text-red-400 text-red-600">{commissionError}</p>}
+          <div className="pt-3 border-t border-line space-y-3">
+            <h4 className="text-xs font-semibold text-ink">Profit calculator</h4>
+            {commissionError && <p className="text-[11px] text-danger">{commissionError}</p>}
 
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className={labelClass}>Sell price</label>
                 <input disabled readOnly value={fmt(sellPrice)} className={`${inputClass} cursor-not-allowed opacity-70`} />
-                {customPrice.trim() !== '' && <p className="text-[10px] text-blue-400 mt-1">Custom price</p>}
+                {customPrice.trim() !== '' && <p className="text-[10px] text-accent mt-1">Custom price</p>}
               </div>
               <div>
                 <label className={labelClass}>Cost price</label>
@@ -538,7 +538,7 @@ export function ProductBolTab({
                   onChange={e => { setCommissionPercentInput(e.target.value); setCommissionOverridden(true) }}
                   className={inputClass} />
                 {commissionOverridden && (
-                  <button type="button" className="text-[10px] text-blue-400 mt-1"
+                  <button type="button" className="text-[10px] text-accent mt-1"
                     onClick={() => { setCommissionOverridden(false); if (commission) setCommissionPercentInput(fmt(commission.percentage)) }}>
                     Use live value
                   </button>
@@ -554,16 +554,16 @@ export function ProductBolTab({
               </div>
             </div>
 
-            <div className="rounded-lg dark:bg-[#111827] bg-gray-50 p-3 space-y-1 text-[11px]">
-              <div className="flex justify-between dark:text-gray-400 text-gray-500"><span>Sell price</span><span>{fmt(sellPrice)}</span></div>
-              <div className="flex justify-between dark:text-gray-400 text-gray-500"><span>− Cost price</span><span>{fmt(costPrice)}</span></div>
-              <div className="flex justify-between dark:text-gray-400 text-gray-500"><span>− Tax</span><span>{fmt(result.taxAmount)}</span></div>
-              <div className="flex justify-between dark:text-gray-400 text-gray-500"><span>− Bol commission</span><span>{fmt(result.commissionAmount)}</span></div>
-              <div className="flex justify-between dark:text-gray-400 text-gray-500"><span>− Shipping</span><span>{fmt(parsedShipping)}</span></div>
-              <div className="flex justify-between font-semibold dark:text-gray-100 text-gray-900 pt-1 border-t dark:border-[#2D3748] border-gray-200">
+            <div className="rounded-lg bg-sunken p-3 space-y-1 text-[11px]">
+              <div className="flex justify-between text-ink-3"><span>Sell price</span><span>{fmt(sellPrice)}</span></div>
+              <div className="flex justify-between text-ink-3"><span>− Cost price</span><span>{fmt(costPrice)}</span></div>
+              <div className="flex justify-between text-ink-3"><span>− Tax</span><span>{fmt(result.taxAmount)}</span></div>
+              <div className="flex justify-between text-ink-3"><span>− Bol commission</span><span>{fmt(result.commissionAmount)}</span></div>
+              <div className="flex justify-between text-ink-3"><span>− Shipping</span><span>{fmt(parsedShipping)}</span></div>
+              <div className="flex justify-between font-semibold text-ink pt-1 border-t border-line">
                 <span>Profit</span><span>{fmt(result.profit)}</span>
               </div>
-              <div className="flex justify-between dark:text-gray-400 text-gray-500">
+              <div className="flex justify-between text-ink-3">
                 <span>Margin</span><span>{fmt(result.marginPercent)}%</span>
               </div>
             </div>

@@ -9,9 +9,9 @@ function formatDate(d: string | null): string {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === 'success') return <span className="text-green-500">success</span>
-  if (status === 'error') return <span className="text-red-400">error</span>
-  return <span className="dark:text-gray-500 text-gray-400">never run</span>
+  if (status === 'success') return <span className="text-success">success</span>
+  if (status === 'error') return <span className="text-danger">error</span>
+  return <span className="text-ink-4">never run</span>
 }
 
 // ScheduledJobs is the super_admin "Scheduled Jobs" admin page -- global
@@ -111,7 +111,7 @@ export default function ScheduledJobs() {
 
   if (!isSuperAdmin) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-2 dark:text-gray-500 text-gray-400">
+      <div className="flex flex-col items-center justify-center h-full gap-2 text-ink-4">
         <ShieldAlert size={24} />
         <p className="text-sm">Super admin access required.</p>
       </div>
@@ -120,23 +120,23 @@ export default function ScheduledJobs() {
 
   return (
     <div className="flex flex-col h-full overflow-auto">
-      <div className="flex items-center gap-2 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
-        <Clock size={14} className="text-blue-400" />
-        <h1 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Scheduled Jobs</h1>
+      <div className="flex items-center gap-2 px-5 py-3 border-b border-line bg-sunken shrink-0">
+        <Clock size={14} className="text-accent" />
+        <h1 className="text-sm font-semibold text-ink">Scheduled Jobs</h1>
       </div>
 
-      {error && <div className="px-5 py-2 text-xs text-red-400">{error}</div>}
-      {loading && <div className="px-5 py-6 text-xs text-center dark:text-gray-500 text-gray-400">Loading…</div>}
+      {error && <div className="px-5 py-2 text-xs text-danger">{error}</div>}
+      {loading && <div className="px-5 py-6 text-xs text-center text-ink-4">Loading…</div>}
 
       {!loading && (
         <div className="p-5 flex flex-col gap-8">
           <section>
-            <h2 className="text-xs font-semibold uppercase tracking-wider dark:text-gray-400 text-gray-500 mb-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-3 mb-2">
               Global jobs ({jobs.length})
             </h2>
             <table className="w-full text-xs">
               <thead>
-                <tr className="dark:text-gray-500 text-gray-400 text-left">
+                <tr className="text-ink-4 text-left">
                   <th className="font-medium pb-2">Job</th>
                   <th className="font-medium pb-2">Enabled</th>
                   <th className="font-medium pb-2">Interval (min)</th>
@@ -146,13 +146,13 @@ export default function ScheduledJobs() {
                   <th className="pb-2" />
                 </tr>
               </thead>
-              <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+              <tbody className="divide-y divide-line/60">
                 {jobs.map(j => {
                   const edit = edits[j.job_key] ?? { enabled: j.enabled, interval_minutes: String(j.interval_minutes) }
                   const dirty = isDirty(j)
                   return (
                     <tr key={j.job_key}>
-                      <td className="py-2 dark:text-gray-100 text-gray-900">{j.job_key}</td>
+                      <td className="py-2 text-ink">{j.job_key}</td>
                       <td className="py-2">
                         <input
                           type="checkbox"
@@ -168,18 +168,18 @@ export default function ScheduledJobs() {
                           value={edit.interval_minutes}
                           onChange={e => setEdits(prev => ({ ...prev, [j.job_key]: { ...edit, interval_minutes: e.target.value } }))}
                           aria-label={`Interval minutes: ${j.job_key}`}
-                          className="w-20 px-2 py-1 rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-20 px-2 py-1 rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                         />
                       </td>
-                      <td className="py-2 dark:text-gray-400 text-gray-500">{formatDate(j.last_run_at)}</td>
+                      <td className="py-2 text-ink-3">{formatDate(j.last_run_at)}</td>
                       <td className="py-2"><StatusBadge status={j.last_run_status} /></td>
-                      <td className="py-2 dark:text-gray-400 text-gray-500">{formatDate(j.next_run_at)}</td>
+                      <td className="py-2 text-ink-3">{formatDate(j.next_run_at)}</td>
                       <td className="py-2 text-right space-x-2 whitespace-nowrap">
                         {dirty && (
                           <button
                             onClick={() => handleSaveJobConfig(j)}
                             disabled={savingKey === j.job_key}
-                            className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[11px] font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                            className="px-3 py-1.5 rounded-lg bg-fill text-[11px] font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
                           >
                             {savingKey === j.job_key ? 'Saving…' : 'Save'}
                           </button>
@@ -200,12 +200,12 @@ export default function ScheduledJobs() {
           </section>
 
           <section>
-            <h2 className="text-xs font-semibold uppercase tracking-wider dark:text-gray-400 text-gray-500 mb-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-3 mb-2">
               Sync schedules ({schedules.length})
             </h2>
             <table className="w-full text-xs">
               <thead>
-                <tr className="dark:text-gray-500 text-gray-400 text-left">
+                <tr className="text-ink-4 text-left">
                   <th className="font-medium pb-2">Store</th>
                   <th className="font-medium pb-2">Entity</th>
                   <th className="font-medium pb-2">Direction</th>
@@ -215,17 +215,17 @@ export default function ScheduledJobs() {
                   <th className="pb-2" />
                 </tr>
               </thead>
-              <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+              <tbody className="divide-y divide-line/60">
                 {schedules.length === 0 && (
-                  <tr><td colSpan={7} className="py-4 text-center dark:text-gray-500 text-gray-400">No sync schedules configured</td></tr>
+                  <tr><td colSpan={7} className="py-4 text-center text-ink-4">No sync schedules configured</td></tr>
                 )}
                 {schedules.map(s => (
                   <tr key={s.id}>
-                    <td className="py-2 dark:text-gray-100 text-gray-900">{s.connection_store_url || s.connection_id}</td>
-                    <td className="py-2 dark:text-gray-400 text-gray-500">{s.entity_type}</td>
-                    <td className="py-2 dark:text-gray-400 text-gray-500">{s.direction}</td>
-                    <td className="py-2 dark:text-gray-400 text-gray-500">{s.interval_minutes}m</td>
-                    <td className="py-2 dark:text-gray-400 text-gray-500">{formatDate(s.last_run_at)}</td>
+                    <td className="py-2 text-ink">{s.connection_store_url || s.connection_id}</td>
+                    <td className="py-2 text-ink-3">{s.entity_type}</td>
+                    <td className="py-2 text-ink-3">{s.direction}</td>
+                    <td className="py-2 text-ink-3">{s.interval_minutes}m</td>
+                    <td className="py-2 text-ink-3">{formatDate(s.last_run_at)}</td>
                     <td className="py-2"><StatusBadge status={s.last_run_status} /></td>
                     <td className="py-2 text-right">
                       <button

@@ -10,10 +10,10 @@ interface SessionErrorPanelProps {
 export function SessionErrorPanel({ error, onBack }: SessionErrorPanelProps) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8">
-      <p className="text-sm text-red-400">{error}</p>
+      <p className="text-sm text-danger">{error}</p>
       <button
         type="button" onClick={onBack}
-        className="px-4 py-2 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-xs font-medium"
+        className="px-4 py-2 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 text-xs font-medium"
       >
         Back to orders
       </button>

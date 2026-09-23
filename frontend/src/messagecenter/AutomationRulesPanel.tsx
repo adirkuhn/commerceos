@@ -149,8 +149,8 @@ export default function AutomationRulesPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
-        <p className="text-xs dark:text-gray-500 text-gray-400">
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
+        <p className="text-xs text-ink-4">
           When an event fires and every condition matches, the chosen template is sent.
         </p>
         <button
@@ -163,40 +163,40 @@ export default function AutomationRulesPanel() {
         </button>
       </div>
 
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
-        <span className="text-xs dark:text-gray-500 text-gray-400">{rules.length} rule{rules.length === 1 ? '' : 's'}</span>
-        {(error || actionError) && <span className="text-xs text-red-400 ml-auto">{error || actionError}</span>}
+      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
+        <span className="text-xs text-ink-4">{rules.length} rule{rules.length === 1 ? '' : 's'}</span>
+        {(error || actionError) && <span className="text-xs text-danger ml-auto">{error || actionError}</span>}
       </div>
 
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+          <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Name</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Trigger</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Conditions</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Template</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Name</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Trigger</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Conditions</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Template</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>
-          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+          <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
             )}
             {!loading && rules.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No automation rules yet</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">No automation rules yet</td></tr>
             )}
             {rules.map(r => (
-              <tr key={r.id} className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
-                <td className="px-3 py-2.5 font-medium dark:text-gray-100 text-gray-900">{r.name}</td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{TRIGGER_LABELS[r.trigger_subject]}</td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">
+              <tr key={r.id} className="group hover:bg-hover/60 transition-colors">
+                <td className="px-3 py-2.5 font-medium text-ink">{r.name}</td>
+                <td className="px-3 py-2.5 text-ink-3">{TRIGGER_LABELS[r.trigger_subject]}</td>
+                <td className="px-3 py-2.5 text-ink-3">
                   {r.conditions.length === 0 ? 'Always' : r.conditions.map(conditionSummary).join(' AND ')}
                 </td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{templateName(r.template_id)}</td>
+                <td className="px-3 py-2.5 text-ink-3">{templateName(r.template_id)}</td>
                 <td className="px-3 py-2.5">
-                  <span className={r.enabled ? 'text-green-500' : 'dark:text-gray-500 text-gray-400'}>
+                  <span className={r.enabled ? 'text-success' : 'text-ink-4'}>
                     {r.enabled ? 'Enabled' : 'Disabled'}
                   </span>
                 </td>
@@ -204,17 +204,17 @@ export default function AutomationRulesPanel() {
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => openEdit(r)}
-                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Edit"
                     >
-                      <Pencil size={12} className="dark:text-gray-400 text-gray-500" />
+                      <Pencil size={12} className="text-ink-3" />
                     </button>
                     <button
                       onClick={() => handleDelete(r)}
-                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Delete"
                     >
-                      <Trash2 size={12} className="dark:text-gray-400 text-gray-500 hover:text-red-400" />
+                      <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>
                   </div>
                 </td>
@@ -227,18 +227,18 @@ export default function AutomationRulesPanel() {
       {formReady && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeForm} />
-          <div className="relative w-full max-w-lg dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5 max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-lg bg-raised rounded-xl shadow-2xl border border-line p-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">
+              <h3 className="text-sm font-semibold text-ink">
                 {editingRule ? 'Edit automation rule' : 'New automation rule'}
               </h3>
               <button onClick={closeForm} aria-label="Close">
-                <X size={14} className="dark:text-gray-500 text-gray-400" />
+                <X size={14} className="text-ink-4" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label htmlFor="rule-name" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="rule-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   Name
                 </label>
                 <input
@@ -248,19 +248,19 @@ export default function AutomationRulesPanel() {
                   autoFocus
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label htmlFor="rule-trigger" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="rule-trigger" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   When this happens
                 </label>
                 <select
                   id="rule-trigger"
                   value={form.triggerSubject}
                   onChange={e => setForm(f => ({ ...f, triggerSubject: e.target.value as TriggerSubject }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {ALL_TRIGGERS.map(t => (
                     <option key={t} value={t}>{TRIGGER_LABELS[t]}</option>
@@ -270,10 +270,10 @@ export default function AutomationRulesPanel() {
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider">
+                  <span className="text-[10px] text-ink-4 uppercase tracking-wider">
                     And these conditions match (optional)
                   </span>
-                  <button type="button" onClick={addCondition} className="text-[10px] text-blue-500 hover:text-blue-400">
+                  <button type="button" onClick={addCondition} className="text-[10px] text-accent hover:text-accent">
                     + Add condition
                   </button>
                 </div>
@@ -285,12 +285,12 @@ export default function AutomationRulesPanel() {
                         placeholder="field"
                         value={c.field}
                         onChange={e => updateCondition(i, { field: e.target.value })}
-                        className="w-24 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-24 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                       />
                       <select
                         value={c.operator}
                         onChange={e => updateCondition(i, { operator: e.target.value as Operator })}
-                        className="px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                       >
                         {ALL_OPERATORS.map(op => (
                           <option key={op} value={op}>{OPERATOR_LABELS[op]}</option>
@@ -301,10 +301,10 @@ export default function AutomationRulesPanel() {
                         placeholder={c.operator === 'in' ? 'value1, value2' : 'value'}
                         value={c.valueText}
                         onChange={e => updateCondition(i, { valueText: e.target.value })}
-                        className="flex-1 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                        className="flex-1 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                       />
                       <button type="button" onClick={() => removeCondition(i)} aria-label="Remove condition">
-                        <X size={13} className="dark:text-gray-500 text-gray-400" />
+                        <X size={13} className="text-ink-4" />
                       </button>
                     </div>
                   ))}
@@ -312,7 +312,7 @@ export default function AutomationRulesPanel() {
               </div>
 
               <div>
-                <label htmlFor="rule-template" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="rule-template" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   Send this template
                 </label>
                 <select
@@ -320,7 +320,7 @@ export default function AutomationRulesPanel() {
                   required
                   value={form.templateId}
                   onChange={e => setForm(f => ({ ...f, templateId: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="" disabled>Select a template</option>
                   {templates.map(t => (
@@ -330,14 +330,14 @@ export default function AutomationRulesPanel() {
               </div>
 
               <div>
-                <label htmlFor="rule-channel-override" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor="rule-channel-override" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
                   Channel override (optional)
                 </label>
                 <select
                   id="rule-channel-override"
                   value={form.channelOverride}
                   onChange={e => setForm(f => ({ ...f, channelOverride: e.target.value as MessageChannel | '' }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="">Use template's own channels</option>
                   {ALL_CHANNELS.map(ch => (
@@ -348,7 +348,7 @@ export default function AutomationRulesPanel() {
 
               {editingRule && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider">Enabled</span>
+                  <span className="text-[10px] text-ink-4 uppercase tracking-wider">Enabled</span>
                   <label className="relative flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"
@@ -358,14 +358,14 @@ export default function AutomationRulesPanel() {
                       onChange={e => setForm(f => ({ ...f, enabled: e.target.checked }))}
                       className="sr-only peer"
                     />
-                    <div className="w-8 h-4 dark:bg-[#2D3748] bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+                    <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
                     <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                   </label>
                 </div>
               )}
 
               {formError && (
-                <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
+                <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
               )}
 
               <button

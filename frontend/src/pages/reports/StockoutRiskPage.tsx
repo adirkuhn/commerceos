@@ -27,20 +27,20 @@ export default function StockoutRiskPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="dark:bg-[#111827]/50 bg-gray-50">
-                  <th className="px-4 py-2 text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Product</th>
-                  <th className="px-4 py-2 text-right text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Stock</th>
-                  <th className="px-4 py-2 text-right text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Days Left</th>
-                  <th className="px-4 py-2 text-right text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Suggested Reorder</th>
+                <tr className="dark:bg-night-900/50 bg-gray-50">
+                  <th className="px-4 py-2 text-left text-[10px] font-medium text-ink-4 uppercase">Product</th>
+                  <th className="px-4 py-2 text-right text-[10px] font-medium text-ink-4 uppercase">Stock</th>
+                  <th className="px-4 py-2 text-right text-[10px] font-medium text-ink-4 uppercase">Days Left</th>
+                  <th className="px-4 py-2 text-right text-[10px] font-medium text-ink-4 uppercase">Suggested Reorder</th>
                 </tr>
               </thead>
-              <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+              <tbody className="divide-y divide-line/50">
                 {atRisk.map(row => (
-                  <tr key={row.sku_id} data-testid="stockout-risk-row" className="hover:dark:bg-[#2D3748]/30 hover:bg-gray-50">
-                    <td className="px-4 py-2 dark:text-gray-200 text-gray-800">{row.product_name || row.sku_code}</td>
-                    <td className="px-4 py-2 text-right dark:text-gray-400 text-gray-500">{row.stock_on_hand}</td>
-                    <td className="px-4 py-2 text-right text-red-500 font-medium">{row.days_of_stock_remaining?.toFixed(1) ?? '—'}</td>
-                    <td className="px-4 py-2 text-right dark:text-gray-400 text-gray-500">{row.suggested_reorder_quantity}</td>
+                  <tr key={row.sku_id} data-testid="stockout-risk-row" className="hover:bg-hover/30">
+                    <td className="px-4 py-2 text-ink">{row.product_name || row.sku_code}</td>
+                    <td className="px-4 py-2 text-right text-ink-3">{row.stock_on_hand}</td>
+                    <td className="px-4 py-2 text-right text-danger font-medium">{row.days_of_stock_remaining?.toFixed(1) ?? '—'}</td>
+                    <td className="px-4 py-2 text-right text-ink-3">{row.suggested_reorder_quantity}</td>
                   </tr>
                 ))}
               </tbody>

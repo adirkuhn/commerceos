@@ -111,10 +111,10 @@ const SUPER_ADMIN_NAV_ITEMS: NavRow[] = [
 ]
 
 const BADGE_COLORS: Record<string, string> = {
-  red: 'bg-red-500/20 text-red-400',
-  blue: 'bg-blue-500/20 text-blue-400',
-  amber: 'bg-amber-500/20 text-amber-400',
-  default: 'bg-gray-700 text-gray-400',
+  red: 'bg-red-500/20 text-danger',
+  blue: 'bg-blue-500/20 text-accent',
+  amber: 'bg-amber-500/20 text-warning',
+  default: 'bg-gray-700 text-ink-4',
 }
 
 export default function Sidebar() {
@@ -139,14 +139,14 @@ export default function Sidebar() {
   )
 
   return (
-    <aside className="w-56 shrink-0 flex flex-col h-full bg-[#111827] border-r border-[#1F2937] dark:bg-[#111827] dark:border-[#1F2937] bg-white border-gray-200">
+    <aside className="w-56 shrink-0 flex flex-col h-full bg-surface border-r border-line">
       {/* Logo */}
-      <div className="h-14 flex items-center px-4 border-b border-[#1F2937] dark:border-[#1F2937] border-gray-200 shrink-0">
+      <div className="h-14 flex items-center px-4 border-b border-line shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
             <Zap size={14} className="text-white" />
           </div>
-          <span className="font-semibold text-sm dark:text-white text-gray-900 tracking-tight">CommerceOS</span>
+          <span className="font-semibold text-sm text-ink tracking-tight">CommerceOS</span>
         </div>
       </div>
 
@@ -157,7 +157,7 @@ export default function Sidebar() {
             return (
               <p
                 key={`section-${item.section}`}
-                className="px-2.5 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider dark:text-gray-600 text-gray-400"
+                className="px-2.5 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-4"
               >
                 {item.section}
               </p>
@@ -172,16 +172,16 @@ export default function Sidebar() {
                   className={clsx(
                     'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left mb-0.5 transition-all duration-150',
                     reportsChildActive
-                      ? 'text-blue-400'
-                      : 'dark:text-gray-400 text-gray-600 hover:dark:bg-[#1F2937] hover:bg-gray-100 hover:dark:text-gray-200 hover:text-gray-800',
+                      ? 'text-accent'
+                      : 'text-ink-3 hover:bg-hover hover:text-ink',
                   )}
                 >
-                  <ParentIcon size={16} className={clsx('shrink-0', reportsChildActive ? 'text-blue-400' : '')} />
+                  <ParentIcon size={16} className={clsx('shrink-0', reportsChildActive ? 'text-accent' : '')} />
                   <span className="text-xs font-medium flex-1 truncate">{item.label}</span>
                   {reportsExpanded ? <ChevronDown size={12} className="shrink-0" /> : <ChevronRight size={12} className="shrink-0" />}
                 </button>
                 {reportsExpanded && (
-                  <div className="ml-3.5 pl-2.5 border-l dark:border-[#2D3748] border-gray-200 space-y-0.5 mb-0.5">
+                  <div className="ml-3.5 pl-2.5 border-l border-line space-y-0.5 mb-0.5">
                     {item.children.map(child => {
                       const childActive = activeNav === child.id
                       return (
@@ -191,8 +191,8 @@ export default function Sidebar() {
                           className={clsx(
                             'w-full flex items-center px-2.5 py-1.5 rounded-lg text-left group transition-all duration-150',
                             childActive
-                              ? 'bg-blue-600/15 text-blue-400'
-                              : 'dark:text-gray-400 text-gray-600 hover:dark:bg-[#1F2937] hover:bg-gray-100 hover:dark:text-gray-200 hover:text-gray-800',
+                              ? 'bg-blue-600/15 text-accent'
+                              : 'text-ink-3 hover:bg-hover hover:text-ink',
                           )}
                         >
                           <span className="text-xs font-medium flex-1 truncate">{child.label}</span>
@@ -213,11 +213,11 @@ export default function Sidebar() {
               className={clsx(
                 'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left mb-0.5 group transition-all duration-150',
                 active
-                  ? 'bg-blue-600/15 text-blue-400'
-                  : 'dark:text-gray-400 text-gray-600 hover:dark:bg-[#1F2937] hover:bg-gray-100 hover:dark:text-gray-200 hover:text-gray-800',
+                  ? 'bg-blue-600/15 text-accent'
+                  : 'text-ink-3 hover:bg-hover hover:text-ink',
               )}
             >
-              <Icon size={16} className={clsx('shrink-0', active ? 'text-blue-400' : '')} />
+              <Icon size={16} className={clsx('shrink-0', active ? 'text-accent' : '')} />
               <span className="text-xs font-medium flex-1 truncate">{item.label}</span>
               {item.badge && (
                 <span className={clsx(
@@ -227,23 +227,23 @@ export default function Sidebar() {
                   {item.badge}
                 </span>
               )}
-              {active && <ChevronRight size={12} className="text-blue-400 shrink-0" />}
+              {active && <ChevronRight size={12} className="text-accent shrink-0" />}
             </button>
           )
         })}
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t border-[#1F2937] dark:border-[#1F2937] border-gray-200 shrink-0">
+      <div className="p-3 border-t border-line shrink-0">
         <button
           onClick={logout}
           title="Sign out"
-          className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:dark:bg-[#1F2937] hover:bg-gray-100 cursor-pointer text-left"
+          className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-hover cursor-pointer text-left"
         >
           <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium dark:text-gray-200 text-gray-800 truncate">{user?.role ?? 'Signed in'}</p>
-            <p className="text-[10px] dark:text-gray-500 text-gray-400 truncate">Sign out</p>
+            <p className="text-xs font-medium text-ink truncate">{user?.role ?? 'Signed in'}</p>
+            <p className="text-[10px] text-ink-4 truncate">Sign out</p>
           </div>
         </button>
       </div>

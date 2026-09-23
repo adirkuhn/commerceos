@@ -41,20 +41,20 @@ export default function FrequentlyBoughtTogetherPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="dark:bg-[#111827]/50 bg-gray-50">
-                  <th className="px-4 py-2 text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Items</th>
-                  <th className="px-4 py-2 text-right text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Support</th>
-                  <th className="px-4 py-2 text-right text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">% of Orders</th>
+                <tr className="dark:bg-night-900/50 bg-gray-50">
+                  <th className="px-4 py-2 text-left text-[10px] font-medium text-ink-4 uppercase">Items</th>
+                  <th className="px-4 py-2 text-right text-[10px] font-medium text-ink-4 uppercase">Support</th>
+                  <th className="px-4 py-2 text-right text-[10px] font-medium text-ink-4 uppercase">% of Orders</th>
                 </tr>
               </thead>
-              <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+              <tbody className="divide-y divide-line/50">
                 {frequentlyBoughtTogether.rows.map((row, i) => (
-                  <tr key={i} data-testid="fbt-row" className="hover:dark:bg-[#2D3748]/30 hover:bg-gray-50">
-                    <td className="px-4 py-2 dark:text-gray-200 text-gray-800">
+                  <tr key={i} data-testid="fbt-row" className="hover:bg-hover/30">
+                    <td className="px-4 py-2 text-ink">
                       {row.items.map(item => item.product_name || item.sku_code || item.sku_id).join(' + ')}
                     </td>
-                    <td className="px-4 py-2 text-right dark:text-gray-400 text-gray-500">{row.support}</td>
-                    <td className="px-4 py-2 text-right dark:text-gray-400 text-gray-500">{row.support_percent.toFixed(1)}%</td>
+                    <td className="px-4 py-2 text-right text-ink-3">{row.support}</td>
+                    <td className="px-4 py-2 text-right text-ink-3">{row.support_percent.toFixed(1)}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -162,24 +162,24 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
         {!selectedProduct ? (
           <div className="relative">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
               <input
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder="Search products…"
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white dark:text-gray-200 text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-line bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
-            {searching && <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">Searching…</p>}
-            {searchError && <p className="text-[10px] text-red-400 mt-1">{searchError}</p>}
+            {searching && <p className="text-[10px] text-ink-4 mt-1">Searching…</p>}
+            {searchError && <p className="text-[10px] text-danger mt-1">{searchError}</p>}
             {results.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white shadow-lg max-h-64 overflow-y-auto">
+              <div className="absolute z-10 mt-1 w-full rounded-lg border border-line bg-raised shadow-lg max-h-64 overflow-y-auto">
                 {results.map(product => (
                   <button
                     key={product.id}
                     onClick={() => selectProduct(product)}
-                    className="w-full text-left px-3 py-2 text-xs dark:text-gray-200 text-gray-800 hover:dark:bg-[#2D3748]/50 hover:bg-gray-50"
+                    className="w-full text-left px-3 py-2 text-xs text-ink hover:bg-hover/50"
                   >
                     {product.name}
                   </button>
@@ -189,25 +189,25 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
           </div>
         ) : (
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium dark:text-gray-200 text-gray-800">{selectedProduct.name}</p>
-            <button onClick={clearSelection} className="dark:text-gray-500 text-gray-400 hover:dark:text-gray-200 hover:text-gray-700">
+            <p className="text-xs font-medium text-ink">{selectedProduct.name}</p>
+            <button onClick={clearSelection} className="text-ink-4 hover:text-ink-2">
               <X size={14} />
             </button>
           </div>
         )}
 
-        {selectedProduct && loadingSkus && <p className="text-[10px] dark:text-gray-500 text-gray-400">Loading SKUs…</p>}
+        {selectedProduct && loadingSkus && <p className="text-[10px] text-ink-4">Loading SKUs…</p>}
 
         {selectedProduct && !loadingSkus && skuOptions.length > 1 && !selectedSkuId && (
           <div className="space-y-1">
-            <p className="text-[10px] dark:text-gray-500 text-gray-400">This product has multiple variants — pick one:</p>
+            <p className="text-[10px] text-ink-4">This product has multiple variants — pick one:</p>
             {skuOptions.map(opt => (
               <button
                 key={opt.sku.id}
                 onClick={() => setSelectedSkuId(opt.sku.id)}
-                className="w-full text-left px-3 py-1.5 rounded-lg text-xs dark:text-gray-200 text-gray-800 border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748]/50 hover:bg-gray-50"
+                className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-ink border border-line hover:bg-hover/50"
               >
-                {opt.variant.name} — <span className="font-mono dark:text-gray-500 text-gray-400">{opt.sku.sku_code}</span>
+                {opt.variant.name} — <span className="font-mono text-ink-4">{opt.sku.sku_code}</span>
               </button>
             ))}
           </div>
@@ -215,17 +215,17 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
 
         {selectedSkuId && (
           <div>
-            {recLoading && <p className="text-[10px] dark:text-gray-500 text-gray-400">Loading recommendations…</p>}
-            {recError && <p className="text-[10px] text-red-400">{recError}</p>}
+            {recLoading && <p className="text-[10px] text-ink-4">Loading recommendations…</p>}
+            {recError && <p className="text-[10px] text-danger">{recError}</p>}
             {recommendations && recommendations.rows.length === 0 && !recLoading && (
-              <p className="text-[10px] dark:text-gray-500 text-gray-400">No frequent co-purchases found for this product in the selected period</p>
+              <p className="text-[10px] text-ink-4">No frequent co-purchases found for this product in the selected period</p>
             )}
             {recommendations && recommendations.rows.length > 0 && (
               <div data-testid="product-recommendations" className="space-y-1">
                 {recommendations.rows.map(row => (
-                  <div key={row.sku_id} className="flex items-center justify-between gap-2 text-xs px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200">
-                    <span className="dark:text-gray-200 text-gray-800 truncate">{row.product_name || row.sku_code || row.sku_id}</span>
-                    <span className="dark:text-gray-500 text-gray-400 shrink-0">support {row.support}</span>
+                  <div key={row.sku_id} className="flex items-center justify-between gap-2 text-xs px-3 py-1.5 rounded-lg border border-line">
+                    <span className="text-ink truncate">{row.product_name || row.sku_code || row.sku_id}</span>
+                    <span className="text-ink-4 shrink-0">support {row.support}</span>
                   </div>
                 ))}
               </div>

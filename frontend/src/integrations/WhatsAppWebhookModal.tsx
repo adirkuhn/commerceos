@@ -59,15 +59,15 @@ export function WhatsAppWebhookModal({ connection, tenantId, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-md dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+      <div className="relative w-full max-w-md bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">WhatsApp webhook URL</h3>
+          <h3 className="text-sm font-semibold text-ink">WhatsApp webhook URL</h3>
           <button onClick={onClose} aria-label="Close">
-            <X size={14} className="dark:text-gray-500 text-gray-400" />
+            <X size={14} className="text-ink-4" />
           </button>
         </div>
 
-        <p className="text-xs dark:text-gray-500 text-gray-400 mb-4">
+        <p className="text-xs text-ink-4 mb-4">
           This URL is shown once, at generation time — it isn't stored in a form you can view again. Regenerating
           replaces the old value immediately: update evolution-go's webhook settings (messages.upsert event) with the
           new one right after, or inbound messages stop reaching this connection.
@@ -75,17 +75,17 @@ export function WhatsAppWebhookModal({ connection, tenantId, onClose }: {
 
         {url ? (
           <div className="mb-4">
-            <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+            <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
               New webhook URL
             </label>
             <div className="flex items-center gap-2">
-              <code className="flex-1 px-3 py-2 text-[11px] rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 overflow-x-auto whitespace-nowrap">
+              <code className="flex-1 px-3 py-2 text-[11px] rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
                 {url}
               </code>
               <button
                 type="button"
                 onClick={() => handleCopy(url)}
-                className="px-2.5 py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors shrink-0"
+                className="px-2.5 py-2 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors shrink-0"
               >
                 {copied ? 'Copied' : 'Copy'}
               </button>
@@ -93,7 +93,7 @@ export function WhatsAppWebhookModal({ connection, tenantId, onClose }: {
           </div>
         ) : null}
 
-        {error && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{error}</p>}
+        {error && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{error}</p>}
 
         <button
           onClick={handleGenerate}

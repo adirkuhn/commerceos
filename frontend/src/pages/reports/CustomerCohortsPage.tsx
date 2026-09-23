@@ -28,25 +28,25 @@ export default function CustomerCohortsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="dark:bg-[#111827]/50 bg-gray-50">
-                  <th className="px-4 py-2 text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Cohort</th>
-                  <th className="px-4 py-2 text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Size</th>
+                <tr className="dark:bg-night-900/50 bg-gray-50">
+                  <th className="px-4 py-2 text-left text-[10px] font-medium text-ink-4 uppercase">Cohort</th>
+                  <th className="px-4 py-2 text-left text-[10px] font-medium text-ink-4 uppercase">Size</th>
                   {cohortMonthColumns.map(m => (
-                    <th key={m} className="px-3 py-2 text-center text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase whitespace-nowrap">
+                    <th key={m} className="px-3 py-2 text-center text-[10px] font-medium text-ink-4 uppercase whitespace-nowrap">
                       Month {m}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+              <tbody className="divide-y divide-line/50">
                 {cohorts.map(cohort => {
                   const byMonth = new Map(cohort.retention.map(r => [r.months_since_cohort, r]))
                   return (
-                    <tr key={cohort.cohort_month} className="hover:dark:bg-[#2D3748]/30 hover:bg-gray-50">
-                      <td className="px-4 py-2 dark:text-gray-200 text-gray-800 font-medium whitespace-nowrap">
+                    <tr key={cohort.cohort_month} className="hover:bg-hover/30">
+                      <td className="px-4 py-2 text-ink font-medium whitespace-nowrap">
                         {new Date(cohort.cohort_month).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
                       </td>
-                      <td className="px-4 py-2 dark:text-gray-400 text-gray-500">{cohort.cohort_size}</td>
+                      <td className="px-4 py-2 text-ink-3">{cohort.cohort_size}</td>
                       {cohortMonthColumns.map(m => {
                         const cell = byMonth.get(m)
                         if (!cell) {

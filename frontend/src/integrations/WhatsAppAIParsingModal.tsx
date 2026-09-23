@@ -40,22 +40,22 @@ export function WhatsAppAIParsingModal({ connection, onClose, onSaved }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+      <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">WhatsApp AI-assisted parsing</h3>
+          <h3 className="text-sm font-semibold text-ink">WhatsApp AI-assisted parsing</h3>
           <button onClick={onClose} aria-label="Close">
-            <X size={14} className="dark:text-gray-500 text-gray-400" />
+            <X size={14} className="text-ink-4" />
           </button>
         </div>
 
-        <p className="text-xs dark:text-gray-500 text-gray-400 mb-4">
+        <p className="text-xs text-ink-4 mb-4">
           When a message doesn't match a strict command (e.g. "voce tem estoque do cha de limao?"), the connected AI
           provider classifies it into stock/price/expiry/info and extracts the product — never a free-form chat reply,
           only strict classification.
         </p>
 
         {!loadingAIConnection && !aiConfigured && (
-          <p className="text-xs text-amber-500 bg-amber-500/10 rounded-lg px-2 py-1.5 mb-3">
+          <p className="text-xs text-warning bg-amber-500/10 rounded-lg px-2 py-1.5 mb-3">
             No AI provider connected yet. Connect one under Settings → Integrations → AI first.
           </p>
         )}
@@ -68,10 +68,10 @@ export function WhatsAppAIParsingModal({ connection, onClose, onSaved }: {
             onChange={e => setEnabled(e.target.checked)}
             className="rounded"
           />
-          <span className="text-xs dark:text-gray-300 text-gray-700">Enable AI-assisted parsing</span>
+          <span className="text-xs text-ink-2">Enable AI-assisted parsing</span>
         </label>
 
-        {error && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{error}</p>}
+        {error && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{error}</p>}
 
         <button
           onClick={handleSave}

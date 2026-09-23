@@ -21,18 +21,18 @@ export default function SlowMovingProductsPage() {
         ) : (
           <table className="w-full text-xs">
             <thead>
-              <tr className="dark:bg-[#111827]/50 bg-gray-50">
+              <tr className="dark:bg-night-900/50 bg-gray-50">
                 {['Product', 'SKU', 'Stock on Hand'].map(h => (
-                  <th key={h} className="px-4 py-2 text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">{h}</th>
+                  <th key={h} className="px-4 py-2 text-left text-[10px] font-medium text-ink-4 uppercase">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+            <tbody className="divide-y divide-line/50">
               {slowMovers.map(p => (
-                <tr key={p.sku_id} className="hover:dark:bg-[#2D3748]/30 hover:bg-gray-50">
-                  <td className="px-4 py-2 dark:text-gray-200 text-gray-800 font-medium">{p.product_name || p.sku_code}</td>
-                  <td className="px-4 py-2 font-mono dark:text-gray-500 text-gray-400">{p.sku_code}</td>
-                  <td className="px-4 py-2 dark:text-amber-400 text-amber-600 font-medium">{p.stock_on_hand}</td>
+                <tr key={p.sku_id} className="hover:bg-hover/30">
+                  <td className="px-4 py-2 text-ink font-medium">{p.product_name || p.sku_code}</td>
+                  <td className="px-4 py-2 font-mono text-ink-4">{p.sku_code}</td>
+                  <td className="px-4 py-2 text-warning font-medium">{p.stock_on_hand}</td>
                 </tr>
               ))}
             </tbody>

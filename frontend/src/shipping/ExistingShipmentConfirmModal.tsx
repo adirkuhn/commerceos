@@ -43,17 +43,17 @@ export function ExistingShipmentConfirmModal({ token, shipment, onReprint, onCre
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onCancel} />
-      <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+      <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         {!cancelResult ? (
           <>
-            <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-2">Label already exists</h3>
-            <p className="text-xs dark:text-gray-400 text-gray-500 mb-4">
+            <h3 className="text-sm font-semibold text-ink mb-2">Label already exists</h3>
+            <p className="text-xs text-ink-3 mb-4">
               A shipping label was already created for this order (barcode {shipment.barcode || '—'}). Download and print it again?
             </p>
             <div className="flex items-center gap-2">
               <button
                 type="button" onClick={onCancel}
-                className="flex-1 px-4 py-2 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-700 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                className="flex-1 px-4 py-2 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover transition-colors"
               >
                 Cancel
               </button>
@@ -66,20 +66,20 @@ export function ExistingShipmentConfirmModal({ token, shipment, onReprint, onCre
             </div>
             <button
               type="button" onClick={handleWrongCarrier} disabled={cancelling}
-              className="mt-3 w-full text-[11px] text-red-500 hover:underline disabled:opacity-50 disabled:no-underline"
+              className="mt-3 w-full text-[11px] text-danger hover:underline disabled:opacity-50 disabled:no-underline"
             >
               {cancelling ? 'Cancelling…' : 'Wrong carrier? Delete & create new'}
             </button>
-            {cancelError && <p className="text-[11px] text-red-500 mt-2">{cancelError}</p>}
+            {cancelError && <p className="text-[11px] text-danger mt-2">{cancelError}</p>}
           </>
         ) : (
           <>
-            <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-2">Shipment cancelled</h3>
-            <p className="text-xs dark:text-gray-400 text-gray-500 mb-4">{cancelResult.message}</p>
+            <h3 className="text-sm font-semibold text-ink mb-2">Shipment cancelled</h3>
+            <p className="text-xs text-ink-3 mb-4">{cancelResult.message}</p>
             <div className="flex items-center gap-2">
               <button
                 type="button" onClick={onCancel}
-                className="flex-1 px-4 py-2 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-700 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                className="flex-1 px-4 py-2 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover transition-colors"
               >
                 Close
               </button>

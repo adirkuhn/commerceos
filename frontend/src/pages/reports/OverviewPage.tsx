@@ -122,9 +122,9 @@ export default function OverviewPage() {
 
       <div className="grid grid-cols-4 gap-3">
         {kpis.map(kpi => (
-          <div key={kpi.label} className="dark:bg-[#1F2937] bg-white rounded-xl p-4 border dark:border-[#2D3748] border-gray-200">
-            <p className="text-xs dark:text-gray-500 text-gray-400 mb-2">{kpi.label}</p>
-            <p className="text-2xl font-semibold dark:text-gray-100 text-gray-900 mb-1">{kpi.value}</p>
+          <div key={kpi.label} className="bg-raised rounded-xl p-4 border border-line">
+            <p className="text-xs text-ink-4 mb-2">{kpi.label}</p>
+            <p className="text-2xl font-semibold text-ink mb-1">{kpi.value}</p>
             <ChangeBadge percent={kpi.change} />
           </div>
         ))}
@@ -138,8 +138,8 @@ export default function OverviewPage() {
               className={clsx(
                 'flex items-start gap-2 rounded-lg px-3 py-2 text-xs',
                 insight.severity === 'warning'
-                  ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                  : 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400',
+                  ? 'bg-amber-50 dark:bg-amber-500/10 text-warning'
+                  : 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 text-accent',
               )}
             >
               {insight.severity === 'warning' ? <AlertTriangle size={14} className="shrink-0 mt-0.5" /> : <Info size={14} className="shrink-0 mt-0.5" />}
@@ -173,25 +173,25 @@ export default function OverviewPage() {
         ) : (
           <div data-testid="profitability-summary" className="grid grid-cols-4 gap-3 p-4">
             <div>
-              <p className="text-xs dark:text-gray-500 text-gray-400 mb-1">Revenue</p>
-              <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{formatMoney(profitability.summary.revenue_minor_units, currency)}</p>
+              <p className="text-xs text-ink-4 mb-1">Revenue</p>
+              <p className="text-sm font-semibold text-ink">{formatMoney(profitability.summary.revenue_minor_units, currency)}</p>
               {profitability.summary.cost_known_revenue_minor_units < profitability.summary.revenue_minor_units && (
-                <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">
+                <p className="text-[10px] text-ink-4 mt-0.5">
                   {formatMoney(profitability.summary.cost_known_revenue_minor_units, currency)} with known cost
                 </p>
               )}
             </div>
             <div>
-              <p className="text-xs dark:text-gray-500 text-gray-400 mb-1">COGS</p>
-              <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{formatMoney(profitability.summary.cost_minor_units, currency)}</p>
+              <p className="text-xs text-ink-4 mb-1">COGS</p>
+              <p className="text-sm font-semibold text-ink">{formatMoney(profitability.summary.cost_minor_units, currency)}</p>
             </div>
             <div>
-              <p className="text-xs dark:text-gray-500 text-gray-400 mb-1">Profit</p>
-              <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{formatMoney(profitability.summary.profit_minor_units, currency)}</p>
+              <p className="text-xs text-ink-4 mb-1">Profit</p>
+              <p className="text-sm font-semibold text-ink">{formatMoney(profitability.summary.profit_minor_units, currency)}</p>
             </div>
             <div>
-              <p className="text-xs dark:text-gray-500 text-gray-400 mb-1">Margin</p>
-              <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{(profitability.summary.margin_basis_points / 100).toFixed(1)}%</p>
+              <p className="text-xs text-ink-4 mb-1">Margin</p>
+              <p className="text-sm font-semibold text-ink">{(profitability.summary.margin_basis_points / 100).toFixed(1)}%</p>
             </div>
           </div>
         )}
@@ -204,8 +204,8 @@ export default function OverviewPage() {
           ) : (
             <>
               <div className="flex items-center justify-between px-4 pt-3">
-                <p data-testid="channel-total-all" className="text-xs dark:text-gray-400 text-gray-500">
-                  Total, all channels: <span className="font-semibold dark:text-gray-100 text-gray-900">{formatMoney(totalAllChannelsMinorUnits, currency)}</span>
+                <p data-testid="channel-total-all" className="text-xs text-ink-3">
+                  Total, all channels: <span className="font-semibold text-ink">{formatMoney(totalAllChannelsMinorUnits, currency)}</span>
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5 px-4 pt-2">
@@ -218,7 +218,7 @@ export default function OverviewPage() {
                       onClick={() => toggleChannel(source)}
                       className={clsx(
                         'px-2 py-1 rounded-md text-[10px] font-medium border transition-colors',
-                        visible ? 'text-white border-transparent' : 'dark:border-[#2D3748] border-gray-200 dark:text-gray-500 text-gray-400 opacity-60',
+                        visible ? 'text-white border-transparent' : 'border-line text-ink-4 opacity-60',
                       )}
                       style={visible ? { backgroundColor: color } : undefined}
                       title={visible ? `Hide ${source}` : `Show ${source}`}
@@ -270,19 +270,19 @@ export default function OverviewPage() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <table className="w-full text-xs border-t dark:border-[#2D3748] border-gray-200">
+            <table className="w-full text-xs border-t border-line">
               <thead>
-                <tr className="dark:bg-[#111827]/50 bg-gray-50">
+                <tr className="dark:bg-night-900/50 bg-gray-50">
                   {['Channel', 'Revenue'].map(h => (
-                    <th key={h} className="px-3 py-2 text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">{h}</th>
+                    <th key={h} className="px-3 py-2 text-left text-[10px] font-medium text-ink-4 uppercase">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+              <tbody className="divide-y divide-line/50">
                 {revenueByChannel.channels.map(c => (
-                  <tr key={c.source} className="hover:dark:bg-[#2D3748]/30 hover:bg-gray-50">
-                    <td className="px-3 py-2 dark:text-gray-300 text-gray-700 font-medium">{c.source}</td>
-                    <td className="px-3 py-2 dark:text-gray-200 text-gray-800 font-medium">{formatMoney(c.total_minor_units, currency)}</td>
+                  <tr key={c.source} className="hover:bg-hover/30">
+                    <td className="px-3 py-2 text-ink-2 font-medium">{c.source}</td>
+                    <td className="px-3 py-2 text-ink font-medium">{formatMoney(c.total_minor_units, currency)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -36,7 +36,7 @@ export default function SalesTrendsPage() {
           title={
             <div className="flex items-center justify-between">
               <span>Sales Trend</span>
-              <div className="flex items-center gap-0.5 dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 rounded-lg p-0.5">
+              <div className="flex items-center gap-0.5 bg-sunken border border-line rounded-lg p-0.5">
                 {TREND_GRANULARITIES.map(g => (
                   <button
                     key={g}
@@ -45,7 +45,7 @@ export default function SalesTrendsPage() {
                       'px-2 py-1 rounded-md text-[10px] font-medium capitalize transition-colors',
                       granularity === g
                         ? 'bg-blue-600 text-white'
-                        : 'dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700',
+                        : 'text-ink-3 hover:text-ink-2',
                     )}
                   >
                     {g}

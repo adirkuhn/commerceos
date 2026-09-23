@@ -21,20 +21,20 @@ export default function InventorySalesPage() {
         ) : (
           <table className="w-full text-xs">
             <thead>
-              <tr className="dark:bg-[#111827]/50 bg-gray-50">
+              <tr className="dark:bg-night-900/50 bg-gray-50">
                 {['Product', 'SKU', 'Stock on Hand', 'Sold', 'Turnover'].map(h => (
-                  <th key={h} className="px-4 py-2 text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">{h}</th>
+                  <th key={h} className="px-4 py-2 text-left text-[10px] font-medium text-ink-4 uppercase">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+            <tbody className="divide-y divide-line/50">
               {inventoryVsSales.map(row => (
-                <tr key={row.sku_id} className="hover:dark:bg-[#2D3748]/30 hover:bg-gray-50">
-                  <td className="px-4 py-2 dark:text-gray-200 text-gray-800 font-medium">{row.product_name || row.sku_code}</td>
-                  <td className="px-4 py-2 font-mono dark:text-gray-500 text-gray-400">{row.sku_code}</td>
-                  <td className="px-4 py-2 dark:text-gray-400 text-gray-500">{row.stock_on_hand}</td>
-                  <td className="px-4 py-2 dark:text-gray-400 text-gray-500">{row.quantity_sold_in_period}</td>
-                  <td className="px-4 py-2 dark:text-gray-200 text-gray-800 font-medium">
+                <tr key={row.sku_id} className="hover:bg-hover/30">
+                  <td className="px-4 py-2 text-ink font-medium">{row.product_name || row.sku_code}</td>
+                  <td className="px-4 py-2 font-mono text-ink-4">{row.sku_code}</td>
+                  <td className="px-4 py-2 text-ink-3">{row.stock_on_hand}</td>
+                  <td className="px-4 py-2 text-ink-3">{row.quantity_sold_in_period}</td>
+                  <td className="px-4 py-2 text-ink font-medium">
                     {row.turnover_basis_points === null ? 'n/a' : `${(row.turnover_basis_points / 100).toFixed(1)}%`}
                   </td>
                 </tr>

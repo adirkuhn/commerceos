@@ -52,17 +52,17 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+      <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Ready to print</h3>
-          <button onClick={onClose} aria-label="Close"><X size={14} className="dark:text-gray-500 text-gray-400" /></button>
+          <h3 className="text-sm font-semibold text-ink">Ready to print</h3>
+          <button onClick={onClose} aria-label="Close"><X size={14} className="text-ink-4" /></button>
         </div>
 
         {/* Label-shaped preview -- deliberately always white/black text
             (like the real printed label) regardless of the app's own
             dark/light theme, so what staff see here matches the paper. */}
-        <div className="rounded-lg border-2 border-dashed border-gray-300 p-4 mb-4 bg-white text-gray-900">
-          <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">To</p>
+        <div className="rounded-lg border-2 border-dashed border-gray-300 p-4 mb-4 bg-white text-ink">
+          <p className="text-[10px] uppercase tracking-wider text-ink-4 mb-1">To</p>
           <p className="text-base font-bold leading-tight">{recipient.person || '—'}</p>
           {recipient.company && <p className="text-sm">{recipient.company}</p>}
           <p className="text-sm">
@@ -73,17 +73,17 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
           </p>
           <p className="text-sm font-medium">{recipient.cc}</p>
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-dashed border-gray-200">
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{carrierLabel}</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-ink-3 font-medium">{carrierLabel}</span>
             {packageTypeLabel && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{packageTypeLabel}</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-ink-3 font-medium">{packageTypeLabel}</span>
             )}
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{labelSize}</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-ink-3 font-medium">{labelSize}</span>
           </div>
         </div>
 
         <div className="mb-4">
-          <label className="block text-[11px] font-medium dark:text-gray-400 text-gray-500 mb-1">Label size</label>
-          <div className="flex items-center rounded-lg border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+          <label className="block text-[11px] font-medium text-ink-3 mb-1">Label size</label>
+          <div className="flex items-center rounded-lg border border-line overflow-hidden">
             {(['A4', 'A6'] as const).map(s => (
               <button
                 key={s}
@@ -92,22 +92,22 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
                 aria-pressed={labelSize === s}
                 className={clsx(
                   'flex-1 py-2 text-xs font-medium',
-                  labelSize === s ? 'bg-blue-600 text-white' : 'dark:bg-[#111827] bg-white dark:text-gray-400 text-gray-500',
+                  labelSize === s ? 'bg-blue-600 text-white' : 'bg-surface text-ink-3',
                 )}
               >
                 {s}
               </button>
             ))}
           </div>
-          <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">Can be changed again later when reprinting.</p>
+          <p className="text-[10px] text-ink-4 mt-1">Can be changed again later when reprinting.</p>
         </div>
 
-        {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
+        {error && <p className="text-xs text-danger mb-3">{error}</p>}
 
         <div className="flex items-center gap-2">
           <button
             type="button" onClick={onBack} disabled={printing}
-            className="px-4 py-2 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-700 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover disabled:opacity-50 transition-colors"
           >
             Back to edit
           </button>
