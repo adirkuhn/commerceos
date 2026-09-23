@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { act } from 'react'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Products from '../Products'
+import { renderAt } from '../../test/renderAt'
 import { AppProvider, useApp } from '../../context/AppContext'
 import type { Product, ProductDetail, Category } from '../../pms/types'
 import type { Connection } from '../../integrations/types'
@@ -2354,5 +2356,75 @@ describe('editing SKU code on an already-saved SKU', () => {
     await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
       sku_code: 'NEW-CODE',
     })))
+  })
+})
+
+describe('Products URLs (refresh + Back)', () => {
+  function renderProductsAt(url: string) {
+    return renderAt(<AppProvider><Products /></AppProvider>, '/products', url)
+  }
+
+  it('reads search and page from the URL on load, without resetting the page', async () => {
+    mockPaginatedProducts(Array.from({ length: 45 }, (_, i) => product({ id: `p${i}`, name: `Shirt ${i}`, slug: `shirt-${i}` })))
+    const { router } = renderProductsAt('/products?q=shirt&page=2')
+
+    await waitFor(() => expect(pmsApi.listProducts).toHaveBeenCalledWith('test-token', expect.objectContaining({ page: 2, search: 'shirt' })))
+    expect(screen.getByPlaceholderText('Search by name or slug...')).toHaveValue('shirt')
+    // past the 300ms search debounce -- must not have reset page 2
+    await new Promise(r => setTimeout(r, 400))
+    expect(router.state.location.search).toBe('?q=shirt&page=2')
+  })
+
+  it('typing a search writes ?q= and drops the page', async () => {
+    const { router } = renderProductsAt('/products?page=3')
+    await userEvent.type(await screen.findByPlaceholderText('Search by name or slug...'), 'tee')
+    await waitFor(() => expect(router.state.location.search).toBe('?q=tee'))
+  })
+
+  it('closing the editor returns to the list page it was opened from', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    const { router } = renderProductsAt('/products?q=t')
+    await userEvent.click(await screen.findByText('T-Shirt'))
+    expect(router.state.location.pathname).toBe('/products/prod-1')
+
+    await userEvent.click(await screen.findByRole('button', { name: /Products/ }))
+    await waitFor(() => expect(router.state.location.pathname + router.state.location.search).toBe('/products?q=t'))
+  })
+
+  it('browser Back from the editor returns to the list', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    const { router } = renderProductsAt('/products')
+    await userEvent.click(await screen.findByText('T-Shirt'))
+    await screen.findByDisplayValue('T-Shirt')
+
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname).toBe('/products')
+    expect(await screen.findByText('T-Shirt')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('T-Shirt')).not.toBeInTheDocument()
+  })
+
+  it('creating from /products/new replaces the URL with the new product', async () => {
+    const created = product({ id: 'new-prod' })
+    vi.mocked(pmsApi.createProduct).mockResolvedValue(created)
+    vi.mocked(pmsApi.createVariant).mockResolvedValue({ ...baseVariant, id: 'new-var', product_id: 'new-prod' })
+    vi.mocked(pmsApi.createSKU).mockResolvedValue({ ...baseSku, id: 'new-sku', variant_id: 'new-var' })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: created, variants: [] })
+
+    const { router } = renderProductsAt('/products/new')
+    await userEvent.type(await screen.findByLabelText('Name'), 'New Shirt')
+    await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'NEWSHIRT-1')
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
+    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/products/new-prod'))
+    expect(router.state.historyAction).toBe('REPLACE')
+  })
+
+  it('the editor tab lives in ?tab=', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    const { router } = renderProductsAt('/products/prod-1')
+    await userEvent.click(await screen.findByRole('button', { name: /WooCommerce/ }))
+    expect(router.state.location.search).toBe('?tab=woocommerce')
   })
 })

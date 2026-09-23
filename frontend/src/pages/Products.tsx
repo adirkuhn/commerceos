@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { idFromPath } from '../routes'
+import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
+import { useQueryEnum, useQueryPage, useQueryString } from '../routing/useQueryState'
 import {
   Plus, Search, Package, Trash2, Edit3, Copy, ArrowLeft, Plug, X, ImagePlus, Boxes, RefreshCw,
   ChevronDown, ChevronRight,
@@ -75,46 +75,35 @@ function normalizeScaleCodeInput(raw: string): string {
 export default function Products() {
   const { token } = useAuth()
 
-  const [searchInput, setSearchInput] = useState('')
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-
-  // The URL is the source of truth for "which product is open"
-  // (/products/<uuid>, or /products/new for the create flow) -- survives a
-  // refresh, is a real shareable per-record link, and doubles as the
-  // "re-clicking Products in the sidebar returns to the list" fix: Sidebar's
-  // setActiveNav navigates to the plain "/products" path (see AppContext),
-  // which has no id segment, so editingId below goes back to null on its
-  // own -- no separate reset-on-reclick mechanism needed.
+  // Search (?q=), page (?page=) and the open product (/products/<id>, or
+  // /products/new) all live in the URL -- survives a refresh, is a real
+  // shareable link, and Back/closing the editor returns to the same list
+  // page. It also doubles as the "re-clicking Products in the sidebar
+  // returns to the list" fix: Sidebar's setActiveNav navigates to the plain
+  // "/products" path (see AppContext), which has no id segment, so
+  // editingId goes back to null on its own.
   //
-  // Read via useLocation (not useParams) so this reflects the URL on every
-  // render even when navigating here doesn't remount the page -- e.g.
-  // global search's CommandPalette navigating straight to "/products/<id>"
-  // while Products is already mounted. A param captured once into local
-  // state would not.
-  const location = useLocation()
-  const navigate = useNavigate()
-  const editingId = idFromPath(location.pathname, '/products')
-  const openEditor = (id: string) => navigate(`/products/${id}`)
-  const closeEditor = () => navigate('/products')
+  // Read from the URL on every render (useRoutedEditor uses useLocation,
+  // not useParams) so this reflects navigation that doesn't remount the
+  // page -- e.g. global search's CommandPalette navigating straight to
+  // "/products/<id>" while Products is already mounted.
+  const [urlSearch, setUrlSearch] = useQueryString('q', { resets: ['page'] })
+  const search = urlSearch ?? ''
+  const [page, setPage] = useQueryPage()
+  const { editingId, openEdit: openEditor, openNew, close: closeEditor, showSaved } = useRoutedEditor('/products')
 
-  // Debounce the search box so it doesn't fire a server request on every
-  // keystroke — the list is now fetched server-side, unlike the old
-  // client-side .filter() over a fully-loaded array. Only commits
-  // setSearch, never setPage directly -- the separate effect below resets
-  // the page, keyed off `search` actually changing. Doing it in one step
-  // here meant this fired ~300ms after every mount regardless of whether
-  // the search box was touched (searchInput debounces to itself), so a
-  // page the user had already navigated to within that window got
-  // silently reset back to 1.
+  // The box debounces into ?q= so the server isn't hit on every keystroke.
+  // Only writes when the typed value actually differs from the URL: writing
+  // on mount too would reset ?page= (the search write clears it) for a
+  // page the user landed on directly.
+  const [searchInput, setSearchInput] = useState(search)
   useEffect(() => {
-    const timeout = setTimeout(() => setSearch(searchInput), 300)
+    if (searchInput === search) return
+    const timeout = setTimeout(() => setUrlSearch(searchInput), 300)
     return () => clearTimeout(timeout)
-  }, [searchInput])
-
-  useEffect(() => {
-    setPage(1)
-  }, [search])
+  }, [searchInput, search, setUrlSearch])
+  // Back/Forward to a URL with a different ?q= updates the box too.
+  useEffect(() => { setSearchInput(search) }, [search])
 
   const { products, total, loading, error, create: createProduct, update: updateProduct, remove: removeProduct } =
     useProducts(token ?? '', { page, perPage: PAGE_SIZE, search })
@@ -138,21 +127,21 @@ export default function Products() {
     }
   }
 
-  // Swaps ?id=new for the real id the instant creation succeeds -- without
-  // this, a refresh in the gap between "create" and the next explicit
-  // navigation would reopen a blank "New Product" form instead of the
-  // product that was just created (it's safely persisted either way; only
-  // the "which product is open" URL state would be stale).
+  // Swaps /products/new for the real id the instant creation succeeds --
+  // without this, a refresh in the gap between "create" and the next
+  // explicit navigation would reopen a blank "New Product" form instead of
+  // the product that was just created. Replace, not push: Back shouldn't
+  // land on the blank create form either.
   const handleCreateProduct = async (payload: Parameters<typeof createProduct>[0]) => {
     const created = await createProduct(payload)
-    openEditor(created.id)
+    showSaved(created.id)
     return created
   }
 
   if (editingId !== null) {
     return (
       <ProductEditPage
-        productId={editingId === 'new' ? null : editingId}
+        productId={editingId === NEW_RECORD ? null : editingId}
         categories={categories}
         onCreateCategory={createCategory}
         onUpdateCategory={updateCategory}
@@ -178,7 +167,7 @@ export default function Products() {
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <button
-            onClick={() => openEditor('new')}
+            onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
           >
             <Plus size={13} /> New Product
@@ -299,7 +288,8 @@ export default function Products() {
 // (Shopify, Lightspeed, ...), each mapping the same product to that
 // channel's own fields without polluting the generic model.
 
-type EditorTab = 'general' | 'woocommerce' | 'bol'
+const EDITOR_TABS = ['general', 'woocommerce', 'bol'] as const
+type EditorTab = typeof EDITOR_TABS[number]
 
 interface ProductEditorProps {
   productId: string | null
@@ -333,7 +323,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
   const [newCategoryName, setNewCategoryName] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
-  const [activeTab, setActiveTab] = useState<EditorTab>('general')
+  const [requestedTab, setActiveTab] = useQueryEnum<EditorTab>('tab', EDITOR_TABS, 'general')
   const [resyncing, setResyncing] = useState(false)
   const [resyncMessage, setResyncMessage] = useState('')
 
@@ -342,6 +332,13 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
   // rather than a tab that just tells you to go connect it.
   const [wooConnection, setWooConnection] = useState<Connection | null>(null)
   const [bolConnection, setBolConnection] = useState<Connection | null>(null)
+  // ?tab= can name a channel tab this product doesn't have (stale link, or
+  // connections still loading) -- show General rather than an empty page.
+  const activeTab: EditorTab =
+    (requestedTab === 'woocommerce' && !(savedProductId && wooConnection)) ||
+    (requestedTab === 'bol' && !(savedProductId && bolConnection))
+      ? 'general'
+      : requestedTab
   useEffect(() => {
     if (!token) return
     integrationsApi.listConnections(token)
