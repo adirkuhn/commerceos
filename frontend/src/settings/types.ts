@@ -34,6 +34,10 @@ export interface TenantSettings {
   // back to a documented default (180). Optional here for the same reason
   // as bundle_confidence_threshold above.
   recommendations_lookback_days?: number
+  // How the picking module works (see backend domain/settings.PickingMode).
+  // Optional for the same fixture reason as bundle_confidence_threshold --
+  // a real response always includes it; missing means scan.
+  picking_mode?: PickingMode
   updated_at: string
 }
 
@@ -50,7 +54,12 @@ export interface TenantSettingsInput {
   bundle_confidence_threshold?: number
   recommendations_min_support?: number
   recommendations_lookback_days?: number
+  picking_mode?: PickingMode
 }
+
+// scan: pickers scan each item into a session. list: pickers see the
+// order's items and mark the whole order picked in one action.
+export type PickingMode = 'scan' | 'list'
 
 export interface ApiKey {
   id: string

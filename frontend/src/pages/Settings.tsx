@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   Building2, Package, Truck, Globe, Zap, Shield, Bell, CreditCard, Plug,
-  ChevronRight, Check, AlertTriangle, Bot, X, Percent, Trash2, TrendingUp,
+  ChevronRight, Check, AlertTriangle, Bot, X, Percent, Trash2, TrendingUp, PackageCheck,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -18,32 +18,16 @@ import * as integrationsApi from '../integrations/api'
 import type { Connection, AIProvider, SalesChannel } from '../integrations/types'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import * as settingsApi from '../settings/api'
-import type { TenantSettings, TenantSettingsInput, ApiKey } from '../settings/types'
+import type { ApiKey } from '../settings/types'
 import { CURRENCY_OPTIONS } from '../settings/currencyOptions'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
 import type { TaxClass } from '../tax/types'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { Dialog } from '../components/common/Dialog'
+import { toInput } from '../settings/tenantSettingsInput'
+import { PickingModeSection } from '../settings/PickingModeSection'
 import { useConfirm } from '../components/common/useConfirm'
-
-// toInput picks just the persisted fields off a fetched TenantSettings so a
-// section that only edits some of them (Localization edits 4, Tax edits 2)
-// can still send a full snapshot -- the backend replaces the whole row on
-// every PATCH (see UpdateTenantSettingsUseCase), so omitting a field here
-// would silently wipe it back to empty/false instead of leaving it alone.
-function toInput(s: TenantSettings | null): TenantSettingsInput {
-  if (!s) return {}
-  return {
-    default_currency: s.default_currency, timezone: s.timezone, date_format: s.date_format, language: s.language,
-    prices_include_tax: s.prices_include_tax, default_tax_country: s.default_tax_country,
-    inventory_sync_rules_enabled: s.inventory_sync_rules_enabled, batch_expiry_threshold_days: s.batch_expiry_threshold_days,
-    default_target_markup_basis_points: s.default_target_markup_basis_points,
-    bundle_confidence_threshold: s.bundle_confidence_threshold,
-    recommendations_min_support: s.recommendations_min_support,
-    recommendations_lookback_days: s.recommendations_lookback_days,
-  }
-}
 
 interface SettingSection {
   id: string
@@ -56,6 +40,7 @@ const SECTIONS: SettingSection[] = [
   { id: 'company', label: 'Company', icon: Building2, description: 'Business name, address, tax IDs' },
   { id: 'integrations', label: 'Integrations', icon: Plug, description: 'Connect and configure external services' },
   { id: 'inventory', label: 'Inventory rules', icon: Package, description: 'FEFO, min stock, reorder points' },
+  { id: 'fulfillment', label: 'Fulfillment', icon: PackageCheck, description: 'Picking mode' },
   { id: 'shipping', label: 'Shipping rules', icon: Truck, description: 'Default carriers, label format, zones' },
   { id: 'localization', label: 'Localization', icon: Globe, description: 'Currency, timezone, language' },
   { id: 'tax', label: 'Tax', icon: Percent, description: 'Tax classes and rates' },
@@ -227,6 +212,7 @@ export default function Settings() {
           </div>
         )}
 
+        {activeSection === 'fulfillment' && <PickingModeSection />}
         {activeSection === 'localization' && <LocalizationSettingsSection />}
         {activeSection === 'tax' && (
           <div className="max-w-2xl space-y-6">
