@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Package, ShoppingCart, Factory, Users, Loader2 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
@@ -36,6 +36,7 @@ export default function CommandPalette() {
   const { token, user } = useAuth()
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
+  const listboxId = useId()
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const [results, setResults] = useState<GlobalSearchResult | null>(null)
@@ -84,6 +85,12 @@ export default function CommandPalette() {
     }, SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(timer)
   }, [query, token])
+
+  // Keep the keyboard-highlighted row visible in the scrolling list.
+  useEffect(() => {
+    if (!commandOpen) return
+    document.getElementById(`${listboxId}-option-${activeIndex}`)?.scrollIntoView?.({ block: 'nearest' })
+  }, [activeIndex, commandOpen, listboxId])
 
   if (!commandOpen) return null
 
@@ -150,6 +157,8 @@ export default function CommandPalette() {
   }
 
   let renderedIndex = -1
+  const optionId = (index: number) => `${listboxId}-option-${index}`
+  const activeEntryExists = activeIndex < flatEntries.length
 
   return (
     <Dialog onClose={() => setCommandOpen(false)} label="Search" className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]">
@@ -167,6 +176,12 @@ export default function CommandPalette() {
           <input
             ref={inputRef}
             type="text"
+            role="combobox"
+            aria-label="Search"
+            aria-expanded={flatEntries.length > 0}
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            aria-activedescendant={activeEntryExists ? optionId(activeIndex) : undefined}
             value={query}
             onChange={e => { setQuery(e.target.value); setActiveIndex(0) }}
             onKeyDown={handleKeyDown}
@@ -175,9 +190,9 @@ export default function CommandPalette() {
           />
           <kbd className="text-2xs bg-fill text-ink-4 px-1.5 py-1 rounded font-mono">ESC</kbd>
         </div>
-        <div className="py-2 max-h-96 overflow-y-auto">
+        <div id={listboxId} role="listbox" aria-label="Results" className="py-2 max-h-96 overflow-y-auto">
           {searchError && (
-            <p className="px-4 py-2 text-xs text-danger">{searchError}</p>
+            <p role="alert" className="px-4 py-2 text-xs text-danger">{searchError}</p>
           )}
           {flatEntries.length === 0 && !searching && (
             <p className="px-4 py-4 text-sm text-ink-4 text-center">
@@ -185,19 +200,26 @@ export default function CommandPalette() {
             </p>
           )}
           {sections.map(section => (
-            <div key={section.title}>
-              <p className="px-4 py-1.5 text-2xs font-medium text-ink-4 uppercase tracking-wider">
+            <div key={section.title} role="group" aria-labelledby={`${listboxId}-${section.title}`}>
+              <p id={`${listboxId}-${section.title}`} className="px-4 py-1.5 text-2xs font-medium text-ink-4 uppercase tracking-wider">
                 {section.title}
               </p>
               {section.entries.map(entry => {
                 renderedIndex += 1
-                const isActive = renderedIndex === activeIndex
+                // Captured per row: the closure must not see the counter's
+                // final value (hovering any row used to highlight the last).
+                const index = renderedIndex
+                const isActive = index === activeIndex
                 const Icon = entry.icon
                 return (
                   <button
                     key={entry.key}
+                    id={optionId(index)}
+                    role="option"
+                    aria-selected={isActive}
+                    tabIndex={-1}
                     onClick={entry.onSelect}
-                    onMouseEnter={() => setActiveIndex(renderedIndex)}
+                    onMouseEnter={() => setActiveIndex(index)}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${
                       isActive ? 'bg-hover' : 'hover:bg-hover'
                     }`}

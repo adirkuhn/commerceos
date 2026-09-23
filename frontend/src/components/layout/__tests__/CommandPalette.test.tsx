@@ -171,4 +171,41 @@ describe('CommandPalette', () => {
     const warehouses = screen.getByText('Go to Warehouses').closest('button')!
     expect(warehouses).not.toHaveTextContent(/G [A-Z]$/)
   })
+
+  it('is a combobox whose active result screen readers can follow', async () => {
+    renderPalette()
+    await openPalette()
+
+    const input = screen.getByRole('combobox', { name: 'Search' })
+    const listbox = screen.getByRole('listbox')
+    expect(input).toHaveAttribute('aria-controls', listbox.id)
+
+    const first = screen.getAllByRole('option')[0]
+    expect(first).toHaveAttribute('aria-selected', 'true')
+    expect(input).toHaveAttribute('aria-activedescendant', first.id)
+
+    await userEvent.keyboard('{ArrowDown}')
+
+    const second = screen.getAllByRole('option')[1]
+    expect(second).toHaveAttribute('aria-selected', 'true')
+    expect(first).toHaveAttribute('aria-selected', 'false')
+    expect(input).toHaveAttribute('aria-activedescendant', second.id)
+  })
+
+  it('groups results under their section names', async () => {
+    renderPalette()
+    await openPalette()
+    expect(screen.getByRole('group', { name: 'Navigation' })).toBeInTheDocument()
+  })
+
+  it('highlights the row under the pointer, not the last row', async () => {
+    renderPalette()
+    await openPalette()
+
+    const options = screen.getAllByRole('option')
+    await userEvent.hover(options[1])
+
+    expect(options[1]).toHaveAttribute('aria-selected', 'true')
+    expect(options[options.length - 1]).toHaveAttribute('aria-selected', 'false')
+  })
 })
