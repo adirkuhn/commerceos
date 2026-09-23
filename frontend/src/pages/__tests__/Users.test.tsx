@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
+import { act } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Users from '../Users'
+import { renderAt } from '../../test/renderAt'
 import type { CompanyMember, CompanyInvite } from '../../team/types'
 import type { Group } from '../../iam/types'
 
@@ -74,7 +76,7 @@ beforeEach(() => {
 describe('Users page — real member data', () => {
   it('renders real members from lm2, not mock data', async () => {
     vi.mocked(teamApi.listMembers).mockResolvedValue([member()])
-    render(<Users />)
+    renderAt(<Users />, '/users')
     expect(await screen.findByText('Alex Kuhn')).toBeInTheDocument()
     expect(screen.getByText('alex@example.com')).toBeInTheDocument()
     expect(teamApi.listMembers).toHaveBeenCalledWith('test-token')
@@ -88,7 +90,7 @@ describe('Users page — real member data', () => {
         summary: 'Shipment created via MyParcel', metadata: {}, created_at: '2026-08-26T00:00:00Z',
       }],
     })
-    render(<Users />)
+    renderAt(<Users />, '/users')
     await screen.findByText('Alex Kuhn')
 
     fireEvent.click(screen.getByTitle("View Alex Kuhn's activity"))
@@ -100,7 +102,7 @@ describe('Users page — real member data', () => {
   it('changes a member role', async () => {
     vi.mocked(teamApi.listMembers).mockResolvedValue([member()])
     vi.mocked(teamApi.updateMemberRole).mockResolvedValue(null)
-    render(<Users />)
+    renderAt(<Users />, '/users')
     await screen.findByText('Alex Kuhn')
 
     fireEvent.change(screen.getByLabelText(/role for alex kuhn/i), { target: { value: 'customer_user' } })
@@ -112,7 +114,7 @@ describe('Users page — real member data', () => {
     vi.mocked(teamApi.listMembers).mockResolvedValue([member()])
     vi.mocked(teamApi.removeMember).mockResolvedValue(null)
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    render(<Users />)
+    renderAt(<Users />, '/users')
     await screen.findByText('Alex Kuhn')
 
     fireEvent.click(screen.getByLabelText(/remove alex kuhn/i))
@@ -123,7 +125,7 @@ describe('Users page — real member data', () => {
   it('hides the Remove control on the logged-in user\'s own row', async () => {
     mockUserId = 'u-1'
     vi.mocked(teamApi.listMembers).mockResolvedValue([member()])
-    render(<Users />)
+    renderAt(<Users />, '/users')
     await screen.findByText('Alex Kuhn')
 
     expect(screen.queryByLabelText(/remove alex kuhn/i)).not.toBeInTheDocument()
@@ -133,7 +135,7 @@ describe('Users page — real member data', () => {
     vi.mocked(teamApi.listMembers).mockResolvedValue([member()])
     vi.mocked(teamApi.removeMember).mockRejectedValue(new Error('company must have at least one owner'))
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    render(<Users />)
+    renderAt(<Users />, '/users')
     await screen.findByText('Alex Kuhn')
 
     fireEvent.click(screen.getByLabelText(/remove alex kuhn/i))
@@ -145,7 +147,7 @@ describe('Users page — real member data', () => {
 describe('Users page — invites', () => {
   it('sends an invite', async () => {
     vi.mocked(teamApi.createInvite).mockResolvedValue({ id: 'inv-2', email: 'joe@example.com', role: 'customer_user' })
-    render(<Users />)
+    renderAt(<Users />, '/users')
     await waitFor(() => expect(teamApi.listMembers).toHaveBeenCalled())
 
     fireEvent.click(screen.getByRole('button', { name: /invite user/i }))
@@ -158,7 +160,7 @@ describe('Users page — invites', () => {
   it('lists pending invites and revokes one', async () => {
     vi.mocked(teamApi.listInvites).mockResolvedValue([invite()])
     vi.mocked(teamApi.revokeInvite).mockResolvedValue(null)
-    render(<Users />)
+    renderAt(<Users />, '/users')
     expect(await screen.findByText('new@example.com')).toBeInTheDocument()
 
     fireEvent.click(screen.getByLabelText(/revoke invite for new@example.com/i))
@@ -173,7 +175,7 @@ describe('Users page — groups panel', () => {
     vi.mocked(iamApi.listGroups).mockResolvedValue([group()])
     vi.mocked(iamApi.listMembers).mockResolvedValue({ members: [] })
     vi.mocked(iamApi.addMember).mockResolvedValue(null)
-    render(<Users />)
+    renderAt(<Users />, '/users')
     await screen.findByText('Alex Kuhn')
 
     fireEvent.click(screen.getByRole('button', { name: /groups/i }))
@@ -188,15 +190,65 @@ describe('Users page — groups panel', () => {
 describe('Users page — access control', () => {
   it('shows a not-authorized message for a non-owner', async () => {
     mockRole = 'customer_user'
-    render(<Users />)
+    renderAt(<Users />, '/users')
     expect(await screen.findByText(/only.*owner/i)).toBeInTheDocument()
     expect(teamApi.listMembers).not.toHaveBeenCalled()
   })
 
   it('allows super_admin through, same as customer_owner', async () => {
     mockRole = 'super_admin'
-    render(<Users />)
+    renderAt(<Users />, '/users')
     await waitFor(() => expect(teamApi.listMembers).toHaveBeenCalledWith('test-token'))
     expect(screen.queryByText(/only.*owner/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('Users URLs (refresh + Back)', () => {
+  it('clicking a member pushes /users/:userId; that URL reopens the panel on load', async () => {
+    vi.mocked(teamApi.listMembers).mockResolvedValue([member()])
+    const { router, unmount } = renderAt(<Users />, '/users')
+    fireEvent.click(await screen.findByTitle("View Alex Kuhn's activity"))
+    expect(router.state.location.pathname).toBe('/users/u-1')
+    unmount()
+
+    renderAt(<Users />, '/users', '/users/u-1')
+    await waitFor(() => expect(iamApi.getUserActivities).toHaveBeenCalledWith('test-token', 'u-1'))
+  })
+
+  it('Back closes the member panel', async () => {
+    vi.mocked(teamApi.listMembers).mockResolvedValue([member()])
+    const { router } = renderAt(<Users />, '/users')
+    fireEvent.click(await screen.findByTitle("View Alex Kuhn's activity"))
+    await waitFor(() => expect(iamApi.getUserActivities).toHaveBeenCalled())
+
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname).toBe('/users')
+  })
+
+  it('/users/groups/:groupId opens the groups panel with that group selected', async () => {
+    vi.mocked(iamApi.listGroups).mockResolvedValue([group()])
+    vi.mocked(iamApi.listMembers).mockResolvedValue({ members: [] })
+    renderAt(<Users />, '/users', '/users/groups/g-1')
+    expect(await screen.findByLabelText(/add member to group/i)).toBeInTheDocument()
+  })
+
+  it('selecting a group pushes /users/groups/:groupId', async () => {
+    vi.mocked(iamApi.listGroups).mockResolvedValue([group()])
+    vi.mocked(iamApi.listMembers).mockResolvedValue({ members: [] })
+    const { router } = renderAt(<Users />, '/users', '/users/groups')
+    fireEvent.click(await screen.findByText('Warehouse Staff'))
+    expect(router.state.location.pathname).toBe('/users/groups/g-1')
+  })
+
+  it('/users/invite opens the invite form on load', async () => {
+    renderAt(<Users />, '/users', '/users/invite')
+    expect(await screen.findByRole('button', { name: /send invite/i })).toBeInTheDocument()
+  })
+
+  it('search lives in ?q=', async () => {
+    vi.mocked(teamApi.listMembers).mockResolvedValue([member(), member({ membership_id: 'm-2', user_id: 'u-2', first_name: 'Bo', last_name: 'Li', email: 'bo@example.com' })])
+    renderAt(<Users />, '/users', '/users?q=bo')
+    expect(await screen.findByText('Bo Li')).toBeInTheDocument()
+    expect(screen.queryByText('Alex Kuhn')).not.toBeInTheDocument()
   })
 })

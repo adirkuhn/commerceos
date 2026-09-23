@@ -16,7 +16,8 @@ interface UseCompanyMembersActions {
 
 export function useCompanyMembers(token: string): UseCompanyMembersState & UseCompanyMembersActions {
   const [members, setMembers] = useState<CompanyMember[]>([])
-  const [loading, setLoading] = useState(false)
+  // true from the first render when a load is coming -- see useConnections.
+  const [loading, setLoading] = useState(Boolean(token))
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {

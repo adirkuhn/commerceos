@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Plus, Search, Shield, X, CheckCircle, XCircle } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
+import { useUsersRoute } from '../team/useUsersRoute'
+import { useQueryString } from '../routing/useQueryState'
 import { useCompanyMembers } from '../team/hooks/useCompanyMembers'
 import { useCompanyInvites } from '../team/hooks/useCompanyInvites'
 import { useGroups } from '../iam/hooks/useGroups'
@@ -184,10 +186,26 @@ function UserActivityPanel({ token, member, onClose }: { token: string; member: 
   )
 }
 
-function GroupsPanel({ token, members }: { token: string; members: CompanyMember[] }) {
+interface GroupsPanelProps {
+  token: string
+  members: CompanyMember[]
+  // From the URL (see useUsersRoute): the selected group, and whether the
+  // group form is open (create when groupId is null).
+  groupId: string | null
+  editing: boolean
+  onSelect: (id: string) => void
+  onCreate: () => void
+  onEdit: (id: string) => void
+  onCloseForm: () => void
+  onDeselect: () => void
+}
+
+function GroupsPanel({ token, members, groupId, editing, onSelect, onCreate, onEdit, onCloseForm, onDeselect }: GroupsPanelProps) {
   const groups = useGroups(token)
-  const [selected, setSelected] = useState<Group | null>(null)
-  const [showForm, setShowForm] = useState(false)
+  const selected = groupId ? groups.groups.find(g => g.id === groupId) ?? null : null
+  // Editing an existing group waits for it to load so the form opens
+  // prefilled rather than as an empty "create" form.
+  const showForm = editing && (groupId === null || selected !== null)
 
   return (
     <div className="w-[480px] border-l dark:border-[#2D3748] border-gray-200 flex flex-col overflow-hidden">
@@ -198,12 +216,13 @@ function GroupsPanel({ token, members }: { token: string; members: CompanyMember
       <div className="flex-1 overflow-auto p-4">
         {showForm ? (
           <GroupForm
+            key={groupId ?? 'new'}
             group={selected}
-            onCancel={() => setShowForm(false)}
+            onCancel={onCloseForm}
             onSubmit={async payload => {
               if (selected) await groups.update(selected.id, payload)
               else await groups.create(payload)
-              setShowForm(false)
+              onCloseForm()
             }}
           />
         ) : (
@@ -211,16 +230,16 @@ function GroupsPanel({ token, members }: { token: string; members: CompanyMember
             groups={groups.groups}
             loading={groups.loading}
             error={groups.error}
-            onSelect={g => setSelected(g)}
-            onDelete={id => { groups.remove(id); if (selected?.id === id) setSelected(null) }}
-            onCreateClick={() => { setSelected(null); setShowForm(true) }}
+            onSelect={g => onSelect(g.id)}
+            onDelete={id => { groups.remove(id); if (groupId === id) onDeselect() }}
+            onCreateClick={onCreate}
           />
         )}
         {selected && !showForm && (
           <div className="mt-4 border-t dark:border-[#2D3748] border-gray-200">
             <div className="flex items-center justify-between px-0 pt-3">
               <h4 className="text-xs font-semibold dark:text-gray-200 text-gray-800">{selected.name}</h4>
-              <button onClick={() => setShowForm(true)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+              <button onClick={() => onEdit(selected.id)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
             </div>
             <GroupDetail token={token} group={selected} members={members} />
           </div>
@@ -239,10 +258,17 @@ export default function Users() {
 
   const membersState = useCompanyMembers(effectiveToken)
   const invitesState = useCompanyInvites(effectiveToken)
-  const [search, setSearch] = useState('')
-  const [showInvite, setShowInvite] = useState(false)
-  const [showGroups, setShowGroups] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<CompanyMember | null>(null)
+  // Search (?q=) and the open panel/form (see useUsersRoute) live in the
+  // URL, so refresh and Back keep the user where they were.
+  const [searchParam, setSearch] = useQueryString('q')
+  const search = searchParam ?? ''
+  const route = useUsersRoute()
+  const { view } = route
+  const showInvite = view.kind === 'invite'
+  const showGroups = view.kind === 'groups'
+  const selectedUser = view.kind === 'member'
+    ? membersState.members.find(m => m.user_id === view.userId) ?? null
+    : null
   const [actionError, setActionError] = useState<string | null>(null)
 
   if (!isOwner) {
@@ -281,7 +307,7 @@ export default function Users() {
           />
         </div>
         <button
-          onClick={() => { setSelectedUser(null); setShowGroups(!showGroups) }}
+          onClick={() => (showGroups ? route.close() : route.openGroups())}
           className={clsx(
             'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors',
             showGroups
@@ -292,7 +318,7 @@ export default function Users() {
           <Shield size={13} /> Groups
         </button>
         <button
-          onClick={() => setShowInvite(true)}
+          onClick={route.openInvite}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 ml-auto font-medium"
         >
           <Plus size={13} /> Invite User
@@ -301,7 +327,7 @@ export default function Users() {
 
       {showInvite && (
         <InviteForm
-          onCancel={() => setShowInvite(false)}
+          onCancel={route.close}
           onSubmit={(email, role) => invitesState.create(email, role)}
         />
       )}
@@ -349,7 +375,7 @@ export default function Users() {
                   <tr key={m.membership_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors group">
                     <td className="px-3 py-3">
                       <button
-                        onClick={() => { setShowGroups(false); setSelectedUser(m) }}
+                        onClick={() => route.openMember(m.user_id)}
                         className="flex items-center gap-2.5 text-left hover:underline"
                         title={`View ${fullName(m)}'s activity`}
                       >
@@ -410,8 +436,20 @@ export default function Users() {
           </div>
         </div>
 
-        {showGroups && <GroupsPanel token={effectiveToken} members={membersState.members} />}
-        {selectedUser && <UserActivityPanel token={effectiveToken} member={selectedUser} onClose={() => setSelectedUser(null)} />}
+        {view.kind === 'groups' && (
+          <GroupsPanel
+            token={effectiveToken}
+            members={membersState.members}
+            groupId={view.groupId}
+            editing={view.editing}
+            onSelect={route.openGroup}
+            onCreate={route.newGroup}
+            onEdit={route.editGroup}
+            onCloseForm={route.closeGroupForm}
+            onDeselect={route.openGroups}
+          />
+        )}
+        {selectedUser && <UserActivityPanel token={effectiveToken} member={selectedUser} onClose={route.close} />}
       </div>
     </div>
   )

@@ -6,11 +6,15 @@ import { useSalesChannels } from '../../integrations/hooks/useSalesChannels'
 import { useCoupons } from '../../coupons/hooks/useCoupons'
 import { useWarehouses } from '../../inventory/hooks/useWarehouses'
 import { useTaxClasses } from '../../tax/hooks/useTaxClasses'
+import { useCompanyMembers } from '../../team/hooks/useCompanyMembers'
+import { useGroups } from '../../iam/hooks/useGroups'
 
 vi.mock('../../integrations/api', () => ({ listConnections: vi.fn(() => new Promise(() => {})), listSalesChannels: vi.fn(() => new Promise(() => {})) }))
 vi.mock('../../coupons/api', () => ({ listCoupons: vi.fn(() => new Promise(() => {})) }))
 vi.mock('../../inventory/api', () => ({ listWarehouses: vi.fn(() => new Promise(() => {})) }))
 vi.mock('../../tax/api', () => ({ listTaxClasses: vi.fn(() => new Promise(() => {})) }))
+vi.mock('../../team/api', () => ({ listMembers: vi.fn(() => new Promise(() => {})) }))
+vi.mock('../../iam/api', () => ({ listGroups: vi.fn(() => new Promise(() => {})) }))
 
 // Pages resolve a record from the URL (/coupons/<id>, ...) against these
 // lists and show "not found" when it's missing and the list isn't loading.
@@ -22,6 +26,8 @@ describe.each([
   ['useCoupons', useCoupons],
   ['useWarehouses', useWarehouses],
   ['useTaxClasses', useTaxClasses],
+  ['useCompanyMembers', useCompanyMembers],
+  ['useGroups', useGroups],
 ] as const)('%s', (_name, useList) => {
   it('reports loading on the first render when it has a token to load with', () => {
     const renders: boolean[] = []
