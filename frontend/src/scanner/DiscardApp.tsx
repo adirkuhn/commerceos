@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Route, Routes } from 'react-router-dom'
 import { ArrowLeft, Package, Trash2, X, Camera as CameraIcon } from 'lucide-react'
 import * as pmsApi from '../pms/api'
 import { useSKUStock } from '../inventory/hooks/useSKUStock'
@@ -7,6 +8,9 @@ import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
 import { ScanCodeScreen } from './ScanCodeScreen'
 import { ProductCandidateRow } from './ProductCandidateRow'
 import { QuantityStepper } from './QuantityStepper'
+import { SkuRoute } from './SkuRoute'
+import { scannerPaths } from './scannerRoutes'
+import { useStackNavigation } from '../routing/useStackNavigation'
 import type { Resolved } from './InventoryApp'
 import type { Batch } from '../inventory/types'
 
@@ -21,20 +25,29 @@ interface DiscardAppProps {
 // endpoint the desktop Inventory module's Expiry & Discards page uses, so
 // every discard (desktop review queue, desktop "expiring soon", or here)
 // lands in the same report.
+//
+// Mounted at /scanner/discard/* -- scan screen at the index, the SKU's
+// discard screen at /scanner/discard/:code (see ./scannerRoutes).
 export function DiscardApp({ token, onExit }: DiscardAppProps) {
-  const [resolved, setResolved] = useState<Resolved | null>(null)
-
-  if (!resolved) {
-    return <DiscardScanScreen token={token} onResolved={setResolved} onExit={onExit} />
-  }
+  const { open } = useStackNavigation()
 
   return (
-    <DiscardSKUScreen
-      token={token}
-      sku={resolved.sku}
-      productName={resolved.productName}
-      onBack={() => setResolved(null)}
-    />
+    <Routes>
+      <Route
+        index
+        element={<DiscardScanScreen token={token} onResolved={r => open(scannerPaths.discardSku(r.sku.sku_code))} onExit={onExit} />}
+      />
+      <Route
+        path=":code"
+        element={
+          <SkuRoute token={token} backTo={scannerPaths.discard}>
+            {(resolved, { back }) => (
+              <DiscardSKUScreen token={token} sku={resolved.sku} productName={resolved.productName} onBack={back} />
+            )}
+          </SkuRoute>
+        }
+      />
+    </Routes>
   )
 }
 

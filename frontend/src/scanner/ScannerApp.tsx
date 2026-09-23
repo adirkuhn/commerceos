@@ -1,135 +1,71 @@
-import { useState } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { useScannerAuth } from './useScannerAuth'
 import { ClaimScreen } from './ClaimScreen'
 import { AppLauncher, type ScannerAppID } from './AppLauncher'
-import { InventoryApp, type Resolved } from './InventoryApp'
+import { InventoryApp } from './InventoryApp'
 import { PriceLookupApp } from './PriceLookupApp'
 import { DiscardApp } from './DiscardApp'
 import { PurchaseOrderPickerScreen } from './PurchaseOrderPickerScreen'
-import { BookingScreen } from './BookingScreen'
 import { SalesOrderPickerScreen } from './SalesOrderPickerScreen'
-import { PickingScreen } from './PickingScreen'
 import { SalesOrderPackerScreen } from './SalesOrderPackerScreen'
-import { PackingScreen } from './PackingScreen'
-import type { SalesOrder } from '../oms/types'
+import { BookingRoute, PackSessionRoute, PickSessionRoute } from './sessionRoutes'
+import { scannerPaths } from './scannerRoutes'
+import { useStackNavigation } from '../routing/useStackNavigation'
+
+const APP_PATHS: Record<ScannerAppID, string> = {
+  'receive-po': scannerPaths.receive,
+  'inventory': scannerPaths.inventory,
+  'price-lookup': scannerPaths.priceLookup,
+  'discard': scannerPaths.discard,
+  'pick-order': scannerPaths.pick,
+  'pack-order': scannerPaths.pack,
+}
 
 // Full-screen kiosk-style app for the handheld scanner device -- bypasses
 // the normal Sidebar/Topbar chrome and ../auth/AuthContext entirely (see
-// useScannerAuth's doc comment). No router: a small local state machine
-// hosts the launcher plus each mini-app's own linear flow, matching the
-// rest of this SPA's "no router library" convention.
+// useScannerAuth's doc comment). Mounted at /scanner/*: every screen has
+// its own URL (see ./scannerRoutes) so a refresh or the device's Back
+// button keeps the operator where they were instead of resetting to the
+// launcher. Route paths below are relative to /scanner.
 export default function ScannerApp() {
   const { token, setToken, clearToken } = useScannerAuth()
-  const [app, setApp] = useState<ScannerAppID | null>(null)
-  const [bookingId, setBookingId] = useState<string | null>(null)
-  const [pickingSessionId, setPickingSessionId] = useState<string | null>(null)
-  const [pickingOrder, setPickingOrder] = useState<SalesOrder | null>(null)
-  const [packingSessionId, setPackingSessionId] = useState<string | null>(null)
-  const [packingOrder, setPackingOrder] = useState<SalesOrder | null>(null)
-  // Set by Price Lookup's "View in Inventory" -- lets Inventory open
-  // straight to this SKU's screen instead of showing its own scan step.
-  const [inventoryInitialResolved, setInventoryInitialResolved] = useState<Resolved | null>(null)
+  const { open, exitTo } = useStackNavigation()
 
+  // Unpaired: pair first, then render whatever the URL already points at --
+  // a deep link survives the pairing step.
   if (!token) {
     return <ClaimScreen onClaimed={setToken} />
   }
 
-  if (!app) {
-    return <AppLauncher onSelect={setApp} onLogout={clearToken} />
-  }
-
-  if (app === 'inventory') {
-    return (
-      <InventoryApp
-        token={token}
-        initialResolved={inventoryInitialResolved ?? undefined}
-        onExit={() => { setApp(null); setInventoryInitialResolved(null) }}
-      />
-    )
-  }
-
-  if (app === 'price-lookup') {
-    return (
-      <PriceLookupApp
-        token={token}
-        onExit={() => setApp(null)}
-        onViewInventory={resolved => { setInventoryInitialResolved(resolved); setApp('inventory') }}
-      />
-    )
-  }
-
-  if (app === 'discard') {
-    return <DiscardApp token={token} onExit={() => setApp(null)} />
-  }
-
-  if (app === 'pick-order') {
-    if (!pickingSessionId || !pickingOrder) {
-      return (
-        <SalesOrderPickerScreen
-          token={token}
-          onPickingStarted={(sessionId, order) => { setPickingSessionId(sessionId); setPickingOrder(order) }}
-          onLogout={clearToken}
-          onBack={() => setApp(null)}
-        />
-      )
-    }
-    return (
-      <PickingScreen
-        token={token}
-        sessionId={pickingSessionId}
-        order={pickingOrder}
-        onExit={() => { setPickingSessionId(null); setPickingOrder(null) }}
-        onAuthError={clearToken}
-        onContinueToPacking={(sessionId, order) => {
-          setPickingSessionId(null); setPickingOrder(null)
-          setPackingSessionId(sessionId); setPackingOrder(order); setApp('pack-order')
-        }}
-      />
-    )
-  }
-
-  if (app === 'pack-order') {
-    if (!packingSessionId || !packingOrder) {
-      return (
-        <SalesOrderPackerScreen
-          token={token}
-          onPackingStarted={(sessionId, order) => { setPackingSessionId(sessionId); setPackingOrder(order) }}
-          onLogout={clearToken}
-          onBack={() => setApp(null)}
-        />
-      )
-    }
-    return (
-      <PackingScreen
-        token={token}
-        sessionId={packingSessionId}
-        order={packingOrder}
-        onExit={() => { setPackingSessionId(null); setPackingOrder(null) }}
-        onAuthError={clearToken}
-      />
-    )
-  }
-
-  // Only 'receive-po', 'inventory', 'price-lookup', 'discard', 'pick-order',
-  // and 'pack-order' are implemented -- the other tiles in AppLauncher are
-  // disabled, so app can't reach this branch with any other value yet.
-  if (!bookingId) {
-    return (
-      <PurchaseOrderPickerScreen
-        token={token}
-        onBookingStarted={setBookingId}
-        onLogout={clearToken}
-        onBack={() => setApp(null)}
-      />
-    )
-  }
+  const toLauncher = () => exitTo(scannerPaths.launcher)
 
   return (
-    <BookingScreen
-      token={token}
-      bookingId={bookingId}
-      onExit={() => setBookingId(null)}
-      onAuthError={clearToken}
-    />
+    <Routes>
+      <Route index element={<AppLauncher onSelect={app => open(APP_PATHS[app])} onLogout={clearToken} />} />
+
+      <Route
+        path="receive"
+        element={<PurchaseOrderPickerScreen token={token} onBookingStarted={id => open(scannerPaths.booking(id))} onLogout={clearToken} onBack={toLauncher} />}
+      />
+      <Route path="receive/:bookingId" element={<BookingRoute token={token} onAuthError={clearToken} />} />
+
+      <Route path="inventory/*" element={<InventoryApp token={token} onExit={toLauncher} />} />
+      <Route path="price-lookup/*" element={<PriceLookupApp token={token} onExit={toLauncher} />} />
+      <Route path="discard/*" element={<DiscardApp token={token} onExit={toLauncher} />} />
+
+      <Route
+        path="pick"
+        element={<SalesOrderPickerScreen token={token} onPickingStarted={id => open(scannerPaths.pickSession(id))} onLogout={clearToken} onBack={toLauncher} />}
+      />
+      <Route path="pick/:sessionId" element={<PickSessionRoute token={token} onAuthError={clearToken} />} />
+
+      <Route
+        path="pack"
+        element={<SalesOrderPackerScreen token={token} onPackingStarted={id => open(scannerPaths.packSession(id))} onLogout={clearToken} onBack={toLauncher} />}
+      />
+      <Route path="pack/:sessionId" element={<PackSessionRoute token={token} onAuthError={clearToken} />} />
+
+      <Route path="*" element={<Navigate to={scannerPaths.launcher} replace />} />
+    </Routes>
   )
 }

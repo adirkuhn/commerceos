@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Route, Routes } from 'react-router-dom'
 import { ArrowLeft, Boxes, Package, ArrowRightLeft, PackageMinus, Plus, Tag, X, Check, Trash2 } from 'lucide-react'
 import * as pmsApi from '../pms/api'
 import { useSKUStock } from '../inventory/hooks/useSKUStock'
@@ -7,6 +8,10 @@ import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
 import { ScanCodeScreen } from './ScanCodeScreen'
 import { ProductCandidateRow } from './ProductCandidateRow'
 import { QuantityStepper } from './QuantityStepper'
+import { SkuRoute } from './SkuRoute'
+import { scannerPaths } from './scannerRoutes'
+import { useStackNavigation } from '../routing/useStackNavigation'
+import { useQueryEnum } from '../routing/useQueryState'
 import type { SKU } from '../pms/types'
 import type { Batch, Warehouse } from '../inventory/types'
 
@@ -18,11 +23,9 @@ export interface Resolved {
 interface InventoryAppProps {
   token: string
   onExit: () => void
-  // Skips straight to the SKU screen for an already-resolved SKU (e.g.
-  // jumping here from Price Lookup's "View in Inventory") instead of
-  // showing the scan screen first.
-  initialResolved?: Resolved
 }
+
+const SCAN_TABS = ['code', 'name'] as const
 
 function parsePriceToMinorUnits(price: string): number {
   return Math.round(parseFloat(price || '0') * 100)
@@ -37,26 +40,40 @@ function formatPrice(minorUnits: number, currency: string): string {
 // Scanner mini-app: scan/type a code to resolve a SKU, then adjust, move, or
 // write off its stock -- every action also works by tapping alone (numeric
 // keypad inputs + steppers + confirm buttons), not scan-only.
-export function InventoryApp({ token, onExit, initialResolved }: InventoryAppProps) {
-  const [resolved, setResolved] = useState<Resolved | null>(initialResolved ?? null)
-
-  if (!resolved) {
-    return <InventoryScanScreen token={token} onResolved={setResolved} onExit={onExit} />
-  }
+// Mounted at /scanner/inventory/* -- the scan screen is the index route and
+// each SKU screen is /scanner/inventory/:code (see ./scannerRoutes), so a
+// refresh or Back keeps the operator on the SKU they were working on.
+export function InventoryApp({ token, onExit }: InventoryAppProps) {
+  const { open } = useStackNavigation()
 
   return (
-    <InventorySKUScreen
-      token={token}
-      sku={resolved.sku}
-      productName={resolved.productName}
-      onSKUUpdated={updatedSKU => setResolved(r => r && { ...r, sku: updatedSKU })}
-      onBack={() => setResolved(null)}
-    />
+    <Routes>
+      <Route
+        index
+        element={<InventoryScanScreen token={token} onResolved={r => open(scannerPaths.inventorySku(r.sku.sku_code))} onExit={onExit} />}
+      />
+      <Route
+        path=":code"
+        element={
+          <SkuRoute token={token} backTo={scannerPaths.inventory}>
+            {(resolved, { update, back }) => (
+              <InventorySKUScreen
+                token={token}
+                sku={resolved.sku}
+                productName={resolved.productName}
+                onSKUUpdated={updatedSKU => update({ ...resolved, sku: updatedSKU })}
+                onBack={back}
+              />
+            )}
+          </SkuRoute>
+        }
+      />
+    </Routes>
   )
 }
 
 function InventoryScanScreen({ token, onResolved, onExit }: { token: string; onResolved: (r: Resolved) => void; onExit: () => void }) {
-  const [tab, setTab] = useState<'code' | 'name'>('code')
+  const [tab, setTab] = useQueryEnum('by', SCAN_TABS, 'code')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [candidates, setCandidates] = useState<SKUCandidate[]>([])

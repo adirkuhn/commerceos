@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { renderAt } from './renderAt'
 import ScannerApp from '../ScannerApp'
 import type { Booking, BookingDetail, PickingSession, PickingSessionDetail } from '../types'
 import type { PurchaseOrder } from '../../procurement/types'
@@ -54,6 +55,7 @@ vi.mock('../../inventory/api', () => ({
 
 vi.mock('../../oms/api', () => ({
   listSalesOrders: vi.fn(),
+  getSalesOrder: vi.fn(),
 }))
 
 vi.mock('../../pms/api', () => ({
@@ -150,12 +152,14 @@ beforeEach(() => {
   localStorage.clear()
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([])
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
+  // Picking/packing screens are URL-addressed and reload their order by id.
+  vi.mocked(omsApi.getSalesOrder).mockResolvedValue({ sales_order: salesOrder(), line_items: [] })
   mockDecodeFromVideoDevice.mockResolvedValue({ stop: vi.fn() })
 })
 
 describe('ScannerApp pairing', () => {
   it('defaults to the Scan tab, not Type code', async () => {
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
 
     expect(screen.getByPlaceholderText('Scan QR code or barcode…')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('000000')).not.toBeInTheDocument()
@@ -166,7 +170,7 @@ describe('ScannerApp pairing', () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([])
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([])
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     // A hardware scan-engine keyboard-wedges the decoded token then a
     // terminator keystroke -- typing + Enter simulates that.
     await userEvent.type(screen.getByPlaceholderText('Scan QR code or barcode…'), 'opaque-token-abc{Enter}')
@@ -179,7 +183,7 @@ describe('ScannerApp pairing', () => {
   it('shows an error on an invalid scanned token', async () => {
     vi.mocked(api.claimPairingCodeByToken).mockRejectedValue(new Error('pairing code is invalid or expired'))
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.type(screen.getByPlaceholderText('Scan QR code or barcode…'), 'bad-token{Enter}')
 
     expect(await screen.findByText('pairing code is invalid or expired')).toBeInTheDocument()
@@ -190,7 +194,7 @@ describe('ScannerApp pairing', () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([])
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([])
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(screen.getByRole('button', { name: /Use camera/ }))
     await waitFor(() => expect(mockDecodeFromVideoDevice).toHaveBeenCalled())
     const callback = mockDecodeFromVideoDevice.mock.calls[0][2]
@@ -205,7 +209,7 @@ describe('ScannerApp pairing', () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([])
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([])
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(screen.getByRole('button', { name: 'Type code' }))
     await userEvent.type(screen.getByPlaceholderText('000000'), '123456')
     await userEvent.click(screen.getByRole('button', { name: 'Pair' }))
@@ -217,7 +221,7 @@ describe('ScannerApp pairing', () => {
   it('shows an error on an invalid typed code', async () => {
     vi.mocked(api.claimPairingCode).mockRejectedValue(new Error('pairing code is invalid or expired'))
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(screen.getByRole('button', { name: 'Type code' }))
     await userEvent.type(screen.getByPlaceholderText('000000'), '000000')
     await userEvent.click(screen.getByRole('button', { name: 'Pair' }))
@@ -228,7 +232,7 @@ describe('ScannerApp pairing', () => {
   it('skips the claim screen when a valid token is already stored', async () => {
     localStorage.setItem('commerceos_scanner_jwt', makeJWT(Math.floor(Date.now() / 1000) + 3600))
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
 
     expect(await screen.findByText('Receive PO')).toBeInTheDocument()
   })
@@ -256,7 +260,7 @@ describe('ScannerApp pairing — Google sign-in', () => {
   it('fetches the google login url from lm2, targeting the scanner callback path, and redirects to it', async () => {
     mockGoogleUrlFetch({ url: 'https://accounts.google.com/o/oauth2/v2/auth?state=abc' })
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(screen.getByRole('button', { name: /sign in with google/i }))
 
     await waitFor(() => expect(window.location.href).toBe('https://accounts.google.com/o/oauth2/v2/auth?state=abc'))
@@ -269,7 +273,7 @@ describe('ScannerApp pairing — Google sign-in', () => {
   it('shows an error when lm2 has no Google configured', async () => {
     mockGoogleUrlFetch(null, false)
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(screen.getByRole('button', { name: /sign in with google/i }))
 
     expect(await screen.findByText('Google sign-in is unavailable')).toBeInTheDocument()
@@ -282,7 +286,7 @@ describe('ScannerApp launcher', () => {
   })
 
   it('shows every mini-app, all enabled', async () => {
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
 
     expect(await screen.findByText('Receive PO')).toBeInTheDocument()
     expect(screen.getByText('Inventory')).toBeInTheDocument()
@@ -293,7 +297,7 @@ describe('ScannerApp launcher', () => {
   })
 
   it('no tiles are disabled', async () => {
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await screen.findByText('Receive PO')
 
     expect(screen.getByRole('button', { name: /Inventory/ })).not.toBeDisabled()
@@ -303,7 +307,7 @@ describe('ScannerApp launcher', () => {
   })
 
   it('Discard tile opens the Discard app scan screen', async () => {
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Discard'))
 
     expect(await screen.findByPlaceholderText('Scan or type SKU / barcode…')).toBeInTheDocument()
@@ -313,7 +317,7 @@ describe('ScannerApp launcher', () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([])
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([])
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Receive PO'))
     await screen.findByText('Select a purchase order')
 
@@ -332,7 +336,7 @@ describe('ScannerApp purchase order picker', () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po(), po({ id: 'po-2', status: 'draft' })])
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Receive PO'))
 
     expect(await screen.findByText('Acme Foods')).toBeInTheDocument()
@@ -346,7 +350,7 @@ describe('ScannerApp purchase order picker', () => {
     ])
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Receive PO'))
 
     expect(await screen.findByText('#A1B2C3D4')).toBeInTheDocument()
@@ -360,7 +364,7 @@ describe('ScannerApp purchase order picker', () => {
     ])
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Receive PO'))
 
     expect(await screen.findByText(new Date('2026-07-01T00:00:00Z').toLocaleDateString())).toBeInTheDocument()
@@ -372,7 +376,7 @@ describe('ScannerApp purchase order picker', () => {
     vi.mocked(api.startOrResumeBooking).mockResolvedValue(booking())
     vi.mocked(api.getBooking).mockResolvedValue({ booking: booking(), line_items: [], scans: [] })
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Receive PO'))
     await userEvent.click(await screen.findByText('Acme Foods'))
 
@@ -387,7 +391,7 @@ describe('ScannerApp purchase order picker', () => {
     vi.mocked(api.startOrResumeBooking).mockResolvedValue(booking())
     vi.mocked(api.getBooking).mockResolvedValue({ booking: booking(), line_items: [], scans: [] })
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Receive PO'))
     await userEvent.click(await screen.findByText('Acme Foods'))
 
@@ -411,7 +415,7 @@ describe('ScannerApp booking screen', () => {
   })
 
   async function enterBookingScreen() {
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Receive PO'))
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Booking')
@@ -695,7 +699,7 @@ describe('ScannerApp sales order picker', () => {
   it('lists unfulfilled orders by customer name and order number', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Pick Order'))
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
@@ -708,7 +712,7 @@ describe('ScannerApp sales order picker', () => {
     vi.mocked(api.startOrResumePicking).mockResolvedValue(pickingSession())
     vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [], scans: [] })
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Pick Order'))
     await userEvent.click(await screen.findByText('Jane Doe'))
 
@@ -720,7 +724,7 @@ describe('ScannerApp sales order picker', () => {
   it('Back from the sales order picker returns to the launcher', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [], total: 0 })
 
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Pick Order'))
     await screen.findByText('Select an order to pick')
 
@@ -738,7 +742,7 @@ describe('ScannerApp picking screen', () => {
   })
 
   async function enterPickingScreen() {
-    render(<ScannerApp />)
+    renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Pick Order'))
     await userEvent.click(await screen.findByText('Jane Doe'))
     await screen.findByText('#1001')
@@ -780,6 +784,8 @@ describe('ScannerApp picking screen', () => {
 
   it('scanning a code that matches a line item marks one unit picked immediately, with no sheet', async () => {
     vi.mocked(api.getPickingSession)
+      // first load: the /scanner/pick/:sessionId route resolving the session's order
+      .mockResolvedValueOnce({ session: pickingSession(), line_items: [lineItem], scans: [] })
       .mockResolvedValueOnce({ session: pickingSession(), line_items: [lineItem], scans: [] })
       .mockResolvedValueOnce({
         session: pickingSession(), line_items: [lineItem],

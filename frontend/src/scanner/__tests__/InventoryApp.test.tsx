@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { renderAt } from './renderAt'
+import { resolvesSkuCodes } from './skuResolver'
 import { InventoryApp } from '../InventoryApp'
 import type { SKU, Product, ProductDetail } from '../../pms/types'
 import type { Batch, StockLevel, Warehouse } from '../../inventory/types'
@@ -108,7 +110,7 @@ async function resolveAndEnterSKU(matchedSKU = sku(), batches: Batch[] = [batch(
   vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
   vi.mocked(inventoryApi.listBatches).mockResolvedValue(batches)
 
-  render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+  renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
   await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID-L{Enter}')
   await screen.findByText('WID-L')
 }
@@ -148,14 +150,13 @@ describe('InventoryApp scan screen', () => {
   it('shows an error when nothing matches, even after the partial-match fallback', async () => {
     vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
 
-    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
     await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'UNKNOWN{Enter}')
 
     expect(await screen.findByText('sku not found')).toBeInTheDocument()
   })
 
   it('falls back to a partial match when the exact code lookup fails (misread/truncated scan), auto-resolving a single match', async () => {
-    vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
     const p = product({ id: 'p1', name: 'Widget' })
     const s = sku({ id: 'sku-1', sku_code: 'WID-L' })
     vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [p], total: 1 })
@@ -163,7 +164,9 @@ describe('InventoryApp scan screen', () => {
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
 
-    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    vi.mocked(pmsApi.resolveBarcode).mockImplementation(resolvesSkuCodes([[s, 'Widget']]))
+
+    renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
     await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID-{Enter}')
 
     expect(pmsApi.listProducts).toHaveBeenCalledWith(TOKEN, expect.objectContaining({ search: 'WID-' }))
@@ -171,7 +174,6 @@ describe('InventoryApp scan screen', () => {
   })
 
   it('shows a candidate list when the partial-match fallback finds more than one SKU', async () => {
-    vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
     const p1 = product({ id: 'p1', name: 'Widget' })
     const p2 = product({ id: 'p2', name: 'Widget Pro' })
     const s1 = sku({ id: 'sku-1', sku_code: 'WID-L' })
@@ -182,7 +184,9 @@ describe('InventoryApp scan screen', () => {
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
 
-    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    vi.mocked(pmsApi.resolveBarcode).mockImplementation(resolvesSkuCodes([[s1, 'Widget'], [s2, 'Widget Pro']]))
+
+    renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
     await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID{Enter}')
 
     expect(await screen.findByText('Widget Pro')).toBeInTheDocument()
@@ -197,7 +201,7 @@ describe('InventoryApp scan screen', () => {
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
 
-    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
     await userEvent.click(screen.getByRole('button', { name: /Use camera/ }))
     await waitFor(() => expect(mockDecodeFromVideoDevice).toHaveBeenCalled())
     const callback = mockDecodeFromVideoDevice.mock.calls[0][2]
@@ -217,7 +221,9 @@ describe('InventoryApp search by name', () => {
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
 
-    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    vi.mocked(pmsApi.resolveBarcode).mockImplementation(resolvesSkuCodes([[s, 'Widget']]))
+
+    renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
     await userEvent.click(screen.getByRole('button', { name: 'Search by name' }))
     await userEvent.type(screen.getByPlaceholderText('Product name…'), 'Widget{Enter}')
 
@@ -236,7 +242,9 @@ describe('InventoryApp search by name', () => {
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
 
-    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    vi.mocked(pmsApi.resolveBarcode).mockImplementation(resolvesSkuCodes([[s1, 'Widget'], [s2, 'Widget Pro']]))
+
+    renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
     await userEvent.click(screen.getByRole('button', { name: 'Search by name' }))
     await userEvent.type(screen.getByPlaceholderText('Product name…'), 'Widget{Enter}')
 
@@ -261,7 +269,9 @@ describe('InventoryApp search by name', () => {
     vi.mocked(pmsApi.listProductMedia).mockImplementation(async (_token, productId) =>
       productId === 'p1' ? [media({ product_id: 'p1', url: 'https://example.com/widget.jpg' })] : [])
 
-    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    vi.mocked(pmsApi.resolveBarcode).mockImplementation(resolvesSkuCodes([[s1, 'Widget'], [s2, 'Widget Pro']]))
+
+    renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
     await userEvent.click(screen.getByRole('button', { name: 'Search by name' }))
     await userEvent.type(screen.getByPlaceholderText('Product name…'), 'Widget{Enter}')
     await screen.findByText('Widget Pro')
@@ -273,7 +283,7 @@ describe('InventoryApp search by name', () => {
   it('shows an error when no product matches the searched name', async () => {
     vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [], total: 0 })
 
-    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
     await userEvent.click(screen.getByRole('button', { name: 'Search by name' }))
     await userEvent.type(screen.getByPlaceholderText('Product name…'), 'Nope{Enter}')
 

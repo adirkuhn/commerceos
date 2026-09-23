@@ -1,0 +1,34 @@
+import type { ReactNode } from 'react'
+import { ArrowLeft } from 'lucide-react'
+import type { ResourceState } from '../routing/useResource'
+
+interface ScannerLoadGateProps<T> {
+  resource: ResourceState<T>
+  onBack: () => void
+  children: (data: T) => ReactNode
+}
+
+// Full-screen loading/error shell for a scanner screen reached by URL. On
+// error it always offers a way back -- a stale or mistyped deep link must
+// never strand the operator on a dead screen.
+export function ScannerLoadGate<T>({ resource, onBack, children }: ScannerLoadGateProps<T>) {
+  if (resource.data !== null) return <>{children(resource.data)}</>
+
+  return (
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 p-6 bg-[#0B1220] text-gray-100 text-center">
+      {resource.loading ? (
+        <p className="text-sm text-gray-400">Loading…</p>
+      ) : (
+        <>
+          <p className="text-sm text-red-400">{resource.error || 'Not found'}</p>
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 font-medium"
+          >
+            <ArrowLeft size={16} /> Back
+          </button>
+        </>
+      )}
+    </div>
+  )
+}

@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { renderAt } from './renderAt'
+import { resolvesSkuCodes } from './skuResolver'
 import { DiscardApp } from '../DiscardApp'
 import type { SKU, Product, ProductDetail } from '../../pms/types'
 import type { Batch, StockLevel } from '../../inventory/types'
@@ -84,7 +86,7 @@ async function resolveAndEnterSKU(matchedSKU = sku(), batches: Batch[] = [batch(
   vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
   vi.mocked(inventoryApi.listBatches).mockResolvedValue(batches)
 
-  render(<DiscardApp token={TOKEN} onExit={() => {}} />)
+  renderAt(<DiscardApp token={TOKEN} onExit={() => {}} />, '/scanner/discard')
   await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID-L{Enter}')
   await screen.findByText('WID-L')
 }
@@ -101,14 +103,13 @@ describe('DiscardApp scan screen', () => {
   it('shows an error when nothing matches, even after the partial-match fallback', async () => {
     vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
 
-    render(<DiscardApp token={TOKEN} onExit={() => {}} />)
+    renderAt(<DiscardApp token={TOKEN} onExit={() => {}} />, '/scanner/discard')
     await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'UNKNOWN{Enter}')
 
     expect(await screen.findByText('sku not found')).toBeInTheDocument()
   })
 
   it('falls back to a partial match and auto-resolves a single match', async () => {
-    vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
     const p = product({ id: 'p1', name: 'Widget' })
     const s = sku({ id: 'sku-1', sku_code: 'WID-L' })
     vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [p], total: 1 })
@@ -116,7 +117,9 @@ describe('DiscardApp scan screen', () => {
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
 
-    render(<DiscardApp token={TOKEN} onExit={() => {}} />)
+    vi.mocked(pmsApi.resolveBarcode).mockImplementation(resolvesSkuCodes([[s, 'Widget']]))
+
+    renderAt(<DiscardApp token={TOKEN} onExit={() => {}} />, '/scanner/discard')
     await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID-{Enter}')
 
     expect(await screen.findByText('WID-L')).toBeInTheDocument()
@@ -127,7 +130,7 @@ describe('DiscardApp scan screen', () => {
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
 
-    render(<DiscardApp token={TOKEN} onExit={() => {}} />)
+    renderAt(<DiscardApp token={TOKEN} onExit={() => {}} />, '/scanner/discard')
     await userEvent.click(screen.getByRole('button', { name: /Use camera/ }))
     await waitFor(() => expect(mockDecodeFromVideoDevice).toHaveBeenCalled())
     const callback = mockDecodeFromVideoDevice.mock.calls[0][2]
