@@ -15,6 +15,7 @@ import type {
 } from './types'
 import { StockShortfallDialog } from './StockShortfallDialog'
 import type { SalesOrder, Address } from '../oms/types'
+import { Dialog } from '../components/common/Dialog'
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString()
@@ -638,7 +639,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
       )}
 
       {scanErrorAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+        <Dialog onClose={dismissScanError} label="Scan error" initialFocus="dialog" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
           <div className="w-full max-w-xs rounded-2xl bg-[#111827] border border-red-500/40 p-5 text-center">
             <p className="text-sm font-semibold text-red-400 mb-4">{scanErrorAlert}</p>
             <button
@@ -648,11 +649,11 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
               OK
             </button>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {resetConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+        <Dialog onClose={() => setResetConfirmOpen(false)} label="Start over?" dismissible={!resetting} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
           <div className="w-full max-w-xs rounded-2xl bg-[#111827] border border-[#2D3748] p-5 text-center">
             <p className="text-sm font-semibold mb-1">Start over?</p>
             <p className="text-xs text-gray-400 mb-4">
@@ -673,7 +674,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )
@@ -763,7 +764,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+    <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
       <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <div className="min-w-0">
@@ -977,7 +978,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
           )}
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -1026,7 +1027,7 @@ function AddItemSheet({ token, onCancel, onAdd }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+    <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
       <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <h2 className="text-sm font-semibold">Add freebie or new item</h2>
@@ -1123,6 +1124,6 @@ function AddItemSheet({ token, onCancel, onAdd }: {
           )}
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

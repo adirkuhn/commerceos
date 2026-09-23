@@ -22,6 +22,10 @@ export interface DialogProps {
   label?: string
   // false while the dialog must not be dismissed (e.g. a save in flight).
   dismissible?: boolean
+  // 'dialog' focuses the dialog itself rather than its first control, so
+  // Return can't dismiss it by accident -- for alerts that must be read,
+  // e.g. while a barcode scanner (types + Return) is in use.
+  initialFocus?: 'first-control' | 'dialog'
 }
 
 function focusables(root: HTMLElement): HTMLElement[] {
@@ -31,7 +35,7 @@ function focusables(root: HTMLElement): HTMLElement[] {
 // Modal dialog behaviour for every overlay in the app: role="dialog" +
 // aria-modal, a name, focus moved in on open and back to the opener on
 // close, Tab kept inside, and Escape to dismiss (innermost dialog only).
-export function Dialog({ onClose, children, className, label, dismissible = true }: DialogProps) {
+export function Dialog({ onClose, children, className, label, dismissible = true, initialFocus = 'first-control' }: DialogProps) {
   const ref = useRef<HTMLDivElement>(null)
   const fallbackTitleId = useId()
   // Captured during render: an autoFocus child takes focus during commit,
@@ -50,12 +54,13 @@ export function Dialog({ onClose, children, className, label, dismissible = true
   useEffect(() => {
     const root = ref.current
     if (root && !root.contains(document.activeElement)) {
-      const first = focusables(root)[0]
+      const first = initialFocus === 'first-control' ? focusables(root)[0] : undefined
       ;(first ?? root).focus()
     }
     return () => {
       if (opener && opener.isConnected) opener.focus()
     }
+    // Initial focus is decided once, on open.
   }, [opener])
 
   function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {

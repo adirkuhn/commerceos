@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import JsBarcode from 'jsbarcode'
 import * as api from './api'
 import type { ScannerPairingCode } from './types'
+import { Dialog } from '../components/common/Dialog'
 
 interface PairScannerModalProps {
   token: string
@@ -72,7 +73,7 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
   }, [pairing?.id, pairing?.status])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-xl dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2D3748] border-gray-200">
           <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Pair a Scanner</h2>
@@ -142,6 +143,6 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
           {!error && !pairing && <p className="text-xs dark:text-gray-500 text-gray-400">Generating code…</p>}
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

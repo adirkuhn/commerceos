@@ -13,6 +13,7 @@ import { scannerPaths } from './scannerRoutes'
 import { useStackNavigation } from '../routing/useStackNavigation'
 import type { Resolved } from './InventoryApp'
 import type { Batch } from '../inventory/types'
+import { Dialog } from '../components/common/Dialog'
 
 interface DiscardAppProps {
   token: string
@@ -209,7 +210,7 @@ function DiscardSheet({ row, submitting, error, onCancel, onConfirm }: {
   const disabled = qty <= 0 || submitting
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+    <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
       <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <div className="min-w-0">
@@ -255,6 +256,6 @@ function DiscardSheet({ row, submitting, error, onCancel, onConfirm }: {
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

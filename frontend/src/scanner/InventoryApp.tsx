@@ -14,6 +14,7 @@ import { useStackNavigation } from '../routing/useStackNavigation'
 import { useQueryEnum } from '../routing/useQueryState'
 import type { SKU } from '../pms/types'
 import type { Batch, Warehouse } from '../inventory/types'
+import { Dialog } from '../components/common/Dialog'
 
 export interface Resolved {
   sku: SKU
@@ -518,7 +519,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
   const activeTab = ROW_ACTION_TABS.find(t => t.id === mode)!
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+    <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
       <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <div className="min-w-0">
@@ -639,7 +640,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -664,7 +665,7 @@ function AddBatchSheet({ warehouses, error, onCancel, onCreate }: {
   const disabled = !warehouseId || !lotNumber.trim()
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+    <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
       <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <h2 className="text-sm font-semibold">Add batch</h2>
@@ -707,7 +708,7 @@ function AddBatchSheet({ warehouses, error, onCancel, onCreate }: {
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -722,7 +723,7 @@ function PriceSheet({ sku, error, onCancel, onSave }: {
   const [saleEndDate, setSaleEndDate] = useState(sku.sale_end_date ?? '')
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+    <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
       <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <h2 className="text-sm font-semibold">Edit price</h2>
@@ -760,6 +761,6 @@ function PriceSheet({ sku, error, onCancel, onSave }: {
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

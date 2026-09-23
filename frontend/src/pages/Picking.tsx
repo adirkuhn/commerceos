@@ -1030,7 +1030,7 @@ export default function Picking() {
       )}
 
       {scanErrorAlert && (
-        <Dialog onClose={dismissScanError} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <Dialog onClose={dismissScanError} label="Scan error" initialFocus="dialog" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-xs rounded-xl bg-surface border dark:border-red-500/40 border-red-300 p-5 text-center shadow-xl">
             <p className="text-sm font-semibold text-danger mb-4">{scanErrorAlert}</p>
             <button
@@ -1044,7 +1044,7 @@ export default function Picking() {
       )}
 
       {resetConfirmOpen && (
-        <Dialog onClose={() => setResetConfirmOpen(false)} dismissible={!resetting} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <Dialog onClose={() => setResetConfirmOpen(false)} label="Start over?" dismissible={!resetting} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-xs rounded-xl bg-surface border border-line p-5 text-center shadow-xl">
             <p className="text-sm font-semibold text-ink mb-1">Start over?</p>
             <p className="text-xs text-ink-3 mb-4">

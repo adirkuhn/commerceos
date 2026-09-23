@@ -108,4 +108,18 @@ describe('Dialog', () => {
     render(<Dialog onClose={vi.fn()} label="X" className="fixed inset-0 z-50">x</Dialog>)
     expect(screen.getByRole('dialog')).toHaveClass('fixed', 'inset-0', 'z-50')
   })
+
+  it('can take focus itself instead of a button, so a stray Return (e.g. a barcode scan) cannot dismiss it', async () => {
+    const onClose = vi.fn()
+    render(
+      <Dialog onClose={onClose} label="Scan error" initialFocus="dialog">
+        <button onClick={onClose}>OK</button>
+      </Dialog>,
+    )
+    expect(screen.getByRole('dialog')).toHaveFocus()
+
+    await userEvent.keyboard('12345{Enter}')
+
+    expect(onClose).not.toHaveBeenCalled()
+  })
 })

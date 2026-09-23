@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { StockShortfall, StockShortfallResolution } from './types'
+import { Dialog } from '../components/common/Dialog'
 
 interface StockShortfallDialogProps {
   shortfalls: StockShortfall[]
@@ -20,7 +21,7 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <Dialog onClose={onCancel} dismissible={!submitting} className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onCancel} />
       <div className="relative w-full max-w-md dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
         <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Not enough stock</h3>
@@ -70,6 +71,6 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

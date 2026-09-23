@@ -10,6 +10,7 @@ import { ProductCandidateRow } from './ProductCandidateRow'
 import type { BookingDetail, BookingScan, CompleteBookingResult, MissingBookingItem, ScanBookingItemInput, BookingScanActionType } from './types'
 import type { PurchaseOrder } from '../procurement/types'
 import type { Warehouse, Batch } from '../inventory/types'
+import { Dialog } from '../components/common/Dialog'
 
 // Small square thumbnail for a booking line-item row -- falls back to a
 // placeholder icon when the line isn't linked to a product yet, or the
@@ -694,7 +695,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
   const activeTab = LINE_SHEET_TABS.find(t => t.id === mode)!
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+    <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
       <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <div className="min-w-0">
@@ -872,7 +873,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -906,7 +907,7 @@ function WarehouseSheet({ warehouses, currentWarehouseId, changing, onCancel, on
   onSelect: (warehouseId: string) => void
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+    <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
       <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] p-5 space-y-3">
         <h2 className="text-sm font-semibold">Change warehouse</h2>
         <div className="space-y-2">
@@ -930,6 +931,6 @@ function WarehouseSheet({ warehouses, currentWarehouseId, changing, onCancel, on
           Cancel
         </button>
       </div>
-    </div>
+    </Dialog>
   )
 }
