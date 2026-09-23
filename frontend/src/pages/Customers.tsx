@@ -123,7 +123,7 @@ export default function Customers() {
   // /customers/<id> alone opens the read-only detail view (Amount
   // spent/Orders, Timeline, Notes, addresses); ?edit=1 on top of that opens
   // the edit form -- a separate flag rather than a separate path segment so
-  // the existing /customers/:id route (see routes.ts's DETAIL_PAGE_ROUTES)
+  // the existing /customers/:id route (see routes.ts's SUB_PAGE_ROUTES)
   // still matches without adding another registered route.
   const location = useLocation()
   const navigate = useNavigate()

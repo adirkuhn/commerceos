@@ -3,6 +3,8 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { act } from 'react'
+import { renderAt } from '../../test/renderAt'
 import Picking from '../Picking'
 import type { SalesOrder } from '../../oms/types'
 import type { PickingSession, PickingSessionDetail, ScanPickItemResult, CompletePickingResult, ResolvePickScanCodeResult } from '../../scanner/types'
@@ -13,6 +15,7 @@ vi.mock('../../auth/AuthContext', () => ({
 
 vi.mock('../../oms/api', () => ({
   listSalesOrders: vi.fn(),
+  getSalesOrder: vi.fn(),
 }))
 
 vi.mock('../../scanner/api', () => ({
@@ -89,6 +92,65 @@ beforeEach(() => {
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
   vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
   vi.mocked(shippingApi.lookupAddress).mockResolvedValue(null)
+  vi.mocked(omsApi.getSalesOrder).mockResolvedValue({ sales_order: salesOrder(), line_items: [] })
+})
+
+describe('Picking page URLs (refresh + Back)', () => {
+  it('selecting an order pushes /picking/:sessionId', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+
+    const { router } = renderAt(<Picking />, '/picking')
+    await userEvent.click(await screen.findByText('#1001'))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/picking/ps-1'))
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+  })
+
+  it('/picking/:sessionId reopens that session on load without starting a new one', async () => {
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+
+    renderAt(<Picking />, '/picking', '/picking/ps-1')
+
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+    expect(pickingApi.getPickingSession).toHaveBeenCalledWith('test-token', 'ps-1')
+    expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
+    expect(pickingApi.startOrResumePicking).not.toHaveBeenCalled()
+  })
+
+  it('shows an error when the session in the URL cannot be loaded', async () => {
+    vi.mocked(pickingApi.getPickingSession).mockRejectedValue(new Error('picking session not found'))
+
+    renderAt(<Picking />, '/picking', '/picking/missing')
+
+    expect(await screen.findByText('picking session not found')).toBeInTheDocument()
+  })
+
+  it('browser Back from a session returns to the plain order list', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+
+    const { router } = renderAt(<Picking />, '/picking')
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+
+    await act(() => router.navigate(-1))
+
+    expect(router.state.location.pathname).toBe('/picking')
+    expect(await screen.findByText('Select an order to start picking')).toBeInTheDocument()
+    expect(screen.queryByText('Widget')).not.toBeInTheDocument()
+  })
+
+  it('pausing goes back to /picking', async () => {
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+    vi.mocked(pickingApi.pausePicking).mockResolvedValue(session({ status: 'paused' }))
+
+    const { router } = renderAt(<Picking />, '/picking', '/picking/ps-1')
+    await screen.findByText('Widget')
+    await userEvent.click(screen.getByRole('button', { name: /Pause/ }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/picking'))
+  })
 })
 
 describe('Picking page', () => {

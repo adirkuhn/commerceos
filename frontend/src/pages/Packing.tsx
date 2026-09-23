@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ScanBarcode, CheckCircle, Package, Search, X, Trash2, ArrowLeft, Undo2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as omsApi from '../oms/api'
+import { useRoutedSession } from '../oms/useRoutedSession'
+import { SessionErrorPanel } from '../oms/SessionErrorPanel'
 import type { SalesOrder, Address } from '../oms/types'
 import * as packingApi from '../scanner/api'
 import type { PackingSessionDetail, PickingSessionLineItem, PackScan, CompletePackingResult } from '../scanner/types'
@@ -57,9 +59,16 @@ function shippingAddressLine(address?: Address): string {
   return [streetAndLocality, address.country].filter(Boolean).join(', ')
 }
 
+const PACKING_PATH = '/packing'
+
+// Each open session has its own URL (/packing/:sessionId) -- see
+// useRoutedSession. ?order=<id> is kept as an action URL (Picking's
+// "Continue to Packing"): it starts/resumes that order's session, then
+// replaces itself with the session URL.
 export default function Packing() {
   const { token } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
 
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [ordersLoading, setOrdersLoading] = useState(true)
@@ -166,6 +175,31 @@ export default function Packing() {
     return () => clearInterval(interval)
   }, [session?.session.id, session?.session.status, token])
 
+  function clearSelection() {
+    setActiveOrder(null)
+    setSession(null)
+    setSessionLoading(false)
+    setCompleteResult(null)
+    setError('')
+    setPackLine(null)
+    setCreatedShipmentId(null)
+    setLabelStep(null)
+    setPendingRecipient(null)
+    setConfirmingFinish(false)
+    setExistingShipment(null)
+  }
+
+  const { urlSessionId, showSession, backToList: backToOrders } = useRoutedSession({
+    basePath: PACKING_PATH,
+    token,
+    loadDetail: packingApi.getPackingSession,
+    currentOrder: activeOrder,
+    onLoading: () => { setSessionLoading(true); setError('') },
+    onLoaded: (order, detail) => { setActiveOrder(order); setSession(detail); setSessionLoading(false) },
+    onError: message => { setError(message); setSessionLoading(false) },
+    onCleared: clearSelection,
+  })
+
   async function selectOrder(order: SalesOrder) {
     setError('')
     setCompleteResult(null)
@@ -175,40 +209,33 @@ export default function Packing() {
     setSessionLoading(true)
     try {
       const newSession = await packingApi.startOrResumePacking(token ?? '', order.id)
-      await loadSession(newSession.id)
+      if (showSession(newSession.id)) await loadSession(newSession.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start packing')
       setSessionLoading(false)
     }
   }
 
-  // Deep-link entry point: Picking.tsx's "Continue to Packing" button lands
-  // here with ?order=<id> so a picker who just finished can go straight
-  // into packing the same order in one click, without hunting it in the
-  // list -- still the same shared order list/lock underneath, so a
-  // different person picking it up later from the list works identically.
+  // Action URL: Picking.tsx's "Continue to Packing" lands here with
+  // ?order=<id> so a picker who just finished goes straight into packing
+  // the same order. Replaced (not pushed) by the session URL, so Back
+  // doesn't re-trigger the start.
+  const orderToStart = searchParams.get('order')
   useEffect(() => {
-    const orderId = searchParams.get('order')
-    if (!orderId || !token || ordersLoading || activeOrder) return
-    const order = orders.find(o => o.id === orderId)
-    if (order) {
-      selectOrder(order)
-      setSearchParams(params => { params.delete('order'); return params }, { replace: true })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, token, ordersLoading, orders, activeOrder])
-
-  function backToOrders() {
-    setActiveOrder(null)
-    setSession(null)
-    setCompleteResult(null)
-    setError('')
-    setCreatedShipmentId(null)
-    setLabelStep(null)
-    setPendingRecipient(null)
-    setConfirmingFinish(false)
-    setExistingShipment(null)
-  }
+    if (!orderToStart || !token) return
+    let current = true
+    setSessionLoading(true)
+    packingApi.startOrResumePacking(token, orderToStart)
+      .then(started => {
+        if (current) navigate(`${PACKING_PATH}/${encodeURIComponent(started.id)}`, { replace: true })
+      })
+      .catch(err => {
+        if (!current) return
+        setError(err instanceof Error ? err.message : 'Failed to start packing')
+        setSessionLoading(false)
+      })
+    return () => { current = false }
+  }, [orderToStart, token, navigate])
 
   // Same "instant increment on scan, blocking modal on any mis-scan"
   // pattern as Picking.tsx's handleScanSubmit -- see the fix note there for
@@ -413,14 +440,16 @@ export default function Packing() {
 
       {/* Main pack area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {!activeOrder && (
+        {!activeOrder && !((urlSessionId || orderToStart) && (sessionLoading || error)) && (
           <div className="flex-1 flex flex-col items-center justify-center dark:text-gray-500 text-gray-400">
             <Package size={32} className="mb-3 opacity-40" />
             <p className="text-sm">Select an order to start packing</p>
           </div>
         )}
 
-        {activeOrder && sessionLoading && !session && (
+        {!session && !sessionLoading && error && <SessionErrorPanel error={error} onBack={backToOrders} />}
+
+        {(activeOrder || urlSessionId || orderToStart) && sessionLoading && !session && (
           <div className="flex-1 flex items-center justify-center dark:text-gray-500 text-gray-400 text-sm">Loading…</div>
         )}
 

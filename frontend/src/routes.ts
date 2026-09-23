@@ -103,29 +103,32 @@ export function navItemToPath(nav: NavItem): string {
   return NAV_TO_PATH[nav]
 }
 
-// A page not found here falls through to the "/*" catch-all, so it only
-// needs to resolve exact base paths -- pathToNavItem below handles the
-// "/products/<id>" case separately, without this map knowing about ids.
+// Longest base path first, so "/reports/customer-rfm/x" resolves to the
+// RFM report rather than to the "/reports" overview.
+const PATHS_BY_SPECIFICITY = PAGE_ROUTES
+  .filter(r => r.path !== '/')
+  .sort((a, b) => b.path.length - a.path.length)
+
+// Maps any URL -- a page's base path or one of its sub-URLs
+// ("/products/<id>", "/settings/tax") -- to the nav item that owns it, so
+// the sidebar stays highlighted on per-record/per-section URLs.
 export function pathToNavItem(pathname: string): NavItem {
   if (PATH_TO_NAV[pathname]) return PATH_TO_NAV[pathname]
-  // Strip one path segment (e.g. "/products/<id>" -> "/products") so a
-  // per-record detail URL still highlights its owning nav item in the
-  // sidebar instead of falling back to "dashboard".
-  const base = '/' + pathname.split('/')[1]
-  return PATH_TO_NAV[base] ?? 'dashboard'
+  const owner = PATHS_BY_SPECIFICITY.find(r => pathname.startsWith(`${r.path}/`))
+  return owner?.nav ?? 'dashboard'
 }
 
-// Entities that get a real per-record URL ("/products/<id>") in addition to
-// their list route -- see DETAIL_PAGE_ROUTES.
-const DETAIL_NAV_ITEMS: NavItem[] = ['products', 'suppliers', 'customers', 'sales-orders']
-
-// One extra <Route> per detail-capable entity, same Component, path suffixed
-// with "/:id" purely so react-router matches it instead of falling through
-// to the "/*" catch-all -- the page itself reads the id back out of the URL
-// with idFromPath, not useParams (see idFromPath's doc comment for why).
-export const DETAIL_PAGE_ROUTES: PageRoute[] = PAGE_ROUTES
-  .filter(r => DETAIL_NAV_ITEMS.includes(r.nav))
-  .map(r => ({ ...r, path: `${r.path}/:id` }))
+// Every page owns the URLs under its base path ("/coupons/<id>",
+// "/settings/<section>", "/picking/<sessionId>") so view state -- an open
+// record, a section, a session -- lives in the URL and survives a refresh
+// and Back. The page reads its sub-path itself (idFromPath); react-router
+// only needs the splat so these URLs don't fall through to "Page not
+// found". Static paths outrank splats in react-router's ranking, so
+// "/reports/sales-trends" still matches its own page, not "/reports/*".
+// The dashboard ("/") is excluded: "/*" would swallow every unknown URL.
+export const SUB_PAGE_ROUTES: PageRoute[] = PAGE_ROUTES
+  .filter(r => r.path !== '/')
+  .map(r => ({ ...r, path: `${r.path}/*` }))
 
 // Reads the record id out of a URL like "/products/<id>" given the entity's
 // base path ("/products"). Deliberately NOT useParams: these pages are also

@@ -12,6 +12,8 @@ import { StockShortfallDialog } from '../scanner/StockShortfallDialog'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
 import { playErrorSound } from '../scanner/errorSound'
 import type { Address } from '../oms/types'
+import { useRoutedSession } from '../oms/useRoutedSession'
+import { SessionErrorPanel } from '../oms/SessionErrorPanel'
 
 // Falls back to a placeholder icon when the line isn't linked to a product
 // yet, or the product has no media -- same convention as the scanner app's
@@ -73,6 +75,13 @@ function newSubstituteRow(): SubstituteRowState {
   return { key: ++substituteRowKeySeq, code: '', substituteQty: '1', coveredQty: '', returnToStock: false }
 }
 
+const PICKING_PATH = '/picking'
+
+// Each open session has its own URL (/picking/:sessionId) so a refresh or the
+// browser Back button keeps the picker on the order they were working on.
+// Session id rather than order id: reopening is a read (get session -> get
+// its order), never a startOrResume, which would fail once the order is
+// fulfilled by completing the session.
 export default function Picking() {
   const { token } = useAuth()
 
@@ -170,6 +179,29 @@ export default function Picking() {
     return () => clearInterval(interval)
   }, [session?.session.id, session?.session.status, token])
 
+  function clearSelection() {
+    setActiveOrder(null)
+    setSession(null)
+    setSessionLoading(false)
+    setCompleteResult(null)
+    setStockShortfalls(null)
+    setError('')
+    setConfirmingFinish(false)
+    setPickLine(null)
+    setAddItemOpen(null)
+  }
+
+  const { urlSessionId, showSession, backToList: backToOrders } = useRoutedSession({
+    basePath: PICKING_PATH,
+    token,
+    loadDetail: pickingApi.getPickingSession,
+    currentOrder: activeOrder,
+    onLoading: () => { setSessionLoading(true); setError('') },
+    onLoaded: (order, detail) => { setActiveOrder(order); setSession(detail); setSessionLoading(false) },
+    onError: message => { setError(message); setSessionLoading(false) },
+    onCleared: clearSelection,
+  })
+
   async function selectOrder(order: SalesOrder) {
     setError('')
     setCompleteResult(null)
@@ -186,20 +218,11 @@ export default function Picking() {
     setSessionLoading(true)
     try {
       const newSession = await pickingApi.startOrResumePicking(token ?? '', order.id)
-      await loadSession(newSession.id)
+      if (showSession(newSession.id)) await loadSession(newSession.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start picking')
       setSessionLoading(false)
     }
-  }
-
-  function backToOrders() {
-    setActiveOrder(null)
-    setSession(null)
-    setCompleteResult(null)
-    setStockShortfalls(null)
-    setError('')
-    setConfirmingFinish(false)
   }
 
   // Hands off to the packing screen for this same order -- picking's job is
@@ -539,14 +562,16 @@ export default function Picking() {
 
       {/* Main pick area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {!activeOrder && (
+        {!activeOrder && !(urlSessionId && (sessionLoading || error)) && (
           <div className="flex-1 flex flex-col items-center justify-center dark:text-gray-500 text-gray-400">
             <ScanBarcode size={32} className="mb-3 opacity-40" />
             <p className="text-sm">Select an order to start picking</p>
           </div>
         )}
 
-        {activeOrder && sessionLoading && !session && (
+        {!session && !sessionLoading && error && <SessionErrorPanel error={error} onBack={backToOrders} />}
+
+        {(activeOrder || urlSessionId) && sessionLoading && !session && (
           <div className="flex-1 flex items-center justify-center dark:text-gray-500 text-gray-400 text-sm">Loading…</div>
         )}
 

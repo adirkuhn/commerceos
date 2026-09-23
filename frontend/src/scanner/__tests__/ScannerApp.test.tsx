@@ -2,7 +2,7 @@
 import { screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderAt } from './renderAt'
+import { renderAt } from '../../test/renderAt'
 import ScannerApp from '../ScannerApp'
 import type { Booking, BookingDetail, PickingSession, PickingSessionDetail } from '../types'
 import type { PurchaseOrder } from '../../procurement/types'

@@ -2,7 +2,7 @@
 import { screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderAt } from './renderAt'
+import { renderAt } from '../../test/renderAt'
 import { resolvesSkuCodes } from './skuResolver'
 import { InventoryApp } from '../InventoryApp'
 import type { SKU, Product, ProductDetail } from '../../pms/types'

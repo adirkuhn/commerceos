@@ -1,16 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { PAGE_ROUTES, DETAIL_PAGE_ROUTES, navItemToPath, pathToNavItem, idFromPath } from './routes'
+import { PAGE_ROUTES, SUB_PAGE_ROUTES, navItemToPath, pathToNavItem, idFromPath } from './routes'
 
-describe('DETAIL_PAGE_ROUTES', () => {
-  it('adds a /:id sub-route for each entity that supports a per-record deep link', () => {
-    const navs = DETAIL_PAGE_ROUTES.map(r => r.nav).sort()
-    expect(navs).toEqual(['customers', 'products', 'sales-orders', 'suppliers'])
+describe('SUB_PAGE_ROUTES', () => {
+  it('gives every page except the dashboard a splat sub-route, so each page can own per-resource URLs', () => {
+    const navs = SUB_PAGE_ROUTES.map(r => r.nav)
+    expect(navs).not.toContain('dashboard')
+    expect(navs).toHaveLength(PAGE_ROUTES.length - 1)
   })
 
-  it('each detail route path is the base route path plus /:id', () => {
-    for (const detail of DETAIL_PAGE_ROUTES) {
-      const base = PAGE_ROUTES.find(r => r.nav === detail.nav)
-      expect(detail.path).toBe(`${base?.path}/:id`)
+  it('each sub-route path is the base route path plus /*', () => {
+    for (const sub of SUB_PAGE_ROUTES) {
+      const base = PAGE_ROUTES.find(r => r.nav === sub.nav)
+      expect(sub.path).toBe(`${base?.path}/*`)
     }
   })
 })
@@ -30,6 +31,13 @@ describe('pathToNavItem', () => {
   it('resolves a per-record detail path back to the owning nav item, so the sidebar stays highlighted', () => {
     expect(pathToNavItem('/products/prod-1')).toBe('products')
     expect(pathToNavItem('/sales-orders/so-1')).toBe('sales-orders')
+    expect(pathToNavItem('/picking/ps-1')).toBe('picking')
+  })
+
+  it('resolves a nested sub-path to the most specific owning page', () => {
+    expect(pathToNavItem('/settings/tax/classes')).toBe('settings')
+    expect(pathToNavItem('/reports/customer-rfm')).toBe('reports-customer-rfm')
+    expect(pathToNavItem('/reports/customer-rfm/segment-x')).toBe('reports-customer-rfm')
   })
 
   it('falls back to dashboard for an unknown path', () => {

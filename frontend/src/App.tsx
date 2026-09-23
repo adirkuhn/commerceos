@@ -10,7 +10,7 @@ import { AppProvider } from './context/AppContext'
 import Sidebar from './components/layout/Sidebar'
 import Topbar from './components/layout/Topbar'
 import CommandPalette from './components/layout/CommandPalette'
-import { PAGE_ROUTES, DETAIL_PAGE_ROUTES } from './routes'
+import { PAGE_ROUTES, SUB_PAGE_ROUTES } from './routes'
 
 const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
 const SCANNER_CALLBACK_PATH = '/scanner/auth/callback'
@@ -38,7 +38,7 @@ function AppContent() {
             {PAGE_ROUTES.map(({ path, Component }) => (
               <Route key={path} path={path} element={<Component />} />
             ))}
-            {DETAIL_PAGE_ROUTES.map(({ path, Component }) => (
+            {SUB_PAGE_ROUTES.map(({ path, Component }) => (
               <Route key={path} path={path} element={<Component />} />
             ))}
             <Route path="*" element={<NotFoundPage />} />

@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { act } from 'react'
+import { renderAt } from '../../test/renderAt'
 import Packing from '../Packing'
 import type { SalesOrder } from '../../oms/types'
 import type { PackingSession, PackingSessionDetail, ScanPackItemResult, CompletePackingResult } from '../../scanner/types'
@@ -13,6 +15,7 @@ vi.mock('../../auth/AuthContext', () => ({
 
 vi.mock('../../oms/api', () => ({
   listSalesOrders: vi.fn(),
+  getSalesOrder: vi.fn(),
 }))
 
 vi.mock('../../scanner/api', () => ({
@@ -84,6 +87,65 @@ beforeEach(() => {
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
   vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
   vi.mocked(shippingApi.lookupAddress).mockResolvedValue(null)
+  vi.mocked(omsApi.getSalesOrder).mockResolvedValue({ sales_order: salesOrder(), line_items: [] })
+})
+
+describe('Packing page URLs (refresh + Back)', () => {
+  it('selecting an order pushes /packing/:sessionId', async () => {
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
+
+    const { router } = renderAt(<Packing />, '/packing')
+    await userEvent.click(await screen.findByText('#1001'))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/packing/pack-1'))
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+  })
+
+  it('/packing/:sessionId reopens that session on load without starting a new one', async () => {
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
+
+    renderAt(<Packing />, '/packing', '/packing/pack-1')
+
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+    expect(packingApi.getPackingSession).toHaveBeenCalledWith('test-token', 'pack-1')
+    expect(packingApi.startOrResumePacking).not.toHaveBeenCalled()
+  })
+
+  it('shows an error when the session in the URL cannot be loaded', async () => {
+    vi.mocked(packingApi.getPackingSession).mockRejectedValue(new Error('packing session not found'))
+
+    renderAt(<Packing />, '/packing', '/packing/missing')
+
+    expect(await screen.findByText('packing session not found')).toBeInTheDocument()
+  })
+
+  it('browser Back from a session returns to the plain order list', async () => {
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
+
+    const { router } = renderAt(<Packing />, '/packing')
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+
+    await act(() => router.navigate(-1))
+
+    expect(router.state.location.pathname).toBe('/packing')
+    expect(await screen.findByText('Select an order to start packing')).toBeInTheDocument()
+  })
+
+  it('?order=<id> starts/resumes that order and replaces the URL with the session URL', async () => {
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
+
+    const { router } = renderAt(<Packing />, '/packing', '/packing?order=so-1')
+
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+    expect(packingApi.startOrResumePacking).toHaveBeenCalledWith('test-token', 'so-1')
+    expect(router.state.location.pathname).toBe('/packing/pack-1')
+    expect(router.state.location.search).toBe('')
+    expect(router.state.historyAction).toBe('REPLACE')
+  })
 })
 
 describe('Packing page', () => {
