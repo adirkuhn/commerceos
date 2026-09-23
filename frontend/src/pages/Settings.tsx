@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
-  Building2, Package, Truck, Globe, Zap, Shield, Bell, CreditCard, Plug,
-  ChevronRight, Check, AlertTriangle, Bot, X, Percent, Trash2, TrendingUp, PackageCheck,
+  Building2, Package, Truck, Globe, Zap, Shield, Bell, Plug,
+  Bot, X, Percent, Trash2, TrendingUp, PackageCheck,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -27,6 +27,9 @@ import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { Dialog } from '../components/common/Dialog'
 import { toInput } from '../settings/tenantSettingsInput'
 import { PickingModeSection } from '../settings/PickingModeSection'
+import { CompanyProfileSection } from '../settings/company/CompanyProfileSection'
+import { AutomationSection, SecuritySection } from '../settings/ManagedElsewhereSections'
+import { lm2Origin } from '../auth/loginConfig'
 import { useConfirm } from '../components/common/useConfirm'
 
 interface SettingSection {
@@ -48,18 +51,9 @@ const SECTIONS: SettingSection[] = [
   { id: 'automation', label: 'Automation', icon: Zap, description: 'Trigger-based rules and workflows' },
   { id: 'security', label: 'Security', icon: Shield, description: 'SSO, 2FA, IP restrictions' },
   { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Email, webhook, Slack alerts' },
-  { id: 'billing', label: 'Billing', icon: CreditCard, description: 'Plan, invoices, usage' },
 ]
 
 type SectionId = typeof SECTIONS[number]['id']
-
-const AUTOMATIONS = [
-  { id: '1', name: 'Auto-reorder when stock < min', active: true, trigger: 'Stock below minimum', action: 'Create purchase suggestion' },
-  { id: '2', name: 'Alert on expiry < 7 days', active: true, trigger: 'Product expiry within 7 days', action: 'Send email alert + dashboard badge' },
-  { id: '3', name: 'Auto-select carrier by weight', active: true, trigger: 'Order created', action: 'Apply carrier rule' },
-  { id: '4', name: 'Sync price changes to channels', active: false, trigger: 'Product price updated', action: 'Push to all integrations' },
-  { id: '5', name: 'Reserve stock on order', active: true, trigger: 'New order received', action: 'Reserve inventory' },
-]
 
 const SETTINGS_PATH = '/settings'
 const TAX_CLASSES_PATH = `${SETTINGS_PATH}/tax/classes`
@@ -126,35 +120,7 @@ export default function Settings() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        {activeSection === 'company' && (
-          <div className="max-w-2xl space-y-6">
-            <div>
-              <h2 className="text-base font-semibold text-ink mb-1">Company settings</h2>
-              <p className="text-xs text-ink-4">Business information used on invoices, labels, and reports</p>
-            </div>
-            <div className="space-y-4">
-              {[
-                ['Company name', 'OmniStock Operations BV', 'text'],
-                ['VAT number', 'NL123456789B01', 'text'],
-                ['Chamber of Commerce', '12345678', 'text'],
-                ['Business email', 'ops@omnistock.io', 'email'],
-                ['Phone', '+31 20 123 4567', 'tel'],
-              ].map(([label, defaultValue, type]) => (
-                <div key={label}>
-                  <label className="block text-xs font-medium text-ink-2 mb-1.5">{label}</label>
-                  <input
-                    type={type}
-                    defaultValue={defaultValue}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
-                  />
-                </div>
-              ))}
-            </div>
-            <button className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">
-              Save changes
-            </button>
-          </div>
-        )}
+        {activeSection === 'company' && <CompanyProfileSection />}
 
         {activeSection === 'integrations' && <IntegrationsSettingsSection onConfigure={c => open(`${INTEGRATIONS_SECTION_PATH}/${encodeURIComponent(c.id)}`)} />}
 
@@ -230,80 +196,9 @@ export default function Settings() {
           </div>
         )}
 
-        {activeSection === 'automation' && (
-          <div className="max-w-2xl space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-ink mb-1">Automation rules</h2>
-                <p className="text-xs text-ink-4">Trigger-based workflows that run automatically</p>
-              </div>
-              <button className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">
-                + New Rule
-              </button>
-            </div>
+        {activeSection === 'automation' && <AutomationSection />}
 
-            <div className="space-y-3">
-              {AUTOMATIONS.map(auto => (
-                <div key={auto.id} className="bg-raised rounded-xl border border-line p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <p className="text-xs font-medium text-ink">{auto.name}</p>
-                        {auto.active
-                          ? <span className="px-1.5 py-0.5 rounded-full text-2xs font-medium bg-green-500/15 text-success">active</span>
-                          : <span className="px-1.5 py-0.5 rounded-full text-2xs font-medium dark:bg-gray-500/15 bg-gray-100 text-ink-3">inactive</span>
-                        }
-                      </div>
-                      <div className="flex items-center gap-2 text-2xs">
-                        <span className="text-ink-4">When:</span>
-                        <span className="bg-hover text-ink-2 px-2 py-0.5 rounded">{auto.trigger}</span>
-                        <ChevronRight size={10} className="text-ink-4" />
-                        <span className="text-ink-4">Then:</span>
-                        <span className=" bg-accent/10 text-accent px-2 py-0.5 rounded">{auto.action}</span>
-                      </div>
-                    </div>
-                    <label className="relative flex cursor-pointer items-center shrink-0">
-                      <input type="checkbox" defaultChecked={auto.active} className="sr-only peer" />
-                      <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
-                      <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
-                    </label>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeSection === 'security' && (
-          <div className="max-w-2xl space-y-6">
-            <div>
-              <h2 className="text-base font-semibold text-ink mb-1">Security</h2>
-              <p className="text-xs text-ink-4">Authentication and access control</p>
-            </div>
-            <div className="dark:bg-amber-500/5 bg-amber-50 border dark:border-amber-500/20 border-amber-200 rounded-xl p-4 flex items-start gap-3">
-              <AlertTriangle size={15} className="text-warning mt-0.5 shrink-0" />
-              <div>
-                <p className="text-xs font-medium text-warning">2FA not enabled for all users</p>
-                <p className="text-2xs text-amber-400/70 mt-0.5">3 users have not enabled two-factor authentication.</p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {[
-                { label: 'Enforce 2FA for all users', checked: false },
-                { label: 'Require SSO login', checked: false },
-                { label: 'Session timeout after 8h', checked: true },
-                { label: 'IP allowlist restriction', checked: false },
-                { label: 'Audit log all actions', checked: true },
-              ].map(item => (
-                <label key={item.label} className="flex items-center gap-3 cursor-pointer bg-raised border border-line rounded-xl p-3.5">
-                  <input type="checkbox" defaultChecked={item.checked} className="rounded accent-accent-solid w-3.5 h-3.5 shrink-0" />
-                  <span className="text-xs text-ink-2">{item.label}</span>
-                  {item.checked && <Check size={12} className="text-success ml-auto" />}
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
+        {activeSection === 'security' && <SecuritySection lm2Url={lm2Origin()} />}
 
         {activeSection === 'notifications' && (
           <div className="max-w-2xl space-y-6">

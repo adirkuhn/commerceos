@@ -10,7 +10,7 @@ import { useSalesOrderDetail } from '../oms/hooks/useSalesOrderDetail'
 import { useSalesOrderActivities } from '../oms/hooks/useSalesOrderActivities'
 import type { SalesOrder, SalesOrderStatus, SalesOrderSource, SalesOrderDetail, CreateSalesOrderInput, CreateSalesOrderLineItemInput, Address, SalesOrderSortField, SortDirection } from '../oms/types'
 import { PickingListPrintView } from './print/PickingListPrintView'
-import { InvoicePrintView } from './print/InvoicePrintView'
+import { InvoiceWithSeller } from './print/InvoiceWithSeller'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { ProductSkuPicker } from './Procurement'
 import type { SKU } from '../pms/types'
@@ -924,7 +924,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
     return printMode === 'picking-list' ? (
       <PickingListPrintView order={detail.sales_order} lineItems={detail.line_items} onClose={() => setPrintMode(null)} />
     ) : (
-      <InvoicePrintView order={detail.sales_order} lineItems={detail.line_items} onClose={() => setPrintMode(null)} />
+      <InvoiceWithSeller order={detail.sales_order} lineItems={detail.line_items} onClose={() => setPrintMode(null)} />
     )
   }
 

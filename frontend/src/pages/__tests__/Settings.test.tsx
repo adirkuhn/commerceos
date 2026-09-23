@@ -39,6 +39,18 @@ vi.mock('../../inventory/api', () => ({
   deleteWarehouse: vi.fn(),
 }))
 
+vi.mock('../../settings/company/api', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../settings/company/api')>()
+  return {
+    ...actual,
+    getCompanyProfile: vi.fn().mockResolvedValue({
+      legal_name: '', trading_name: '', vat_number: '', chamber_of_commerce: '', email: '', phone: '', iban: '',
+      address: { street: '', house_number: '', postal_code: '', city: '', country: '' }, updated_at: '',
+    }),
+    updateCompanyProfile: vi.fn(),
+  }
+})
+
 vi.mock('../../settings/api', () => ({
   getTenantSettings: vi.fn(),
   updateTenantSettings: vi.fn(),
@@ -1369,7 +1381,7 @@ describe('Settings URLs (refresh + Back)', () => {
 
   it('an unknown section falls back to Company', async () => {
     renderAt(<Settings />, '/settings', '/settings/nope')
-    expect(await screen.findByRole('heading', { name: 'Company settings' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Company' })).toBeInTheDocument()
   })
 
   it('Configure pushes /settings/integrations/:connectionId, which also works on load', async () => {

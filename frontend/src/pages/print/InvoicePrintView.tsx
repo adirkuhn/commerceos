@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import type { SalesOrder, SalesOrderLineItem, Address } from '../../oms/types'
+import type { CompanyProfile } from '../../settings/company/types'
 
 function formatMoney(minorUnits: number, currencyCode: string): string {
   try {
@@ -23,16 +24,33 @@ function addressBlock(address?: Address): string[] {
   ].filter((l): l is string => Boolean(l))
 }
 
+// The seller's lines as printed on the invoice; empty values are left out.
+function sellerBlock(seller: CompanyProfile): string[] {
+  const a = seller.address
+  return [
+    seller.legal_name,
+    [a.street, a.house_number].filter(Boolean).join(' '),
+    [a.postal_code, a.city].filter(Boolean).join(' '),
+    seller.vat_number && `VAT: ${seller.vat_number}`,
+    seller.chamber_of_commerce && `Chamber of Commerce: ${seller.chamber_of_commerce}`,
+    seller.iban && `IBAN: ${seller.iban}`,
+    seller.email,
+    seller.phone,
+  ].filter((l): l is string => Boolean(l))
+}
+
 interface InvoicePrintViewProps {
   order: SalesOrder
   lineItems: SalesOrderLineItem[]
+  // The tenant's company profile; null when it hasn't been filled in.
+  seller: CompanyProfile | null
   onClose: () => void
 }
 
 // Plain-HTML printable view, same zero-dependency approach as
 // PickingListPrintView -- no PDF library, just Tailwind print: variants
 // and the browser's own print dialog.
-export function InvoicePrintView({ order, lineItems, onClose }: InvoicePrintViewProps) {
+export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoicePrintViewProps) {
   useEffect(() => { window.print() }, [])
 
   const billing = addressBlock(order.billing)
@@ -49,7 +67,18 @@ export function InvoicePrintView({ order, lineItems, onClose }: InvoicePrintView
       </button>
       <div className="max-w-2xl mx-auto p-10 text-gray-900">
         <div className="flex items-start justify-between mb-8">
-          <h1 className="text-2xl font-bold">Invoice</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Invoice</h1>
+            {seller && seller.legal_name ? (
+              <section aria-label="Seller" className="mt-3 text-sm">
+                {sellerBlock(seller).map((l, i) => <p key={i} className={i === 0 ? 'font-medium' : 'text-gray-700'}>{l}</p>)}
+              </section>
+            ) : (
+              <p className="print:hidden mt-3 text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
+                This invoice has no seller details. Add your company details in Settings → Company.
+              </p>
+            )}
+          </div>
           <div className="text-right text-sm">
             <p className="font-medium">#{order.number || order.external_order_id}</p>
             <p className="text-gray-600">{new Date(order.occurred_at).toLocaleDateString()}</p>
