@@ -1,6 +1,9 @@
-import { useState } from 'react'
 import { Search, Filter, Plus, RefreshCw, ExternalLink, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
+import { useLocation } from 'react-router-dom'
+import { idFromPath } from '../routes'
+import { useStackNavigation } from '../routing/useStackNavigation'
+import { useQueryEnum, useQueryString } from '../routing/useQueryState'
 
 interface Order {
   id: string
@@ -55,11 +58,24 @@ const PAYMENT_COLORS: Record<string, string> = {
 }
 
 const FILTER_TABS = ['All', 'New', 'Reserved', 'Picking', 'Packed', 'Shipped', 'Delivered', 'Cancelled']
+const STATUS_FILTERS = ['all', ...ORDER_STATUS_FLOW] as const
+type StatusFilter = typeof STATUS_FILTERS[number]
+const ORDERS_PATH = '/orders'
 
 export default function Orders() {
-  const [search, setSearch] = useState('')
-  const [activeTab, setActiveTab] = useState('All')
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  // Search (?q=), status tab (?status=) and the open order (/orders/<id>)
+  // live in the URL, so refresh and Back keep them.
+  const [searchParam, setSearch] = useQueryString('q')
+  const search = searchParam ?? ''
+  const [statusFilter, setStatusFilter] = useQueryEnum<StatusFilter>('status', STATUS_FILTERS, 'all')
+  const activeTab = FILTER_TABS.find(t => t.toLowerCase() === statusFilter) ?? 'All'
+  const setActiveTab = (tab: string) => setStatusFilter(tab.toLowerCase() as StatusFilter)
+  const location = useLocation()
+  const { open, exitToOpener } = useStackNavigation()
+  const selectedId = idFromPath(location.pathname, ORDERS_PATH)
+  const selectedOrder = selectedId ? ORDERS.find(o => o.id === selectedId) ?? null : null
+  const closeOrder = () => exitToOpener(ORDERS_PATH)
+  const toggleOrder = (o: Order) => (selectedOrder?.id === o.id ? closeOrder() : open(`${ORDERS_PATH}/${encodeURIComponent(o.id)}`))
 
   const filtered = ORDERS.filter(o => {
     const matchSearch = o.id.toLowerCase().includes(search.toLowerCase()) ||
@@ -137,7 +153,7 @@ export default function Orders() {
               {filtered.map(o => (
                 <tr
                   key={o.id}
-                  onClick={() => setSelectedOrder(selectedOrder?.id === o.id ? null : o)}
+                  onClick={() => toggleOrder(o)}
                   className={clsx(
                     'cursor-pointer hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors group',
                     selectedOrder?.id === o.id && 'dark:bg-blue-600/5 bg-blue-50',
@@ -184,7 +200,7 @@ export default function Orders() {
         <div className="w-80 border-l dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
             <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">{selectedOrder.id}</h2>
-            <button onClick={() => setSelectedOrder(null)} className="text-xs dark:text-gray-500 text-gray-400 hover:dark:text-gray-300">✕</button>
+            <button onClick={closeOrder} className="text-xs dark:text-gray-500 text-gray-400 hover:dark:text-gray-300">✕</button>
           </div>
 
           {/* Status flow */}

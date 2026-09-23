@@ -1,6 +1,8 @@
-import { useState } from 'react'
 import { Truck, Package, Search, CheckCircle, Clock, AlertTriangle, Printer, ExternalLink } from 'lucide-react'
 import clsx from 'clsx'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { subPathSegments } from '../routes'
+import { useQueryString } from '../routing/useQueryState'
 
 interface Shipment {
   id: string
@@ -50,9 +52,19 @@ const CARRIER_RULES = [
   { name: 'MyParcel Standard', carrier: 'myparcel', condition: 'DE · < 5kg', cost: '€6.75', auto: true },
 ]
 
+const SHIPPING_PATH = '/shipping'
+
 export default function Shipping() {
-  const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'shipments' | 'rules'>('shipments')
+  // Tab is the path (/shipping, /shipping/rules); search is ?q= -- refresh
+  // and Back keep them.
+  const [searchParam, setSearch] = useQueryString('q')
+  const search = searchParam ?? ''
+  const location = useLocation()
+  const navigate = useNavigate()
+  const tab: 'shipments' | 'rules' = subPathSegments(location.pathname, SHIPPING_PATH)[0] === 'rules' ? 'rules' : 'shipments'
+  const setTab = (next: 'shipments' | 'rules') => {
+    if (next !== tab) navigate(next === 'rules' ? `${SHIPPING_PATH}/rules` : SHIPPING_PATH)
+  }
 
   const filtered = SHIPMENTS.filter(s =>
     s.orderId.includes(search) || s.customer.toLowerCase().includes(search.toLowerCase()) || s.tracking.includes(search)
