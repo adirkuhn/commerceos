@@ -2,6 +2,9 @@ import { useState, useEffect, useRef, Fragment } from 'react'
 import { Plus, ShoppingBag, Trash2, Edit3, ArrowLeft, Search, X, Check, Upload, Sparkles, PackageCheck, FileText, AlertTriangle, Loader2, Link2, ClipboardList, Download, RefreshCw } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
+import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
+import { useStackNavigation } from '../routing/useStackNavigation'
+import { useQueryEnum, useQueryString } from '../routing/useQueryState'
 import { usePurchaseOrders } from '../procurement/hooks/usePurchaseOrders'
 import { usePurchaseOrderDetail } from '../procurement/hooks/usePurchaseOrderDetail'
 import { useReceivingRecords } from '../procurement/hooks/useReceivingRecords'
@@ -24,7 +27,10 @@ import type {
 import type { SKU } from '../pms/types'
 import type { Warehouse } from '../inventory/types'
 
-const STATUS_TABS: (PurchaseOrderStatus | 'all')[] = ['all', 'draft', 'sent', 'partially_received', 'received', 'needs_review', 'cancelled']
+const PROCUREMENT_PATH = '/procurement'
+const DISCREPANCIES_SEGMENT = 'discrepancies'
+
+const STATUS_TABS: readonly (PurchaseOrderStatus | 'all')[] = ['all', 'draft', 'sent', 'partially_received', 'received', 'needs_review', 'cancelled']
 
 // Same list as Products.tsx's SKU currency select, for consistency.
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
@@ -108,16 +114,21 @@ export default function Procurement() {
   const { suppliers } = useSuppliers(token ?? '')
   const { warehouses } = useWarehouses(token ?? '')
 
-  const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | 'all'>('all')
-  const [editingId, setEditingId] = useState<string | null | 'new'>(null)
-  // Set alongside editingId right after a document-upload create -- the PO
-  // page picks this up once (see LineItemsSection's initialParsingJobId) to
-  // poll the still-in-flight parse and show a spinner instead of the
-  // create flow blocking on it.
-  const [pendingParsingJobId, setPendingParsingJobId] = useState<string | null>(null)
+  // Everything that decides what's on screen lives in the URL, so refresh
+  // and Back keep the user in place:
+  //   /procurement?status=sent          list, filtered
+  //   /procurement/new | /procurement/:id   PO editor
+  //   /procurement/:id?parsing=<jobId>  editor still polling an upload's parse
+  //   /procurement/discrepancies?tab=   booking discrepancies report
+  const [statusFilter, setStatusFilter] = useQueryEnum('status', STATUS_TABS, 'all')
+  const { editingId, openNew, openEdit, close, showSaved } = useRoutedEditor(PROCUREMENT_PATH)
+  const { open } = useStackNavigation()
+  // Set right after a document-upload create -- the PO page picks it up (see
+  // LineItemsSection's initialParsingJobId) to poll the still-in-flight
+  // parse and show a spinner instead of the create flow blocking on it.
+  const [pendingParsingJobId] = useQueryString('parsing')
   const [deleteError, setDeleteError] = useState('')
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
-  const [showDiscrepancies, setShowDiscrepancies] = useState(false)
 
   const supplierName = (id?: string | null) => {
     if (!id) return null
@@ -140,17 +151,19 @@ export default function Procurement() {
     }
   }
 
-  if (showDiscrepancies) {
-    return <BookingDiscrepanciesPage token={token ?? ''} onClose={() => setShowDiscrepancies(false)} />
+  if (editingId === DISCREPANCIES_SEGMENT) {
+    return <BookingDiscrepanciesPage token={token ?? ''} onClose={close} />
   }
 
   if (editingId !== null) {
     return (
       <PurchaseOrderEditPage
-        purchaseOrderId={editingId === 'new' ? null : editingId}
-        initialParsingJobId={editingId === 'new' ? null : pendingParsingJobId}
+        key={editingId}
+        purchaseOrderId={editingId === NEW_RECORD ? null : editingId}
+        initialParsingJobId={editingId === NEW_RECORD ? null : pendingParsingJobId}
         onCreate={create}
-        onClose={() => { setEditingId(null); setPendingParsingJobId(null); refresh() }}
+        onCreated={showSaved}
+        onClose={() => { close(); refresh() }}
       />
     )
   }
@@ -177,7 +190,7 @@ export default function Procurement() {
         </div>
         <div className="flex items-center gap-2 ml-auto shrink-0">
           <button
-            onClick={() => setShowDiscrepancies(true)}
+            onClick={() => open(`${PROCUREMENT_PATH}/${DISCREPANCIES_SEGMENT}`)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors font-medium"
           >
             <AlertTriangle size={13} /> Discrepancies
@@ -189,7 +202,7 @@ export default function Procurement() {
             <Upload size={13} /> Upload Document
           </button>
           <button
-            onClick={() => setEditingId('new')}
+            onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
           >
             <Plus size={13} /> Add Purchase Order
@@ -203,8 +216,7 @@ export default function Procurement() {
           onCreated={async (poId, jobId) => {
             setUploadModalOpen(false)
             await refresh()
-            setPendingParsingJobId(jobId)
-            setEditingId(poId)
+            open(`${PROCUREMENT_PATH}/${encodeURIComponent(poId)}?parsing=${encodeURIComponent(jobId)}`)
           }}
         />
       )}
@@ -240,7 +252,7 @@ export default function Procurement() {
             {filtered.map(po => (
               <tr
                 key={po.id}
-                onClick={() => setEditingId(po.id)}
+                onClick={() => openEdit(po.id)}
                 className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
@@ -259,7 +271,7 @@ export default function Procurement() {
                   {po.is_potential_duplicate && (
                     <button
                       type="button"
-                      onClick={e => { e.stopPropagation(); if (po.duplicate_of_purchase_order_id) setEditingId(po.duplicate_of_purchase_order_id) }}
+                      onClick={e => { e.stopPropagation(); if (po.duplicate_of_purchase_order_id) openEdit(po.duplicate_of_purchase_order_id) }}
                       className="flex items-center gap-1 mt-0.5 text-[10px] font-medium text-red-400 hover:underline"
                     >
                       <AlertTriangle size={10} /> Possible duplicate order
@@ -280,7 +292,7 @@ export default function Procurement() {
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={e => { e.stopPropagation(); setEditingId(po.id) }}
+                      onClick={e => { e.stopPropagation(); openEdit(po.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
                       title="Edit"
                     >
@@ -311,14 +323,15 @@ function formatDiscrepancyDate(iso?: string | null): string {
   return new Date(iso).toLocaleDateString()
 }
 
-type DiscrepancyTab = 'missing' | 'damaged-lost'
+const DISCREPANCY_TABS = ['missing', 'damaged-lost'] as const
+type DiscrepancyTab = typeof DISCREPANCY_TABS[number]
 
 // Tenant-wide, derived on demand (not persisted) from every completed
 // booking's line items vs scans -- same "not a real table" reasoning as
 // the Inventory module's Expiry & Discards report.
 function BookingDiscrepanciesPage({ token, onClose }: { token: string; onClose: () => void }) {
   const { report, loading, error } = useBookingDiscrepancies(token)
-  const [tab, setTab] = useState<DiscrepancyTab>('missing')
+  const [tab, setTab] = useQueryEnum('tab', DISCREPANCY_TABS, 'missing')
 
   const TABS: { id: DiscrepancyTab; label: string }[] = [
     { id: 'missing', label: `Missing${report.missing_items.length ? ` (${report.missing_items.length})` : ''}` },
@@ -520,10 +533,13 @@ interface PurchaseOrderEditPageProps {
   // empty list until the user manually refreshes.
   initialParsingJobId?: string | null
   onCreate: (input: CreatePurchaseOrderInput) => Promise<PurchaseOrder>
+  // Called with the new id right after a create, so the URL can switch from
+  // /procurement/new to the PO's own URL.
+  onCreated: (id: string) => void
   onClose: () => void
 }
 
-function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate, onClose }: PurchaseOrderEditPageProps) {
+function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate, onCreated, onClose }: PurchaseOrderEditPageProps) {
   const { token } = useAuth()
   const { suppliers } = useSuppliers(token ?? '')
   const { warehouses } = useWarehouses(token ?? '')
@@ -621,6 +637,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
         }
         const created = await onCreate(input)
         setCreatedId(created.id)
+        onCreated(created.id)
       } else if (effectiveId) {
         const input: UpdatePurchaseOrderInput = {
           supplier_id: supplierId, warehouse_id: warehouseId.trim() === '' ? null : warehouseId, status, currency_code: currencyCode,

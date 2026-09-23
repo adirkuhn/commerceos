@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
+import { act } from 'react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Procurement from '../Procurement'
+import { renderAt } from '../../test/renderAt'
 import type { PurchaseOrder, PurchaseOrderDetail, PurchaseOrderLineItem } from '../../procurement/types'
 import type { Supplier } from '../../suppliers/types'
 import type { Warehouse } from '../../inventory/types'
@@ -178,14 +180,14 @@ beforeEach(() => {
 
 describe('Purchase orders list', () => {
   it('shows an empty state when there are no purchase orders', async () => {
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     expect(await screen.findByText('No purchase orders yet')).toBeInTheDocument()
   })
 
   it('lists purchase orders resolving supplier and warehouse names', async () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
 
     expect(await screen.findByText('Acme Foods')).toBeInTheDocument()
     expect(screen.getByText('Main Warehouse')).toBeInTheDocument()
@@ -195,7 +197,7 @@ describe('Purchase orders list', () => {
   it('shows each purchase order total on the main list', async () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po({ total_minor_units: 13000, currency_code: 'EUR' })])
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
 
     expect(await screen.findByText('130.00 EUR')).toBeInTheDocument()
   })
@@ -206,7 +208,7 @@ describe('Purchase orders list', () => {
       po({ id: 'po-2', status: 'sent', supplier_id: 'supplier-1' }),
     ])
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await screen.findAllByText('Acme Foods')
     expect(screen.getByText((_, node) => node?.tagName === 'SPAN' && node.textContent === '2 purchase orders')).toBeInTheDocument()
 
@@ -219,7 +221,7 @@ describe('Purchase orders list', () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByTitle('Delete'))
 
     await waitFor(() => expect(procurementApi.deletePurchaseOrder).toHaveBeenCalledWith('test-token', 'po-1'))
@@ -229,7 +231,7 @@ describe('Purchase orders list', () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
     vi.stubGlobal('confirm', vi.fn(() => false))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByTitle('Delete'))
 
     expect(procurementApi.deletePurchaseOrder).not.toHaveBeenCalled()
@@ -241,7 +243,7 @@ describe('Purchase orders list', () => {
     ])
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({ purchase_order: po({ id: 'po-1' }) }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Possible duplicate order'))
 
     await waitFor(() => expect(procurementApi.getPurchaseOrder).toHaveBeenCalledWith('test-token', 'po-1'))
@@ -250,7 +252,7 @@ describe('Purchase orders list', () => {
   it('does not show a duplicate-order badge for a normal PO', async () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await screen.findByText('Acme Foods')
 
     expect(screen.queryByText('Possible duplicate order')).not.toBeInTheDocument()
@@ -259,7 +261,7 @@ describe('Purchase orders list', () => {
 
 describe('Purchase order create', () => {
   it('opening Add Purchase Order shows a blank create form with no line items section', async () => {
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Purchase Order' }))
 
     expect(screen.getByText('New Purchase Order', { selector: 'h1' })).toBeInTheDocument()
@@ -271,7 +273,7 @@ describe('Purchase order create', () => {
     vi.mocked(procurementApi.createPurchaseOrder).mockResolvedValue(po())
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail())
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Purchase Order' }))
     await userEvent.selectOptions(screen.getByLabelText('Supplier'), 'supplier-1')
     await userEvent.selectOptions(screen.getByLabelText('Warehouse (optional)'), 'warehouse-1')
@@ -284,7 +286,7 @@ describe('Purchase order create', () => {
   })
 
   it('defaults currency to a select with USD chosen and expected date to today', async () => {
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Purchase Order' }))
 
     expect(screen.getByLabelText('Currency').tagName).toBe('SELECT')
@@ -298,7 +300,7 @@ describe('Purchase order create', () => {
       prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Purchase Order' }))
 
     await waitFor(() => expect(screen.getByLabelText('Currency')).toHaveValue('EUR'))
@@ -308,7 +310,7 @@ describe('Purchase order create', () => {
     let resolveSettings: (v: import('../../settings/types').TenantSettings) => void
     vi.mocked(settingsApi.getTenantSettings).mockReturnValue(new Promise(resolve => { resolveSettings = resolve }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Purchase Order' }))
     await userEvent.selectOptions(screen.getByLabelText('Currency'), 'GBP')
 
@@ -322,7 +324,7 @@ describe('Purchase order create', () => {
 
 describe('Upload document to create a PO', () => {
   it('opens a modal with just a file field -- no supplier, warehouse, currency, or date to fill in', async () => {
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Upload Document' }))
 
     expect(screen.getByText('Upload Document', { selector: 'h2' })).toBeInTheDocument()
@@ -345,7 +347,7 @@ describe('Upload document to create a PO', () => {
     // finding it right away.
     vi.mocked(procurementApi.getDocumentParsingJob).mockImplementation(() => new Promise(() => {}))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Upload Document' }))
     const file = new File(['sku,qty\nA,1'], 'order.csv', { type: 'text/csv' })
     await userEvent.upload(screen.getByLabelText('Document'), file)
@@ -365,7 +367,7 @@ describe('Upload document to create a PO', () => {
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({ purchase_order: po({ id: 'po-new' }) }))
     vi.mocked(procurementApi.getDocumentParsingJob).mockImplementation(() => new Promise(() => {}))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Upload Document' }))
     const file = new File(['sku,qty\nA,1'], 'order.csv', { type: 'text/csv' })
     await userEvent.upload(screen.getByLabelText('Document'), file)
@@ -388,7 +390,7 @@ describe('Upload document to create a PO', () => {
       purchase_order: po({ id: 'po-new' }), line_items: [lineItem()],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Upload Document' }))
     const file = new File(['sku,qty\nA,1'], 'order.csv', { type: 'text/csv' })
     await userEvent.upload(screen.getByLabelText('Document'), file)
@@ -402,7 +404,7 @@ describe('Upload document to create a PO', () => {
   it('shows an error if the upload fails', async () => {
     vi.mocked(procurementApi.createPurchaseOrderFromDocument).mockRejectedValue(new Error('document is missing required columns'))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Upload Document' }))
     await userEvent.upload(screen.getByLabelText('Document'), new File(['bad'], 'bad.csv', { type: 'text/csv' }))
     await userEvent.click(screen.getByRole('button', { name: 'Upload & Create' }))
@@ -418,7 +420,7 @@ describe('Purchase order edit with line items', () => {
   })
 
   it('prefills header fields and shows existing line items', async () => {
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     expect(await screen.findByText('Widget A')).toBeInTheDocument()
@@ -429,7 +431,7 @@ describe('Purchase order edit with line items', () => {
   it('adds a new line item', async () => {
     vi.mocked(procurementApi.addLineItem).mockResolvedValue(lineItem({ id: 'line-item-2', raw_description: 'Widget B', quantity: 5 }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
@@ -449,7 +451,7 @@ describe('Purchase order edit with line items', () => {
   it('adds a line item from the button at the end of the list, not just the toolbar one', async () => {
     vi.mocked(procurementApi.addLineItem).mockResolvedValue(lineItem({ id: 'line-item-2', raw_description: 'Widget B', quantity: 5 }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
@@ -467,7 +469,7 @@ describe('Purchase order edit with line items', () => {
   it('adds a shipping charge with no SKU picker, since it is not a product', async () => {
     vi.mocked(procurementApi.addLineItem).mockResolvedValue(lineItem({ id: 'line-item-2', raw_description: 'Shipping', quantity: 1, line_type: 'shipping' }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
@@ -496,7 +498,7 @@ describe('Purchase order edit with line items', () => {
       ],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
@@ -509,7 +511,7 @@ describe('Purchase order edit with line items', () => {
       line_items: [lineItem({ sku_id: 'sku-1', product_name: 'Acme Widget', sku_code: 'WID-001' })],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await userEvent.click(await screen.findByTitle('Edit'))
 
@@ -523,7 +525,7 @@ describe('Purchase order edit with line items', () => {
       line_items: [lineItem(), lineItem({ id: 'line-item-2', raw_description: 'Shipping', sku_id: null, line_type: 'shipping', line_type_confirmed: true })],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     const shippingLabels = await screen.findAllByText('Shipping')
@@ -540,7 +542,7 @@ describe('Purchase order edit with line items', () => {
       line_items: [lineItem({ suggested_lot_number: 'PT26004', suggested_expiry_date: '2027-03-01' })],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     expect(await screen.findByText('PT26004')).toBeInTheDocument()
@@ -550,7 +552,7 @@ describe('Purchase order edit with line items', () => {
   it('shows a placeholder for a line item with no batch suggestion', async () => {
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({ line_items: [lineItem()] }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     const row = (await screen.findByText('Widget A')).closest('tr')!
@@ -562,7 +564,7 @@ describe('Purchase order edit with line items', () => {
       line_items: [lineItem({ sku_id: 'sku-1', product_name: 'Acme Widget', sku_code: 'WID-001' })],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     expect(await screen.findByText('Acme Widget')).toBeInTheDocument()
@@ -575,7 +577,7 @@ describe('Purchase order edit with line items', () => {
       line_items: [lineItem({ sku_id: 'sku-orphaned', product_name: null, sku_code: null })],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     expect(await screen.findByText('sku-orphaned')).toBeInTheDocument()
@@ -589,7 +591,7 @@ describe('Purchase order edit with line items', () => {
       id: 'line-item-2', raw_description: 'Shipping', line_type: 'shipping', line_type_confirmed: true,
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     await userEvent.click(await screen.findByRole('button', { name: 'Confirm' }))
@@ -602,7 +604,7 @@ describe('Purchase order edit with line items', () => {
   it('removes a line item after confirming', async () => {
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     const row = (await screen.findByText('Widget A')).closest('tr')!
     await userEvent.click(within(row).getByTitle('Remove'))
@@ -626,7 +628,7 @@ describe('Purchase order edit with line items', () => {
     } satisfies ProductDetail)
     vi.mocked(procurementApi.addLineItem).mockResolvedValue(lineItem({ id: 'line-item-2', sku_id: 'sku-1' }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
@@ -645,7 +647,7 @@ describe('Purchase order edit with line items', () => {
   })
 
   it('Discard returns to the list without saving', async () => {
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
@@ -663,7 +665,7 @@ describe('Purchase order edit with line items', () => {
       .mockResolvedValueOnce([po({ status: 'sent' })])
     vi.mocked(procurementApi.updatePurchaseOrder).mockResolvedValue(po({ status: 'sent' }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     const draftRow = (await screen.findByText('Acme Foods')).closest('tr')!
     expect(within(draftRow).getByText('draft')).toBeInTheDocument()
 
@@ -691,7 +693,7 @@ describe('Purchase order edit with line items', () => {
     // it would while cmd/scheduler is still working on the real job.
     vi.mocked(procurementApi.getDocumentParsingJob).mockImplementation(() => new Promise(() => {}))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
@@ -713,7 +715,7 @@ describe('Purchase order edit with line items', () => {
       status: 'failed', error_message: 'AI document parsing is not configured', created_at: '',
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
@@ -737,7 +739,7 @@ describe('Purchase order edit with line items', () => {
       status: 'completed', error_message: '', created_at: '',
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
@@ -753,7 +755,7 @@ describe('Purchase order edit with line items', () => {
     vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
     vi.stubGlobal('confirm', vi.fn(() => false))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
@@ -778,7 +780,7 @@ describe('Purchase order edit with line items', () => {
       status: 'completed', error_message: '', created_at: '',
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
@@ -801,7 +803,7 @@ describe('Documents', () => {
       }],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     const link = await screen.findByText('invoice.pdf')
@@ -812,7 +814,7 @@ describe('Documents', () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail())
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByLabelText('Supplier')
 
@@ -828,7 +830,7 @@ describe('Documents', () => {
       }],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     expect(await screen.findByText('Possible duplicate')).toBeInTheDocument()
@@ -845,7 +847,7 @@ describe('Documents', () => {
     }))
     vi.mocked(procurementApi.deletePurchaseOrderDocument).mockResolvedValue(null)
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.pdf')
     await userEvent.click(screen.getByTitle('Delete'))
@@ -863,7 +865,7 @@ describe('Documents', () => {
       }],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.pdf')
     await userEvent.click(screen.getByTitle('Delete'))
@@ -886,7 +888,7 @@ describe('Documents', () => {
       id: 'job-2', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1', status: 'completed', error_message: '', created_at: '',
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.pdf')
     await userEvent.click(screen.getByTitle('Reparse'))
@@ -907,7 +909,7 @@ describe('Documents', () => {
     }))
     vi.mocked(procurementApi.retryDocumentParsingJob).mockRejectedValue(new Error('purchase order document not found'))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.pdf')
     await userEvent.click(screen.getByTitle('Reparse'))
@@ -930,7 +932,7 @@ describe('Documents', () => {
       id: 'job-2', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1', status: 'failed', error_message: 'unmarshal intent: unexpected EOF', created_at: '',
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.pdf')
     await userEvent.click(screen.getByTitle('Reparse'))
@@ -949,7 +951,7 @@ describe('Reviewing unmatched line items', () => {
   })
 
   it('shows a Needs review badge for unmatched line items', async () => {
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     expect(await screen.findByText('Needs review')).toBeInTheDocument()
@@ -971,7 +973,7 @@ describe('Reviewing unmatched line items', () => {
     } satisfies ProductDetail)
     vi.mocked(procurementApi.linkLineItemToSku).mockResolvedValue(lineItem({ id: 'line-item-unmatched', sku_id: 'sku-1' }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await userEvent.click(await screen.findByText('Needs review'))
     await userEvent.click(screen.getByRole('button', { name: /Link to existing product/ }))
@@ -1004,7 +1006,7 @@ describe('Reviewing unmatched line items', () => {
     } satisfies ProductDetail)
     vi.mocked(procurementApi.linkLineItemToSku).mockResolvedValue(lineItem({ id: 'line-item-unmatched', sku_id: 'sku-unit-1', units_per_purchased_item: 36 }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await userEvent.click(await screen.findByText('Needs review'))
     await userEvent.click(screen.getByRole('button', { name: /Link to existing product/ }))
@@ -1022,7 +1024,7 @@ describe('Reviewing unmatched line items', () => {
   it('creates a new product and links an unmatched item', async () => {
     vi.mocked(procurementApi.createProductAndLinkLineItem).mockResolvedValue(lineItem({ id: 'line-item-unmatched', sku_id: 'new-sku-1' }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await userEvent.click(await screen.findByText('Needs review'))
     await userEvent.click(screen.getByRole('button', { name: /Create new product/ }))
@@ -1048,7 +1050,7 @@ describe('Missing supplier review', () => {
   })
 
   it('shows Missing supplier in the list and a review banner on the edit page', async () => {
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
 
     expect(await screen.findByText('Missing supplier')).toBeInTheDocument()
 
@@ -1062,7 +1064,7 @@ describe('Missing supplier review', () => {
       po({ supplier_id: 'new-supplier-1', status: 'draft' }),
     )
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Missing supplier'))
     await userEvent.type(screen.getByLabelText('New supplier name'), 'Brand New Supplier')
     await userEvent.click(screen.getByRole('button', { name: 'Create & Assign' }))
@@ -1081,7 +1083,7 @@ describe('Missing supplier review', () => {
       po({ supplier_id: 'new-supplier-1', status: 'draft' }),
     )
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Missing supplier'))
 
     const nameInput = await screen.findByLabelText('New supplier name')
@@ -1106,7 +1108,7 @@ describe('Missing supplier review', () => {
       po({ supplier_id: 'supplier-9', status: 'draft' }),
     )
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Missing supplier'))
 
     expect(await screen.findByLabelText('Supplier')).toHaveValue('supplier-9')
@@ -1130,7 +1132,7 @@ describe('Missing supplier review', () => {
       line_items: [],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Missing supplier'))
 
     expect(await screen.findByLabelText('Supplier')).toHaveValue('supplier-9')
@@ -1153,7 +1155,7 @@ describe('Receiving', () => {
     // "parsing" indicator stays visible long enough to assert on.
     vi.mocked(procurementApi.getReceivingParsingJob).mockImplementation(() => new Promise(() => {}))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
@@ -1174,7 +1176,7 @@ describe('Receiving', () => {
       status: 'failed', error_message: 'AI document parsing is not configured', created_at: '',
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
@@ -1194,7 +1196,7 @@ describe('Receiving', () => {
       }],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.csv')
 
@@ -1207,7 +1209,7 @@ describe('Receiving', () => {
   it('shows a possible duplicate badge for a flagged receiving record', async () => {
     vi.mocked(procurementApi.listReceivingRecords).mockResolvedValue([receivingRecord({ is_potential_duplicate: true })])
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     expect(await screen.findByText('Possible duplicate')).toBeInTheDocument()
@@ -1216,7 +1218,7 @@ describe('Receiving', () => {
   it('does not show a duplicate badge for a normal receiving record', async () => {
     vi.mocked(procurementApi.listReceivingRecords).mockResolvedValue([receivingRecord({ is_potential_duplicate: false })])
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.csv')
 
@@ -1240,7 +1242,7 @@ describe('Receiving', () => {
       },
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.csv')
     await userEvent.click(screen.getByText('invoice.csv'))
@@ -1278,7 +1280,7 @@ describe('Receiving', () => {
       },
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.csv')
     await userEvent.click(screen.getByText('invoice.csv'))
@@ -1317,7 +1319,7 @@ describe('Receiving', () => {
       },
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.csv')
     await userEvent.click(screen.getByText('invoice.csv'))
@@ -1339,7 +1341,7 @@ describe('Receiving', () => {
     vi.mocked(procurementApi.getReceivingRecord).mockResolvedValue(receivingDetail())
     vi.mocked(procurementApi.completeReceiving).mockResolvedValue(receivingRecord({ status: 'applied' }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.csv')
     await userEvent.click(screen.getByText('invoice.csv'))
@@ -1363,7 +1365,7 @@ describe('Receiving', () => {
     vi.mocked(procurementApi.getReceivingRecord).mockResolvedValueOnce(openDetail).mockResolvedValue(acknowledgedDetail)
     vi.mocked(procurementApi.acknowledgeReceivingDiscrepancy).mockResolvedValue(acknowledgedDetail.discrepancies[0])
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.csv')
     await userEvent.click(screen.getByText('invoice.csv'))
@@ -1391,7 +1393,7 @@ describe('Receiving', () => {
     }))
     vi.mocked(procurementApi.linkReceivingDiscrepancies).mockResolvedValue(undefined)
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.csv')
     await userEvent.click(screen.getByText('invoice.csv'))
@@ -1411,7 +1413,7 @@ describe('Receiving', () => {
       details: 'crushed box', status: 'open', created_at: '',
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.csv')
     await userEvent.click(screen.getByText('invoice.csv'))
@@ -1441,7 +1443,7 @@ describe('Receiving', () => {
       ],
     }))
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('invoice.csv')
     await userEvent.click(screen.getByText('invoice.csv'))
@@ -1465,7 +1467,7 @@ describe('Booking discrepancies report', () => {
       damaged_lost: [],
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: /Discrepancies/ }))
 
     expect(await screen.findByText('Booking Discrepancies')).toBeInTheDocument()
@@ -1483,7 +1485,7 @@ describe('Booking discrepancies report', () => {
       }],
     })
 
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: /Discrepancies/ }))
     await userEvent.click(await screen.findByRole('button', { name: /Damaged \/ Lost/ }))
 
@@ -1493,12 +1495,77 @@ describe('Booking discrepancies report', () => {
   })
 
   it('Back returns to the purchase order list', async () => {
-    render(<Procurement />)
+    renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: /Discrepancies/ }))
     await screen.findByText('Booking Discrepancies')
 
     await userEvent.click(screen.getByRole('button', { name: /Procurement/ }))
 
     expect(await screen.findByRole('button', { name: /Discrepancies/ })).toBeInTheDocument()
+  })
+})
+
+describe('Procurement URLs (refresh + Back)', () => {
+  it('opening a PO pushes /procurement/:id and Back returns to the list', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po({ id: 'po-1' })])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({ purchase_order: po({ id: 'po-1' }) }))
+    const { router } = renderAt(<Procurement />, '/procurement')
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    expect(router.state.location.pathname).toBe('/procurement/po-1')
+
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname).toBe('/procurement')
+    expect(await screen.findByRole('button', { name: /Add Purchase Order/ })).toBeInTheDocument()
+  })
+
+  it('/procurement/:id loads that PO on refresh', async () => {
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({ purchase_order: po({ id: 'po-1' }) }))
+    renderAt(<Procurement />, '/procurement', '/procurement/po-1')
+    await waitFor(() => expect(procurementApi.getPurchaseOrder).toHaveBeenCalledWith('test-token', 'po-1'))
+    expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument()
+  })
+
+  it('creating from /procurement/new replaces the URL with the new PO id', async () => {
+    vi.mocked(procurementApi.createPurchaseOrder).mockResolvedValue(po({ id: 'po-new' }))
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({ purchase_order: po({ id: 'po-new' }) }))
+    const { router } = renderAt(<Procurement />, '/procurement')
+    await userEvent.click(await screen.findByRole('button', { name: /Add Purchase Order/ }))
+    expect(router.state.location.pathname).toBe('/procurement/new')
+
+    await userEvent.selectOptions(await screen.findByLabelText('Supplier'), 'supplier-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Create Purchase Order' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/procurement/po-new'))
+    expect(router.state.historyAction).toBe('REPLACE')
+  })
+
+  it('an upload-created PO carries its parse job in the URL, so a refresh keeps polling it', async () => {
+    vi.mocked(procurementApi.createPurchaseOrderFromDocument).mockResolvedValue({
+      id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-new', document_id: 'document-1',
+      status: 'pending', error_message: '', created_at: '',
+    })
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({ purchase_order: po({ id: 'po-new' }) }))
+    vi.mocked(procurementApi.getDocumentParsingJob).mockImplementation(() => new Promise(() => {}))
+
+    const { router } = renderAt(<Procurement />, '/procurement')
+    await userEvent.click(await screen.findByRole('button', { name: 'Upload Document' }))
+    await userEvent.upload(screen.getByLabelText('Document'), new File(['a'], 'order.csv', { type: 'text/csv' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Upload & Create' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/procurement/po-new'))
+    expect(router.state.location.search).toBe('?parsing=job-1')
+  })
+
+  it('the status filter lives in ?status=', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po({ id: 'po-1', status: 'draft' }), po({ id: 'po-2', status: 'sent' })])
+    renderAt(<Procurement />, '/procurement', '/procurement?status=sent')
+    expect(await screen.findByText('1 purchase order')).toBeInTheDocument()
+  })
+
+  it('/procurement/discrepancies opens the discrepancies page, tab in ?tab=', async () => {
+    const { router } = renderAt(<Procurement />, '/procurement', '/procurement/discrepancies?tab=damaged-lost')
+    expect(await screen.findByText('Booking Discrepancies')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Missing/ }))
+    expect(router.state.location.search).toBe('')
   })
 })
