@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import { act } from 'react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Warehouses from '../Warehouses'
+import { renderAt } from '../../test/renderAt'
 import type { Warehouse } from '../../inventory/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -34,7 +36,7 @@ beforeEach(() => {
 
 describe('Warehouses list', () => {
   it('shows an empty state when there are no warehouses', async () => {
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
 
     expect(await screen.findByText('No warehouses yet')).toBeInTheDocument()
   })
@@ -42,7 +44,7 @@ describe('Warehouses list', () => {
   it('lists warehouses', async () => {
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
 
     expect(await screen.findByText('Main DC')).toBeInTheDocument()
   })
@@ -50,7 +52,7 @@ describe('Warehouses list', () => {
   it('filters by search', async () => {
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse(), warehouse({ id: 'wh-2', name: 'East Coast' })])
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
     await screen.findByText('Main DC')
 
     await userEvent.type(screen.getByPlaceholderText('Search by name...'), 'East')
@@ -63,7 +65,7 @@ describe('Warehouses list', () => {
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
     await userEvent.click(await screen.findByTitle('Delete'))
 
     await waitFor(() => expect(inventoryApi.deleteWarehouse).toHaveBeenCalledWith('test-token', 'wh-1'))
@@ -74,7 +76,7 @@ describe('Warehouses list', () => {
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
     vi.stubGlobal('confirm', vi.fn(() => false))
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
     await userEvent.click(await screen.findByTitle('Delete'))
 
     expect(inventoryApi.deleteWarehouse).not.toHaveBeenCalled()
@@ -84,7 +86,7 @@ describe('Warehouses list', () => {
   it('shows city/country and an inactive badge in the row', async () => {
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse({ city: 'Springfield', country: 'US', active: false })])
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
 
     expect(await screen.findByText('Springfield, US')).toBeInTheDocument()
     expect(screen.getByText('inactive')).toBeInTheDocument()
@@ -94,7 +96,7 @@ describe('Warehouses list', () => {
     const many = Array.from({ length: 25 }, (_, i) => warehouse({ id: `wh-${i}`, name: `Warehouse ${String(i).padStart(2, '0')}` }))
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue(many)
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
     await screen.findByText('Warehouse 00')
 
     expect(screen.queryByText('Warehouse 20')).not.toBeInTheDocument()
@@ -111,7 +113,7 @@ describe('Warehouse edit page', () => {
   it('opens the edit page when clicking anywhere on a row, not just the Edit button', async () => {
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
     await userEvent.click(await screen.findByText('Main DC'))
 
     expect(screen.getByDisplayValue('Main DC')).toBeInTheDocument()
@@ -119,7 +121,7 @@ describe('Warehouse edit page', () => {
   })
 
   it('opening New Warehouse shows a blank create form', async () => {
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
     await userEvent.click(await screen.findByRole('button', { name: 'New Warehouse' }))
 
     expect(screen.getByText('New Warehouse', { selector: 'h1' })).toBeInTheDocument()
@@ -130,7 +132,7 @@ describe('Warehouse edit page', () => {
   it('creates a new warehouse and returns to the list', async () => {
     vi.mocked(inventoryApi.createWarehouse).mockResolvedValue(warehouse({ id: 'wh-2', name: 'East Coast' }))
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
     await userEvent.click(await screen.findByRole('button', { name: 'New Warehouse' }))
     await userEvent.type(screen.getByLabelText('Name'), 'East Coast')
     await userEvent.click(screen.getByRole('button', { name: 'Create Warehouse' }))
@@ -142,7 +144,7 @@ describe('Warehouse edit page', () => {
   it('submits all address fields and the active toggle', async () => {
     vi.mocked(inventoryApi.createWarehouse).mockResolvedValue(warehouse({ id: 'wh-2', name: 'East Coast' }))
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
     await userEvent.click(await screen.findByRole('button', { name: 'New Warehouse' }))
     await userEvent.type(screen.getByLabelText('Name'), 'East Coast')
     await userEvent.type(screen.getByLabelText('Address line 1'), '1 Main St')
@@ -164,7 +166,7 @@ describe('Warehouse edit page', () => {
   it('shows an error if creating fails and stays on the form', async () => {
     vi.mocked(inventoryApi.createWarehouse).mockRejectedValue(new Error('name already taken'))
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
     await userEvent.click(await screen.findByRole('button', { name: 'New Warehouse' }))
     await userEvent.type(screen.getByLabelText('Name'), 'East Coast')
     await userEvent.click(screen.getByRole('button', { name: 'Create Warehouse' }))
@@ -177,7 +179,7 @@ describe('Warehouse edit page', () => {
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
     vi.mocked(inventoryApi.updateWarehouse).mockResolvedValue(warehouse({ name: 'Main Distribution Center' }))
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
     await userEvent.click(await screen.findByText('Main DC'))
 
     const input = screen.getByLabelText('Name')
@@ -196,7 +198,7 @@ describe('Warehouse edit page', () => {
       address1: '1 Main St', city: 'Springfield', province: 'IL', zip: '62701', country: 'US', phone: '+1 555-0100', active: false,
     })])
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
     await userEvent.click(await screen.findByText('Main DC'))
 
     expect(screen.getByLabelText('Address line 1')).toHaveValue('1 Main St')
@@ -211,12 +213,36 @@ describe('Warehouse edit page', () => {
   it('Discard returns to the list without saving', async () => {
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
 
-    render(<Warehouses />)
+    renderAt(<Warehouses />, '/warehouses')
     await userEvent.click(await screen.findByText('Main DC'))
     await userEvent.type(screen.getByLabelText('Name'), ' extra')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 
     expect(inventoryApi.updateWarehouse).not.toHaveBeenCalled()
     expect(await screen.findByText('Main DC')).toBeInTheDocument()
+  })
+})
+
+describe('Warehouses URLs (refresh + Back)', () => {
+  it('New Warehouse pushes /warehouses/new and Back returns to the list', async () => {
+    const { router } = renderAt(<Warehouses />, '/warehouses')
+    await userEvent.click(await screen.findByRole('button', { name: /New Warehouse/ }))
+    expect(router.state.location.pathname).toBe('/warehouses/new')
+
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname).toBe('/warehouses')
+    expect(await screen.findByPlaceholderText('Search by name...')).toBeInTheDocument()
+  })
+
+  it('/warehouses/:id opens that warehouse for editing on load', async () => {
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    renderAt(<Warehouses />, '/warehouses', '/warehouses/wh-1')
+    expect(await screen.findByDisplayValue('Main DC')).toBeInTheDocument()
+  })
+
+  it('/warehouses/:id for an unknown id shows not-found', async () => {
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    renderAt(<Warehouses />, '/warehouses', '/warehouses/nope')
+    expect(await screen.findByText('Warehouse not found')).toBeInTheDocument()
   })
 })

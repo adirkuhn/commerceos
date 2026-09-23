@@ -5,6 +5,9 @@ import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useCoupons } from '../coupons/hooks/useCoupons'
 import * as couponsApi from '../coupons/api'
+import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
+import { useQueryPage, useQueryString } from '../routing/useQueryState'
+import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 import type { Coupon, CouponInput, DiscountType, CouponCurrencyAmount } from '../coupons/types'
 
 const PAGE_SIZE = 20
@@ -23,14 +26,16 @@ export default function Coupons() {
   const { token } = useAuth()
   const { coupons, loading, error, create, update, remove } = useCoupons(token ?? '')
 
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [editingId, setEditingId] = useState<string | null | 'new'>(null)
+  // List view state (search, page) and the open editor (/coupons/new,
+  // /coupons/:id) live in the URL -- refresh and Back keep the user in place.
+  const [searchParam, setSearch] = useQueryString('q', { resets: ['page'] })
+  const search = searchParam ?? ''
+  const [page, setPage] = useQueryPage()
+  const { editingId, openNew, openEdit, close } = useRoutedEditor('/coupons')
   const [actionError, setActionError] = useState('')
 
   function handleSearchChange(value: string) {
     setSearch(value)
-    setPage(1)
   }
 
   const filtered = coupons.filter(c => c.code.toLowerCase().includes(search.toLowerCase()))
@@ -47,13 +52,17 @@ export default function Coupons() {
   }
 
   if (editingId !== null) {
-    const editing = editingId === 'new' ? null : coupons.find(c => c.id === editingId) ?? null
+    const editing = editingId === NEW_RECORD ? null : coupons.find(c => c.id === editingId) ?? null
+    if (editingId !== NEW_RECORD && !editing) {
+      return loading ? <RecordLoading /> : <RecordNotFound label="Coupon" onBack={close} />
+    }
     return (
       <CouponEditPage
+        key={editingId}
         coupon={editing}
         onCreate={create}
         onUpdate={update}
-        onClose={() => setEditingId(null)}
+        onClose={close}
       />
     )
   }
@@ -72,7 +81,7 @@ export default function Coupons() {
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <button
-            onClick={() => setEditingId('new')}
+            onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
           >
             <Plus size={13} /> Add Coupon
@@ -108,7 +117,7 @@ export default function Coupons() {
             {paged.map(c => (
               <tr
                 key={c.id}
-                onClick={() => setEditingId(c.id)}
+                onClick={() => openEdit(c.id)}
                 className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">

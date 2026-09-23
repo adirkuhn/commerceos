@@ -3,6 +3,8 @@ import { Plus, Search, Tag, Trash2, ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
+import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
+import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { usePromotions } from '../promotions/hooks/usePromotions'
 import { getPromotion } from '../promotions/api'
 import { resolveBarcode } from '../pms/api'
@@ -27,14 +29,16 @@ export default function Promotions() {
   const { token } = useAuth()
   const { promotions, loading, error, create, update, remove } = usePromotions(token ?? '')
 
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [editingId, setEditingId] = useState<string | null | 'new'>(null)
+  // Search, page and the open editor (/promotions/new, /promotions/:id) live in the
+  // URL -- refresh and Back keep the user in place.
+  const [searchParam, setSearch] = useQueryString('q', { resets: ['page'] })
+  const search = searchParam ?? ''
+  const [page, setPage] = useQueryPage()
+  const { editingId, openNew, openEdit, close } = useRoutedEditor('/promotions')
   const [deleteError, setDeleteError] = useState('')
 
   function handleSearchChange(value: string) {
     setSearch(value)
-    setPage(1)
   }
 
   const filtered = promotions.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
@@ -53,11 +57,12 @@ export default function Promotions() {
   if (editingId !== null) {
     return (
       <PromotionEditPage
+        key={editingId}
         token={token ?? ''}
-        promotionId={editingId === 'new' ? null : editingId}
+        promotionId={editingId === NEW_RECORD ? null : editingId}
         onCreate={create}
         onUpdate={update}
-        onClose={() => setEditingId(null)}
+        onClose={close}
       />
     )
   }
@@ -76,7 +81,7 @@ export default function Promotions() {
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <button
-            onClick={() => setEditingId('new')}
+            onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
           >
             <Plus size={13} /> Add Promotion
@@ -112,7 +117,7 @@ export default function Promotions() {
             {paged.map(p => (
               <tr
                 key={p.id}
-                onClick={() => setEditingId(p.id)}
+                onClick={() => openEdit(p.id)}
                 className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">

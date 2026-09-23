@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import { act } from 'react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Coupons from '../Coupons'
+import { renderAt } from '../../test/renderAt'
 import type { Coupon } from '../../coupons/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -37,7 +39,7 @@ beforeEach(() => {
 
 describe('Coupons list', () => {
   it('shows an empty state when there are no coupons', async () => {
-    render(<Coupons />)
+    renderAt(<Coupons />, '/coupons')
 
     expect(await screen.findByText('No coupons yet')).toBeInTheDocument()
   })
@@ -45,7 +47,7 @@ describe('Coupons list', () => {
   it('lists coupons with discount and status', async () => {
     vi.mocked(couponsApi.listCoupons).mockResolvedValue([coupon()])
 
-    render(<Coupons />)
+    renderAt(<Coupons />, '/coupons')
 
     expect(await screen.findByText('SUMMER10')).toBeInTheDocument()
     expect(screen.getByText('10.00%')).toBeInTheDocument()
@@ -57,7 +59,7 @@ describe('Coupons list', () => {
       coupon(), coupon({ id: 'coupon-2', code: 'WINTER20' }),
     ])
 
-    render(<Coupons />)
+    renderAt(<Coupons />, '/coupons')
     await screen.findByText('SUMMER10')
 
     await userEvent.type(screen.getByPlaceholderText('Search by code...'), 'WINTER')
@@ -70,7 +72,7 @@ describe('Coupons list', () => {
     vi.mocked(couponsApi.listCoupons).mockResolvedValue([coupon()])
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<Coupons />)
+    renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByTitle('Delete'))
 
     await waitFor(() => expect(couponsApi.deleteCoupon).toHaveBeenCalledWith('test-token', 'coupon-1'))
@@ -80,7 +82,7 @@ describe('Coupons list', () => {
 
 describe('Coupon edit page', () => {
   it('opening Add Coupon shows a blank create form', async () => {
-    render(<Coupons />)
+    renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Coupon' }))
 
     expect(screen.getByText('New Coupon', { selector: 'h1' })).toBeInTheDocument()
@@ -91,7 +93,7 @@ describe('Coupon edit page', () => {
   it('creates a new coupon with code, type, and value', async () => {
     vi.mocked(couponsApi.createCoupon).mockResolvedValue(coupon({ id: 'coupon-2', code: 'WINTER20', discount_value: 2000 }))
 
-    render(<Coupons />)
+    renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Coupon' }))
     await userEvent.type(screen.getByLabelText('Code'), 'winter20')
     await userEvent.type(screen.getByLabelText('Percent off'), '20')
@@ -106,7 +108,7 @@ describe('Coupon edit page', () => {
   })
 
   it('rejects creating a coupon with a zero discount value', async () => {
-    render(<Coupons />)
+    renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Coupon' }))
     await userEvent.type(screen.getByLabelText('Code'), 'EMPTY')
     await userEvent.type(screen.getByLabelText('Percent off'), '0')
@@ -119,7 +121,7 @@ describe('Coupon edit page', () => {
   it('editing an existing coupon prefills its fields', async () => {
     vi.mocked(couponsApi.listCoupons).mockResolvedValue([coupon({ usage_limit: 100, times_used: 3 })])
 
-    render(<Coupons />)
+    renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByText('SUMMER10'))
 
     expect(await screen.findByDisplayValue('SUMMER10')).toBeInTheDocument()
@@ -130,7 +132,7 @@ describe('Coupon edit page', () => {
   it('shows no currency-overrides editor for a Percent coupon', async () => {
     vi.mocked(couponsApi.listCoupons).mockResolvedValue([coupon()])
 
-    render(<Coupons />)
+    renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByText('SUMMER10'))
     await screen.findByDisplayValue('SUMMER10')
 
@@ -145,7 +147,7 @@ describe('Coupon edit page', () => {
     ])
     vi.mocked(couponsApi.upsertCouponCurrencyAmount).mockResolvedValue({ coupon_id: 'coupon-1', currency_code: 'GBP', amount_minor_units: 450 })
 
-    render(<Coupons />)
+    renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByText('SUMMER10'))
     await screen.findByDisplayValue('SUMMER10')
 
@@ -168,7 +170,7 @@ describe('Coupon edit page', () => {
     ])
     vi.mocked(couponsApi.deleteCouponCurrencyAmount).mockResolvedValue(null)
 
-    render(<Coupons />)
+    renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByText('SUMMER10'))
     await screen.findByText('USD: 6.00 off')
 
@@ -179,12 +181,46 @@ describe('Coupon edit page', () => {
   })
 
   it('Discard returns to the list without saving', async () => {
-    render(<Coupons />)
+    renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Coupon' }))
     await userEvent.type(screen.getByLabelText('Code'), 'DRAFT')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 
     expect(couponsApi.createCoupon).not.toHaveBeenCalled()
     expect(await screen.findByText('No coupons yet')).toBeInTheDocument()
+  })
+})
+
+describe('Coupons URLs (refresh + Back)', () => {
+  it('Add Coupon pushes /coupons/new and Back returns to the list', async () => {
+    const { router } = renderAt(<Coupons />, '/coupons')
+    await userEvent.click(await screen.findByRole('button', { name: /Add Coupon/ }))
+    expect(router.state.location.pathname).toBe('/coupons/new')
+
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname).toBe('/coupons')
+    expect(await screen.findByPlaceholderText('Search by code...')).toBeInTheDocument()
+  })
+
+  it('/coupons/:id opens that coupon for editing on load', async () => {
+    vi.mocked(couponsApi.listCoupons).mockResolvedValue([coupon()])
+    renderAt(<Coupons />, '/coupons', '/coupons/coupon-1')
+    expect(await screen.findByDisplayValue('SUMMER10')).toBeInTheDocument()
+  })
+
+  it('/coupons/:id for an unknown id shows not-found instead of a blank create form', async () => {
+    vi.mocked(couponsApi.listCoupons).mockResolvedValue([coupon()])
+    renderAt(<Coupons />, '/coupons', '/coupons/nope')
+    expect(await screen.findByText('Coupon not found')).toBeInTheDocument()
+  })
+
+  it('page and search live in the query string', async () => {
+    vi.mocked(couponsApi.listCoupons).mockResolvedValue([coupon({ code: 'ALPHA' }), coupon({ id: 'c2', code: 'BETA' })])
+    const { router } = renderAt(<Coupons />, '/coupons', '/coupons?q=bet')
+    expect(await screen.findByText('BETA')).toBeInTheDocument()
+    expect(screen.queryByText('ALPHA')).not.toBeInTheDocument()
+    await userEvent.clear(screen.getByPlaceholderText('Search by code...'))
+    await userEvent.type(screen.getByPlaceholderText('Search by code...'), 'al')
+    expect(router.state.location.search).toBe('?q=al')
   })
 })

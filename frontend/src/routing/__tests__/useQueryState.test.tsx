@@ -90,6 +90,20 @@ describe('useQueryString', () => {
   })
 })
 
+describe('resets option', () => {
+  it('clears dependent params in the same URL write (e.g. a new search resets the page)', () => {
+    const { result } = renderHook(
+      () => ({ q: useQueryString('q', { resets: ['page'] }), loc: useLocation() }),
+      { wrapper: wrapperAt('/x?page=4&tab=b') },
+    )
+    act(() => result.current.q[1]('abc'))
+    const params = new URLSearchParams(result.current.loc.search)
+    expect(params.get('q')).toBe('abc')
+    expect(params.get('page')).toBeNull()
+    expect(params.get('tab')).toBe('b')
+  })
+})
+
 describe('useQueryPage', () => {
   it('reads a positive page number', () => {
     const { result } = renderHook(() => useQueryPage(), { wrapper: wrapperAt('/x?page=3') })

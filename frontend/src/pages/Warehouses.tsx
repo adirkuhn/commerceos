@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { Plus, Search, Warehouse as WarehouseIcon, Trash2, Edit3, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
+import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
+import { useQueryPage, useQueryString } from '../routing/useQueryState'
+import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import type { Warehouse, WarehouseInput } from '../inventory/types'
 
@@ -11,14 +14,16 @@ export default function Warehouses() {
   const { token } = useAuth()
   const { warehouses, loading, error, create, update, remove } = useWarehouses(token ?? '')
 
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [editingId, setEditingId] = useState<string | null | 'new'>(null)
+  // Search, page and the open editor (/warehouses/new, /warehouses/:id) live in the
+  // URL -- refresh and Back keep the user in place.
+  const [searchParam, setSearch] = useQueryString('q', { resets: ['page'] })
+  const search = searchParam ?? ''
+  const [page, setPage] = useQueryPage()
+  const { editingId, openNew, openEdit, close } = useRoutedEditor('/warehouses')
   const [deleteError, setDeleteError] = useState('')
 
   function handleSearchChange(value: string) {
     setSearch(value)
-    setPage(1)
   }
 
   const filtered = warehouses.filter(w => w.name.toLowerCase().includes(search.toLowerCase()))
@@ -35,13 +40,17 @@ export default function Warehouses() {
   }
 
   if (editingId !== null) {
-    const existing = editingId === 'new' ? null : warehouses.find(w => w.id === editingId) ?? null
+    const existing = editingId === NEW_RECORD ? null : warehouses.find(w => w.id === editingId) ?? null
+    if (editingId !== NEW_RECORD && !existing) {
+      return loading ? <RecordLoading /> : <RecordNotFound label="Warehouse" onBack={close} />
+    }
     return (
       <WarehouseEditPage
+        key={editingId}
         warehouse={existing}
         onCreate={create}
         onUpdate={update}
-        onClose={() => setEditingId(null)}
+        onClose={close}
       />
     )
   }
@@ -61,7 +70,7 @@ export default function Warehouses() {
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <button
-            onClick={() => setEditingId('new')}
+            onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
           >
             <Plus size={13} /> New Warehouse
@@ -95,7 +104,7 @@ export default function Warehouses() {
             {paged.map(w => (
               <tr
                 key={w.id}
-                onClick={() => setEditingId(w.id)}
+                onClick={() => openEdit(w.id)}
                 className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
@@ -115,7 +124,7 @@ export default function Warehouses() {
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={e => { e.stopPropagation(); setEditingId(w.id) }}
+                      onClick={e => { e.stopPropagation(); openEdit(w.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
                       title="Edit"
                     >
