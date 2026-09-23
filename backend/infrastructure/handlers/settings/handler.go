@@ -40,6 +40,7 @@ type Handler struct {
 	listAPIKeys          listAPIKeysUC
 	createAPIKey         createAPIKeyUC
 	revokeAPIKey         revokeAPIKeyUC
+	*CompanyProfileHandler
 }
 
 func NewHandler(
@@ -48,24 +49,33 @@ func NewHandler(
 	listAPIKeys listAPIKeysUC,
 	createAPIKey createAPIKeyUC,
 	revokeAPIKey revokeAPIKeyUC,
+	companyProfile *CompanyProfileHandler,
 ) *Handler {
 	return &Handler{
 		getTenantSettings: getTenantSettings, updateTenantSettings: updateTenantSettings,
 		listAPIKeys: listAPIKeys, createAPIKey: createAPIKey, revokeAPIKey: revokeAPIKey,
+		CompanyProfileHandler: companyProfile,
 	}
 }
 
 var _ gensettings.ServerInterface = (*Handler)(nil)
 
-func Register(rg gin.IRouter, db *gorm.DB) {
+// Register wires the settings routes. outbox receives the events settings
+// writes raise (e.g. settings.company_profile.updated).
+func Register(rg gin.IRouter, db *gorm.DB, outbox appsettings.EventEnqueuer) {
 	repo := repositories.NewTenantSettingsRepo(db)
 	apiKeyRepo := repositories.NewAPIKeyRepo(db)
+	companyRepo := repositories.NewCompanyProfileRepo(db)
 	h := NewHandler(
 		appsettings.NewGetTenantSettingsUseCase(db, repo),
 		appsettings.NewUpdateTenantSettingsUseCase(db, repo),
 		appapikeys.NewListAPIKeysUseCase(db, apiKeyRepo),
 		appapikeys.NewCreateAPIKeyUseCase(db, apiKeyRepo),
 		appapikeys.NewRevokeAPIKeyUseCase(db, apiKeyRepo),
+		NewCompanyProfileHandler(
+			appsettings.NewGetCompanyProfileUseCase(db, companyRepo),
+			appsettings.NewUpdateCompanyProfileUseCase(db, companyRepo, outbox),
+		),
 	)
 	gensettings.RegisterHandlers(rg, h)
 }

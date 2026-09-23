@@ -99,6 +99,8 @@ func newTestHandler(get *stubGetTenantSettings, update *stubUpdateTenantSettings
 	list := &stubListAPIKeys{}
 	create := &stubCreateAPIKey{}
 	revoke := &stubRevokeAPIKey{}
+	getCompany := &stubGetCompanyProfile{}
+	updateCompany := &stubUpdateCompanyProfile{}
 	for _, s := range apiKeyStubs {
 		switch v := s.(type) {
 		case *stubListAPIKeys:
@@ -107,9 +109,13 @@ func newTestHandler(get *stubGetTenantSettings, update *stubUpdateTenantSettings
 			create = v
 		case *stubRevokeAPIKey:
 			revoke = v
+		case *stubGetCompanyProfile:
+			getCompany = v
+		case *stubUpdateCompanyProfile:
+			updateCompany = v
 		}
 	}
-	return settingshandler.NewHandler(get, update, list, create, revoke)
+	return settingshandler.NewHandler(get, update, list, create, revoke, settingshandler.NewCompanyProfileHandler(getCompany, updateCompany))
 }
 
 func newTestRouter(h *settingshandler.Handler) *gin.Engine {

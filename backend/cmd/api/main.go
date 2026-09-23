@@ -236,7 +236,10 @@ func main() {
 	settingsGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(settingsSpec, &ginmiddleware.Options{
 		SilenceServersWarning: true,
 	}))
-	settingshandler.Register(settingsGroup, db)
+	// Tenant-wide settings: every role may read, only owners/admins change
+	// them (customer_user is read-only -- see CLAUDE.md Auth & RBAC).
+	settingsGroup.Use(middleware.RequireRoleForWrites(middleware.RoleCustomerOwner, middleware.RoleCustomerAdmin, middleware.RoleSuperAdmin))
+	settingshandler.Register(settingsGroup, db, outboxRepo)
 
 	themeSpec, err := gentheme.GetSpec()
 	if err != nil {

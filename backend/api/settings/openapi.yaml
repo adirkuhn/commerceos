@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: CommerceOS Tenant Settings API
-  description: Tenant-wide localization defaults (currency, timezone, date format, language).
+  description: Tenant-wide settings -- localization defaults, the company profile, storefront API keys.
   version: "1.0"
 servers:
   - url: /api/v1
@@ -35,6 +35,54 @@ paths:
                 $ref: '#/components/schemas/TenantSettingsResponse'
         '422':
           $ref: '#/components/responses/Error'
+
+  /settings/company-profile:
+    get:
+      operationId: getCompanyProfile
+      summary: Get the tenant's company profile
+      description: >
+        The tenant's business identity, printed as the seller block on
+        invoices. Returns an empty profile (blank strings) until it has
+        been saved. Readable by every role.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyProfileResponse'
+    put:
+      operationId: updateCompanyProfile
+      summary: Replace the tenant's company profile
+      description: >
+        Full replace. Values are normalized server-side (trimmed; VAT
+        number, IBAN and country upper-cased; spaces, dots and dashes
+        removed from VAT number and IBAN). Requires the customer_owner,
+        customer_admin or super_admin role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyProfileInput'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyProfileResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '422':
+          description: >
+            Validation failed. error.code is one of LEGAL_NAME_REQUIRED,
+            INVALID_EMAIL, INVALID_VAT_NUMBER, INVALID_IBAN,
+            INVALID_COUNTRY_CODE.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /settings/api-keys:
     get:
@@ -198,6 +246,56 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/TenantSettings' }
+        error: { nullable: true }
+
+    CompanyAddress:
+      type: object
+      required: [street, house_number, postal_code, city, country]
+      properties:
+        street: { type: string, maxLength: 200 }
+        house_number: { type: string, maxLength: 20 }
+        postal_code: { type: string, maxLength: 20 }
+        city: { type: string, maxLength: 120 }
+        country:
+          type: string
+          maxLength: 2
+          description: ISO 3166-1 alpha-2 code (e.g. NL); empty when unknown.
+    CompanyProfileInput:
+      type: object
+      required: [legal_name, trading_name, vat_number, chamber_of_commerce, email, phone, address, iban]
+      properties:
+        legal_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Registered legal name. Required, not blank.
+        trading_name: { type: string, maxLength: 200 }
+        vat_number:
+          type: string
+          maxLength: 30
+          description: 2-letter country prefix + 2-13 letters/digits (e.g. NL123456789B01); empty when not VAT-registered.
+        chamber_of_commerce:
+          type: string
+          maxLength: 40
+          description: Chamber of Commerce (KvK) registration number.
+        email: { type: string, maxLength: 254, description: Plain address (no display name); may be empty. }
+        phone: { type: string, maxLength: 40 }
+        address: { $ref: '#/components/schemas/CompanyAddress' }
+        iban:
+          type: string
+          maxLength: 42
+          description: Bank account for payment on invoices; checked with the ISO 13616 mod-97 checksum. May be empty.
+    CompanyProfile:
+      allOf:
+        - $ref: '#/components/schemas/CompanyProfileInput'
+        - type: object
+          required: [updated_at]
+          properties:
+            updated_at: { type: string, format: date-time }
+    CompanyProfileResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CompanyProfile' }
         error: { nullable: true }
 
     ApiKey:
