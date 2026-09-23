@@ -22,6 +22,7 @@ vi.mock('../../coupons/api', () => ({
 }))
 
 import * as couponsApi from '../../coupons/api'
+import { acceptConfirm } from '../../test/confirm'
 
 function coupon(overrides: Partial<Coupon> = {}): Coupon {
   return {
@@ -70,11 +71,11 @@ describe('Coupons list', () => {
 
   it('deleting a row does not also navigate to the edit page', async () => {
     vi.mocked(couponsApi.listCoupons).mockResolvedValue([coupon()])
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await acceptConfirm()
     await waitFor(() => expect(couponsApi.deleteCoupon).toHaveBeenCalledWith('test-token', 'coupon-1'))
     expect(screen.getByText('Add Coupon')).toBeInTheDocument()
   })

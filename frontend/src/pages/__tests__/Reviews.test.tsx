@@ -16,6 +16,7 @@ vi.mock('../../reviews/api', () => ({
 }))
 
 import * as reviewsApi from '../../reviews/api'
+import { acceptConfirm } from '../../test/confirm'
 
 function review(overrides: Partial<Review> = {}): Review {
   return {
@@ -64,11 +65,11 @@ describe('Reviews', () => {
 
   it('deleting a review calls deleteReview', async () => {
     vi.mocked(reviewsApi.listReviews).mockResolvedValue([review()])
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     renderAt(<Reviews />, '/reviews')
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await acceptConfirm()
     await waitFor(() => expect(reviewsApi.deleteReview).toHaveBeenCalledWith('test-token', 'review-1'))
   })
 })

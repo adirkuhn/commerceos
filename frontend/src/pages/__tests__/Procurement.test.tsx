@@ -91,6 +91,7 @@ import * as inventoryApi from '../../inventory/api'
 import * as pmsApi from '../../pms/api'
 import * as settingsApi from '../../settings/api'
 import * as integrationsApi from '../../integrations/api'
+import { acceptConfirm, dismissConfirm } from '../../test/confirm'
 
 function po(overrides: Partial<PurchaseOrder> = {}): PurchaseOrder {
   return {
@@ -219,21 +220,21 @@ describe('Purchase orders list', () => {
 
   it('deletes a purchase order after confirming', async () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await acceptConfirm()
     await waitFor(() => expect(procurementApi.deletePurchaseOrder).toHaveBeenCalledWith('test-token', 'po-1'))
   })
 
   it('does not delete when the confirm dialog is dismissed', async () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
-    vi.stubGlobal('confirm', vi.fn(() => false))
 
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await dismissConfirm()
     expect(procurementApi.deletePurchaseOrder).not.toHaveBeenCalled()
   })
 
@@ -603,13 +604,13 @@ describe('Purchase order edit with line items', () => {
   })
 
   it('removes a line item after confirming', async () => {
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     const row = (await screen.findByText('Widget A')).closest('tr')!
     await userEvent.click(within(row).getByTitle('Remove'))
 
+    await acceptConfirm()
     await waitFor(() => expect(procurementApi.removeLineItem).toHaveBeenCalledWith('test-token', 'line-item-1'))
   })
 
@@ -730,7 +731,6 @@ describe('Purchase order edit with line items', () => {
 
   it('warns before uploading a PDF when no AI provider is configured, and still uploads if confirmed', async () => {
     vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
-    vi.stubGlobal('confirm', vi.fn(() => true))
     vi.mocked(procurementApi.attachDocumentToPurchaseOrder).mockResolvedValue({
       id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
       status: 'pending', error_message: '', created_at: '',
@@ -748,13 +748,12 @@ describe('Purchase order edit with line items', () => {
     const fileInput = document.querySelector('input[type="file"][accept=".pdf,.csv,.xlsx"]') as HTMLInputElement
     await userEvent.upload(fileInput, file)
 
-    expect(window.confirm).toHaveBeenCalled()
+    await acceptConfirm()
     await waitFor(() => expect(procurementApi.attachDocumentToPurchaseOrder).toHaveBeenCalledWith('test-token', 'po-1', file))
   })
 
   it('does not upload a PDF when the no-AI warning is dismissed', async () => {
     vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
-    vi.stubGlobal('confirm', vi.fn(() => false))
 
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
@@ -764,14 +763,12 @@ describe('Purchase order edit with line items', () => {
     const fileInput = document.querySelector('input[type="file"][accept=".pdf,.csv,.xlsx"]') as HTMLInputElement
     await userEvent.upload(fileInput, file)
 
-    expect(window.confirm).toHaveBeenCalled()
+    await dismissConfirm()
     expect(procurementApi.attachDocumentToPurchaseOrder).not.toHaveBeenCalled()
   })
 
   it('does not warn before uploading a CSV, since it never needs AI', async () => {
     vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
-    const confirmSpy = vi.fn(() => true)
-    vi.stubGlobal('confirm', confirmSpy)
     vi.mocked(procurementApi.attachDocumentToPurchaseOrder).mockResolvedValue({
       id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
       status: 'pending', error_message: '', created_at: '',
@@ -790,7 +787,7 @@ describe('Purchase order edit with line items', () => {
     await userEvent.upload(fileInput, file)
 
     await waitFor(() => expect(procurementApi.attachDocumentToPurchaseOrder).toHaveBeenCalledWith('test-token', 'po-1', file))
-    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 })
 
@@ -838,7 +835,6 @@ describe('Documents', () => {
   })
 
   it('deletes a document after confirming', async () => {
-    vi.stubGlobal('confirm', vi.fn(() => true))
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
       documents: [{
@@ -853,11 +849,11 @@ describe('Documents', () => {
     await screen.findByText('invoice.pdf')
     await userEvent.click(screen.getByTitle('Delete'))
 
+    await acceptConfirm()
     await waitFor(() => expect(procurementApi.deletePurchaseOrderDocument).toHaveBeenCalledWith('test-token', 'document-1'))
   })
 
   it('does not delete when the confirm dialog is dismissed', async () => {
-    vi.stubGlobal('confirm', vi.fn(() => false))
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
       documents: [{
@@ -871,6 +867,7 @@ describe('Documents', () => {
     await screen.findByText('invoice.pdf')
     await userEvent.click(screen.getByTitle('Delete'))
 
+    await dismissConfirm()
     expect(procurementApi.deletePurchaseOrderDocument).not.toHaveBeenCalled()
   })
 

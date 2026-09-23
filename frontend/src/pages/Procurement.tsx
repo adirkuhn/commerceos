@@ -27,6 +27,7 @@ import type {
 import type { SKU } from '../pms/types'
 import type { Warehouse } from '../inventory/types'
 import { Dialog } from '../components/common/Dialog'
+import { useConfirm } from '../components/common/useConfirm'
 
 const PROCUREMENT_PATH = '/procurement'
 const DISCREPANCIES_SEGMENT = 'discrepancies'
@@ -110,6 +111,7 @@ const DISCREPANCY_LABEL: Record<DiscrepancyType, string> = {
 }
 
 export default function Procurement() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { purchaseOrders, loading, error, create, remove, refresh } = usePurchaseOrders(token ?? '')
   const { suppliers } = useSuppliers(token ?? '')
@@ -143,7 +145,7 @@ export default function Procurement() {
   const filtered = purchaseOrders.filter(po => statusFilter === 'all' || po.status === statusFilter)
 
   async function handleDelete(po: PurchaseOrder) {
-    if (!window.confirm(`Delete this purchase order? This cannot be undone.`)) return
+    if (!(await confirm({ title: 'Delete this purchase order?', message: 'This cannot be undone.', confirmLabel: 'Delete order', destructive: true }))) return
     setDeleteError('')
     try {
       await remove(po.id)
@@ -313,6 +315,7 @@ export default function Procurement() {
           </tbody>
         </table>
       </div>
+      {confirmDialog}
     </div>
   )
 }
@@ -906,13 +909,14 @@ interface DocumentsSectionProps {
 }
 
 function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSectionProps) {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [reparsingId, setReparsingId] = useState<string | null>(null)
   const [reparseError, setReparseError] = useState<{ id: string; message: string } | null>(null)
 
   async function handleDelete(doc: PurchaseOrderDocument) {
-    if (!window.confirm(`Delete "${doc.file_name}"? This does not affect any line items already created from it.`)) return
+    if (!(await confirm({ title: `Delete "${doc.file_name}"?`, message: 'Line items already created from it are kept.', confirmLabel: 'Delete document', destructive: true }))) return
     setDeletingId(doc.id)
     try {
       await onDelete(doc.id)
@@ -981,6 +985,7 @@ function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSectionPr
           </div>
         ))}
       </div>
+      {confirmDialog}
     </div>
   )
 }
@@ -1002,6 +1007,7 @@ interface LineItemsSectionProps {
 }
 
 function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialParsingJobId, onAdd, onUpdate, onRemove, onRefresh }: LineItemsSectionProps) {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const [adding, setAdding] = useState(false)
   const [editingLineId, setEditingLineId] = useState<string | null>(null)
@@ -1040,7 +1046,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
   }, [initialParsingJobId])
 
   async function handleRemove(id: string) {
-    if (!window.confirm('Remove this line item?')) return
+    if (!(await confirm({ title: 'Remove this line item?', confirmLabel: 'Remove line item', destructive: true }))) return
     await onRemove(id)
   }
 
@@ -1055,10 +1061,11 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
     const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
     if (isPDF) {
       const aiConnection = await integrationsApi.getAIConnection(token ?? '').catch(() => null)
-      if (!aiConnection && !window.confirm(
-        'No AI provider is configured for this workspace, so this PDF won’t auto-parse into line items. ' +
-        'You can still upload it and add line items manually below. Continue?',
-      )) {
+      if (!aiConnection && !(await confirm({
+        title: 'Upload without auto-parsing?',
+        message: 'No AI provider is configured, so this PDF won’t be parsed into line items. You can still upload it and add line items manually.',
+        confirmLabel: 'Upload anyway',
+      }))) {
         return
       }
     }
@@ -1291,6 +1298,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
           </tfoot>
         )}
       </table>
+      {confirmDialog}
     </div>
   )
 }

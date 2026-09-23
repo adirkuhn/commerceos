@@ -35,6 +35,7 @@ vi.mock('../../oms/api', () => ({
 
 import * as customersApi from '../../customers/api'
 import * as omsApi from '../../oms/api'
+import { acceptConfirm, dismissConfirm } from '../../test/confirm'
 
 function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
@@ -95,22 +96,22 @@ describe('Customers list', () => {
 
   it('deleting a row does not also navigate to the edit page', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await acceptConfirm()
     await waitFor(() => expect(customersApi.deleteCustomer).toHaveBeenCalledWith('test-token', 'customer-1'))
     expect(screen.queryByText('Add Customer')).toBeInTheDocument()
   })
 
   it('does not delete when the confirm dialog is dismissed', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
-    vi.stubGlobal('confirm', vi.fn(() => false))
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await dismissConfirm()
     expect(customersApi.deleteCustomer).not.toHaveBeenCalled()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
   })

@@ -8,6 +8,7 @@ import { useAutomationRules } from './hooks/useAutomationRules'
 import { useMessageTemplates } from './hooks/useMessageTemplates'
 import type { AutomationRule, Condition, Operator, TriggerSubject, MessageChannel } from './types'
 import { Dialog } from '../components/common/Dialog'
+import { useConfirm } from '../components/common/useConfirm'
 
 const TRIGGER_LABELS: Record<TriggerSubject, string> = {
   'pms.product.deleted': 'Product deleted',
@@ -77,6 +78,7 @@ function toForm(r: AutomationRule): FormState {
 }
 
 export default function AutomationRulesPanel() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { rules, loading, error, create, update, remove } = useAutomationRules(token ?? '')
   const { templates, loading: templatesLoading } = useMessageTemplates(token ?? '')
@@ -139,7 +141,7 @@ export default function AutomationRulesPanel() {
   }
 
   async function handleDelete(r: AutomationRule) {
-    if (!window.confirm(`Delete rule "${r.name}"? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete rule "${r.name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete rule', destructive: true }))) return
     setActionError('')
     try {
       await remove(r.id)
@@ -380,6 +382,7 @@ export default function AutomationRulesPanel() {
           </div>
         </Dialog>
       )}
+      {confirmDialog}
     </div>
   )
 }

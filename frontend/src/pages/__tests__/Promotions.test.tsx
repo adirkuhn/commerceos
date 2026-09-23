@@ -31,6 +31,7 @@ vi.mock('../../reports/api', () => ({
 import * as promotionsApi from '../../promotions/api'
 import * as pmsApi from '../../pms/api'
 import * as reportsApi from '../../reports/api'
+import { acceptConfirm } from '../../test/confirm'
 
 function promotion(overrides: Partial<Promotion> = {}): Promotion {
   return {
@@ -93,11 +94,11 @@ describe('Promotions list', () => {
 
   it('deleting a row does not also navigate to the edit page', async () => {
     vi.mocked(promotionsApi.listPromotions).mockResolvedValue([promotion()])
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await acceptConfirm()
     await waitFor(() => expect(promotionsApi.deletePromotion).toHaveBeenCalledWith('test-token', 'promo-1'))
     expect(screen.getByText('Add Promotion')).toBeInTheDocument()
   })

@@ -19,6 +19,7 @@ vi.mock('../../inventory/api', () => ({
 }))
 
 import * as inventoryApi from '../../inventory/api'
+import { acceptConfirm, dismissConfirm } from '../../test/confirm'
 
 function warehouse(overrides: Partial<Warehouse> = {}): Warehouse {
   return {
@@ -63,22 +64,22 @@ describe('Warehouses list', () => {
 
   it('deleting a row does not also navigate to the edit page', async () => {
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     renderAt(<Warehouses />, '/warehouses')
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await acceptConfirm()
     await waitFor(() => expect(inventoryApi.deleteWarehouse).toHaveBeenCalledWith('test-token', 'wh-1'))
     expect(screen.queryByText('New Warehouse')).toBeInTheDocument()
   })
 
   it('does not delete when the confirm dialog is dismissed', async () => {
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
-    vi.stubGlobal('confirm', vi.fn(() => false))
 
     renderAt(<Warehouses />, '/warehouses')
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await dismissConfirm()
     expect(inventoryApi.deleteWarehouse).not.toHaveBeenCalled()
     expect(screen.getByText('Main DC')).toBeInTheDocument()
   })

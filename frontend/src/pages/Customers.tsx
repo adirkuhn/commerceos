@@ -13,6 +13,7 @@ import type { SalesOrder } from '../oms/types'
 import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { useStackNavigation } from '../routing/useStackNavigation'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
+import { useConfirm } from '../components/common/useConfirm'
 
 const PAGE_SIZE = 20
 
@@ -112,6 +113,7 @@ function buildCustomerTimeline(customer: Customer, orders: SalesOrder[]): Custom
 }
 
 export default function Customers() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { customers, loading, error, create, update, remove } = useCustomers(token ?? '')
 
@@ -149,7 +151,7 @@ export default function Customers() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleDelete(c: Customer) {
-    if (!window.confirm(`Delete customer "${fullName(c)}"? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete customer "${fullName(c)}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete customer', destructive: true }))) return
     setDeleteError('')
     try {
       await remove(c.id)
@@ -287,6 +289,7 @@ export default function Customers() {
       </div>
 
       <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
+      {confirmDialog}
     </div>
   )
 }

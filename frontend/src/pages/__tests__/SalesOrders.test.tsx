@@ -66,6 +66,7 @@ import * as tenantSettingsApi from '../../settings/api'
 import * as taxApi from '../../tax/api'
 import * as integrationsApi from '../../integrations/api'
 import * as shippingApi from '../../shipping/api'
+import { acceptConfirm, dismissConfirm } from '../../test/confirm'
 
 function warehouse(overrides: Record<string, unknown> = {}) {
   return {
@@ -390,7 +391,6 @@ describe('Sales orders bulk actions', () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
       salesOrders: [salesOrder({ id: 'so-1', number: '1001' }), salesOrder({ id: 'so-2', number: '1002' })], total: 2,
     })
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
@@ -401,6 +401,8 @@ describe('Sales orders bulk actions', () => {
 
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Bulk change status' }), 'processing')
     await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(await screen.findByRole('alertdialog', { name: 'Apply this change to 1 order?' })).toBeInTheDocument()
+    await acceptConfirm()
 
     await waitFor(() => expect(omsApi.bulkUpdateSalesOrders).toHaveBeenCalledWith('test-token', {
       orderIds: ['so-1'], status: 'processing', fulfilled: undefined,
@@ -411,7 +413,6 @@ describe('Sales orders bulk actions', () => {
 
   it('does not apply when the confirm dialog is dismissed', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder({ id: 'so-1', number: '1001' })], total: 1 })
-    vi.stubGlobal('confirm', vi.fn(() => false))
 
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
@@ -419,6 +420,7 @@ describe('Sales orders bulk actions', () => {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Bulk change fulfilled' }), 'true')
     await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
 
+    await dismissConfirm()
     expect(omsApi.bulkUpdateSalesOrders).not.toHaveBeenCalled()
   })
 
@@ -447,7 +449,6 @@ describe('Sales orders bulk actions', () => {
   it('reports partial failures without discarding the successful updates', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder({ id: 'so-1', number: '1001' })], total: 1 })
     vi.mocked(omsApi.bulkUpdateSalesOrders).mockResolvedValue({ updated: [], failed: [{ orderId: 'so-1', error: 'sales order not found' }] })
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
@@ -455,6 +456,7 @@ describe('Sales orders bulk actions', () => {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Bulk change status' }), 'cancelled')
     await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
 
+    await acceptConfirm()
     expect(await screen.findByText(/sales order not found/)).toBeInTheDocument()
   })
 })
@@ -720,7 +722,6 @@ describe('Sales order detail page', () => {
       deleted_on_myparcel: false,
       message: "MyParcel could not delete this shipment (422); marked as cancelled locally.",
     })
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
@@ -729,6 +730,7 @@ describe('Sales order detail page', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
+    await acceptConfirm()
     await waitFor(() => expect(shippingApi.cancelShipment).toHaveBeenCalledWith('test-token', 'ship-1'))
     expect(await screen.findByText('Cancelled')).toBeInTheDocument()
     expect(await screen.findByText(/could not delete this shipment/)).toBeInTheDocument()
@@ -743,7 +745,6 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([shipment()])
     vi.mocked(shippingApi.listShipmentTrackingEvents).mockResolvedValue([])
-    vi.stubGlobal('confirm', vi.fn(() => false))
 
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
@@ -752,6 +753,7 @@ describe('Sales order detail page', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
+    await dismissConfirm()
     expect(shippingApi.cancelShipment).not.toHaveBeenCalled()
   })
 
@@ -1080,7 +1082,6 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
     vi.mocked(omsApi.deleteSalesOrder).mockResolvedValue(null)
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
@@ -1088,6 +1089,7 @@ describe('Sales order detail page', () => {
 
     await userEvent.click(screen.getByTitle('Delete sales order'))
 
+    await acceptConfirm()
     expect(omsApi.deleteSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
     expect(await screen.findByRole('button', { name: 'New Sales Order' })).toBeInTheDocument()
   })
@@ -1095,7 +1097,6 @@ describe('Sales order detail page', () => {
   it('does not delete when the confirm dialog is dismissed', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
-    vi.stubGlobal('confirm', vi.fn(() => false))
 
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
@@ -1103,6 +1104,7 @@ describe('Sales order detail page', () => {
 
     await userEvent.click(screen.getByTitle('Delete sales order'))
 
+    await dismissConfirm()
     expect(omsApi.deleteSalesOrder).not.toHaveBeenCalled()
   })
 })

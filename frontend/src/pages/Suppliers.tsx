@@ -8,6 +8,7 @@ import type { Supplier, SupplierInput, SupplierStatus } from '../suppliers/types
 import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
+import { useConfirm } from '../components/common/useConfirm'
 
 const PAGE_SIZE = 20
 
@@ -17,6 +18,7 @@ const STATUS_STYLE: Record<SupplierStatus, string> = {
 }
 
 export default function Suppliers() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { suppliers, loading, error, create, update, remove } = useSuppliers(token ?? '')
 
@@ -42,7 +44,7 @@ export default function Suppliers() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleDelete(s: Supplier) {
-    if (!window.confirm(`Delete supplier "${s.name}"? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete supplier "${s.name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete supplier', destructive: true }))) return
     setDeleteError('')
     try {
       await remove(s.id)
@@ -162,6 +164,7 @@ export default function Suppliers() {
       </div>
 
       <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
+      {confirmDialog}
     </div>
   )
 }

@@ -92,6 +92,7 @@ import * as inventoryApi from '../../inventory/api'
 import * as integrationsApi from '../../integrations/api'
 import * as tenantSettingsApi from '../../settings/api'
 import * as taxApi from '../../tax/api'
+import { acceptConfirm } from '../../test/confirm'
 
 // inputAfterLabel finds the <input> sibling of a plain-text <label> that
 // has no htmlFor/id association (VariantRow's edit panel labels don't wrap
@@ -269,15 +270,14 @@ describe('product list', () => {
 
   it('deleting a row does not also navigate to the edit page', async () => {
     vi.mocked(pmsApi.deleteProduct).mockResolvedValue(null)
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await acceptConfirm()
     await waitFor(() => expect(pmsApi.deleteProduct).toHaveBeenCalledWith('test-token', 'prod-1'))
     expect(pmsApi.getProduct).not.toHaveBeenCalled()
 
-    confirmSpy.mockRestore()
   })
 
   it('opens the duplicated product for editing once duplication succeeds', async () => {

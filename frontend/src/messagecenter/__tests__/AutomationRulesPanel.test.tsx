@@ -22,6 +22,7 @@ vi.mock('../api', () => ({
 }))
 
 import * as messagecenterApi from '../api'
+import { acceptConfirm } from '../../test/confirm'
 
 function template(overrides: Partial<MessageTemplate> = {}): MessageTemplate {
   return {
@@ -83,11 +84,11 @@ describe('AutomationRulesPanel', () => {
 
   it('deleting a rule calls deleteAutomationRule', async () => {
     vi.mocked(messagecenterApi.listAutomationRules).mockResolvedValue([rule()])
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     renderAt(<AutomationRulesPanel />, '/message-center')
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await acceptConfirm()
     await waitFor(() => expect(messagecenterApi.deleteAutomationRule).toHaveBeenCalledWith('test-token', 'rule-1'))
   })
 })

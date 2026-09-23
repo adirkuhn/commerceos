@@ -66,6 +66,7 @@ import * as tenantSettingsApi from '../../settings/api'
 import * as taxApi from '../../tax/api'
 import * as pmsApi from '../../pms/api'
 import { subscribeProductsChanged } from '../../pms/productsBus'
+import { acceptConfirm } from '../../test/confirm'
 
 function wooConnection(overrides: Partial<Connection> = {}): Connection {
   return { id: 'conn-1', provider: 'woocommerce', store_url: 'https://mystore.com', status: 'connected', created_at: '', ...overrides }
@@ -556,12 +557,12 @@ describe('Settings > Integrations > AI', () => {
       id: 'ai-conn-1', provider: 'gemini', status: 'connected', created_at: '',
     })
     vi.mocked(integrationsApi.disconnectAIProvider).mockResolvedValue(null)
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Disconnect' }))
 
+    await acceptConfirm()
     await waitFor(() => expect(integrationsApi.disconnectAIProvider).toHaveBeenCalledWith('test-token'))
   })
 })
@@ -1195,7 +1196,6 @@ describe('Settings > Tax', () => {
 
   it('Delete tax class calls the API after confirming', async () => {
     vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass({ is_default: false })])
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     renderAt(<Settings />, '/settings')
     await openTaxSection()
@@ -1203,6 +1203,7 @@ describe('Settings > Tax', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
+    await acceptConfirm()
     await waitFor(() => expect(taxApi.deleteTaxClass).toHaveBeenCalledWith('test-token', 'class-1'))
   })
 

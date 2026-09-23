@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import Pagination from '../components/common/Pagination'
 import { useWebhookFallbackEvents } from './hooks/useWebhookFallbackEvents'
+import { useConfirm } from '../components/common/useConfirm'
 
 export function WebhookFallbackEventsTable({
   events, total, page, perPage, loading, error, setPage, retry, abandon, abandonAll,
 }: ReturnType<typeof useWebhookFallbackEvents>) {
+  const { confirm, confirmDialog } = useConfirm()
   const [rowError, setRowError] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [abandoningAll, setAbandoningAll] = useState(false)
@@ -34,7 +36,7 @@ export function WebhookFallbackEventsTable({
   }
 
   async function handleAbandonAll() {
-    if (!window.confirm(`Abandon all ${total} pending webhook${total === 1 ? '' : 's'}? This keeps an audit trail but stops any retry.`)) {
+    if (!(await confirm({ title: `Abandon all ${total} pending webhook${total === 1 ? '' : 's'}?`, message: 'They stay in the audit trail, but no retry is attempted.', confirmLabel: 'Abandon webhooks', destructive: true }))) {
       return
     }
     setRowError('')
@@ -120,6 +122,7 @@ export function WebhookFallbackEventsTable({
         </div>
       )}
       <Pagination page={page} pageSize={perPage} totalItems={total} onPageChange={setPage} />
+      {confirmDialog}
     </div>
   )
 }

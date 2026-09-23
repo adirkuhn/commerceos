@@ -7,10 +7,12 @@ import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import type { Warehouse, WarehouseInput } from '../inventory/types'
+import { useConfirm } from '../components/common/useConfirm'
 
 const PAGE_SIZE = 20
 
 export default function Warehouses() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { warehouses, loading, error, create, update, remove } = useWarehouses(token ?? '')
 
@@ -30,7 +32,7 @@ export default function Warehouses() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleDelete(w: Warehouse) {
-    if (!window.confirm(`Delete warehouse "${w.name}"? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete warehouse "${w.name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete warehouse', destructive: true }))) return
     setDeleteError('')
     try {
       await remove(w.id)
@@ -146,6 +148,7 @@ export default function Warehouses() {
       </div>
 
       <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
+      {confirmDialog}
     </div>
   )
 }

@@ -25,6 +25,7 @@ import type { StockLevel } from '../inventory/types'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
+import { useConfirm } from '../components/common/useConfirm'
 
 const STATUS_STYLES: Record<ProductStatus, string> = {
   active: 'bg-green-500/15 text-success',
@@ -73,6 +74,7 @@ function normalizeScaleCodeInput(raw: string): string {
 }
 
 export default function Products() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
 
   // Search (?q=), page (?page=) and the open product (/products/<id>, or
@@ -255,9 +257,9 @@ export default function Products() {
                       <Copy size={12} className="text-ink-3" />
                     </button>
                     <button
-                      onClick={e => {
+                      onClick={async e => {
                         e.stopPropagation()
-                        if (window.confirm(`Delete "${p.name}"? This also deletes its variants and SKUs.`)) {
+                        if (await confirm({ title: `Delete "${p.name}"?`, message: 'Its variants and SKUs are deleted too.', confirmLabel: 'Delete product', destructive: true })) {
                           removeProduct(p.id)
                         }
                       }}
@@ -275,6 +277,7 @@ export default function Products() {
       </div>
 
       <Pagination page={page} pageSize={PAGE_SIZE} totalItems={total} onPageChange={setPage} />
+      {confirmDialog}
     </div>
   )
 }
@@ -2663,6 +2666,7 @@ interface VariantRowProps {
 }
 
 function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { settings: tenantSettings } = useTenantSettings(token ?? '')
   // Same "resolve tax class -> country rate" lookup as ProductEditPage's
@@ -3008,8 +3012,8 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           </button>
           <button
             type="button"
-            onClick={() => {
-              if (window.confirm(`Remove variant "${variant.name}"? This also removes its SKU and stock records.`)) {
+            onClick={async () => {
+              if (await confirm({ title: `Remove variant "${variant.name}"?`, message: 'Its SKU and stock records are removed too.', confirmLabel: 'Remove variant', destructive: true })) {
                 detail.removeVariant(variant.id)
               }
             }}
@@ -3203,8 +3207,8 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             )}
             <button
               type="button"
-              onClick={() => {
-                if (window.confirm(`Remove SKU "${sku.sku_code}"? This also removes its stock records.`)) {
+              onClick={async () => {
+                if (await confirm({ title: `Remove SKU "${sku.sku_code}"?`, message: 'Its stock records are removed too.', confirmLabel: 'Remove SKU', destructive: true })) {
                   detail.removeSKU(sku.id)
                 }
               }}
@@ -3383,6 +3387,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           </div>
         </div>
       )}
+      {confirmDialog}
     </div>
   )
 }

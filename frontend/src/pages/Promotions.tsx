@@ -11,6 +11,7 @@ import { resolveBarcode } from '../pms/api'
 import { getPromotionPerformanceReport } from '../reports/api'
 import type { Promotion, PromotionInput, PromotionLine, PromotionStatus, PromotionType, CreatePromotionResult } from '../promotions/types'
 import type { PromotionPerformanceReport } from '../reports/types'
+import { useConfirm } from '../components/common/useConfirm'
 
 const PAGE_SIZE = 20
 
@@ -26,6 +27,7 @@ function formatDate(value?: string | null): string {
 }
 
 export default function Promotions() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { promotions, loading, error, create, update, remove } = usePromotions(token ?? '')
 
@@ -45,7 +47,7 @@ export default function Promotions() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleDelete(p: Promotion) {
-    if (!window.confirm(`Delete promotion "${p.name}"? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete promotion "${p.name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete promotion', destructive: true }))) return
     setDeleteError('')
     try {
       await remove(p.id)
@@ -154,6 +156,7 @@ export default function Promotions() {
       </div>
 
       <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
+      {confirmDialog}
     </div>
   )
 }

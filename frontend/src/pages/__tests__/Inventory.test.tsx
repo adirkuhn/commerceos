@@ -978,7 +978,6 @@ describe('Expired batch review queue', () => {
       .mockResolvedValueOnce([expiredBatch])
       .mockResolvedValue([])
     vi.mocked(inventoryApi.dismissExpiredBatch).mockResolvedValue(null)
-    const confirmSpy = vi.spyOn(window, 'confirm')
 
     renderAt(<Inventory />, '/inventory')
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
@@ -987,7 +986,7 @@ describe('Expired batch review queue', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
 
     await waitFor(() => expect(inventoryApi.dismissExpiredBatch).toHaveBeenCalledWith('test-token', 'batch-2'))
-    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
   it('shows an error if discard fails', async () => {

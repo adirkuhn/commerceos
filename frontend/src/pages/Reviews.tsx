@@ -6,6 +6,7 @@ import Pagination from '../components/common/Pagination'
 import { useReviews } from '../reviews/hooks/useReviews'
 import type { Review } from '../reviews/types'
 import { useQueryPage, useQueryString } from '../routing/useQueryState'
+import { useConfirm } from '../components/common/useConfirm'
 
 const PAGE_SIZE = 20
 
@@ -24,6 +25,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export default function Reviews() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { reviews, loading, error, remove } = useReviews(token ?? '')
 
@@ -44,7 +46,7 @@ export default function Reviews() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleDelete(r: Review) {
-    if (!window.confirm(`Delete this review from "${r.customer_name}"? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete the review from "${r.customer_name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete review', destructive: true }))) return
     setActionError('')
     try {
       await remove(r.id)
@@ -129,6 +131,7 @@ export default function Reviews() {
       </div>
 
       <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
+      {confirmDialog}
     </div>
   )
 }

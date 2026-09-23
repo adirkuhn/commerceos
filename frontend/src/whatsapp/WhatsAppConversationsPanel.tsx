@@ -9,6 +9,7 @@ import { CONVERSATIONS_PATH } from '../messagecenter/messageCenterPaths'
 import { useWhatsAppConversations } from './hooks/useWhatsAppConversations'
 import { useWhatsAppConversationMessages } from './hooks/useWhatsAppConversationMessages'
 import type { WhatsAppConversation } from './types'
+import { useConfirm } from '../components/common/useConfirm'
 
 function conversationLabel(conv: WhatsAppConversation): string {
   return conv.customer_name || conv.phone_e164
@@ -20,6 +21,7 @@ function conversationLabel(conv: WhatsAppConversation): string {
 // Read-only -- there's no compose/reply box, replying happens through the
 // bot or the outbound notification flows, not from here.
 export default function WhatsAppConversationsPanel() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { conversations, loading, error, deleteConversation } = useWhatsAppConversations(token ?? '')
   // Selected thread is the URL (/message-center/conversations/<e164>).
@@ -38,7 +40,7 @@ export default function WhatsAppConversationsPanel() {
 
   async function handleDelete() {
     if (!selected) return
-    if (!window.confirm(`Delete this conversation with ${conversationLabel(selected)}? This permanently removes its message history and cannot be undone.`)) {
+    if (!(await confirm({ title: `Delete the conversation with ${conversationLabel(selected)}?`, message: 'This permanently removes its message history and cannot be undone.', confirmLabel: 'Delete conversation', destructive: true }))) {
       return
     }
     setDeleting(true)
@@ -142,6 +144,7 @@ export default function WhatsAppConversationsPanel() {
           </>
         )}
       </div>
+      {confirmDialog}
     </div>
   )
 }

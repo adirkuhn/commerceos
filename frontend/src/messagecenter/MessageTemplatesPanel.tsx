@@ -7,6 +7,7 @@ import { useInitOnce } from '../routing/useInitOnce'
 import { useMessageTemplates } from './hooks/useMessageTemplates'
 import type { MessageTemplate, MessageChannel, MessageCategory } from './types'
 import { Dialog } from '../components/common/Dialog'
+import { useConfirm } from '../components/common/useConfirm'
 
 const CATEGORY_LABELS: Record<MessageCategory, string> = {
   purchase: 'Purchase',
@@ -49,6 +50,7 @@ function toForm(t: MessageTemplate): FormState {
 }
 
 export default function MessageTemplatesPanel() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { templates, loading, error, create, update, remove } = useMessageTemplates(token ?? '')
 
@@ -99,7 +101,7 @@ export default function MessageTemplatesPanel() {
   }
 
   async function handleDelete(t: MessageTemplate) {
-    if (!window.confirm(`Delete template "${t.name}"? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete template "${t.name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete template', destructive: true }))) return
     setActionError('')
     try {
       await remove(t.id)
@@ -323,6 +325,7 @@ export default function MessageTemplatesPanel() {
           </div>
         </Dialog>
       )}
+      {confirmDialog}
     </div>
   )
 }

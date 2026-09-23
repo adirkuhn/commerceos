@@ -14,6 +14,7 @@ import { GroupList } from '../iam/components/GroupList'
 import { GroupForm } from '../iam/components/GroupForm'
 import type { MemberRole, CompanyMember } from '../team/types'
 import type { Group } from '../iam/types'
+import { useConfirm } from '../components/common/useConfirm'
 
 const ROLE_LABELS: Record<MemberRole, string> = { customer_owner: 'Owner', customer_user: 'User' }
 const ROLE_COLORS: Record<MemberRole, string> = {
@@ -250,6 +251,7 @@ function GroupsPanel({ token, members, groupId, editing, onSelect, onCreate, onE
 }
 
 export default function Users() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token, user } = useAuth()
   // customer_owner (normal case) or super_admin (akantio staff managing
   // their own company, e.g. for support) -- matches the lm2 route gate.
@@ -285,7 +287,7 @@ export default function Users() {
   )
 
   const handleRemove = async (m: CompanyMember) => {
-    if (!window.confirm(`Remove ${fullName(m)} from this company?`)) return
+    if (!(await confirm({ title: `Remove ${fullName(m)} from this company?`, message: 'They lose access to this company right away.', confirmLabel: 'Remove member', destructive: true }))) return
     setActionError(null)
     try {
       await membersState.remove(m.membership_id)
@@ -451,6 +453,7 @@ export default function Users() {
         )}
         {selectedUser && <UserActivityPanel token={effectiveToken} member={selectedUser} onClose={route.close} />}
       </div>
+      {confirmDialog}
     </div>
   )
 }

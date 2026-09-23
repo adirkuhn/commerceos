@@ -9,6 +9,7 @@ import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
 import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 import type { Coupon, CouponInput, DiscountType, CouponCurrencyAmount } from '../coupons/types'
+import { useConfirm } from '../components/common/useConfirm'
 
 const PAGE_SIZE = 20
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
@@ -23,6 +24,7 @@ function formatDiscount(c: Coupon): string {
 }
 
 export default function Coupons() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { coupons, loading, error, create, update, remove } = useCoupons(token ?? '')
 
@@ -42,7 +44,7 @@ export default function Coupons() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleDelete(c: Coupon) {
-    if (!window.confirm(`Delete coupon "${c.code}"? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete coupon "${c.code}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete coupon', destructive: true }))) return
     setActionError('')
     try {
       await remove(c.id)
@@ -156,6 +158,7 @@ export default function Coupons() {
       </div>
 
       <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
+      {confirmDialog}
     </div>
   )
 }

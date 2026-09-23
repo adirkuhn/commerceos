@@ -47,6 +47,7 @@ vi.mock('../../settings/api', () => ({
 import * as integrationsApi from '../../integrations/api'
 import * as inventoryApi from '../../inventory/api'
 import * as tenantSettingsApi from '../../settings/api'
+import { acceptConfirm, dismissConfirm } from '../../test/confirm'
 
 function wooConnection(overrides: Partial<Connection> = {}): Connection {
   return { id: 'conn-1', provider: 'woocommerce', store_url: 'https://mystore.com', status: 'connected', created_at: '', ...overrides }
@@ -151,27 +152,27 @@ describe('Integrations — undelivered webhooks table', () => {
       .mockResolvedValueOnce({ events: [fallbackEvent()], total: 1 })
       .mockResolvedValueOnce({ events: [], total: 0 })
     vi.mocked(integrationsApi.abandonAllWebhookFallbackEvents).mockResolvedValue({ abandoned: 1 })
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await screen.findByText('hash-abc')
 
     await userEvent.click(screen.getByRole('button', { name: 'Abandon all' }))
 
-    expect(confirmSpy).toHaveBeenCalled()
-    expect(integrationsApi.abandonAllWebhookFallbackEvents).toHaveBeenCalledWith('test-token', 'pending_republish')
+    expect(await screen.findByRole('alertdialog', { name: 'Abandon all 1 pending webhook?' })).toBeInTheDocument()
+    await acceptConfirm()
+    await waitFor(() => expect(integrationsApi.abandonAllWebhookFallbackEvents).toHaveBeenCalledWith('test-token', 'pending_republish'))
     await waitFor(() => expect(screen.queryByText('hash-abc')).not.toBeInTheDocument())
   })
 
   it('Abandon all does nothing when the confirmation is declined', async () => {
     vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue({ events: [fallbackEvent()], total: 1 })
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
 
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await screen.findByText('hash-abc')
 
     await userEvent.click(screen.getByRole('button', { name: 'Abandon all' }))
 
+    await dismissConfirm()
     expect(integrationsApi.abandonAllWebhookFallbackEvents).not.toHaveBeenCalled()
     expect(screen.getByText('hash-abc')).toBeInTheDocument()
   })

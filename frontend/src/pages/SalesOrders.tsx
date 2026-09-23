@@ -26,6 +26,7 @@ import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLab
 import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import type { RecipientAddress, Shipment, ShipmentTrackingEvent } from '../shipping/types'
 import { CARRIERS } from '../shipping/types'
+import { useConfirm } from '../components/common/useConfirm'
 
 const PAGE_SIZE = 20
 const STATUS_OPTIONS: SalesOrderStatus[] = ['pending', 'processing', 'on-hold', 'shipped', 'completed', 'cancelled', 'refunded', 'failed']
@@ -106,6 +107,7 @@ function SortableTh({ field, label, sortBy, sortDir, onSort, align = 'left' }: {
 }
 
 export default function SalesOrders() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   // Filters/sort/page are seeded from the URL on first render and kept in
   // sync with it (see the effect below) -- reloading the page, or sharing
@@ -217,7 +219,7 @@ export default function SalesOrders() {
   async function applyBulkChange() {
     if (!bulkStatus && !bulkFulfilled) return
     const count = checkedIds.size
-    if (!window.confirm(`Apply this change to ${count} order${count === 1 ? '' : 's'}?`)) return
+    if (!(await confirm({ title: `Apply this change to ${count} order${count === 1 ? '' : 's'}?`, confirmLabel: 'Apply change' }))) return
     setBulkApplying(true)
     setBulkError('')
     try {
@@ -476,6 +478,7 @@ export default function SalesOrders() {
       </div>
 
       <Pagination page={page} pageSize={PAGE_SIZE} totalItems={total} onPageChange={setPage} />
+      {confirmDialog}
     </div>
   )
 }
@@ -780,6 +783,7 @@ function CreateAddressFields({ title, prefix, value, onChange, showPhone }: { ti
 // ── Sales Order Detail Page ──────────────────────────────────────────────────
 
 function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string; onClose: () => void }) {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { detail, loading, error, update, remove } = useSalesOrderDetail(token ?? '', salesOrderId)
   const { activities, refresh: refreshActivities } = useSalesOrderActivities(token ?? '', salesOrderId)
@@ -938,7 +942,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
 
   async function handleDelete() {
     if (!detail) return
-    if (!window.confirm(`Delete sales order #${detail.sales_order.number || detail.sales_order.external_order_id}? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete sales order #${detail.sales_order.number || detail.sales_order.external_order_id}?`, message: 'This cannot be undone.', confirmLabel: 'Delete order', destructive: true }))) return
     setDeleting(true)
     setActionError('')
     try {
@@ -1265,6 +1269,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
           }}
         />
       )}
+      {confirmDialog}
     </div>
   )
 }
@@ -1275,6 +1280,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
 // webhook/reconciliation tick, and saves it as a new timeline entry (see
 // RefreshShipmentTrackingUseCase).
 function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: string; shipment: Shipment; onCancelled: () => void }) {
+  const { confirm, confirmDialog } = useConfirm()
   const [events, setEvents] = useState<ShipmentTrackingEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -1310,7 +1316,7 @@ function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: stri
   // shipment list so this card picks up cancelled_at/cancel_note and
   // "Create label" up top stops treating this as the active shipment.
   async function handleCancel() {
-    if (!window.confirm('Cancel this shipment? This cannot be undone.')) return
+    if (!(await confirm({ title: 'Cancel this shipment?', message: 'This cannot be undone.', confirmLabel: 'Cancel shipment', destructive: true }))) return
     setCancelling(true)
     setError('')
     try {
@@ -1390,6 +1396,7 @@ function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: stri
           ))}
         </div>
       )}
+      {confirmDialog}
     </div>
   )
 }

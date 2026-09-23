@@ -25,6 +25,7 @@ import { useTaxRates } from '../tax/hooks/useTaxRates'
 import type { TaxClass } from '../tax/types'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { Dialog } from '../components/common/Dialog'
+import { useConfirm } from '../components/common/useConfirm'
 
 // toInput picks just the persisted fields off a fetched TenantSettings so a
 // section that only edits some of them (Localization edits 4, Tax edits 2)
@@ -775,6 +776,7 @@ const AI_PROVIDER_LABELS: Record<AIProvider, string> = {
 // so it gets its own card and configure flow rather than joining the
 // Connection list above.
 function AIIntegrationCard() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { connection, loading, error, connect, disconnect } = useAIConnection(token ?? '')
   const [configuring, setConfiguring] = useState(false)
@@ -811,7 +813,7 @@ function AIIntegrationCard() {
   }
 
   const handleDisconnect = async () => {
-    if (!window.confirm('Disconnect AI provider? Procurement PDF document parsing and WhatsApp AI-assisted parsing will stop working until reconfigured.')) return
+    if (!(await confirm({ title: 'Disconnect the AI provider?', message: 'Procurement PDF parsing and WhatsApp AI-assisted parsing stop working until a provider is configured again.', confirmLabel: 'Disconnect', destructive: true }))) return
     await disconnect()
   }
 
@@ -960,6 +962,7 @@ function AIIntegrationCard() {
           </div>
         </Dialog>
       )}
+      {confirmDialog}
     </div>
   )
 }
@@ -1216,6 +1219,7 @@ function LocalizationSettingsSection() {
 // rate converts 1 minor-unit of the tenant's default currency into that
 // many minor-units of the target currency.
 function ExchangeRatesCard() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { settings } = useTenantSettings(token ?? '')
   const defaultCurrencyLabel = settings?.default_currency || 'your default currency'
@@ -1246,7 +1250,7 @@ function ExchangeRatesCard() {
   }
 
   async function handleDelete(code: string) {
-    if (!window.confirm(`Delete the exchange rate for ${code}? Any channel priced in it via conversion (not a manual override) will stop pricing until a new rate is set.`)) return
+    if (!(await confirm({ title: `Delete the exchange rate for ${code}?`, message: 'Channels priced in it by conversion (not a manual override) stop pricing until a new rate is set.', confirmLabel: 'Delete rate', destructive: true }))) return
     setFormError('')
     try {
       await remove(code)
@@ -1314,6 +1318,7 @@ function ExchangeRatesCard() {
         </button>
       </form>
       {formError && <p className="text-xs text-danger">{formError}</p>}
+      {confirmDialog}
     </div>
   )
 }
@@ -1324,6 +1329,7 @@ interface TaxClassFormState {
 }
 
 function TaxSettingsSection() {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { settings, save } = useTenantSettings(token ?? '')
   const { classes, loading: classesLoading, error: classesError, create, update, remove } = useTaxClasses(token ?? '')
@@ -1396,7 +1402,7 @@ function TaxSettingsSection() {
   }
 
   async function handleDeleteClass(c: TaxClass) {
-    if (!window.confirm(`Delete tax class "${c.name}"? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete tax class "${c.name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete tax class', destructive: true }))) return
     setRowError('')
     try {
       await remove(c.id)
@@ -1584,6 +1590,7 @@ function TaxSettingsSection() {
           </div>
         </Dialog>
       )}
+      {confirmDialog}
     </div>
   )
 }

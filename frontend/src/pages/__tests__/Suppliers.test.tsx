@@ -28,6 +28,7 @@ vi.mock('../../suppliers/api', () => ({
 }))
 
 import * as suppliersApi from '../../suppliers/api'
+import { acceptConfirm, dismissConfirm } from '../../test/confirm'
 
 function supplier(overrides: Partial<Supplier> = {}): Supplier {
   return {
@@ -72,22 +73,22 @@ describe('Suppliers list', () => {
 
   it('deleting a row does not also navigate to the edit page', async () => {
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await acceptConfirm()
     await waitFor(() => expect(suppliersApi.deleteSupplier).toHaveBeenCalledWith('test-token', 'supplier-1'))
     expect(screen.queryByText('Add Supplier')).toBeInTheDocument()
   })
 
   it('does not delete when the confirm dialog is dismissed', async () => {
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
-    vi.stubGlobal('confirm', vi.fn(() => false))
 
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await dismissConfirm()
     expect(suppliersApi.deleteSupplier).not.toHaveBeenCalled()
     expect(screen.getByText('Acme Foods')).toBeInTheDocument()
   })

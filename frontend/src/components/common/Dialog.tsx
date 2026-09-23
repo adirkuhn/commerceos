@@ -26,6 +26,8 @@ export interface DialogProps {
   // Return can't dismiss it by accident -- for alerts that must be read,
   // e.g. while a barcode scanner (types + Return) is in use.
   initialFocus?: 'first-control' | 'dialog'
+  // 'alertdialog' for prompts that interrupt to ask for a decision.
+  role?: 'dialog' | 'alertdialog'
 }
 
 function focusables(root: HTMLElement): HTMLElement[] {
@@ -35,7 +37,7 @@ function focusables(root: HTMLElement): HTMLElement[] {
 // Modal dialog behaviour for every overlay in the app: role="dialog" +
 // aria-modal, a name, focus moved in on open and back to the opener on
 // close, Tab kept inside, and Escape to dismiss (innermost dialog only).
-export function Dialog({ onClose, children, className, label, dismissible = true, initialFocus = 'first-control' }: DialogProps) {
+export function Dialog({ onClose, children, className, label, dismissible = true, initialFocus = 'first-control', role = 'dialog' }: DialogProps) {
   const ref = useRef<HTMLDivElement>(null)
   const fallbackTitleId = useId()
   // Captured during render: an autoFocus child takes focus during commit,
@@ -90,7 +92,7 @@ export function Dialog({ onClose, children, className, label, dismissible = true
   return (
     <div
       ref={ref}
-      role="dialog"
+      role={role}
       aria-modal="true"
       aria-label={label}
       tabIndex={-1}

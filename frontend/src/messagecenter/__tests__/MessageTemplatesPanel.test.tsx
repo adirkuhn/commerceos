@@ -18,6 +18,7 @@ vi.mock('../api', () => ({
 }))
 
 import * as messagecenterApi from '../api'
+import { acceptConfirm } from '../../test/confirm'
 
 function template(overrides: Partial<MessageTemplate> = {}): MessageTemplate {
   return {
@@ -84,11 +85,11 @@ describe('MessageTemplatesPanel', () => {
 
   it('deleting a template calls deleteMessageTemplate', async () => {
     vi.mocked(messagecenterApi.listMessageTemplates).mockResolvedValue([template()])
-    vi.stubGlobal('confirm', vi.fn(() => true))
 
     renderAt(<MessageTemplatesPanel />, '/message-center')
     await userEvent.click(await screen.findByTitle('Delete'))
 
+    await acceptConfirm()
     await waitFor(() => expect(messagecenterApi.deleteMessageTemplate).toHaveBeenCalledWith('test-token', 'template-1'))
   })
 })

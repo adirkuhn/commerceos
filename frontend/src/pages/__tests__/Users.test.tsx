@@ -38,6 +38,7 @@ vi.mock('../../iam/api', () => ({
 
 import * as teamApi from '../../team/api'
 import * as iamApi from '../../iam/api'
+import { acceptConfirm } from '../../test/confirm'
 
 function member(overrides: Partial<CompanyMember> = {}): CompanyMember {
   return {
@@ -113,12 +114,12 @@ describe('Users page — real member data', () => {
   it('removes a member after confirming', async () => {
     vi.mocked(teamApi.listMembers).mockResolvedValue([member()])
     vi.mocked(teamApi.removeMember).mockResolvedValue(null)
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderAt(<Users />, '/users')
     await screen.findByText('Alex Kuhn')
 
     fireEvent.click(screen.getByLabelText(/remove alex kuhn/i))
 
+    await acceptConfirm()
     await waitFor(() => expect(teamApi.removeMember).toHaveBeenCalledWith('test-token', 'm-1'))
   })
 
@@ -134,12 +135,12 @@ describe('Users page — real member data', () => {
   it('surfaces an error removing the last owner', async () => {
     vi.mocked(teamApi.listMembers).mockResolvedValue([member()])
     vi.mocked(teamApi.removeMember).mockRejectedValue(new Error('company must have at least one owner'))
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderAt(<Users />, '/users')
     await screen.findByText('Alex Kuhn')
 
     fireEvent.click(screen.getByLabelText(/remove alex kuhn/i))
 
+    await acceptConfirm()
     expect(await screen.findByText('company must have at least one owner')).toBeInTheDocument()
   })
 })

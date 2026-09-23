@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderAt } from '../../test/renderAt'
@@ -17,6 +17,7 @@ vi.mock('../api', () => ({
 }))
 
 import * as whatsappApi from '../api'
+import { acceptConfirm, dismissConfirm } from '../../test/confirm'
 
 function conversation(overrides: Partial<WhatsAppConversation> = {}): WhatsAppConversation {
   return {
@@ -84,38 +85,38 @@ describe('WhatsAppConversationsPanel', () => {
     })
 
     it('does nothing when the confirm dialog is declined', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false)
       renderAt(<WhatsAppConversationsPanel />, '/message-center')
       await userEvent.click(await screen.findByText('Jane Doe'))
 
       await userEvent.click(await screen.findByLabelText('Delete chat'))
 
-      expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('Jane Doe'))
+      expect(await screen.findByRole('alertdialog', { name: /Jane Doe/ })).toBeInTheDocument()
+      await dismissConfirm()
       expect(whatsappApi.deleteWhatsAppConversation).not.toHaveBeenCalled()
       expect(await screen.findAllByText('Jane Doe')).toHaveLength(2)
     })
 
     it('confirms, deletes, clears the selection and removes it from the list', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true)
       renderAt(<WhatsAppConversationsPanel />, '/message-center')
       await userEvent.click(await screen.findByText('Jane Doe'))
       await screen.findByText('STOCK ABC123')
 
       await userEvent.click(await screen.findByLabelText('Delete chat'))
 
-      expect(whatsappApi.deleteWhatsAppConversation).toHaveBeenCalledWith('test-token', '31612345678')
+      await acceptConfirm()
+      await waitFor(() => expect(whatsappApi.deleteWhatsAppConversation).toHaveBeenCalledWith('test-token', '31612345678'))
       expect(await screen.findByText('Select a conversation')).toBeInTheDocument()
       expect(await screen.findByText('No WhatsApp conversations yet.')).toBeInTheDocument()
     })
 
     it('shows an inline error when the delete fails', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true)
       vi.mocked(whatsappApi.deleteWhatsAppConversation).mockRejectedValue(new Error('db down'))
       renderAt(<WhatsAppConversationsPanel />, '/message-center')
       await userEvent.click(await screen.findByText('Jane Doe'))
 
       await userEvent.click(await screen.findByLabelText('Delete chat'))
 
+      await acceptConfirm()
       expect(await screen.findByText('db down')).toBeInTheDocument()
       expect(screen.getAllByText('Jane Doe')).toHaveLength(2)
     })
