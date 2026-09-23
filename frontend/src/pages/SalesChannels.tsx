@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Radio, X, Search, Code2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
+import { useSalesChannelRoute } from '../integrations/hooks/useSalesChannelRoute'
+import { useQueryPage, useQueryString } from '../routing/useQueryState'
+import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 import { useSalesChannels } from '../integrations/hooks/useSalesChannels'
 import { useSalesChannelProducts } from '../integrations/hooks/useSalesChannelProducts'
 import { useConnections } from '../integrations/hooks/useConnections'
@@ -177,15 +180,22 @@ function toForm(channel: SalesChannel, connections: Connection[]): ChannelFormSt
 export default function SalesChannels() {
   const { token } = useAuth()
   const { channels, loading, error, create, update, remove } = useSalesChannels(token ?? '')
-  const { connections, refresh: refreshConnections } = useConnections(token ?? '')
+  const { connections, error: connectionsError, refresh: refreshConnections } = useConnections(token ?? '')
   const { categories } = useCategories(token ?? '')
   const { warehouses } = useWarehouses(token ?? '')
   const { rates: exchangeRates } = useExchangeRates(token ?? '')
 
-  const [managingChannel, setManagingChannel] = useState<SalesChannel | null>(null)
+  // Which view is open (manager, create/edit form, API docs) comes from the
+  // URL -- see useSalesChannelRoute -- so it survives a refresh and Back.
+  const route = useSalesChannelRoute()
+  const { view } = route
+  const routeChannelId = 'channelId' in view ? view.channelId : null
+  const routeChannel = routeChannelId ? channels.find(c => c.id === routeChannelId) ?? null : null
+  const managingChannel = view.kind === 'manage' ? routeChannel : null
+  const editingChannel = view.kind === 'edit' ? routeChannel : null
+  const creating = view.kind === 'create'
+  const apiDocsChannel = view.kind === 'api' ? routeChannel : null
 
-  const [editingChannel, setEditingChannel] = useState<SalesChannel | null>(null)
-  const [creating, setCreating] = useState(false)
   const [form, setForm] = useState<ChannelFormState>(emptyForm())
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
@@ -194,7 +204,6 @@ export default function SalesChannels() {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
-  const [apiDocsChannel, setApiDocsChannel] = useState<SalesChannel | null>(null)
   const [copiedAuthHeader, setCopiedAuthHeader] = useState(false)
   async function copyAuthHeader(channelId: string) {
     try {
@@ -208,23 +217,36 @@ export default function SalesChannels() {
     }
   }
 
-  const openCreate = () => {
-    setForm(emptyForm())
-    setFormError('')
-    setCreating(true)
-  }
+  const openCreate = route.openCreate
+  const openEdit = (channel: SalesChannel) => route.openEdit(channel.id)
+  const closeForm = route.close
 
-  const openEdit = (channel: SalesChannel) => {
-    setForm(toForm(channel, connections))
+  // (Re)initialise the form once per opened form URL -- also on a refresh,
+  // where the channel and connections arrive after the first render. An
+  // edit waits for the channel's connection to be loaded (or for the load
+  // to fail): toForm reads the connection's default location, and saving a
+  // form built without it would clear that location on the connection.
+  const formInitFor = useRef<string | null>(null)
+  const formKey = creating ? 'new' : editingChannel ? `edit:${editingChannel.id}` : null
+  const editReady = !!editingChannel && (
+    !editingChannel.connection_id || connections.some(c => c.id === editingChannel.connection_id) || !!connectionsError
+  )
+  useEffect(() => {
+    if (formKey === null) {
+      formInitFor.current = null
+      return
+    }
+    if (formInitFor.current === formKey) return
+    if (creating) {
+      setForm(emptyForm())
+    } else if (editingChannel && editReady) {
+      setForm(toForm(editingChannel, connections))
+    } else {
+      return
+    }
     setFormError('')
-    setEditingChannel(channel)
-  }
-
-  const closeForm = () => {
-    setCreating(false)
-    setEditingChannel(null)
-    setFormError('')
-  }
+    formInitFor.current = formKey
+  }, [formKey, creating, editingChannel, editReady, connections])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -291,12 +313,15 @@ export default function SalesChannels() {
     return conn ? `${capitalize(conn.provider)} — ${conn.store_url}` : 'No connection'
   }
 
+  if (routeChannelId && !routeChannel) {
+    return loading ? <RecordLoading /> : <RecordNotFound label="Sales channel" onBack={route.close} />
+  }
+
   if (managingChannel) {
     return (
       <ChannelProductsPanel
         channel={managingChannel}
-        onChannelUpdated={setManagingChannel}
-        onClose={() => setManagingChannel(null)}
+        onClose={route.close}
         update={update}
         categories={categories}
       />
@@ -354,7 +379,7 @@ export default function SalesChannels() {
                 </div>
                 {channel.type === INTERNAL_TYPE && (
                   <button
-                    onClick={() => setApiDocsChannel(channel)}
+                    onClick={() => route.openApiDocs(channel.id)}
                     className="mt-2 flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
                   >
                     <Code2 size={11} /> API docs
@@ -362,7 +387,7 @@ export default function SalesChannels() {
                 )}
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <button
-                    onClick={() => setManagingChannel(channel)}
+                    onClick={() => route.openManage(channel.id)}
                     className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                   >
                     Products
@@ -386,7 +411,7 @@ export default function SalesChannels() {
         </>
       )}
 
-      {(creating || editingChannel) && (
+      {(creating || (editingChannel && formInitFor.current === formKey)) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeForm} />
           <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
@@ -656,11 +681,11 @@ export default function SalesChannels() {
 
       {apiDocsChannel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={() => setApiDocsChannel(null)} />
+          <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={route.close} />
           <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">{apiDocsChannel.name} — headless API</h3>
-              <button onClick={() => setApiDocsChannel(null)} aria-label="Close">
+              <button onClick={route.close} aria-label="Close">
                 <X size={14} className="dark:text-gray-500 text-gray-400" />
               </button>
             </div>
@@ -719,7 +744,6 @@ export default function SalesChannels() {
 interface PricingSectionProps {
   channel: SalesChannel
   update: (id: string, payload: UpdateSalesChannelPayload) => Promise<SalesChannel>
-  onChannelUpdated: (channel: SalesChannel) => void
 }
 
 // PricingSection lives on the Products tab, not the create/edit channel
@@ -729,7 +753,7 @@ interface PricingSectionProps {
 // itself, and applyRule's identical pattern above) -- name/enrollment/
 // active are resent unchanged from the channel prop, only pricing fields
 // come from this section's own local state.
-function PricingSection({ channel, update, onChannelUpdated }: PricingSectionProps) {
+function PricingSection({ channel, update }: PricingSectionProps) {
   const [percent, setPercent] = useState(
     channel.price_adjustment_basis_points ? (channel.price_adjustment_basis_points / 100).toString() : '',
   )
@@ -744,7 +768,7 @@ function PricingSection({ channel, update, onChannelUpdated }: PricingSectionPro
     setError('')
     setSaving(true)
     try {
-      const updated = await update(channel.id, {
+      await update(channel.id, {
         name: channel.name,
         connectionId: channel.connection_id,
         enrollmentMode: channel.enrollment_mode,
@@ -754,7 +778,6 @@ function PricingSection({ channel, update, onChannelUpdated }: PricingSectionPro
         quantityBreaks: quantityBreaksOrError(quantityBreaks),
         active: channel.active,
       })
-      onChannelUpdated(updated)
       setDirty(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save pricing')
@@ -852,7 +875,6 @@ function PricingSection({ channel, update, onChannelUpdated }: PricingSectionPro
 
 interface ChannelProductsPanelProps {
   channel: SalesChannel
-  onChannelUpdated: (channel: SalesChannel) => void
   onClose: () => void
   update: (id: string, payload: UpdateSalesChannelPayload) => Promise<SalesChannel>
   categories: { id: string; name: string }[]
@@ -862,10 +884,14 @@ interface ChannelProductsPanelProps {
 // this channel's default enrollment rule changing -- evaluated live against
 // the whole catalog, no per-product rows written. See SalesChannel's
 // EnrollmentMode doc comment in the backend.
-function ChannelProductsPanel({ channel, onChannelUpdated, onClose, update, categories }: ChannelProductsPanelProps) {
+// `channel` is always the current row from useSalesChannels -- its update()
+// replaces that row, so a save here re-renders with fresh data without
+// this panel holding its own copy.
+function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelProductsPanelProps) {
   const { token } = useAuth()
-  const [page, setPage] = useState(1)
-  const [search, setSearch] = useState('')
+  const [page, setPage] = useQueryPage()
+  const [searchParam, setSearch] = useQueryString('q', { resets: ['page'] })
+  const search = searchParam ?? ''
   const { items, total, loading, error, setOverride } = useSalesChannelProducts(token ?? '', channel.id, { page, perPage: PER_PAGE, search })
 
   const [bulkCategoryId, setBulkCategoryId] = useState('')
@@ -877,7 +903,7 @@ function ChannelProductsPanel({ channel, onChannelUpdated, onClose, update, cate
     setBulkError('')
     setBulkSaving(true)
     try {
-      const updated = await update(channel.id, {
+      await update(channel.id, {
         name: channel.name,
         connectionId: channel.connection_id,
         enrollmentMode: mode,
@@ -887,7 +913,6 @@ function ChannelProductsPanel({ channel, onChannelUpdated, onClose, update, cate
         quantityBreaks: channel.quantity_breaks ?? [],
         active: channel.active,
       })
-      onChannelUpdated(updated)
     } catch (err) {
       setBulkError(err instanceof Error ? err.message : 'Failed to update enrollment rule')
     } finally {
@@ -966,7 +991,7 @@ function ChannelProductsPanel({ channel, onChannelUpdated, onClose, update, cate
       {bulkError && <p className="px-5 pt-2 text-xs text-red-400 shrink-0">{bulkError}</p>}
 
       {channel.type === INTERNAL_TYPE && (
-        <PricingSection channel={channel} update={update} onChannelUpdated={onChannelUpdated} />
+        <PricingSection channel={channel} update={update} />
       )}
 
       <div className="px-5 pt-4 shrink-0">
@@ -975,7 +1000,7 @@ function ChannelProductsPanel({ channel, onChannelUpdated, onClose, update, cate
           <input
             type="text"
             value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1) }}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Search products…"
             className="w-full pl-8 pr-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
           />

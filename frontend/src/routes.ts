@@ -143,3 +143,12 @@ export function idFromPath(pathname: string, basePath: string): string | null {
   if (!pathname.startsWith(prefix)) return null
   return decodeURIComponent(pathname.slice(prefix.length))
 }
+
+// All sub-path segments after `basePath`, decoded: "/sales-channels/c1/edit"
+// -> ["c1", "edit"]. For pages whose sub-URLs have more than one level
+// (record + view); idFromPath covers the single-id case.
+export function subPathSegments(pathname: string, basePath: string): string[] {
+  const prefix = `${basePath}/`
+  if (!pathname.startsWith(prefix)) return []
+  return pathname.slice(prefix.length).split('/').filter(Boolean).map(decodeURIComponent)
+}

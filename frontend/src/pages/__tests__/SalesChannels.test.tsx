@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
+import { act } from 'react'
 import SalesChannels from '../SalesChannels'
+import { renderAt } from '../../test/renderAt'
 
-function renderPage() {
-  return render(<MemoryRouter><SalesChannels /></MemoryRouter>)
+function renderPage(url = '/sales-channels') {
+  return renderAt(<SalesChannels />, '/sales-channels', url)
 }
 import type { Connection, SalesChannel, SalesChannelProductEnrollment } from '../../integrations/types'
 import type { Category } from '../../pms/types'
@@ -738,5 +739,54 @@ describe('WhatsApp payment method', () => {
     await waitFor(() => {
       expect(integrationsApi.setSalesChannelPaymentMethod).toHaveBeenCalledWith('test-token', 'chan-wa', null)
     })
+  })
+})
+
+describe('Sales channels URLs (refresh + Back)', () => {
+  it('Products pushes /sales-channels/:id and a refresh there reopens the manager', async () => {
+    const { router, unmount } = renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Products' }))
+    expect(router.state.location.pathname).toBe('/sales-channels/chan-1')
+    unmount()
+
+    renderPage('/sales-channels/chan-1')
+    expect(await screen.findByText('T-Shirt')).toBeInTheDocument()
+  })
+
+  it('/sales-channels/:id/edit opens the prefilled edit form on load', async () => {
+    renderPage('/sales-channels/chan-1/edit')
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('My Woo Store'))
+  })
+
+  it('/sales-channels/new opens the create form on load', async () => {
+    renderPage('/sales-channels/new')
+    expect(await screen.findByText('Add sales channel', { selector: 'h2, h3' })).toBeInTheDocument()
+  })
+
+  it('/sales-channels/:id/api opens the API docs modal on load', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null })])
+    renderPage('/sales-channels/chan-int/api')
+    expect(await screen.findByText('B2C Store — headless API')).toBeInTheDocument()
+  })
+
+  it('browser Back closes the edit form', async () => {
+    const { router } = renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    expect(router.state.location.pathname).toBe('/sales-channels/chan-1/edit')
+
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname).toBe('/sales-channels')
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+  })
+
+  it('an unknown channel id shows not-found', async () => {
+    renderPage('/sales-channels/nope')
+    expect(await screen.findByText('Sales channel not found')).toBeInTheDocument()
+  })
+
+  it('manager page and search live in the query string', async () => {
+    renderPage('/sales-channels/chan-1?page=2&q=shirt')
+    await screen.findByText('T-Shirt')
+    expect(integrationsApi.listSalesChannelProducts).toHaveBeenCalledWith('test-token', 'chan-1', expect.objectContaining({ page: 2, search: 'shirt' }))
   })
 })

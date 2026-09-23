@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { PAGE_ROUTES, SUB_PAGE_ROUTES, navItemToPath, pathToNavItem, idFromPath } from './routes'
+import { PAGE_ROUTES, SUB_PAGE_ROUTES, navItemToPath, pathToNavItem, idFromPath, subPathSegments } from './routes'
 
 describe('SUB_PAGE_ROUTES', () => {
   it('gives every page except the dashboard a splat sub-route, so each page can own per-resource URLs', () => {
@@ -61,5 +61,21 @@ describe('idFromPath', () => {
 
   it('returns null for an unrelated path', () => {
     expect(idFromPath('/suppliers/sup-1', '/products')).toBeNull()
+  })
+})
+
+describe('subPathSegments', () => {
+  it('returns [] on the base path itself', () => {
+    expect(subPathSegments('/sales-channels', '/sales-channels')).toEqual([])
+    expect(subPathSegments('/sales-channels/', '/sales-channels')).toEqual([])
+  })
+
+  it('splits and URL-decodes every segment after the base path', () => {
+    expect(subPathSegments('/sales-channels/c%201/edit', '/sales-channels')).toEqual(['c 1', 'edit'])
+  })
+
+  it('returns [] for an unrelated path or a mere prefix match', () => {
+    expect(subPathSegments('/sales-channelsX/1', '/sales-channels')).toEqual([])
+    expect(subPathSegments('/products/1', '/sales-channels')).toEqual([])
   })
 })
