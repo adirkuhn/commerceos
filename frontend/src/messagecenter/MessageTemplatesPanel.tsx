@@ -6,6 +6,7 @@ import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
 import { useInitOnce } from '../routing/useInitOnce'
 import { useMessageTemplates } from './hooks/useMessageTemplates'
 import type { MessageTemplate, MessageChannel, MessageCategory } from './types'
+import { Dialog } from '../components/common/Dialog'
 
 const CATEGORY_LABELS: Record<MessageCategory, string> = {
   purchase: 'Purchase',
@@ -194,7 +195,7 @@ export default function MessageTemplatesPanel() {
       </div>
 
       {formReady && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <Dialog onClose={closeForm} className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeForm} />
           <div className="relative w-full max-w-md bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
@@ -320,7 +321,7 @@ export default function MessageTemplatesPanel() {
               </button>
             </form>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )

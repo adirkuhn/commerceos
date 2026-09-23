@@ -26,6 +26,7 @@ import type {
 } from '../procurement/types'
 import type { SKU } from '../pms/types'
 import type { Warehouse } from '../inventory/types'
+import { Dialog } from '../components/common/Dialog'
 
 const PROCUREMENT_PATH = '/procurement'
 const DISCREPANCIES_SEGMENT = 'discrepancies'
@@ -487,7 +488,7 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
   const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-surface border border-line shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <h2 className="text-sm font-semibold text-ink">Upload Document</h2>
@@ -520,7 +521,7 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
           </div>
         </form>
       </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -1954,12 +1955,12 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl dark:bg-night-900 bg-white border border-line shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-line border-gray-200">
-          <h2 className="text-sm font-semibold text-gray-900">Receiving Discrepancy Report</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+          <h2 className="text-sm font-semibold text-ink">Receiving Discrepancy Report</h2>
           <button type="button" onClick={onClose} title="Close">
-            <X size={16} className="dark:text-ink-4 text-gray-400" />
+            <X size={16} className="text-ink-4" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -1968,7 +1969,7 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
           ) : (
             grouped.map(g => (
               <div key={g.type} className="space-y-1.5">
-                <h3 className="text-2xs font-semibold text-gray-700">
+                <h3 className="text-2xs font-semibold text-ink-2">
                   {DISCREPANCY_LABEL[g.type]} <span className="dark:text-ink-4 font-normal">({g.items.length})</span>
                 </h3>
                 <ul className="space-y-1">
@@ -1985,16 +1986,16 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
             ))
           )}
         </div>
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t dark:border-night-700 border-gray-200">
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line">
           <button
             type="button" onClick={handleExportCsv}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 text-ink-2 text-2xs font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-fill text-ink-2 text-2xs font-semibold hover:bg-hover"
           >
             <Download size={11} /> Export CSV
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -2154,7 +2155,7 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
 
   return (
     <div className="rounded-lg border dark:border-amber-500/30 border-amber-300 dark:bg-night-950 bg-white p-3 space-y-2">
-      <div className="text-2xs text-gray-600">
+      <div className="text-2xs text-ink-3">
         Extracted from document{lineItem.raw_sku ? <> — printed SKU/barcode <span className="font-mono">{lineItem.raw_sku}</span></> : null}, but no matching product was found automatically.
       </div>
 
@@ -2165,7 +2166,7 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
             <Search size={10} /> Link to existing product
           </button>
           <button type="button" onClick={() => setMode('create')}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg dark:bg-night-700 bg-gray-100 text-2xs text-ink-2 font-medium dark:hover:bg-gray-700 hover:bg-gray-200">
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-fill text-2xs text-ink-2 font-medium hover:bg-hover">
             <Plus size={10} /> Create new product
           </button>
           <button type="button" onClick={onCancel} className="text-2xs text-ink-4 hover:underline ml-auto">
@@ -2258,7 +2259,7 @@ export function ProductSkuPicker({ onSelect, onClose }: ProductSkuPickerProps) {
     <div className="rounded-lg border border-line dark:bg-night-950 bg-white p-3 space-y-2">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-4" />
           <input
             autoFocus value={query} onChange={e => setQuery(e.target.value)}
             placeholder="Search products by name…"
@@ -2266,7 +2267,7 @@ export function ProductSkuPicker({ onSelect, onClose }: ProductSkuPickerProps) {
           />
         </div>
         <button type="button" onClick={onClose} title="Close">
-          <X size={14} className="dark:text-ink-4 text-gray-400" />
+          <X size={14} className="text-ink-4" />
         </button>
       </div>
       <div className="max-h-48 overflow-auto space-y-1">
@@ -2276,14 +2277,14 @@ export function ProductSkuPicker({ onSelect, onClose }: ProductSkuPickerProps) {
             <button
               type="button"
               onClick={() => toggleProduct(p.id)}
-              className="w-full text-left px-2 py-1.5 text-xs rounded dark:hover:bg-night-800 hover:bg-gray-50 text-gray-800"
+              className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-hover text-ink"
             >
               {p.name}
             </button>
             {expandedProductId === p.id && (
               <div className="pl-4 space-y-0.5">
-                {loadingSkus && <p className="text-2xs text-gray-400">Loading…</p>}
-                {!loadingSkus && skus.length === 0 && <p className="text-2xs text-gray-400">No SKUs on this product</p>}
+                {loadingSkus && <p className="text-2xs text-ink-4">Loading…</p>}
+                {!loadingSkus && skus.length === 0 && <p className="text-2xs text-ink-4">No SKUs on this product</p>}
                 {!loadingSkus && skus.map(s => (
                   <button
                     key={s.id}
@@ -2291,8 +2292,8 @@ export function ProductSkuPicker({ onSelect, onClose }: ProductSkuPickerProps) {
                     onClick={() => onSelect(s, `${p.name} — ${s.sku_code}`)}
                     className="w-full flex items-center justify-between text-left px-2 py-1 text-2xs rounded hover:bg-hover"
                   >
-                    <span className="font-mono dark:text-gray-300 text-gray-600">{s.sku_code}</span>
-                    <span className="dark:text-gray-500 text-gray-400">{(s.price_minor_units / 100).toFixed(2)} {s.currency_code}</span>
+                    <span className="font-mono text-ink-2">{s.sku_code}</span>
+                    <span className="text-ink-4">{(s.price_minor_units / 100).toFixed(2)} {s.currency_code}</span>
                   </button>
                 ))}
               </div>

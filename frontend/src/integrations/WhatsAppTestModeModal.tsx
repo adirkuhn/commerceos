@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import * as api from './api'
 import type { Connection } from './types'
+import { Dialog } from '../components/common/Dialog'
 
 // While enabled, every outbound WhatsApp send from this connection
 // (inbound-message replies, order-status/shipment-delivery notifications,
@@ -34,7 +35,7 @@ export function WhatsAppTestModeModal({ connection, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
       <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
@@ -91,6 +92,6 @@ export function WhatsAppTestModeModal({ connection, onClose, onSaved }: {
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
-    </div>
+    </Dialog>
   )
 }

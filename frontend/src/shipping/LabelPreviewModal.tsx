@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import clsx from 'clsx'
 import type { RecipientAddress } from './types'
 import { CARRIERS, PACKAGE_TYPES } from './types'
+import { Dialog } from '../components/common/Dialog'
 
 interface LabelPreviewModalProps {
   recipient: RecipientAddress
@@ -50,7 +51,7 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
       <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
@@ -61,8 +62,8 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
         {/* Label-shaped preview -- deliberately always white/black text
             (like the real printed label) regardless of the app's own
             dark/light theme, so what staff see here matches the paper. */}
-        <div className="rounded-lg border-2 border-dashed border-gray-300 p-4 mb-4 bg-white text-ink">
-          <p className="text-2xs uppercase tracking-wider text-ink-4 mb-1">To</p>
+        <div className="rounded-lg border-2 border-dashed border-gray-300 p-4 mb-4 bg-white text-gray-900">
+          <p className="text-2xs uppercase tracking-wider text-gray-500 mb-1">To</p>
           <p className="text-base font-bold leading-tight">{recipient.person || '—'}</p>
           {recipient.company && <p className="text-sm">{recipient.company}</p>}
           <p className="text-sm">
@@ -73,11 +74,11 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
           </p>
           <p className="text-sm font-medium">{recipient.cc}</p>
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-dashed border-gray-200">
-            <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-ink-3 font-medium">{carrierLabel}</span>
+            <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{carrierLabel}</span>
             {packageTypeLabel && (
-              <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-ink-3 font-medium">{packageTypeLabel}</span>
+              <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{packageTypeLabel}</span>
             )}
-            <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-ink-3 font-medium">{labelSize}</span>
+            <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{labelSize}</span>
           </div>
         </div>
 
@@ -119,6 +120,6 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

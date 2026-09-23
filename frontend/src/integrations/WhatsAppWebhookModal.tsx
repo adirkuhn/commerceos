@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import * as api from './api'
 import type { Connection } from './types'
+import { Dialog } from '../components/common/Dialog'
 
 // The webhook receiver lives outside VITE_API_BASE_URL's per-domain
 // convention -- see integrations/WooCommerceSyncSettingsPage.tsx's own
@@ -57,7 +58,7 @@ export function WhatsAppWebhookModal({ connection, tenantId, onClose }: {
   const url = secret ? webhookURL(tenantId, secret) : ''
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
       <div className="relative w-full max-w-md bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
@@ -103,6 +104,6 @@ export function WhatsAppWebhookModal({ connection, tenantId, onClose }: {
           {generating ? 'Generating…' : secret ? 'Regenerate again' : 'Regenerate webhook URL'}
         </button>
       </div>
-    </div>
+    </Dialog>
   )
 }

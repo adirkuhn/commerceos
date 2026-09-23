@@ -28,6 +28,7 @@ import type { SKU } from '../pms/types'
 import type { Batch, MovementType, StockMovement, ExpiringBatch, ExpiredBatchReview } from '../inventory/types'
 import { Modal, inputClass, labelClass } from '../inventory/components/Modal'
 import { PortionFromBulkModal } from '../inventory/PortionFromBulkModal'
+import { Dialog } from '../components/common/Dialog'
 
 const PAGE_SIZE = 20
 
@@ -1447,7 +1448,7 @@ function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
   const [photo, setPhoto] = useState<File | undefined>(undefined)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+    <Dialog onClose={onCancel} dismissible={!submitting} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="w-full max-w-sm rounded-2xl bg-surface border border-line p-5 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -1495,7 +1496,7 @@ function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }
 

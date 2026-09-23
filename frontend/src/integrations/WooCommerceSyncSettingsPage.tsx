@@ -16,6 +16,7 @@ import { useCategories } from '../pms/hooks/useCategories'
 import { useExternalCategoryLinks } from './hooks/useExternalCategoryLinks'
 import type { WooCategory, ExternalCategoryLink } from './types'
 import { useQueryEnum } from '../routing/useQueryState'
+import { Dialog } from '../components/common/Dialog'
 
 const WOO_PROVIDER = 'woocommerce'
 
@@ -520,7 +521,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       )}
 
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <Dialog onClose={closeDeleteModal} className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={deleteResult ? closeDeleteModal : undefined} />
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
@@ -598,7 +599,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
               </form>
             )}
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )

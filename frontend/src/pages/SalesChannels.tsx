@@ -17,6 +17,7 @@ import type { SalesChannelPayload, UpdateSalesChannelPayload } from '../integrat
 import Pagination from '../components/common/Pagination'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { CURRENCY_OPTIONS } from '../settings/currencyOptions'
+import { Dialog } from '../components/common/Dialog'
 
 const PER_PAGE = 20
 
@@ -400,7 +401,7 @@ export default function SalesChannels() {
       )}
 
       {formReady && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <Dialog onClose={closeForm} className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeForm} />
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
@@ -633,11 +634,11 @@ export default function SalesChannels() {
               </button>
             </form>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {deletingChannel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <Dialog onClose={() => setDeletingChannel(null)} className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={() => setDeletingChannel(null)} />
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <h3 className="text-sm font-semibold text-ink mb-3">Delete sales channel</h3>
@@ -664,11 +665,11 @@ export default function SalesChannels() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {apiDocsChannel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <Dialog onClose={route.close} className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={route.close} />
           <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-1">
@@ -723,7 +724,7 @@ export default function SalesChannels() {
               Full request/response contracts: backend/api/storefront/openapi.yaml.
             </p>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )

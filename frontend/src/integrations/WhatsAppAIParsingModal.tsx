@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useAIConnection } from './hooks/useAIConnection'
 import * as api from './api'
 import type { Connection } from './types'
+import { Dialog } from '../components/common/Dialog'
 
 // AI-assisted parsing: when a customer's message doesn't match the rigid
 // "STOCK <code>"/"PRICE <code>"/etc format, the tenant's connected AI
@@ -38,7 +39,7 @@ export function WhatsAppAIParsingModal({ connection, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
       <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
@@ -81,6 +82,6 @@ export function WhatsAppAIParsingModal({ connection, onClose, onSaved }: {
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
-    </div>
+    </Dialog>
   )
 }

@@ -22,6 +22,7 @@ import type { Shipment } from '../shipping/types'
 import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLabel'
 import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import { playErrorSound } from '../scanner/errorSound'
+import { Dialog } from '../components/common/Dialog'
 
 // Duplicated from Picking.tsx on purpose -- same small-helper convention
 // used elsewhere in this codebase rather than a shared cross-screen import.
@@ -745,7 +746,7 @@ export default function Packing() {
       )}
 
       {scanErrorAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <Dialog onClose={dismissScanError} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-xs rounded-xl bg-surface border dark:border-red-500/40 border-red-300 p-5 text-center shadow-xl">
             <p className="text-sm font-semibold text-danger mb-4">{scanErrorAlert}</p>
             <button
@@ -755,11 +756,11 @@ export default function Packing() {
               OK
             </button>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {resetConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <Dialog onClose={() => setResetConfirmOpen(false)} dismissible={!resetting} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-xs rounded-xl bg-surface border border-line p-5 text-center shadow-xl">
             <p className="text-sm font-semibold text-ink mb-1">Start over?</p>
             <p className="text-xs text-ink-3 mb-4">
@@ -780,7 +781,7 @@ export default function Packing() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )

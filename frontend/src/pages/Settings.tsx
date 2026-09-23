@@ -24,6 +24,7 @@ import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
 import type { TaxClass } from '../tax/types'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
+import { Dialog } from '../components/common/Dialog'
 
 // toInput picks just the persisted fields off a fetched TenantSettings so a
 // section that only edits some of them (Localization edits 4, Tax edits 2)
@@ -857,7 +858,7 @@ function AIIntegrationCard() {
       {error && <p className="mt-2 text-2xs text-danger">{error}</p>}
 
       {configuring && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <Dialog onClose={() => setConfiguring(false)} className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={() => setConfiguring(false)} />
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
@@ -957,7 +958,7 @@ function AIIntegrationCard() {
               </button>
             </form>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )
@@ -1528,7 +1529,7 @@ function TaxSettingsSection() {
       </div>
 
       {classFormReady && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <Dialog onClose={closeClassForm} className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeClassForm} />
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
@@ -1581,7 +1582,7 @@ function TaxSettingsSection() {
               </button>
             </form>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )

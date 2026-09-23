@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Shipment } from './types'
 import * as shippingApi from './api'
+import { Dialog } from '../components/common/Dialog'
 
 interface ExistingShipmentConfirmModalProps {
   token: string
@@ -41,7 +42,7 @@ export function ExistingShipmentConfirmModal({ token, shipment, onReprint, onCre
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onCancel} />
       <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         {!cancelResult ? (
@@ -93,6 +94,6 @@ export function ExistingShipmentConfirmModal({ token, shipment, onReprint, onCre
           </>
         )}
       </div>
-    </div>
+    </Dialog>
   )
 }

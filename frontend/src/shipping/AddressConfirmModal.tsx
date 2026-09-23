@@ -4,6 +4,7 @@ import type { Address } from '../oms/types'
 import type { RecipientAddress, DeliveryPriceOption } from './types'
 import { CARRIERS, PACKAGE_TYPES } from './types'
 import * as shippingApi from './api'
+import { Dialog } from '../components/common/Dialog'
 
 // ESTIMATE_DEBOUNCE_MS: same purpose as the address check's blur-triggered
 // timing, but this one fires on every keystroke-driven state change (no
@@ -255,7 +256,7 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
   const labelClass = 'block text-2xs font-medium text-ink-3 mb-1'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
       <div className="relative w-full max-w-md bg-raised rounded-xl shadow-2xl border border-line p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
@@ -363,6 +364,6 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
           </button>
         </form>
       </div>
-    </div>
+    </Dialog>
   )
 }

@@ -22,6 +22,7 @@ import MyParcelSyncSettingsPage from '../shipping/MyParcelSyncSettingsPage'
 import { useIntegrationsRoute, type ConnectionPanel } from '../integrations/hooks/useIntegrationsRoute'
 import { useInitOnce } from '../routing/useInitOnce'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
+import { Dialog } from '../components/common/Dialog'
 
 // Same tier as WooCommerceSyncSettingsPage's webhook-secret tab -- this
 // table exposes raw (if opaque) third-party payloads and a manual
@@ -698,7 +699,7 @@ export default function Integrations() {
       )}
 
       {browsing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <Dialog onClose={closeBrowse} className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 dark:bg-black/60 bg-black/30"
             onClick={closeBrowse}
@@ -1159,11 +1160,11 @@ export default function Integrations() {
               </>
             )}
           </div>
-        </div>
+        </Dialog>
       )}
 
       {importingConnection && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <Dialog onClose={closeImport} className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeImport} />
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
@@ -1237,11 +1238,11 @@ export default function Integrations() {
               </form>
             )}
           </div>
-        </div>
+        </Dialog>
       )}
 
       {deletingConnection && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <Dialog onClose={closeDelete} className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={deleteResult ? closeDelete : undefined} />
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
@@ -1319,7 +1320,7 @@ export default function Integrations() {
               </form>
             )}
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )

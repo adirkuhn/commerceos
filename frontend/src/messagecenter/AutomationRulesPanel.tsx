@@ -7,6 +7,7 @@ import { useInitOnce } from '../routing/useInitOnce'
 import { useAutomationRules } from './hooks/useAutomationRules'
 import { useMessageTemplates } from './hooks/useMessageTemplates'
 import type { AutomationRule, Condition, Operator, TriggerSubject, MessageChannel } from './types'
+import { Dialog } from '../components/common/Dialog'
 
 const TRIGGER_LABELS: Record<TriggerSubject, string> = {
   'pms.product.deleted': 'Product deleted',
@@ -225,7 +226,7 @@ export default function AutomationRulesPanel() {
       </div>
 
       {formReady && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <Dialog onClose={closeForm} className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeForm} />
           <div className="relative w-full max-w-lg bg-raised rounded-xl shadow-2xl border border-line p-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
@@ -377,7 +378,7 @@ export default function AutomationRulesPanel() {
               </button>
             </form>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )

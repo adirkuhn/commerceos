@@ -14,6 +14,7 @@ import { playErrorSound } from '../scanner/errorSound'
 import type { Address } from '../oms/types'
 import { useRoutedSession } from '../oms/useRoutedSession'
 import { SessionErrorPanel } from '../oms/SessionErrorPanel'
+import { Dialog } from '../components/common/Dialog'
 
 // Falls back to a placeholder icon when the line isn't linked to a product
 // yet, or the product has no media -- same convention as the scanner app's
@@ -1029,7 +1030,7 @@ export default function Picking() {
       )}
 
       {scanErrorAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <Dialog onClose={dismissScanError} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-xs rounded-xl bg-surface border dark:border-red-500/40 border-red-300 p-5 text-center shadow-xl">
             <p className="text-sm font-semibold text-danger mb-4">{scanErrorAlert}</p>
             <button
@@ -1039,11 +1040,11 @@ export default function Picking() {
               OK
             </button>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {resetConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <Dialog onClose={() => setResetConfirmOpen(false)} dismissible={!resetting} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-xs rounded-xl bg-surface border border-line p-5 text-center shadow-xl">
             <p className="text-sm font-semibold text-ink mb-1">Start over?</p>
             <p className="text-xs text-ink-3 mb-4">
@@ -1064,7 +1065,7 @@ export default function Picking() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
     </div>
