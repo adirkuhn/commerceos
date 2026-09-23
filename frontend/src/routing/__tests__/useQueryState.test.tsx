@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { renderHook, act } from '@testing-library/react'
 import { MemoryRouter, useLocation, useNavigationType } from 'react-router-dom'
 import { describe, it, expect } from 'vitest'
-import { useQueryEnum, useQueryPage, useQueryString } from '../useQueryState'
+import { useQueryEnum, useQueryPage, useQuerySet, useQueryString } from '../useQueryState'
 
 function wrapperAt(url: string) {
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -124,5 +124,38 @@ describe('useQueryPage', () => {
     expect(result.current.loc.search).toBe('')
     act(() => result.current.q[1](2))
     expect(result.current.loc.search).toBe('?page=2')
+  })
+})
+
+describe('useQuerySet', () => {
+  it('reads a comma-separated list as a set', () => {
+    const { result } = renderHook(() => useQuerySet('open'), { wrapper: wrapperAt('/x?open=a,b') })
+    expect([...result.current.values].sort()).toEqual(['a', 'b'])
+    expect(result.current.has('a')).toBe(true)
+    expect(result.current.has('c')).toBe(false)
+  })
+
+  it('toggle adds and removes, dropping the param when empty', () => {
+    const { result } = renderHook(
+      () => ({ q: useQuerySet('open'), loc: useLocation() }),
+      { wrapper: wrapperAt('/x?tab=t') },
+    )
+    act(() => result.current.q.toggle('a'))
+    act(() => result.current.q.toggle('b'))
+    expect(new URLSearchParams(result.current.loc.search).get('open')).toBe('a,b')
+    act(() => result.current.q.toggle('a'))
+    expect(new URLSearchParams(result.current.loc.search).get('open')).toBe('b')
+    act(() => result.current.q.toggle('b'))
+    expect(result.current.loc.search).toBe('?tab=t')
+  })
+
+  it('ids containing commas are encoded so they round-trip', () => {
+    const { result } = renderHook(
+      () => ({ q: useQuerySet('open'), loc: useLocation() }),
+      { wrapper: wrapperAt('/x') },
+    )
+    act(() => result.current.q.toggle('a,b'))
+    expect(result.current.q.has('a,b')).toBe(true)
+    expect(result.current.q.has('a')).toBe(false)
   })
 })

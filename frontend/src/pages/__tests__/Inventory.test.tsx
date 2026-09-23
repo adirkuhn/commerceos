@@ -190,12 +190,14 @@ describe('Inventory page', () => {
 
   it('keeps a row expanded across a remount (page refresh)', async () => {
     const user = userEvent.setup()
-    const { unmount } = renderAt(<Inventory />, '/inventory')
+    const { router, unmount } = renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
+    // A refresh reloads the same URL -- the expanded row is part of it.
+    const url = router.state.location.pathname + router.state.location.search
     unmount()
-    renderAt(<Inventory />, '/inventory')
+    renderAt(<Inventory />, '/inventory', url)
 
     expect(await screen.findByText('WIDGET-1')).toBeInTheDocument()
   })
@@ -1121,5 +1123,96 @@ describe('Inventory URLs (refresh + Back)', () => {
     const { router } = renderAt(<Inventory />, '/inventory', '/inventory/expiry?tab=discarded')
     await waitFor(() => expect(inventoryApi.listDiscards).toHaveBeenCalled())
     expect(router.state.location.pathname).toBe('/inventory/expiry')
+  })
+})
+
+describe('Inventory rows and SKU actions in the URL', () => {
+  it('expanding a product writes ?open=, and loading that URL shows it expanded', async () => {
+    const user = userEvent.setup()
+    const { router, unmount } = renderAt(<Inventory />, '/inventory')
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+    expect(router.state.location.search).toBe('?open=prod-1')
+    unmount()
+
+    renderAt(<Inventory />, '/inventory', '/inventory?open=prod-1')
+    expect(await screen.findByText('WIDGET-1')).toBeInTheDocument()
+  })
+
+  it('an SKU action pushes its URL (keeping the list query) and Back closes the modal, row still open', async () => {
+    const user = userEvent.setup()
+    const { router } = renderAt(<Inventory />, '/inventory', '/inventory?open=prod-1')
+    await screen.findByText('WIDGET-1')
+    await user.click(screen.getByRole('button', { name: /^Adjust$/ }))
+    expect(router.state.location.pathname).toBe('/inventory/products/prod-1/skus/sku-1/adjust')
+    expect(router.state.location.search).toBe('?open=prod-1')
+    expect(await screen.findByText('Adjust Stock')).toBeInTheDocument()
+
+    await act(() => router.navigate(-1))
+    await waitFor(() => expect(screen.queryByText('Adjust Stock')).not.toBeInTheDocument())
+    expect(screen.getByText('WIDGET-1')).toBeInTheDocument()
+  })
+
+  it('loading an action URL opens the list with that product expanded and the modal on top', async () => {
+    renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/recount')
+    expect(await screen.findByText('Recount Stock')).toBeInTheDocument()
+    expect(screen.getByText('WIDGET-1')).toBeInTheDocument()
+  })
+
+  it('a batch row opens /choose?batch=, and picking an action replaces it, keeping the batch scope', async () => {
+    const user = userEvent.setup()
+    const { router } = renderAt(<Inventory />, '/inventory', '/inventory?open=prod-1')
+    await user.click(await screen.findByText('LOT-1'))
+    expect(router.state.location.pathname).toBe('/inventory/products/prod-1/skus/sku-1/choose')
+    expect(new URLSearchParams(router.state.location.search).get('batch')).toBe('batch-1')
+
+    const chooser = (await screen.findByText('LOT-1', { selector: 'h3' })).closest('div')!.parentElement!
+    await user.click(within(chooser).getByRole('button', { name: 'Recount' }))
+    expect(router.state.location.pathname).toBe('/inventory/products/prod-1/skus/sku-1/recount')
+    expect(router.state.historyAction).toBe('REPLACE')
+    const modal = (await screen.findByText('Recount Stock')).closest('div')!.parentElement!
+    expect(within(modal).getByText('LOT-1')).toBeInTheDocument()
+  })
+
+  it('a batch-scoped action URL reopens locked to that batch on load', async () => {
+    renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/adjust?batch=batch-1')
+    const modal = (await screen.findByText('Adjust Stock')).closest('div')!.parentElement!
+    expect(within(modal).queryByLabelText(/batch/i)).not.toBeInTheDocument()
+    expect(within(modal).getByText('LOT-1')).toBeInTheDocument()
+  })
+
+  it('the general ledger row is scoped by ?ledger=<warehouseId>', async () => {
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([{ ...batch, id: '', lot_number: '', is_general_ledger: true, quantity: 0 }])
+    const user = userEvent.setup()
+    const { router } = renderAt(<Inventory />, '/inventory', '/inventory?open=prod-1')
+    await user.click(await screen.findByText('General ledger'))
+    expect(new URLSearchParams(router.state.location.search).get('ledger')).toBe('wh-1')
+    expect(await screen.findByText('General ledger', { selector: 'h3' })).toBeInTheDocument()
+  })
+
+  it('/edit-batch?batch= opens the batch editor prefilled', async () => {
+    renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/edit-batch?batch=batch-1')
+    expect(await screen.findByText('Edit Batch')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('LOT-1')).toBeInTheDocument()
+  })
+
+  it('"show zero-stock batches" lives in ?allBatches=', async () => {
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([
+      { ...batch, id: 'batch-empty', lot_number: 'LOT-EMPTY', quantity: 0 },
+      { ...batch, id: 'batch-2', lot_number: 'LOT-2', quantity: 5 },
+    ])
+    renderAt(<Inventory />, '/inventory', '/inventory?open=prod-1&allBatches=sku-1')
+    expect(await screen.findByText('LOT-EMPTY')).toBeInTheDocument()
+  })
+
+  it('an action URL for a product not on the current list page still opens it', async () => {
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [], total: 0 })
+    renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/adjust')
+    expect(await screen.findByText('Adjust Stock')).toBeInTheDocument()
+  })
+
+  it('an action URL naming an unknown SKU shows not-found', async () => {
+    renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/nope/adjust')
+    expect(await screen.findByText('SKU not found')).toBeInTheDocument()
   })
 })

@@ -71,3 +71,38 @@ export function useQueryPage(key = 'page', options: QueryStateOptions = {}): [nu
   const set = useCallback((next: number) => write(next <= 1 ? null : String(next)), [write])
   return [value, set]
 }
+
+export interface QuerySet {
+  values: ReadonlySet<string>
+  has: (id: string) => boolean
+  toggle: (id: string) => void
+}
+
+function parseSet(raw: string | null): string[] {
+  return raw ? raw.split(',').filter(Boolean).map(decodeURIComponent) : []
+}
+
+// A set of ids in one comma-separated param (e.g. which rows are expanded:
+// ?open=p1,p2). Ids are encoded so a comma inside one can't split it.
+// toggle reads the URL at write time, so several toggles in one tick
+// compose instead of each starting from the same stale set.
+export function useQuerySet(key: string, options: QueryStateOptions = {}): QuerySet {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const history = options.history ?? 'replace'
+  const raw = searchParams.get(key)
+  const values = new Set(parseSet(raw))
+
+  const toggle = useCallback((id: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      const current = new Set(parseSet(prev.get(key)))
+      if (current.has(id)) current.delete(id)
+      else current.add(id)
+      if (current.size === 0) next.delete(key)
+      else next.set(key, [...current].map(encodeURIComponent).join(','))
+      return next
+    }, { replace: history === 'replace' })
+  }, [key, history, setSearchParams])
+
+  return { values, has: (id: string) => values.has(id), toggle }
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import {
   Search, ChevronRight, ChevronDown, Plus, ArrowRightLeft, AlertTriangle,
   Trash2, Edit3, X, PackageMinus, ClipboardList, Tag, ArrowLeft, History, Boxes, Scale, Image as ImageIcon,
@@ -8,8 +8,10 @@ import { useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { parseInventoryPath, inventoryPaths, INVENTORY_PATH } from '../inventory/inventoryRoutes'
 import { useInventoryHistoryTarget } from '../inventory/useInventoryHistoryTarget'
+import { useSkuActionRoute } from '../inventory/useSkuActionRoute'
+import type { SkuAction } from '../inventory/inventoryRoutes'
 import { useStackNavigation } from '../routing/useStackNavigation'
-import { useQueryEnum, useQueryPage, useQueryString } from '../routing/useQueryState'
+import { useQueryEnum, useQueryPage, useQuerySet, useQueryString } from '../routing/useQueryState'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 import Pagination from '../components/common/Pagination'
 import { useProducts } from '../pms/hooks/useProducts'
@@ -697,7 +699,22 @@ function PriceModal({ sku, onSave, onClose }: {
 
 // ── Per-SKU stock panel ───────────────────────────────────────────────────────
 
-type ActiveModal = 'adjust' | 'recount' | 'transfer' | 'split-case' | 'portion-from-bulk' | 'damaged-lost' | 'batch-new' | 'price' | 'row-choose' | { edit: Batch } | null
+// BatchFormModal for a new batch: a successful create closes back to the
+// list with zero-stock batches shown (a new batch starts at zero), while
+// Cancel closes normally.
+function NewBatchModal({ warehouses, onSave, onClose, onCreated }: {
+  warehouses: { id: string; name: string }[]
+  onSave: (input: { warehouse_id: string; lot_number?: string; expiry_date?: string | null }) => Promise<void>
+  onClose: () => void
+  onCreated: () => void
+}) {
+  const created = useRef(false)
+  return (
+    <BatchFormModal batch={null} warehouses={warehouses}
+      onSave={input => onSave(input).then(() => { created.current = true })}
+      onClose={() => (created.current ? onCreated() : onClose())} />
+  )
+}
 
 // BatchRowActionModal is what clicking a batch row opens -- a chooser
 // scoped to that one row, since a click alone can't say which of
@@ -737,8 +754,8 @@ function BatchRowActionModal({ scope, onChoose, onClose }: {
   )
 }
 
-function SKUStockPanel({ token, sku, variantName, warehouses, onSKUUpdated, onStockChanged, onViewHistory, onViewBatchHistory }: {
-  token: string; sku: SKU; variantName?: string; warehouses: { id: string; name: string }[]
+function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUpdated, onStockChanged, onViewHistory, onViewBatchHistory }: {
+  token: string; productId: string; sku: SKU; variantName?: string; warehouses: { id: string; name: string }[]
   // onSKUUpdated refetches product/variant/SKU metadata (name, price, ...)
   // -- reserved for price edits. Stock-quantity mutations must use
   // onStockChanged instead: onSKUUpdated flips the parent's `loading` flag,
@@ -752,23 +769,29 @@ function SKUStockPanel({ token, sku, variantName, warehouses, onSKUUpdated, onSt
 }) {
   const { level, batches, loading, error, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, portionFromBulk, markDamagedOrLost } =
     useSKUStock(token, sku.id)
-  const [modal, setModal] = useState<ActiveModal>(null)
-  // Set alongside `modal` only when a batch ROW was clicked (as opposed to
-  // one of the SKU-level Adjust/Recount/Transfer/Damaged-Lost buttons) --
-  // passed down as `scope` to lock that modal to this exact batch. Cleared
-  // whenever any modal closes, regardless of which entry point opened it.
-  const [rowScope, setRowScope] = useState<BatchScope | null>(null)
+  // The open modal, and the batch row it's locked to, come from the URL
+  // (see useSkuActionRoute), as does "show zero-stock batches"
+  // (?allBatches=) -- a refresh or Back keeps or closes them like pages.
+  const route = useSkuActionRoute(productId, sku.id)
+  const allBatches = useQuerySet('allBatches')
+  const showAllBatches = allBatches.has(sku.id)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [showAllBatches, setShowAllBatches] = useState(false)
 
-  const closeModal = () => { setModal(null); setRowScope(null) }
+  // Resolves ?batch= against the loaded batches (the general-ledger row
+  // has no id, so it's addressed by warehouse via ?ledger=). A modal that
+  // needs its row waits until the batches are in rather than opening
+  // unlocked.
+  const rowBatch = route.row && 'batch' in route.row ? batches.find(b => b.id === (route.row as { batch: string }).batch) ?? null : null
+  const rowScope: BatchScope | null = !route.row
+    ? null
+    : 'ledger' in route.row
+      ? { warehouseId: route.row.ledger, batchId: '', label: 'General ledger' }
+      : rowBatch && { warehouseId: rowBatch.warehouse_id, batchId: rowBatch.id, label: rowBatch.lot_number || 'Batch' }
+  const modal = !route.row || rowScope ? route.action : null
+  const setModal = (action: SkuAction) => route.openAction(action)
+  const closeModal = route.close
   const openRowAction = (b: Batch) => {
-    setRowScope({
-      warehouseId: b.warehouse_id,
-      batchId: b.is_general_ledger ? '' : b.id,
-      label: b.is_general_ledger ? 'General ledger' : (b.lot_number || 'Batch'),
-    })
-    setModal('row-choose')
+    route.openAction('choose', b.is_general_ledger ? { ledger: b.warehouse_id } : { batch: b.id })
   }
 
   // Old zero-stock batches (even with movement history) clutter this table
@@ -863,7 +886,7 @@ function SKUStockPanel({ token, sku, variantName, warehouses, onSKUUpdated, onSt
             </button>
           )}
           {sku.portioned_from_sku_id && (
-            <button type="button" onClick={() => setModal('portion-from-bulk')} title="Add a sellable item peeled off the linked weight pool" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            <button type="button" onClick={() => setModal('portion')} title="Add a sellable item peeled off the linked weight pool" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
               <Scale size={11} /> Add item from weight pool
             </button>
           )}
@@ -917,7 +940,7 @@ function SKUStockPanel({ token, sku, variantName, warehouses, onSKUUpdated, onSt
                       <button type="button" onClick={() => onViewBatchHistory(sku, b)} aria-label={`View movement history for batch ${b.lot_number}`} title="View movement history" className="dark:text-gray-500 text-gray-400 hover:text-blue-400">
                         <History size={11} />
                       </button>
-                      <button type="button" onClick={() => setModal({ edit: b })} aria-label={`Edit batch ${b.lot_number}`} className="dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600">
+                      <button type="button" onClick={() => route.openAction('edit-batch', { batch: b.id })} aria-label={`Edit batch ${b.lot_number}`} className="dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600">
                         <Edit3 size={11} />
                       </button>
                       <button type="button" onClick={() => handleDeleteBatch(b.id)} aria-label={`Delete batch ${b.lot_number}`} className="dark:text-gray-500 text-gray-400 hover:text-red-400">
@@ -943,19 +966,19 @@ function SKUStockPanel({ token, sku, variantName, warehouses, onSKUUpdated, onSt
           </tbody>
         </table>
         <div className="px-2.5 py-1.5 border-t dark:border-[#2D3748] border-gray-200 flex items-center gap-3">
-          <button type="button" onClick={() => setModal('batch-new')} className="text-[10px] text-blue-400 hover:text-blue-300">
+          <button type="button" onClick={() => setModal('new-batch')} className="text-[10px] text-blue-400 hover:text-blue-300">
             + New batch
           </button>
           {zeroStockBatchCount > 0 && (
-            <button type="button" onClick={() => setShowAllBatches(v => !v)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-blue-400">
+            <button type="button" onClick={() => allBatches.toggle(sku.id)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-blue-400">
               {showAllBatches ? 'Hide zero-stock batches' : `Show ${zeroStockBatchCount} zero-stock batch${zeroStockBatchCount === 1 ? '' : 'es'}`}
             </button>
           )}
         </div>
       </div>
 
-      {modal === 'row-choose' && rowScope && (
-        <BatchRowActionModal scope={rowScope} onChoose={setModal} onClose={closeModal} />
+      {modal === 'choose' && rowScope && (
+        <BatchRowActionModal scope={rowScope} onChoose={route.switchAction} onClose={closeModal} />
       )}
       {modal === 'adjust' && (
         <AdjustStockModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
@@ -973,7 +996,7 @@ function SKUStockPanel({ token, sku, variantName, warehouses, onSKUUpdated, onSt
         <SplitCaseModal warehouses={warehouses} batches={batches} onClose={closeModal}
           onSave={input => splitCase(input).then(() => onStockChanged())} />
       )}
-      {modal === 'portion-from-bulk' && sku.portioned_from_sku_id && (
+      {modal === 'portion' && sku.portioned_from_sku_id && (
         <PortionFromBulkModal
           token={token} bulkSkuId={sku.portioned_from_sku_id} warehouses={warehouses} nominalWeightGrams={sku.weight_grams}
           onClose={closeModal} onSave={input => portionFromBulk(input).then(() => onStockChanged())}
@@ -983,16 +1006,16 @@ function SKUStockPanel({ token, sku, variantName, warehouses, onSKUUpdated, onSt
         <DamagedLostModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
           onSave={input => markDamagedOrLost(input).then(() => onStockChanged())} />
       )}
-      {modal === 'batch-new' && (
-        <BatchFormModal batch={null} warehouses={warehouses} onClose={closeModal}
-          onSave={input => addBatch(input).then(() => { setShowAllBatches(true); onStockChanged() })} />
+      {modal === 'new-batch' && (
+        <NewBatchModal warehouses={warehouses} onClose={closeModal} onCreated={route.closeShowingAllBatches}
+          onSave={input => addBatch(input).then(() => onStockChanged())} />
       )}
       {modal === 'price' && (
         <PriceModal sku={sku} onClose={closeModal} onSave={handleSavePrice} />
       )}
-      {modal !== null && typeof modal === 'object' && (
-        <BatchFormModal batch={modal.edit} warehouses={warehouses} onClose={closeModal}
-          onSave={input => editBatch(modal.edit.id, input).then(() => onStockChanged())} />
+      {modal === 'edit-batch' && rowBatch && (
+        <BatchFormModal batch={rowBatch} warehouses={warehouses} onClose={closeModal}
+          onSave={input => editBatch(rowBatch.id, input).then(() => onStockChanged())} />
       )}
     </div>
   )
@@ -1016,23 +1039,19 @@ function ProductStockRow({ token, productId, productName, productImageUrl, wareh
   onViewBatchHistory: (sku: SKU, batch: Batch) => void
   onViewProductHistory: (productName: string, skus: SKU[]) => void
 }) {
-  // Persisted per product so a page refresh doesn't collapse a row the user
-  // deliberately left open -- sessionStorage rather than localStorage since
-  // this is a "remember for this visit" convenience, not a long-lived
-  // preference worth surviving a browser restart.
-  const expandedStorageKey = `commerceos:inventory:expanded:${productId}`
-  const [expanded, setExpandedState] = useState(() => sessionStorage.getItem(expandedStorageKey) === '1')
-  const setExpanded = (updater: boolean | ((prev: boolean) => boolean)) => {
-    setExpandedState(prev => {
-      const next = typeof updater === 'function' ? (updater as (prev: boolean) => boolean)(prev) : updater
-      if (next) sessionStorage.setItem(expandedStorageKey, '1')
-      else sessionStorage.removeItem(expandedStorageKey)
-      return next
-    })
-  }
+  // Expanded rows live in ?open= so a refresh, Back or a shared link keeps
+  // them; a SKU action URL for this product (its modal) also expands it.
+  const openRows = useQuerySet('open')
+  const location = useLocation()
+  const routeView = parseInventoryPath(location.pathname)
+  const routeSkuId = routeView.kind === 'skuAction' && routeView.productId === productId ? routeView.skuId : null
+  const expanded = openRows.has(productId) || routeSkuId !== null
+  const toggleExpanded = () => openRows.toggle(productId)
 
   const { detail, loading, refresh } = useProductDetail(token, productId)
   const skus = (detail?.variants ?? []).flatMap(v => v.skus ?? [])
+  const { exitToOpener } = useStackNavigation()
+  const navigateToList = () => exitToOpener(INVENTORY_PATH)
   const skusKey = skus.map(s => s.id).join(',')
   // Kept as a separate lookup rather than threading a variantName field
   // through SKU itself -- every other consumer of `skus` here (movement
@@ -1075,7 +1094,7 @@ function ProductStockRow({ token, productId, productName, productImageUrl, wareh
 
   return (
     <>
-      <tr className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setExpanded(v => !v)}>
+      <tr className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer" onClick={toggleExpanded}>
         <td className="px-4 py-2.5 w-8">
           {expanded ? <ChevronDown size={13} className="dark:text-gray-500 text-gray-400" /> : <ChevronRight size={13} className="dark:text-gray-500 text-gray-400" />}
         </td>
@@ -1088,7 +1107,7 @@ function ProductStockRow({ token, productId, productName, productImageUrl, wareh
             </div>
           )}
         </td>
-        <td className="px-3 py-2.5 font-medium dark:text-gray-100 text-gray-900">{productName}</td>
+        <td className="px-3 py-2.5 font-medium dark:text-gray-100 text-gray-900">{productName || detail?.product.name}</td>
         <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
           {singleSKU ? (
             <span className="text-xs dark:text-gray-300 text-gray-700">{formatPrice(singleSKU.price_minor_units, singleSKU.currency_code)}</span>
@@ -1143,8 +1162,11 @@ function ProductStockRow({ token, productId, productName, productImageUrl, wareh
           <td colSpan={7} className="p-0">
             {loading && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">Loading SKUs…</p>}
             {!loading && skus.length === 0 && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">No SKUs on this product yet.</p>}
+            {!loading && detail && routeSkuId && !skus.some(s => s.id === routeSkuId) && (
+              <div className="py-4"><RecordNotFound label="SKU" onBack={() => navigateToList()} /></div>
+            )}
             {!loading && skus.map(sku => (
-              <SKUStockPanel key={sku.id} token={token} sku={sku} variantName={variantNameBySKU[sku.id]} warehouses={warehouses} onSKUUpdated={refresh} onStockChanged={loadStock} onViewHistory={onViewHistory} onViewBatchHistory={onViewBatchHistory} />
+              <SKUStockPanel key={sku.id} token={token} productId={productId} sku={sku} variantName={variantNameBySKU[sku.id]} warehouses={warehouses} onSKUUpdated={refresh} onStockChanged={loadStock} onViewHistory={onViewHistory} onViewBatchHistory={onViewBatchHistory} />
             ))}
           </td>
         </tr>
@@ -1938,6 +1960,16 @@ export default function Inventory() {
             )}
             {!loading && visibleProducts.length === 0 && (
               <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products found.</td></tr>
+            )}
+            {/* A SKU action URL for a product not on this list page (shared
+                link, or the list moved on) still opens -- pinned on top. */}
+            {!loading && view.kind === 'skuAction' && !visibleProducts.some(p => p.id === view.productId) && (
+              <ProductStockRow
+                key={`pinned-${view.productId}`} token={token ?? ''} productId={view.productId} productName="" warehouses={warehouses}
+                onSummary={handleSummary} onViewHistory={sku => open(inventoryPaths.skuHistory(view.productId, sku.id))}
+                onViewBatchHistory={(sku, batch) => open(inventoryPaths.batchHistory(view.productId, sku.id, batch.id))}
+                onViewProductHistory={() => open(inventoryPaths.productHistory(view.productId))}
+              />
             )}
             {!loading && visibleProducts.map(p => (
               <ProductStockRow
