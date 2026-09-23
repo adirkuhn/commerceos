@@ -7,6 +7,7 @@ import { useSyncLogs } from '../integrations/hooks/useSyncLogs'
 import { useSyncLogsNeedingAttention } from '../integrations/hooks/useSyncLogsNeedingAttention'
 import * as api from '../integrations/api'
 import type { SyncLogStatus, SyncLogDirection } from '../integrations/types'
+import { useQueryEnum, useQueryPage } from '../routing/useQueryState'
 
 const PAGE_SIZE = 20
 
@@ -35,10 +36,14 @@ function formatValue(v: string): string {
 // pretending it succeeded) actions. A successful retry, or a dismiss,
 // drops the row out of "Needs attention" on its own -- it's a live query,
 // not separate tracked state (see backend's ListNeedingAttention doc).
+const SYNC_LOG_VIEWS = ['all', 'needing-attention'] as const
+type SyncLogView = typeof SYNC_LOG_VIEWS[number]
+
 export default function SyncLog() {
   const { token } = useAuth()
-  const [view, setView] = useState<'all' | 'needing-attention'>('all')
-  const [page, setPage] = useState(1)
+  // View and page live in the URL (?view=, ?page=) -- refresh and Back keep them.
+  const [view, setView] = useQueryEnum('view', SYNC_LOG_VIEWS, 'all', { resets: ['page'] })
+  const [page, setPage] = useQueryPage()
   const all = useSyncLogs(token ?? '', { page, perPage: PAGE_SIZE })
   const needingAttention = useSyncLogsNeedingAttention(token ?? '', { page, perPage: PAGE_SIZE })
   const { entries, total, loading, error, refresh } = view === 'all' ? all : needingAttention
@@ -47,9 +52,8 @@ export default function SyncLog() {
   const [busyAction, setBusyAction] = useState<'retry' | 'dismiss' | null>(null)
   const [actionError, setActionError] = useState('')
 
-  function switchView(next: 'all' | 'needing-attention') {
+  function switchView(next: SyncLogView) {
     setView(next)
-    setPage(1)
   }
 
   async function handleRetry(id: string) {

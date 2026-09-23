@@ -8,6 +8,7 @@ import * as api from '../oms/api'
 import type { SalesOrder } from '../oms/types'
 import { ProductSkuPicker } from './Procurement'
 import type { SKU } from '../pms/types'
+import { useQueryPage } from '../routing/useQueryState'
 
 const PAGE_SIZE = 20
 
@@ -24,7 +25,8 @@ function customerName(order: SalesOrder): string {
 // any resulting stock issue separately from the "Stock Issues" page.
 export default function UnmatchedSkus() {
   const { token } = useAuth()
-  const [page, setPage] = useState(1)
+  // In the URL (?page=) so refresh and Back keep it.
+  const [page, setPage] = useQueryPage()
   const { salesOrders, total, loading, error, refresh } = useSalesOrders(token ?? '', {
     page, perPage: PAGE_SIZE, needsSkuReview: true,
   })

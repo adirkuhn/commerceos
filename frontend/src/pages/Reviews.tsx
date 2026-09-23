@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useReviews } from '../reviews/hooks/useReviews'
 import type { Review } from '../reviews/types'
+import { useQueryPage, useQueryString } from '../routing/useQueryState'
 
 const PAGE_SIZE = 20
 
@@ -26,13 +27,14 @@ export default function Reviews() {
   const { token } = useAuth()
   const { reviews, loading, error, remove } = useReviews(token ?? '')
 
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
+  // Search and page live in the URL (?q=, ?page=) -- refresh and Back keep them.
+  const [searchParam, setSearch] = useQueryString('q', { resets: ['page'] })
+  const search = searchParam ?? ''
+  const [page, setPage] = useQueryPage()
   const [actionError, setActionError] = useState('')
 
   function handleSearchChange(value: string) {
     setSearch(value)
-    setPage(1)
   }
 
   const q = search.toLowerCase()

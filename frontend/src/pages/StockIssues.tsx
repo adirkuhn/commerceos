@@ -5,6 +5,7 @@ import Pagination from '../components/common/Pagination'
 import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import * as api from '../oms/api'
 import type { SalesOrder, SalesOrderLineItem } from '../oms/types'
+import { useQueryPage } from '../routing/useQueryState'
 
 const PAGE_SIZE = 20
 
@@ -29,7 +30,8 @@ function pendingLineItems(items: SalesOrderLineItem[]): SalesOrderLineItem[] {
 // auto-triggered by any stock fix itself.
 export default function StockIssues() {
   const { token } = useAuth()
-  const [page, setPage] = useState(1)
+  // In the URL (?page=) so refresh and Back keep it.
+  const [page, setPage] = useQueryPage()
   const { salesOrders, total, loading, error, refresh } = useSalesOrders(token ?? '', {
     page, perPage: PAGE_SIZE, needsStockReview: true,
   })

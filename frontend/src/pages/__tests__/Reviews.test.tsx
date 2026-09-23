@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reviews from '../Reviews'
+import { renderAt } from '../../test/renderAt'
 import type { Review } from '../../reviews/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -32,7 +33,7 @@ beforeEach(() => {
 
 describe('Reviews', () => {
   it('shows an empty state when there are no reviews', async () => {
-    render(<Reviews />)
+    renderAt(<Reviews />, '/reviews')
 
     expect(await screen.findByText('No reviews yet')).toBeInTheDocument()
   })
@@ -40,7 +41,7 @@ describe('Reviews', () => {
   it('lists reviews with customer, rating, and body', async () => {
     vi.mocked(reviewsApi.listReviews).mockResolvedValue([review()])
 
-    render(<Reviews />)
+    renderAt(<Reviews />, '/reviews')
 
     expect(await screen.findByText('Ada')).toBeInTheDocument()
     expect(screen.getByText('Loved it')).toBeInTheDocument()
@@ -52,7 +53,7 @@ describe('Reviews', () => {
       review(), review({ id: 'review-2', customer_name: 'Bob', body: 'Not great' }),
     ])
 
-    render(<Reviews />)
+    renderAt(<Reviews />, '/reviews')
     await screen.findByText('Ada')
 
     await userEvent.type(screen.getByPlaceholderText('Search by customer, product, or text...'), 'Bob')
@@ -65,9 +66,24 @@ describe('Reviews', () => {
     vi.mocked(reviewsApi.listReviews).mockResolvedValue([review()])
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<Reviews />)
+    renderAt(<Reviews />, '/reviews')
     await userEvent.click(await screen.findByTitle('Delete'))
 
     await waitFor(() => expect(reviewsApi.deleteReview).toHaveBeenCalledWith('test-token', 'review-1'))
+  })
+})
+
+describe('Reviews URLs', () => {
+  it('search (?q=) and page (?page=) are read from the URL', async () => {
+    vi.mocked(reviewsApi.listReviews).mockResolvedValue(Array.from({ length: 25 }, (_, i) => review({ id: `r${i}` })))
+    renderAt(<Reviews />, '/reviews', '/reviews?page=2')
+    expect(await screen.findByText('Page 2 of 2')).toBeInTheDocument()
+  })
+
+  it('typing a search writes ?q= and drops the page', async () => {
+    vi.mocked(reviewsApi.listReviews).mockResolvedValue(Array.from({ length: 25 }, (_, i) => review({ id: `r${i}` })))
+    const { router } = renderAt(<Reviews />, '/reviews', '/reviews?page=2')
+    await userEvent.type(await screen.findByPlaceholderText('Search by customer, product, or text...'), 'x')
+    expect(router.state.location.search).toBe('?q=x')
   })
 })

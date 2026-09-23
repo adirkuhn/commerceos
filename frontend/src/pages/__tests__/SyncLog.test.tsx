@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import SyncLog from '../SyncLog'
+import { renderAt } from '../../test/renderAt'
 import type { SyncLogEntry } from '../../integrations/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -36,13 +37,13 @@ beforeEach(() => {
 
 describe('Sync History page', () => {
   it('shows an empty state when there are no syncs', async () => {
-    render(<SyncLog />)
+    renderAt(<SyncLog />, '/sync-log')
     expect(await screen.findByText('No syncs yet')).toBeInTheDocument()
   })
 
   it('lists sync entries with product, channel, direction and status', async () => {
     vi.mocked(integrationsApi.listAllSyncLogs).mockResolvedValue({ entries: [entry()], total: 1 })
-    render(<SyncLog />)
+    renderAt(<SyncLog />, '/sync-log')
 
     expect(await screen.findAllByText('T-Shirt')).not.toHaveLength(0)
     expect(screen.getByText(/mystore\.com/)).toBeInTheDocument()
@@ -54,14 +55,14 @@ describe('Sync History page', () => {
     vi.mocked(integrationsApi.listAllSyncLogs).mockResolvedValue({
       entries: [entry({ product_name: undefined })], total: 1,
     })
-    render(<SyncLog />)
+    renderAt(<SyncLog />, '/sync-log')
 
     expect(await screen.findByText('prod-1')).toBeInTheDocument()
   })
 
   it('shows the original and new value for each changed field, no click needed', async () => {
     vi.mocked(integrationsApi.listAllSyncLogs).mockResolvedValue({ entries: [entry()], total: 1 })
-    render(<SyncLog />)
+    renderAt(<SyncLog />, '/sync-log')
 
     expect(await screen.findByText('Old')).toBeInTheDocument()
   })
@@ -74,7 +75,7 @@ describe('Sync History page', () => {
       })],
       total: 1,
     })
-    render(<SyncLog />)
+    renderAt(<SyncLog />, '/sync-log')
 
     await screen.findByText('name:')
     expect(screen.queryByText('description:')).not.toBeInTheDocument()
@@ -85,7 +86,7 @@ describe('Sync History page', () => {
     vi.mocked(integrationsApi.listAllSyncLogs).mockResolvedValue({
       entries: [entry({ changes: {} })], total: 1,
     })
-    render(<SyncLog />)
+    renderAt(<SyncLog />, '/sync-log')
 
     expect(await screen.findByText('No changes')).toBeInTheDocument()
   })
@@ -94,14 +95,14 @@ describe('Sync History page', () => {
     vi.mocked(integrationsApi.listAllSyncLogs).mockResolvedValue({
       entries: [entry({ status: 'error', error_message: 'woo unreachable', changes: {} })], total: 1,
     })
-    render(<SyncLog />)
+    renderAt(<SyncLog />, '/sync-log')
 
     expect(await screen.findByText('woo unreachable')).toBeInTheDocument()
   })
 
   it('surfaces a fetch error', async () => {
     vi.mocked(integrationsApi.listAllSyncLogs).mockRejectedValue(new Error('internal server error'))
-    render(<SyncLog />)
+    renderAt(<SyncLog />, '/sync-log')
 
     expect(await screen.findByText('internal server error')).toBeInTheDocument()
   })
@@ -114,7 +115,7 @@ describe('Sync History page', () => {
         total: 25,
       }
     })
-    render(<SyncLog />)
+    renderAt(<SyncLog />, '/sync-log')
 
     await screen.findByText('Product page 1')
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
@@ -126,7 +127,7 @@ describe('Sync History page', () => {
       vi.mocked(integrationsApi.listSyncLogsNeedingAttention).mockResolvedValue({
         entries: [entry({ status: 'error', error_message: 'woocommerce request failed', changes: {} })], total: 1,
       })
-      render(<SyncLog />)
+      renderAt(<SyncLog />, '/sync-log')
 
       await userEvent.click(screen.getByRole('button', { name: /Needs attention/ }))
 
@@ -136,7 +137,7 @@ describe('Sync History page', () => {
     })
 
     it('shows a resolved empty state distinct from the "All" tab', async () => {
-      render(<SyncLog />)
+      renderAt(<SyncLog />, '/sync-log')
 
       await userEvent.click(screen.getByRole('button', { name: /Needs attention/ }))
 
@@ -148,7 +149,7 @@ describe('Sync History page', () => {
         entries: [entry({ status: 'error', changes: {} })], total: 1,
       })
       vi.mocked(integrationsApi.retryFailedSync).mockResolvedValue(null)
-      render(<SyncLog />)
+      renderAt(<SyncLog />, '/sync-log')
       await userEvent.click(screen.getByRole('button', { name: /Needs attention/ }))
       await screen.findByRole('button', { name: 'Retry' })
 
@@ -163,7 +164,7 @@ describe('Sync History page', () => {
         entries: [entry({ status: 'error', changes: {} })], total: 1,
       })
       vi.mocked(integrationsApi.dismissFailedSync).mockResolvedValue(null)
-      render(<SyncLog />)
+      renderAt(<SyncLog />, '/sync-log')
       await userEvent.click(screen.getByRole('button', { name: /Needs attention/ }))
       await screen.findByRole('button', { name: 'Dismiss' })
 
@@ -178,7 +179,7 @@ describe('Sync History page', () => {
         entries: [entry({ status: 'error', changes: {} })], total: 1,
       })
       vi.mocked(integrationsApi.retryFailedSync).mockRejectedValue(new Error('sync log entry not found'))
-      render(<SyncLog />)
+      renderAt(<SyncLog />, '/sync-log')
       await userEvent.click(screen.getByRole('button', { name: /Needs attention/ }))
       await screen.findByRole('button', { name: 'Retry' })
 
@@ -189,11 +190,18 @@ describe('Sync History page', () => {
 
     it('does not show Retry/Dismiss actions on the "All" tab', async () => {
       vi.mocked(integrationsApi.listAllSyncLogs).mockResolvedValue({ entries: [entry()], total: 1 })
-      render(<SyncLog />)
+      renderAt(<SyncLog />, '/sync-log')
 
       await screen.findAllByText('T-Shirt')
       expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument()
     })
+  })
+})
+
+describe('SyncLog URLs', () => {
+  it('view (?view=) and page (?page=) are read from the URL', async () => {
+    renderAt(<SyncLog />, '/sync-log', '/sync-log?view=needing-attention&page=2')
+    await waitFor(() => expect(integrationsApi.listSyncLogsNeedingAttention).toHaveBeenCalledWith('test-token', expect.objectContaining({ page: 2 })))
   })
 })

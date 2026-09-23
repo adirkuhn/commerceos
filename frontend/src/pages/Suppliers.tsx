@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, Search, Truck, Trash2, Edit3, ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useSuppliers } from '../suppliers/hooks/useSuppliers'
 import type { Supplier, SupplierInput, SupplierStatus } from '../suppliers/types'
-import { idFromPath } from '../routes'
+import { useQueryPage, useQueryString } from '../routing/useQueryState'
+import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
+import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 
 const PAGE_SIZE = 20
 
@@ -19,23 +20,20 @@ export default function Suppliers() {
   const { token } = useAuth()
   const { suppliers, loading, error, create, update, remove } = useSuppliers(token ?? '')
 
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
+  // Search and page live in the URL (?q=, ?page=) -- refresh and Back keep them.
+  const [searchParam, setSearch] = useQueryString('q', { resets: ['page'] })
+  const search = searchParam ?? ''
+  const [page, setPage] = useQueryPage()
   // The URL is the source of truth for "which supplier is open"
   // (/suppliers/<uuid>, or /suppliers/new) -- survives a refresh, and is how
   // global search (Cmd+K) deep-links straight to a specific supplier. Same
   // convention as Products.tsx's editingId (see its comment for why this
   // reads location.pathname on every render instead of useParams).
-  const location = useLocation()
-  const navigate = useNavigate()
-  const editingId = idFromPath(location.pathname, '/suppliers')
-  const openEditor = (id: string) => navigate(`/suppliers/${id}`)
-  const closeEditor = () => navigate('/suppliers')
+  const { editingId, openEdit: openEditor, openNew, close: closeEditor } = useRoutedEditor('/suppliers')
   const [deleteError, setDeleteError] = useState('')
 
   function handleSearchChange(value: string) {
     setSearch(value)
-    setPage(1)
   }
 
   const filtered = suppliers.filter(s =>
@@ -54,7 +52,10 @@ export default function Suppliers() {
   }
 
   if (editingId !== null) {
-    const existing = editingId === 'new' ? null : suppliers.find(s => s.id === editingId) ?? null
+    const existing = editingId === NEW_RECORD ? null : suppliers.find(s => s.id === editingId) ?? null
+    if (editingId !== NEW_RECORD && !existing) {
+      return loading ? <RecordLoading /> : <RecordNotFound label="Supplier" onBack={closeEditor} />
+    }
     return (
       <SupplierEditPage
         supplier={existing}
@@ -80,7 +81,7 @@ export default function Suppliers() {
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <button
-            onClick={() => openEditor('new')}
+            onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
           >
             <Plus size={13} /> Add Supplier

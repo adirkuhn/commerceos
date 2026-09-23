@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import UnmatchedSkus from '../UnmatchedSkus'
+import { renderAt } from '../../test/renderAt'
 import type { SalesOrder, SalesOrderDetail } from '../../oms/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -60,7 +61,7 @@ beforeEach(() => {
 
 describe('UnmatchedSkus', () => {
   it('shows an empty state when there are no unmatched SKUs', async () => {
-    render(<UnmatchedSkus />)
+    renderAt(<UnmatchedSkus />, '/unmatched-skus')
 
     expect(await screen.findByText("No unmatched SKUs — everything's linked")).toBeInTheDocument()
   })
@@ -68,7 +69,7 @@ describe('UnmatchedSkus', () => {
   it('lists orders flagged for SKU review, requesting the needsSkuReview filter', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
-    render(<UnmatchedSkus />)
+    renderAt(<UnmatchedSkus />, '/unmatched-skus')
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
     expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', expect.objectContaining({ needsSkuReview: true }))
@@ -78,7 +79,7 @@ describe('UnmatchedSkus', () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
 
-    render(<UnmatchedSkus />)
+    renderAt(<UnmatchedSkus />, '/unmatched-skus')
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('Mystery Item')).toBeInTheDocument()
@@ -96,7 +97,7 @@ describe('UnmatchedSkus', () => {
     } as never)
     vi.mocked(omsApi.linkLineItemSku).mockResolvedValue(salesOrder({ needs_sku_review: false }))
 
-    render(<UnmatchedSkus />)
+    renderAt(<UnmatchedSkus />, '/unmatched-skus')
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Mystery Item')
 
@@ -105,5 +106,12 @@ describe('UnmatchedSkus', () => {
     await userEvent.click(await screen.findByText('WID-BLU'))
 
     expect(omsApi.linkLineItemSku).toHaveBeenCalledWith('test-token', 'so-1', 'li-1', { sku_id: 'sku-1' })
+  })
+})
+
+describe('UnmatchedSkus URLs', () => {
+  it('requests the page in ?page=', async () => {
+    renderAt(<UnmatchedSkus />, '/unmatched-skus', '/unmatched-skus?page=3')
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', expect.objectContaining({ page: 3 })))
   })
 })

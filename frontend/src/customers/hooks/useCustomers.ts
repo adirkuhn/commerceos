@@ -17,7 +17,8 @@ interface UseCustomersActions {
 
 export function useCustomers(token: string): UseCustomersState & UseCustomersActions {
   const [customers, setCustomers] = useState<Customer[]>([])
-  const [loading, setLoading] = useState(false)
+  // true from the first render when a load is coming -- see useConnections.
+  const [loading, setLoading] = useState(Boolean(token))
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {

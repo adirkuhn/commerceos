@@ -10,6 +10,9 @@ import type { Customer, CustomerInput, Address } from '../customers/types'
 import { idFromPath } from '../routes'
 import * as omsApi from '../oms/api'
 import type { SalesOrder } from '../oms/types'
+import { useQueryPage, useQueryString } from '../routing/useQueryState'
+import { useStackNavigation } from '../routing/useStackNavigation'
+import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 
 const PAGE_SIZE = 20
 
@@ -112,8 +115,10 @@ export default function Customers() {
   const { token } = useAuth()
   const { customers, loading, error, create, update, remove } = useCustomers(token ?? '')
 
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
+  // Search and page live in the URL (?q=, ?page=) -- refresh and Back keep them.
+  const [searchParam, setSearch] = useQueryString('q', { resets: ['page'] })
+  const search = searchParam ?? ''
+  const [page, setPage] = useQueryPage()
   // The URL is the source of truth for "which customer is open"
   // (/customers/<uuid>, or /customers/new) -- survives a refresh, and is how
   // global search (Cmd+K) deep-links straight to a specific customer. Same
@@ -122,21 +127,20 @@ export default function Customers() {
   //
   // /customers/<id> alone opens the read-only detail view (Amount
   // spent/Orders, Timeline, Notes, addresses); ?edit=1 on top of that opens
-  // the edit form -- a separate flag rather than a separate path segment so
-  // the existing /customers/:id route (see routes.ts's SUB_PAGE_ROUTES)
-  // still matches without adding another registered route.
+  // the edit form.
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const openId = idFromPath(location.pathname, '/customers')
   const isEditing = searchParams.get('edit') === '1'
-  const openEditor = (id: string) => navigate(`/customers/${id}?edit=1`)
-  const closeEditor = () => navigate('/customers')
+  const { open, exitTo, exitToOpener } = useStackNavigation()
+  const openEditor = (id: string) => open(`/customers/${id}?edit=1`)
+  // Back to the exact list URL (search/page) it was opened from.
+  const closeEditor = () => exitToOpener('/customers')
   const [deleteError, setDeleteError] = useState('')
 
   function handleSearchChange(value: string) {
     setSearch(value)
-    setPage(1)
   }
 
   const filtered = customers.filter(c =>
@@ -160,12 +164,15 @@ export default function Customers() {
   if (openId !== null) {
     const existing = customers.find(c => c.id === openId) ?? null
     if (isEditing) {
+      if (!existing) {
+        return loading ? <RecordLoading /> : <RecordNotFound label="Customer" onBack={closeEditor} />
+      }
       return (
         <CustomerEditPage
           customer={existing}
           onCreate={create}
           onUpdate={update}
-          onClose={() => navigate(`/customers/${openId}`)}
+          onClose={() => exitTo(`/customers/${openId}`)}
         />
       )
     }

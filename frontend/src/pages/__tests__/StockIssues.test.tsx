@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import StockIssues from '../StockIssues'
+import { renderAt } from '../../test/renderAt'
 import type { SalesOrder, SalesOrderLineItem, SalesOrderDetail, RetryStockDecrementResult, ForceAcceptStockResult } from '../../oms/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -46,7 +47,7 @@ beforeEach(() => {
 
 describe('StockIssues', () => {
   it('shows an empty state when there are no stock issues', async () => {
-    render(<StockIssues />)
+    renderAt(<StockIssues />, '/stock-issues')
 
     expect(await screen.findByText("No stock issues — everything's resolved")).toBeInTheDocument()
   })
@@ -54,7 +55,7 @@ describe('StockIssues', () => {
   it('lists orders flagged for stock review, requesting the needsStockReview filter', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
-    render(<StockIssues />)
+    renderAt(<StockIssues />, '/stock-issues')
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
@@ -66,7 +67,7 @@ describe('StockIssues', () => {
     const result: RetryStockDecrementResult = { sales_order: salesOrder({ needs_stock_review: false }), resolved: 1, still_pending: 0 }
     vi.mocked(omsApi.retryStockDecrement).mockResolvedValue(result)
 
-    render(<StockIssues />)
+    renderAt(<StockIssues />, '/stock-issues')
     await screen.findByText('#1001')
 
     await userEvent.click(screen.getByRole('button', { name: 'Retry stock' }))
@@ -82,7 +83,7 @@ describe('StockIssues', () => {
       sales_order: salesOrder(), resolved: 0, still_pending: 1,
     })
 
-    render(<StockIssues />)
+    renderAt(<StockIssues />, '/stock-issues')
     await screen.findByText('#1001')
     await userEvent.click(screen.getByRole('button', { name: 'Retry stock' }))
 
@@ -93,7 +94,7 @@ describe('StockIssues', () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.retryStockDecrement).mockRejectedValue(new Error('order not stock reducing'))
 
-    render(<StockIssues />)
+    renderAt(<StockIssues />, '/stock-issues')
     await screen.findByText('#1001')
     await userEvent.click(screen.getByRole('button', { name: 'Retry stock' }))
 
@@ -108,7 +109,7 @@ describe('StockIssues', () => {
     }
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail)
 
-    render(<StockIssues />)
+    renderAt(<StockIssues />, '/stock-issues')
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
@@ -122,7 +123,7 @@ describe('StockIssues', () => {
     const result: ForceAcceptStockResult = { sales_order: salesOrder({ needs_stock_review: false }), resolved: 1 }
     vi.mocked(omsApi.forceAcceptStock).mockResolvedValue(result)
 
-    render(<StockIssues />)
+    renderAt(<StockIssues />, '/stock-issues')
     await screen.findByText('#1001')
 
     await userEvent.click(screen.getByRole('button', { name: 'Force accept' }))
@@ -136,10 +137,17 @@ describe('StockIssues', () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.forceAcceptStock).mockRejectedValue(new Error('order not found'))
 
-    render(<StockIssues />)
+    renderAt(<StockIssues />, '/stock-issues')
     await screen.findByText('#1001')
     await userEvent.click(screen.getByRole('button', { name: 'Force accept' }))
 
     expect(await screen.findByText('order not found')).toBeInTheDocument()
+  })
+})
+
+describe('StockIssues URLs', () => {
+  it('requests the page in ?page=', async () => {
+    renderAt(<StockIssues />, '/stock-issues', '/stock-issues?page=3')
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', expect.objectContaining({ page: 3 })))
   })
 })

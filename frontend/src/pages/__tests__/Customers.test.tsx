@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Customers from '../Customers'
+import { renderAt } from '../../test/renderAt'
+import { act } from 'react'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
 import type { Customer } from '../../customers/types'
 import type { SalesOrder } from '../../oms/types'
@@ -425,5 +427,29 @@ describe('Customer edit page', () => {
 
     expect(customersApi.updateCustomer).not.toHaveBeenCalled()
     expect(await screen.findByText('Jane Doe', { selector: 'h1' })).toBeInTheDocument()
+  })
+})
+
+describe('Customers URLs', () => {
+  it('page (?page=) is read from the URL', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue(Array.from({ length: 25 }, (_, i) => customer({ id: `c${i}`, email: `c${i}@x.com` })))
+    renderAt(<Customers />, '/customers', '/customers?page=2')
+    expect(await screen.findByText('Page 2 of 2')).toBeInTheDocument()
+  })
+
+  it('closing a customer returns to the list page it was opened from', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+    const { router } = renderAt(<Customers />, '/customers', '/customers?q=a')
+    const c = customer()
+    await userEvent.click(await screen.findByText(`${c.first_name} ${c.last_name}`))
+    expect(router.state.location.pathname).toBe(`/customers/${c.id}`)
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname + router.state.location.search).toBe('/customers?q=a')
+  })
+
+  it('an unknown id in edit mode shows not-found instead of a blank create form', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+    renderAt(<Customers />, '/customers', '/customers/nope?edit=1')
+    expect(await screen.findByText('Customer not found')).toBeInTheDocument()
   })
 })

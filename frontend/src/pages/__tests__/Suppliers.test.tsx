@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Suppliers from '../Suppliers'
+import { renderAt } from '../../test/renderAt'
+import { act } from 'react'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
 import type { Supplier } from '../../suppliers/types'
 
@@ -267,5 +269,28 @@ describe('Supplier edit page', () => {
 
     expect(suppliersApi.updateSupplier).not.toHaveBeenCalled()
     expect(await screen.findByText('Acme Foods')).toBeInTheDocument()
+  })
+})
+
+describe('Suppliers URLs', () => {
+  it('page (?page=) is read from the URL', async () => {
+    vi.mocked(suppliersApi.listSuppliers).mockResolvedValue(Array.from({ length: 25 }, (_, i) => supplier({ id: `s${i}`, name: `Sup ${i}` })))
+    renderAt(<Suppliers />, '/suppliers', '/suppliers?page=2')
+    expect(await screen.findByText('Page 2 of 2')).toBeInTheDocument()
+  })
+
+  it('Back from an opened supplier returns to the list page it came from', async () => {
+    vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
+    const { router } = renderAt(<Suppliers />, '/suppliers', '/suppliers?q=ac')
+    await userEvent.click(await screen.findByText(supplier().name))
+    expect(router.state.location.pathname).toBe(`/suppliers/${supplier().id}`)
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname + router.state.location.search).toBe('/suppliers?q=ac')
+  })
+
+  it('an unknown supplier id shows not-found', async () => {
+    vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
+    renderAt(<Suppliers />, '/suppliers', '/suppliers/nope')
+    expect(await screen.findByText('Supplier not found')).toBeInTheDocument()
   })
 })
