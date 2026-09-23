@@ -1,16 +1,6 @@
 import { useState } from 'react'
 import { acceptInvite } from '../team/api'
-
-const shellStyle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f5f5f5',
-}
-const cardStyle: React.CSSProperties = {
-  background: '#fff', padding: '48px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', minWidth: '320px', maxWidth: '380px',
-}
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '10px', marginBottom: '12px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '0.95rem',
-}
-const labelStyle: React.CSSProperties = { display: 'block', marginBottom: '4px', fontSize: '0.85rem', color: '#555' }
+import { AuthLayout, inputClass, labelClass, primaryButtonClass } from './AuthLayout'
 
 export function AcceptInvite() {
   const token = new URLSearchParams(window.location.search).get('token')
@@ -22,25 +12,14 @@ export function AcceptInvite() {
   const [done, setDone] = useState(false)
 
   if (!token) {
-    return (
-      <div style={shellStyle}>
-        <div style={cardStyle}>
-          <h1 style={{ margin: '0 0 8px', fontSize: '1.5rem' }}>CommerceOS</h1>
-          <p style={{ margin: 0, color: '#666' }}>No invite token found in the URL.</p>
-        </div>
-      </div>
-    )
+    return <AuthLayout title="CommerceOS" subtitle="No invite token found in the URL." />
   }
 
   if (done) {
     return (
-      <div style={shellStyle}>
-        <div style={cardStyle}>
-          <h1 style={{ margin: '0 0 8px', fontSize: '1.5rem' }}>You&apos;re in!</h1>
-          <p style={{ margin: '0 0 24px', color: '#666' }}>Your invite has been accepted. Sign in to continue.</p>
-          <a href="/">Go to login</a>
-        </div>
-      </div>
+      <AuthLayout title="You're in!" subtitle="Your invite has been accepted. Sign in to continue.">
+        <a href="/" className={`${primaryButtonClass} block text-center`}>Go to login</a>
+      </AuthLayout>
     )
   }
 
@@ -59,36 +38,30 @@ export function AcceptInvite() {
   }
 
   return (
-    <div style={shellStyle}>
-      <div style={cardStyle}>
-        <h1 style={{ margin: '0 0 8px', fontSize: '1.5rem' }}>Accept Invite</h1>
-        <p style={{ margin: '0 0 24px', color: '#666' }}>
-          Already have an Akantio account? Just click Accept. New here? Fill in your name and pick a password.
-        </p>
-        <form onSubmit={handleSubmit}>
-          <label style={labelStyle} htmlFor="ai-first-name">First name</label>
-          <input id="ai-first-name" style={inputStyle} value={firstName} onChange={e => setFirstName(e.target.value)} />
+    <AuthLayout
+      title="Accept Invite"
+      subtitle="Already have an Akantio account? Just click Accept. New here? Fill in your name and pick a password."
+    >
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className={labelClass} htmlFor="ai-first-name">First name</label>
+          <input id="ai-first-name" autoComplete="given-name" className={inputClass} value={firstName} onChange={e => setFirstName(e.target.value)} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="ai-last-name">Last name</label>
+          <input id="ai-last-name" autoComplete="family-name" className={inputClass} value={lastName} onChange={e => setLastName(e.target.value)} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="ai-password">Password (new account only)</label>
+          <input id="ai-password" type="password" autoComplete="new-password" className={inputClass} value={password} onChange={e => setPassword(e.target.value)} />
+        </div>
 
-          <label style={labelStyle} htmlFor="ai-last-name">Last name</label>
-          <input id="ai-last-name" style={inputStyle} value={lastName} onChange={e => setLastName(e.target.value)} />
+        {error && <p role="alert" className="text-xs text-danger">{error}</p>}
 
-          <label style={labelStyle} htmlFor="ai-password">Password (new account only)</label>
-          <input id="ai-password" type="password" style={inputStyle} value={password} onChange={e => setPassword(e.target.value)} />
-
-          {error && <p style={{ color: 'red', fontSize: '0.85rem', margin: '0 0 12px' }}>{error}</p>}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              width: '100%', padding: '12px', background: '#1a1a1a', color: '#fff', border: 'none',
-              borderRadius: '6px', fontSize: '1rem', cursor: 'pointer',
-            }}
-          >
-            {submitting ? 'Accepting…' : 'Accept Invite'}
-          </button>
-        </form>
-      </div>
-    </div>
+        <button type="submit" disabled={submitting} className={`${primaryButtonClass} !mt-5`}>
+          {submitting ? 'Accepting…' : 'Accept Invite'}
+        </button>
+      </form>
+    </AuthLayout>
   )
 }

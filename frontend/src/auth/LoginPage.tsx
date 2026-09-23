@@ -1,32 +1,16 @@
 import { useState } from 'react'
 import { hasLoginUrl, APP_ID, lm2Origin } from './loginConfig'
+import { AuthLayout, primaryButtonClass, secondaryButtonClass } from './AuthLayout'
 
 const LM2_LOGIN_URL = import.meta.env.VITE_LM2_LOGIN_URL as string
 const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
 
 function ConfigMissing() {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      background: '#f5f5f5',
-    }}>
-      <div style={{
-        background: '#fff',
-        padding: '48px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        textAlign: 'center',
-        maxWidth: '420px',
-      }}>
-        <h1 style={{ margin: '0 0 8px', fontSize: '1.5rem' }}>CommerceOS</h1>
-        <p style={{ margin: 0, color: '#666' }}>
-          The lm2 login server is not configured. Set <code>VITE_LM2_LOGIN_URL</code> to enable sign-in.
-        </p>
-      </div>
-    </div>
+    <AuthLayout
+      title="CommerceOS"
+      subtitle={<>The lm2 login server is not configured. Set <code>VITE_LM2_LOGIN_URL</code> to enable sign-in.</>}
+    />
   )
 }
 
@@ -63,59 +47,16 @@ export function LoginPage() {
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      background: '#f5f5f5',
-    }}>
-      <div style={{
-        background: '#fff',
-        padding: '48px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        textAlign: 'center',
-        minWidth: '320px',
-      }}>
-        <h1 style={{ margin: '0 0 8px', fontSize: '1.5rem' }}>CommerceOS</h1>
-        <p style={{ margin: '0 0 32px', color: '#666' }}>Sign in to continue</p>
-        <button
-          onClick={handleLogin}
-          style={{
-            width: '100%',
-            padding: '12px',
-            background: '#1a1a1a',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '6px',
-            fontSize: '1rem',
-            cursor: 'pointer',
-          }}
-        >
+    <AuthLayout title="CommerceOS" subtitle="Sign in to continue">
+      <div className="space-y-3">
+        <button onClick={handleLogin} className={primaryButtonClass}>
           Sign in with lm2
         </button>
-
-        {googleError && <p style={{ color: 'red', margin: '12px 0 0', fontSize: '0.85rem' }}>{googleError}</p>}
-
-        <button
-          onClick={handleGoogleLogin}
-          disabled={googleLoading}
-          style={{
-            width: '100%',
-            marginTop: '12px',
-            padding: '12px',
-            background: '#fff',
-            color: '#1a1a1a',
-            border: '1px solid #ddd',
-            borderRadius: '6px',
-            fontSize: '1rem',
-            cursor: 'pointer',
-          }}
-        >
+        <button onClick={handleGoogleLogin} disabled={googleLoading} className={secondaryButtonClass}>
           {googleLoading ? 'Redirecting…' : 'Sign in with Google'}
         </button>
+        {googleError && <p role="alert" className="text-xs text-danger">{googleError}</p>}
       </div>
-    </div>
+    </AuthLayout>
   )
 }

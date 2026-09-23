@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AuthLayout } from './AuthLayout'
 import { useAuth } from './AuthContext'
 
 export function CallbackPage() {
@@ -30,18 +31,11 @@ export function CallbackPage() {
 
   if (error) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ color: 'red' }}>{error}</p>
-          <a href="/">Return to login</a>
-        </div>
-      </div>
+      <AuthLayout title="Sign-in failed" subtitle={<span role="alert" className="text-danger">{error}</span>}>
+        <a href="/" className="text-sm font-medium text-accent hover:underline">Return to login</a>
+      </AuthLayout>
     )
   }
 
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <p>Signing you in...</p>
-    </div>
-  )
+  return <AuthLayout title="CommerceOS" subtitle="Signing you in…" />
 }

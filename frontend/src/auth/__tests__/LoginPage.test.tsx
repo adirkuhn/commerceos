@@ -36,6 +36,6 @@ describe('LoginPage — Google sign-in', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /sign in with google/i }))
 
-    expect(await screen.findByText('Google sign-in is unavailable')).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Google sign-in is unavailable')
   })
 })

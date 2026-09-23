@@ -54,6 +54,13 @@ describe('AcceptInvite', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /accept invite/i }))
 
-    expect(await screen.findByText('invite is invalid, expired, or already used')).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('invite is invalid, expired, or already used')
+  })
+
+  it('lets the browser fill the name and suggest a new password', () => {
+    renderWithToken('good-token')
+    expect(screen.getByLabelText('First name')).toHaveAttribute('autocomplete', 'given-name')
+    expect(screen.getByLabelText('Last name')).toHaveAttribute('autocomplete', 'family-name')
+    expect(screen.getByLabelText(/Password/)).toHaveAttribute('autocomplete', 'new-password')
   })
 })
