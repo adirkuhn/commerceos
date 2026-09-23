@@ -50,6 +50,32 @@ describe('listSalesOrders', () => {
   })
 })
 
+describe('listSalesOrders readyToPack', () => {
+  it('sends ready_to_pack=true when requested, omits it otherwise', async () => {
+    const fetchMock = mockFetch({ sales_orders: [], total: 0 })
+
+    await api.listSalesOrders(TOKEN, { readyToPack: true })
+    expect(fetchMock.mock.calls[0][0] as string).toContain('ready_to_pack=true')
+
+    await api.listSalesOrders(TOKEN, {})
+    expect(fetchMock.mock.calls[1][0] as string).not.toContain('ready_to_pack')
+  })
+})
+
+describe('getPickList', () => {
+  it('repeats sales_order_id per order and returns the pick list', async () => {
+    const pickList = { items: [{ sku_id: 'sku-a', sku_code: 'A', barcode: '', name: 'Apple', total_quantity: 3, orders: [] }] }
+    const fetchMock = mockFetch(pickList)
+
+    const result = await api.getPickList(TOKEN, ['so-1', 'so-2'])
+
+    const url = fetchMock.mock.calls[0][0] as string
+    expect(url).toContain('/sales-orders/pick-list?')
+    expect(url).toContain('sales_order_id=so-1&sales_order_id=so-2')
+    expect(result).toEqual(pickList)
+  })
+})
+
 describe('bulkUpdateSalesOrders', () => {
   it('posts order_ids/status/fulfilled and maps the updated/failed result', async () => {
     const fetchMock = mockFetch({ updated: ['so-1'], failed: [{ order_id: 'so-2', error: 'sales order not found' }] })

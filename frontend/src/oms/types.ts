@@ -58,8 +58,8 @@ export interface SalesOrder {
   // app's "orders to pick" search.
   fulfilled?: boolean
   // Fulfilled's packing-phase counterpart -- true once a PackingSession has
-  // completed for this order. false (combined with fulfilled:true) powers
-  // the packing screens' "orders ready to pack" search.
+  // completed for this order (which also sets fulfilled: picking is
+  // optional, an order may be packed without ever being picked).
   packed?: boolean
 }
 
@@ -197,4 +197,27 @@ export interface APIError {
 export interface APIResponse<T> {
   data: T | null
   error: APIError | null
+}
+
+// PickList mirrors api/oms's PickList -- a read-only "what to fetch off the
+// shelves" view across several orders, summed per SKU. sku_id null means
+// the order line was never linked to a catalog SKU (grouped by name).
+export interface PickListOrderLine {
+  sales_order_id: string
+  order_number: string
+  line_item_id: string
+  quantity: number
+}
+
+export interface PickListItem {
+  sku_id: string | null
+  sku_code: string
+  barcode: string
+  name: string
+  total_quantity: number
+  orders: PickListOrderLine[]
+}
+
+export interface PickList {
+  items: PickListItem[]
 }

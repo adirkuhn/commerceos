@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ScanBarcode, CheckCircle, Package, Search, X, Trash2, ArrowLeft, Undo2 } from 'lucide-react'
+import { ScanBarcode, CheckCircle, Package, X, Trash2, ArrowLeft, Undo2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as omsApi from '../oms/api'
 import { useRoutedSession } from '../oms/useRoutedSession'
 import { SessionErrorPanel } from '../oms/SessionErrorPanel'
+import { PackingOrderQueue } from '../packing/PackingOrderQueue'
+import { PickListPrintView } from '../packing/PickListPrintView'
+import { customerName, formatMoney } from '../packing/orderDisplay'
+import { useQueryString } from '../routing/useQueryState'
 import type { SalesOrder, Address } from '../oms/types'
 import * as packingApi from '../scanner/api'
 import type { PackingSessionDetail, PickingSessionLineItem, PackScan, CompletePackingResult } from '../scanner/types'
@@ -40,19 +44,6 @@ function LineItemThumb({ token, productId }: { token: string; productId?: string
   )
 }
 
-function formatMoney(minorUnits: number, currencyCode: string): string {
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'USD' }).format(minorUnits / 100)
-  } catch {
-    return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
-  }
-}
-
-function customerName(order: SalesOrder): string {
-  const name = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ')
-  return name || order.billing?.email || '—'
-}
-
 function shippingAddressLine(address?: Address): string {
   if (!address) return ''
   const streetAndLocality = [address.address_1, address.address_2, [address.postcode, address.city].filter(Boolean).join(' ')]
@@ -70,11 +61,16 @@ export default function Packing() {
   const { token } = useAuth()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  // ?pick=<id,id> shows the multi-order pick list. Opening pushes (Back
+  // closes it, refresh keeps it); the Close button replaces, so closing
+  // doesn't leave a Back step that reopens it.
+  const [pickParam, setPickParam] = useQueryString('pick', { history: 'push' })
+  const [, clearPickParam] = useQueryString('pick')
+  const pickIds = pickParam ? pickParam.split(',').filter(Boolean) : []
 
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [ordersLoading, setOrdersLoading] = useState(true)
   const [ordersError, setOrdersError] = useState('')
-  const [search, setSearch] = useState('')
 
   const [activeOrder, setActiveOrder] = useState<SalesOrder | null>(null)
   const [session, setSession] = useState<PackingSessionDetail | null>(null)
@@ -138,7 +134,7 @@ export default function Packing() {
     setOrdersLoading(true)
     setOrdersError('')
     try {
-      const result = await omsApi.listSalesOrders(token, { fulfilled: true, packed: false, perPage: 100 })
+      const result = await omsApi.listSalesOrders(token, { readyToPack: true, perPage: 100 })
       setOrders(result.salesOrders)
     } catch (err) {
       setOrdersError(err instanceof Error ? err.message : 'Failed to load orders')
@@ -382,62 +378,20 @@ export default function Packing() {
   const progress = totalItems > 0 ? (packedItems / totalItems) * 100 : 0
   const allPacked = totalItems > 0 && packedItems >= totalItems
 
-  const filteredOrders = orders.filter(o => {
-    if (!search.trim()) return true
-    const q = search.toLowerCase()
-    return (o.number || o.external_order_id).toLowerCase().includes(q) || customerName(o).toLowerCase().includes(q)
-  })
-
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
+
+
+  if (token && pickIds.length > 0) {
+    return <PickListPrintView token={token} orderIds={pickIds} onClose={() => clearPickParam(null)} />
+  }
 
   return (
     <div className="flex h-full">
-      {/* Order queue */}
-      <div className="w-64 border-r border-line bg-sunken flex flex-col overflow-hidden shrink-0">
-        <div className="px-4 py-3 border-b border-line">
-          <p className="text-xs font-semibold text-ink">Orders to pack</p>
-          <p className="text-2xs text-ink-4 mt-0.5">{orders.length} ready to pack</p>
-        </div>
-        <div className="px-3 py-2 border-b border-line">
-          <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-4" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search orders..."
-              className="w-full pl-7 pr-2 py-1.5 text-2xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
-            />
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto py-2">
-          {ordersLoading && <p className="px-4 py-3 text-2xs text-ink-4">Loading…</p>}
-          {ordersError && <p className="px-4 py-3 text-2xs text-danger">{ordersError}</p>}
-          {!ordersLoading && filteredOrders.length === 0 && (
-            <p className="px-4 py-3 text-2xs text-ink-4">No orders ready to pack</p>
-          )}
-          {filteredOrders.map(o => (
-            <button aria-pressed={activeOrder?.id === o.id}
-              key={o.id}
-              onClick={() => selectOrder(o)}
-              className={clsx(
-                'w-full text-left px-4 py-3 border-b border-line transition-colors',
-                activeOrder?.id === o.id
-                  ? ' bg-accent/10 border-l-2 border-l-accent'
-                  : 'hover:bg-raised',
-              )}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-ink">#{o.number || o.external_order_id}</span>
-                {activeOrder?.id === o.id && session?.session.status === 'in_progress' && (
-                  <span className="text-2xs font-medium text-accent">In progress</span>
-                )}
-              </div>
-              <p className="text-2xs text-ink-3 truncate">{customerName(o)}</p>
-              <p className="text-2xs text-ink-4 mt-0.5">{formatMoney(o.total_minor_units, o.currency_code)}</p>
-            </button>
-          ))}
-        </div>
-      </div>
+      <PackingOrderQueue
+        orders={orders} loading={ordersLoading} error={ordersError}
+        activeOrderId={activeOrder?.id ?? null} activeInProgress={session?.session.status === 'in_progress'}
+        onSelect={selectOrder} onOpenPickList={ids => setPickParam(ids.join(','))}
+      />
 
       {/* Main pack area */}
       <div className="flex-1 flex flex-col overflow-hidden">

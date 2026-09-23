@@ -1,4 +1,4 @@
-import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity } from './types'
+import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity, PickList } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/sales-orders`
@@ -30,10 +30,13 @@ export interface ListSalesOrdersParams {
   // fulfilled: false powers the picking scanner app's "orders to pick"
   // search. Omit for the normal unfiltered sales orders list.
   fulfilled?: boolean
-  // packed: false, combined with fulfilled:true, powers the packing
-  // screens' "orders ready to pack" search. Omit for the normal unfiltered
-  // sales orders list.
+  // packed: filter on the order's packing status. Omit for the normal
+  // unfiltered sales orders list.
   packed?: boolean
+  // readyToPack: true powers the packing screens' queue -- orders a packing
+  // session may start for. Picking is optional, so this includes unpicked
+  // orders; the rule lives in the backend (SalesOrder.CanStartPacking).
+  readyToPack?: boolean
   // status: narrows to the given statuses -- combined with fulfilled:false,
   // the picking screens use this to exclude completed/cancelled/refunded/
   // failed orders. Omit for the normal unfiltered sales orders list.
@@ -62,6 +65,7 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
   if (params.needsSkuReview !== undefined) qs.set('needs_sku_review', String(params.needsSkuReview))
   if (params.fulfilled !== undefined) qs.set('fulfilled', String(params.fulfilled))
   if (params.packed !== undefined) qs.set('packed', String(params.packed))
+  if (params.readyToPack) qs.set('ready_to_pack', 'true')
   for (const status of params.status ?? []) qs.append('status', status)
   for (const source of params.source ?? []) qs.append('source', source)
   if (params.customerId) qs.set('customer_id', params.customerId)
@@ -71,6 +75,12 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
     `${base()}${query ? `?${query}` : ''}`, token,
   )
   return { salesOrders: result.sales_orders, total: result.total }
+}
+
+export function getPickList(token: string, salesOrderIds: string[]): Promise<PickList> {
+  const qs = new URLSearchParams()
+  for (const id of salesOrderIds) qs.append('sales_order_id', id)
+  return request<PickList>(`${base()}/pick-list?${qs.toString()}`, token)
 }
 
 export function getSalesOrder(token: string, id: string): Promise<SalesOrderDetail> {

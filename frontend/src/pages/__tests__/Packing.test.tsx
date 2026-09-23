@@ -16,6 +16,7 @@ vi.mock('../../auth/AuthContext', () => ({
 vi.mock('../../oms/api', () => ({
   listSalesOrders: vi.fn(),
   getSalesOrder: vi.fn(),
+  getPickList: vi.fn(),
 }))
 
 vi.mock('../../scanner/api', () => ({
@@ -149,11 +150,37 @@ describe('Packing page URLs (refresh + Back)', () => {
 })
 
 describe('Packing page', () => {
-  it('lists orders ready to pack, fulfilled and not yet packed', async () => {
+  it('lists orders ready to pack -- picked or not, the backend decides', async () => {
     render(<MemoryRouter><Packing /></MemoryRouter>)
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
-    expect(vi.mocked(omsApi.listSalesOrders)).toHaveBeenCalledWith('test-token', { fulfilled: true, packed: false, perPage: 100 })
+    expect(vi.mocked(omsApi.listSalesOrders)).toHaveBeenCalledWith('test-token', { readyToPack: true, perPage: 100 })
+  })
+
+  it('ticking orders and opening the pick list puts it in the URL (Back closes it)', async () => {
+    vi.mocked(omsApi.getPickList).mockResolvedValue({
+      items: [{ sku_id: 'sku-1', sku_code: 'W-1', barcode: '', name: 'Widget', total_quantity: 2, orders: [] }],
+    })
+    const user = userEvent.setup()
+    const { router } = renderAt(<Packing />, '/packing')
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Add #1001 to pick list' }))
+    await user.click(screen.getByRole('button', { name: /Pick list/ }))
+
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+    expect(router.state.location.search).toBe('?pick=so-1')
+    expect(omsApi.getPickList).toHaveBeenCalledWith('test-token', ['so-1'])
+
+    await act(async () => { await router.navigate(-1) })
+    expect(screen.queryByText('Widget')).not.toBeInTheDocument()
+  })
+
+  it('a pick list URL opens straight into the pick list (refresh-safe)', async () => {
+    vi.mocked(omsApi.getPickList).mockResolvedValue({ items: [] })
+    renderAt(<Packing />, '/packing', '/packing?pick=so-1,so-2')
+
+    expect(await screen.findByRole('heading', { name: 'Pick list' })).toBeInTheDocument()
+    expect(omsApi.getPickList).toHaveBeenCalledWith('test-token', ['so-1', 'so-2'])
   })
 
   it('selecting an order starts/resumes a packing session and shows its line items', async () => {

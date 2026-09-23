@@ -25,9 +25,10 @@ function customerName(order: SalesOrder): string {
   return name || order.billing?.email || 'Unknown customer'
 }
 
-// Mirrors SalesOrderPickerScreen exactly -- the packing-phase counterpart:
-// lists orders whose picking is done (fulfilled:true) but packing isn't yet
-// (packed:false), see SalesOrder.Packed's doc.
+// Mirrors SalesOrderPickerScreen -- the packing-phase counterpart. Picking is
+// optional, so it lists every order a packing session may start for
+// (readyToPack, rule owned by the backend's SalesOrder.CanStartPacking),
+// picked or not; "Not picked" marks the latter.
 export function SalesOrderPackerScreen({ token, onPackingStarted, onLogout, onBack }: SalesOrderPackerScreenProps) {
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([])
   const [query, setQuery] = useState('')
@@ -36,7 +37,7 @@ export function SalesOrderPackerScreen({ token, onPackingStarted, onLogout, onBa
   const [startingId, setStartingId] = useState<string | null>(null)
 
   useEffect(() => {
-    omsApi.listSalesOrders(token, { fulfilled: true, packed: false, perPage: 100 })
+    omsApi.listSalesOrders(token, { readyToPack: true, perPage: 100 })
       .then(result => setSalesOrders(result.salesOrders))
       .catch(err => setError(err instanceof Error ? err.message : 'Failed to load sales orders'))
       .finally(() => setLoading(false))
@@ -104,6 +105,12 @@ export function SalesOrderPackerScreen({ token, onPackingStarted, onLogout, onBa
                 <span>#{o.number || o.external_order_id}</span>
                 <span>·</span>
                 <span>{formatDate(o.occurred_at)}</span>
+                {!o.fulfilled && (
+                  <>
+                    <span>·</span>
+                    <span className="text-amber-400">Not picked</span>
+                  </>
+                )}
               </p>
             </div>
             <p className="text-xs font-medium text-gray-300 shrink-0">{formatPrice(o.total_minor_units, o.currency_code)}</p>
