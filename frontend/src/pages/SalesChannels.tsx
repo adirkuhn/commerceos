@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { ArrowLeft, Radio, X, Search, Code2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useSalesChannelRoute } from '../integrations/hooks/useSalesChannelRoute'
 import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
+import { useInitOnce } from '../routing/useInitOnce'
 import { useSalesChannels } from '../integrations/hooks/useSalesChannels'
 import { useSalesChannelProducts } from '../integrations/hooks/useSalesChannelProducts'
 import { useConnections } from '../integrations/hooks/useConnections'
@@ -221,32 +222,19 @@ export default function SalesChannels() {
   const openEdit = (channel: SalesChannel) => route.openEdit(channel.id)
   const closeForm = route.close
 
-  // (Re)initialise the form once per opened form URL -- also on a refresh,
-  // where the channel and connections arrive after the first render. An
-  // edit waits for the channel's connection to be loaded (or for the load
-  // to fail): toForm reads the connection's default location, and saving a
-  // form built without it would clear that location on the connection.
-  const formInitFor = useRef<string | null>(null)
+  // Fill the form once per opened form URL -- also on a refresh, where the
+  // channel and connections arrive after the first render. An edit waits
+  // for the channel's connection to be loaded (or for the load to fail):
+  // toForm reads the connection's default location, and saving a form
+  // built without it would clear that location on the connection.
   const formKey = creating ? 'new' : editingChannel ? `edit:${editingChannel.id}` : null
   const editReady = !!editingChannel && (
     !editingChannel.connection_id || connections.some(c => c.id === editingChannel.connection_id) || !!connectionsError
   )
-  useEffect(() => {
-    if (formKey === null) {
-      formInitFor.current = null
-      return
-    }
-    if (formInitFor.current === formKey) return
-    if (creating) {
-      setForm(emptyForm())
-    } else if (editingChannel && editReady) {
-      setForm(toForm(editingChannel, connections))
-    } else {
-      return
-    }
+  const formReady = useInitOnce(formKey, creating || editReady, () => {
+    setForm(editingChannel ? toForm(editingChannel, connections) : emptyForm())
     setFormError('')
-    formInitFor.current = formKey
-  }, [formKey, creating, editingChannel, editReady, connections])
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -411,7 +399,7 @@ export default function SalesChannels() {
         </>
       )}
 
-      {(creating || (editingChannel && formInitFor.current === formKey)) && (
+      {formReady && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeForm} />
           <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">

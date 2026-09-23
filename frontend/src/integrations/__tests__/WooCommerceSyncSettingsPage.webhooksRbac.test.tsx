@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import WooCommerceSyncSettingsPage from '../WooCommerceSyncSettingsPage'
 import type { Connection } from '../types'
 
@@ -48,7 +49,7 @@ beforeEach(() => {
 
 describe('WooCommerceSyncSettingsPage — Webhooks tab RBAC', () => {
   it('is hidden for a plain customer_user', async () => {
-    render(<WooCommerceSyncSettingsPage connection={connection} onClose={vi.fn()} />)
+    render(<MemoryRouter><WooCommerceSyncSettingsPage connection={connection} onClose={vi.fn()} /></MemoryRouter>)
 
     expect(await screen.findByRole('button', { name: 'Sync' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Webhooks' })).not.toBeInTheDocument()

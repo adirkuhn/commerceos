@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import WooCommerceSyncSettingsPage from '../WooCommerceSyncSettingsPage'
 import type { Connection } from '../types'
 
@@ -49,7 +50,7 @@ beforeEach(() => {
 })
 
 async function openWebhooksTab() {
-  render(<WooCommerceSyncSettingsPage connection={connection} onClose={vi.fn()} />)
+  render(<MemoryRouter><WooCommerceSyncSettingsPage connection={connection} onClose={vi.fn()} /></MemoryRouter>)
   await userEvent.click(await screen.findByRole('button', { name: 'Webhooks' }))
 }
 

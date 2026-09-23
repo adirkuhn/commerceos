@@ -17,7 +17,10 @@ interface UseCouponsActions {
 
 export function useCoupons(token: string): UseCouponsState & UseCouponsActions {
   const [coupons, setCoupons] = useState<Coupon[]>([])
-  const [loading, setLoading] = useState(false)
+  // true from the first render when a load is coming, so callers never
+  // mistake "not fetched yet" for "empty" (e.g. a URL-addressed record
+  // flashing "not found" before the list arrives).
+  const [loading, setLoading] = useState(Boolean(token))
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {

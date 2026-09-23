@@ -4,7 +4,13 @@ import {
   ChevronRight, Check, AlertTriangle, Bot, X, Percent, Trash2, TrendingUp,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { subPathSegments } from '../routes'
+import { useStackNavigation } from '../routing/useStackNavigation'
+import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
+import { useInitOnce } from '../routing/useInitOnce'
+import { ConnectionRoute } from '../integrations/ConnectionRoute'
 import { useConnections } from '../integrations/hooks/useConnections'
 import { useAIConnection } from '../integrations/hooks/useAIConnection'
 import WooCommerceSyncSettingsPage from '../integrations/WooCommerceSyncSettingsPage'
@@ -68,12 +74,36 @@ const AUTOMATIONS = [
   { id: '5', name: 'Reserve stock on order', active: true, trigger: 'New order received', action: 'Reserve inventory' },
 ]
 
-export default function Settings() {
-  const [activeSection, setActiveSection] = useState<SectionId>('company')
-  const [configuringConnection, setConfiguringConnection] = useState<Connection | null>(null)
+const SETTINGS_PATH = '/settings'
+const TAX_CLASSES_PATH = `${SETTINGS_PATH}/tax/classes`
+const DEFAULT_SECTION: SectionId = 'company'
+const INTEGRATIONS_SECTION_PATH = `${SETTINGS_PATH}/integrations`
 
-  if (configuringConnection) {
-    return <WooCommerceSyncSettingsPage connection={configuringConnection} onClose={() => setConfiguringConnection(null)} />
+function sectionPath(id: SectionId): string {
+  return id === DEFAULT_SECTION ? SETTINGS_PATH : `${SETTINGS_PATH}/${id}`
+}
+
+// Each section is a URL (/settings/tax, ...), as is a connection's sync
+// settings page (/settings/integrations/<connectionId>) and the tax class
+// editor (/settings/tax/classes/<id|new>) -- refresh and Back keep the
+// user where they were. An unknown section shows Company.
+export default function Settings() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { open, exitTo } = useStackNavigation()
+  const [sectionSegment, connectionId] = subPathSegments(location.pathname, SETTINGS_PATH)
+  const activeSection: SectionId = SECTIONS.some(s => s.id === sectionSegment) ? sectionSegment : DEFAULT_SECTION
+  const setActiveSection = (id: SectionId) => {
+    if (id !== activeSection) navigate(sectionPath(id))
+  }
+
+  if (activeSection === 'integrations' && connectionId) {
+    const back = () => exitTo(INTEGRATIONS_SECTION_PATH)
+    return (
+      <ConnectionRoute connectionId={connectionId} onBack={back}>
+        {connection => <WooCommerceSyncSettingsPage connection={connection} onClose={back} />}
+      </ConnectionRoute>
+    )
   }
 
   return (
@@ -139,7 +169,7 @@ export default function Settings() {
           </div>
         )}
 
-        {activeSection === 'integrations' && <IntegrationsSettingsSection onConfigure={setConfiguringConnection} />}
+        {activeSection === 'integrations' && <IntegrationsSettingsSection onConfigure={c => open(`${INTEGRATIONS_SECTION_PATH}/${encodeURIComponent(c.id)}`)} />}
 
         {activeSection === 'inventory' && (
           <div className="max-w-2xl space-y-6">
@@ -1325,28 +1355,26 @@ function TaxSettingsSection() {
     }
   }
 
-  const [creatingClass, setCreatingClass] = useState(false)
-  const [editingClass, setEditingClass] = useState<TaxClass | null>(null)
+  // Add/edit tax class form open state is a URL (/settings/tax/classes/new
+  // or /<id>), so it survives a refresh; the form fills once the class list
+  // has it.
+  const classEditor = useRoutedEditor(TAX_CLASSES_PATH)
+  const creatingClass = classEditor.editingId === NEW_RECORD
+  const editingClass = classEditor.editingId && !creatingClass
+    ? classes.find(c => c.id === classEditor.editingId) ?? null
+    : null
   const [classForm, setClassForm] = useState<TaxClassFormState>({ name: '', isDefault: false })
   const [classSaving, setClassSaving] = useState(false)
   const [classFormError, setClassFormError] = useState('')
   const [rowError, setRowError] = useState('')
 
-  const openCreateClass = () => {
-    setClassForm({ name: '', isDefault: false })
+  const classFormReady = useInitOnce(classEditor.editingId, creatingClass || !!editingClass, () => {
+    setClassForm(editingClass ? { name: editingClass.name, isDefault: editingClass.is_default } : { name: '', isDefault: false })
     setClassFormError('')
-    setCreatingClass(true)
-  }
-  const openEditClass = (c: TaxClass) => {
-    setClassForm({ name: c.name, isDefault: c.is_default })
-    setClassFormError('')
-    setEditingClass(c)
-  }
-  const closeClassForm = () => {
-    setCreatingClass(false)
-    setEditingClass(null)
-    setClassFormError('')
-  }
+  })
+  const openCreateClass = classEditor.openNew
+  const openEditClass = (c: TaxClass) => classEditor.openEdit(c.id)
+  const closeClassForm = classEditor.close
 
   async function handleClassSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -1499,7 +1527,7 @@ function TaxSettingsSection() {
         ))}
       </div>
 
-      {(creatingClass || editingClass) && (
+      {classFormReady && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeClassForm} />
           <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">

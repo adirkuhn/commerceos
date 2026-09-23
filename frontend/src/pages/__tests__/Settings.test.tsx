@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
+import { act } from 'react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Settings from '../Settings'
+import { renderAt } from '../../test/renderAt'
 import type { Connection, SyncSchedule, DeleteAllImportedProductsResult } from '../../integrations/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -114,7 +116,7 @@ describe('Settings > Integrations overview', () => {
   it('shows an empty state when there are no connections', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
 
     expect(await screen.findByText('No integrations connected yet.')).toBeInTheDocument()
@@ -123,7 +125,7 @@ describe('Settings > Integrations overview', () => {
   it('lists connections with status and a Configure button for WooCommerce', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
 
     expect(await screen.findByText('https://mystore.com')).toBeInTheDocument()
@@ -134,7 +136,7 @@ describe('Settings > Integrations overview', () => {
   it('clicking Configure opens the WooCommerce sync settings page', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
 
@@ -150,7 +152,7 @@ describe('Settings > Integrations > API keys', () => {
   })
 
   it('shows no keys yet by default', async () => {
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
 
     expect(await screen.findByText(/No keys yet/)).toBeInTheDocument()
@@ -161,7 +163,7 @@ describe('Settings > Integrations > API keys', () => {
       { id: 'key-1', name: 'Main storefront', description: 'Prod Woo site', created_at: '2026-01-01T00:00:00Z', revoked_at: null, sales_channel_id: null },
     ])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
 
     expect(await screen.findByText('Main storefront')).toBeInTheDocument()
@@ -174,7 +176,7 @@ describe('Settings > Integrations > API keys', () => {
       id: 'key-1', name: 'Main storefront', description: '', created_at: '2026-01-01T00:00:00Z', revoked_at: null, sales_channel_id: null, key: 'top-secret-key',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await screen.findByText(/No keys yet/)
     await userEvent.type(screen.getByLabelText('Name'), 'Main storefront')
@@ -188,7 +190,7 @@ describe('Settings > Integrations > API keys', () => {
   it('surfaces an error inline if creating fails', async () => {
     vi.mocked(tenantSettingsApi.createApiKey).mockRejectedValue(new Error('server error'))
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await screen.findByText(/No keys yet/)
     await userEvent.type(screen.getByLabelText('Name'), 'Main storefront')
@@ -203,7 +205,7 @@ describe('Settings > Integrations > API keys', () => {
     ])
     vi.mocked(tenantSettingsApi.revokeApiKey).mockResolvedValue(null)
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Revoke' }))
 
@@ -213,7 +215,7 @@ describe('Settings > Integrations > API keys', () => {
   })
 
   it('does not show a sales channel picker when the tenant has no internal channels', async () => {
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await screen.findByText(/No keys yet/)
 
@@ -230,7 +232,7 @@ describe('Settings > Integrations > API keys', () => {
       id: 'key-1', name: 'B2C key', description: '', created_at: '2026-01-01T00:00:00Z', revoked_at: null, sales_channel_id: 'chan-b2c', key: 'top-secret-key',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await screen.findByText(/No keys yet/)
 
@@ -257,7 +259,7 @@ describe('Settings > Integrations > API keys', () => {
       { id: 'key-2', name: 'Woo plugin', description: '', created_at: '2026-01-01T00:00:00Z', revoked_at: null, sales_channel_id: null },
     ])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
 
     await screen.findByText('B2C key')
@@ -278,7 +280,7 @@ describe('Settings > Integrations > WooCommerce > Taxes tab', () => {
 
   async function openWooTaxesTab() {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Taxes' }))
@@ -380,7 +382,7 @@ describe('Settings > Integrations > WooCommerce > Categories tab', () => {
 
   async function openWooCategoriesTab() {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Categories' }))
@@ -447,7 +449,7 @@ describe('Settings > Integrations > AI', () => {
   it('shows not configured and a Connect button when no AI provider is set up', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
 
     expect(await screen.findByText(/Not configured/)).toBeInTheDocument()
@@ -460,7 +462,7 @@ describe('Settings > Integrations > AI', () => {
       id: 'ai-conn-1', provider: 'anthropic', status: 'connected', created_at: '',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
 
     expect(await screen.findByText('Anthropic (Claude)')).toBeInTheDocument()
@@ -474,7 +476,7 @@ describe('Settings > Integrations > AI', () => {
       id: 'ai-conn-1', provider: 'openai', status: 'connected', created_at: '',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
     await userEvent.type(screen.getByLabelText('API Key'), 'sk-test-key')
@@ -491,7 +493,7 @@ describe('Settings > Integrations > AI', () => {
       id: 'ai-conn-1', provider: 'gemini', status: 'connected', created_at: '',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
 
@@ -516,7 +518,7 @@ describe('Settings > Integrations > AI', () => {
       model: 'gemini-3.6-flash', fallback_models: 'gemini-3.5-flash-lite',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
 
@@ -526,7 +528,7 @@ describe('Settings > Integrations > AI', () => {
   it('requires a server URL instead of an API key for Ollama', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
     await userEvent.selectOptions(screen.getByLabelText('Provider'), 'ollama')
@@ -539,7 +541,7 @@ describe('Settings > Integrations > AI', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
     vi.mocked(integrationsApi.connectAIProvider).mockRejectedValue(new Error('an API key is required for this provider'))
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
     await userEvent.type(screen.getByLabelText('API Key'), 'sk-test')
@@ -556,7 +558,7 @@ describe('Settings > Integrations > AI', () => {
     vi.mocked(integrationsApi.disconnectAIProvider).mockResolvedValue(null)
     vi.spyOn(window, 'confirm').mockReturnValue(true)
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Disconnect' }))
 
@@ -568,7 +570,7 @@ describe('WooCommerce sync settings page', () => {
   it('shows Products, Stock levels, and Orders import as configurable, Categories and Orders export as disabled', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -589,7 +591,7 @@ describe('WooCommerce sync settings page', () => {
     }
     vi.mocked(integrationsApi.listSyncSchedules).mockResolvedValue([existing])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -601,7 +603,7 @@ describe('WooCommerce sync settings page', () => {
   it('offers intervals shorter than the old 15-minute minimum', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -620,7 +622,7 @@ describe('WooCommerce sync settings page', () => {
       created_at: '', updated_at: '',
     }])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -649,7 +651,7 @@ describe('WooCommerce sync settings page', () => {
       created_at: '', updated_at: '',
     }])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -672,7 +674,7 @@ describe('WooCommerce sync settings page', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
     vi.mocked(integrationsApi.upsertSyncSchedules).mockRejectedValue(new Error('server exploded'))
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -685,7 +687,7 @@ describe('WooCommerce sync settings page', () => {
   it('Back returns to the Integrations overview', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -698,7 +700,7 @@ describe('WooCommerce sync settings page', () => {
   it('shows a Danger zone with a Delete imported products button', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -710,7 +712,7 @@ describe('WooCommerce sync settings page', () => {
   it('requires typing DELETE before the confirm button is enabled', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported products' }))
@@ -727,7 +729,7 @@ describe('WooCommerce sync settings page', () => {
     const result: DeleteAllImportedProductsResult = { deleted_sales_orders: 0, deleted_products: 805, deleted_categories: 12, errors: [] }
     vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue(result)
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported products' }))
@@ -744,7 +746,7 @@ describe('WooCommerce sync settings page', () => {
     const listener = vi.fn()
     const unsubscribe = subscribeProductsChanged(listener)
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported products' }))
@@ -760,7 +762,7 @@ describe('WooCommerce sync settings page', () => {
     const result = { deleted_products: 805, deleted_categories: 12, errors: null } as unknown as DeleteAllImportedProductsResult
     vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue(result)
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported products' }))
@@ -775,7 +777,7 @@ describe('Store defaults currency', () => {
   it('shows a currency field prefilled from the connection', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_currency: 'EUR' })])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -786,7 +788,7 @@ describe('Store defaults currency', () => {
   it('prefills the currency even when stored in a different case or with stray whitespace', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_currency: ' eur ' })])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -802,7 +804,7 @@ describe('Store defaults currency', () => {
       inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -814,7 +816,7 @@ describe('Store defaults currency', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
     vi.mocked(integrationsApi.updateConnectionSettings).mockResolvedValue(wooConnection({ default_currency: 'USD' }))
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -830,7 +832,7 @@ describe('Store defaults currency', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
     vi.mocked(integrationsApi.updateConnectionSettings).mockRejectedValue(new Error('currency save failed'))
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -844,7 +846,7 @@ describe('Store defaults currency', () => {
   it('prefills the products/import row currency from the connection default', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_currency: 'GBP' })])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -867,7 +869,7 @@ describe('Store defaults location', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -882,7 +884,7 @@ describe('Store defaults location', () => {
       warehouse({ id: 'wh-2', name: 'Overflow DC' }),
     ])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -897,7 +899,7 @@ describe('Store defaults location', () => {
       warehouse({ id: 'wh-2', name: 'Overflow DC' }),
     ])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -913,7 +915,7 @@ describe('Store defaults location', () => {
     ])
     vi.mocked(integrationsApi.updateConnectionSettings).mockResolvedValue(wooConnection({ default_warehouse_id: 'wh-2' }))
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -929,7 +931,7 @@ describe('Store defaults location', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_warehouse_id: 'wh-1' })])
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse({ id: 'wh-1', name: 'Main DC' })])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -949,7 +951,7 @@ describe('Store defaults location', () => {
       default_warehouse_id: 'wh-2', default_currency: 'USD', last_run_at: null, last_run_status: '', last_run_error: '',
     }])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
@@ -960,7 +962,7 @@ describe('Store defaults location', () => {
 
 describe('Settings > Localization', () => {
   it('defaults to the first option in each dropdown when nothing is saved yet', async () => {
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openLocalizationSection()
 
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
@@ -976,7 +978,7 @@ describe('Settings > Localization', () => {
       updated_at: '2026-07-26T00:00:00Z',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openLocalizationSection()
 
     await waitFor(() => expect(screen.getByLabelText('Default Currency')).toHaveValue('USD'))
@@ -993,7 +995,7 @@ describe('Settings > Localization', () => {
       updated_at: '2026-07-26T00:00:00Z',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openLocalizationSection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
@@ -1017,7 +1019,7 @@ describe('Settings > Localization', () => {
       prices_include_tax: true, default_tax_country: 'NL',
       inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '2026-07-26T00:00:00Z',
     })
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openLocalizationSection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
@@ -1031,7 +1033,7 @@ describe('Settings > Localization', () => {
   it('shows an error if saving fails', async () => {
     vi.mocked(tenantSettingsApi.updateTenantSettings).mockRejectedValue(new Error('save failed'))
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openLocalizationSection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
     await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
@@ -1042,7 +1044,7 @@ describe('Settings > Localization', () => {
 
 describe('Settings > Inventory Rules > Sync & expiry rules', () => {
   it('defaults to off / 0 days when nothing is saved yet', async () => {
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openInventorySection()
 
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
@@ -1057,7 +1059,7 @@ describe('Settings > Inventory Rules > Sync & expiry rules', () => {
       inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 30, default_target_markup_basis_points: 0, updated_at: '',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openInventorySection()
 
     await waitFor(() => expect(screen.getByRole('switch', { name: 'Enable inventory sync rules' })).toBeChecked())
@@ -1071,7 +1073,7 @@ describe('Settings > Inventory Rules > Sync & expiry rules', () => {
       inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openInventorySection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
@@ -1090,7 +1092,7 @@ describe('Settings > Inventory Rules > Sync & expiry rules', () => {
   it('shows an error if saving fails', async () => {
     vi.mocked(tenantSettingsApi.updateTenantSettings).mockRejectedValue(new Error('inventory rules save failed'))
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openInventorySection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
     await userEvent.click(screen.getByRole('button', { name: 'Save inventory rules' }))
@@ -1114,7 +1116,7 @@ describe('Settings > Tax', () => {
       inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openTaxSection()
 
     await waitFor(() => expect(screen.getByRole('switch', { name: 'Prices include tax' })).toBeChecked())
@@ -1133,7 +1135,7 @@ describe('Settings > Tax', () => {
       inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openTaxSection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
@@ -1151,7 +1153,7 @@ describe('Settings > Tax', () => {
   it('lists tax classes with a default badge', async () => {
     vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openTaxSection()
 
     expect((await screen.findAllByText('Standard')).length).toBeGreaterThan(0)
@@ -1161,7 +1163,7 @@ describe('Settings > Tax', () => {
   it('Add tax class creates it via the API and shows it in the list', async () => {
     vi.mocked(taxApi.createTaxClass).mockResolvedValue(taxClass({ id: 'class-2', name: 'Reduced rate', is_default: false }))
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openTaxSection()
     await screen.findByText('Tax classes')
 
@@ -1177,7 +1179,7 @@ describe('Settings > Tax', () => {
     vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
     vi.mocked(taxApi.updateTaxClass).mockResolvedValue(taxClass({ name: 'Standard rate' }))
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openTaxSection()
     await screen.findAllByText('Standard')
 
@@ -1195,7 +1197,7 @@ describe('Settings > Tax', () => {
     vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass({ is_default: false })])
     vi.spyOn(window, 'confirm').mockReturnValue(true)
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openTaxSection()
     await screen.findAllByText('Standard')
 
@@ -1208,7 +1210,7 @@ describe('Settings > Tax', () => {
     vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
     vi.mocked(taxApi.listTaxRates).mockResolvedValue([taxRate()])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openTaxSection()
 
     expect(await screen.findByText('NL')).toBeInTheDocument()
@@ -1219,7 +1221,7 @@ describe('Settings > Tax', () => {
     vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
     vi.mocked(taxApi.upsertTaxRate).mockResolvedValue(taxRate({ id: 'rate-2', country: 'US', rate_basis_points: 850 }))
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openTaxSection()
     await screen.findAllByText('Standard')
 
@@ -1236,7 +1238,7 @@ describe('Settings > Tax', () => {
     vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
     vi.mocked(taxApi.listTaxRates).mockResolvedValue([taxRate()])
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openTaxSection()
     await screen.findByText('NL')
 
@@ -1248,7 +1250,7 @@ describe('Settings > Tax', () => {
 
 describe('Settings > Pricing', () => {
   it('has its own nav item, separate from Tax', async () => {
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openPricingSection()
 
     expect(await screen.findByLabelText('Default target markup (%)')).toBeInTheDocument()
@@ -1264,7 +1266,7 @@ describe('Settings > Pricing', () => {
       inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 3000, updated_at: '',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openPricingSection()
 
     await waitFor(() => expect(screen.getByLabelText('Default target markup (%)')).toHaveValue(30))
@@ -1282,7 +1284,7 @@ describe('Settings > Pricing', () => {
       inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 2500, updated_at: '',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openPricingSection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
@@ -1297,7 +1299,7 @@ describe('Settings > Pricing', () => {
   })
 
   it('rejects a negative target markup client-side instead of round-tripping to the 422 the backend would return', async () => {
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openPricingSection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
@@ -1315,7 +1317,7 @@ describe('Settings > Pricing', () => {
       inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 10000, updated_at: '',
     })
 
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openPricingSection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
@@ -1328,7 +1330,7 @@ describe('Settings > Pricing', () => {
   })
 
   it('does not show the "Configuration coming soon" placeholder on the Pricing tab', async () => {
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openPricingSection()
 
     expect(await screen.findByLabelText('Default target markup (%)')).toBeInTheDocument()
@@ -1336,9 +1338,78 @@ describe('Settings > Pricing', () => {
   })
 
   it('does not show the "Configuration coming soon" placeholder on the Tax tab', async () => {
-    render(<Settings />)
+    renderAt(<Settings />, '/settings')
     await openTaxSection()
 
     expect(screen.queryByText('Configuration coming soon')).not.toBeInTheDocument()
+  })
+})
+
+describe('Settings URLs (refresh + Back)', () => {
+  function taxClass(overrides: Partial<import('../../tax/types').TaxClass> = {}): import('../../tax/types').TaxClass {
+    return { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '', ...overrides }
+  }
+
+  it('each section has its own URL, and Back returns to the previous one', async () => {
+    const { router } = renderAt(<Settings />, '/settings')
+    await userEvent.click(await screen.findByText('Tax'))
+    expect(router.state.location.pathname).toBe('/settings/tax')
+    expect(await screen.findByText('Tax classes')).toBeInTheDocument()
+
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname).toBe('/settings')
+  })
+
+  it('/settings/:section opens that section on load', async () => {
+    renderAt(<Settings />, '/settings', '/settings/tax')
+    expect(await screen.findByText('Tax classes')).toBeInTheDocument()
+  })
+
+  it('an unknown section falls back to Company', async () => {
+    renderAt(<Settings />, '/settings', '/settings/nope')
+    expect(await screen.findByRole('heading', { name: 'Company Settings' })).toBeInTheDocument()
+  })
+
+  it('Configure pushes /settings/integrations/:connectionId, which also works on load', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    const { router, unmount } = renderAt(<Settings />, '/settings', '/settings/integrations')
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    expect(router.state.location.pathname).toBe(`/settings/integrations/${wooConnection().id}`)
+    unmount()
+
+    renderAt(<Settings />, '/settings', `/settings/integrations/${wooConnection().id}`)
+    expect(await screen.findByText('Sync schedule')).toBeInTheDocument()
+  })
+
+  it('the connection settings tab lives in ?tab=', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    const { router } = renderAt(<Settings />, '/settings', `/settings/integrations/${wooConnection().id}?tab=categories`)
+    await screen.findByRole('heading', { name: 'https://mystore.com' })
+    expect(screen.queryByText('Sync schedule')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Taxes' }))
+    expect(router.state.location.search).toBe('?tab=taxes')
+  })
+
+  it('an unknown connection id shows not-found', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    renderAt(<Settings />, '/settings', '/settings/integrations/nope')
+    expect(await screen.findByText('Connection not found')).toBeInTheDocument()
+  })
+
+  it('tax class editor URLs: /settings/tax/classes/new and /:id', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
+    const { router, unmount } = renderAt(<Settings />, '/settings', '/settings/tax')
+    await screen.findAllByText('Standard')
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(router.state.location.pathname).toBe('/settings/tax/classes/class-1')
+    unmount()
+
+    renderAt(<Settings />, '/settings', '/settings/tax/classes/class-1')
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Standard'))
+  })
+
+  it('/settings/tax/classes/new opens the add form on load', async () => {
+    renderAt(<Settings />, '/settings', '/settings/tax/classes/new')
+    expect(await screen.findByRole('button', { name: 'Add class' })).toBeInTheDocument()
   })
 })

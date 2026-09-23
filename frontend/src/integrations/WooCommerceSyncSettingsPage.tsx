@@ -15,6 +15,7 @@ import type { ExternalTaxClassLink } from '../tax/types'
 import { useCategories } from '../pms/hooks/useCategories'
 import { useExternalCategoryLinks } from './hooks/useExternalCategoryLinks'
 import type { WooCategory, ExternalCategoryLink } from './types'
+import { useQueryEnum } from '../routing/useQueryState'
 
 const WOO_PROVIDER = 'woocommerce'
 
@@ -74,7 +75,8 @@ function defaultCell(seedCurrency = ''): CellState {
   return { enabled: false, intervalMinutes: 60, defaultWarehouseId: '', defaultCurrency: seedCurrency, lastRunStatus: '', lastRunError: '' }
 }
 
-type Tab = 'sync' | 'taxes' | 'categories' | 'webhooks'
+const TABS = ['sync', 'taxes', 'categories', 'webhooks'] as const
+type Tab = typeof TABS[number]
 
 // Webhook secret provisioning is a security-sensitive credential, not a
 // day-to-day sync setting -- gated to the same tier as tenant-management-
@@ -95,7 +97,8 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
   const { warehouses } = useWarehouses(token ?? '')
   const { settings: tenantSettings, loading: tenantSettingsLoading } = useTenantSettings(token ?? '')
 
-  const [tab, setTab] = useState<Tab>('sync')
+  // In the URL (?tab=) so a refresh keeps the tab open.
+  const [tab, setTab] = useQueryEnum<Tab>('tab', TABS, 'sync')
 
   const [cells, setCells] = useState<Record<string, CellState>>({})
   const [hydrated, setHydrated] = useState(false)
