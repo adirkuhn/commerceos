@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import CustomerCohortsPage from '../CustomerCohortsPage'
+import { renderAt } from '../../../test/renderAt'
 import type { CustomerCohortsReport } from '../../../reports/types'
 
 vi.mock('../../../auth/AuthContext', () => ({
@@ -37,7 +38,7 @@ beforeEach(() => {
 
 describe('CustomerCohortsPage', () => {
   it('shows cohort retention rates by month since acquisition', async () => {
-    render(<CustomerCohortsPage />)
+    renderAt(<CustomerCohortsPage />, '/reports')
 
     expect(await screen.findByText('Jun 2026')).toBeInTheDocument()
     expect(screen.getByText('100%')).toBeInTheDocument()
@@ -47,7 +48,7 @@ describe('CustomerCohortsPage', () => {
   it('shows an empty state when no cohorts were acquired in this period', async () => {
     vi.mocked(reportsApi.getCustomerCohortsReport).mockResolvedValue(customerCohorts({ cohorts: [] }))
 
-    render(<CustomerCohortsPage />)
+    renderAt(<CustomerCohortsPage />, '/reports')
 
     expect(await screen.findByText('No new customers acquired in this period')).toBeInTheDocument()
   })

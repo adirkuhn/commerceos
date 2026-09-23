@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import StockoutRiskPage from '../StockoutRiskPage'
+import { renderAt } from '../../../test/renderAt'
 import type { StockoutRiskReport } from '../../../reports/types'
 
 vi.mock('../../../auth/AuthContext', () => ({
@@ -39,7 +40,7 @@ beforeEach(() => {
 
 describe('StockoutRiskPage', () => {
   it('shows only at-risk SKUs, ranked soonest-first', async () => {
-    render(<StockoutRiskPage />)
+    renderAt(<StockoutRiskPage />, '/reports')
 
     const row = await screen.findByTestId('stockout-risk-row')
     expect(within(row).getByText('Risky Widget')).toBeInTheDocument()
@@ -57,7 +58,7 @@ describe('StockoutRiskPage', () => {
       }],
     }))
 
-    render(<StockoutRiskPage />)
+    renderAt(<StockoutRiskPage />, '/reports')
 
     expect(await screen.findByText('No SKUs at risk of stocking out')).toBeInTheDocument()
   })

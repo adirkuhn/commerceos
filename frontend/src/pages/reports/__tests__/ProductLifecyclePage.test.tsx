@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ProductLifecyclePage from '../ProductLifecyclePage'
+import { renderAt } from '../../../test/renderAt'
 import type { ProductLifecycleReport } from '../../../reports/types'
 
 vi.mock('../../../auth/AuthContext', () => ({
@@ -33,7 +34,7 @@ beforeEach(() => {
 
 describe('ProductLifecyclePage', () => {
   it('places each SKU in its lifecycle stage', async () => {
-    render(<ProductLifecyclePage />)
+    renderAt(<ProductLifecyclePage />, '/reports')
 
     const growing = await screen.findByTestId('lifecycle-growing')
     expect(within(growing).getByText('Acai 1L')).toBeInTheDocument()
@@ -43,7 +44,7 @@ describe('ProductLifecyclePage', () => {
   it('shows an empty state when there are no sales in either period', async () => {
     vi.mocked(reportsApi.getProductLifecycleReport).mockResolvedValue(productLifecycle({ rows: [] }))
 
-    render(<ProductLifecyclePage />)
+    renderAt(<ProductLifecyclePage />, '/reports')
 
     expect(await screen.findByText('No sales in this or the previous period')).toBeInTheDocument()
   })

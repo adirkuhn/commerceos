@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
-import type { ReportsPeriod } from '../../reports/period'
 import type { RFMSegment } from '../../reports/types'
 import { ReportPageShell, ReportCard, EmptyState, formatMoney } from './shared'
+import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 
 const RFM_SEGMENTS: { id: RFMSegment; label: string; hint: string }[] = [
   { id: 'champions', label: 'Champions', hint: 'Recent, frequent, highest spend' },
@@ -17,7 +17,8 @@ const RFM_SEGMENTS: { id: RFMSegment; label: string; hint: string }[] = [
 
 export default function CustomerRFMPage() {
   const { token } = useAuth()
-  const [period, setPeriod] = useState<ReportsPeriod>('7D')
+  // In ?period= -- refresh and shared links keep the chosen range.
+  const [period, setPeriod] = useReportPeriod()
   const getCustomerRFMReport = useCallback(reportsApi.getCustomerRFMReport, [])
   const { data: customerRFM, loading, error } = useSingleReport(token ?? '', period, getCustomerRFMReport)
   const currency = customerRFM?.currency_code ?? 'USD'

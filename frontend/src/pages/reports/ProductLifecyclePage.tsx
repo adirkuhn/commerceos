@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
-import type { ReportsPeriod } from '../../reports/period'
 import type { ProductLifecycleStage } from '../../reports/types'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
+import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 
 const LIFECYCLE_STAGES: { id: ProductLifecycleStage; label: string; hint: string }[] = [
   { id: 'new', label: 'New', hint: 'Sold now, not in the previous period' },
@@ -16,7 +16,8 @@ const LIFECYCLE_STAGES: { id: ProductLifecycleStage; label: string; hint: string
 
 export default function ProductLifecyclePage() {
   const { token } = useAuth()
-  const [period, setPeriod] = useState<ReportsPeriod>('7D')
+  // In ?period= -- refresh and shared links keep the chosen range.
+  const [period, setPeriod] = useReportPeriod()
   const getProductLifecycleReport = useCallback(reportsApi.getProductLifecycleReport, [])
   const { data: productLifecycle, loading, error } = useSingleReport(token ?? '', period, getProductLifecycleReport)
 

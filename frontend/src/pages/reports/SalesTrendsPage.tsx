@@ -1,20 +1,22 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import clsx from 'clsx'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
-import type { ReportsPeriod } from '../../reports/period'
 import type { SalesTrendGranularity } from '../../reports/types'
 import { ReportPageShell, ReportCard, EmptyState, formatMoney, TOOLTIP_STYLE } from './shared'
+import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
+import { useQueryEnum } from '../../routing/useQueryState'
 
-const TREND_GRANULARITIES: SalesTrendGranularity[] = ['day', 'week', 'month']
+const TREND_GRANULARITIES = ['day', 'week', 'month'] as const satisfies readonly SalesTrendGranularity[]
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function SalesTrendsPage() {
   const { token } = useAuth()
-  const [period, setPeriod] = useState<ReportsPeriod>('7D')
-  const [granularity, setGranularity] = useState<SalesTrendGranularity>('day')
+  // In ?period= -- refresh and shared links keep the chosen range.
+  const [period, setPeriod] = useReportPeriod()
+  const [granularity, setGranularity] = useQueryEnum<SalesTrendGranularity>('granularity', TREND_GRANULARITIES, 'day')
   const getSalesTrendsReport = useCallback(
     (t: string, from: string, to: string) => reportsApi.getSalesTrendsReport(t, from, to, granularity),
     [granularity],

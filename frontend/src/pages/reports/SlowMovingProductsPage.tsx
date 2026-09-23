@@ -1,13 +1,14 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
-import type { ReportsPeriod } from '../../reports/period'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
+import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 
 export default function SlowMovingProductsPage() {
   const { token } = useAuth()
-  const [period, setPeriod] = useState<ReportsPeriod>('7D')
+  // In ?period= -- refresh and shared links keep the chosen range.
+  const [period, setPeriod] = useReportPeriod()
   const getSlowMovingProductsReport = useCallback(reportsApi.getSlowMovingProductsReport, [])
   const { data: slowMovingProducts, loading, error } = useSingleReport(token ?? '', period, getSlowMovingProductsReport)
   const slowMovers = [...(slowMovingProducts?.rows ?? [])].sort((a, b) => b.stock_on_hand - a.stock_on_hand)

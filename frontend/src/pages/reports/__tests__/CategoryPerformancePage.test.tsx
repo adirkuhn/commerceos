@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import CategoryPerformancePage from '../CategoryPerformancePage'
+import { renderAt } from '../../../test/renderAt'
 import type { CategoryPerformanceReport } from '../../../reports/types'
 
 vi.mock('../../../auth/AuthContext', () => ({
@@ -29,7 +30,7 @@ beforeEach(() => {
 
 describe('CategoryPerformancePage', () => {
   it('shows revenue by category', async () => {
-    render(<CategoryPerformancePage />)
+    renderAt(<CategoryPerformancePage />, '/reports')
 
     expect(await screen.findByText('Beverages')).toBeInTheDocument()
     expect(screen.getByText('€2,000.00')).toBeInTheDocument()
@@ -38,7 +39,7 @@ describe('CategoryPerformancePage', () => {
   it('shows an empty state when there are no category sales', async () => {
     vi.mocked(reportsApi.getCategoryPerformanceReport).mockResolvedValue(categoryPerformance({ rows: [] }))
 
-    render(<CategoryPerformancePage />)
+    renderAt(<CategoryPerformancePage />, '/reports')
 
     expect(await screen.findByText('No category sales in this period')).toBeInTheDocument()
   })

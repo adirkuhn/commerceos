@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import SlowMovingProductsPage from '../SlowMovingProductsPage'
+import { renderAt } from '../../../test/renderAt'
 import type { SlowMovingProductsReport } from '../../../reports/types'
 
 vi.mock('../../../auth/AuthContext', () => ({
@@ -28,7 +29,7 @@ beforeEach(() => {
 
 describe('SlowMovingProductsPage', () => {
   it('shows SKUs with stock but zero sales', async () => {
-    render(<SlowMovingProductsPage />)
+    renderAt(<SlowMovingProductsPage />, '/reports')
 
     expect(await screen.findByText('Acai 1L')).toBeInTheDocument()
     expect(screen.getByText('40')).toBeInTheDocument()
@@ -37,7 +38,7 @@ describe('SlowMovingProductsPage', () => {
   it('shows an empty state when there are no slow-moving products', async () => {
     vi.mocked(reportsApi.getSlowMovingProductsReport).mockResolvedValue(slowMovingProducts({ rows: [] }))
 
-    render(<SlowMovingProductsPage />)
+    renderAt(<SlowMovingProductsPage />, '/reports')
 
     expect(await screen.findByText('No slow-moving products in this period')).toBeInTheDocument()
   })

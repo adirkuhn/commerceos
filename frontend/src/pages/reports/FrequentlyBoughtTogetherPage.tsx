@@ -8,6 +8,8 @@ import type { ProductRecommendationsReport } from '../../reports/types'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
 import { dateRange, type ReportsPeriod } from '../../reports/period'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
+import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
+import { useQueryString } from '../../routing/useQueryState'
 
 const SEARCH_DEBOUNCE_MS = 300
 const SEARCH_MIN_LENGTH = 2
@@ -20,7 +22,8 @@ interface SKUOption {
 
 export default function FrequentlyBoughtTogetherPage() {
   const { token } = useAuth()
-  const [period, setPeriod] = useState<ReportsPeriod>('7D')
+  // In ?period= -- refresh and shared links keep the chosen range.
+  const [period, setPeriod] = useReportPeriod()
   const getFrequentlyBoughtTogetherReport = useCallback(reportsApi.getFrequentlyBoughtTogetherReport, [])
   const { data: frequentlyBoughtTogether, loading, error } = useSingleReport(token ?? '', period, getFrequentlyBoughtTogetherReport)
 
@@ -74,9 +77,13 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
 
+  // The chosen product and SKU live in the URL (?product=&sku=), so a
+  // refresh or shared link reopens the same recommendations; the product
+  // itself is reloaded from its id.
+  const [productId, setProductId] = useQueryString('product', { resets: ['sku'] })
+  const [selectedSkuId, setSelectedSkuId] = useQueryString('sku')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [skuOptions, setSkuOptions] = useState<SKUOption[]>([])
-  const [selectedSkuId, setSelectedSkuId] = useState<string | null>(null)
   const [loadingSkus, setLoadingSkus] = useState(false)
 
   const [recommendations, setRecommendations] = useState<ProductRecommendationsReport | null>(null)
@@ -101,32 +108,40 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
   }, [token, query])
 
   function selectProduct(product: Product) {
-    setSelectedProduct(product)
     setResults([])
     setQuery('')
-    setSelectedSkuId(null)
-    setRecommendations(null)
-    setLoadingSkus(true)
-    pmsApi.getProduct(token, product.id)
-      .then(detail => {
-        const options: SKUOption[] = detail.variants.flatMap(variant =>
-          (variant.skus ?? []).map(sku => ({ sku, variant, productName: detail.product.name })),
-        )
-        setSkuOptions(options)
-        if (options.length === 1) {
-          setSelectedSkuId(options[0].sku.id)
-        }
-      })
-      .catch(e => setSearchError(e instanceof Error ? e.message : 'Unknown error'))
-      .finally(() => setLoadingSkus(false))
+    setProductId(product.id)
   }
 
   function clearSelection() {
-    setSelectedProduct(null)
-    setSkuOptions([])
-    setSelectedSkuId(null)
-    setRecommendations(null)
+    setProductId(null)
   }
+
+  // Load the product in the URL and its SKUs; a single-SKU product picks
+  // that SKU automatically.
+  useEffect(() => {
+    setRecommendations(null)
+    if (!token || !productId) {
+      setSelectedProduct(null)
+      setSkuOptions([])
+      return
+    }
+    let cancelled = false
+    setLoadingSkus(true)
+    pmsApi.getProduct(token, productId)
+      .then(detail => {
+        if (cancelled) return
+        const options: SKUOption[] = detail.variants.flatMap(variant =>
+          (variant.skus ?? []).map(sku => ({ sku, variant, productName: detail.product.name })),
+        )
+        setSelectedProduct(detail.product)
+        setSkuOptions(options)
+        if (options.length === 1) setSelectedSkuId(options[0].sku.id)
+      })
+      .catch(e => { if (!cancelled) setSearchError(e instanceof Error ? e.message : 'Unknown error') })
+      .finally(() => { if (!cancelled) setLoadingSkus(false) })
+    return () => { cancelled = true }
+  }, [token, productId, setSelectedSkuId])
 
   useEffect(() => {
     if (!token || !selectedSkuId) return

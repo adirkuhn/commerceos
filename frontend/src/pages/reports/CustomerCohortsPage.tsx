@@ -1,13 +1,14 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
-import type { ReportsPeriod } from '../../reports/period'
 import { ReportPageShell, ReportCard, EmptyState, formatMoney } from './shared'
+import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 
 export default function CustomerCohortsPage() {
   const { token } = useAuth()
-  const [period, setPeriod] = useState<ReportsPeriod>('7D')
+  // In ?period= -- refresh and shared links keep the chosen range.
+  const [period, setPeriod] = useReportPeriod()
   const getCustomerCohortsReport = useCallback(reportsApi.getCustomerCohortsReport, [])
   const { data: customerCohorts, loading, error } = useSingleReport(token ?? '', period, getCustomerCohortsReport)
   const currency = customerCohorts?.currency_code ?? 'USD'

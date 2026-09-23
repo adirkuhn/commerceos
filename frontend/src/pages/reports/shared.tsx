@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import clsx from 'clsx'
-import { dateRange, type ReportsPeriod } from '../../reports/period'
+import { dateRange, REPORTS_PERIODS, type ReportsPeriod } from '../../reports/period'
 
-export const REPORT_PERIODS: ReportsPeriod[] = ['7D', '30D', '90D', '12M']
 
 export const TOOLTIP_STYLE = {
   backgroundColor: '#1F2937',
@@ -54,7 +53,7 @@ export function EmptyState({ children }: { children: ReactNode }) {
 export function PeriodSelector({ period, onChange }: { period: ReportsPeriod; onChange: (p: ReportsPeriod) => void }) {
   return (
     <div className="flex items-center gap-0.5 dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 rounded-lg p-0.5">
-      {REPORT_PERIODS.map(p => (
+      {REPORTS_PERIODS.map(p => (
         <button
           key={p}
           onClick={() => onChange(p)}
@@ -92,7 +91,7 @@ export function DateRangeControl({
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <div className="flex items-center gap-0.5 dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 rounded-lg p-0.5">
-        {[...REPORT_PERIODS, 'custom' as const].map(p => (
+        {[...REPORTS_PERIODS, 'custom' as const].map(p => (
           <button
             key={p}
             onClick={() => onModeChange(p)}

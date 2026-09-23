@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import CustomerRFMPage from '../CustomerRFMPage'
+import { renderAt } from '../../../test/renderAt'
 import type { CustomerRFMReport } from '../../../reports/types'
 
 vi.mock('../../../auth/AuthContext', () => ({
@@ -35,7 +36,7 @@ beforeEach(() => {
 
 describe('CustomerRFMPage', () => {
   it('places each customer in its RFM segment', async () => {
-    render(<CustomerRFMPage />)
+    renderAt(<CustomerRFMPage />, '/reports')
 
     const champions = await screen.findByTestId('rfm-champions')
     expect(within(champions).getByText('Champion Customer')).toBeInTheDocument()
@@ -45,7 +46,7 @@ describe('CustomerRFMPage', () => {
   it('shows an empty state when no customers ordered in this period', async () => {
     vi.mocked(reportsApi.getCustomerRFMReport).mockResolvedValue(customerRFM({ rows: [] }))
 
-    render(<CustomerRFMPage />)
+    renderAt(<CustomerRFMPage />, '/reports')
 
     expect(await screen.findByText('No customer orders in this period')).toBeInTheDocument()
   })

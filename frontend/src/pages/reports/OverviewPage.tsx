@@ -5,7 +5,8 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useReport } from '../../reports/hooks/useSingleReport'
-import { dateRange, customDateRange, type ReportsPeriod } from '../../reports/period'
+import { dateRange, customDateRange, REPORTS_PERIODS, DEFAULT_REPORTS_PERIOD, type ReportsPeriod } from '../../reports/period'
+import { useQueryEnum, useQueryString } from '../../routing/useQueryState'
 import type { ChannelRevenuePoint, ProfitabilityPoint } from '../../reports/types'
 import { ReportPageShell, ReportCard, EmptyState, DateRangeControl, ViewToggle, formatMoney, ChangeBadge, TOOLTIP_STYLE, type ReportsRangeMode } from './shared'
 
@@ -23,12 +24,27 @@ function dayLabel(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+const RANGE_MODES = [...REPORTS_PERIODS, 'custom'] as const satisfies readonly ReportsRangeMode[]
+const OVERVIEW_VIEWS = ['summary', 'daily'] as const
+
+function isIsoDate(value: string | null): value is string {
+  return value !== null && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00Z`).getTime())
+}
+
 export default function OverviewPage() {
   const { token } = useAuth()
-  const [mode, setMode] = useState<ReportsRangeMode>('7D')
-  const [customFrom, setCustomFrom] = useState(() => isoDateDaysAgo(7))
-  const [customTo, setCustomTo] = useState(() => isoDateToday())
-  const [showDaily, setShowDaily] = useState(false)
+  // Range (?period=, plus ?from=&to= for a custom range) and the
+  // summary/daily view (?view=daily) live in the URL -- a refresh or a
+  // shared link shows the same report. Malformed dates fall back to the
+  // default custom range.
+  const [mode, setMode] = useQueryEnum<ReportsRangeMode>('period', RANGE_MODES, DEFAULT_REPORTS_PERIOD)
+  const [fromParam, setCustomFrom] = useQueryString('from')
+  const [toParam, setCustomTo] = useQueryString('to')
+  const customFrom = isIsoDate(fromParam) ? fromParam : isoDateDaysAgo(7)
+  const customTo = isIsoDate(toParam) ? toParam : isoDateToday()
+  const [view, setView] = useQueryEnum('view', OVERVIEW_VIEWS, 'summary')
+  const showDaily = view === 'daily'
+  const setShowDaily = (daily: boolean) => setView(daily ? 'daily' : 'summary')
   const [hiddenChannels, setHiddenChannels] = useState<Set<string>>(new Set())
 
   const toggleChannel = useCallback((source: string) => {

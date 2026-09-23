@@ -1,4 +1,6 @@
-export type ReportsPeriod = '7D' | '30D' | '90D' | '12M'
+export const REPORTS_PERIODS = ['7D', '30D', '90D', '12M'] as const
+export type ReportsPeriod = typeof REPORTS_PERIODS[number]
+export const DEFAULT_REPORTS_PERIOD: ReportsPeriod = '7D'
 
 const PERIOD_DAYS: Record<ReportsPeriod, number> = {
   '7D': 7,

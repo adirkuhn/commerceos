@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import OverviewPage from '../OverviewPage'
+import { renderAt } from '../../../test/renderAt'
 import type { SalesSummaryReport, BusinessInsightsReport, ProfitabilityReport, ProfitabilityTrendReport, RevenueByChannelReport } from '../../../reports/types'
 
 vi.mock('../../../auth/AuthContext', () => ({
@@ -79,7 +80,7 @@ beforeEach(() => {
 
 describe('OverviewPage', () => {
   it('shows revenue and order KPIs with period-over-period change', async () => {
-    render(<OverviewPage />)
+    renderAt(<OverviewPage />, '/reports')
 
     expect(await screen.findByText('€1,180.00')).toBeInTheDocument()
     expect(screen.getByText('+18.4%')).toBeInTheDocument()
@@ -91,14 +92,14 @@ describe('OverviewPage', () => {
       insights: [{ code: 'revenue_declining', severity: 'warning', message: 'Revenue is down' }],
     }))
 
-    render(<OverviewPage />)
+    renderAt(<OverviewPage />, '/reports')
 
     expect(await screen.findByTestId('business-insights')).toBeInTheDocument()
     expect(screen.getByText('Revenue is down')).toBeInTheDocument()
   })
 
   it('shows the profitability summary by default', async () => {
-    render(<OverviewPage />)
+    renderAt(<OverviewPage />, '/reports')
 
     const summary = await screen.findByTestId('profitability-summary')
     expect(summary).toBeInTheDocument()
@@ -110,13 +111,13 @@ describe('OverviewPage', () => {
       summary: { revenue_minor_units: 0, cost_known_revenue_minor_units: 0, cost_minor_units: 0, profit_minor_units: 0, margin_basis_points: 0 },
     }))
 
-    render(<OverviewPage />)
+    renderAt(<OverviewPage />, '/reports')
 
     expect(await screen.findByText('No cost-known revenue in this period')).toBeInTheDocument()
   })
 
   it('shows revenue per channel as a bar chart and table by default', async () => {
-    render(<OverviewPage />)
+    renderAt(<OverviewPage />, '/reports')
 
     expect(await screen.findByText('woocommerce')).toBeInTheDocument()
     expect(screen.getByText('€315.00')).toBeInTheDocument()
@@ -125,13 +126,13 @@ describe('OverviewPage', () => {
   it('shows an empty state when there is no channel revenue', async () => {
     vi.mocked(reportsApi.getRevenueByChannelReport).mockResolvedValue(revenueByChannel({ channels: [] }))
 
-    render(<OverviewPage />)
+    renderAt(<OverviewPage />, '/reports')
 
     expect(await screen.findAllByText('No revenue in this period')).not.toHaveLength(0)
   })
 
   it('switches Profitability and Revenue by Channel to a daily view', async () => {
-    render(<OverviewPage />)
+    renderAt(<OverviewPage />, '/reports')
     await screen.findByTestId('profitability-summary')
 
     fireEvent.click(screen.getByText('Daily'))
@@ -150,7 +151,7 @@ describe('OverviewPage', () => {
         { period_start: '2026-08-01T00:00:00Z', source: 'pos', revenue_minor_units: 8000 },
       ],
     }))
-    render(<OverviewPage />)
+    renderAt(<OverviewPage />, '/reports')
     fireEvent.click(await screen.findByText('Daily'))
     await screen.findByText('Daily revenue per sales channel')
 
@@ -159,7 +160,7 @@ describe('OverviewPage', () => {
 
     fireEvent.click(wooChip)
 
-    expect(screen.getByTitle('Show woocommerce')).toBeInTheDocument()
+    expect(await screen.findByTitle('Show woocommerce')).toBeInTheDocument()
     expect(screen.getByTitle('Hide pos')).toBeInTheDocument()
   })
 
@@ -171,7 +172,7 @@ describe('OverviewPage', () => {
         { period_start: '2026-08-01T00:00:00Z', source: 'pos', revenue_minor_units: 8000 },
       ],
     }))
-    render(<OverviewPage />)
+    renderAt(<OverviewPage />, '/reports')
     fireEvent.click(await screen.findByText('Daily'))
 
     expect(await screen.findByTitle('Hide woocommerce')).toHaveTextContent('woocommerce · €315.00')
@@ -180,7 +181,7 @@ describe('OverviewPage', () => {
   })
 
   it('shows an empty state when every channel is hidden in the daily view', async () => {
-    render(<OverviewPage />)
+    renderAt(<OverviewPage />, '/reports')
     fireEvent.click(await screen.findByText('Daily'))
     await screen.findByText('Daily revenue per sales channel')
 
@@ -190,7 +191,7 @@ describe('OverviewPage', () => {
   })
 
   it('reveals custom date inputs and refetches with the chosen range', async () => {
-    render(<OverviewPage />)
+    renderAt(<OverviewPage />, '/reports')
     await screen.findByTestId('profitability-summary')
     vi.mocked(reportsApi.getSalesSummaryReport).mockClear()
 
@@ -203,5 +204,27 @@ describe('OverviewPage', () => {
 
     await screen.findByTestId('profitability-summary')
     expect(reportsApi.getSalesSummaryReport).toHaveBeenCalledWith('test-token', '2026-01-01T00:00:00.000Z', '2026-02-01T00:00:00.000Z')
+  })
+})
+
+describe('OverviewPage URL state', () => {
+  it('a custom range in the URL is what gets requested', async () => {
+    renderAt(<OverviewPage />, '/reports', '/reports?period=custom&from=2026-03-01&to=2026-03-31')
+    await waitFor(() => expect(reportsApi.getSalesSummaryReport).toHaveBeenCalledWith(
+      'test-token', '2026-03-01T00:00:00.000Z', '2026-04-01T00:00:00.000Z',
+    ))
+  })
+
+  it('an invalid custom date falls back to the default range instead of breaking', async () => {
+    renderAt(<OverviewPage />, '/reports', '/reports?period=custom&from=bogus&to=2026-03-31')
+    await waitFor(() => expect(reportsApi.getSalesSummaryReport).toHaveBeenCalled())
+    const [, from] = vi.mocked(reportsApi.getSalesSummaryReport).mock.calls[0]
+    expect(Number.isNaN(new Date(from as string).getTime())).toBe(false)
+  })
+
+  it('the daily view toggle lives in ?view=daily', async () => {
+    const { router } = renderAt(<OverviewPage />, '/reports', '/reports?view=daily')
+    await waitFor(() => expect(reportsApi.getProfitabilityTrendReport).toHaveBeenCalled())
+    expect(router.state.location.search).toBe('?view=daily')
   })
 })

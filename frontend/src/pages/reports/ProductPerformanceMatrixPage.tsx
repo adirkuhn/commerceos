@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
-import type { ReportsPeriod } from '../../reports/period'
 import type { ProductPerformanceMatrixRow, ProductPerformanceQuadrant } from '../../reports/types'
 import { ReportPageShell, ReportCard, EmptyState, formatMoney } from './shared'
+import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 
 const QUADRANTS: { id: ProductPerformanceQuadrant; label: string; hint: string }[] = [
   { id: 'stars', label: 'Stars', hint: 'High revenue, low margin — optimize pricing' },
@@ -15,7 +15,8 @@ const QUADRANTS: { id: ProductPerformanceQuadrant; label: string; hint: string }
 
 export default function ProductPerformanceMatrixPage() {
   const { token } = useAuth()
-  const [period, setPeriod] = useState<ReportsPeriod>('7D')
+  // In ?period= -- refresh and shared links keep the chosen range.
+  const [period, setPeriod] = useReportPeriod()
   const getProductPerformanceMatrix = useCallback(reportsApi.getProductPerformanceMatrix, [])
   const { data: matrix, loading, error } = useSingleReport(token ?? '', period, getProductPerformanceMatrix)
   const currency = matrix?.currency_code ?? 'USD'

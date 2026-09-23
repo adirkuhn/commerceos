@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import SalesTrendsPage from '../SalesTrendsPage'
+import { renderAt } from '../../../test/renderAt'
 import type { SalesTrendsReport } from '../../../reports/types'
 
 vi.mock('../../../auth/AuthContext', () => ({
@@ -39,7 +40,7 @@ beforeEach(() => {
 
 describe('SalesTrendsPage', () => {
   it('fetches with the default day granularity', async () => {
-    render(<SalesTrendsPage />)
+    renderAt(<SalesTrendsPage />, '/reports')
 
     await screen.findByText('Sales Trend')
     expect(reportsApi.getSalesTrendsReport).toHaveBeenCalledWith('test-token', expect.any(String), expect.any(String), 'day')
@@ -47,7 +48,7 @@ describe('SalesTrendsPage', () => {
 
   it('refetches with the chosen granularity when switched', async () => {
     const user = userEvent.setup()
-    render(<SalesTrendsPage />)
+    renderAt(<SalesTrendsPage />, '/reports')
     await screen.findByText('Sales Trend')
 
     await user.click(screen.getByRole('button', { name: 'week' }))
@@ -58,9 +59,19 @@ describe('SalesTrendsPage', () => {
   it('shows empty states when there is no data', async () => {
     vi.mocked(reportsApi.getSalesTrendsReport).mockResolvedValue(salesTrends({ points: [], by_weekday: [] }))
 
-    render(<SalesTrendsPage />)
+    renderAt(<SalesTrendsPage />, '/reports')
 
     expect(await screen.findByText('No sales in this period')).toBeInTheDocument()
     expect(screen.getByText('No sales to break down by weekday in this period')).toBeInTheDocument()
+  })
+})
+
+describe('SalesTrendsPage URL state', () => {
+  it('granularity and period are read from the URL', async () => {
+    renderAt(<SalesTrendsPage />, '/reports', '/reports?granularity=month&period=12M')
+    await waitFor(() => expect(reportsApi.getSalesTrendsReport).toHaveBeenCalledWith('test-token', expect.any(String), expect.any(String), 'month'))
+    const [, from, to] = vi.mocked(reportsApi.getSalesTrendsReport).mock.calls[0]
+    const days = (new Date(to).getTime() - new Date(from).getTime()) / 86_400_000
+    expect(Math.round(days)).toBe(365)
   })
 })

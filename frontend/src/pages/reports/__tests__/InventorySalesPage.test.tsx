@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import InventorySalesPage from '../InventorySalesPage'
+import { renderAt } from '../../../test/renderAt'
 import type { InventorySalesReport } from '../../../reports/types'
 
 vi.mock('../../../auth/AuthContext', () => ({
@@ -28,7 +29,7 @@ beforeEach(() => {
 
 describe('InventorySalesPage', () => {
   it('shows stock vs. sold with turnover', async () => {
-    render(<InventorySalesPage />)
+    renderAt(<InventorySalesPage />, '/reports')
 
     expect(await screen.findByText('Acai 1L')).toBeInTheDocument()
     expect(screen.getByText('25.0%')).toBeInTheDocument()
@@ -37,7 +38,7 @@ describe('InventorySalesPage', () => {
   it('shows an empty state when there are no stocked or sold SKUs', async () => {
     vi.mocked(reportsApi.getInventorySalesReport).mockResolvedValue(inventorySales({ rows: [] }))
 
-    render(<InventorySalesPage />)
+    renderAt(<InventorySalesPage />, '/reports')
 
     expect(await screen.findByText('No stocked or sold SKUs in this period')).toBeInTheDocument()
   })

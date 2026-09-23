@@ -1,16 +1,17 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import clsx from 'clsx'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
-import type { ReportsPeriod } from '../../reports/period'
 import { ReportPageShell, ReportCard, EmptyState, formatMoney } from './shared'
+import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 
 const TOP_PRODUCTS_LIMIT = 20
 
 export default function ProductPerformancePage() {
   const { token } = useAuth()
-  const [period, setPeriod] = useState<ReportsPeriod>('7D')
+  // In ?period= -- refresh and shared links keep the chosen range.
+  const [period, setPeriod] = useReportPeriod()
   const getProductPerformanceReport = useCallback(reportsApi.getProductPerformanceReport, [])
   const { data: productPerformance, loading, error } = useSingleReport(token ?? '', period, getProductPerformanceReport)
   const currency = productPerformance?.currency_code ?? 'USD'

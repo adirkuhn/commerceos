@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ProductPerformanceMatrixPage from '../ProductPerformanceMatrixPage'
+import { renderAt } from '../../../test/renderAt'
 import type { ProductPerformanceMatrix } from '../../../reports/types'
 
 vi.mock('../../../auth/AuthContext', () => ({
@@ -38,7 +39,7 @@ beforeEach(() => {
 
 describe('ProductPerformanceMatrixPage', () => {
   it('places each SKU in its quadrant', async () => {
-    render(<ProductPerformanceMatrixPage />)
+    renderAt(<ProductPerformanceMatrixPage />, '/reports')
 
     const winners = await screen.findByTestId('quadrant-winners')
     expect(within(winners).getByText('Acai 1L')).toBeInTheDocument()
@@ -48,7 +49,7 @@ describe('ProductPerformanceMatrixPage', () => {
   it('shows an empty state when no SKUs have a known margin', async () => {
     vi.mocked(reportsApi.getProductPerformanceMatrix).mockResolvedValue(matrix({ rows: [] }))
 
-    render(<ProductPerformanceMatrixPage />)
+    renderAt(<ProductPerformanceMatrixPage />, '/reports')
 
     expect(await screen.findByText('No SKUs with a known margin in this period')).toBeInTheDocument()
   })

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import FrequentlyBoughtTogetherPage from '../FrequentlyBoughtTogetherPage'
+import { renderAt } from '../../../test/renderAt'
 import type { FrequentlyBoughtTogetherReport, ProductRecommendationsReport } from '../../../reports/types'
 import type { Product, ProductDetail, SKU } from '../../../pms/types'
 
@@ -76,7 +77,7 @@ beforeEach(() => {
 
 describe('FrequentlyBoughtTogetherPage', () => {
   it('shows the tenant-wide frequently bought together table', async () => {
-    render(<FrequentlyBoughtTogetherPage />)
+    renderAt(<FrequentlyBoughtTogetherPage />, '/reports')
 
     expect(await screen.findByText('Acai 1L + Granola 500g')).toBeInTheDocument()
     const row = screen.getByTestId('fbt-row')
@@ -87,14 +88,14 @@ describe('FrequentlyBoughtTogetherPage', () => {
   it('shows an empty state when no SKU sets co-occurred frequently', async () => {
     vi.mocked(reportsApi.getFrequentlyBoughtTogetherReport).mockResolvedValue(fbtReport({ rows: [] }))
 
-    render(<FrequentlyBoughtTogetherPage />)
+    renderAt(<FrequentlyBoughtTogetherPage />, '/reports')
 
     expect(await screen.findByText('No frequently co-occurring SKU sets in this period')).toBeInTheDocument()
   })
 
   it('searches a product, auto-selects its only SKU, and shows recommendations', async () => {
     const user = userEvent.setup()
-    render(<FrequentlyBoughtTogetherPage />)
+    renderAt(<FrequentlyBoughtTogetherPage />, '/reports')
     await screen.findByText('Acai 1L + Granola 500g')
 
     await user.type(screen.getByPlaceholderText('Search products…'), 'acai')
@@ -117,7 +118,7 @@ describe('FrequentlyBoughtTogetherPage', () => {
       ],
     })
     const user = userEvent.setup()
-    render(<FrequentlyBoughtTogetherPage />)
+    renderAt(<FrequentlyBoughtTogetherPage />, '/reports')
     await screen.findByText('Acai 1L + Granola 500g')
 
     await user.type(screen.getByPlaceholderText('Search products…'), 'acai')
@@ -126,5 +127,21 @@ describe('FrequentlyBoughtTogetherPage', () => {
     expect(await screen.findByText(/ACAI-1L-S/)).toBeInTheDocument()
     expect(screen.getByText(/ACAI-1L-L/)).toBeInTheDocument()
     expect(reportsApi.getProductRecommendations).not.toHaveBeenCalled()
+  })
+})
+
+describe('Product recommendations URL state', () => {
+  it('?product=&sku= reopens that product and SKU\'s recommendations on load', async () => {
+    renderAt(<FrequentlyBoughtTogetherPage />, '/reports', '/reports?product=product-1&sku=sku-a')
+    await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalledWith('test-token', 'product-1'))
+    await waitFor(() => expect(reportsApi.getProductRecommendations).toHaveBeenCalledWith('test-token', 'sku-a', expect.any(String), expect.any(String)))
+  })
+
+  it('picking a product writes ?product= (and the auto-picked single SKU) to the URL', async () => {
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [product()], total: 1 })
+    const { router } = renderAt(<FrequentlyBoughtTogetherPage />, '/reports', '/reports')
+    await userEvent.type(await screen.findByPlaceholderText('Search products…'), 'wid')
+    await userEvent.click(await screen.findByRole('button', { name: product().name }))
+    await waitFor(() => expect(router.state.location.search).toBe('?product=product-1&sku=sku-a'))
   })
 })
