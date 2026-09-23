@@ -71,7 +71,7 @@ export function PortionFromBulkModal({
   return (
     <Modal title="Add Item From Weight Pool" onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-[10px] text-ink-4">
+        <p className="text-2xs text-ink-4">
           Peels one sellable unit off the linked weight pool. Repeatable as many times as you like.
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -87,7 +87,7 @@ export function PortionFromBulkModal({
               <option value="">General ledger</option>
               {batches.filter(b => !b.is_general_ledger).map(b => <option key={b.id} value={b.id}>{formatBatchOption(b)}</option>)}
             </select>
-            {batchesError && <p className="mt-1 text-[10px] text-danger">{batchesError}</p>}
+            {batchesError && <p className="mt-1 text-2xs text-danger">{batchesError}</p>}
           </div>
         </div>
         <div>
@@ -103,7 +103,7 @@ export function PortionFromBulkModal({
           <label className={labelClass} htmlFor="portion-reason">Reason (optional)</label>
           <input id="portion-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-danger">{error}</p>}
+        {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel

@@ -228,13 +228,13 @@ export default function BolSyncSettingsPage({
     }
   }
 
-  const inputClass = 'px-2 py-1 text-[10px] rounded bg-surface border border-line text-ink-2 outline-none'
+  const inputClass = 'px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none'
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
-          <button onClick={onClose} className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1">
+          <button onClick={onClose} className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1">
             <ArrowLeft size={11} /> Integrations
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">Bol.com</h1>
@@ -270,7 +270,7 @@ export default function BolSyncSettingsPage({
               <label htmlFor="bol-economic-operator-id" className="block text-xs font-medium text-ink-3 mb-1">Economic Operator ID</label>
               <input id="bol-economic-operator-id" value={economicOperatorId} onChange={e => setEconomicOperatorId(e.target.value)} required
                 className="w-full px-3 py-2 rounded-lg text-sm bg-surface border border-line text-ink" />
-              <p className="text-[10px] text-ink-4 mt-1">Your EU operator identifier, required on every offer.</p>
+              <p className="text-2xs text-ink-4 mt-1">Your EU operator identifier, required on every offer.</p>
             </div>
             {connectError && <p className="text-xs text-danger">{connectError}</p>}
             <button type="submit" disabled={connecting}
@@ -300,18 +300,18 @@ export default function BolSyncSettingsPage({
                     />
                     <button
                       type="button" onClick={handleFetchFromBol} disabled={fetchingOperators}
-                      className="px-2 py-1 text-[10px] rounded dark:bg-night-700 bg-gray-200 text-ink-2 hover:opacity-80 disabled:opacity-50 transition-opacity shrink-0"
+                      className="px-2 py-1 text-2xs rounded dark:bg-night-700 bg-gray-200 text-ink-2 hover:opacity-80 disabled:opacity-50 transition-opacity shrink-0"
                     >
                       {fetchingOperators ? 'Fetching…' : 'Fetch from Bol'}
                     </button>
                   </div>
-                  <p className="text-[10px] text-ink-4 mt-1">
+                  <p className="text-2xs text-ink-4 mt-1">
                     A UUID from Bol's Partner Platform (GPSR/economic operator settings) -- not your KVK/VAT number.
                   </p>
-                  {fetchOperatorsError && <p className="text-[10px] text-danger mt-1">{fetchOperatorsError}</p>}
+                  {fetchOperatorsError && <p className="text-2xs text-danger mt-1">{fetchOperatorsError}</p>}
                   {operatorChoices.length > 0 && (
                     <div className="mt-2">
-                      <label htmlFor="bol-config-fetched-operators" className="block text-[10px] text-ink-3 mb-1">
+                      <label htmlFor="bol-config-fetched-operators" className="block text-2xs text-ink-3 mb-1">
                         Select from Bol
                       </label>
                       <select
@@ -350,7 +350,7 @@ export default function BolSyncSettingsPage({
                 >
                   {configSaving ? 'Saving…' : 'Save configuration'}
                 </button>
-                {configSaved && <span className="text-[10px] text-success">Saved</span>}
+                {configSaved && <span className="text-2xs text-success">Saved</span>}
               </div>
             </div>
 
@@ -369,12 +369,12 @@ export default function BolSyncSettingsPage({
                 <div key={row.entity} className="p-4">
                   <p className="text-xs font-semibold text-ink mb-3">{row.label}</p>
                   {row.entity === 'bol_orders' && (
-                    <p className="text-[10px] text-ink-4 mb-2">
+                    <p className="text-2xs text-ink-4 mb-2">
                       Import only -- CommerceOS never pushes orders back to Bol. Polls currently open orders every run.
                     </p>
                   )}
                   {row.entity === 'bol_stock' && (
-                    <p className="text-[10px] text-ink-4 mb-2">
+                    <p className="text-2xs text-ink-4 mb-2">
                       Re-pushes every already-linked product's current price and stock -- Bol has no stock-only endpoint,
                       so this runs the same push as Products, just on its own interval.
                     </p>
@@ -389,7 +389,7 @@ export default function BolSyncSettingsPage({
                       return (
                         <div key={direction} className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-medium text-ink-3 uppercase tracking-wider capitalize">
+                            <span className="text-2xs font-medium text-ink-3 uppercase tracking-wider capitalize">
                               {direction}
                             </span>
                             <label className={clsx('relative flex items-center shrink-0', runnable ? 'cursor-pointer' : 'cursor-not-allowed opacity-40')}>
@@ -423,12 +423,12 @@ export default function BolSyncSettingsPage({
                             </select>
                           )}
                           {cell.lastRunAt && (
-                            <p className="text-[10px] text-ink-4">
+                            <p className="text-2xs text-ink-4">
                               Last run: {new Date(cell.lastRunAt).toLocaleString()} ({cell.lastRunStatus || 'unknown'})
                             </p>
                           )}
                           {cell.lastRunStatus === 'error' && cell.lastRunError && (
-                            <p className="text-[10px] text-danger">{cell.lastRunError}</p>
+                            <p className="text-2xs text-danger">{cell.lastRunError}</p>
                           )}
                         </div>
                       )

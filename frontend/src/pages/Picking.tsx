@@ -517,7 +517,7 @@ export default function Picking() {
       <div className="w-64 border-r border-line bg-sunken flex flex-col overflow-hidden shrink-0">
         <div className="px-4 py-3 border-b border-line">
           <p className="text-xs font-semibold text-ink">Orders to Pick</p>
-          <p className="text-[10px] text-ink-4 mt-0.5">{orders.length} unfulfilled</p>
+          <p className="text-2xs text-ink-4 mt-0.5">{orders.length} unfulfilled</p>
         </div>
         <div className="px-3 py-2 border-b border-line">
           <div className="relative">
@@ -526,15 +526,15 @@ export default function Picking() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search orders..."
-              className="w-full pl-7 pr-2 py-1.5 text-[11px] rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full pl-7 pr-2 py-1.5 text-2xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto py-2">
-          {ordersLoading && <p className="px-4 py-3 text-[11px] text-ink-4">Loading…</p>}
-          {ordersError && <p className="px-4 py-3 text-[11px] text-danger">{ordersError}</p>}
+          {ordersLoading && <p className="px-4 py-3 text-2xs text-ink-4">Loading…</p>}
+          {ordersError && <p className="px-4 py-3 text-2xs text-danger">{ordersError}</p>}
           {!ordersLoading && filteredOrders.length === 0 && (
-            <p className="px-4 py-3 text-[11px] text-ink-4">No unfulfilled orders</p>
+            <p className="px-4 py-3 text-2xs text-ink-4">No unfulfilled orders</p>
           )}
           {filteredOrders.map(o => (
             <button
@@ -550,11 +550,11 @@ export default function Picking() {
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium text-ink">#{o.number || o.external_order_id}</span>
                 {activeOrder?.id === o.id && session?.session.status === 'in_progress' && (
-                  <span className="text-[9px] font-medium text-accent">In progress</span>
+                  <span className="text-2xs font-medium text-accent">In progress</span>
                 )}
               </div>
-              <p className="text-[10px] text-ink-3 truncate">{customerName(o)}</p>
-              <p className="text-[10px] text-ink-4 mt-0.5">{formatMoney(o.total_minor_units, o.currency_code)}</p>
+              <p className="text-2xs text-ink-3 truncate">{customerName(o)}</p>
+              <p className="text-2xs text-ink-4 mt-0.5">{formatMoney(o.total_minor_units, o.currency_code)}</p>
             </button>
           ))}
         </div>
@@ -583,9 +583,9 @@ export default function Picking() {
             </p>
             {!!completeResult.missing_items?.length && (
               <div className="mt-4 w-full max-w-sm rounded-lg border dark:border-amber-500/30 border-amber-300 dark:bg-amber-500/5 bg-amber-50/40 p-3">
-                <p className="text-[11px] font-medium text-warning mb-2">Not fully picked</p>
+                <p className="text-2xs font-medium text-warning mb-2">Not fully picked</p>
                 {completeResult.missing_items.map(m => (
-                  <p key={m.line_item_id} className="text-[11px] text-ink-2">
+                  <p key={m.line_item_id} className="text-2xs text-ink-2">
                     {m.name}: {m.picked_qty}/{m.expected_qty}
                   </p>
                 ))}
@@ -737,7 +737,7 @@ export default function Picking() {
                   className="flex-1 bg-transparent text-sm text-ink outline-none placeholder-ink-4 font-mono disabled:opacity-50"
                 />
               </div>
-              {error && <p className="text-[11px] text-danger mt-2">{error}</p>}
+              {error && <p className="text-2xs text-danger mt-2">{error}</p>}
             </div>
 
             {/* Progress */}
@@ -782,15 +782,15 @@ export default function Picking() {
                     <div className="flex-1 min-w-0">
                       <p className={clsx('text-sm font-medium', done ? 'dark:text-green-300 text-success' : 'text-ink')}>{li.name}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] font-mono text-ink-4">{li.sku_code}</span>
-                        {!li.sku_id && <span className="text-[10px] text-warning">unlinked — scan to resolve</span>}
+                        <span className="text-2xs font-mono text-ink-4">{li.sku_code}</span>
+                        {!li.sku_id && <span className="text-2xs text-warning">unlinked — scan to resolve</span>}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
                       <p className={clsx('text-lg font-bold tabular-nums', done ? 'text-success' : partial ? 'text-warning' : 'text-ink')}>
                         {picked}/{li.quantity}
                       </p>
-                      <p className="text-[10px] text-ink-4">picked</p>
+                      <p className="text-2xs text-ink-4">picked</p>
                     </div>
                   </div>
                 )
@@ -800,10 +800,10 @@ export default function Picking() {
             {/* Staged scans log */}
             {session.scans.length > 0 && (
               <div className="border-t border-line px-4 py-2 max-h-32 overflow-y-auto shrink-0">
-                <p className="text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1">This session</p>
+                <p className="text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1">This session</p>
                 {session.scans.map(s => (
                   <div key={s.id} className="flex items-center justify-between py-0.5">
-                    <span className="text-[11px] text-ink-3">
+                    <span className="text-2xs text-ink-3">
                       {ACTION_LABEL[s.action_type]} · qty {s.quantity}
                     </span>
                     <button type="button" onClick={() => handleDeleteScan(s.id)} aria-label="Remove scan" className="text-ink-4 hover:text-danger">
@@ -830,19 +830,19 @@ export default function Picking() {
             <div className="flex items-center rounded-lg border border-line overflow-hidden">
               <button
                 type="button" onClick={() => setPickPanelMode('pick')}
-                className={clsx('flex-1 px-3 py-1.5 text-[11px] font-medium', pickPanelMode === 'pick' ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
+                className={clsx('flex-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'pick' ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
               >
                 Pick
               </button>
               <button
                 type="button" onClick={() => { setPickPanelMode('substitute'); setSubstituteRows([newSubstituteRow()]) }}
-                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-[11px] font-medium', pickPanelMode === 'substitute' ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
+                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'substitute' ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
               >
                 <Repeat size={11} /> Substitute
               </button>
               <button
                 type="button" onClick={() => setPickPanelMode('refund')}
-                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-[11px] font-medium', pickPanelMode === 'refund' ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
+                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'refund' ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
               >
                 <Undo2 size={11} /> Refund
               </button>
@@ -850,12 +850,12 @@ export default function Picking() {
 
             {pickPanelMode === 'refund' ? (
               <>
-                <p className="text-[11px] text-ink-3">
+                <p className="text-2xs text-ink-3">
                   Can't fulfill this and don't want to substitute? Refund part or all of this line's own quantity
                   ({pickLine.lineItem.quantity}) instead -- money only moves once the session is completed.
                 </p>
                 <label className="block">
-                  <span className="block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity to refund</span>
+                  <span className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity to refund</span>
                   <input
                     type="number" min={1} max={pickLine.lineItem.quantity}
                     value={refundQty} onChange={e => setRefundQty(e.target.value)}
@@ -863,7 +863,7 @@ export default function Picking() {
                   />
                 </label>
                 <label className="block">
-                  <span className="block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5">Reason (optional)</span>
+                  <span className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Reason (optional)</span>
                   <input
                     type="text" value={refundReason} onChange={e => setRefundReason(e.target.value)}
                     className={inputClass}
@@ -879,7 +879,7 @@ export default function Picking() {
             ) : pickPanelMode === 'pick' ? (
               <>
                 <div>
-                  <label className="block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
+                  <label className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
                   <input
                     type="number" min={1} max={pickLine.lineItem.quantity - pickLine.pickedSoFar || undefined}
                     value={pickQty} onChange={e => setPickQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
@@ -895,7 +895,7 @@ export default function Picking() {
               </>
             ) : (
               <>
-                <p className="text-[11px] text-ink-3">
+                <p className="text-2xs text-ink-3">
                   Replace with one or more products -- each row's "covers" quantity must add up to this line's
                   remaining quantity ({substituteRemaining}) before you can confirm.
                 </p>
@@ -908,7 +908,7 @@ export default function Picking() {
                     />
                     <div className="grid grid-cols-2 gap-2">
                       <label className="block">
-                        <span className="block text-[10px] text-ink-4 mb-1">Qty added</span>
+                        <span className="block text-2xs text-ink-4 mb-1">Qty added</span>
                         <input
                           type="number" min={1} value={row.substituteQty}
                           onChange={e => updateSubstituteRow(row.key, { substituteQty: e.target.value })}
@@ -916,7 +916,7 @@ export default function Picking() {
                         />
                       </label>
                       <label className="block">
-                        <span className="block text-[10px] text-ink-4 mb-1">Covers (of original)</span>
+                        <span className="block text-2xs text-ink-4 mb-1">Covers (of original)</span>
                         <input
                           type="number" min={1} value={row.coveredQty}
                           onChange={e => updateSubstituteRow(row.key, { coveredQty: e.target.value })}
@@ -924,7 +924,7 @@ export default function Picking() {
                         />
                       </label>
                     </div>
-                    <label className="flex items-center gap-2 text-[11px] text-ink-3">
+                    <label className="flex items-center gap-2 text-2xs text-ink-3">
                       <input
                         type="checkbox" checked={row.returnToStock}
                         onChange={e => updateSubstituteRow(row.key, { returnToStock: e.target.checked })}
@@ -934,7 +934,7 @@ export default function Picking() {
                     {substituteRows.length > 1 && (
                       <button
                         type="button" onClick={() => setSubstituteRows(rows => rows.filter((_, idx) => idx !== i))}
-                        className="text-[11px] text-ink-4 hover:text-danger"
+                        className="text-2xs text-ink-4 hover:text-danger"
                       >
                         Remove this row
                       </button>
@@ -943,11 +943,11 @@ export default function Picking() {
                 ))}
                 <button
                   type="button" onClick={() => setSubstituteRows(rows => [...rows, newSubstituteRow()])}
-                  className="w-full py-2 rounded-lg border border-dashed dark:border-night-700 border-gray-300 text-[11px] text-ink-3"
+                  className="w-full py-2 rounded-lg border border-dashed dark:border-night-700 border-gray-300 text-2xs text-ink-3"
                 >
                   + Add another substitute
                 </button>
-                <p className="text-[11px] text-center text-ink-4">
+                <p className="text-2xs text-center text-ink-4">
                   Covers {substituteCoveredTotal} of {substituteRemaining}
                 </p>
                 <button
@@ -974,7 +974,7 @@ export default function Picking() {
           <div className="p-4 space-y-4">
             {!addItemOpen.skuId ? (
               <>
-                <p className="text-[11px] text-ink-3">Scan or type the product's SKU/barcode.</p>
+                <p className="text-2xs text-ink-3">Scan or type the product's SKU/barcode.</p>
                 <input
                   type="text" value={code} onChange={e => setCode(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAddItemScanSubmit()}
@@ -987,19 +987,19 @@ export default function Picking() {
                 <div className="flex items-center rounded-lg border border-line overflow-hidden">
                   <button
                     type="button" onClick={() => setAddItemFreebie(true)}
-                    className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-[11px] font-medium', addItemFreebie ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
+                    className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', addItemFreebie ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
                   >
                     <Gift size={11} /> Freebie
                   </button>
                   <button
                     type="button" onClick={() => setAddItemFreebie(false)}
-                    className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-[11px] font-medium', !addItemFreebie ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
+                    className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', !addItemFreebie ? 'bg-blue-600 text-white' : 'bg-raised text-ink-3')}
                   >
                     <PackagePlus size={11} /> New item
                   </button>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
+                  <label className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
                   <input
                     type="number" min={1} value={addItemQty}
                     onChange={e => setAddItemQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
@@ -1008,7 +1008,7 @@ export default function Picking() {
                 </div>
                 {!addItemFreebie && (
                   <div>
-                    <label className="block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5">Price</label>
+                    <label className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Price</label>
                     <input
                       type="number" min={0} step="0.01" value={addItemPrice}
                       onChange={e => setAddItemPrice(e.target.value)}

@@ -75,17 +75,17 @@ export function WhatsAppWebhookModal({ connection, tenantId, onClose }: {
 
         {url ? (
           <div className="mb-4">
-            <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+            <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
               New webhook URL
             </label>
             <div className="flex items-center gap-2">
-              <code className="flex-1 px-3 py-2 text-[11px] rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
+              <code className="flex-1 px-3 py-2 text-2xs rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
                 {url}
               </code>
               <button
                 type="button"
                 onClick={() => handleCopy(url)}
-                className="px-2.5 py-2 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors shrink-0"
+                className="px-2.5 py-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors shrink-0"
               >
                 {copied ? 'Copied' : 'Copy'}
               </button>

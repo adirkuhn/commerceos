@@ -166,7 +166,7 @@ export default function Orders() {
                     <span className="font-mono font-medium text-ink">{o.id}</span>
                   </td>
                   <td className="px-3 py-2.5">
-                    <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', CHANNEL_COLORS[o.channel])}>
+                    <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', CHANNEL_COLORS[o.channel])}>
                       {o.channel}
                     </span>
                   </td>
@@ -179,7 +179,7 @@ export default function Orders() {
                     </span>
                   </td>
                   <td className="px-3 py-2.5">
-                    <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', STATUS_COLORS[o.status])}>
+                    <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_COLORS[o.status])}>
                       {o.status}
                     </span>
                   </td>
@@ -205,7 +205,7 @@ export default function Orders() {
 
           {/* Status flow */}
           <div className="px-4 py-3 border-b border-line">
-            <p className="text-[10px] text-ink-4 uppercase tracking-wider mb-2">Order Flow</p>
+            <p className="text-2xs text-ink-4 uppercase tracking-wider mb-2">Order Flow</p>
             <div className="flex items-center gap-1 flex-wrap">
               {ORDER_STATUS_FLOW.filter(s => s !== 'cancelled').map((s, i) => {
                 const steps = ORDER_STATUS_FLOW.filter(x => x !== 'cancelled')
@@ -215,7 +215,7 @@ export default function Orders() {
                 return (
                   <div key={s} className="flex items-center gap-1">
                     <div className={clsx(
-                      'w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center',
+                      'w-5 h-5 rounded-full text-2xs font-bold flex items-center justify-center',
                       done ? 'bg-blue-600 text-white' : 'dark:bg-night-700 bg-gray-200 text-ink-4',
                     )}>
                       {i + 1}

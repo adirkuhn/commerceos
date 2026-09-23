@@ -86,7 +86,7 @@ function ExpiringSoonWidget() {
     <div className="bg-raised rounded-xl border border-line overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <h3 className="text-sm font-semibold text-ink">Expiring Soon</h3>
-        <span className="text-[10px] bg-amber-500/20 text-warning px-2 py-0.5 rounded-full font-medium">
+        <span className="text-2xs bg-amber-500/20 text-warning px-2 py-0.5 rounded-full font-medium">
           {batches.length} within 30 days
         </span>
       </div>
@@ -104,13 +104,13 @@ function ExpiringSoonWidget() {
                 <Calendar size={13} className={clsx('mt-0.5 shrink-0', expired ? 'text-danger' : 'text-warning')} />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-ink-2 truncate">{b.product_name}</p>
-                  <p className="text-[10px] text-ink-4 font-mono">
+                  <p className="text-2xs text-ink-4 font-mono">
                     {b.sku_code} · lot {b.lot_number || '—'} · {b.warehouse_name}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-xs font-medium text-ink">{b.quantity} units</p>
-                  <p className={clsx('text-[10px] font-mono', expired ? 'text-danger' : 'text-warning')}>
+                  <p className={clsx('text-2xs font-mono', expired ? 'text-danger' : 'text-warning')}>
                     {new Date(b.expiry_date).toLocaleDateString()}
                   </p>
                 </div>
@@ -239,9 +239,9 @@ export default function Dashboard() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-line">
-                  <th className="text-left text-[10px] font-medium text-ink-4 uppercase tracking-wider px-4 py-2">Product</th>
-                  <th className="text-right text-[10px] font-medium text-ink-4 uppercase tracking-wider px-4 py-2">Sold</th>
-                  <th className="text-right text-[10px] font-medium text-ink-4 uppercase tracking-wider px-4 py-2">Revenue</th>
+                  <th className="text-left text-2xs font-medium text-ink-4 uppercase tracking-wider px-4 py-2">Product</th>
+                  <th className="text-right text-2xs font-medium text-ink-4 uppercase tracking-wider px-4 py-2">Sold</th>
+                  <th className="text-right text-2xs font-medium text-ink-4 uppercase tracking-wider px-4 py-2">Revenue</th>
                 </tr>
               </thead>
               <tbody>
@@ -249,7 +249,7 @@ export default function Dashboard() {
                   <tr key={p.sku_id ?? p.sku_code} className="border-b dark:border-night-700/50 border-gray-50 last:border-0 hover:bg-hover/30 transition-colors">
                     <td className="px-4 py-2.5">
                       <p className="text-xs font-medium text-ink">{p.product_name}</p>
-                      <p className="text-[10px] text-ink-4 font-mono">{p.sku_code}</p>
+                      <p className="text-2xs text-ink-4 font-mono">{p.sku_code}</p>
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <span className="text-xs text-ink-2">{p.quantity_sold}</span>

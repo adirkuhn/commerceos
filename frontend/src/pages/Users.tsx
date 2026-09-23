@@ -166,7 +166,7 @@ function UserActivityPanel({ token, member, onClose }: { token: string; member: 
       <div className="px-4 py-3 border-b border-line shrink-0 flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-ink">{fullName(member)}</h3>
-          <p className="text-[10px] text-ink-4 mt-0.5">Activity across all their orders</p>
+          <p className="text-2xs text-ink-4 mt-0.5">Activity across all their orders</p>
         </div>
         <button onClick={onClose}><X size={14} className="text-ink-3" /></button>
       </div>
@@ -211,7 +211,7 @@ function GroupsPanel({ token, members, groupId, editing, onSelect, onCreate, onE
     <div className="w-[480px] border-l border-line flex flex-col overflow-hidden">
       <div className="px-4 py-3 border-b border-line shrink-0">
         <h3 className="text-sm font-semibold text-ink">Groups & Permissions</h3>
-        <p className="text-[10px] text-ink-4 mt-0.5">Fine-grained access on top of owner/user roles</p>
+        <p className="text-2xs text-ink-4 mt-0.5">Fine-grained access on top of owner/user roles</p>
       </div>
       <div className="flex-1 overflow-auto p-4">
         {showForm ? (
@@ -379,12 +379,12 @@ export default function Users() {
                         className="flex items-center gap-2.5 text-left hover:underline"
                         title={`View ${fullName(m)}'s activity`}
                       >
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xs font-bold text-white shrink-0">
                           {fullName(m).slice(0, 2).toUpperCase()}
                         </div>
                         <div>
                           <p className="font-medium text-ink">{fullName(m)}</p>
-                          <p className="text-[10px] text-ink-4">{m.email}</p>
+                          <p className="text-2xs text-ink-4">{m.email}</p>
                         </div>
                       </button>
                     </td>
@@ -395,7 +395,7 @@ export default function Users() {
                         aria-label={`Role for ${fullName(m)}`}
                         value={m.role}
                         onChange={e => membersState.updateRole(m.membership_id, e.target.value as MemberRole)}
-                        className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium border-0 outline-none', ROLE_COLORS[m.role])}
+                        className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium border-0 outline-none', ROLE_COLORS[m.role])}
                       >
                         <option value="customer_owner">Owner</option>
                         <option value="customer_user">User</option>
@@ -407,7 +407,7 @@ export default function Users() {
                           ? <CheckCircle size={12} className="text-success" />
                           : <XCircle size={12} className="text-ink-4" />
                         }
-                        <span className={clsx('text-[10px] font-medium', m.status === 'active' ? 'text-success' : 'text-ink-4')}>
+                        <span className={clsx('text-2xs font-medium', m.status === 'active' ? 'text-success' : 'text-ink-4')}>
                           {m.status === 'active' ? 'Active' : m.status}
                         </span>
                       </div>
@@ -420,7 +420,7 @@ export default function Users() {
                         <button
                           aria-label={`Remove ${fullName(m)}`}
                           onClick={() => handleRemove(m)}
-                          className="opacity-0 group-hover:opacity-100 text-[10px] text-danger hover:text-red-300"
+                          className="opacity-0 group-hover:opacity-100 text-2xs text-danger hover:text-red-300"
                         >
                           Remove
                         </button>

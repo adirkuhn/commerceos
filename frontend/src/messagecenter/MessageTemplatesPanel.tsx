@@ -207,7 +207,7 @@ export default function MessageTemplatesPanel() {
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label htmlFor="template-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="template-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Name
                 </label>
                 <input
@@ -222,7 +222,7 @@ export default function MessageTemplatesPanel() {
               </div>
 
               <div>
-                <label htmlFor="template-category" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="template-category" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Category
                 </label>
                 <select
@@ -238,7 +238,7 @@ export default function MessageTemplatesPanel() {
               </div>
 
               <div>
-                <span className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <span className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Channels
                 </span>
                 <div className="flex items-center gap-4">
@@ -258,7 +258,7 @@ export default function MessageTemplatesPanel() {
 
               {form.channels.includes('email') && (
                 <div>
-                  <label htmlFor="template-subject" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="template-subject" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Subject (email only)
                   </label>
                   <input
@@ -272,7 +272,7 @@ export default function MessageTemplatesPanel() {
               )}
 
               <div>
-                <label htmlFor="template-body" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="template-body" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Body
                 </label>
                 <textarea
@@ -284,14 +284,14 @@ export default function MessageTemplatesPanel() {
                   placeholder="Hi {{customer_name}}, your order #{{order_number}} is confirmed."
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                 />
-                <p className="text-[10px] text-ink-4 mt-1">
+                <p className="text-2xs text-ink-4 mt-1">
                   Use {'{{token}}'} placeholders -- available tokens depend on which event sends this template.
                 </p>
               </div>
 
               {editingTemplate && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-ink-4 uppercase tracking-wider">Enabled</span>
+                  <span className="text-2xs text-ink-4 uppercase tracking-wider">Enabled</span>
                   <label className="relative flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"

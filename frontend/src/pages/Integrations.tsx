@@ -85,7 +85,7 @@ function PaymentWebhookSetupStep({
       <p className="text-xs text-ink-2">
         Connected! Register this URL as a webhook endpoint in {dashboardHint}, then paste the signing secret it gives you below.
       </p>
-      <p className="text-[11px] font-mono break-all bg-fill rounded-lg px-2 py-1.5 text-ink-2">
+      <p className="text-2xs font-mono break-all bg-fill rounded-lg px-2 py-1.5 text-ink-2">
         {webhookUrl}
       </p>
       {saved ? (
@@ -101,7 +101,7 @@ function PaymentWebhookSetupStep({
       ) : (
         <form onSubmit={onSubmit} className="space-y-3">
           <div>
-            <label htmlFor="payment-webhook-secret" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="payment-webhook-secret" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
               {providerLabel} webhook signing secret
             </label>
             <input
@@ -488,7 +488,7 @@ export default function Integrations() {
               </div>
               <div>
                 <p className="text-xs font-semibold text-ink">Webhooks</p>
-                <p className="text-[11px] text-ink-4">Fan-out rules and every active provider subscription, in one place</p>
+                <p className="text-2xs text-ink-4">Fan-out rules and every active provider subscription, in one place</p>
               </div>
             </div>
             <ChevronRight size={16} className="text-ink-4 shrink-0" />
@@ -539,20 +539,20 @@ export default function Integrations() {
                       <Icon size={14} className={STATUS_COLOR[conn.status]} />
                     </div>
                     <p className="text-sm font-semibold text-ink capitalize">{conn.provider}</p>
-                    <p className="text-[10px] text-ink-4 mt-0.5 truncate">{conn.store_url}</p>
+                    <p className="text-2xs text-ink-4 mt-0.5 truncate">{conn.store_url}</p>
                     {conn.provider === 'whatsapp' && conn.whatsapp_test_mode_enabled && (
-                      <p className="mt-2 text-[10px] px-2 py-1 rounded-lg text-warning bg-amber-500/10">
+                      <p className="mt-2 text-2xs px-2 py-1 rounded-lg text-warning bg-amber-500/10">
                         Test mode on — all messages go to {conn.whatsapp_test_phone_e164}
                       </p>
                     )}
                     {conn.provider === 'whatsapp' && conn.whatsapp_ai_parsing_enabled && (
-                      <p className="mt-2 text-[10px] px-2 py-1 rounded-lg text-accent bg-blue-500/10">
+                      <p className="mt-2 text-2xs px-2 py-1 rounded-lg text-accent bg-blue-500/10">
                         AI-assisted parsing on
                       </p>
                     )}
                     {testResult && testResult.id === conn.id && (
                       <p className={clsx(
-                        'mt-2 text-[10px] px-2 py-1 rounded-lg',
+                        'mt-2 text-2xs px-2 py-1 rounded-lg',
                         testResult.ok ? 'text-success bg-green-500/10' : 'text-danger bg-red-500/10',
                       )}>
                         {testResult.message}
@@ -562,7 +562,7 @@ export default function Integrations() {
                       {conn.provider === 'woocommerce' && (
                         <button
                           onClick={() => openPanel(conn, 'settings')}
-                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                         >
                           Configure
                         </button>
@@ -570,7 +570,7 @@ export default function Integrations() {
                       {conn.provider === 'myparcel' && (
                         <button
                           onClick={() => openPanel(conn, 'settings')}
-                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                         >
                           Configure
                         </button>
@@ -578,7 +578,7 @@ export default function Integrations() {
                       {conn.provider === 'myparcel' && (
                         <button
                           onClick={() => openPanel(conn, 'webhooks')}
-                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                         >
                           Register webhook
                         </button>
@@ -586,7 +586,7 @@ export default function Integrations() {
                       {conn.provider === 'bol' && (
                         <button
                           onClick={() => openPanel(conn, 'settings')}
-                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                         >
                           Configure
                         </button>
@@ -594,7 +594,7 @@ export default function Integrations() {
                       {conn.provider === 'whatsapp' && (
                         <button
                           onClick={() => openPanel(conn, 'test-mode')}
-                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                         >
                           Test mode
                         </button>
@@ -602,7 +602,7 @@ export default function Integrations() {
                       {conn.provider === 'whatsapp' && (
                         <button
                           onClick={() => openPanel(conn, 'ai-parsing')}
-                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                         >
                           AI parsing
                         </button>
@@ -610,7 +610,7 @@ export default function Integrations() {
                       {conn.provider === 'whatsapp' && (
                         <button
                           onClick={() => openPanel(conn, 'credentials')}
-                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                         >
                           Edit credentials
                         </button>
@@ -618,7 +618,7 @@ export default function Integrations() {
                       {conn.provider === 'whatsapp' && (
                         <button
                           onClick={() => openPanel(conn, 'whatsapp-webhook')}
-                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                         >
                           Webhook
                         </button>
@@ -627,7 +627,7 @@ export default function Integrations() {
                         <button
                           onClick={() => handleTestConnection(conn.id)}
                           disabled={testingId === conn.id}
-                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent disabled:opacity-50 transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent disabled:opacity-50 transition-colors"
                         >
                           {testingId === conn.id ? 'Testing…' : 'Test'}
                         </button>
@@ -635,7 +635,7 @@ export default function Integrations() {
                       {conn.provider === 'woocommerce' && (
                         <button
                           onClick={() => openPanel(conn, 'import')}
-                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                         >
                           Import
                         </button>
@@ -643,14 +643,14 @@ export default function Integrations() {
                       {conn.provider === 'woocommerce' && (
                         <button
                           onClick={() => openPanel(conn, 'delete-products')}
-                          className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-danger transition-colors"
+                          className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-danger transition-colors"
                         >
                           Delete imported
                         </button>
                       )}
                       <button
                         onClick={() => disconnect(conn.id)}
-                        className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-danger transition-colors"
+                        className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-danger transition-colors"
                       >
                         Disconnect
                       </button>
@@ -783,7 +783,7 @@ export default function Integrations() {
                   <p className="text-xs text-ink-2">
                     Connected! Paste this URL into Evolution API's own webhook settings (messages.upsert event) — it's shown only once.
                   </p>
-                  <p className="text-[11px] font-mono break-all bg-fill rounded-lg px-2 py-1.5 text-ink-2">
+                  <p className="text-2xs font-mono break-all bg-fill rounded-lg px-2 py-1.5 text-ink-2">
                     {waWebhookUrl}
                   </p>
                   <button
@@ -796,7 +796,7 @@ export default function Integrations() {
               ) : (
                 <form onSubmit={handleConnectWhatsapp} className="space-y-3">
                   <div>
-                    <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                    <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                       Evolution API base URL
                     </label>
                     <input
@@ -808,12 +808,12 @@ export default function Integrations() {
                       placeholder="https://evolution.example.com"
                       className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                     />
-                    <p className="mt-1.5 text-[10px] text-ink-4">
+                    <p className="mt-1.5 text-2xs text-ink-4">
                       Your own self-hosted Evolution API instance (unofficial WhatsApp gateway) — not an official WhatsApp Business API.
                     </p>
                   </div>
                   <div>
-                    <label htmlFor="wa-instance-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                    <label htmlFor="wa-instance-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                       Instance name
                     </label>
                     <input
@@ -826,7 +826,7 @@ export default function Integrations() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="wa-api-key" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                    <label htmlFor="wa-api-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                       API key
                     </label>
                     <input
@@ -867,7 +867,7 @@ export default function Integrations() {
               ) : (
               <form onSubmit={handleConnectStripe} className="space-y-3">
                 <div>
-                  <label htmlFor="stripe-secret-key" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="stripe-secret-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Secret key
                   </label>
                   <input
@@ -880,12 +880,12 @@ export default function Integrations() {
                     placeholder="sk_live_..."
                     className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <p className="mt-1.5 text-[10px] text-ink-4">
+                  <p className="mt-1.5 text-2xs text-ink-4">
                     From your Stripe Dashboard → Developers → API keys.
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="stripe-publishable-key" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="stripe-publishable-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Publishable key
                   </label>
                   <input
@@ -896,7 +896,7 @@ export default function Integrations() {
                     placeholder="pk_live_..."
                     className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <p className="mt-1.5 text-[10px] text-ink-4">
+                  <p className="mt-1.5 text-2xs text-ink-4">
                     Optional — required only to offer an embedded card form at checkout instead of a hosted payment link.
                   </p>
                 </div>
@@ -929,7 +929,7 @@ export default function Integrations() {
               ) : (
               <form onSubmit={handleConnectRevolut} className="space-y-3">
                 <div>
-                  <label htmlFor="revolut-api-key" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="revolut-api-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Merchant API secret key
                   </label>
                   <input
@@ -941,7 +941,7 @@ export default function Integrations() {
                     onChange={e => setRevolutApiKey(e.target.value)}
                     className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <p className="mt-1.5 text-[10px] text-ink-4">
+                  <p className="mt-1.5 text-2xs text-ink-4">
                     From your Revolut Business account → Merchant API settings.
                   </p>
                 </div>
@@ -960,7 +960,7 @@ export default function Integrations() {
             ) : connectingEmail ? (
               <form onSubmit={handleConnectEmail} className="space-y-3">
                 <div>
-                  <label htmlFor="email-host" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="email-host" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     SMTP host
                   </label>
                   <input
@@ -975,7 +975,7 @@ export default function Integrations() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="email-port" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="email-port" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Port
                   </label>
                   <input
@@ -989,7 +989,7 @@ export default function Integrations() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="email-username" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="email-username" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Username (optional)
                   </label>
                   <input
@@ -1001,7 +1001,7 @@ export default function Integrations() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="email-password" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="email-password" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Password (optional)
                   </label>
                   <input
@@ -1011,12 +1011,12 @@ export default function Integrations() {
                     onChange={e => setEmailPassword(e.target.value)}
                     className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <p className="mt-1.5 text-[10px] text-ink-4">
+                  <p className="mt-1.5 text-2xs text-ink-4">
                     Leave username/password blank for a relay that needs no auth.
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="email-from" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="email-from" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     From address
                   </label>
                   <input
@@ -1072,7 +1072,7 @@ export default function Integrations() {
                 {connectMode === 'auto' ? (
                   <form onSubmit={handleStartConnect} className="space-y-3">
                     <div>
-                      <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                      <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                         Store URL
                       </label>
                       <input
@@ -1084,7 +1084,7 @@ export default function Integrations() {
                         placeholder="https://mystore.com"
                         className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                       />
-                      <p className="mt-1.5 text-[10px] text-ink-4">
+                      <p className="mt-1.5 text-2xs text-ink-4">
                         Redirects to your store to approve access. Requires your store to reach this server.
                       </p>
                     </div>
@@ -1102,7 +1102,7 @@ export default function Integrations() {
                 ) : (
                   <form onSubmit={handleManualConnect} className="space-y-3">
                     <div>
-                      <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                      <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                         Store URL
                       </label>
                       <input
@@ -1116,7 +1116,7 @@ export default function Integrations() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                      <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                         Consumer Key
                       </label>
                       <input
@@ -1129,7 +1129,7 @@ export default function Integrations() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                      <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                         Consumer Secret
                       </label>
                       <input
@@ -1140,7 +1140,7 @@ export default function Integrations() {
                         placeholder="cs_..."
                         className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                       />
-                      <p className="mt-1.5 text-[10px] text-ink-4">
+                      <p className="mt-1.5 text-2xs text-ink-4">
                         Generate under WooCommerce → Settings → Advanced → REST API.
                       </p>
                     </div>
@@ -1187,11 +1187,11 @@ export default function Integrations() {
               </div>
             ) : (
               <form onSubmit={handleImport} className="space-y-3">
-                <p className="text-[10px] text-ink-4">
+                <p className="text-2xs text-ink-4">
                   Imports every WooCommerce product not yet linked, along with its category. Existing categories are matched by name; missing ones are created.
                 </p>
                 <div>
-                  <label htmlFor="import-warehouse-id" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="import-warehouse-id" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Default warehouse ID
                   </label>
                   <select
@@ -1205,12 +1205,12 @@ export default function Integrations() {
                     <option value="" disabled>Select a warehouse…</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
-                  <p className="mt-1.5 text-[10px] text-ink-4">
+                  <p className="mt-1.5 text-2xs text-ink-4">
                     Imported stock quantities are attributed to this warehouse — WooCommerce has no warehouse concept.
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="import-currency" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="import-currency" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Default currency
                   </label>
                   <select
@@ -1264,7 +1264,7 @@ export default function Integrations() {
                 {(deleteResult.errors ?? []).length > 0 && (
                   <div className="max-h-32 overflow-y-auto space-y-1">
                     {(deleteResult.errors ?? []).map((e, i) => (
-                      <p key={i} className="text-[10px] text-danger bg-red-50 dark:bg-red-500/10 rounded px-2 py-1">{e}</p>
+                      <p key={i} className="text-2xs text-danger bg-red-50 dark:bg-red-500/10 rounded px-2 py-1">{e}</p>
                     ))}
                   </div>
                 )}
@@ -1284,7 +1284,7 @@ export default function Integrations() {
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="delete-confirm" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="delete-confirm" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Type DELETE to confirm
                   </label>
                   <input

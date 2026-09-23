@@ -189,7 +189,7 @@ export default function CommandPalette() {
             placeholder="Search everything..."
             className="flex-1 bg-transparent text-sm text-ink placeholder-ink-4 outline-none"
           />
-          <kbd className="text-[10px] bg-fill text-ink-4 px-1.5 py-1 rounded font-mono">ESC</kbd>
+          <kbd className="text-2xs bg-fill text-ink-4 px-1.5 py-1 rounded font-mono">ESC</kbd>
         </div>
         <div className="py-2 max-h-96 overflow-y-auto">
           {searchError && (
@@ -202,7 +202,7 @@ export default function CommandPalette() {
           )}
           {sections.map(section => (
             <div key={section.title}>
-              <p className="px-4 py-1.5 text-[10px] font-medium text-ink-4 uppercase tracking-wider">
+              <p className="px-4 py-1.5 text-2xs font-medium text-ink-4 uppercase tracking-wider">
                 {section.title}
               </p>
               {section.entries.map(entry => {
@@ -222,11 +222,11 @@ export default function CommandPalette() {
                     <span className="flex-1 min-w-0 text-left">
                       <span className="block text-sm text-ink-2 truncate">{entry.label}</span>
                       {entry.sublabel && (
-                        <span className="block text-[11px] text-ink-4 truncate">{entry.sublabel}</span>
+                        <span className="block text-2xs text-ink-4 truncate">{entry.sublabel}</span>
                       )}
                     </span>
                     {entry.shortcut && (
-                      <span className="text-[10px] text-ink-4 font-mono shrink-0">{entry.shortcut}</span>
+                      <span className="text-2xs text-ink-4 font-mono shrink-0">{entry.shortcut}</span>
                     )}
                   </button>
                 )

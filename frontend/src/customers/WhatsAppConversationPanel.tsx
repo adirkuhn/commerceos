@@ -28,7 +28,7 @@ export function WhatsAppConversationPanel({ customerId }: { customerId: string }
                 }
               >
                 <p className="whitespace-pre-wrap">{m.body}</p>
-                <p className={`text-[10px] mt-0.5 ${m.direction === 'outbound' ? 'text-blue-100' : 'text-ink-4'}`}>
+                <p className={`text-2xs mt-0.5 ${m.direction === 'outbound' ? 'text-blue-100' : 'text-ink-4'}`}>
                   {new Date(m.created_at).toLocaleString()}
                 </p>
               </div>

@@ -16,7 +16,7 @@ export default function Pagination({ page, pageSize, totalItems, onPageChange }:
 
   return (
     <div className="flex items-center justify-between px-5 py-2.5 border-t border-line bg-sunken shrink-0">
-      <span className="text-[10px] text-ink-4">
+      <span className="text-2xs text-ink-4">
         {from}–{to} of {totalItems}
       </span>
       <div className="flex items-center gap-1">
@@ -28,7 +28,7 @@ export default function Pagination({ page, pageSize, totalItems, onPageChange }:
         >
           <ChevronLeft size={13} className="text-ink-3" />
         </button>
-        <span className="text-[10px] text-ink-3 px-1.5">
+        <span className="text-2xs text-ink-3 px-1.5">
           Page {page} of {totalPages}
         </span>
         <button

@@ -30,11 +30,11 @@ export default function ProductPerformancePage() {
               <div key={p.sku_id ?? p.sku_code} className="flex items-center gap-3 px-4 py-2.5">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-ink truncate">{p.product_name || p.sku_code}</p>
-                  <p className="text-[10px] font-mono text-ink-4">{p.sku_code}</p>
+                  <p className="text-2xs font-mono text-ink-4">{p.sku_code}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-xs font-medium text-ink">{formatMoney(p.revenue_minor_units, currency)}</p>
-                  <p className={clsx('text-[10px] font-medium', p.margin_basis_points === null ? 'text-ink-4' : p.margin_basis_points >= 5000 ? 'text-success' : 'text-warning')}>
+                  <p className={clsx('text-2xs font-medium', p.margin_basis_points === null ? 'text-ink-4' : p.margin_basis_points >= 5000 ? 'text-success' : 'text-warning')}>
                     {p.margin_basis_points === null ? 'margin n/a' : `${(p.margin_basis_points / 100).toFixed(1)}%`}
                   </p>
                 </div>

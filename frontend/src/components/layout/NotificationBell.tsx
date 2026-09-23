@@ -41,7 +41,7 @@ export default function NotificationBell() {
       >
         <Bell size={16} className="text-ink-3" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center bg-red-500 text-white text-[9px] font-medium rounded-full">
+          <span className="absolute top-1 right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center bg-red-500 text-white text-2xs font-medium rounded-full">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -56,7 +56,7 @@ export default function NotificationBell() {
               {unreadCount > 0 && (
                 <button
                   onClick={() => markAllRead()}
-                  className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors"
+                  className="text-2xs font-medium text-accent hover:text-accent/80 transition-colors"
                 >
                   Mark all read
                 </button>
@@ -82,8 +82,8 @@ export default function NotificationBell() {
                     {!n.read && <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
                     <div className={clsx('min-w-0 flex-1', n.read && 'pl-3.5')}>
                       <p className="text-xs font-medium text-ink truncate">{n.title}</p>
-                      {n.message && <p className="text-[10px] text-ink-4 mt-0.5 line-clamp-2">{n.message}</p>}
-                      <p className="text-[9px] text-ink-4 mt-1">{formatTime(n.created_at)}</p>
+                      {n.message && <p className="text-2xs text-ink-4 mt-0.5 line-clamp-2">{n.message}</p>}
+                      <p className="text-2xs text-ink-4 mt-1">{formatTime(n.created_at)}</p>
                     </div>
                   </div>
                 </button>

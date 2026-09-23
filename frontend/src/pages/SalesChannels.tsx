@@ -354,13 +354,13 @@ export default function SalesChannels() {
                   <p className="text-sm font-semibold text-ink">{channel.name}</p>
                   <span className={clsx('w-2 h-2 rounded-full mt-1.5', channel.active ? 'bg-green-400' : 'bg-gray-500')} />
                 </div>
-                <p className="text-[10px] text-ink-4 truncate">{connectionLabel(channel.connection_id)}</p>
+                <p className="text-2xs text-ink-4 truncate">{connectionLabel(channel.connection_id)}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-fill text-ink-3">
+                  <span className="inline-block text-2xs px-2 py-0.5 rounded-full bg-fill text-ink-3">
                     {ENROLLMENT_LABELS[channel.enrollment_mode]}
                   </span>
                   {!!channel.price_adjustment_basis_points && (
-                    <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-warning">
+                    <span className="inline-block text-2xs px-2 py-0.5 rounded-full bg-amber-500/10 text-warning">
                       {(channel.price_adjustment_basis_points / 100).toString()}% off
                     </span>
                   )}
@@ -368,7 +368,7 @@ export default function SalesChannels() {
                 {channel.type === INTERNAL_TYPE && (
                   <button
                     onClick={() => route.openApiDocs(channel.id)}
-                    className="mt-2 flex items-center gap-1 text-[10px] text-accent hover:text-accent transition-colors"
+                    className="mt-2 flex items-center gap-1 text-2xs text-accent hover:text-accent transition-colors"
                   >
                     <Code2 size={11} /> API docs
                   </button>
@@ -376,19 +376,19 @@ export default function SalesChannels() {
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <button
                     onClick={() => route.openManage(channel.id)}
-                    className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
+                    className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                   >
                     Products
                   </button>
                   <button
                     onClick={() => openEdit(channel)}
-                    className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
+                    className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => setDeletingChannel(channel)}
-                    className="py-1.5 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-danger transition-colors"
+                    className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-danger transition-colors"
                   >
                     Delete
                   </button>
@@ -413,7 +413,7 @@ export default function SalesChannels() {
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label htmlFor="channel-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="channel-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Name
                 </label>
                 <input
@@ -428,7 +428,7 @@ export default function SalesChannels() {
               </div>
               {!editingChannel && (
                 <div>
-                  <label htmlFor="channel-type" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-type" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Type
                   </label>
                   <select
@@ -442,7 +442,7 @@ export default function SalesChannels() {
                     ))}
                   </select>
                   {form.channelType === INTERNAL_TYPE && (
-                    <p className="mt-1.5 text-[10px] text-ink-4">
+                    <p className="mt-1.5 text-2xs text-ink-4">
                       A storefront CommerceOS itself hosts checkout for — no external connection needed.
                     </p>
                   )}
@@ -450,7 +450,7 @@ export default function SalesChannels() {
               )}
               {!editingChannel && form.channelType === INTERNAL_TYPE && (
                 <div>
-                  <label htmlFor="channel-currency" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-currency" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Currency
                   </label>
                   <select
@@ -462,7 +462,7 @@ export default function SalesChannels() {
                     <option value="">Default (tenant's own currency)</option>
                     {CURRENCY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
-                  <p className="mt-1.5 text-[10px] text-ink-4">
+                  <p className="mt-1.5 text-2xs text-ink-4">
                     Fixed for this channel once created.
                     {form.currencyCode && !exchangeRates.some(r => r.currency_code === form.currencyCode)
                       ? ` No exchange rate configured for ${form.currencyCode} yet -- add one under Settings > Localization, or prices won't convert.`
@@ -472,7 +472,7 @@ export default function SalesChannels() {
               )}
               {(editingChannel ? CONNECTION_REQUIRED_TYPES.includes(editingChannel.type) : form.channelType !== INTERNAL_TYPE) && (
                 <div>
-                  <label htmlFor="channel-connection" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-connection" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Connection
                   </label>
                   <select
@@ -495,7 +495,7 @@ export default function SalesChannels() {
               )}
               {form.connectionId && (
                 <div>
-                  <label htmlFor="channel-default-warehouse" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-default-warehouse" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Default location
                   </label>
                   <select
@@ -507,14 +507,14 @@ export default function SalesChannels() {
                     <option value="">No preference</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
-                  <p className="mt-1.5 text-[10px] text-ink-4">
+                  <p className="mt-1.5 text-2xs text-ink-4">
                     Which warehouse this channel's orders and stock sync are attributed to.
                   </p>
                 </div>
               )}
               {WAREHOUSE_REQUIRED_TYPES.includes(editingChannel ? editingChannel.type : form.channelType) && (
                 <div>
-                  <label htmlFor="channel-fulfillment-warehouse" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-fulfillment-warehouse" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Fulfillment warehouse
                   </label>
                   <select
@@ -527,13 +527,13 @@ export default function SalesChannels() {
                     <option value="" disabled>Select a warehouse…</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
-                  <p className="mt-1.5 text-[10px] text-ink-4">
+                  <p className="mt-1.5 text-2xs text-ink-4">
                     Required -- every order placed through this channel decrements stock from and ships from this warehouse.
                   </p>
                 </div>
               )}
               <div>
-                <label htmlFor="channel-enrollment-mode" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="channel-enrollment-mode" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Default enrollment
                 </label>
                 <select
@@ -546,13 +546,13 @@ export default function SalesChannels() {
                     <option key={mode} value={mode}>{ENROLLMENT_LABELS[mode]}</option>
                   ))}
                 </select>
-                <p className="mt-1.5 text-[10px] text-ink-4">
+                <p className="mt-1.5 text-2xs text-ink-4">
                   Which products belong on this channel by default. Individual products can still be added or removed later.
                 </p>
               </div>
               {form.enrollmentMode === 'category' && (
                 <div>
-                  <label htmlFor="channel-enrollment-category" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-enrollment-category" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Category
                   </label>
                   <select
@@ -569,7 +569,7 @@ export default function SalesChannels() {
               )}
               {form.enrollmentMode === 'tag' && (
                 <div>
-                  <label htmlFor="channel-enrollment-tag" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-enrollment-tag" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Tag
                   </label>
                   <input
@@ -585,7 +585,7 @@ export default function SalesChannels() {
               )}
               {editingChannel && PAYMENT_CAPABLE_TYPES.includes(editingChannel.type) && (
                 <div>
-                  <label htmlFor="channel-payment-method" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-payment-method" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Payment method
                   </label>
                   <select
@@ -599,14 +599,14 @@ export default function SalesChannels() {
                       .filter(c => (c.provider === 'stripe' || c.provider === 'revolut') && c.status === 'connected')
                       .map(c => <option key={c.id} value={c.id}>{capitalize(c.provider)}</option>)}
                   </select>
-                  <p className="mt-1.5 text-[10px] text-ink-4">
+                  <p className="mt-1.5 text-2xs text-ink-4">
                     Which connected payment integration an order's payment link is generated through. Connect Stripe or Revolut from the Integrations page first.
                   </p>
                 </div>
               )}
               {editingChannel && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-ink-4 uppercase tracking-wider">Active</span>
+                  <span className="text-2xs text-ink-4 uppercase tracking-wider">Active</span>
                   <label className="relative flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"
@@ -677,23 +677,23 @@ export default function SalesChannels() {
                 <X size={14} className="text-ink-4" />
               </button>
             </div>
-            <p className="text-[10px] text-ink-4 mb-3">
+            <p className="text-2xs text-ink-4 mb-3">
               No storefront app is attached to this channel -- it's a plain REST API any frontend can call directly.
             </p>
             <div className="shrink-0 mb-3 p-2.5 rounded-lg bg-sunken border border-line space-y-1.5">
-              <p className="text-[10px] text-ink-4 uppercase tracking-wider">Base URL</p>
+              <p className="text-2xs text-ink-4 uppercase tracking-wider">Base URL</p>
               <code className="block text-xs text-ink break-all">{apiBaseURL()}</code>
-              <p className="text-[10px] text-ink-4 uppercase tracking-wider pt-1">Auth (every request)</p>
+              <p className="text-2xs text-ink-4 uppercase tracking-wider pt-1">Auth (every request)</p>
               <div className="flex items-center gap-1.5">
                 <code className="flex-1 text-xs text-ink break-all">Authorization: Bearer {apiDocsChannel.id}</code>
                 <button
                   onClick={() => copyAuthHeader(apiDocsChannel.id)}
-                  className="shrink-0 text-[10px] text-accent hover:text-accent transition-colors"
+                  className="shrink-0 text-2xs text-accent hover:text-accent transition-colors"
                 >
                   {copiedAuthHeader ? 'Copied' : 'Copy'}
                 </button>
               </div>
-              <p className="text-[10px] text-ink-4">
+              <p className="text-2xs text-ink-4">
                 Public/anonymous-shopper privilege only -- this channel's own id doubles as its bearer key, same trust
                 model as a Stripe publishable key.
               </p>
@@ -703,7 +703,7 @@ export default function SalesChannels() {
                 <div key={`${ep.method} ${ep.path}`} className="flex items-start gap-2 py-1.5 border-b border-line last:border-0">
                   <span
                     className={clsx(
-                      'shrink-0 w-14 text-center text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5',
+                      'shrink-0 w-14 text-center text-2xs font-bold uppercase tracking-wide rounded px-1 py-0.5',
                       ep.method === 'GET' && 'bg-blue-500/10 text-accent',
                       ep.method === 'POST' && 'bg-green-500/10 text-success',
                       ep.method === 'PUT' && 'bg-amber-500/10 text-warning',
@@ -713,13 +713,13 @@ export default function SalesChannels() {
                     {ep.method}
                   </span>
                   <div className="min-w-0">
-                    <code className="text-[11px] text-ink-2 break-all">{ep.path}</code>
-                    <p className="text-[10px] text-ink-4">{ep.summary}</p>
+                    <code className="text-2xs text-ink-2 break-all">{ep.path}</code>
+                    <p className="text-2xs text-ink-4">{ep.summary}</p>
                   </div>
                 </div>
               ))}
             </div>
-            <p className="shrink-0 pt-3 text-[10px] text-ink-4">
+            <p className="shrink-0 pt-3 text-2xs text-ink-4">
               Full request/response contracts: backend/api/storefront/openapi.yaml.
             </p>
           </div>
@@ -778,7 +778,7 @@ function PricingSection({ channel, update }: PricingSectionProps) {
     <div className="mx-5 mt-4 p-4 rounded-xl border border-line bg-raised shrink-0">
       <h3 className="text-xs font-semibold text-ink mb-3">Pricing</h3>
       <div>
-        <label htmlFor="pricing-discount" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="pricing-discount" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
           Discount off list price (%)
         </label>
         <input
@@ -789,23 +789,23 @@ function PricingSection({ channel, update }: PricingSectionProps) {
           placeholder="0"
           className="w-full max-w-xs px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
         />
-        <p className="mt-1.5 text-[10px] text-ink-4">
+        <p className="mt-1.5 text-2xs text-ink-4">
           Applied to every product's price on this storefront -- e.g. 20 for a wholesale channel selling at 20% off retail.
         </p>
       </div>
       <div className="mt-4">
         <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-[10px] text-ink-4 uppercase tracking-wider">Quantity tiers</label>
+          <label className="block text-2xs text-ink-4 uppercase tracking-wider">Quantity tiers</label>
           <button
             type="button"
             onClick={() => { setQuantityBreaks(b => [...b, { minQuantity: '', discountPercent: '' }]); setDirty(true) }}
-            className="text-[10px] text-accent hover:text-accent"
+            className="text-2xs text-accent hover:text-accent"
           >
             + Add tier
           </button>
         </div>
         {quantityBreaks.length === 0 && (
-          <p className="text-[10px] text-ink-4">No quantity tiers -- every order uses the flat discount above.</p>
+          <p className="text-2xs text-ink-4">No quantity tiers -- every order uses the flat discount above.</p>
         )}
         <div className="space-y-2">
           {quantityBreaks.map((row, i) => (
@@ -821,7 +821,7 @@ function PricingSection({ channel, update }: PricingSectionProps) {
                 placeholder="Qty"
                 className="w-20 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
               />
-              <span className="text-[10px] text-ink-4">units or more →</span>
+              <span className="text-2xs text-ink-4">units or more →</span>
               <input
                 type="number" step={0.01}
                 aria-label={`Quantity tier ${i + 1} discount percent`}
@@ -833,7 +833,7 @@ function PricingSection({ channel, update }: PricingSectionProps) {
                 placeholder="0"
                 className="w-20 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
               />
-              <span className="text-[10px] text-ink-4">% off</span>
+              <span className="text-2xs text-ink-4">% off</span>
               <button
                 type="button"
                 onClick={() => { setQuantityBreaks(qb => qb.filter((_, ri) => ri !== i)); setDirty(true) }}
@@ -845,7 +845,7 @@ function PricingSection({ channel, update }: PricingSectionProps) {
             </div>
           ))}
         </div>
-        <p className="mt-1.5 text-[10px] text-ink-4">
+        <p className="mt-1.5 text-2xs text-ink-4">
           Buy this many or more of one SKU in a single cart line and get this bigger discount instead of the flat rate above.
         </p>
       </div>
@@ -914,13 +914,13 @@ function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelP
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Sales channels
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">{channel.name}</h1>
         </div>
-        <span className="text-[10px] px-2.5 py-1 rounded-full bg-raised border border-line text-ink-3">
+        <span className="text-2xs px-2.5 py-1 rounded-full bg-raised border border-line text-ink-3">
           {ENROLLMENT_LABELS[channel.enrollment_mode]}
         </span>
       </div>
@@ -1007,13 +1007,13 @@ function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelP
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-ink truncate">{product.name}</p>
                   {(product.tags ?? []).length > 0 && (
-                    <p className="text-[10px] text-ink-4 truncate">{(product.tags ?? []).join(', ')}</p>
+                    <p className="text-2xs text-ink-4 truncate">{(product.tags ?? []).join(', ')}</p>
                   )}
                 </div>
                 <button
                   onClick={() => setOverride(product.id, !enrolled)}
                   className={clsx(
-                    'px-3 py-1 rounded-lg text-[10px] font-medium transition-colors shrink-0',
+                    'px-3 py-1 rounded-lg text-2xs font-medium transition-colors shrink-0',
                     enrolled
                       ? 'bg-green-500/10 text-success hover:bg-red-500/10 hover:text-danger'
                       : 'bg-fill text-ink-3 hover:text-accent',

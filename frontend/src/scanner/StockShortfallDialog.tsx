@@ -31,7 +31,7 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
           {shortfalls.map(s => (
             <div key={s.scan_id} className="rounded-lg border dark:border-[#2D3748] border-gray-200 p-3">
               <p className="text-xs font-medium dark:text-gray-200 text-gray-800">{s.name}</p>
-              <p className="text-[11px] dark:text-gray-500 text-gray-400 mb-2">
+              <p className="text-2xs dark:text-gray-500 text-gray-400 mb-2">
                 Needed {s.needed}, {s.short} short
               </p>
               <div className="flex items-center gap-2">
@@ -39,7 +39,7 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
                   type="button"
                   onClick={() => setChoices(prev => ({ ...prev, [s.scan_id]: 'with_item' }))}
                   aria-pressed={choices[s.scan_id] === 'with_item'}
-                  className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${choices[s.scan_id] === 'with_item' ? 'bg-blue-600 text-white' : 'dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600'}`}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-2xs font-medium transition-colors ${choices[s.scan_id] === 'with_item' ? 'bg-blue-600 text-white' : 'dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600'}`}
                 >
                   Send it (fix inventory)
                 </button>
@@ -47,7 +47,7 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
                   type="button"
                   onClick={() => setChoices(prev => ({ ...prev, [s.scan_id]: 'without_item' }))}
                   aria-pressed={choices[s.scan_id] === 'without_item'}
-                  className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${choices[s.scan_id] === 'without_item' ? 'bg-blue-600 text-white' : 'dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600'}`}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-2xs font-medium transition-colors ${choices[s.scan_id] === 'without_item' ? 'bg-blue-600 text-white' : 'dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600'}`}
                 >
                   Skip it
                 </button>

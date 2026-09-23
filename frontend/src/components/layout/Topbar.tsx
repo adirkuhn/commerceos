@@ -49,7 +49,7 @@ export default function Topbar() {
       >
         <Search size={13} />
         <span className="flex-1 text-left">Search everything...</span>
-        <span className="flex items-center gap-0.5 bg-surface px-1.5 py-0.5 rounded text-[10px] text-ink-4 font-mono">
+        <span className="flex items-center gap-0.5 bg-surface px-1.5 py-0.5 rounded text-2xs text-ink-4 font-mono">
           <Command size={10} />K
         </span>
       </button>
@@ -81,7 +81,7 @@ export default function Topbar() {
         {/* Status pill */}
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full dark:bg-green-500/10 bg-green-50 border dark:border-green-500/20 border-green-200">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-[10px] font-medium text-success">All systems live</span>
+          <span className="text-2xs font-medium text-success">All systems live</span>
         </div>
       </div>
 

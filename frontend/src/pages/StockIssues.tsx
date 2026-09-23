@@ -139,7 +139,7 @@ export default function StockIssues() {
                   </td>
                   <td className="px-3 py-2.5">
                     <p className="font-medium text-ink">#{o.number || o.external_order_id}</p>
-                    <p className="text-[10px] text-ink-4">{new Date(o.occurred_at).toLocaleString()}</p>
+                    <p className="text-2xs text-ink-4">{new Date(o.occurred_at).toLocaleString()}</p>
                   </td>
                   <td className="px-3 py-2.5 text-ink-3">{customerName(o)}</td>
                   <td className="px-3 py-2.5 text-ink-3 capitalize">{o.status}</td>
@@ -149,20 +149,20 @@ export default function StockIssues() {
                         onClick={() => handleForceAccept(o.id)}
                         disabled={busyId === o.id}
                         title="Bypass the stock check -- use only when you know the item physically exists"
-                        className="px-3 py-1.5 rounded-lg border border-line text-ink-2 text-[11px] font-medium hover:bg-amber-500/10 hover:text-warning disabled:opacity-50 transition-colors"
+                        className="px-3 py-1.5 rounded-lg border border-line text-ink-2 text-2xs font-medium hover:bg-amber-500/10 hover:text-warning disabled:opacity-50 transition-colors"
                       >
                         {busyId === o.id && busyAction === 'force' ? 'Accepting…' : 'Force accept'}
                       </button>
                       <button
                         onClick={() => handleRetry(o.id)}
                         disabled={busyId === o.id}
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
                       >
                         {busyId === o.id && busyAction === 'retry' ? 'Retrying…' : 'Retry stock'}
                       </button>
                     </div>
                     {lastResult?.id === o.id && (
-                      <p className="text-[10px] mt-1 text-ink-4">{lastResult.text}</p>
+                      <p className="text-2xs mt-1 text-ink-4">{lastResult.text}</p>
                     )}
                   </td>
                 </tr>
@@ -175,7 +175,7 @@ export default function StockIssues() {
                         pendingLineItems(lineItemsById[o.id]).length === 0 ? (
                           <p className="text-ink-4">No pending line items found.</p>
                         ) : (
-                          <table className="w-full text-[11px]">
+                          <table className="w-full text-2xs">
                             <thead>
                               <tr className="text-ink-4">
                                 <th className="text-left font-medium pb-1">Item</th>

@@ -183,7 +183,7 @@ export default function Settings() {
             <div className="bg-raised rounded-xl border border-line overflow-hidden">
               <div className="px-4 py-3 border-b border-line">
                 <h3 className="text-xs font-semibold text-ink">FEFO Settings</h3>
-                <p className="text-[10px] text-ink-4 mt-0.5">First Expire, First Out — for perishable products</p>
+                <p className="text-2xs text-ink-4 mt-0.5">First Expire, First Out — for perishable products</p>
               </div>
               <div className="p-4 space-y-3">
                 {[
@@ -262,11 +262,11 @@ export default function Settings() {
                       <div className="flex items-center gap-2 mb-2">
                         <p className="text-xs font-medium text-ink">{auto.name}</p>
                         {auto.active
-                          ? <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-green-500/15 text-success">active</span>
-                          : <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium dark:bg-gray-500/15 bg-gray-100 text-ink-3">inactive</span>
+                          ? <span className="px-1.5 py-0.5 rounded-full text-2xs font-medium bg-green-500/15 text-success">active</span>
+                          : <span className="px-1.5 py-0.5 rounded-full text-2xs font-medium dark:bg-gray-500/15 bg-gray-100 text-ink-3">inactive</span>
                         }
                       </div>
-                      <div className="flex items-center gap-2 text-[10px]">
+                      <div className="flex items-center gap-2 text-2xs">
                         <span className="text-ink-4">When:</span>
                         <span className="bg-hover text-ink-2 px-2 py-0.5 rounded">{auto.trigger}</span>
                         <ChevronRight size={10} className="text-ink-4" />
@@ -296,7 +296,7 @@ export default function Settings() {
               <AlertTriangle size={15} className="text-warning mt-0.5 shrink-0" />
               <div>
                 <p className="text-xs font-medium text-warning">2FA not enabled for all users</p>
-                <p className="text-[10px] text-amber-400/70 mt-0.5">3 users have not enabled two-factor authentication.</p>
+                <p className="text-2xs text-amber-400/70 mt-0.5">3 users have not enabled two-factor authentication.</p>
               </div>
             </div>
             <div className="space-y-3">
@@ -331,7 +331,7 @@ export default function Settings() {
               <div key={section.channel} className="bg-raised rounded-xl border border-line overflow-hidden">
                 <div className="px-4 py-3 border-b border-line flex items-center justify-between">
                   <p className="text-xs font-semibold text-ink">{section.channel}</p>
-                  <span className="text-[10px] text-success bg-green-500/15 px-2 py-0.5 rounded-full">configured</span>
+                  <span className="text-2xs text-success bg-green-500/15 px-2 py-0.5 rounded-full">configured</span>
                 </div>
                 <div className="p-4 space-y-2">
                   {section.events.map(ev => (
@@ -404,11 +404,11 @@ function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (connection
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-xs font-medium text-ink capitalize">{conn.provider}</p>
-                <span className={clsx('px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize', STATUS_STYLES[conn.status])}>
+                <span className={clsx('px-1.5 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLES[conn.status])}>
                   {conn.status}
                 </span>
               </div>
-              <p className="text-[10px] text-ink-4 truncate mt-0.5">{conn.store_url}</p>
+              <p className="text-2xs text-ink-4 truncate mt-0.5">{conn.store_url}</p>
             </div>
             {conn.provider === 'woocommerce' ? (
               <button
@@ -418,7 +418,7 @@ function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (connection
                 Configure
               </button>
             ) : (
-              <span className="text-[10px] text-ink-4 shrink-0">Coming soon</span>
+              <span className="text-2xs text-ink-4 shrink-0">Coming soon</span>
             )}
           </div>
         ))}
@@ -490,13 +490,13 @@ function RecommendationsSettingsCard() {
   return (
     <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
       <h3 className="text-sm font-semibold text-ink">Cross-sell recommendations</h3>
-      <p className="text-[10px] text-ink-4">
+      <p className="text-2xs text-ink-4">
         Tunes the pattern-mining behind "You may also like" and "Frequently bought together" on connected storefronts. Leave blank to use CommerceOS' defaults.
       </p>
 
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label htmlFor="bundle-confidence" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+          <label htmlFor="bundle-confidence" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
             Bundle confidence (%)
           </label>
           <input
@@ -509,7 +509,7 @@ function RecommendationsSettingsCard() {
           />
         </div>
         <div>
-          <label htmlFor="min-support" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+          <label htmlFor="min-support" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
             Minimum support (orders)
           </label>
           <input
@@ -522,7 +522,7 @@ function RecommendationsSettingsCard() {
           />
         </div>
         <div>
-          <label htmlFor="lookback-days" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+          <label htmlFor="lookback-days" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
             Lookback window (days)
           </label>
           <input
@@ -536,7 +536,7 @@ function RecommendationsSettingsCard() {
         </div>
       </div>
 
-      <ul className="text-[10px] text-ink-4 space-y-0.5 list-disc list-inside">
+      <ul className="text-2xs text-ink-4 space-y-0.5 list-disc list-inside">
         <li><span className="font-medium">Bundle confidence</span> — of orders containing a cart item, the % that must also contain a candidate before it's flagged bundle-worthy. Higher = fewer, more reliable bundle suggestions.</li>
         <li><span className="font-medium">Minimum support</span> — orders a product pairing must appear in before it counts as a real pattern rather than coincidence. Raise this on a high-volume store to cut noise; keep it low on a small catalog or recommendations may disappear entirely.</li>
         <li><span className="font-medium">Lookback window</span> — how far back order history is mined. Shorter favors recent behavior over stale, since-discontinued patterns; longer gives more data for a seasonal or slow-moving catalog.</li>
@@ -638,7 +638,7 @@ function ApiKeysCard() {
     <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
       <div>
         <p className="text-xs font-medium text-ink">API keys</p>
-        <p className="text-[10px] text-ink-4 mt-0.5">
+        <p className="text-2xs text-ink-4 mt-0.5">
           Each key lets a storefront (e.g. the CommerceOS Sync WordPress plugin) call CommerceOS' cart recommendations
           API. Name each key for the storefront it's for, so you can revoke just that one later without affecting others.
         </p>
@@ -646,22 +646,22 @@ function ApiKeysCard() {
 
       {justCreatedKey && (
         <div>
-          <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+          <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
             New key (shown once -- copy it now)
           </label>
           <div className="flex items-center gap-2">
-            <code className="flex-1 px-3 py-2 text-[11px] font-mono rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
+            <code className="flex-1 px-3 py-2 text-2xs font-mono rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
               {justCreatedKey}
             </code>
             <button
               type="button"
               onClick={handleCopy}
-              className="px-2.5 py-2 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors shrink-0"
+              className="px-2.5 py-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors shrink-0"
             >
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
-          <p className="mt-1.5 text-[10px] text-warning">
+          <p className="mt-1.5 text-2xs text-warning">
             This won't be shown again -- if you lose it, revoke it below and create a new one.
           </p>
         </div>
@@ -671,7 +671,7 @@ function ApiKeysCard() {
 
       <form onSubmit={handleCreate} className="flex items-end gap-2">
         <div className="flex-1">
-          <label htmlFor="api-key-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+          <label htmlFor="api-key-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
             Name
           </label>
           <input
@@ -681,7 +681,7 @@ function ApiKeysCard() {
           />
         </div>
         <div className="flex-1">
-          <label htmlFor="api-key-description" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+          <label htmlFor="api-key-description" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
             Description
           </label>
           <input
@@ -692,7 +692,7 @@ function ApiKeysCard() {
         </div>
         {internalChannels.length > 0 && (
           <div className="flex-1">
-            <label htmlFor="api-key-channel" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="api-key-channel" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
               Sales channel
             </label>
             <select
@@ -736,9 +736,9 @@ function ApiKeysCard() {
                   <td className="py-2 pr-3 text-ink-3">{channelName(k.sales_channel_id)}</td>
                   <td className="py-2 pr-3">
                     {k.revoked_at ? (
-                      <span className="text-[10px] text-ink-4">revoked</span>
+                      <span className="text-2xs text-ink-4">revoked</span>
                     ) : (
-                      <span className="text-[10px] text-success bg-green-500/15 px-2 py-0.5 rounded-full">active</span>
+                      <span className="text-2xs text-success bg-green-500/15 px-2 py-0.5 rounded-full">active</span>
                     )}
                   </td>
                   <td className="py-2 pr-3">
@@ -825,12 +825,12 @@ function AIIntegrationCard() {
             <div className="flex items-center gap-2">
               <p className="text-xs font-medium text-ink">AI</p>
               {connection && (
-                <span className={clsx('px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize', STATUS_STYLES[connection.status])}>
+                <span className={clsx('px-1.5 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLES[connection.status])}>
                   {connection.status}
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-ink-4 mt-0.5">
+            <p className="text-2xs text-ink-4 mt-0.5">
               {loading ? 'Loading…' : connection
                 ? AI_PROVIDER_LABELS[connection.provider]
                 : 'Used for procurement document parsing (PDF invoices) and optional WhatsApp AI-assisted message parsing. Not configured.'}
@@ -854,7 +854,7 @@ function AIIntegrationCard() {
           )}
         </div>
       </div>
-      {error && <p className="mt-2 text-[10px] text-danger">{error}</p>}
+      {error && <p className="mt-2 text-2xs text-danger">{error}</p>}
 
       {configuring && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -868,7 +868,7 @@ function AIIntegrationCard() {
             </div>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
-                <label htmlFor="ai-provider" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="ai-provider" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Provider
                 </label>
                 <select
@@ -884,7 +884,7 @@ function AIIntegrationCard() {
               </div>
               {provider !== 'ollama' && (
                 <div>
-                  <label htmlFor="ai-api-key" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="ai-api-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     API Key
                   </label>
                   <input
@@ -900,7 +900,7 @@ function AIIntegrationCard() {
                 </div>
               )}
               <div>
-                <label htmlFor="ai-base-url" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="ai-base-url" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   {provider === 'ollama' ? 'Server URL' : 'Base URL (optional)'}
                 </label>
                 <input
@@ -915,7 +915,7 @@ function AIIntegrationCard() {
                 />
               </div>
               <div>
-                <label htmlFor="ai-model" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="ai-model" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Model (optional)
                 </label>
                 <input
@@ -929,7 +929,7 @@ function AIIntegrationCard() {
               </div>
               {provider === 'gemini' && (
                 <div>
-                  <label htmlFor="ai-fallback-models" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="ai-fallback-models" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Fallback models (optional)
                   </label>
                   <input
@@ -940,7 +940,7 @@ function AIIntegrationCard() {
                     placeholder="gemini-3.5-flash-lite, gemini-3.1-flash-lite"
                     className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <p className="mt-1.5 text-[10px] text-ink-4">
+                  <p className="mt-1.5 text-2xs text-ink-4">
                     Comma-separated. Tried in order when Model hits a rate limit (Gemini's free tier caps some models at 20 requests/day, others at 500).
                   </p>
                 </div>
@@ -1020,7 +1020,7 @@ function InventorySyncRulesSection() {
       <div className="flex items-center justify-between">
         <div>
           <span className="text-xs text-ink-2 block">Enable inventory sync rules</span>
-          <span className="text-[10px] text-ink-4">
+          <span className="text-2xs text-ink-4">
             Controls what quantity syncs to channels: no batches → ledger total · batches with no expiry → summed together · batches with an expiry → only the nearest-expiring batch's quantity, so channels sell through the oldest stock first.
           </span>
         </div>
@@ -1038,7 +1038,7 @@ function InventorySyncRulesSection() {
         </label>
       </div>
       <div className="max-w-[220px]">
-        <label htmlFor="batch-expiry-threshold-days" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="batch-expiry-threshold-days" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
           Auto-expire batches after (days)
         </label>
         <input
@@ -1101,7 +1101,7 @@ function PricingMarginSection() {
     <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
       <h3 className="text-sm font-semibold text-ink">Pricing & markup</h3>
       <div className="max-w-[220px]">
-        <label htmlFor="default-target-markup" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="default-target-markup" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
           Default target markup (%)
         </label>
         <input
@@ -1112,7 +1112,7 @@ function PricingMarginSection() {
           placeholder="e.g. 30"
           className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
         />
-        <p className="text-[10px] text-ink-4 mt-1">
+        <p className="text-2xs text-ink-4 mt-1">
           Markup is profit as a % of cost (e.g. 300% markup means selling at 4x cost) -- no upper bound, unlike margin.
           Used to compute each product's recommended price from its cost price, unless its category has its own target markup set.
         </p>
@@ -1273,7 +1273,7 @@ function ExchangeRatesCard() {
             <span>1 {defaultCurrencyLabel} = <span className="font-medium">{(r.rate_basis_points / 10000).toFixed(4)}</span> {r.currency_code}</span>
             <button
               onClick={() => handleDelete(r.currency_code)}
-              className="text-[10px] text-ink-4 hover:text-danger transition-colors"
+              className="text-2xs text-ink-4 hover:text-danger transition-colors"
             >
               Delete
             </button>
@@ -1284,7 +1284,7 @@ function ExchangeRatesCard() {
 
       <form onSubmit={handleAdd} className="flex items-end gap-2 pt-2 border-t border-line">
         <div className="w-20">
-          <label htmlFor="fx-currency" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">Currency</label>
+          <label htmlFor="fx-currency" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">Currency</label>
           <input
             id="fx-currency"
             value={currencyCode}
@@ -1295,7 +1295,7 @@ function ExchangeRatesCard() {
           />
         </div>
         <div className="w-28">
-          <label htmlFor="fx-rate" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">Rate</label>
+          <label htmlFor="fx-rate" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">Rate</label>
           <input
             id="fx-rate"
             value={rateValue}
@@ -1447,7 +1447,7 @@ function TaxSettingsSection() {
           </label>
         </div>
         <div className="max-w-[160px]">
-          <label htmlFor="default-tax-country" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+          <label htmlFor="default-tax-country" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
             Default tax country
           </label>
           <input
@@ -1490,19 +1490,19 @@ function TaxSettingsSection() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-ink">{c.name}</span>
                 {c.is_default && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full dark:bg-blue-500/10 bg-blue-50 text-accent">Default</span>
+                  <span className="text-2xs px-2 py-0.5 rounded-full dark:bg-blue-500/10 bg-blue-50 text-accent">Default</span>
                 )}
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => openEditClass(c)}
-                  className="py-1 px-2 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors"
+                  className="py-1 px-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => handleDeleteClass(c)}
-                  className="py-1 px-2 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-danger transition-colors"
+                  className="py-1 px-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-danger transition-colors"
                 >
                   Delete
                 </button>
@@ -1515,7 +1515,7 @@ function TaxSettingsSection() {
                   <span>{(r.rate_basis_points / 100).toFixed(2)}%</span>
                   <button
                     onClick={() => handleRemoveRate(r.id)}
-                    className="text-[10px] text-ink-4 hover:text-danger transition-colors flex items-center gap-1"
+                    className="text-2xs text-ink-4 hover:text-danger transition-colors flex items-center gap-1"
                   >
                     <Trash2 size={11} /> Remove rate
                   </button>
@@ -1541,7 +1541,7 @@ function TaxSettingsSection() {
             </div>
             <form onSubmit={handleClassSubmit} className="space-y-3">
               <div>
-                <label htmlFor="tax-class-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="tax-class-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Name
                 </label>
                 <input
@@ -1555,7 +1555,7 @@ function TaxSettingsSection() {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-ink-4 uppercase tracking-wider">Default tax class</span>
+                <span className="text-2xs text-ink-4 uppercase tracking-wider">Default tax class</span>
                 <label className="relative flex items-center shrink-0 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1602,7 +1602,7 @@ function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (tax
       className="mt-3 pt-3 border-t border-line flex items-end gap-2"
     >
       <div>
-        <label htmlFor={`tax-rate-country-${taxClassId}`} className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor={`tax-rate-country-${taxClassId}`} className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
           Country
         </label>
         <input
@@ -1614,7 +1614,7 @@ function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (tax
         />
       </div>
       <div>
-        <label htmlFor={`tax-rate-percent-${taxClassId}`} className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor={`tax-rate-percent-${taxClassId}`} className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
           Rate %
         </label>
         <input

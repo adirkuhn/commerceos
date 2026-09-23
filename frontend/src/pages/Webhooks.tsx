@@ -202,7 +202,7 @@ function FanOutTab({
 
         <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2 mb-4">
           <div>
-            <label htmlFor="forward-provider" className="block text-[11px] text-ink-3 mb-1">Provider</label>
+            <label htmlFor="forward-provider" className="block text-2xs text-ink-3 mb-1">Provider</label>
             <input
               id="forward-provider" required value={provider}
               onChange={e => setProvider(e.target.value)}
@@ -210,7 +210,7 @@ function FanOutTab({
             />
           </div>
           <div>
-            <label htmlFor="forward-topic" className="block text-[11px] text-ink-3 mb-1">Topic</label>
+            <label htmlFor="forward-topic" className="block text-2xs text-ink-3 mb-1">Topic</label>
             <select id="forward-topic" value={topic} onChange={e => setTopic(e.target.value)} className={inputClass}>
               <option value="">Any topic (match everything)</option>
               {providerOptgroups(topics.active_webhooks, 'active')}
@@ -218,7 +218,7 @@ function FanOutTab({
             </select>
           </div>
           <div className="flex-1 min-w-[220px]">
-            <label htmlFor="forward-target-url" className="block text-[11px] text-ink-3 mb-1">Target URL</label>
+            <label htmlFor="forward-target-url" className="block text-2xs text-ink-3 mb-1">Target URL</label>
             <input id="forward-target-url" required value={targetUrl} onChange={e => setTargetUrl(e.target.value)} placeholder="https://shop.example.com/hook" className={`${inputClass} w-full`} />
           </div>
           <button
@@ -485,7 +485,7 @@ function MessagesTab({
           </div>
           <div className="flex items-end gap-2">
             <div>
-              <label htmlFor="message-sender" className="block text-[11px] text-ink-3 mb-1">Sender</label>
+              <label htmlFor="message-sender" className="block text-2xs text-ink-3 mb-1">Sender</label>
               <select
                 id="message-sender" value={provider} onChange={e => onProviderChange(e.target.value)}
                 className="px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink"
@@ -586,16 +586,16 @@ function MessageStatusBadge({ status, dispatchError }: { status: WebhookEvent['s
     return (
       <span
         title={dispatchError || undefined}
-        className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-red-500/15 text-danger cursor-help"
+        className="px-1.5 py-0.5 rounded text-2xs font-medium bg-red-500/15 text-danger cursor-help"
       >
         Failed
       </span>
     )
   }
   if (status === 'processed') {
-    return <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-emerald-500/15 text-success">Processed</span>
+    return <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-emerald-500/15 text-success">Processed</span>
   }
-  return <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-fill text-ink-3">Received</span>
+  return <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-fill text-ink-3">Received</span>
 }
 
 // Truncated one-line preview that expands into the full formatted JSON on
@@ -613,7 +613,7 @@ function PayloadPreview({ payload }: { payload: unknown }) {
   if (expanded) {
     return (
       <div>
-        <pre className="whitespace-pre-wrap break-all text-[11px] bg-sunken rounded-lg p-2 max-h-64 overflow-y-auto">{pretty}</pre>
+        <pre className="whitespace-pre-wrap break-all text-2xs bg-sunken rounded-lg p-2 max-h-64 overflow-y-auto">{pretty}</pre>
         <button type="button" onClick={() => setExpanded(false)} className="text-accent hover:underline mt-1">Collapse</button>
       </div>
     )

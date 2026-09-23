@@ -444,23 +444,23 @@ export default function SalesOrders() {
                 </td>
                 <td className="px-3 py-2.5 max-w-[200px]">
                   <p className="font-medium text-ink truncate">#{o.number || o.external_order_id}</p>
-                  <p className="text-[10px] text-ink-4 truncate">{new Date(o.occurred_at).toLocaleString()}</p>
+                  <p className="text-2xs text-ink-4 truncate">{new Date(o.occurred_at).toLocaleString()}</p>
                 </td>
                 <td className="px-3 py-2.5 text-ink-3 max-w-[220px] truncate">{customerName(o)}</td>
                 <td className="px-3 py-2.5 text-ink-3">{o.source}</td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', STATUS_COLORS[o.status])}>
+                    <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium', STATUS_COLORS[o.status])}>
                       {o.status}
                     </span>
                     <span className={clsx(
-                      'px-2 py-0.5 rounded-full text-[10px] font-medium',
+                      'px-2 py-0.5 rounded-full text-2xs font-medium',
                       o.fulfilled ? 'bg-green-500/15 text-success' : 'bg-gray-500/15 text-ink-4',
                     )}>
                       {o.fulfilled ? 'Fulfilled' : 'Unfulfilled'}
                     </span>
                     {(o.needs_stock_review || o.needs_sku_review) && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-warning">
+                      <span className="px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-500/15 text-warning">
                         Needs review
                       </span>
                     )}
@@ -598,7 +598,7 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
     }
   }
 
-  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
 
   return (
@@ -607,7 +607,7 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Sales Order
           </button>
@@ -671,7 +671,7 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
                 <h3 className="text-xs font-semibold text-ink">Line items</h3>
                 <button
                   type="button" onClick={() => setPickerOpen(v => !v)}
-                  className="flex items-center gap-1 text-[11px] font-medium text-accent hover:text-accent"
+                  className="flex items-center gap-1 text-2xs font-medium text-accent hover:text-accent"
                 >
                   <Plus size={12} /> Add product
                 </button>
@@ -740,7 +740,7 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
 }
 
 function CreateAddressFields({ title, prefix, value, onChange, showPhone }: { title: string; prefix: string; value: Address; onChange: (a: Address) => void; showPhone?: boolean }) {
-  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
   const set = (field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [field]: e.target.value })
   const id = (field: string) => `${prefix}-${field}`
@@ -956,17 +956,17 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Sales Order
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight flex items-center gap-2">
             {detail ? `#${detail.sales_order.number || detail.sales_order.external_order_id}` : 'Sales Order'}
             {detail?.sales_order.needs_stock_review && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-warning">Stock issue</span>
+              <span className="px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-500/15 text-warning">Stock issue</span>
             )}
             {detail?.sales_order.needs_sku_review && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-warning">Unmatched SKU</span>
+              <span className="px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-500/15 text-warning">Unmatched SKU</span>
             )}
           </h1>
         </div>
@@ -1056,18 +1056,18 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
                           <td className="py-1.5">
                             <p className="text-ink">{li.name}</p>
                             {li.sku_code && (
-                              <p className="text-[10px] text-ink-4">{li.sku_code}</p>
+                              <p className="text-2xs text-ink-4">{li.sku_code}</p>
                             )}
                             {li.barcode && (
-                              <p className="text-[10px] text-ink-4">{li.barcode}</p>
+                              <p className="text-2xs text-ink-4">{li.barcode}</p>
                             )}
                             {li.sold_expiry_date && (
-                              <p className="text-[10px] text-ink-4" title="Reported by WooCommerce at checkout -- may not match the batch actually allocated">
+                              <p className="text-2xs text-ink-4" title="Reported by WooCommerce at checkout -- may not match the batch actually allocated">
                                 Sold exp. {formatDate(li.sold_expiry_date)}
                               </p>
                             )}
                             {!li.sku_id && (
-                              <p className="text-[10px] text-warning">Not linked to a product yet</p>
+                              <p className="text-2xs text-warning">Not linked to a product yet</p>
                             )}
                           </td>
                           <td className="py-1.5 text-right text-ink-2">{li.quantity}</td>
@@ -1197,18 +1197,18 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
 
                   {detail.sales_order.billing?.email && (
                     <div>
-                      <h4 className="text-[10px] font-semibold uppercase tracking-wider text-ink-4 mb-1">Contact information</h4>
+                      <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Contact information</h4>
                       <p className="text-ink">{detail.sales_order.billing.email}</p>
                     </div>
                   )}
 
                   <div>
-                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-ink-4 mb-1">Shipping address</h4>
+                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Shipping address</h4>
                     <AddressLines address={detail.sales_order.shipping} />
                   </div>
 
                   <div>
-                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-ink-4 mb-1">Billing address</h4>
+                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Billing address</h4>
                     {addressesEqual(detail.sales_order.billing, detail.sales_order.shipping) ? (
                       <p className="text-ink-4">Same as shipping address</p>
                     ) : (
@@ -1346,7 +1346,7 @@ function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: stri
             )}
           </span>
           {shipment.cancelled_at && (
-            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-500/10 text-danger">Cancelled</span>
+            <span className="ml-2 text-2xs px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-500/10 text-danger">Cancelled</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -1364,7 +1364,7 @@ function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: stri
               className="w-7 h-7 flex items-center justify-center rounded bg-fill hover:bg-hover disabled:opacity-50 transition-colors"
             >
               {cancelling ? (
-                <span className="text-[10px] text-danger">…</span>
+                <span className="text-2xs text-danger">…</span>
               ) : (
                 <Trash2 size={13} className="text-ink-4 hover:text-danger" />
               )}

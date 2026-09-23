@@ -395,7 +395,7 @@ export default function Packing() {
       <div className="w-64 border-r border-line bg-sunken flex flex-col overflow-hidden shrink-0">
         <div className="px-4 py-3 border-b border-line">
           <p className="text-xs font-semibold text-ink">Orders to Pack</p>
-          <p className="text-[10px] text-ink-4 mt-0.5">{orders.length} ready to pack</p>
+          <p className="text-2xs text-ink-4 mt-0.5">{orders.length} ready to pack</p>
         </div>
         <div className="px-3 py-2 border-b border-line">
           <div className="relative">
@@ -404,15 +404,15 @@ export default function Packing() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search orders..."
-              className="w-full pl-7 pr-2 py-1.5 text-[11px] rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full pl-7 pr-2 py-1.5 text-2xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto py-2">
-          {ordersLoading && <p className="px-4 py-3 text-[11px] text-ink-4">Loading…</p>}
-          {ordersError && <p className="px-4 py-3 text-[11px] text-danger">{ordersError}</p>}
+          {ordersLoading && <p className="px-4 py-3 text-2xs text-ink-4">Loading…</p>}
+          {ordersError && <p className="px-4 py-3 text-2xs text-danger">{ordersError}</p>}
           {!ordersLoading && filteredOrders.length === 0 && (
-            <p className="px-4 py-3 text-[11px] text-ink-4">No orders ready to pack</p>
+            <p className="px-4 py-3 text-2xs text-ink-4">No orders ready to pack</p>
           )}
           {filteredOrders.map(o => (
             <button
@@ -428,11 +428,11 @@ export default function Packing() {
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium text-ink">#{o.number || o.external_order_id}</span>
                 {activeOrder?.id === o.id && session?.session.status === 'in_progress' && (
-                  <span className="text-[9px] font-medium text-accent">In progress</span>
+                  <span className="text-2xs font-medium text-accent">In progress</span>
                 )}
               </div>
-              <p className="text-[10px] text-ink-3 truncate">{customerName(o)}</p>
-              <p className="text-[10px] text-ink-4 mt-0.5">{formatMoney(o.total_minor_units, o.currency_code)}</p>
+              <p className="text-2xs text-ink-3 truncate">{customerName(o)}</p>
+              <p className="text-2xs text-ink-4 mt-0.5">{formatMoney(o.total_minor_units, o.currency_code)}</p>
             </button>
           ))}
         </div>
@@ -461,9 +461,9 @@ export default function Packing() {
             </p>
             {!!completeResult.missing_items?.length && (
               <div className="mt-4 w-full max-w-sm rounded-lg border dark:border-amber-500/30 border-amber-300 dark:bg-amber-500/5 bg-amber-50/40 p-3">
-                <p className="text-[11px] font-medium text-warning mb-2">Not fully packed</p>
+                <p className="text-2xs font-medium text-warning mb-2">Not fully packed</p>
                 {completeResult.missing_items.map(m => (
-                  <p key={m.line_item_id} className="text-[11px] text-ink-2">
+                  <p key={m.line_item_id} className="text-2xs text-ink-2">
                     {m.name}: {m.packed_qty}/{m.expected_qty}
                   </p>
                 ))}
@@ -641,7 +641,7 @@ export default function Packing() {
                   className="flex-1 bg-transparent text-sm text-ink outline-none placeholder-ink-4 font-mono disabled:opacity-50"
                 />
               </div>
-              {error && <p className="text-[11px] text-danger mt-2">{error}</p>}
+              {error && <p className="text-2xs text-danger mt-2">{error}</p>}
             </div>
 
             {/* Progress */}
@@ -685,13 +685,13 @@ export default function Packing() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className={clsx('text-sm font-medium', done ? 'dark:text-green-300 text-success' : 'text-ink')}>{li.name}</p>
-                      <span className="text-[10px] font-mono text-ink-4">{li.sku_code}</span>
+                      <span className="text-2xs font-mono text-ink-4">{li.sku_code}</span>
                     </div>
                     <div className="text-right shrink-0">
                       <p className={clsx('text-lg font-bold tabular-nums', done ? 'text-success' : partial ? 'text-warning' : 'text-ink')}>
                         {packed}/{li.quantity}
                       </p>
-                      <p className="text-[10px] text-ink-4">packed</p>
+                      <p className="text-2xs text-ink-4">packed</p>
                     </div>
                   </div>
                 )
@@ -701,10 +701,10 @@ export default function Packing() {
             {/* Staged scans log */}
             {session.scans.length > 0 && (
               <div className="border-t border-line px-4 py-2 max-h-32 overflow-y-auto shrink-0">
-                <p className="text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1">This session</p>
+                <p className="text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1">This session</p>
                 {session.scans.map((s: PackScan) => (
                   <div key={s.id} className="flex items-center justify-between py-0.5">
-                    <span className="text-[11px] text-ink-3">Packed · qty {s.quantity}</span>
+                    <span className="text-2xs text-ink-3">Packed · qty {s.quantity}</span>
                     <button type="button" onClick={() => handleDeleteScan(s.id)} aria-label="Remove scan" className="text-ink-4 hover:text-danger">
                       <Trash2 size={11} />
                     </button>
@@ -727,7 +727,7 @@ export default function Packing() {
           </div>
           <div className="p-4 space-y-4">
             <div>
-              <label className="block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
+              <label className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
               <input
                 type="number" min={1} max={packLine.lineItem.quantity - packLine.packedSoFar || undefined}
                 value={packQty} onChange={e => setPackQty(Math.max(1, parseInt(e.target.value, 10) || 1))}

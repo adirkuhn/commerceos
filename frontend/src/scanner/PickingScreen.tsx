@@ -808,21 +808,21 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
             <button
               type="button"
               onClick={() => setMode('pick')}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-[11px] font-medium leading-tight ${mode === 'pick' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'pick' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
             >
               <Check size={15} /> Pick
             </button>
             <button
               type="button"
               onClick={() => setMode('substitute')}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-[11px] font-medium leading-tight ${mode === 'substitute' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'substitute' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
             >
               <Repeat size={15} /> Substitute
             </button>
             <button
               type="button"
               onClick={() => setMode('refund')}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-[11px] font-medium leading-tight ${mode === 'refund' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'refund' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
             >
               <Undo2 size={15} /> Refund
             </button>
@@ -919,7 +919,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                     <>
                       <div className="grid grid-cols-2 gap-2">
                         <label className="block">
-                          <span className="block text-[11px] text-gray-500 mb-1">Qty added</span>
+                          <span className="block text-2xs text-gray-500 mb-1">Qty added</span>
                           <input
                             type="number" min={1} value={row.substituteQty}
                             onChange={e => updateRow(row.key, { substituteQty: e.target.value })}
@@ -927,7 +927,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                           />
                         </label>
                         <label className="block">
-                          <span className="block text-[11px] text-gray-500 mb-1">Covers (of original)</span>
+                          <span className="block text-2xs text-gray-500 mb-1">Covers (of original)</span>
                           <input
                             type="number" min={1} value={row.coveredQty}
                             onChange={e => updateRow(row.key, { coveredQty: e.target.value })}
@@ -1073,14 +1073,14 @@ function AddItemSheet({ token, onCancel, onAdd }: {
                 <button
                   type="button"
                   onClick={() => setIsFreebie(true)}
-                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-[11px] font-medium leading-tight ${isFreebie ? 'bg-purple-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${isFreebie ? 'bg-purple-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
                 >
                   <Gift size={15} /> Freebie
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsFreebie(false)}
-                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-[11px] font-medium leading-tight ${!isFreebie ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${!isFreebie ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
                 >
                   <PackagePlus size={15} /> New item
                 </button>

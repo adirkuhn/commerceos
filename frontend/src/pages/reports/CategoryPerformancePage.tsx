@@ -24,7 +24,7 @@ export default function CategoryPerformancePage() {
             <thead>
               <tr className="dark:bg-night-900/50 bg-gray-50">
                 {['Category', 'Units', 'Orders', 'Revenue'].map(h => (
-                  <th key={h} className="px-4 py-2 text-left text-[10px] font-medium text-ink-4 uppercase">{h}</th>
+                  <th key={h} className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{h}</th>
                 ))}
               </tr>
             </thead>

@@ -176,7 +176,7 @@ export default function OverviewPage() {
               <p className="text-xs text-ink-4 mb-1">Revenue</p>
               <p className="text-sm font-semibold text-ink">{formatMoney(profitability.summary.revenue_minor_units, currency)}</p>
               {profitability.summary.cost_known_revenue_minor_units < profitability.summary.revenue_minor_units && (
-                <p className="text-[10px] text-ink-4 mt-0.5">
+                <p className="text-2xs text-ink-4 mt-0.5">
                   {formatMoney(profitability.summary.cost_known_revenue_minor_units, currency)} with known cost
                 </p>
               )}
@@ -217,7 +217,7 @@ export default function OverviewPage() {
                       key={source}
                       onClick={() => toggleChannel(source)}
                       className={clsx(
-                        'px-2 py-1 rounded-md text-[10px] font-medium border transition-colors',
+                        'px-2 py-1 rounded-md text-2xs font-medium border transition-colors',
                         visible ? 'text-white border-transparent' : 'border-line text-ink-4 opacity-60',
                       )}
                       style={visible ? { backgroundColor: color } : undefined}
@@ -274,7 +274,7 @@ export default function OverviewPage() {
               <thead>
                 <tr className="dark:bg-night-900/50 bg-gray-50">
                   {['Channel', 'Revenue'].map(h => (
-                    <th key={h} className="px-3 py-2 text-left text-[10px] font-medium text-ink-4 uppercase">{h}</th>
+                    <th key={h} className="px-3 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{h}</th>
                   ))}
                 </tr>
               </thead>

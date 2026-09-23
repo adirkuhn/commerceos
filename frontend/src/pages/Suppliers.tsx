@@ -128,12 +128,12 @@ export default function Suppliers() {
                 </td>
                 <td className="px-3 py-2.5 max-w-[280px]">
                   <p className="font-medium text-ink truncate">{s.name}</p>
-                  {s.email && <p className="text-[10px] text-ink-4 truncate">{s.email}</p>}
+                  {s.email && <p className="text-2xs text-ink-4 truncate">{s.email}</p>}
                 </td>
                 <td className="px-3 py-2.5 text-ink-3">{s.country || '—'}</td>
                 <td className="px-3 py-2.5 text-ink-3">{s.lead_time_days != null ? `${s.lead_time_days}d` : '—'}</td>
                 <td className="px-3 py-2.5">
-                  <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', STATUS_STYLE[s.status])}>
+                  <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLE[s.status])}>
                     {s.status}
                   </span>
                 </td>
@@ -226,7 +226,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
     }
   }
 
-  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
 
   return (
@@ -235,7 +235,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Suppliers
           </button>
@@ -269,7 +269,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
                   aria-label="Status"
                   value={status}
                   onChange={e => setStatus(e.target.value as SupplierStatus)}
-                  className="px-2 py-1 text-[10px] rounded-lg bg-raised border border-line text-ink-2 outline-none"
+                  className="px-2 py-1 text-2xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>

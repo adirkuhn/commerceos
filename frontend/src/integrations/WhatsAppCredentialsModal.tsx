@@ -50,7 +50,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
 
         <div className="space-y-3 mb-4">
           <div>
-            <label htmlFor="wa-base-url" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="wa-base-url" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
               Base URL
             </label>
             <input
@@ -65,7 +65,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
           </div>
 
           <div>
-            <label htmlFor="wa-instance-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="wa-instance-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
               Instance name
             </label>
             <input
@@ -79,7 +79,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
           </div>
 
           <div>
-            <label htmlFor="wa-api-key" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="wa-api-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
               API key
             </label>
             <input
@@ -91,7 +91,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
               placeholder="Leave blank to keep the current key"
               className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
             />
-            <p className="mt-1.5 text-[10px] text-ink-4">
+            <p className="mt-1.5 text-2xs text-ink-4">
               Never shown once saved -- leave blank unless you're rotating it.
             </p>
           </div>

@@ -278,31 +278,31 @@ export default function MyParcelSyncSettingsPage({
               <h3 className="text-xs font-semibold text-ink-2">Global defaults</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="default-carrier" className="block text-[11px] font-medium text-ink-3 mb-1">Default carrier</label>
+                  <label htmlFor="default-carrier" className="block text-2xs font-medium text-ink-3 mb-1">Default carrier</label>
                   <select id="default-carrier" value={defaultCarrier} onChange={e => setDefaultCarrier(Number(e.target.value))} className={selectClass + ' w-full'}>
                     {CARRIERS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="default-package-type" className="block text-[11px] font-medium text-ink-3 mb-1">Default package type</label>
+                  <label htmlFor="default-package-type" className="block text-2xs font-medium text-ink-3 mb-1">Default package type</label>
                   <select id="default-package-type" value={defaultPackageType} onChange={e => setDefaultPackageType(Number(e.target.value))} className={selectClass + ' w-full'}>
                     {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="default-label-format" className="block text-[11px] font-medium text-ink-3 mb-1">Label format</label>
+                  <label htmlFor="default-label-format" className="block text-2xs font-medium text-ink-3 mb-1">Label format</label>
                   <select id="default-label-format" value={defaultLabelFormat} onChange={e => setDefaultLabelFormat(e.target.value as 'pdf' | 'zpl')} className={selectClass + ' w-full'}>
                     <option value="pdf">PDF</option>
                     <option value="zpl">ZPL (thermal)</option>
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="default-label-size" className="block text-[11px] font-medium text-ink-3 mb-1">Label print size</label>
+                  <label htmlFor="default-label-size" className="block text-2xs font-medium text-ink-3 mb-1">Label print size</label>
                   <select id="default-label-size" value={defaultLabelSize} onChange={e => setDefaultLabelSize(e.target.value as 'A4' | 'A6')} className={selectClass + ' w-full'}>
                     <option value="A4">A4</option>
                     <option value="A6">A6</option>
                   </select>
-                  <p className="text-[10px] text-ink-4 mt-1">Default only -- staff can pick a different size on each print.</p>
+                  <p className="text-2xs text-ink-4 mt-1">Default only -- staff can pick a different size on each print.</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -320,17 +320,17 @@ export default function MyParcelSyncSettingsPage({
                   <input type="checkbox" checked={insureByDefault} onChange={e => setInsureByDefault(e.target.checked)} />
                   Insure shipments by default
                 </label>
-                <p className="text-[10px] text-ink-4 mt-1">
+                <p className="text-2xs text-ink-4 mt-1">
                   Insured amount is always the order's own value, computed automatically when the label is created -- not a fixed figure set here. Insuring a shipment forces "Signature required" and "Only recipient" -- required by MyParcel whenever insurance is set.
                 </p>
               </div>
               <h3 className="text-xs font-semibold text-ink-2 pt-2">MyParcel fulfilment account</h3>
-              <p className="text-[10px] text-ink-4 -mt-2">
+              <p className="text-2xs text-ink-4 -mt-2">
                 Required to export orders via MyParcel's Orders API before creating a label -- find these in your MyParcel account settings.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="myparcel-account-id" className="block text-[11px] font-medium text-ink-3 mb-1">Account ID</label>
+                  <label htmlFor="myparcel-account-id" className="block text-2xs font-medium text-ink-3 mb-1">Account ID</label>
                   <input
                     id="myparcel-account-id"
                     type="number"
@@ -340,7 +340,7 @@ export default function MyParcelSyncSettingsPage({
                   />
                 </div>
                 <div>
-                  <label htmlFor="myparcel-shop-id" className="block text-[11px] font-medium text-ink-3 mb-1">Shop ID</label>
+                  <label htmlFor="myparcel-shop-id" className="block text-2xs font-medium text-ink-3 mb-1">Shop ID</label>
                   <input
                     id="myparcel-shop-id"
                     type="number"
@@ -355,7 +355,7 @@ export default function MyParcelSyncSettingsPage({
                   <input type="checkbox" checked={exportOrderToMyParcel} onChange={e => setExportOrderToMyParcel(e.target.checked)} />
                   Export orders to MyParcel
                 </label>
-                <p className="text-[10px] text-ink-4 mt-1">
+                <p className="text-2xs text-ink-4 mt-1">
                   When on, creating a shipment also registers the order via MyParcel's Orders API, so it appears on MyParcel's own Orders page. Off by default -- it shares the full order (line items, prices) with MyParcel, which isn't needed just to print a label.
                 </p>
               </div>
@@ -363,7 +363,7 @@ export default function MyParcelSyncSettingsPage({
                 <input type="checkbox" checked={autoPrintEnabled} onChange={e => setAutoPrintEnabled(e.target.checked)} />
                 Auto-print labels
               </label>
-              <p className="text-[10px] text-ink-4 -mt-2">
+              <p className="text-2xs text-ink-4 -mt-2">
                 Opens the print dialog automatically once a label is created, instead of requiring a manual click. You still pick the printer yourself -- this isn't silent printing.
               </p>
               {settingsError && <p className="text-xs text-danger">{settingsError}</p>}
@@ -395,7 +395,7 @@ export default function MyParcelSyncSettingsPage({
                           <option value="">(use default)</option>
                           {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                         </select>
-                        <label className="flex items-center gap-1.5 text-[11px] text-ink-3">
+                        <label className="flex items-center gap-1.5 text-2xs text-ink-3">
                           <input
                             type="checkbox"
                             aria-label={`${c.label} signature required override`}
@@ -404,7 +404,7 @@ export default function MyParcelSyncSettingsPage({
                           />
                           Signature
                         </label>
-                        <label className="flex items-center gap-1.5 text-[11px] text-ink-3">
+                        <label className="flex items-center gap-1.5 text-2xs text-ink-3">
                           <input
                             type="checkbox"
                             aria-label={`${c.label} insure by default override`}
@@ -415,7 +415,7 @@ export default function MyParcelSyncSettingsPage({
                         </label>
                       </div>
                       <div className="flex items-center gap-3">
-                        <label className="text-[11px] text-ink-4 w-40 shrink-0">Tracking URL template</label>
+                        <label className="text-2xs text-ink-4 w-40 shrink-0">Tracking URL template</label>
                         <input
                           type="text"
                           aria-label={`${c.label} tracking URL template`}
@@ -463,17 +463,17 @@ export default function MyParcelSyncSettingsPage({
                   )}
 
                   <div>
-                    <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                    <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                       Delivery URL
                     </label>
                     <div className="flex items-center gap-2">
-                      <code className="flex-1 px-3 py-2 text-[11px] rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
+                      <code className="flex-1 px-3 py-2 text-2xs rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
                         {webhookURL(user?.tenant_id ?? '')}
                       </code>
                       <button
                         type="button"
                         onClick={() => handleCopy('url', webhookURL(user?.tenant_id ?? ''))}
-                        className="px-2.5 py-2 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors shrink-0"
+                        className="px-2.5 py-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors shrink-0"
                       >
                         {copiedField === 'url' ? 'Copied' : 'Copy'}
                       </button>
@@ -482,22 +482,22 @@ export default function MyParcelSyncSettingsPage({
 
                   {webhookSecret ? (
                     <div>
-                      <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                      <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                         Secret (shown once -- copy it now)
                       </label>
                       <div className="flex items-center gap-2">
-                        <code className="flex-1 px-3 py-2 text-[11px] font-mono rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
+                        <code className="flex-1 px-3 py-2 text-2xs font-mono rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
                           {webhookSecret}
                         </code>
                         <button
                           type="button"
                           onClick={() => handleCopy('secret', webhookSecret)}
-                          className="px-2.5 py-2 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors shrink-0"
+                          className="px-2.5 py-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors shrink-0"
                         >
                           {copiedField === 'secret' ? 'Copied' : 'Copy'}
                         </button>
                       </div>
-                      <p className="mt-1.5 text-[10px] text-warning">
+                      <p className="mt-1.5 text-2xs text-warning">
                         This won't be shown again -- generate a new one if you lose it.
                       </p>
                     </div>

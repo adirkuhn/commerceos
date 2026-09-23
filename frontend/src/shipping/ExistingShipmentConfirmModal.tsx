@@ -66,11 +66,11 @@ export function ExistingShipmentConfirmModal({ token, shipment, onReprint, onCre
             </div>
             <button
               type="button" onClick={handleWrongCarrier} disabled={cancelling}
-              className="mt-3 w-full text-[11px] text-danger hover:underline disabled:opacity-50 disabled:no-underline"
+              className="mt-3 w-full text-2xs text-danger hover:underline disabled:opacity-50 disabled:no-underline"
             >
               {cancelling ? 'Cancelling…' : 'Wrong carrier? Delete & create new'}
             </button>
-            {cancelError && <p className="text-[11px] text-danger mt-2">{cancelError}</p>}
+            {cancelError && <p className="text-2xs text-danger mt-2">{cancelError}</p>}
           </>
         ) : (
           <>

@@ -251,7 +251,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
     }
   }
 
-  const inputClass = 'px-2 py-1 text-[10px] rounded bg-surface border border-line text-ink-2 outline-none'
+  const inputClass = 'px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none'
 
   return (
     <div className="flex flex-col h-full">
@@ -259,7 +259,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Integrations
           </button>
@@ -316,7 +316,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
             </p>
             <div className="flex items-end gap-2">
               <div className="flex-1 max-w-[160px]">
-                <label htmlFor="store-default-currency" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="store-default-currency" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Default currency
                 </label>
                 <select
@@ -330,7 +330,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                 </select>
               </div>
               <div className="flex-1 max-w-[160px]">
-                <label htmlFor="store-default-location" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="store-default-location" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Default location
                 </label>
                 <select
@@ -351,8 +351,8 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                 {savingCurrency ? 'Saving…' : 'Save currency'}
               </button>
             </div>
-            {currencyError && <p className="text-[10px] text-danger mt-1.5">{currencyError}</p>}
-            {currencySaved && <p className="text-[10px] text-success mt-1.5">Saved.</p>}
+            {currencyError && <p className="text-2xs text-danger mt-1.5">{currencyError}</p>}
+            {currencySaved && <p className="text-2xs text-success mt-1.5">Saved.</p>}
           </div>
 
           <div className="bg-raised rounded-xl border border-line p-4">
@@ -363,7 +363,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
             </p>
             <form onSubmit={handleFetchOrder} className="flex items-end gap-2">
               <div className="flex-1 max-w-[200px]">
-                <label htmlFor="fetch-order-number" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="fetch-order-number" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Woo order number
                 </label>
                 <input
@@ -382,9 +382,9 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                 {fetchingOrder ? 'Fetching…' : 'Fetch order'}
               </button>
             </form>
-            {fetchOrderError && <p className="text-[10px] text-danger mt-2">{fetchOrderError}</p>}
+            {fetchOrderError && <p className="text-2xs text-danger mt-2">{fetchOrderError}</p>}
             {fetchOrderResult && (
-              <div className="mt-2 text-[10px] space-y-1">
+              <div className="mt-2 text-2xs space-y-1">
                 {fetchOrderResult.errors.length > 0 ? (
                   fetchOrderResult.errors.map((e, i) => <p key={i} className="text-danger">{e}</p>)
                 ) : (
@@ -411,16 +411,16 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
               <div key={row.entity} className="p-4">
                 <p className="text-xs font-semibold text-ink mb-3">{row.label}</p>
                 {row.runnableDirections.length === 0 && (
-                  <p className="text-[10px] text-ink-4 mb-2">Coming soon — not supported yet.</p>
+                  <p className="text-2xs text-ink-4 mb-2">Coming soon — not supported yet.</p>
                 )}
                 {row.entity === 'orders' && (
-                  <p className="text-[10px] text-ink-4 mb-2">
+                  <p className="text-2xs text-ink-4 mb-2">
                     Import only — CommerceOS never pushes orders back to Woo. The first run always does a full import;
                     every run after that is incremental.
                   </p>
                 )}
                 {row.entity === 'orders_reconciliation' && (
-                  <p className="text-[10px] text-ink-4 mb-2">
+                  <p className="text-2xs text-ink-4 mb-2">
                     Re-checks the last 5 days of Woo orders on every run, independent of the Orders schedule above — catches
                     anything that schedule ever missed. Already-imported orders are skipped, so this is safe to run daily.
                   </p>
@@ -436,7 +436,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                     return (
                       <div key={direction} className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-medium text-ink-3 uppercase tracking-wider capitalize">
+                          <span className="text-2xs font-medium text-ink-3 uppercase tracking-wider capitalize">
                             {direction}
                           </span>
                           <label className={clsx('relative flex items-center shrink-0', runnable ? 'cursor-pointer' : 'cursor-not-allowed opacity-40')}>
@@ -485,12 +485,12 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                           </select>
                         )}
                         {cell.lastRunAt && (
-                          <p className="text-[10px] text-ink-4">
+                          <p className="text-2xs text-ink-4">
                             Last run: {new Date(cell.lastRunAt).toLocaleString()} ({cell.lastRunStatus || 'unknown'})
                           </p>
                         )}
                         {cell.lastRunStatus === 'error' && cell.lastRunError && (
-                          <p className="text-[10px] text-danger">{cell.lastRunError}</p>
+                          <p className="text-2xs text-danger">{cell.lastRunError}</p>
                         )}
                       </div>
                     )
@@ -543,7 +543,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                 {(deleteResult.errors ?? []).length > 0 && (
                   <div className="max-h-32 overflow-y-auto space-y-1">
                     {(deleteResult.errors ?? []).map((e, i) => (
-                      <p key={i} className="text-[10px] text-danger bg-red-50 dark:bg-red-500/10 rounded px-2 py-1">{e}</p>
+                      <p key={i} className="text-2xs text-danger bg-red-50 dark:bg-red-500/10 rounded px-2 py-1">{e}</p>
                     ))}
                   </div>
                 )}
@@ -563,7 +563,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="woo-delete-confirm" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="woo-delete-confirm" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                     Type DELETE to confirm
                   </label>
                   <input
@@ -693,7 +693,7 @@ function WooTaxesTab({ token, connectionId }: { token: string; connectionId: str
                   </select>
                   <button
                     onClick={() => handleRemove(link.id)}
-                    className="text-[10px] text-ink-4 hover:text-danger transition-colors flex items-center gap-1"
+                    className="text-2xs text-ink-4 hover:text-danger transition-colors flex items-center gap-1"
                   >
                     <Trash2 size={11} /> Remove link
                   </button>
@@ -703,7 +703,7 @@ function WooTaxesTab({ token, connectionId }: { token: string; connectionId: str
           )}
           <form onSubmit={handleAdd} className="pt-3 border-t border-line flex items-end gap-2">
             <div>
-              <label htmlFor="woo-tax-slug" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+              <label htmlFor="woo-tax-slug" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                 Woo tax class
               </label>
               <select
@@ -720,7 +720,7 @@ function WooTaxesTab({ token, connectionId }: { token: string; connectionId: str
               </select>
             </div>
             <div>
-              <label htmlFor="woo-tax-class" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+              <label htmlFor="woo-tax-class" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                 Tax class
               </label>
               <select
@@ -849,7 +849,7 @@ function WooCategoriesTab({ token, connectionId }: { token: string; connectionId
                   </select>
                   <button
                     onClick={() => handleRemove(link.id)}
-                    className="text-[10px] text-ink-4 hover:text-danger transition-colors flex items-center gap-1"
+                    className="text-2xs text-ink-4 hover:text-danger transition-colors flex items-center gap-1"
                   >
                     <Trash2 size={11} /> Remove link
                   </button>
@@ -859,7 +859,7 @@ function WooCategoriesTab({ token, connectionId }: { token: string; connectionId
           )}
           <form onSubmit={handleAdd} className="pt-3 border-t border-line flex items-end gap-2">
             <div>
-              <label htmlFor="commerceos-category" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+              <label htmlFor="commerceos-category" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                 Category
               </label>
               <select
@@ -875,7 +875,7 @@ function WooCategoriesTab({ token, connectionId }: { token: string; connectionId
               </select>
             </div>
             <div>
-              <label htmlFor="woo-category" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+              <label htmlFor="woo-category" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                 Woo category
               </label>
               <select
@@ -959,17 +959,17 @@ function WebhooksTab({ token, connectionId, tenantId, provider }: { token: strin
 
         <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
           <div>
-            <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+            <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
               Delivery URL
             </label>
             <div className="flex items-center gap-2">
-              <code className="flex-1 px-3 py-2 text-[11px] rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
+              <code className="flex-1 px-3 py-2 text-2xs rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
                 {webhookURL(tenantId, provider)}
               </code>
               <button
                 type="button"
                 onClick={() => handleCopy('url', webhookURL(tenantId, provider))}
-                className="px-2.5 py-2 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors shrink-0"
+                className="px-2.5 py-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors shrink-0"
               >
                 {copiedField === 'url' ? 'Copied' : 'Copy'}
               </button>
@@ -978,22 +978,22 @@ function WebhooksTab({ token, connectionId, tenantId, provider }: { token: strin
 
           {secret ? (
             <div>
-              <label className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+              <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                 Secret (shown once -- copy it now)
               </label>
               <div className="flex items-center gap-2">
-                <code className="flex-1 px-3 py-2 text-[11px] font-mono rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
+                <code className="flex-1 px-3 py-2 text-2xs font-mono rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
                   {secret}
                 </code>
                 <button
                   type="button"
                   onClick={() => handleCopy('secret', secret)}
-                  className="px-2.5 py-2 rounded-lg bg-fill text-[10px] text-ink-3 hover:text-accent transition-colors shrink-0"
+                  className="px-2.5 py-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors shrink-0"
                 >
                   {copiedField === 'secret' ? 'Copied' : 'Copy'}
                 </button>
               </div>
-              <p className="mt-1.5 text-[10px] text-warning">
+              <p className="mt-1.5 text-2xs text-warning">
                 This won't be shown again -- if you lose it, generate a new one and update WooCommerce.
               </p>
             </div>

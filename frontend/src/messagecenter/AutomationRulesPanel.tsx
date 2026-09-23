@@ -238,7 +238,7 @@ export default function AutomationRulesPanel() {
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label htmlFor="rule-name" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="rule-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Name
                 </label>
                 <input
@@ -253,7 +253,7 @@ export default function AutomationRulesPanel() {
               </div>
 
               <div>
-                <label htmlFor="rule-trigger" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="rule-trigger" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   When this happens
                 </label>
                 <select
@@ -270,10 +270,10 @@ export default function AutomationRulesPanel() {
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] text-ink-4 uppercase tracking-wider">
+                  <span className="text-2xs text-ink-4 uppercase tracking-wider">
                     And these conditions match (optional)
                   </span>
-                  <button type="button" onClick={addCondition} className="text-[10px] text-accent hover:text-accent">
+                  <button type="button" onClick={addCondition} className="text-2xs text-accent hover:text-accent">
                     + Add condition
                   </button>
                 </div>
@@ -312,7 +312,7 @@ export default function AutomationRulesPanel() {
               </div>
 
               <div>
-                <label htmlFor="rule-template" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="rule-template" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Send this template
                 </label>
                 <select
@@ -330,7 +330,7 @@ export default function AutomationRulesPanel() {
               </div>
 
               <div>
-                <label htmlFor="rule-channel-override" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="rule-channel-override" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   Channel override (optional)
                 </label>
                 <select
@@ -348,7 +348,7 @@ export default function AutomationRulesPanel() {
 
               {editingRule && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-ink-4 uppercase tracking-wider">Enabled</span>
+                  <span className="text-2xs text-ink-4 uppercase tracking-wider">Enabled</span>
                   <label className="relative flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"

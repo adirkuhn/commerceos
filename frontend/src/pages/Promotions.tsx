@@ -132,7 +132,7 @@ export default function Promotions() {
                 <td className="px-3 py-2.5 text-ink-3">{formatDate(p.starts_at)}</td>
                 <td className="px-3 py-2.5 text-ink-3">{formatDate(p.ends_at)}</td>
                 <td className="px-3 py-2.5">
-                  <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', STATUS_STYLE[p.status])}>
+                  <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLE[p.status])}>
                     {p.status}
                   </span>
                 </td>
@@ -264,7 +264,7 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
     }
   }
 
-  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
 
   if (loadingDetail) {
@@ -277,7 +277,7 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Promotions
           </button>
@@ -311,7 +311,7 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
                   aria-label="Status"
                   value={status}
                   onChange={e => setStatus(e.target.value as PromotionStatus)}
-                  className="px-2 py-1 text-[10px] rounded-lg bg-raised border border-line text-ink-2 outline-none"
+                  className="px-2 py-1 text-2xs rounded-lg bg-raised border border-line text-ink-2 outline-none"
                 >
                   <option value="draft">Draft</option>
                   <option value="active">Active</option>
@@ -382,7 +382,7 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
                   <div key={l.sku_id} className="flex items-center gap-3 py-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-ink truncate">{l.product_name || l.sku_code}</p>
-                      <p className="text-[10px] font-mono text-ink-4">{l.sku_code}</p>
+                      <p className="text-2xs font-mono text-ink-4">{l.sku_code}</p>
                     </div>
                     <div className="w-28">
                       <label htmlFor={`discount-${l.sku_id}`} className="sr-only">Discount value</label>
@@ -452,7 +452,7 @@ function PromotionPerformanceCard({ token, promotionId }: { token: string; promo
     <div className="rounded-xl border border-line p-4 space-y-3">
       <div>
         <h3 className="text-xs font-semibold text-ink">Performance</h3>
-        <p className="text-[11px] text-ink-4 mt-0.5">
+        <p className="text-2xs text-ink-4 mt-0.5">
           Covered SKUs during the active window vs. the immediately preceding period of equal length
         </p>
       </div>
@@ -461,25 +461,25 @@ function PromotionPerformanceCard({ token, promotionId }: { token: string; promo
       {!loading && !error && report && (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-[10px] text-ink-4 mb-1">Revenue (during)</p>
+            <p className="text-2xs text-ink-4 mb-1">Revenue (during)</p>
             <p className="text-sm font-semibold text-ink">{formatMoney(report.during.revenue_minor_units, report.currency_code)}</p>
-            <p className={clsx('text-[10px] font-medium', report.revenue_change_percent === null ? 'text-ink-4' : report.revenue_change_percent >= 0 ? 'text-success' : 'text-danger')}>
+            <p className={clsx('text-2xs font-medium', report.revenue_change_percent === null ? 'text-ink-4' : report.revenue_change_percent >= 0 ? 'text-success' : 'text-danger')}>
               {changeLabel(report.revenue_change_percent)}
             </p>
           </div>
           <div>
-            <p className="text-[10px] text-ink-4 mb-1">Units sold (during)</p>
+            <p className="text-2xs text-ink-4 mb-1">Units sold (during)</p>
             <p className="text-sm font-semibold text-ink">{report.during.units_sold}</p>
-            <p className={clsx('text-[10px] font-medium', report.units_sold_change_percent === null ? 'text-ink-4' : report.units_sold_change_percent >= 0 ? 'text-success' : 'text-danger')}>
+            <p className={clsx('text-2xs font-medium', report.units_sold_change_percent === null ? 'text-ink-4' : report.units_sold_change_percent >= 0 ? 'text-success' : 'text-danger')}>
               {changeLabel(report.units_sold_change_percent)}
             </p>
           </div>
           <div>
-            <p className="text-[10px] text-ink-4 mb-1">Revenue (before)</p>
+            <p className="text-2xs text-ink-4 mb-1">Revenue (before)</p>
             <p className="text-xs text-ink-2">{formatMoney(report.before.revenue_minor_units, report.currency_code)}</p>
           </div>
           <div>
-            <p className="text-[10px] text-ink-4 mb-1">Units sold (before)</p>
+            <p className="text-2xs text-ink-4 mb-1">Units sold (before)</p>
             <p className="text-xs text-ink-2">{report.before.units_sold}</p>
           </div>
         </div>

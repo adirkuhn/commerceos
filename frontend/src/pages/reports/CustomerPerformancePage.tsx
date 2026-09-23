@@ -29,7 +29,7 @@ export default function CustomerPerformancePage() {
               <div key={c.customer_id} className="flex items-center gap-3 px-4 py-2.5">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-ink truncate">{c.customer_name || 'Unnamed customer'}</p>
-                  <p className="text-[10px] text-ink-4">
+                  <p className="text-2xs text-ink-4">
                     {c.order_count} order{c.order_count === 1 ? '' : 's'} · {formatMoney(c.average_order_value_minor_units, currency)} AOV
                   </p>
                 </div>

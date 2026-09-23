@@ -91,7 +91,7 @@ export default function Shipping() {
             <p className={clsx('text-2xl font-semibold',
               color === 'blue' ? 'text-accent' : color === 'amber' ? 'text-warning' : color === 'green' ? 'text-success' : 'text-danger',
             )}>{val}</p>
-            <p className="text-[10px] text-ink-4 mt-0.5">{label}</p>
+            <p className="text-2xs text-ink-4 mt-0.5">{label}</p>
           </div>
         ))}
       </div>
@@ -150,26 +150,26 @@ export default function Shipping() {
                       <input type="checkbox" className="rounded accent-blue-600 w-3 h-3" />
                     </td>
                     <td className="px-3 py-2.5 font-mono font-medium text-ink">{s.id}</td>
-                    <td className="px-3 py-2.5 font-mono text-ink-3 text-[10px]">{s.orderId}</td>
+                    <td className="px-3 py-2.5 font-mono text-ink-3 text-2xs">{s.orderId}</td>
                     <td className="px-3 py-2.5 text-ink-2">{s.customer}</td>
                     <td className="px-3 py-2.5">
-                      <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', CARRIER_COLORS[s.carrier])}>
+                      <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', CARRIER_COLORS[s.carrier])}>
                         {s.carrier}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-ink-3">{s.service}</td>
                     <td className="px-3 py-2.5 text-ink-3">{s.weight}</td>
                     <td className="px-3 py-2.5">
-                      <span className="font-mono text-[10px] text-ink-4">{s.tracking}</span>
+                      <span className="font-mono text-2xs text-ink-4">{s.tracking}</span>
                     </td>
                     <td className="px-3 py-2.5">
-                      <span className={clsx('flex items-center gap-1 w-fit font-medium text-[10px]', cfg.color)}>
+                      <span className={clsx('flex items-center gap-1 w-fit font-medium text-2xs', cfg.color)}>
                         <Icon size={10} />
                         {cfg.label}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-ink font-medium">€{s.cost.toFixed(2)}</td>
-                    <td className="px-3 py-2.5 text-ink-4 font-mono text-[10px]">{s.created}</td>
+                    <td className="px-3 py-2.5 text-ink-4 font-mono text-2xs">{s.created}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
                         <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover">
@@ -195,7 +195,7 @@ export default function Shipping() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-line">
               <div>
                 <h3 className="text-sm font-semibold text-ink">Auto-Carrier Rules</h3>
-                <p className="text-[10px] text-ink-4 mt-0.5">Rules applied automatically based on weight, region, and cost</p>
+                <p className="text-2xs text-ink-4 mt-0.5">Rules applied automatically based on weight, region, and cost</p>
               </div>
               <button className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">
                 + Add Rule
@@ -205,7 +205,7 @@ export default function Shipping() {
               <thead className="dark:bg-night-900/50 bg-gray-50 border-b border-line">
                 <tr>
                   {['Service', 'Carrier', 'Condition', 'Cost', 'Auto', 'Priority'].map(h => (
-                    <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">{h}</th>
+                    <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -214,7 +214,7 @@ export default function Shipping() {
                   <tr key={rule.name} className="hover:bg-hover/30 transition-colors">
                     <td className="px-4 py-3 text-ink font-medium">{rule.name}</td>
                     <td className="px-4 py-3">
-                      <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', CARRIER_COLORS[rule.carrier])}>
+                      <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium', CARRIER_COLORS[rule.carrier])}>
                         {rule.carrier}
                       </span>
                     </td>
@@ -227,7 +227,7 @@ export default function Shipping() {
                       }
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-ink-3 text-[10px]">#{i + 1}</span>
+                      <span className="text-ink-3 text-2xs">#{i + 1}</span>
                     </td>
                   </tr>
                 ))}

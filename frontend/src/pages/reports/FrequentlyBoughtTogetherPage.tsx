@@ -42,9 +42,9 @@ export default function FrequentlyBoughtTogetherPage() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="dark:bg-night-900/50 bg-gray-50">
-                  <th className="px-4 py-2 text-left text-[10px] font-medium text-ink-4 uppercase">Items</th>
-                  <th className="px-4 py-2 text-right text-[10px] font-medium text-ink-4 uppercase">Support</th>
-                  <th className="px-4 py-2 text-right text-[10px] font-medium text-ink-4 uppercase">% of Orders</th>
+                  <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">Items</th>
+                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">Support</th>
+                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">% of Orders</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/50">
@@ -171,8 +171,8 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
                 className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-line bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
-            {searching && <p className="text-[10px] text-ink-4 mt-1">Searching…</p>}
-            {searchError && <p className="text-[10px] text-danger mt-1">{searchError}</p>}
+            {searching && <p className="text-2xs text-ink-4 mt-1">Searching…</p>}
+            {searchError && <p className="text-2xs text-danger mt-1">{searchError}</p>}
             {results.length > 0 && (
               <div className="absolute z-10 mt-1 w-full rounded-lg border border-line bg-raised shadow-lg max-h-64 overflow-y-auto">
                 {results.map(product => (
@@ -196,11 +196,11 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
           </div>
         )}
 
-        {selectedProduct && loadingSkus && <p className="text-[10px] text-ink-4">Loading SKUs…</p>}
+        {selectedProduct && loadingSkus && <p className="text-2xs text-ink-4">Loading SKUs…</p>}
 
         {selectedProduct && !loadingSkus && skuOptions.length > 1 && !selectedSkuId && (
           <div className="space-y-1">
-            <p className="text-[10px] text-ink-4">This product has multiple variants — pick one:</p>
+            <p className="text-2xs text-ink-4">This product has multiple variants — pick one:</p>
             {skuOptions.map(opt => (
               <button
                 key={opt.sku.id}
@@ -215,10 +215,10 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
 
         {selectedSkuId && (
           <div>
-            {recLoading && <p className="text-[10px] text-ink-4">Loading recommendations…</p>}
-            {recError && <p className="text-[10px] text-danger">{recError}</p>}
+            {recLoading && <p className="text-2xs text-ink-4">Loading recommendations…</p>}
+            {recError && <p className="text-2xs text-danger">{recError}</p>}
             {recommendations && recommendations.rows.length === 0 && !recLoading && (
-              <p className="text-[10px] text-ink-4">No frequent co-purchases found for this product in the selected period</p>
+              <p className="text-2xs text-ink-4">No frequent co-purchases found for this product in the selected period</p>
             )}
             {recommendations && recommendations.rows.length > 0 && (
               <div data-testid="product-recommendations" className="space-y-1">

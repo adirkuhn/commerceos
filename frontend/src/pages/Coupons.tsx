@@ -134,7 +134,7 @@ export default function Coupons() {
                 </td>
                 <td className="px-3 py-2.5 text-ink-3">{formatDate(c.expires_at)}</td>
                 <td className="px-3 py-2.5">
-                  <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', c.active ? 'bg-green-500/15 text-success' : 'bg-gray-500/15 text-ink-4')}>
+                  <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium', c.active ? 'bg-green-500/15 text-success' : 'bg-gray-500/15 text-ink-4')}>
                     {c.active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
@@ -184,7 +184,7 @@ function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
       .finally(() => setLoading(false))
   }, [token, couponId])
 
-  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
 
   async function handleAdd() {
@@ -219,7 +219,7 @@ function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
     <div className="rounded-xl border border-line p-4 space-y-3">
       <div>
         <h3 className="text-xs font-semibold text-ink">Currency overrides</h3>
-        <p className="text-[11px] text-ink-4 mt-0.5">
+        <p className="text-2xs text-ink-4 mt-0.5">
           Set an exact amount off for a channel running in another currency, instead of the auto-converted rate.
         </p>
       </div>
@@ -229,7 +229,7 @@ function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
           {amounts.map(a => (
             <div key={a.currency_code} className="flex items-center justify-between text-xs text-ink-2">
               <span>{a.currency_code}: {(a.amount_minor_units / 100).toFixed(2)} off</span>
-              <button type="button" onClick={() => handleDelete(a.currency_code)} className="text-[10px] text-ink-4 hover:text-danger transition-colors">
+              <button type="button" onClick={() => handleDelete(a.currency_code)} className="text-2xs text-ink-4 hover:text-danger transition-colors">
                 Delete
               </button>
             </div>
@@ -321,7 +321,7 @@ function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEditPageP
     }
   }
 
-  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
 
   return (
@@ -330,7 +330,7 @@ function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEditPageP
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Coupons
           </button>
@@ -360,7 +360,7 @@ function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEditPageP
             <div className="rounded-xl border border-line p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold text-ink">General</h3>
-                <label className="flex items-center gap-1.5 text-[11px] text-ink-3">
+                <label className="flex items-center gap-1.5 text-2xs text-ink-3">
                   <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} />
                   Active
                 </label>
@@ -428,7 +428,7 @@ function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEditPageP
                 />
               </div>
               {coupon && (
-                <p className="text-[11px] text-ink-4">Used {coupon.times_used} time{coupon.times_used === 1 ? '' : 's'}</p>
+                <p className="text-2xs text-ink-4">Used {coupon.times_used} time{coupon.times_used === 1 ? '' : 's'}</p>
               )}
               {formError && (
                 <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>

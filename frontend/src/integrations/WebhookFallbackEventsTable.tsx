@@ -58,7 +58,7 @@ export function WebhookFallbackEventsTable({
           <button
             onClick={handleAbandonAll}
             disabled={abandoningAll}
-            className="shrink-0 px-2 py-1 rounded text-[10px] font-medium bg-fill text-ink-3 hover:text-danger disabled:opacity-50 transition-colors"
+            className="shrink-0 px-2 py-1 rounded text-2xs font-medium bg-fill text-ink-3 hover:text-danger disabled:opacity-50 transition-colors"
           >
             {abandoningAll ? 'Abandoning…' : 'Abandon all'}
           </button>

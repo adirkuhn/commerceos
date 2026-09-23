@@ -157,7 +157,7 @@ export default function Sidebar() {
             return (
               <p
                 key={`section-${item.section}`}
-                className="px-2.5 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-4"
+                className="px-2.5 pt-3 pb-1.5 text-2xs font-semibold uppercase tracking-wider text-ink-4"
               >
                 {item.section}
               </p>
@@ -221,7 +221,7 @@ export default function Sidebar() {
               <span className="text-xs font-medium flex-1 truncate">{item.label}</span>
               {item.badge && (
                 <span className={clsx(
-                  'text-[10px] font-medium px-1.5 py-0.5 rounded-full',
+                  'text-2xs font-medium px-1.5 py-0.5 rounded-full',
                   item.badgeColor ? BADGE_COLORS[item.badgeColor] : BADGE_COLORS.default,
                 )}>
                   {item.badge}
@@ -243,7 +243,7 @@ export default function Sidebar() {
           <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-ink truncate">{user?.role ?? 'Signed in'}</p>
-            <p className="text-[10px] text-ink-4 truncate">Sign out</p>
+            <p className="text-2xs text-ink-4 truncate">Sign out</p>
           </div>
         </button>
       </div>

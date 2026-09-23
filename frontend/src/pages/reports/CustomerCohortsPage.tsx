@@ -29,10 +29,10 @@ export default function CustomerCohortsPage() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="dark:bg-night-900/50 bg-gray-50">
-                  <th className="px-4 py-2 text-left text-[10px] font-medium text-ink-4 uppercase">Cohort</th>
-                  <th className="px-4 py-2 text-left text-[10px] font-medium text-ink-4 uppercase">Size</th>
+                  <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">Cohort</th>
+                  <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">Size</th>
                   {cohortMonthColumns.map(m => (
-                    <th key={m} className="px-3 py-2 text-center text-[10px] font-medium text-ink-4 uppercase whitespace-nowrap">
+                    <th key={m} className="px-3 py-2 text-center text-2xs font-medium text-ink-4 uppercase whitespace-nowrap">
                       Month {m}
                     </th>
                   ))}
@@ -56,7 +56,7 @@ export default function CustomerCohortsPage() {
                         return (
                           <td key={m} className="px-3 py-2 text-center" title={`${cell.retained_customers} customer(s), ${formatMoney(cell.revenue_minor_units, currency)}`}>
                             <span
-                              className="inline-block px-2 py-0.5 rounded text-[10px] font-medium text-white"
+                              className="inline-block px-2 py-0.5 rounded text-2xs font-medium text-white"
                               style={{ backgroundColor: `rgba(37, 99, 235, ${Math.min(1, Math.max(0.15, ratePercent / 100))})` }}
                             >
                               {ratePercent.toFixed(0)}%

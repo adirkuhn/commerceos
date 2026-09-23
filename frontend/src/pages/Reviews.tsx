@@ -102,14 +102,14 @@ export default function Reviews() {
                       </span>
                     )}
                   </div>
-                  <p className="text-[10px] text-ink-4 truncate">{r.customer_email}</p>
+                  <p className="text-2xs text-ink-4 truncate">{r.customer_email}</p>
                 </td>
                 <td className="px-3 py-2.5"><Stars rating={r.rating} /></td>
                 <td className="px-3 py-2.5 max-w-[360px]">
                   {r.title && <p className="font-medium text-ink truncate">{r.title}</p>}
                   <p className={clsx('text-ink-3', r.title ? 'truncate' : 'line-clamp-2')}>{r.body}</p>
                 </td>
-                <td className="px-3 py-2.5 font-mono text-[10px] text-ink-4">{r.product_id}</td>
+                <td className="px-3 py-2.5 font-mono text-2xs text-ink-4">{r.product_id}</td>
                 <td className="px-3 py-2.5 text-ink-3">{formatDate(r.created_at)}</td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

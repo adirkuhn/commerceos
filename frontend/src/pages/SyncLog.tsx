@@ -174,11 +174,11 @@ export default function SyncLog() {
                     )}
                   </td>
                   <td className="px-3 py-2.5">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${STATUS_STYLES[entry.status]}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-2xs font-medium whitespace-nowrap ${STATUS_STYLES[entry.status]}`}>
                       {entry.status}
                     </span>
                     {entry.status === 'error' && entry.error_message && (
-                      <p className="text-[10px] text-danger mt-1 max-w-[220px]">{entry.error_message}</p>
+                      <p className="text-2xs text-danger mt-1 max-w-[220px]">{entry.error_message}</p>
                     )}
                   </td>
                   {view === 'needing-attention' && (
@@ -187,14 +187,14 @@ export default function SyncLog() {
                         <button
                           onClick={() => handleDismiss(entry.id)}
                           disabled={busyId === entry.id}
-                          className="px-3 py-1.5 rounded-lg border border-line text-ink-2 text-[11px] font-medium hover:bg-gray-500/10 disabled:opacity-50 transition-colors"
+                          className="px-3 py-1.5 rounded-lg border border-line text-ink-2 text-2xs font-medium hover:bg-gray-500/10 disabled:opacity-50 transition-colors"
                         >
                           {busyId === entry.id && busyAction === 'dismiss' ? 'Dismissing…' : 'Dismiss'}
                         </button>
                         <button
                           onClick={() => handleRetry(entry.id)}
                           disabled={busyId === entry.id}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
                         >
                           {busyId === entry.id && busyAction === 'retry' ? 'Retrying…' : 'Retry'}
                         </button>

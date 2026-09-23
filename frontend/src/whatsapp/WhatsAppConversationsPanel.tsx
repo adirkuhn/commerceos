@@ -79,11 +79,11 @@ export default function WhatsAppConversationsPanel() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-ink truncate">{conversationLabel(conv)}</span>
-                  <span className="text-[10px] text-ink-4 shrink-0">
+                  <span className="text-2xs text-ink-4 shrink-0">
                     {new Date(conv.last_message_at).toLocaleDateString()}
                   </span>
                 </div>
-                <p className="text-[11px] text-ink-4 truncate mt-0.5">
+                <p className="text-2xs text-ink-4 truncate mt-0.5">
                   {`${conv.last_direction === 'outbound' ? '↩ ' : ''}${conv.last_body}`}
                 </p>
               </button>
@@ -103,7 +103,7 @@ export default function WhatsAppConversationsPanel() {
               <div>
                 <p className="text-sm font-semibold text-ink">{conversationLabel(selected)}</p>
                 {selected.customer_name && (
-                  <p className="text-[11px] text-ink-4">{selected.phone_e164}</p>
+                  <p className="text-2xs text-ink-4">{selected.phone_e164}</p>
                 )}
               </div>
               <button
@@ -131,7 +131,7 @@ export default function WhatsAppConversationsPanel() {
                       }
                     >
                       <p className="text-xs whitespace-pre-wrap">{m.body}</p>
-                      <p className={`text-[10px] mt-0.5 ${m.direction === 'outbound' ? 'text-blue-100' : 'text-ink-4'}`}>
+                      <p className={`text-2xs mt-0.5 ${m.direction === 'outbound' ? 'text-blue-100' : 'text-ink-4'}`}>
                         {new Date(m.created_at).toLocaleString()}
                       </p>
                     </div>

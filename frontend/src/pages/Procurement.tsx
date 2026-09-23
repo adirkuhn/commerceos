@@ -272,7 +272,7 @@ export default function Procurement() {
                     <button
                       type="button"
                       onClick={e => { e.stopPropagation(); if (po.duplicate_of_purchase_order_id) openEdit(po.duplicate_of_purchase_order_id) }}
-                      className="flex items-center gap-1 mt-0.5 text-[10px] font-medium text-danger hover:underline"
+                      className="flex items-center gap-1 mt-0.5 text-2xs font-medium text-danger hover:underline"
                     >
                       <AlertTriangle size={10} /> Possible duplicate order
                     </button>
@@ -280,7 +280,7 @@ export default function Procurement() {
                 </td>
                 <td className="px-3 py-2.5 text-ink-3">{warehouseName(po.warehouse_id) ?? '—'}</td>
                 <td className="px-3 py-2.5">
-                  <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', STATUS_STYLE[po.status])}>
+                  <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLE[po.status])}>
                     {po.status.replace('_', ' ')}
                   </span>
                 </td>
@@ -344,7 +344,7 @@ function BookingDiscrepanciesPage({ token, onClose }: { token: string; onClose: 
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Procurement
           </button>
@@ -484,7 +484,7 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
     }
   }
 
-  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -496,7 +496,7 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <p className="text-[11px] text-ink-4">
+          <p className="text-2xs text-ink-4">
             Upload a supplier PDF, CSV, or XLSX. Supplier and line items are extracted and matched to products
             automatically — anything that can't be matched will need review.
           </p>
@@ -667,7 +667,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
     setWarehouseId(newWarehouseId)
   }
 
-  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
 
   return (
@@ -676,7 +676,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Purchase Orders
           </button>
@@ -711,7 +711,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
                     aria-label="Status"
                     value={status}
                     onChange={e => setStatus(e.target.value as PurchaseOrderStatus)}
-                    className="px-2 py-1 text-[10px] rounded-lg bg-raised border border-line text-ink-2 outline-none capitalize"
+                    className="px-2 py-1 text-2xs rounded-lg bg-raised border border-line text-ink-2 outline-none capitalize"
                   >
                     {(['draft', 'sent', 'partially_received', 'received', 'cancelled', 'needs_review'] as const).map(s => (
                       <option key={s} value={s} className="capitalize">{s.replace('_', ' ')}</option>
@@ -726,7 +726,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
                     {suggestedSupplierMatch && !po?.supplier_id && (
                       <button
                         type="button" onClick={handleConfirmSuggestedSupplier} disabled={confirmingSuggestedSupplier}
-                        className="text-[10px] font-semibold text-accent hover:underline disabled:opacity-50"
+                        className="text-2xs font-semibold text-accent hover:underline disabled:opacity-50"
                       >
                         {confirmingSuggestedSupplier ? 'Confirming…' : 'Confirm'}
                       </button>
@@ -740,7 +740,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                   {suggestedSupplierMatch && !po?.supplier_id && (
-                    <p className="text-[10px] text-accent mt-1">Suggested from the uploaded document — confirm to assign.</p>
+                    <p className="text-2xs text-accent mt-1">Suggested from the uploaded document — confirm to assign.</p>
                   )}
                 </div>
                 <div>
@@ -869,14 +869,14 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAs
       <p className="flex items-center gap-1.5 text-xs font-semibold text-warning">
         <Sparkles size={12} /> Needs review: this purchase order has no supplier
       </p>
-      <p className="text-[11px] text-ink-3">
+      <p className="text-2xs text-ink-3">
         Pick an existing supplier above, or create a new one and assign it in one step.
       </p>
       {suggestedName && (
-        <p className="text-[11px] text-accent">Suggested from the uploaded document — edit if it's wrong.</p>
+        <p className="text-2xs text-accent">Suggested from the uploaded document — edit if it's wrong.</p>
       )}
       {matchedSupplier && (
-        <p className="text-[11px] text-success">
+        <p className="text-2xs text-success">
           Matches existing supplier "{matchedSupplier.name}" — this will assign it, not create a new one.
         </p>
       )}
@@ -891,7 +891,7 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAs
           {saving ? (matchedSupplier ? 'Assigning…' : 'Creating…') : (matchedSupplier ? 'Assign existing supplier' : 'Create & Assign')}
         </button>
       </form>
-      {error && <p className="text-[10px] text-danger">{error}</p>}
+      {error && <p className="text-2xs text-danger">{error}</p>}
     </div>
   )
 }
@@ -951,7 +951,7 @@ function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSectionPr
                 {doc.file_name}
               </a>
               {doc.is_potential_duplicate && (
-                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium text-warning bg-amber-500/10 shrink-0">
+                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-2xs font-medium text-warning bg-amber-500/10 shrink-0">
                   <AlertTriangle size={10} /> Possible duplicate
                 </span>
               )}
@@ -975,7 +975,7 @@ function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSectionPr
               </button>
             </div>
             {reparseError?.id === doc.id && (
-              <p className="mt-1 text-[10px] text-danger pl-[21px]">{reparseError.message}</p>
+              <p className="mt-1 text-2xs text-danger pl-[21px]">{reparseError.message}</p>
             )}
           </div>
         ))}
@@ -1092,12 +1092,12 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
         <h3 className="text-xs font-semibold text-ink">Line Items</h3>
         <div className="flex items-center gap-2">
           {uploadStatus === 'uploading' && (
-            <span className="flex items-center gap-1 text-[10px] text-ink-4">
+            <span className="flex items-center gap-1 text-2xs text-ink-4">
               <Loader2 size={11} className="animate-spin" /> Uploading…
             </span>
           )}
           {uploadStatus === 'parsing' && (
-            <span className="flex items-center gap-1 text-[10px] text-warning">
+            <span className="flex items-center gap-1 text-2xs text-warning">
               <Loader2 size={11} className="animate-spin" />
               {parsingSlow ? 'Still parsing… this can take a bit longer' : 'Parsing document…'}
             </span>
@@ -1107,7 +1107,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadStatus !== 'idle'}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-line bg-raised text-[10px] text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-line bg-raised text-2xs text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
           >
             <Upload size={11} /> Upload Document
           </button>
@@ -1115,7 +1115,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 text-white text-[10px] font-medium hover:bg-blue-700"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700"
             >
               <Plus size={11} /> Add Line Item
             </button>
@@ -1123,19 +1123,19 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
         </div>
       </div>
       {uploadError && (
-        <p className="text-[10px] text-danger bg-red-50 dark:bg-red-500/10 px-4 py-1.5">{uploadError}</p>
+        <p className="text-2xs text-danger bg-red-50 dark:bg-red-500/10 px-4 py-1.5">{uploadError}</p>
       )}
 
       <table className="w-full text-xs">
         <thead>
           <tr className="dark:bg-night-900/30 bg-gray-50">
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Description</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Type</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Linked SKU</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Batch</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Qty</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Unit Cost</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-[10px]">Total</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Description</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Type</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Linked SKU</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Batch</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Qty</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Unit Cost</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">Total</th>
             <th className="px-4 py-2 w-20" />
           </tr>
         </thead>
@@ -1160,7 +1160,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                   <td className="px-4 py-2.5 text-ink-3">
                     {isCharge && (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px]">{LINE_TYPE_LABELS[li.line_type as Exclude<LineItemType, ''>]}</span>
+                        <span className="text-2xs">{LINE_TYPE_LABELS[li.line_type as Exclude<LineItemType, ''>]}</span>
                         {!li.line_type_confirmed && (
                           <button
                             type="button"
@@ -1169,7 +1169,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                               quantity: li.quantity, unit_cost_minor_units: li.unit_cost_minor_units, line_type: li.line_type,
                             })}
                             title="AI-classified -- confirm this is correct"
-                            className="text-[10px] font-medium text-accent hover:underline"
+                            className="text-2xs font-medium text-accent hover:underline"
                           >
                             Confirm
                           </button>
@@ -1179,10 +1179,10 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                   </td>
                   <td className="px-4 py-2.5 text-ink-3">
                     {isCharge ? (
-                      <span className="text-[10px]">—</span>
+                      <span className="text-2xs">—</span>
                     ) : li.sku_id ? (
                       li.product_name ? (
-                        <span className="text-[10px]">
+                        <span className="text-2xs">
                           {li.product_name} <span className="font-mono text-ink-4">— {li.sku_code}</span>
                           {li.units_per_purchased_item > 1 && (
                             <span className="ml-1 text-warning" title="Units per purchased item">
@@ -1191,13 +1191,13 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                           )}
                         </span>
                       ) : (
-                        <span className="font-mono text-[10px]">{li.sku_id}</span>
+                        <span className="font-mono text-2xs">{li.sku_id}</span>
                       )
                     ) : (
                       <button
                         type="button"
                         onClick={() => setReviewingLineId(reviewingLineId === li.id ? null : li.id)}
-                        className="flex items-center gap-1 text-[10px] font-medium text-warning hover:underline"
+                        className="flex items-center gap-1 text-2xs font-medium text-warning hover:underline"
                       >
                         <Sparkles size={10} /> Needs review
                       </button>
@@ -1205,14 +1205,14 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                   </td>
                   <td className="px-4 py-2.5 text-ink-3">
                     {li.suggested_lot_number ? (
-                      <span className="text-[10px]" title="Parsed from the uploaded document -- confirmed when the batch is assigned during booking">
+                      <span className="text-2xs" title="Parsed from the uploaded document -- confirmed when the batch is assigned during booking">
                         {li.suggested_lot_number}
                         {li.suggested_expiry_date && (
                           <span className="text-ink-4"> · exp {li.suggested_expiry_date}</span>
                         )}
                       </span>
                     ) : (
-                      <span className="text-[10px]">—</span>
+                      <span className="text-2xs">—</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-ink">{li.quantity}</td>
@@ -1268,7 +1268,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                 <button
                   type="button"
                   onClick={() => setAdding(true)}
-                  className="flex items-center gap-1 text-[10px] font-medium text-accent hover:underline"
+                  className="flex items-center gap-1 text-2xs font-medium text-accent hover:underline"
                 >
                   <Plus size={11} /> Add Line Item
                 </button>
@@ -1279,7 +1279,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
         {lineItems.length > 0 && (
           <tfoot>
             <tr className="border-t border-line font-medium">
-              <td colSpan={6} className="px-4 py-2.5 text-right text-ink-3 uppercase tracking-wider text-[10px]">
+              <td colSpan={6} className="px-4 py-2.5 text-right text-ink-3 uppercase tracking-wider text-2xs">
                 Total
               </td>
               <td className="px-4 py-2.5 text-ink">
@@ -1341,7 +1341,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
     }
   }
 
-  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1'
+  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-950 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-blue-500'
   const idPrefix = initial?.id ?? 'new'
 
@@ -1392,7 +1392,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
                   </span>
                   <button
                     type="button" onClick={() => { setSkuId(null); setSkuLabel(null) }}
-                    className="flex items-center gap-1 text-[10px] text-ink-4 hover:text-danger shrink-0"
+                    className="flex items-center gap-1 text-2xs text-ink-4 hover:text-danger shrink-0"
                   >
                     <X size={11} /> Unlink
                   </button>
@@ -1416,7 +1416,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
                   value={unitsPerPurchasedItem} onChange={e => setUnitsPerPurchasedItem(e.target.value)}
                   className={inputClass}
                 />
-                <p className="text-[10px] text-ink-4 mt-1">
+                <p className="text-2xs text-ink-4 mt-1">
                   Stock units one purchased item holds — e.g. 36 if this line is a box of 36 units.
                 </p>
               </div>
@@ -1441,7 +1441,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
             </div>
           </div>
 
-          {rowError && <p className="text-[10px] text-danger mt-2">{rowError}</p>}
+          {rowError && <p className="text-2xs text-danger mt-2">{rowError}</p>}
 
           {pickerOpen && (
             <div className="mt-3">
@@ -1522,21 +1522,21 @@ function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onAssignWa
       <div className="flex items-center justify-between px-4 py-3 dark:bg-night-900/50 bg-gray-50 border-b border-line">
         <h3 className="text-xs font-semibold text-ink">Receiving</h3>
         <div className="flex items-center gap-2">
-          {uploadStatus === 'uploading' && <span className="text-[10px] text-ink-4">Uploading…</span>}
-          {uploadStatus === 'parsing' && <span className="text-[10px] text-warning">Parsing invoice…</span>}
+          {uploadStatus === 'uploading' && <span className="text-2xs text-ink-4">Uploading…</span>}
+          {uploadStatus === 'parsing' && <span className="text-2xs text-warning">Parsing invoice…</span>}
           <input ref={fileInputRef} type="file" aria-label="Upload invoice" accept=".pdf,.csv,.xlsx" className="hidden" onChange={handleFileSelected} />
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadStatus !== 'idle'}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-line bg-raised text-[10px] text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-line bg-raised text-2xs text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
           >
             <Upload size={11} /> Upload Invoice
           </button>
         </div>
       </div>
       {(uploadError || error) && (
-        <p className="text-[10px] text-danger bg-red-50 dark:bg-red-500/10 px-4 py-1.5">{uploadError || error}</p>
+        <p className="text-2xs text-danger bg-red-50 dark:bg-red-500/10 px-4 py-1.5">{uploadError || error}</p>
       )}
       <div className="divide-y divide-line/50">
         {loading && <p className="px-4 py-6 text-center text-xs text-ink-4">Loading…</p>}
@@ -1555,12 +1555,12 @@ function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onAssignWa
               {record.is_potential_duplicate && (
                 <span
                   title="Another invoice with identical file content was already uploaded for this supplier"
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 dark:bg-amber-500/10 text-warning"
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-100 dark:bg-amber-500/10 text-warning"
                 >
                   <AlertTriangle size={10} /> Possible duplicate
                 </span>
               )}
-              <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', RECEIVING_STATUS_STYLE[record.status])}>
+              <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', RECEIVING_STATUS_STYLE[record.status])}>
                 {record.status.replace('_', ' ')}
               </span>
             </button>
@@ -1631,8 +1631,8 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
     }
   }
 
-  if (loading) return <p className="text-[11px] text-ink-4 py-2">Loading…</p>
-  if (!detail) return error ? <p className="text-[10px] text-danger py-2">{error}</p> : null
+  if (loading) return <p className="text-2xs text-ink-4 py-2">Loading…</p>
+  if (!detail) return error ? <p className="text-2xs text-danger py-2">{error}</p> : null
 
   const record = detail.receiving_record
   const isApplied = record.status === 'applied'
@@ -1640,7 +1640,7 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
   return (
     <div className="space-y-2 pt-1">
       {detail.discrepancies.length === 0 ? (
-        <p className="text-[11px] text-ink-3">
+        <p className="text-2xs text-ink-3">
           The invoice matched the purchase order exactly — no discrepancies.
         </p>
       ) : (
@@ -1661,14 +1661,14 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
           ))}
         </div>
       )}
-      {error && <p className="text-[10px] text-danger">{error}</p>}
+      {error && <p className="text-2xs text-danger">{error}</p>}
       {!isApplied && (
         damagedFormOpen ? (
           <FlagDamagedItemForm recordId={recordId} lineItems={lineItems} onDone={() => { setDamagedFormOpen(false); load() }} onCancel={() => setDamagedFormOpen(false)} />
         ) : (
           <button
             type="button" onClick={() => setDamagedFormOpen(true)}
-            className="flex items-center gap-1 text-[10px] font-medium text-ink-4 hover:underline"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:underline"
           >
             <AlertTriangle size={10} /> Flag damaged item
           </button>
@@ -1677,18 +1677,18 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
       <div className="flex items-center justify-between pt-1">
         <button
           type="button" onClick={() => setReportOpen(true)}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 text-ink-2 text-[10px] font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 text-ink-2 text-2xs font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
         >
           <ClipboardList size={11} /> Generate Report
         </button>
         {isApplied ? (
-          <span className="flex items-center gap-1 text-[10px] font-medium text-success">
+          <span className="flex items-center gap-1 text-2xs font-medium text-success">
             <PackageCheck size={11} /> Receiving completed
           </span>
         ) : (
           <button
             type="button" onClick={handleComplete} disabled={completing}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-semibold hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-semibold hover:bg-blue-700 disabled:opacity-50"
           >
             <PackageCheck size={11} /> {completing ? 'Completing…' : 'Mark Receiving Complete'}
           </button>
@@ -1775,16 +1775,16 @@ function DiscrepancyRow({
         : 'dark:border-amber-500/30 border-amber-300 dark:bg-amber-500/5 bg-amber-50/40',
     )}>
       <div className="flex items-center justify-between gap-2">
-        <span className={clsx('text-[10px] font-semibold', isAcknowledged ? 'text-ink-4' : 'text-warning')}>
+        <span className={clsx('text-2xs font-semibold', isAcknowledged ? 'text-ink-4' : 'text-warning')}>
           {DISCREPANCY_LABEL[discrepancy.type]}
         </span>
-        <span className="text-[10px] text-ink-4">
+        <span className="text-2xs text-ink-4">
           expected {discrepancy.expected_qty} · invoice {discrepancy.received_qty}
         </span>
       </div>
-      <p className="text-[11px] text-ink-2">{discrepancy.details}</p>
+      <p className="text-2xs text-ink-2">{discrepancy.details}</p>
       {isAcknowledged ? (
-        <span className="flex items-center gap-1 text-[10px] font-medium text-success">
+        <span className="flex items-center gap-1 text-2xs font-medium text-success">
           <Check size={10} /> Acknowledged
         </span>
       ) : (
@@ -1792,7 +1792,7 @@ function DiscrepancyRow({
           {canReceive && (
             <button
               type="button" onClick={() => setFormOpen(true)}
-              className="flex items-center gap-1 text-[10px] font-medium text-accent hover:underline"
+              className="flex items-center gap-1 text-2xs font-medium text-accent hover:underline"
             >
               <PackageCheck size={10} /> Receive stock
             </button>
@@ -1800,7 +1800,7 @@ function DiscrepancyRow({
           {!disabled && (
             <button
               type="button" onClick={handleAcknowledge} disabled={acting}
-              className="flex items-center gap-1 text-[10px] font-medium text-ink-3 hover:underline disabled:opacity-50"
+              className="flex items-center gap-1 text-2xs font-medium text-ink-3 hover:underline disabled:opacity-50"
             >
               <Check size={10} /> Mark as valid
             </button>
@@ -1808,7 +1808,7 @@ function DiscrepancyRow({
           {!disabled && linkCandidates.length > 0 && !linkOpen && (
             <button
               type="button" onClick={() => setLinkOpen(true)}
-              className="flex items-center gap-1 text-[10px] font-medium text-ink-3 hover:underline"
+              className="flex items-center gap-1 text-2xs font-medium text-ink-3 hover:underline"
             >
               <Link2 size={10} /> Link to…
             </button>
@@ -1820,25 +1820,25 @@ function DiscrepancyRow({
           <select
             aria-label="Link to discrepancy"
             value={linkTargetId} onChange={e => setLinkTargetId(e.target.value)}
-            className="flex-1 text-[10px] rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
+            className="flex-1 text-2xs rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
           >
             <option value="">Select the matching item…</option>
             {linkCandidates.map(c => <option key={c.id} value={c.id}>{c.details}</option>)}
           </select>
           <button
             type="button" onClick={handleLink} disabled={acting || !linkTargetId}
-            className="text-[10px] font-medium text-accent hover:underline disabled:opacity-50"
+            className="text-2xs font-medium text-accent hover:underline disabled:opacity-50"
           >
             Confirm
           </button>
-          <button type="button" onClick={() => setLinkOpen(false)} className="text-[10px] text-ink-4 hover:underline">
+          <button type="button" onClick={() => setLinkOpen(false)} className="text-2xs text-ink-4 hover:underline">
             Cancel
           </button>
         </div>
       )}
-      {actionError && <p className="text-[10px] text-danger">{actionError}</p>}
+      {actionError && <p className="text-2xs text-danger">{actionError}</p>}
       {!disabled && lineItem && !lineItem.sku_id && discrepancy.received_qty > 0 && (
-        <p className="text-[10px] text-ink-4">Link this line item to a product before receiving stock for it.</p>
+        <p className="text-2xs text-ink-4">Link this line item to a product before receiving stock for it.</p>
       )}
       {formOpen && lineItem?.sku_id && (
         <ReceiveDiscrepancyForm
@@ -1894,28 +1894,28 @@ function FlagDamagedItemForm({ recordId, lineItems, onDone, onCancel }: FlagDama
       <div className="flex items-center gap-2">
         <select
           value={lineItemId} onChange={e => setLineItemId(e.target.value)} required
-          className="flex-1 text-[10px] rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
+          className="flex-1 text-2xs rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
         >
           {lineItems.map(li => <option key={li.id} value={li.id}>{li.raw_description}</option>)}
         </select>
         <input
           type="number" min="1" value={qty} onChange={e => setQty(e.target.value)} required
-          className="w-16 text-[10px] rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
+          className="w-16 text-2xs rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
         />
       </div>
       <input
         type="text" placeholder="Note (optional)" value={note} onChange={e => setNote(e.target.value)}
-        className="w-full text-[10px] rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
+        className="w-full text-2xs rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
       />
-      {error && <p className="text-[10px] text-danger">{error}</p>}
+      {error && <p className="text-2xs text-danger">{error}</p>}
       <div className="flex items-center gap-3">
         <button
           type="submit" disabled={saving}
-          className="text-[10px] font-medium text-accent hover:underline disabled:opacity-50"
+          className="text-2xs font-medium text-accent hover:underline disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Flag as damaged'}
         </button>
-        <button type="button" onClick={onCancel} className="text-[10px] text-ink-4 hover:underline">
+        <button type="button" onClick={onCancel} className="text-2xs text-ink-4 hover:underline">
           Cancel
         </button>
       </div>
@@ -1964,16 +1964,16 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {grouped.length === 0 ? (
-            <p className="text-[11px] text-ink-3">No discrepancies to report.</p>
+            <p className="text-2xs text-ink-3">No discrepancies to report.</p>
           ) : (
             grouped.map(g => (
               <div key={g.type} className="space-y-1.5">
-                <h3 className="text-[11px] font-semibold text-gray-700">
+                <h3 className="text-2xs font-semibold text-gray-700">
                   {DISCREPANCY_LABEL[g.type]} <span className="dark:text-ink-4 font-normal">({g.items.length})</span>
                 </h3>
                 <ul className="space-y-1">
                   {g.items.map(d => (
-                    <li key={d.id} className="text-[10px] text-ink-3 flex items-center justify-between gap-2">
+                    <li key={d.id} className="text-2xs text-ink-3 flex items-center justify-between gap-2">
                       <span>{d.details}</span>
                       <span className={clsx('shrink-0', d.status === 'acknowledged' ? 'text-green-400' : 'text-amber-400')}>
                         {d.status === 'acknowledged' ? 'Acknowledged' : 'Open'}
@@ -1988,7 +1988,7 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t dark:border-night-700 border-gray-200">
           <button
             type="button" onClick={handleExportCsv}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 text-ink-2 text-[10px] font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 text-ink-2 text-2xs font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
           >
             <Download size={11} /> Export CSV
           </button>
@@ -2054,16 +2054,16 @@ function ReceiveDiscrepancyForm({ skuId, warehouseId, warehouses, onAssignWareho
   }
 
   if (done) {
-    return <p className="text-[10px] font-medium text-green-400">Stock received.</p>
+    return <p className="text-2xs font-medium text-green-400">Stock received.</p>
   }
 
-  const inputClass = 'w-full px-2 py-1 text-[11px] rounded dark:bg-night-950 bg-white border dark:border-night-700 text-ink outline-none focus:ring-1 focus:ring-blue-500'
+  const inputClass = 'w-full px-2 py-1 text-2xs rounded dark:bg-night-950 bg-white border dark:border-night-700 text-ink outline-none focus:ring-1 focus:ring-blue-500'
 
   return (
     <form onSubmit={handleSubmit} className="flex items-end gap-2 pt-1 flex-wrap">
       {!warehouseId && (
         <div>
-          <label htmlFor={`receive-warehouse-${skuId}`} className="block text-[9px] text-ink-4 mb-0.5">Warehouse</label>
+          <label htmlFor={`receive-warehouse-${skuId}`} className="block text-2xs text-ink-4 mb-0.5">Warehouse</label>
           <select
             id={`receive-warehouse-${skuId}`} required value={pickedWarehouseId}
             onChange={e => setPickedWarehouseId(e.target.value)} className={clsx(inputClass, 'w-28')}
@@ -2074,27 +2074,27 @@ function ReceiveDiscrepancyForm({ skuId, warehouseId, warehouses, onAssignWareho
         </div>
       )}
       <div>
-        <label htmlFor={`receive-qty-${skuId}`} className="block text-[9px] text-ink-4 mb-0.5">Qty</label>
+        <label htmlFor={`receive-qty-${skuId}`} className="block text-2xs text-ink-4 mb-0.5">Qty</label>
         <input id={`receive-qty-${skuId}`} type="number" min="1" required value={quantity} onChange={e => setQuantity(e.target.value)} className={clsx(inputClass, 'w-14')} />
         {unitsPerPurchasedItem > 1 && Number.isFinite(parseInt(quantity, 10)) && (
-          <p className="text-[9px] text-ink-4 mt-0.5">= {parseInt(quantity, 10) * unitsPerPurchasedItem} units</p>
+          <p className="text-2xs text-ink-4 mt-0.5">= {parseInt(quantity, 10) * unitsPerPurchasedItem} units</p>
         )}
       </div>
       <div>
-        <label htmlFor={`receive-lot-${skuId}`} className="block text-[9px] text-ink-4 mb-0.5">Lot #</label>
+        <label htmlFor={`receive-lot-${skuId}`} className="block text-2xs text-ink-4 mb-0.5">Lot #</label>
         <input id={`receive-lot-${skuId}`} value={lotNumber} onChange={e => setLotNumber(e.target.value)} className={clsx(inputClass, 'w-20')} />
       </div>
       <div>
-        <label htmlFor={`receive-expiry-${skuId}`} className="block text-[9px] text-ink-4 mb-0.5">Expiry</label>
+        <label htmlFor={`receive-expiry-${skuId}`} className="block text-2xs text-ink-4 mb-0.5">Expiry</label>
         <input id={`receive-expiry-${skuId}`} type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className={inputClass} />
       </div>
-      <button type="submit" disabled={saving} className="px-2.5 py-1 rounded-lg bg-blue-600 text-white text-[10px] font-semibold hover:bg-blue-700 disabled:opacity-50">
+      <button type="submit" disabled={saving} className="px-2.5 py-1 rounded-lg bg-blue-600 text-white text-2xs font-semibold hover:bg-blue-700 disabled:opacity-50">
         {saving ? 'Saving…' : 'Save receipt'}
       </button>
-      <button type="button" onClick={onDone} className="px-2 py-1 text-[10px] text-ink-4 hover:underline">
+      <button type="button" onClick={onDone} className="px-2 py-1 text-2xs text-ink-4 hover:underline">
         Cancel
       </button>
-      {error && <p className="text-[10px] text-red-400">{error}</p>}
+      {error && <p className="text-2xs text-red-400">{error}</p>}
     </form>
   )
 }
@@ -2150,25 +2150,25 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
   }
 
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500'
-  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1'
+  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1'
 
   return (
     <div className="rounded-lg border dark:border-amber-500/30 border-amber-300 dark:bg-night-950 bg-white p-3 space-y-2">
-      <div className="text-[11px] text-gray-600">
+      <div className="text-2xs text-gray-600">
         Extracted from document{lineItem.raw_sku ? <> — printed SKU/barcode <span className="font-mono">{lineItem.raw_sku}</span></> : null}, but no matching product was found automatically.
       </div>
 
       {mode === 'choose' && (
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => setMode('link')}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-medium hover:bg-blue-700">
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700">
             <Search size={10} /> Link to existing product
           </button>
           <button type="button" onClick={() => setMode('create')}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg dark:bg-night-700 bg-gray-100 text-[10px] text-ink-2 font-medium dark:hover:bg-gray-700 hover:bg-gray-200">
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg dark:bg-night-700 bg-gray-100 text-2xs text-ink-2 font-medium dark:hover:bg-gray-700 hover:bg-gray-200">
             <Plus size={10} /> Create new product
           </button>
-          <button type="button" onClick={onCancel} className="text-[10px] text-ink-4 hover:underline ml-auto">
+          <button type="button" onClick={onCancel} className="text-2xs text-ink-4 hover:underline ml-auto">
             Dismiss
           </button>
         </div>
@@ -2209,17 +2209,17 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
           </div>
           <div className="flex items-center gap-2">
             <button type="submit" disabled={saving}
-              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-semibold hover:bg-blue-700 disabled:opacity-50">
+              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-semibold hover:bg-blue-700 disabled:opacity-50">
               {saving ? 'Creating…' : 'Create & Link'}
             </button>
-            <button type="button" onClick={() => setMode('choose')} className="text-[10px] text-ink-4 hover:underline">
+            <button type="button" onClick={() => setMode('choose')} className="text-2xs text-ink-4 hover:underline">
               Back
             </button>
           </div>
         </form>
       )}
 
-      {error && <p className="text-[10px] text-red-400">{error}</p>}
+      {error && <p className="text-2xs text-red-400">{error}</p>}
     </div>
   )
 }
@@ -2270,7 +2270,7 @@ export function ProductSkuPicker({ onSelect, onClose }: ProductSkuPickerProps) {
         </button>
       </div>
       <div className="max-h-48 overflow-auto space-y-1">
-        {products.length === 0 && <p className="text-[10px] text-ink-4 px-1">No matching products</p>}
+        {products.length === 0 && <p className="text-2xs text-ink-4 px-1">No matching products</p>}
         {products.map(p => (
           <div key={p.id}>
             <button
@@ -2282,14 +2282,14 @@ export function ProductSkuPicker({ onSelect, onClose }: ProductSkuPickerProps) {
             </button>
             {expandedProductId === p.id && (
               <div className="pl-4 space-y-0.5">
-                {loadingSkus && <p className="text-[10px] text-gray-400">Loading…</p>}
-                {!loadingSkus && skus.length === 0 && <p className="text-[10px] text-gray-400">No SKUs on this product</p>}
+                {loadingSkus && <p className="text-2xs text-gray-400">Loading…</p>}
+                {!loadingSkus && skus.length === 0 && <p className="text-2xs text-gray-400">No SKUs on this product</p>}
                 {!loadingSkus && skus.map(s => (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => onSelect(s, `${p.name} — ${s.sku_code}`)}
-                    className="w-full flex items-center justify-between text-left px-2 py-1 text-[10px] rounded hover:bg-hover"
+                    className="w-full flex items-center justify-between text-left px-2 py-1 text-2xs rounded hover:bg-hover"
                   >
                     <span className="font-mono dark:text-gray-300 text-gray-600">{s.sku_code}</span>
                     <span className="dark:text-gray-500 text-gray-400">{(s.price_minor_units / 100).toFixed(2)} {s.currency_code}</span>

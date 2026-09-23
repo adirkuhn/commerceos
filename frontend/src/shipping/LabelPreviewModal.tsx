@@ -62,7 +62,7 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
             (like the real printed label) regardless of the app's own
             dark/light theme, so what staff see here matches the paper. */}
         <div className="rounded-lg border-2 border-dashed border-gray-300 p-4 mb-4 bg-white text-ink">
-          <p className="text-[10px] uppercase tracking-wider text-ink-4 mb-1">To</p>
+          <p className="text-2xs uppercase tracking-wider text-ink-4 mb-1">To</p>
           <p className="text-base font-bold leading-tight">{recipient.person || '—'}</p>
           {recipient.company && <p className="text-sm">{recipient.company}</p>}
           <p className="text-sm">
@@ -73,16 +73,16 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
           </p>
           <p className="text-sm font-medium">{recipient.cc}</p>
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-dashed border-gray-200">
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-ink-3 font-medium">{carrierLabel}</span>
+            <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-ink-3 font-medium">{carrierLabel}</span>
             {packageTypeLabel && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-ink-3 font-medium">{packageTypeLabel}</span>
+              <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-ink-3 font-medium">{packageTypeLabel}</span>
             )}
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-ink-3 font-medium">{labelSize}</span>
+            <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-ink-3 font-medium">{labelSize}</span>
           </div>
         </div>
 
         <div className="mb-4">
-          <label className="block text-[11px] font-medium text-ink-3 mb-1">Label size</label>
+          <label className="block text-2xs font-medium text-ink-3 mb-1">Label size</label>
           <div className="flex items-center rounded-lg border border-line overflow-hidden">
             {(['A4', 'A6'] as const).map(s => (
               <button
@@ -99,7 +99,7 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-ink-4 mt-1">Can be changed again later when reprinting.</p>
+          <p className="text-2xs text-ink-4 mt-1">Can be changed again later when reprinting.</p>
         </div>
 
         {error && <p className="text-xs text-danger mb-3">{error}</p>}

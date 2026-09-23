@@ -173,7 +173,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
 
       {hasLoginUrl(import.meta.env) && (
         <div className="w-full max-w-xs space-y-3">
-          <div className="flex items-center gap-3 text-[11px] text-gray-500">
+          <div className="flex items-center gap-3 text-2xs text-gray-500">
             <div className="h-px flex-1 bg-[#2D3748]" />
             or
             <div className="h-px flex-1 bg-[#2D3748]" />

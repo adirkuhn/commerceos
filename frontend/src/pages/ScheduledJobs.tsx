@@ -179,7 +179,7 @@ export default function ScheduledJobs() {
                           <button
                             onClick={() => handleSaveJobConfig(j)}
                             disabled={savingKey === j.job_key}
-                            className="px-3 py-1.5 rounded-lg bg-fill text-[11px] font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
+                            className="px-3 py-1.5 rounded-lg bg-fill text-2xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
                           >
                             {savingKey === j.job_key ? 'Saving…' : 'Save'}
                           </button>
@@ -187,7 +187,7 @@ export default function ScheduledJobs() {
                         <button
                           onClick={() => handleRunJobNow(j.job_key)}
                           disabled={runningKey === j.job_key}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
                         >
                           {runningKey === j.job_key ? 'Running…' : 'Run now'}
                         </button>
@@ -232,7 +232,7 @@ export default function ScheduledJobs() {
                         onClick={() => handleRunScheduleNow(s.id)}
                         disabled={runningKey === s.id || !s.enabled}
                         title={!s.enabled ? 'Schedule is disabled' : undefined}
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
                       >
                         {runningKey === s.id ? 'Running…' : 'Run now'}
                       </button>

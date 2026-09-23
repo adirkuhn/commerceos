@@ -41,15 +41,15 @@ export default function ProductPerformanceMatrixPage() {
                 <div key={q.id} data-testid={`quadrant-${q.id}`} className="rounded-lg border border-line p-3">
                   <div className="flex items-center justify-between mb-1.5">
                     <p className="text-xs font-semibold text-ink">{q.label}</p>
-                    <span className="text-[10px] text-ink-4">{rows.length}</span>
+                    <span className="text-2xs text-ink-4">{rows.length}</span>
                   </div>
-                  <p className="text-[10px] text-ink-4 mb-2">{q.hint}</p>
+                  <p className="text-2xs text-ink-4 mb-2">{q.hint}</p>
                   {rows.length === 0 ? (
-                    <p className="text-[10px] text-ink-4">None</p>
+                    <p className="text-2xs text-ink-4">None</p>
                   ) : (
                     <div className="space-y-1">
                       {rows.slice(0, 8).map((r: ProductPerformanceMatrixRow) => (
-                        <div key={r.sku_id ?? r.sku_code} className="flex items-center justify-between gap-2 text-[11px]">
+                        <div key={r.sku_id ?? r.sku_code} className="flex items-center justify-between gap-2 text-2xs">
                           <span className="text-ink-2 truncate">{r.product_name || r.sku_code}</span>
                           <span className="text-ink-4 shrink-0">{formatMoney(r.revenue_minor_units, currency)}</span>
                         </div>

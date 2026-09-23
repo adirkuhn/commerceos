@@ -537,7 +537,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
                 key={t.id}
                 type="button"
                 onClick={() => setMode(t.id)}
-                className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-[11px] font-medium leading-tight ${
+                className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${
                   mode === t.id ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'
                 }`}
               >

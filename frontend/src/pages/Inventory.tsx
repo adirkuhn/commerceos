@@ -152,7 +152,7 @@ function BatchFormModal({
           <label className={labelClass} htmlFor="batch-expiry">Expiry date (leave empty for no expiry)</label>
           <input id="batch-expiry" type="date" value={expiryDate ?? ''} onChange={e => setExpiryDate(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-danger">{error}</p>}
+        {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
@@ -246,7 +246,7 @@ function AdjustStockModal({
           <label className={labelClass} htmlFor="adjust-reason">Reason (optional)</label>
           <input id="adjust-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-danger">{error}</p>}
+        {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
@@ -328,7 +328,7 @@ function RecountModal({
           <label className={labelClass} htmlFor="recount-reason">Reason (optional)</label>
           <input id="recount-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-danger">{error}</p>}
+        {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
@@ -389,7 +389,7 @@ function TransferModal({
   return (
     <Modal title="Transfer Stock" onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-[10px] text-ink-4">
+        <p className="text-2xs text-ink-4">
           Leaving a batch empty means the general ledger (un-lotted stock) — use this to move stock into or out of a batch too.
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -436,7 +436,7 @@ function TransferModal({
           <label className={labelClass} htmlFor="transfer-reason">Reason (optional)</label>
           <input id="transfer-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-danger">{error}</p>}
+        {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
@@ -488,7 +488,7 @@ function SplitCaseModal({
   return (
     <Modal title="Split Case Into Units" onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-[10px] text-ink-4">
+        <p className="text-2xs text-ink-4">
           One-way: the cases you split leave stock, and that many times the case size arrives as units of the linked product. This can't be undone by re-assembling units back into cases.
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -514,7 +514,7 @@ function SplitCaseModal({
           <label className={labelClass} htmlFor="split-reason">Reason (optional)</label>
           <input id="split-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-danger">{error}</p>}
+        {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
@@ -609,7 +609,7 @@ function DamagedLostModal({
           <label className={labelClass} htmlFor="dl-reason">Reason (optional)</label>
           <input id="dl-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
-        {error && <p className="text-[10px] text-danger">{error}</p>}
+        {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
@@ -665,10 +665,10 @@ function PriceModal({ sku, onSave, onClose }: {
           <div className="flex items-center justify-between">
             <label className={clsx(labelClass, 'mb-0')} htmlFor="price-edit-sale-price">Sale price (optional)</label>
             {discountPct != null && discountPct > 0 && (
-              <span className="text-[9px] px-1.5 py-px rounded bg-green-500/15 text-success font-medium">-{discountPct}%</span>
+              <span className="text-2xs px-1.5 py-px rounded bg-green-500/15 text-success font-medium">-{discountPct}%</span>
             )}
             {discountPct != null && discountPct <= 0 && (
-              <span className="text-[9px] text-danger">must be below regular price</span>
+              <span className="text-2xs text-danger">must be below regular price</span>
             )}
           </div>
           <input id="price-edit-sale-price" type="number" step="0.01" min="0" value={salePrice} onChange={e => {
@@ -679,11 +679,11 @@ function PriceModal({ sku, onSave, onClose }: {
           <div>
             <label className={labelClass} htmlFor="price-edit-sale-end-date">Sale ends (optional)</label>
             <input id="price-edit-sale-end-date" type="date" value={saleEndDate} onChange={e => setSaleEndDate(e.target.value)} className={inputClass} disabled={salePriceNum == null} />
-            <p className="text-[9px] text-ink-4 mt-1">Reverts to the regular price automatically the day after this date.</p>
+            <p className="text-2xs text-ink-4 mt-1">Reverts to the regular price automatically the day after this date.</p>
           </div>
         </div>
 
-        {error && <p className="text-[10px] text-danger">{error}</p>}
+        {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
             Cancel
@@ -842,7 +842,7 @@ function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUp
     <div className="pl-8 pr-4 py-3 border-t border-line/60 dark:bg-night-950/40 bg-gray-50/60">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
-          <span className="font-mono text-[11px] text-ink-2">
+          <span className="font-mono text-2xs text-ink-2">
             {variantName && <span className="font-sans text-ink-3">{variantName} · </span>}
             {sku.sku_code}
           </span>
@@ -850,7 +850,7 @@ function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUp
             type="button"
             onClick={() => setModal('price')}
             title="Edit price"
-            className="flex items-center gap-1 text-[10px] text-ink-4 hover:text-accent"
+            className="flex items-center gap-1 text-2xs text-ink-4 hover:text-accent"
           >
             <Tag size={11} /> Price
           </button>
@@ -858,49 +858,49 @@ function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUp
             type="button"
             onClick={() => onViewHistory(sku)}
             title="View movement history"
-            className="flex items-center gap-1 text-[10px] text-ink-4 hover:text-accent"
+            className="flex items-center gap-1 text-2xs text-ink-4 hover:text-accent"
           >
             <History size={11} /> History
           </button>
           {level && (
-            <span data-testid="stock-level" className="text-[10px] text-ink-3">
+            <span data-testid="stock-level" className="text-2xs text-ink-3">
               Total: <strong className="text-ink">{formatSKUQuantity(sku, level.total)}</strong>
               {' · '}Syncable: <strong className="text-ink">{formatSKUQuantity(sku, level.syncable)}</strong>
             </span>
           )}
-          {loading && <span className="text-[10px] text-ink-4">Loading…</span>}
+          {loading && <span className="text-2xs text-ink-4">Loading…</span>}
         </div>
         <div className="flex items-center gap-1.5">
-          <button type="button" onClick={() => setModal('adjust')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-raised border border-line text-ink-2 hover:bg-hover">
+          <button type="button" onClick={() => setModal('adjust')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
             <Plus size={11} /> Adjust
           </button>
-          <button type="button" onClick={() => setModal('recount')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-raised border border-line text-ink-2 hover:bg-hover">
+          <button type="button" onClick={() => setModal('recount')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
             <ClipboardList size={11} /> Recount
           </button>
-          <button type="button" onClick={() => setModal('transfer')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-raised border border-line text-ink-2 hover:bg-hover">
+          <button type="button" onClick={() => setModal('transfer')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
             <ArrowRightLeft size={11} /> Transfer
           </button>
           {sku.case_of_sku_id && (
-            <button type="button" onClick={() => setModal('split-case')} title="Split sealed cases into individual units" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-raised border border-line text-ink-2 hover:bg-hover">
+            <button type="button" onClick={() => setModal('split-case')} title="Split sealed cases into individual units" className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
               <Boxes size={11} /> Split case
             </button>
           )}
           {sku.portioned_from_sku_id && (
-            <button type="button" onClick={() => setModal('portion')} title="Add a sellable item peeled off the linked weight pool" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-raised border border-line text-ink-2 hover:bg-hover">
+            <button type="button" onClick={() => setModal('portion')} title="Add a sellable item peeled off the linked weight pool" className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
               <Scale size={11} /> Add item from weight pool
             </button>
           )}
-          <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-raised border border-line text-danger hover:bg-hover">
+          <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-danger hover:bg-hover">
             <PackageMinus size={11} /> Damaged/Lost
           </button>
         </div>
       </div>
 
-      {error && <p className="text-[10px] text-danger mb-2">{error}</p>}
-      {deleteError && <p className="text-[10px] text-danger mb-2">{deleteError}</p>}
+      {error && <p className="text-2xs text-danger mb-2">{error}</p>}
+      {deleteError && <p className="text-2xs text-danger mb-2">{deleteError}</p>}
 
       <div className="rounded-lg border border-line overflow-hidden">
-        <table className="w-full text-[10px]">
+        <table className="w-full text-2xs">
           <thead className="bg-fill">
             <tr>
               {['Lot', 'Warehouse', 'Qty', 'Expiry', ''].map(h => (
@@ -966,11 +966,11 @@ function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUp
           </tbody>
         </table>
         <div className="px-2.5 py-1.5 border-t border-line flex items-center gap-3">
-          <button type="button" onClick={() => setModal('new-batch')} className="text-[10px] text-accent hover:text-accent/80">
+          <button type="button" onClick={() => setModal('new-batch')} className="text-2xs text-accent hover:text-accent/80">
             + New batch
           </button>
           {zeroStockBatchCount > 0 && (
-            <button type="button" onClick={() => allBatches.toggle(sku.id)} className="text-[10px] text-ink-4 hover:text-accent">
+            <button type="button" onClick={() => allBatches.toggle(sku.id)} className="text-2xs text-ink-4 hover:text-accent">
               {showAllBatches ? 'Hide zero-stock batches' : `Show ${zeroStockBatchCount} zero-stock batch${zeroStockBatchCount === 1 ? '' : 'es'}`}
             </button>
           )}
@@ -1126,7 +1126,7 @@ function ProductStockRow({ token, productId, productName, productImageUrl, wareh
             <span className="flex items-center gap-1">
               <span className="text-xs font-medium text-success">{formatPrice(singleSKU.sale_price_minor_units, singleSKU.currency_code)}</span>
               {singleSKU.sale_end_date && (
-                <span className="text-[9px] text-ink-4">until {formatDate(singleSKU.sale_end_date)}</span>
+                <span className="text-2xs text-ink-4">until {formatDate(singleSKU.sale_end_date)}</span>
               )}
             </span>
           ) : (
@@ -1151,7 +1151,7 @@ function ProductStockRow({ token, productId, productName, productImageUrl, wareh
             onClick={() => onViewProductHistory(productName, skus)}
             aria-label="View full movement history"
             title="View full movement history"
-            className="flex items-center gap-1 text-[10px] text-ink-4 hover:text-accent"
+            className="flex items-center gap-1 text-2xs text-ink-4 hover:text-accent"
           >
             <History size={11} /> History
           </button>
@@ -1238,7 +1238,7 @@ function ProductMovementHistoryPage({ token, productName, skus, warehouses, onCl
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Inventory
           </button>
@@ -1313,7 +1313,7 @@ function SKUMovementHistoryPage({ token, sku, warehouses, onClose }: {
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Inventory
           </button>
@@ -1380,7 +1380,7 @@ function BatchMovementHistoryPage({ token, sku, batch, warehouses, onClose }: {
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Inventory
           </button>
@@ -1592,7 +1592,7 @@ function ExpiryDiscardPage({
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Inventory
           </button>
@@ -1661,13 +1661,13 @@ function ExpiryDiscardPage({
                             <button
                               onClick={() => handleConfirmExtend(b.batch_id)}
                               disabled={!newExpiryDate || actingBatchId === b.batch_id}
-                              className="px-2 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50"
+                              className="px-2 py-1 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50"
                             >
                               Confirm
                             </button>
                             <button
                               onClick={() => setExtendingBatchId(null)}
-                              className="px-2 py-1 rounded-lg bg-fill text-ink-2 text-[11px] font-medium hover:bg-hover"
+                              className="px-2 py-1 rounded-lg bg-fill text-ink-2 text-2xs font-medium hover:bg-hover"
                             >
                               Cancel
                             </button>
@@ -1677,21 +1677,21 @@ function ExpiryDiscardPage({
                             <button
                               onClick={() => openDiscard('expired', b)}
                               disabled={actingBatchId === b.batch_id}
-                              className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100 disabled:opacity-50"
+                              className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-2xs font-medium hover:dark:bg-red-500/20 hover:bg-red-100 disabled:opacity-50"
                             >
                               Discard
                             </button>
                             <button
                               onClick={() => openExtend(b.batch_id)}
                               disabled={actingBatchId === b.batch_id}
-                              className="px-2 py-1 rounded-lg bg-fill text-ink-2 text-[11px] font-medium hover:bg-hover disabled:opacity-50"
+                              className="px-2 py-1 rounded-lg bg-fill text-ink-2 text-2xs font-medium hover:bg-hover disabled:opacity-50"
                             >
                               Extend
                             </button>
                             <button
                               onClick={() => handleDismiss(b.batch_id)}
                               disabled={actingBatchId === b.batch_id}
-                              className="px-2 py-1 rounded-lg bg-fill text-ink-2 text-[11px] font-medium hover:bg-hover disabled:opacity-50"
+                              className="px-2 py-1 rounded-lg bg-fill text-ink-2 text-2xs font-medium hover:bg-hover disabled:opacity-50"
                             >
                               Dismiss
                             </button>
@@ -1735,7 +1735,7 @@ function ExpiryDiscardPage({
                       <td className="px-4 py-2.5">
                         <button
                           onClick={() => openDiscard('expiring', b)}
-                          className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100"
+                          className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-2xs font-medium hover:dark:bg-red-500/20 hover:bg-red-100"
                         >
                           Discard
                         </button>
@@ -1781,7 +1781,7 @@ function ExpiryDiscardPage({
                       <td className="px-4 py-2.5 text-ink">{d.product_name}</td>
                       <td className="px-4 py-2.5">
                         <span className={clsx(
-                          'px-1.5 py-0.5 rounded text-[10px] font-medium capitalize',
+                          'px-1.5 py-0.5 rounded text-2xs font-medium capitalize',
                           d.type === 'damaged' ? 'bg-amber-500/15 text-warning' : 'bg-red-500/15 text-danger',
                         )}>
                           {d.type}
@@ -1908,7 +1908,7 @@ export default function Inventory() {
               type="button"
               onClick={() => setStockFilter(value)}
               className={clsx(
-                'px-2.5 py-1.5 text-[11px] font-medium transition-colors',
+                'px-2.5 py-1.5 text-2xs font-medium transition-colors',
                 stockFilter === value
                   ? 'bg-blue-600 text-white'
                   : 'bg-raised text-ink-3 hover:bg-hover',
@@ -1921,14 +1921,14 @@ export default function Inventory() {
         {expiredReview.batches.length > 0 && (
           <button
             onClick={() => open(inventoryPaths.expiry)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100 transition-colors shrink-0"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-2xs font-medium hover:dark:bg-red-500/20 hover:bg-red-100 transition-colors shrink-0"
           >
             <AlertTriangle size={12} /> Expired batches ({expiredReview.batches.length})
           </button>
         )}
         <button
           onClick={() => open(`${inventoryPaths.expiry}?tab=discarded`)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-raised border border-line text-ink-3 text-[11px] font-medium hover:bg-hover transition-colors shrink-0"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-raised border border-line text-ink-3 text-2xs font-medium hover:bg-hover transition-colors shrink-0"
         >
           <Trash2 size={12} /> Damaged / Lost / Discarded
         </button>

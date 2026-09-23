@@ -34,6 +34,14 @@ export default {
           700: '#2D3748',
         },
       },
+      fontSize: {
+        // Smallest text in the app (captions, badges, table meta). 11px is
+        // the floor -- nothing renders smaller (HIG minimums: 10pt macOS,
+        // 11pt iOS).
+        '2xs': ['11px', { lineHeight: '16px' }],
+        // Desktop body size (macOS default 13pt) -- navigation and dense UI.
+        body: ['13px', { lineHeight: '20px' }],
+      },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],

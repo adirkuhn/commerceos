@@ -42,7 +42,7 @@ export default function SalesTrendsPage() {
                     key={g}
                     onClick={() => setGranularity(g)}
                     className={clsx(
-                      'px-2 py-1 rounded-md text-[10px] font-medium capitalize transition-colors',
+                      'px-2 py-1 rounded-md text-2xs font-medium capitalize transition-colors',
                       granularity === g
                         ? 'bg-blue-600 text-white'
                         : 'text-ink-3 hover:text-ink-2',

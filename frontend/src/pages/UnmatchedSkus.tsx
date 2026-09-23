@@ -59,7 +59,7 @@ export default function UnmatchedSkus() {
                 {expandedId === o.id ? <ChevronDown size={12} className="text-ink-4" /> : <ChevronRight size={12} className="text-ink-4" />}
                 <div className="flex-1">
                   <p className="text-xs font-medium text-ink">#{o.number || o.external_order_id}</p>
-                  <p className="text-[10px] text-ink-4">{customerName(o)} · {new Date(o.occurred_at).toLocaleString()}</p>
+                  <p className="text-2xs text-ink-4">{customerName(o)} · {new Date(o.occurred_at).toLocaleString()}</p>
                 </div>
               </button>
               {expandedId === o.id && (
@@ -112,12 +112,12 @@ function UnmatchedLineItems({ salesOrderId, onLinked }: { salesOrderId: string; 
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs text-ink">{li.name}</p>
-                <p className="text-[10px] text-ink-4">Woo SKU: {li.sku_code || '(none)'} · Qty {li.quantity}</p>
+                <p className="text-2xs text-ink-4">Woo SKU: {li.sku_code || '(none)'} · Qty {li.quantity}</p>
               </div>
               <button
                 onClick={() => setPickerForLineItemId(id => (id === li.id ? null : li.id))}
                 disabled={linkingId === li.id}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors shrink-0"
+                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-2xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors shrink-0"
               >
                 {linkingId === li.id ? 'Linking…' : 'Link to product'}
               </button>

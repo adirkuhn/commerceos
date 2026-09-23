@@ -40,7 +40,7 @@ export function AppLauncher({ onSelect, onLogout }: AppLauncherProps) {
               <app.icon size={22} className="text-gray-300" />
             </div>
             <span className="text-sm font-medium">{app.label}</span>
-            {!app.enabled && <span className="text-[10px] text-gray-500">Coming soon</span>}
+            {!app.enabled && <span className="text-2xs text-gray-500">Coming soon</span>}
           </button>
         ))}
       </div>

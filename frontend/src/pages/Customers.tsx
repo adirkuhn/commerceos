@@ -249,14 +249,14 @@ export default function Customers() {
                 </td>
                 <td className="px-3 py-2.5 max-w-[280px]">
                   <p className="font-medium text-ink truncate">{fullName(c)}</p>
-                  <p className="text-[10px] text-ink-4 truncate">{c.email}</p>
+                  <p className="text-2xs text-ink-4 truncate">{c.email}</p>
                 </td>
                 <td className="px-3 py-2.5 text-ink-3">
                   {[c.billing?.city, c.billing?.country].filter(Boolean).join(', ') || '—'}
                 </td>
                 <td className="px-3 py-2.5">
                   <span className={clsx(
-                    'px-2 py-0.5 rounded-full text-[10px] font-medium',
+                    'px-2 py-0.5 rounded-full text-2xs font-medium',
                     c.is_paying_customer ? 'bg-green-500/15 text-success' : 'bg-gray-500/15 text-ink-4',
                   )}>
                     {c.is_paying_customer ? 'Paying' : 'No orders yet'}
@@ -360,7 +360,7 @@ function CustomerDetailPage({ customer, loading, token, onEdit, onClose, onSaveN
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Customers
           </button>
@@ -391,18 +391,18 @@ function CustomerDetailPage({ customer, loading, token, onEdit, onClose, onSaveN
               <div className="space-y-5 min-w-0">
                 <div className="grid grid-cols-3 gap-4">
                   <div className="rounded-xl border border-line p-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-4 mb-1">Amount spent</p>
+                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Amount spent</p>
                     <p className="text-lg font-semibold text-ink">{formatMoney(amountSpentMinorUnits, currency)}</p>
                   </div>
                   <Link
                     to={`/sales-orders?customer_id=${customer.id}`}
                     className="block rounded-xl border border-line p-4 hover:bg-hover/60 transition-colors"
                   >
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-4 mb-1">Orders</p>
+                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Orders</p>
                     <p className="text-lg font-semibold text-accent">{ordersTotal}</p>
                   </Link>
                   <div className="rounded-xl border border-line p-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-4 mb-1">Last order placed</p>
+                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Last order placed</p>
                     <p className="text-sm font-medium text-ink">
                       {orders[0] ? formatRelativeTime(new Date(orders[0].occurred_at)) : 'No orders yet'}
                     </p>
@@ -478,11 +478,11 @@ function CustomerDetailPage({ customer, loading, token, onEdit, onClose, onSaveN
                   <h3 className="text-xs font-semibold text-ink">Contact information</h3>
                   <p className="text-ink">{customer.email}</p>
                   <div>
-                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-ink-4 mb-1">Shipping address</h4>
+                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Shipping address</h4>
                     <AddressLines address={customer.shipping} />
                   </div>
                   <div>
-                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-ink-4 mb-1">Billing address</h4>
+                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Billing address</h4>
                     {addressesEqual(customer.billing, customer.shipping) ? (
                       <p className="text-ink-4">Same as shipping address</p>
                     ) : (
@@ -559,7 +559,7 @@ function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: CustomerEdi
     }
   }
 
-  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
 
   return (
@@ -568,7 +568,7 @@ function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: CustomerEdi
         <div>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
+            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
             <ArrowLeft size={11} /> Customer
           </button>
@@ -598,7 +598,7 @@ function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: CustomerEdi
             <div className="rounded-xl border border-line p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold text-ink">General</h3>
-                <label className="flex items-center gap-1.5 text-[10px] text-ink-3">
+                <label className="flex items-center gap-1.5 text-2xs text-ink-3">
                   <input type="checkbox" checked={isPayingCustomer} onChange={e => setIsPayingCustomer(e.target.checked)} />
                   Paying customer
                 </label>
@@ -632,7 +632,7 @@ function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: CustomerEdi
 }
 
 function AddressFields({ title, prefix, value, onChange, showEmailPhone }: { title: string; prefix: string; value: Address; onChange: (a: Address) => void; showEmailPhone?: boolean }) {
-  const labelClass = 'block text-[10px] font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
   const set = (field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [field]: e.target.value })
   const id = (field: string) => `${prefix}-${field}`

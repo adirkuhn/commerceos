@@ -62,7 +62,7 @@ export function WhatsAppTestModeModal({ connection, onClose, onSaved }: {
 
         {enabled && (
           <div className="mb-4">
-            <label htmlFor="wa-test-phone" className="block text-[10px] text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="wa-test-phone" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
               Test phone number
             </label>
             <input
@@ -75,7 +75,7 @@ export function WhatsAppTestModeModal({ connection, onClose, onSaved }: {
               placeholder="31612345678"
               className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-blue-500"
             />
-            <p className="mt-1.5 text-[10px] text-ink-4">
+            <p className="mt-1.5 text-2xs text-ink-4">
               E.164, no leading '+' (e.g. 31612345678, not +31612345678).
             </p>
           </div>
