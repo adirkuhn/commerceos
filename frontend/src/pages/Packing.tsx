@@ -416,7 +416,7 @@ export default function Packing() {
             <p className="px-4 py-3 text-2xs text-ink-4">No orders ready to pack</p>
           )}
           {filteredOrders.map(o => (
-            <button
+            <button aria-pressed={activeOrder?.id === o.id}
               key={o.id}
               onClick={() => selectOrder(o)}
               className={clsx(

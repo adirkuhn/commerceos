@@ -737,7 +737,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
       </div>
 
       <div className="flex items-center gap-1 px-5 border-b border-line bg-surface shrink-0">
-        <button
+        <button aria-pressed={activeTab === 'general'}
           onClick={() => setActiveTab('general')}
           className={clsx(
             'px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
@@ -749,7 +749,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
           General
         </button>
         {savedProductId && wooConnection && (
-          <button
+          <button aria-pressed={activeTab === 'woocommerce'}
             onClick={() => setActiveTab('woocommerce')}
             className={clsx(
               'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
@@ -762,7 +762,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
           </button>
         )}
         {savedProductId && bolConnection && (
-          <button
+          <button aria-pressed={activeTab === 'bol'}
             onClick={() => setActiveTab('bol')}
             className={clsx(
               'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
@@ -3134,7 +3134,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             <X size={12} />
           </button>
           {productMedia.map(m => (
-            <button
+            <button aria-pressed={m.id === variant.featured_media_id}
               key={m.id}
               type="button"
               onClick={() => handleSelectImage(m.id)}

@@ -54,7 +54,7 @@ export function PeriodSelector({ period, onChange }: { period: ReportsPeriod; on
   return (
     <div className="flex items-center gap-0.5 bg-raised border border-line rounded-lg p-0.5">
       {REPORTS_PERIODS.map(p => (
-        <button
+        <button aria-pressed={period === p}
           key={p}
           onClick={() => onChange(p)}
           className={clsx(
@@ -92,7 +92,7 @@ export function DateRangeControl({
     <div className="flex items-center gap-2 flex-wrap">
       <div className="flex items-center gap-0.5 bg-raised border border-line rounded-lg p-0.5">
         {[...REPORTS_PERIODS, 'custom' as const].map(p => (
-          <button
+          <button aria-pressed={mode === p}
             key={p}
             onClick={() => onModeChange(p)}
             className={clsx(
@@ -136,7 +136,7 @@ export function ViewToggle({ showDaily, onChange }: { showDaily: boolean; onChan
   return (
     <div className="flex items-center gap-0.5 bg-raised border border-line rounded-lg p-0.5">
       {[{ value: false, label: 'Summary' }, { value: true, label: 'Daily' }].map(opt => (
-        <button
+        <button aria-pressed={showDaily === opt.value}
           key={opt.label}
           onClick={() => onChange(opt.value)}
           className={clsx(

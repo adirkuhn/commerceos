@@ -38,7 +38,7 @@ export default function SalesTrendsPage() {
               <span>Sales Trend</span>
               <div className="flex items-center gap-0.5 bg-sunken border border-line rounded-lg p-0.5">
                 {TREND_GRANULARITIES.map(g => (
-                  <button
+                  <button aria-pressed={granularity === g}
                     key={g}
                     onClick={() => setGranularity(g)}
                     className={clsx(

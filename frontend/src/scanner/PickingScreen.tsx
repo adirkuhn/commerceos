@@ -806,21 +806,21 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
 
         <div className="p-5 space-y-4">
           <div className="flex gap-2">
-            <button
+            <button aria-pressed={mode === 'pick'}
               type="button"
               onClick={() => setMode('pick')}
               className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'pick' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
             >
               <Check size={15} /> Pick
             </button>
-            <button
+            <button aria-pressed={mode === 'substitute'}
               type="button"
               onClick={() => setMode('substitute')}
               className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'substitute' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
             >
               <Repeat size={15} /> Substitute
             </button>
-            <button
+            <button aria-pressed={mode === 'refund'}
               type="button"
               onClick={() => setMode('refund')}
               className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'refund' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}

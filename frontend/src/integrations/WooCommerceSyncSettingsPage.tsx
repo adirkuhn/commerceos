@@ -284,7 +284,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
           { id: 'categories', label: 'Categories' },
           ...(canManageWebhooks(user?.role) ? [{ id: 'webhooks', label: 'Webhooks' }] as { id: Tab; label: string }[] : []),
         ] as { id: Tab; label: string }[]).map(t => (
-          <button
+          <button aria-pressed={tab === t.id}
             key={t.id}
             onClick={() => setTab(t.id)}
             className={clsx(

@@ -85,7 +85,7 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
         {!error && pairing && pairing.status !== 'claimed' && (
           <div className="flex border-b border-line">
             {TABS.map(t => (
-              <button
+              <button aria-pressed={tab === t.id}
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}

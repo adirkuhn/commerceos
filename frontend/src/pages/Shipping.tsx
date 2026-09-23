@@ -99,7 +99,7 @@ export default function Shipping() {
       {/* Tabs + toolbar */}
       <div className="flex items-center gap-4 px-5 py-2.5 border-b border-line shrink-0">
         {(['shipments', 'rules'] as const).map(t => (
-          <button
+          <button aria-pressed={tab === t}
             key={t}
             onClick={() => setTab(t)}
             className={clsx(

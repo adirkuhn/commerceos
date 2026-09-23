@@ -407,6 +407,12 @@ describe('Webhooks URLs (refresh + Back)', () => {
     expect(router.state.location.pathname).toBe('/webhooks')
   })
 
+  it('exposes which tab is showing', async () => {
+    renderWebhooksAt('/webhooks/messages')
+    expect(await screen.findByRole('button', { name: 'Messages' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Subscriptions' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('/webhooks/messages?sender= loads that tab filtered by sender', async () => {
     renderWebhooksAt('/webhooks/messages?sender=woocommerce')
     await waitFor(() => expect(integrationsApi.listWebhookEvents).toHaveBeenCalledWith('test-token', { provider: 'woocommerce' }))

@@ -359,7 +359,7 @@ function BookingDiscrepanciesPage({ token, onClose }: { token: string; onClose: 
 
       <div className="flex gap-2 px-6 pt-4 shrink-0">
         {TABS.map(t => (
-          <button
+          <button aria-pressed={tab === t.id}
             key={t.id}
             onClick={() => setTab(t.id)}
             className={clsx(

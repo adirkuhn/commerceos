@@ -123,6 +123,7 @@ export default function Settings() {
               <button
                 key={s.id}
                 onClick={() => setActiveSection(s.id)}
+                aria-current={active ? 'page' : undefined}
                 className={clsx(
                   'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left mb-0.5 transition-colors',
                   active

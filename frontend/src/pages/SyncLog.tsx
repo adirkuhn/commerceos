@@ -92,7 +92,7 @@ export default function SyncLog() {
       <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <h1 className="text-sm font-semibold text-ink">Sync History</h1>
         <div className="flex items-center gap-1 ml-4">
-          <button
+          <button aria-pressed={view === 'all'}
             onClick={() => switchView('all')}
             className={clsx('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
               view === 'all' ? 'bg-accent-solid text-white' : 'text-ink-3 hover:bg-hover')}

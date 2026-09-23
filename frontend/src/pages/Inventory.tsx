@@ -1905,7 +1905,7 @@ export default function Inventory() {
             ['low', 'Low Stock'],
             ['out', 'Out of Stock'],
           ] as const).map(([value, label]) => (
-            <button
+            <button aria-pressed={stockFilter === value}
               key={value}
               type="button"
               onClick={() => setStockFilter(value)}

@@ -24,7 +24,7 @@ export default function MessageCenter() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-1 px-5 pt-3 border-b border-line bg-sunken shrink-0">
-        <button
+        <button aria-pressed={tab === 'templates'}
           onClick={() => setTab('templates')}
           className={clsx(
             'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
@@ -35,7 +35,7 @@ export default function MessageCenter() {
         >
           Templates
         </button>
-        <button
+        <button aria-pressed={tab === 'rules'}
           onClick={() => setTab('rules')}
           className={clsx(
             'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
@@ -46,7 +46,7 @@ export default function MessageCenter() {
         >
           Automation Rules
         </button>
-        <button
+        <button aria-pressed={tab === 'conversations'}
           onClick={() => setTab('conversations')}
           className={clsx(
             'px-3 py-2 text-xs font-medium border-b-2 transition-colors',

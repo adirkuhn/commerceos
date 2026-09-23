@@ -85,7 +85,7 @@ export default function Webhooks() {
       </div>
 
       <div className="flex gap-1 border-b border-line">
-        <button
+        <button aria-pressed={tab === 'fanout'}
           onClick={() => setTab('fanout')}
           className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
             tab === 'fanout' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
@@ -93,7 +93,7 @@ export default function Webhooks() {
         >
           Fan-out
         </button>
-        <button
+        <button aria-pressed={tab === 'subscriptions'}
           onClick={() => setTab('subscriptions')}
           className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
             tab === 'subscriptions' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
@@ -101,7 +101,7 @@ export default function Webhooks() {
         >
           Subscriptions
         </button>
-        <button
+        <button aria-pressed={tab === 'messages'}
           onClick={() => setTab('messages')}
           className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
             tab === 'messages' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
@@ -506,7 +506,7 @@ function MessagesTab({
         </div>
 
         <div className="flex gap-1 mb-3 border-b border-line">
-          <button
+          <button aria-pressed={view === 'all'}
             type="button" onClick={() => setView('all')}
             className={`px-2.5 py-1.5 text-xs font-medium border-b-2 transition-colors ${
               view === 'all' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
@@ -514,7 +514,7 @@ function MessagesTab({
           >
             All messages
           </button>
-          <button
+          <button aria-pressed={view === 'needsAttention'}
             type="button" onClick={() => setView('needsAttention')}
             className={`px-2.5 py-1.5 text-xs font-medium border-b-2 transition-colors ${
               view === 'needsAttention' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'

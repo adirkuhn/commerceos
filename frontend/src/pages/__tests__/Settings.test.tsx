@@ -1364,6 +1364,7 @@ describe('Settings URLs (refresh + Back)', () => {
   it('/settings/:section opens that section on load', async () => {
     renderAt(<Settings />, '/settings', '/settings/tax')
     expect(await screen.findByText('Tax classes')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tax' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('an unknown section falls back to Company', async () => {

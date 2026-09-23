@@ -119,14 +119,14 @@ function InventoryScanScreen({ token, onResolved, onExit }: { token: string; onR
         <h1 className="flex-1 text-base font-semibold">Inventory</h1>
       </div>
       <div className="flex gap-2 px-4 pt-4 shrink-0">
-        <button
+        <button aria-pressed={tab === 'code'}
           type="button"
           onClick={() => setTab('code')}
           className={`flex-1 py-2 rounded-lg text-xs font-medium ${tab === 'code' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
         >
           Scan code
         </button>
-        <button
+        <button aria-pressed={tab === 'name'}
           type="button"
           onClick={() => setTab('name')}
           className={`flex-1 py-2 rounded-lg text-xs font-medium ${tab === 'name' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
@@ -441,6 +441,7 @@ function BatchOption({ selected, onClick, title, subtitle }: { selected: boolean
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={selected}
       className={`w-full flex items-center gap-2 p-2.5 rounded-lg border text-left transition-colors ${
         selected ? 'border-accent bg-accent/10' : 'border-night-700 bg-night-800'
       }`}
@@ -534,7 +535,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
         <div className="p-5 space-y-4">
           <div className="flex gap-2">
             {ROW_ACTION_TABS.map(t => (
-              <button
+              <button aria-pressed={mode === t.id}
                 key={t.id}
                 type="button"
                 onClick={() => setMode(t.id)}
@@ -613,7 +614,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
             <>
               <div className="flex gap-2">
                 {(['damaged', 'lost'] as const).map(t => (
-                  <button
+                  <button aria-pressed={dlType === t}
                     key={t}
                     type="button"
                     onClick={() => setDlType(t)}

@@ -538,7 +538,7 @@ export default function Picking() {
             <p className="px-4 py-3 text-2xs text-ink-4">No unfulfilled orders</p>
           )}
           {filteredOrders.map(o => (
-            <button
+            <button aria-pressed={activeOrder?.id === o.id}
               key={o.id}
               onClick={() => selectOrder(o)}
               className={clsx(
@@ -829,19 +829,19 @@ export default function Picking() {
           </div>
           <div className="p-4 space-y-4">
             <div className="flex items-center rounded-lg border border-line overflow-hidden">
-              <button
+              <button aria-pressed={pickPanelMode === 'pick'}
                 type="button" onClick={() => setPickPanelMode('pick')}
                 className={clsx('flex-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'pick' ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
               >
                 Pick
               </button>
-              <button
+              <button aria-pressed={pickPanelMode === 'substitute'}
                 type="button" onClick={() => { setPickPanelMode('substitute'); setSubstituteRows([newSubstituteRow()]) }}
                 className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'substitute' ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
               >
                 <Repeat size={11} /> Substitute
               </button>
-              <button
+              <button aria-pressed={pickPanelMode === 'refund'}
                 type="button" onClick={() => setPickPanelMode('refund')}
                 className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'refund' ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
               >

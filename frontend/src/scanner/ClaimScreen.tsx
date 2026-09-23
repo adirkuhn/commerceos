@@ -94,7 +94,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
       </div>
 
       <div className="flex w-full max-w-xs rounded-xl overflow-hidden border border-night-700">
-        <button
+        <button aria-pressed={tab === 'digits'}
           type="button"
           onClick={() => setTab('digits')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors ${
@@ -103,7 +103,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
         >
           <Hash size={13} /> Type code
         </button>
-        <button
+        <button aria-pressed={tab === 'scan'}
           type="button"
           onClick={() => setTab('scan')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors ${

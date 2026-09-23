@@ -1044,7 +1044,7 @@ export default function Integrations() {
             ) : (
               <>
                 <div className="flex gap-1 mb-4 p-0.5 rounded-lg bg-fill">
-                  <button
+                  <button aria-pressed={connectMode === 'auto'}
                     type="button"
                     onClick={() => setConnectMode('auto')}
                     className={clsx(
@@ -1056,7 +1056,7 @@ export default function Integrations() {
                   >
                     Connect automatically
                   </button>
-                  <button
+                  <button aria-pressed={connectMode === 'manual'}
                     type="button"
                     onClick={() => setConnectMode('manual')}
                     className={clsx(

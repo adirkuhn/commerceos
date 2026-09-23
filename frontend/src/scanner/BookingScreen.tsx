@@ -734,7 +734,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
         <div className="p-5 space-y-4">
           <div className="flex gap-2">
             {LINE_SHEET_TABS.map(t => (
-              <button
+              <button aria-pressed={mode === t.id}
                 key={t.id}
                 type="button"
                 onClick={() => switchMode(t.id)}
@@ -752,7 +752,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
           {mode === 'damaged-lost' && (
             <div className="flex gap-2">
               {(['damaged', 'lost'] as const).map(t => (
-                <button
+                <button aria-pressed={dlType === t}
                   key={t}
                   type="button"
                   onClick={() => setDlType(t)}
