@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CheckCircle, XCircle, Plug, X, Webhook, ChevronRight } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -19,6 +19,9 @@ import { notifyNotificationsChanged } from '../notifications/notificationsBus'
 import WooCommerceSyncSettingsPage from '../integrations/WooCommerceSyncSettingsPage'
 import BolSyncSettingsPage from '../integrations/BolSyncSettingsPage'
 import MyParcelSyncSettingsPage from '../shipping/MyParcelSyncSettingsPage'
+import { useIntegrationsRoute, type ConnectionPanel } from '../integrations/hooks/useIntegrationsRoute'
+import { useInitOnce } from '../routing/useInitOnce'
+import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 
 // Same tier as WooCommerceSyncSettingsPage's webhook-secret tab -- this
 // table exposes raw (if opaque) third-party payloads and a manual
@@ -145,17 +148,33 @@ export default function Integrations() {
   const { setActiveNav } = useApp()
   const fallbackEvents = useWebhookFallbackEvents(showWebhookAdmin ? token ?? '' : '')
 
-  const [configuringConnection, setConfiguringConnection] = useState<Connection | null>(null)
-  const [configuringWhatsAppTestMode, setConfiguringWhatsAppTestMode] = useState<Connection | null>(null)
-  const [configuringWhatsAppAIParsing, setConfiguringWhatsAppAIParsing] = useState<Connection | null>(null)
-  const [configuringWhatsAppCredentials, setConfiguringWhatsAppCredentials] = useState<Connection | null>(null)
-  const [configuringWhatsAppWebhook, setConfiguringWhatsAppWebhook] = useState<Connection | null>(null)
+  // Which page/modal is open -- a connection's settings page or one of its
+  // modals, the "Add integration" catalog, a connect form -- comes from the
+  // URL (see useIntegrationsRoute), so a refresh keeps it open and Back
+  // closes it. Form field values stay local.
+  const route = useIntegrationsRoute()
+  const { view } = route
+  const routeConnectionId = view.kind === 'connection' ? view.connectionId : null
+  const routeConnection = routeConnectionId ? connections.find(c => c.id === routeConnectionId) ?? null : null
+  const panelFor = (panel: ConnectionPanel, providers?: string[]): Connection | null =>
+    view.kind === 'connection' && view.panel === panel && routeConnection && (!providers || providers.includes(routeConnection.provider))
+      ? routeConnection
+      : null
+  const openPanel = (conn: Connection, panel: ConnectionPanel) => route.openPanel(conn.id, panel)
 
-  const [browsing, setBrowsing] = useState(false)
-  const [connectingWoo, setConnectingWoo] = useState(false)
-  const [bolConnection, setBolConnection] = useState<Connection | 'new' | null>(null)
-  const [myParcelConnection, setMyParcelConnection] = useState<Connection | 'new' | null>(null)
-  const [focusMyParcelWebhooks, setFocusMyParcelWebhooks] = useState(false)
+  const configuringConnection = panelFor('settings', ['woocommerce'])
+  const configuringWhatsAppTestMode = panelFor('test-mode')
+  const configuringWhatsAppAIParsing = panelFor('ai-parsing')
+  const configuringWhatsAppCredentials = panelFor('credentials')
+  const configuringWhatsAppWebhook = panelFor('whatsapp-webhook')
+
+  const browsing = view.kind === 'browse' || view.kind === 'connect'
+  const connectingWoo = view.kind === 'connect' && view.provider === 'woocommerce'
+  const bolConnection: Connection | 'new' | null =
+    view.kind === 'new' && view.provider === 'bol' ? 'new' : panelFor('settings', ['bol'])
+  const myParcelConnection: Connection | 'new' | null =
+    view.kind === 'new' && view.provider === 'myparcel' ? 'new' : panelFor('settings', ['myparcel']) ?? panelFor('webhooks', ['myparcel'])
+  const focusMyParcelWebhooks = view.kind === 'connection' && view.panel === 'webhooks'
   const [connectMode, setConnectMode] = useState<'auto' | 'manual'>('auto')
   const [storeUrl, setStoreUrl] = useState('')
   const [consumerKey, setConsumerKey] = useState('')
@@ -163,18 +182,18 @@ export default function Integrations() {
   const [connectError, setConnectError] = useState('')
   const [starting, setStarting] = useState(false)
 
-  const [connectingWhatsapp, setConnectingWhatsapp] = useState(false)
+  const connectingWhatsapp = view.kind === 'connect' && view.provider === 'whatsapp'
   const [waBaseUrl, setWaBaseUrl] = useState('')
   const [waInstanceName, setWaInstanceName] = useState('')
   const [waApiKey, setWaApiKey] = useState('')
   const [waWebhookUrl, setWaWebhookUrl] = useState('')
 
-  const [connectingStripe, setConnectingStripe] = useState(false)
+  const connectingStripe = view.kind === 'connect' && view.provider === 'stripe'
   const [stripeSecretKey, setStripeSecretKey] = useState('')
   const [stripePublishableKey, setStripePublishableKey] = useState('')
-  const [connectingRevolut, setConnectingRevolut] = useState(false)
+  const connectingRevolut = view.kind === 'connect' && view.provider === 'revolut'
   const [revolutApiKey, setRevolutApiKey] = useState('')
-  const [connectingEmail, setConnectingEmail] = useState(false)
+  const connectingEmail = view.kind === 'connect' && view.provider === 'email'
   const [emailHost, setEmailHost] = useState('')
   const [emailPort, setEmailPort] = useState('587')
   const [emailUsername, setEmailUsername] = useState('')
@@ -194,32 +213,38 @@ export default function Integrations() {
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<{ id: string; ok: boolean; message: string } | null>(null)
 
-  const [importingConnection, setImportingConnection] = useState<Connection | null>(null)
+  const importingConnection = panelFor('import')
   const [importWarehouseId, setImportWarehouseId] = useState('')
   const [importCurrency, setImportCurrency] = useState('')
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState('')
   const [importJob, setImportJob] = useState<ImportJob | null>(null)
 
-  const closeImport = () => {
-    setImportingConnection(null)
+  // Default the import currency once per opened import modal (also after a
+  // refresh on its URL, once the connection has loaded).
+  useInitOnce(importingConnection ? `import:${importingConnection.id}` : null, !!importingConnection, () => {
     setImportWarehouseId('')
-    setImportCurrency('')
     setImportError('')
     setImportJob(null)
-  }
+    setImportCurrency(normalizeCurrency(importingConnection?.default_currency) || normalizeCurrency(tenantSettings?.default_currency))
+  })
+  const closeImport = route.close
 
-  const [deletingConnection, setDeletingConnection] = useState<Connection | null>(null)
+  const deletingConnection = panelFor('delete-products')
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const [deleteResult, setDeleteResult] = useState<DeleteAllImportedProductsResult | null>(null)
 
-  const closeDelete = () => {
-    setDeletingConnection(null)
+  const resetDelete = () => {
     setDeleteConfirmText('')
     setDeleteError('')
     setDeleteResult(null)
+  }
+  // Also on Back, not only via the close buttons.
+  useEffect(() => { if (!deletingConnection) resetDelete() }, [deletingConnection])
+  const closeDelete = () => {
+    route.close()
     refresh()
   }
 
@@ -276,25 +301,21 @@ export default function Integrations() {
     }
   }
 
-  const closeBrowse = () => {
-    setBrowsing(false)
-    setConnectingWoo(false)
+  // Clears every connect form -- runs whenever the catalog closes, whether
+  // via its close buttons or browser Back.
+  const resetConnectForms = () => {
     setConnectMode('auto')
     setStoreUrl('')
     setConsumerKey('')
     setConsumerSecret('')
     setConnectError('')
-    setConnectingWhatsapp(false)
     setWaBaseUrl('')
     setWaInstanceName('')
     setWaApiKey('')
     setWaWebhookUrl('')
-    setConnectingStripe(false)
     setStripeSecretKey('')
     setStripePublishableKey('')
-    setConnectingRevolut(false)
     setRevolutApiKey('')
-    setConnectingEmail(false)
     setEmailHost('')
     setEmailPort('587')
     setEmailUsername('')
@@ -306,6 +327,8 @@ export default function Integrations() {
     setPaymentWebhookSecretError('')
     setPaymentWebhookSecretSaved(false)
   }
+  useEffect(() => { if (!browsing) resetConnectForms() }, [browsing])
+  const closeBrowse = route.close
 
   const handleConnectWhatsapp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -415,8 +438,12 @@ export default function Integrations() {
     }
   }
 
+  if (routeConnectionId && !routeConnection) {
+    return loading ? <RecordLoading /> : <RecordNotFound label="Connection" onBack={route.close} />
+  }
+
   if (configuringConnection) {
-    return <WooCommerceSyncSettingsPage connection={configuringConnection} onClose={() => setConfiguringConnection(null)} />
+    return <WooCommerceSyncSettingsPage connection={configuringConnection} onClose={route.close} />
   }
 
   if (bolConnection) {
@@ -424,9 +451,9 @@ export default function Integrations() {
       <BolSyncSettingsPage
         connectionId={bolConnection === 'new' ? undefined : bolConnection.id}
         initialConnection={bolConnection === 'new' ? undefined : bolConnection}
-        onClose={() => setBolConnection(null)}
+        onClose={route.close}
         onConnected={() => {
-          setBolConnection(null)
+          route.close()
           refresh()
         }}
       />
@@ -438,9 +465,9 @@ export default function Integrations() {
       <MyParcelSyncSettingsPage
         connectionId={myParcelConnection === 'new' ? undefined : myParcelConnection.id}
         focusWebhooks={focusMyParcelWebhooks}
-        onClose={() => { setMyParcelConnection(null); setFocusMyParcelWebhooks(false) }}
+        onClose={route.close}
         onConnected={() => {
-          setMyParcelConnection(null)
+          route.close()
           refresh()
         }}
       />
@@ -476,7 +503,7 @@ export default function Integrations() {
             <p className="text-sm font-medium dark:text-gray-300 text-gray-700 mb-1">No integrations connected</p>
             <p className="text-xs dark:text-gray-500 text-gray-400 mb-4">Connect a store to start syncing orders and inventory</p>
             <button
-              onClick={() => setBrowsing(true)}
+              onClick={route.openBrowse}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
             >
               Browse Integrations
@@ -487,7 +514,7 @@ export default function Integrations() {
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Connected integrations</h2>
               <button
-                onClick={() => setBrowsing(true)}
+                onClick={route.openBrowse}
                 className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
               >
                 Browse Integrations
@@ -534,7 +561,7 @@ export default function Integrations() {
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       {conn.provider === 'woocommerce' && (
                         <button
-                          onClick={() => setConfiguringConnection(conn)}
+                          onClick={() => openPanel(conn, 'settings')}
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                         >
                           Configure
@@ -542,7 +569,7 @@ export default function Integrations() {
                       )}
                       {conn.provider === 'myparcel' && (
                         <button
-                          onClick={() => setMyParcelConnection(conn)}
+                          onClick={() => openPanel(conn, 'settings')}
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                         >
                           Configure
@@ -550,7 +577,7 @@ export default function Integrations() {
                       )}
                       {conn.provider === 'myparcel' && (
                         <button
-                          onClick={() => { setFocusMyParcelWebhooks(true); setMyParcelConnection(conn) }}
+                          onClick={() => openPanel(conn, 'webhooks')}
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                         >
                           Register webhook
@@ -558,7 +585,7 @@ export default function Integrations() {
                       )}
                       {conn.provider === 'bol' && (
                         <button
-                          onClick={() => setBolConnection(conn)}
+                          onClick={() => openPanel(conn, 'settings')}
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                         >
                           Configure
@@ -566,7 +593,7 @@ export default function Integrations() {
                       )}
                       {conn.provider === 'whatsapp' && (
                         <button
-                          onClick={() => setConfiguringWhatsAppTestMode(conn)}
+                          onClick={() => openPanel(conn, 'test-mode')}
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                         >
                           Test mode
@@ -574,7 +601,7 @@ export default function Integrations() {
                       )}
                       {conn.provider === 'whatsapp' && (
                         <button
-                          onClick={() => setConfiguringWhatsAppAIParsing(conn)}
+                          onClick={() => openPanel(conn, 'ai-parsing')}
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                         >
                           AI parsing
@@ -582,7 +609,7 @@ export default function Integrations() {
                       )}
                       {conn.provider === 'whatsapp' && (
                         <button
-                          onClick={() => setConfiguringWhatsAppCredentials(conn)}
+                          onClick={() => openPanel(conn, 'credentials')}
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                         >
                           Edit credentials
@@ -590,7 +617,7 @@ export default function Integrations() {
                       )}
                       {conn.provider === 'whatsapp' && (
                         <button
-                          onClick={() => setConfiguringWhatsAppWebhook(conn)}
+                          onClick={() => openPanel(conn, 'whatsapp-webhook')}
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                         >
                           Webhook
@@ -607,7 +634,7 @@ export default function Integrations() {
                       )}
                       {conn.provider === 'woocommerce' && (
                         <button
-                          onClick={() => { setImportingConnection(conn); setImportCurrency(normalizeCurrency(conn.default_currency) || normalizeCurrency(tenantSettings?.default_currency)) }}
+                          onClick={() => openPanel(conn, 'import')}
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                         >
                           Import
@@ -615,7 +642,7 @@ export default function Integrations() {
                       )}
                       {conn.provider === 'woocommerce' && (
                         <button
-                          onClick={() => setDeletingConnection(conn)}
+                          onClick={() => openPanel(conn, 'delete-products')}
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-red-400 transition-colors"
                         >
                           Delete imported
@@ -641,7 +668,7 @@ export default function Integrations() {
       {configuringWhatsAppTestMode && (
         <WhatsAppTestModeModal
           connection={configuringWhatsAppTestMode}
-          onClose={() => setConfiguringWhatsAppTestMode(null)}
+          onClose={route.close}
           onSaved={() => refresh()}
         />
       )}
@@ -649,7 +676,7 @@ export default function Integrations() {
       {configuringWhatsAppAIParsing && (
         <WhatsAppAIParsingModal
           connection={configuringWhatsAppAIParsing}
-          onClose={() => setConfiguringWhatsAppAIParsing(null)}
+          onClose={route.close}
           onSaved={() => refresh()}
         />
       )}
@@ -657,7 +684,7 @@ export default function Integrations() {
       {configuringWhatsAppCredentials && (
         <WhatsAppCredentialsModal
           connection={configuringWhatsAppCredentials}
-          onClose={() => setConfiguringWhatsAppCredentials(null)}
+          onClose={route.close}
           onSaved={() => refresh()}
         />
       )}
@@ -666,7 +693,7 @@ export default function Integrations() {
         <WhatsAppWebhookModal
           connection={configuringWhatsAppWebhook}
           tenantId={user?.tenant_id ?? ''}
-          onClose={() => setConfiguringWhatsAppWebhook(null)}
+          onClose={route.close}
         />
       )}
 
@@ -687,7 +714,7 @@ export default function Integrations() {
             {!connectingWoo && !connectingWhatsapp && !connectingStripe && !connectingRevolut && !connectingEmail ? (
               <div className="space-y-2">
                 <button
-                  onClick={() => setConnectingWoo(true)}
+                  onClick={() => route.openConnect('woocommerce')}
                   className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
@@ -696,7 +723,7 @@ export default function Integrations() {
                   <span className="text-sm dark:text-gray-200 text-gray-800">WooCommerce</span>
                 </button>
                 <button
-                  onClick={() => { setBrowsing(false); setBolConnection('new') }}
+                  onClick={() => route.openNew('bol')}
                   className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
@@ -705,7 +732,7 @@ export default function Integrations() {
                   <span className="text-sm dark:text-gray-200 text-gray-800">Bol.com</span>
                 </button>
                 <button
-                  onClick={() => { setBrowsing(false); setMyParcelConnection('new') }}
+                  onClick={() => route.openNew('myparcel')}
                   className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
@@ -714,7 +741,7 @@ export default function Integrations() {
                   <span className="text-sm dark:text-gray-200 text-gray-800">MyParcel</span>
                 </button>
                 <button
-                  onClick={() => setConnectingWhatsapp(true)}
+                  onClick={() => route.openConnect('whatsapp')}
                   className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
@@ -723,7 +750,7 @@ export default function Integrations() {
                   <span className="text-sm dark:text-gray-200 text-gray-800">WhatsApp</span>
                 </button>
                 <button
-                  onClick={() => setConnectingStripe(true)}
+                  onClick={() => route.openConnect('stripe')}
                   className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
@@ -732,7 +759,7 @@ export default function Integrations() {
                   <span className="text-sm dark:text-gray-200 text-gray-800">Stripe</span>
                 </button>
                 <button
-                  onClick={() => setConnectingRevolut(true)}
+                  onClick={() => route.openConnect('revolut')}
                   className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-black flex items-center justify-center text-white font-bold text-xs shrink-0">
@@ -741,7 +768,7 @@ export default function Integrations() {
                   <span className="text-sm dark:text-gray-200 text-gray-800">Revolut</span>
                 </button>
                 <button
-                  onClick={() => setConnectingEmail(true)}
+                  onClick={() => route.openConnect('email')}
                   className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-bold text-xs shrink-0">

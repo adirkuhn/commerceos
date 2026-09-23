@@ -5,6 +5,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { AppProvider } from '../../context/AppContext'
 import Integrations from '../Integrations'
+import { renderAt } from '../../test/renderAt'
+import { act } from 'react'
 import type { Connection, ImportJob, DeleteAllImportedProductsResult } from '../../integrations/types'
 import type { Warehouse } from '../../inventory/types'
 
@@ -782,5 +784,50 @@ describe('WhatsApp webhook URL', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Regenerate webhook URL' }))
 
     expect(await screen.findByText('connection not found')).toBeInTheDocument()
+  })
+})
+
+describe('Integrations URLs (refresh + Back)', () => {
+  function renderIntegrationsAt(url: string) {
+    return renderAt(<AppProvider><Integrations /></AppProvider>, '/integrations', url)
+  }
+
+  it('Configure pushes /integrations/:id and that URL opens the settings page on load', async () => {
+    const { router, unmount } = renderIntegrationsAt('/integrations')
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    expect(router.state.location.pathname).toBe('/integrations/conn-1')
+    unmount()
+
+    renderIntegrationsAt('/integrations/conn-1')
+    expect(await screen.findByRole('heading', { name: 'https://mystore.com' })).toBeInTheDocument()
+  })
+
+  it('/integrations/:id/import opens the import modal with the currency prefilled', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_currency: 'EUR' })])
+    renderIntegrationsAt('/integrations/conn-1/import')
+    await waitFor(() => expect(screen.getByLabelText('Default currency')).toHaveValue('EUR'))
+  })
+
+  it('Back closes the import modal', async () => {
+    const { router } = renderIntegrationsAt('/integrations')
+    await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
+    expect(router.state.location.pathname).toBe('/integrations/conn-1/import')
+    await screen.findByText('Import products')
+
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname).toBe('/integrations')
+    expect(screen.queryByText('Import products')).not.toBeInTheDocument()
+  })
+
+  it('/integrations/connect opens the catalog on load, and picking a provider pushes its form URL', async () => {
+    const { router } = renderIntegrationsAt('/integrations/connect')
+    expect(await screen.findByRole('heading', { name: 'Browse Integrations' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /WooCommerce/ }))
+    expect(router.state.location.pathname).toBe('/integrations/connect/woocommerce')
+  })
+
+  it('an unknown connection id shows not-found', async () => {
+    renderIntegrationsAt('/integrations/nope')
+    expect(await screen.findByText('Connection not found')).toBeInTheDocument()
   })
 })
