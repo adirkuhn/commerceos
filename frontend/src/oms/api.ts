@@ -30,6 +30,10 @@ export interface ListSalesOrdersParams {
   // fulfilled: false powers the picking scanner app's "orders to pick"
   // search. Omit for the normal unfiltered sales orders list.
   fulfilled?: boolean
+  // packed: false, combined with fulfilled:true, powers the packing
+  // screens' "orders ready to pack" search. Omit for the normal unfiltered
+  // sales orders list.
+  packed?: boolean
   // status: narrows to the given statuses -- combined with fulfilled:false,
   // the picking screens use this to exclude completed/cancelled/refunded/
   // failed orders. Omit for the normal unfiltered sales orders list.
@@ -57,6 +61,7 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
   if (params.needsStockReview !== undefined) qs.set('needs_stock_review', String(params.needsStockReview))
   if (params.needsSkuReview !== undefined) qs.set('needs_sku_review', String(params.needsSkuReview))
   if (params.fulfilled !== undefined) qs.set('fulfilled', String(params.fulfilled))
+  if (params.packed !== undefined) qs.set('packed', String(params.packed))
   for (const status of params.status ?? []) qs.append('status', status)
   for (const source of params.source ?? []) qs.append('source', source)
   if (params.customerId) qs.set('customer_id', params.customerId)

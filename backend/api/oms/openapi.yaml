@@ -77,6 +77,13 @@ paths:
             Filter to orders placed by this customer -- the Customer detail
             page's order history and lifetime-spend figures.
           schema: { type: string }
+        - name: packed
+          in: query
+          description: >
+            Filter by the order's packing status -- combined with
+            fulfilled=true, false powers the packing screens' "orders ready
+            to pack" search.
+          schema: { type: boolean }
       responses:
         '200':
           description: ok
@@ -313,7 +320,8 @@ paths:
       summary: >
         Scanner app -- start a new picking session for this order, or
         resume its existing in_progress/paused one. Rejected if the order
-        is already fulfilled.
+        is already fulfilled, or if another user currently holds the
+        session's lock (409 -- see PickingSession.locked_by).
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -324,6 +332,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/PickingSessionResponse'
         '404':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
         '422':
           $ref: '#/components/responses/Error'
@@ -485,6 +495,50 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /picking-sessions/{id}/touch:
+    post:
+      operationId: touchPickingSession
+      summary: >-
+        Scanner/admin app -- heartbeat call while a picking session stays
+        open, refreshing the caller's lock so it doesn't go stale under
+        PickingLockTTL. Returns 409 if another user has since taken over
+        the lock (this caller's own session expired and someone else
+        started it).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: touched
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /picking-sessions/{id}/reset:
+    post:
+      operationId: resetPickingSession
+      summary: >-
+        Scanner/admin app -- discard every staged scan on this session and
+        release its lock, handing it back fresh (e.g. picker wants to
+        switch boxes or start the pick over). Only legal while the session
+        is in_progress or paused -- 422 once it's completed, same one-way-
+        door rule as DELETE .../scans/{scanId}.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickingSessionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /picking-sessions/{id}/pause:
     post:
       operationId: pausePicking
@@ -529,6 +583,157 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CompletePickingResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /sales-orders/{id}/packing:
+    post:
+      operationId: startOrResumePacking
+      summary: >
+        Packing screen -- start a new packing session for this order, or
+        resume its existing in_progress one. Rejected (422) if the order
+        hasn't been fully picked yet (fulfilled=false) or is already packed,
+        or if another user currently holds the session's lock (409).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackingSessionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /packing-sessions/{id}:
+    get:
+      operationId: getPackingSession
+      summary: Packing screen -- get a packing session with its order's line items and scan history
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackingSessionDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /packing-sessions/{id}/scan:
+    post:
+      operationId: scanPackItem
+      summary: >
+        Packing screen -- resolve a scanned code (or an already-known
+        sku_id), match it to the order's own line item, and record it as
+        packed. Rejects (422) a SKU not on the order, or a quantity that
+        would exceed the line item's own ordered quantity.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanPackItemRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanPackItemResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /packing-sessions/{id}/scans/{scanId}:
+    delete:
+      operationId: deletePackScan
+      summary: >-
+        Packing screen -- remove a pack scan (fix a mis-scan, or move an
+        item to a different box). Only legal while the session is still
+        in_progress.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: scanId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /packing-sessions/{id}/touch:
+    post:
+      operationId: touchPackingSession
+      summary: >-
+        Packing screen -- heartbeat call while a packing session stays open,
+        refreshing the caller's lock. Returns 409 if another user has since
+        taken over the lock.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: touched
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /packing-sessions/{id}/reset:
+    post:
+      operationId: resetPackingSession
+      summary: >-
+        Packing screen -- discard every pack scan on this session and
+        release its lock, handing it back fresh. Only legal while the
+        session is in_progress -- 422 once completed.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackingSessionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /packing-sessions/{id}/complete:
+    post:
+      operationId: completePacking
+      summary: >-
+        Packing screen -- finish a packing session; returns a missing-items
+        report if any order line wasn't fully packed. Always completes
+        (gaps or not) and marks the order packed. completed_by is taken
+        from the caller's own JWT claims.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletePackingResultResponse'
         '404':
           $ref: '#/components/responses/Error'
         '422':
@@ -635,6 +840,12 @@ components:
             Binary secondary status, independent of status -- true once
             every item has physically shipped/been picked. See GET's
             fulfilled filter.
+        packed:
+          type: boolean
+          description: >-
+            Fulfilled's packing-phase counterpart -- true once a
+            PackingSession has completed for this order. See GET's packed
+            filter.
 
     StockStatus:
       type: string
@@ -954,6 +1165,11 @@ components:
         paused_at: { type: string, format: date-time, nullable: true }
         completed_at: { type: string, format: date-time, nullable: true }
         completed_by: { type: string }
+        locked_by:
+          type: string
+          nullable: true
+          description: lm2 UserID currently holding this session's lock, if any (see StartOrResumePickingUseCase).
+        locked_at: { type: string, format: date-time, nullable: true }
 
     PickingSessionResponse:
       type: object
@@ -1261,4 +1477,113 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/CompletePickingResult' }
+        error: { nullable: true }
+
+    PackingSessionStatus:
+      type: string
+      enum: [in_progress, completed]
+
+    PackingSession:
+      type: object
+      required: [id, sales_order_id, status, started_at, completed_by]
+      properties:
+        id: { type: string }
+        sales_order_id: { type: string }
+        status: { $ref: '#/components/schemas/PackingSessionStatus' }
+        started_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time, nullable: true }
+        completed_by: { type: string }
+        locked_by:
+          type: string
+          nullable: true
+          description: lm2 UserID currently holding this session's lock, if any.
+        locked_at: { type: string, format: date-time, nullable: true }
+
+    PackingSessionResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PackingSession' }
+        error: { nullable: true }
+
+    PackScan:
+      type: object
+      required: [id, session_id, line_item_id, sku_id, quantity, scanned_at, scanned_by]
+      properties:
+        id: { type: string }
+        session_id: { type: string }
+        line_item_id: { type: string }
+        sku_id: { type: string }
+        quantity: { type: integer, format: int64 }
+        scanned_at: { type: string, format: date-time }
+        scanned_by: { type: string }
+
+    PackingSessionDetail:
+      type: object
+      required: [session, line_items, scans]
+      properties:
+        session: { $ref: '#/components/schemas/PackingSession' }
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SalesOrderLineItem'
+        scans:
+          type: array
+          items:
+            $ref: '#/components/schemas/PackScan'
+
+    PackingSessionDetailResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PackingSessionDetail' }
+        error: { nullable: true }
+
+    ScanPackItemRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Raw scanned text. Mutually exclusive with sku_id -- exactly one is required.
+        sku_id:
+          type: string
+          description: Scan directly against an already-known SKU. Mutually exclusive with code.
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+
+    ScanPackItemResult:
+      type: object
+      required: [scan]
+      properties:
+        scan: { $ref: '#/components/schemas/PackScan' }
+
+    ScanPackItemResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ScanPackItemResult' }
+        error: { nullable: true }
+
+    MissingPackItem:
+      type: object
+      required: [line_item_id, name, expected_qty, packed_qty]
+      properties:
+        line_item_id: { type: string }
+        name: { type: string }
+        expected_qty: { type: integer, format: int64 }
+        packed_qty: { type: integer, format: int64 }
+
+    CompletePackingResult:
+      type: object
+      required: [session]
+      properties:
+        session: { $ref: '#/components/schemas/PackingSession' }
+        missing_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissingPackItem'
+
+    CompletePackingResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CompletePackingResult' }
         error: { nullable: true }

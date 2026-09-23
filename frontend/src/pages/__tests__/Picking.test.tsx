@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Picking from '../Picking'
 import type { SalesOrder } from '../../oms/types'
@@ -24,6 +25,8 @@ vi.mock('../../scanner/api', () => ({
   deletePickScan: vi.fn(),
   pausePicking: vi.fn(),
   completePicking: vi.fn(),
+  touchPickingSession: vi.fn(),
+  resetPickingSession: vi.fn(),
 }))
 
 vi.mock('../../pms/api', () => ({
@@ -51,7 +54,6 @@ import * as pickingApi from '../../scanner/api'
 import * as pmsApi from '../../pms/api'
 import * as shippingApi from '../../shipping/api'
 import { useConnections } from '../../integrations/hooks/useConnections'
-import type { Connection } from '../../integrations/types'
 import { playErrorSound } from '../../scanner/errorSound'
 
 function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
@@ -95,7 +97,7 @@ describe('Picking page', () => {
       salesOrders: [salesOrder({ id: 'so-1', number: '1001' }), salesOrder({ id: 'so-2', number: '2002', billing: { first_name: 'Bob', last_name: 'Smith' } })],
       total: 2,
     })
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
     expect(screen.getByText('#2002')).toBeInTheDocument()
@@ -112,7 +114,7 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('Widget')).toBeInTheDocument()
@@ -131,7 +133,7 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.scanPickItem).mockResolvedValue(scanResult)
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 
@@ -152,7 +154,7 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.resolvePickScanCode).mockResolvedValue({ sku_id: 'sku-1', product_name: 'Widget' })
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 
@@ -179,7 +181,7 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.scanPickItem).mockRejectedValue(new Error('scanned item does not match any line item on this order'))
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 
@@ -196,6 +198,59 @@ describe('Picking page', () => {
     expect(screen.queryByText('Item not on this order')).not.toBeInTheDocument()
   })
 
+  // Regression: a code that doesn't resolve to ANY known SKU (resolvePickScanCode
+  // itself rejects, e.g. 404 sku not found) used to fall through to a plain
+  // non-blocking inline error, letting the picker keep scanning straight past
+  // a mis-scan. Must block the same way as "already fully picked"/"item not
+  // on this order" above.
+  it('scanning a code that resolves to no SKU at all shows a blocking error, not just inline text', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+    vi.mocked(pickingApi.resolvePickScanCode).mockRejectedValue(new Error('sku not found'))
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Picking /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+
+    const input = screen.getByPlaceholderText('Scan barcode or type and press Enter...')
+    await user.type(input, 'garbage{Enter}')
+
+    expect(await screen.findByText('Barcode not recognized')).toBeInTheDocument()
+    expect(pickingApi.scanPickItem).not.toHaveBeenCalled()
+    expect(playErrorSound).toHaveBeenCalled()
+    expect(input).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+    expect(screen.queryByText('Barcode not recognized')).not.toBeInTheDocument()
+    expect(input).toBeEnabled()
+  })
+
+  it('start over discards the session and reloads it fresh', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession)
+      .mockResolvedValueOnce(detail({
+        scans: [{ id: 'scan-1', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 1, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' }],
+      }))
+      .mockResolvedValueOnce(detail())
+    vi.mocked(pickingApi.resetPickingSession).mockResolvedValue(session())
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Picking /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    expect(await screen.findByText('1 / 2 items')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Start over' }))
+    expect(await screen.findByText('Start over?')).toBeInTheDocument()
+
+    const startOverButtons = screen.getAllByRole('button', { name: 'Start over' })
+    await user.click(startOverButtons[startOverButtons.length - 1])
+
+    expect(pickingApi.resetPickingSession).toHaveBeenCalledWith('test-token', 'ps-1')
+    expect(await screen.findByText('0 / 2 items')).toBeInTheDocument()
+  })
+
   it('scanning a code that auto-links an unmatched line item picks it instead of erroring', async () => {
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
@@ -203,7 +258,7 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.scanPickItem).mockResolvedValue({ scan: {} as never })
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 
@@ -224,7 +279,7 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 
@@ -240,7 +295,7 @@ describe('Picking page', () => {
     })
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 
@@ -265,7 +320,7 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
     await user.click(screen.getByText('Widget'))
@@ -301,7 +356,7 @@ describe('Picking page', () => {
     })
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Beans')
     await user.click(screen.getByText('Beans'))
@@ -335,7 +390,7 @@ describe('Picking page', () => {
     })
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 
@@ -358,7 +413,7 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.refundLineItem).mockRejectedValue(new Error('caller does not have permission to perform this action'))
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 
@@ -376,7 +431,7 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.pausePicking).mockResolvedValue(session({ status: 'paused' }))
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 
@@ -396,7 +451,7 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.completePicking).mockResolvedValue(result)
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 
@@ -423,7 +478,7 @@ describe('Picking page', () => {
       .mockResolvedValueOnce({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
     await user.click(screen.getByRole('button', { name: 'Complete' }))
@@ -450,7 +505,7 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
     await user.click(screen.getByRole('button', { name: 'Complete' }))
@@ -459,13 +514,17 @@ describe('Picking page', () => {
     expect(screen.getByText('Shipping: PostNL PakjeGemak')).toBeInTheDocument()
   })
 
-  it('does not show "Create shipping label" when no MyParcel connection exists', async () => {
+  // Label creation moved out of Picking.tsx entirely once packing became its
+  // own screen -- completing picking now only offers "Continue to Packing"
+  // (navigating to /packing?order=<id>), regardless of MyParcel connection
+  // state. See Packing.tsx for the address/label flow's new home.
+  it('offers Continue to Packing after completing, and navigates to the packing screen', async () => {
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
     vi.mocked(pickingApi.completePicking).mockResolvedValue({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
     await user.click(screen.getByRole('button', { name: 'Complete' }))
@@ -474,249 +533,9 @@ describe('Picking page', () => {
 
     await screen.findByText('#1001 marked fulfilled')
     expect(screen.queryByRole('button', { name: 'Create shipping label' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue to Packing' })).toBeInTheDocument()
   })
 
-  describe('with a MyParcel connection', () => {
-    const myParcelConn: Connection = { id: 'conn-mp-1', provider: 'myparcel', store_url: '', status: 'connected', created_at: '2026-08-01T00:00:00Z' }
-
-    beforeEach(() => {
-      vi.mocked(useConnections).mockReturnValue({ connections: [myParcelConn], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
-      vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
-      vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
-      // openLabel.ts's blob->new-tab flow -- jsdom has no real implementation.
-      URL.createObjectURL = vi.fn(() => 'blob:mock-url')
-    })
-
-    it('offers to reprint instead of creating a new label when a shipment already exists for the order', async () => {
-      vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
-      vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
-      vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([{
-        id: 'ship-existing', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 1, barcode: '3SMYPA9',
-        status: 1, status_main: 'registered', label_format: 'pdf',
-        recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
-        created_at: '2026-08-23T00:00:00Z',
-      }])
-      vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
-      const fakeTab = { close: vi.fn(), location: { href: '' } } as unknown as Window
-      vi.spyOn(window, 'open').mockReturnValue(fakeTab)
-
-      const user = userEvent.setup()
-      render(<Picking />)
-      await user.click(await screen.findByText('#1001'))
-      await screen.findByText('Widget')
-      await user.click(screen.getByRole('button', { name: 'Complete' }))
-      await screen.findByText('Review before completing')
-
-      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
-      expect(await screen.findByText('Label already exists')).toBeInTheDocument()
-      expect(screen.queryByText('Confirm shipping address')).not.toBeInTheDocument()
-      expect(shippingApi.createShipment).not.toHaveBeenCalled()
-
-      await user.click(screen.getByRole('button', { name: /Download & print again/ }))
-      expect(await screen.findByText('Label opened in a new tab')).toBeInTheDocument()
-      expect(shippingApi.getShipmentLabel).toHaveBeenCalledWith('test-token', 'ship-existing', 'A4')
-      expect(shippingApi.createShipment).not.toHaveBeenCalled()
-    })
-
-    it('lets staff create the shipping label from the review screen, before Confirm & Complete', async () => {
-      vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
-        salesOrders: [salesOrder({
-          shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' },
-          shipping_method_title: 'DHL Europe',
-        })],
-        total: 1,
-      })
-      vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
-      vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
-      vi.mocked(pickingApi.completePicking).mockResolvedValue({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
-      vi.mocked(shippingApi.createShipment).mockResolvedValue({
-        id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 9, barcode: '3SMYPA1',
-        status: 1, status_main: 'registered', label_format: 'pdf',
-        recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
-        created_at: '2026-08-23T00:00:00Z',
-      })
-      vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
-      const fakeTab = { close: vi.fn(), location: { href: '' } } as unknown as Window
-      vi.spyOn(window, 'open').mockReturnValue(fakeTab)
-
-      const user = userEvent.setup()
-      render(<Picking />)
-      await user.click(await screen.findByText('#1001'))
-      await screen.findByText('Widget')
-      await user.click(screen.getByRole('button', { name: 'Complete' }))
-      await screen.findByText('Review before completing')
-
-      // Label creation is reachable here, before Confirm & Complete has run.
-      expect(pickingApi.completePicking).not.toHaveBeenCalled()
-      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
-      expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
-
-      // The order's shipping method ("DHL Europe") best-effort pre-selects
-      // DHL in the carrier dropdown -- still just a default, staff can pick
-      // any other carrier from the same select.
-      expect(screen.getByLabelText('Carrier')).toHaveValue('9')
-
-      await user.click(screen.getByRole('button', { name: 'Review label' }))
-      await user.click(screen.getByRole('button', { name: 'Print label' }))
-
-      await waitFor(() => expect(shippingApi.createShipment).toHaveBeenCalledWith('test-token', expect.objectContaining({
-        connection_id: 'conn-mp-1', sales_order_id: 'so-1', carrier: 9,
-      })))
-      expect(pickingApi.completePicking).not.toHaveBeenCalled()
-
-      // Confirm & Complete still works independently of the label having
-      // been created (no in-app overlay to close anymore -- the label
-      // opened directly in a new browser tab).
-      await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
-      expect(await screen.findByText('#1001 marked fulfilled')).toBeInTheDocument()
-    })
-
-    it('creates a shipment from the confirmed address and shows Print shipping label afterward', async () => {
-      vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
-        salesOrders: [salesOrder({ shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' } })],
-        total: 1,
-      })
-      vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
-      vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
-      vi.mocked(pickingApi.completePicking).mockResolvedValue({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
-      vi.mocked(shippingApi.createShipment).mockResolvedValue({
-        id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 1, barcode: '3SMYPA1',
-        status: 1, status_main: 'registered', label_format: 'pdf',
-        recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
-        created_at: '2026-08-23T00:00:00Z',
-      })
-      // Print label always opens the label in a new tab now (the click
-      // itself is the print intent) -- give it something to fetch so it
-      // doesn't hang.
-      vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
-      const fakeTab = { close: vi.fn(), location: { href: '' } } as unknown as Window
-      vi.spyOn(window, 'open').mockReturnValue(fakeTab)
-
-      const user = userEvent.setup()
-      render(<Picking />)
-      await user.click(await screen.findByText('#1001'))
-      await screen.findByText('Widget')
-      await user.click(screen.getByRole('button', { name: 'Complete' }))
-      await screen.findByText('Review before completing')
-      await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
-      await screen.findByText('#1001 marked fulfilled')
-
-      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
-      expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
-
-      // Confirming the address only previews now -- nothing is created yet.
-      await user.click(screen.getByRole('button', { name: 'Review label' }))
-      expect(await screen.findByText('Ready to print')).toBeInTheDocument()
-      expect(shippingApi.createShipment).not.toHaveBeenCalled()
-
-      // Print label is what actually creates the shipment.
-      await user.click(screen.getByRole('button', { name: 'Print label' }))
-
-      await waitFor(() => expect(shippingApi.createShipment).toHaveBeenCalledWith('test-token', expect.objectContaining({
-        connection_id: 'conn-mp-1', sales_order_id: 'so-1',
-      })))
-      // The label opened in a new tab on its own -- the underlying "Print
-      // shipping label" re-access button (auto_print_enabled is off) is
-      // already visible, no overlay to close.
-      expect(await screen.findByRole('button', { name: 'Print shipping label' })).toBeInTheDocument()
-      expect(fakeTab.location.href).toBe('blob:mock-url')
-    })
-
-    // Regression: activeOrder switching (clicking a different order in the
-    // sidebar) never remounts anything -- pendingRecipient/labelStep etc
-    // used to survive the switch untouched, so a previous order's already-
-    // edited recipient (set once staff reached the preview step) kept
-    // winning over the new order's own address the next time "Create
-    // shipping label" was clicked.
-    it('does not carry a previous order\'s recipient into a different order\'s label flow', async () => {
-      vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
-        salesOrders: [
-          salesOrder({ id: 'so-1', number: '1001', shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' } }),
-          salesOrder({ id: 'so-2', number: '2002', billing: { first_name: 'Bob', last_name: 'Smith' }, shipping: { first_name: 'Bob', last_name: 'Smith', address_1: 'Kalverstraat 2', city: 'Amsterdam', postcode: '1012NX', country: 'NL', email: 'jane@example.com' } }),
-        ],
-        total: 2,
-      })
-      vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
-      vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
-      vi.mocked(pickingApi.completePicking).mockResolvedValue({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
-
-      const user = userEvent.setup()
-      render(<Picking />)
-
-      // Complete order #1001, start the label flow, and advance to the
-      // preview step (this is what sets pendingRecipient) for so-1, then
-      // back out without printing.
-      await user.click(await screen.findByText('#1001'))
-      await screen.findByText('Widget')
-      await user.click(screen.getByRole('button', { name: 'Complete' }))
-      await screen.findByText('Review before completing')
-      await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
-      await screen.findByText('#1001 marked fulfilled')
-      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
-      expect(await screen.findByLabelText('Street')).toHaveValue('Damrak')
-      await user.click(screen.getByRole('button', { name: 'Review label' }))
-      expect(await screen.findByText('Ready to print')).toBeInTheDocument()
-      await user.click(screen.getByLabelText('Close'))
-
-      // Switch to a different order and go through the same flow.
-      await user.click(screen.getByText('#2002'))
-      await screen.findByText('Widget')
-      await user.click(screen.getByRole('button', { name: 'Complete' }))
-      await screen.findByText('Review before completing')
-      await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
-      await screen.findByText('#2002 marked fulfilled')
-      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
-
-      expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
-      expect(screen.getByLabelText('Name')).toHaveValue('Bob Smith')
-      expect(screen.getByLabelText('Street')).toHaveValue('Kalverstraat')
-    })
-
-    it('auto-opens the print view when auto_print_enabled is on, and offers Retry print', async () => {
-      vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({
-        settings: {
-          connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1, default_label_format: 'pdf',
-          default_signature_required: false, default_only_recipient: false, insure_by_default: false,
-          myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: true,
-        },
-        carrier_overrides: [],
-      })
-      vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
-        salesOrders: [salesOrder({ shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' } })],
-        total: 1,
-      })
-      vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
-      vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
-      vi.mocked(pickingApi.completePicking).mockResolvedValue({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
-      vi.mocked(shippingApi.createShipment).mockResolvedValue({
-        id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 1, barcode: '3SMYPA1',
-        status: 1, status_main: 'registered', label_format: 'pdf',
-        recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
-        created_at: '2026-08-23T00:00:00Z',
-      })
-      vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
-      const fakeTab = { close: vi.fn(), location: { href: '' } } as unknown as Window
-      vi.spyOn(window, 'open').mockReturnValue(fakeTab)
-
-      const user = userEvent.setup()
-      render(<Picking />)
-      await user.click(await screen.findByText('#1001'))
-      await screen.findByText('Widget')
-      await user.click(screen.getByRole('button', { name: 'Complete' }))
-      await screen.findByText('Review before completing')
-      await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
-      await screen.findByText('#1001 marked fulfilled')
-
-      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
-      expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: 'Review label' }))
-      expect(await screen.findByText('Ready to print')).toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: 'Print label' }))
-
-      expect(await screen.findByText('Label opened in a new tab')).toBeInTheDocument()
-      expect(await screen.findByRole('button', { name: 'Retry print' })).toBeInTheDocument()
-    })
-  })
 })
 
 describe('Picking page product thumbnail', () => {
@@ -730,7 +549,7 @@ describe('Picking page product thumbnail', () => {
     ])
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 
@@ -746,7 +565,7 @@ describe('Picking page product thumbnail', () => {
     }))
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
 
     await screen.findByText('Unmatched item')
@@ -762,7 +581,7 @@ describe('Picking page product thumbnail', () => {
     vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
 
     const user = userEvent.setup()
-    render(<Picking />)
+    render(<MemoryRouter><Picking /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 

@@ -414,6 +414,10 @@ type stubPickingSessionRepo struct {
 	activeErr      error
 	updateErr      error
 	updated        []omsDomain.PickingSession
+	acquireLockErr error
+	acquiredLocks  []string
+	releaseLockErr error
+	released       []string
 }
 
 func (s *stubPickingSessionRepo) Create(_ context.Context, session *omsDomain.PickingSession) error {
@@ -438,6 +442,20 @@ func (s *stubPickingSessionRepo) Update(_ context.Context, session *omsDomain.Pi
 		return s.updateErr
 	}
 	s.updated = append(s.updated, *session)
+	return nil
+}
+func (s *stubPickingSessionRepo) AcquireLock(_ context.Context, id, _ string, _ time.Time) error {
+	if s.acquireLockErr != nil {
+		return s.acquireLockErr
+	}
+	s.acquiredLocks = append(s.acquiredLocks, id)
+	return nil
+}
+func (s *stubPickingSessionRepo) ReleaseLock(_ context.Context, id string) error {
+	if s.releaseLockErr != nil {
+		return s.releaseLockErr
+	}
+	s.released = append(s.released, id)
 	return nil
 }
 
@@ -474,6 +492,91 @@ func (s *stubPickScanRepo) MarkReplayed(_ context.Context, id string, _ time.Tim
 	return nil
 }
 func (s *stubPickScanRepo) Delete(_ context.Context, id string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deleted = append(s.deleted, id)
+	return nil
+}
+
+type stubPackingSessionRepo struct {
+	createErr      error
+	created        []omsDomain.PackingSession
+	findByIDResult *omsDomain.PackingSession
+	findByIDErr    error
+	activeResult   *omsDomain.PackingSession
+	activeErr      error
+	updateErr      error
+	updated        []omsDomain.PackingSession
+	acquireLockErr error
+	acquiredLocks  []string
+	releaseLockErr error
+	released       []string
+}
+
+func (s *stubPackingSessionRepo) Create(_ context.Context, session *omsDomain.PackingSession) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	session.ID = "packing-session-1"
+	s.created = append(s.created, *session)
+	return nil
+}
+func (s *stubPackingSessionRepo) FindByID(_ context.Context, _ string) (*omsDomain.PackingSession, error) {
+	if s.findByIDResult == nil && s.findByIDErr == nil {
+		return nil, omsDomain.ErrPackingSessionNotFound
+	}
+	return s.findByIDResult, s.findByIDErr
+}
+func (s *stubPackingSessionRepo) FindActiveBySalesOrder(_ context.Context, _ string) (*omsDomain.PackingSession, error) {
+	return s.activeResult, s.activeErr
+}
+func (s *stubPackingSessionRepo) Update(_ context.Context, session *omsDomain.PackingSession) error {
+	if s.updateErr != nil {
+		return s.updateErr
+	}
+	s.updated = append(s.updated, *session)
+	return nil
+}
+func (s *stubPackingSessionRepo) AcquireLock(_ context.Context, id, _ string, _ time.Time) error {
+	if s.acquireLockErr != nil {
+		return s.acquireLockErr
+	}
+	s.acquiredLocks = append(s.acquiredLocks, id)
+	return nil
+}
+func (s *stubPackingSessionRepo) ReleaseLock(_ context.Context, id string) error {
+	if s.releaseLockErr != nil {
+		return s.releaseLockErr
+	}
+	s.released = append(s.released, id)
+	return nil
+}
+
+type stubPackScanRepo struct {
+	createErr     error
+	created       []omsDomain.PackScan
+	listBySession []omsDomain.PackScan
+	listErr       error
+	deleteErr     error
+	deleted       []string
+}
+
+func (s *stubPackScanRepo) Create(_ context.Context, scan *omsDomain.PackScan) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	scan.ID = fmt.Sprintf("pack-scan-%d", len(s.created)+1)
+	s.created = append(s.created, *scan)
+	return nil
+}
+func (s *stubPackScanRepo) ListBySession(_ context.Context, _ string) ([]omsDomain.PackScan, error) {
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	return s.listBySession, nil
+}
+func (s *stubPackScanRepo) Delete(_ context.Context, id string) error {
 	if s.deleteErr != nil {
 		return s.deleteErr
 	}

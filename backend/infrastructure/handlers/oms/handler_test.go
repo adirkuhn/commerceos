@@ -200,10 +200,11 @@ type stubStartOrResumePicking struct {
 	out        *omsDomain.PickingSession
 	err        error
 	gotOrderID string
+	gotUserID  string
 }
 
-func (s *stubStartOrResumePicking) Execute(_ context.Context, salesOrderID string) (*omsDomain.PickingSession, error) {
-	s.gotOrderID = salesOrderID
+func (s *stubStartOrResumePicking) Execute(_ context.Context, salesOrderID, userID string) (*omsDomain.PickingSession, error) {
+	s.gotOrderID, s.gotUserID = salesOrderID, userID
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -226,6 +227,34 @@ func (s *stubGetPickingSession) Execute(_ context.Context, id string) (*appoms.P
 		return s.out, nil
 	}
 	return &appoms.PickingSessionDetail{Session: omsDomain.PickingSession{ID: id}}, nil
+}
+
+type stubTouchPickingSession struct {
+	err          error
+	gotSessionID string
+	gotUserID    string
+}
+
+func (s *stubTouchPickingSession) Execute(_ context.Context, sessionID, userID string) error {
+	s.gotSessionID, s.gotUserID = sessionID, userID
+	return s.err
+}
+
+type stubResetPickingSession struct {
+	out   *omsDomain.PickingSession
+	err   error
+	gotID string
+}
+
+func (s *stubResetPickingSession) Execute(_ context.Context, id string) (*omsDomain.PickingSession, error) {
+	s.gotID = id
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &omsDomain.PickingSession{ID: id, Status: omsDomain.PickingSessionStatusInProgress}, nil
 }
 
 type stubScanPickItem struct {
@@ -357,9 +386,116 @@ func (s *stubCompletePicking) Execute(_ context.Context, in appoms.CompletePicki
 	return &appoms.CompletePickingResult{Completed: true, Session: omsDomain.PickingSession{ID: in.SessionID}}, nil
 }
 
+type stubStartOrResumePacking struct {
+	out        *omsDomain.PackingSession
+	err        error
+	gotOrderID string
+	gotUserID  string
+}
+
+func (s *stubStartOrResumePacking) Execute(_ context.Context, salesOrderID, userID string) (*omsDomain.PackingSession, error) {
+	s.gotOrderID, s.gotUserID = salesOrderID, userID
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &omsDomain.PackingSession{ID: "pack-session-1", SalesOrderID: salesOrderID}, nil
+}
+
+type stubGetPackingSession struct {
+	out *appoms.PackingSessionDetail
+	err error
+}
+
+func (s *stubGetPackingSession) Execute(_ context.Context, id string) (*appoms.PackingSessionDetail, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appoms.PackingSessionDetail{Session: omsDomain.PackingSession{ID: id}}, nil
+}
+
+type stubTouchPackingSession struct {
+	err          error
+	gotSessionID string
+	gotUserID    string
+}
+
+func (s *stubTouchPackingSession) Execute(_ context.Context, sessionID, userID string) error {
+	s.gotSessionID, s.gotUserID = sessionID, userID
+	return s.err
+}
+
+type stubResetPackingSession struct {
+	out   *omsDomain.PackingSession
+	err   error
+	gotID string
+}
+
+func (s *stubResetPackingSession) Execute(_ context.Context, id string) (*omsDomain.PackingSession, error) {
+	s.gotID = id
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &omsDomain.PackingSession{ID: id, Status: omsDomain.PackingSessionStatusInProgress}, nil
+}
+
+type stubScanPackItem struct {
+	out   *appoms.ScanPackItemResult
+	err   error
+	gotIn appoms.ScanPackItemInput
+}
+
+func (s *stubScanPackItem) Execute(_ context.Context, in appoms.ScanPackItemInput) (*appoms.ScanPackItemResult, error) {
+	s.gotIn = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appoms.ScanPackItemResult{Scan: omsDomain.PackScan{ID: "pack-scan-1", SessionID: in.SessionID}}, nil
+}
+
+type stubDeletePackScan struct {
+	err          error
+	gotSessionID string
+	gotScanID    string
+}
+
+func (s *stubDeletePackScan) Execute(_ context.Context, sessionID, scanID string) error {
+	s.gotSessionID, s.gotScanID = sessionID, scanID
+	return s.err
+}
+
+type stubCompletePacking struct {
+	out   *appoms.CompletePackingResult
+	err   error
+	gotIn appoms.CompletePackingInput
+}
+
+func (s *stubCompletePacking) Execute(_ context.Context, in appoms.CompletePackingInput) (*appoms.CompletePackingResult, error) {
+	s.gotIn = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appoms.CompletePackingResult{Session: omsDomain.PackingSession{ID: in.SessionID, Status: omsDomain.PackingSessionStatusCompleted}}, nil
+}
+
 func newTestRouter(list *stubListSalesOrders, get *stubGetSalesOrder, create *stubCreateSalesOrder, update *stubUpdateSalesOrder, del *stubDeleteSalesOrder, link *stubLinkLineItemSKU, retry *stubRetryStockDecrement, force *stubForceAcceptStock) *gin.Engine {
 	return newTestRouterWithPicking(list, get, create, update, del, link, retry, force,
-		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubTouchPickingSession{}, &stubResetPickingSession{},
+		&stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{})
 }
 
@@ -367,15 +503,48 @@ func newTestRouterWithPicking(
 	list *stubListSalesOrders, get *stubGetSalesOrder, create *stubCreateSalesOrder, update *stubUpdateSalesOrder,
 	del *stubDeleteSalesOrder, link *stubLinkLineItemSKU, retry *stubRetryStockDecrement, force *stubForceAcceptStock,
 	addLineItem *stubAddSalesOrderLineItem, startPicking *stubStartOrResumePicking, getPicking *stubGetPickingSession,
+	touchPicking *stubTouchPickingSession, resetPicking *stubResetPickingSession,
 	scan *stubScanPickItem, substitute *stubSubstituteLineItem, refund *stubRefundLineItem, resolve *stubResolvePickScanCode, deleteScan *stubDeletePickScan,
 	pause *stubPausePicking, complete *stubCompletePicking, bulk *stubBulkUpdateSalesOrderStatus,
 ) *gin.Engine {
 	h := omshandler.NewHandler(list, get, create, update, del, link, retry, force,
-		addLineItem, startPicking, getPicking, scan, substitute, refund, resolve, deleteScan, pause, complete, bulk,
-		&stubListSalesOrderActivities{})
+		addLineItem, startPicking, getPicking, touchPicking, resetPicking, scan, substitute, refund, resolve, deleteScan, pause, complete, bulk,
+		&stubListSalesOrderActivities{},
+		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
+}
+
+func newTestRouterWithPacking(packStubs packingStubs) *gin.Engine {
+	h := omshandler.NewHandler(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
+		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubTouchPickingSession{}, &stubResetPickingSession{},
+		&stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
+		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{},
+		&stubListSalesOrderActivities{},
+		packStubs.start, packStubs.get, packStubs.touch, packStubs.reset, packStubs.scan, packStubs.deleteScan, packStubs.complete)
+	r := gin.New()
+	genoms.RegisterHandlers(r.Group("/api/v1"), h)
+	return r
+}
+
+type packingStubs struct {
+	start      *stubStartOrResumePacking
+	get        *stubGetPackingSession
+	touch      *stubTouchPackingSession
+	reset      *stubResetPackingSession
+	scan       *stubScanPackItem
+	deleteScan *stubDeletePackScan
+	complete   *stubCompletePacking
+}
+
+func newPackingStubs() packingStubs {
+	return packingStubs{
+		start: &stubStartOrResumePacking{}, get: &stubGetPackingSession{}, touch: &stubTouchPackingSession{},
+		reset: &stubResetPackingSession{}, scan: &stubScanPackItem{}, deleteScan: &stubDeletePackScan{}, complete: &stubCompletePacking{},
+	}
 }
 
 func doRequest(r *gin.Engine, method, path string, body any) *httptest.ResponseRecorder {
@@ -642,7 +811,8 @@ func TestBulkUpdateSalesOrderStatus_success(t *testing.T) {
 	body := map[string]any{"order_ids": []string{"so-1", "so-2"}, "status": "processing"}
 	w := doRequest(newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubTouchPickingSession{}, &stubResetPickingSession{},
+		&stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, bulk),
 		"POST", "/api/v1/sales-orders/bulk-status", body)
 
@@ -658,7 +828,8 @@ func TestBulkUpdateSalesOrderStatus_emptyOrderIDsIsUnprocessable(t *testing.T) {
 	body := map[string]any{"order_ids": []string{"so-1"}, "fulfilled": true}
 	w := doRequest(newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubTouchPickingSession{}, &stubResetPickingSession{},
+		&stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, bulk),
 		"POST", "/api/v1/sales-orders/bulk-status", body)
 
@@ -668,6 +839,7 @@ func TestBulkUpdateSalesOrderStatus_emptyOrderIDsIsUnprocessable(t *testing.T) {
 func routerWithPicking(overrides func(*pickingStubs)) *gin.Engine {
 	s := &pickingStubs{
 		addLineItem: &stubAddSalesOrderLineItem{}, startPicking: &stubStartOrResumePicking{}, getPicking: &stubGetPickingSession{},
+		touchPicking: &stubTouchPickingSession{}, resetPicking: &stubResetPickingSession{},
 		scan: &stubScanPickItem{}, substitute: &stubSubstituteLineItem{}, refund: &stubRefundLineItem{}, resolve: &stubResolvePickScanCode{}, deleteScan: &stubDeletePickScan{},
 		pause: &stubPausePicking{}, complete: &stubCompletePicking{},
 	}
@@ -676,15 +848,26 @@ func routerWithPicking(overrides func(*pickingStubs)) *gin.Engine {
 	}
 	return newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		s.addLineItem, s.startPicking, s.getPicking, s.scan, s.substitute, s.refund, s.resolve, s.deleteScan, s.pause, s.complete, &stubBulkUpdateSalesOrderStatus{})
+		s.addLineItem, s.startPicking, s.getPicking, s.touchPicking, s.resetPicking, s.scan, s.substitute, s.refund, s.resolve, s.deleteScan, s.pause, s.complete, &stubBulkUpdateSalesOrderStatus{})
+}
+
+func routerWithPacking(overrides func(*packingStubs)) *gin.Engine {
+	s := newPackingStubs()
+	if overrides != nil {
+		overrides(&s)
+	}
+	return newTestRouterWithPacking(s)
 }
 
 func newTestRouterWithActivities(activities *stubListSalesOrderActivities) *gin.Engine {
 	h := omshandler.NewHandler(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubTouchPickingSession{}, &stubResetPickingSession{},
+		&stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{},
-		&stubBulkUpdateSalesOrderStatus{}, activities)
+		&stubBulkUpdateSalesOrderStatus{}, activities,
+		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -694,6 +877,8 @@ type pickingStubs struct {
 	addLineItem  *stubAddSalesOrderLineItem
 	startPicking *stubStartOrResumePicking
 	getPicking   *stubGetPickingSession
+	touchPicking *stubTouchPickingSession
+	resetPicking *stubResetPickingSession
 	scan         *stubScanPickItem
 	substitute   *stubSubstituteLineItem
 	refund       *stubRefundLineItem
@@ -751,6 +936,60 @@ func TestStartOrResumePicking_alreadyFulfilledIsUnprocessable(t *testing.T) {
 func TestStartOrResumePicking_notFound(t *testing.T) {
 	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.startPicking.err = omsDomain.ErrSalesOrderNotFound }),
 		"POST", "/api/v1/sales-orders/missing/picking", nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestStartOrResumePicking_lockedByAnotherUserIsConflict(t *testing.T) {
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.startPicking.err = omsDomain.ErrPickingSessionLocked }),
+		"POST", "/api/v1/sales-orders/so-1/picking", nil)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestTouchPickingSession_success(t *testing.T) {
+	var touch *stubTouchPickingSession
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { touch = s.touchPicking }),
+		"POST", "/api/v1/picking-sessions/session-1/touch", nil)
+
+	require.Equal(t, http.StatusNoContent, w.Code)
+	assert.Equal(t, "session-1", touch.gotSessionID)
+}
+
+func TestTouchPickingSession_lockedByAnotherUserIsConflict(t *testing.T) {
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.touchPicking.err = omsDomain.ErrPickingSessionLocked }),
+		"POST", "/api/v1/picking-sessions/session-1/touch", nil)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestTouchPickingSession_notFound(t *testing.T) {
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.touchPicking.err = omsDomain.ErrPickingSessionNotFound }),
+		"POST", "/api/v1/picking-sessions/missing/touch", nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestResetPickingSession_success(t *testing.T) {
+	var reset *stubResetPickingSession
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { reset = s.resetPicking }),
+		"POST", "/api/v1/picking-sessions/session-1/reset", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "session-1", reset.gotID)
+	assert.Contains(t, w.Body.String(), "session-1")
+}
+
+func TestResetPickingSession_alreadyCompletedIsUnprocessable(t *testing.T) {
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.resetPicking.err = omsDomain.ErrPickingSessionAlreadyCompleted }),
+		"POST", "/api/v1/picking-sessions/session-1/reset", nil)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestResetPickingSession_notFound(t *testing.T) {
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.resetPicking.err = omsDomain.ErrPickingSessionNotFound }),
+		"POST", "/api/v1/picking-sessions/missing/reset", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }

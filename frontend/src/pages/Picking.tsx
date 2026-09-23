@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, Repeat, Gift, PackagePlus, X, Trash2, ArrowLeft, Undo2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, Repeat, Gift, PackagePlus, X, Trash2, ArrowLeft, Undo2, PackageCheck } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as omsApi from '../oms/api'
@@ -9,16 +10,6 @@ import type { PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePi
 import { pickedQuantityByLineItem, computeMissingItems } from '../scanner/pickingMissingItems'
 import { StockShortfallDialog } from '../scanner/StockShortfallDialog'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
-import { useConnections } from '../integrations/hooks/useConnections'
-import * as shippingApi from '../shipping/api'
-import type { RecipientAddress } from '../shipping/types'
-import { guessCarrierFromShippingMethod } from '../shipping/carrierGuess'
-import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
-import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
-import { ExistingShipmentConfirmModal } from '../shipping/ExistingShipmentConfirmModal'
-import type { Shipment } from '../shipping/types'
-import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLabel'
-import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import { playErrorSound } from '../scanner/errorSound'
 import type { Address } from '../oms/types'
 
@@ -112,6 +103,9 @@ export default function Picking() {
   const [addItemPrice, setAddItemPrice] = useState('0')
   const [addItemFreebie, setAddItemFreebie] = useState(true)
 
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [resetting, setResetting] = useState(false)
+
   const [pausing, setPausing] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [completeResult, setCompleteResult] = useState<CompletePickingResult | null>(null)
@@ -127,67 +121,7 @@ export default function Picking() {
   // the same dialog again with fresh numbers).
   const [stockShortfalls, setStockShortfalls] = useState<StockShortfall[] | null>(null)
 
-  const { connections } = useConnections(token ?? '')
-  const myParcelConnection = connections.find(c => c.provider === 'myparcel')
-  // Label creation is a 3-step flow: 'address' (AddressConfirmModal, no API
-  // call) -> 'preview' (LabelPreviewModal, still no API call -- staff see
-  // exactly what will be sent) -> Print label actually creates the shipment
-  // (see handlePrintLabel). pendingRecipient/pendingCarrier hold the
-  // address step's output across both steps so "Back to edit" doesn't lose
-  // it.
-  const [labelStep, setLabelStep] = useState<'address' | 'preview' | null>(null)
-  const [pendingRecipient, setPendingRecipient] = useState<RecipientAddress | null>(null)
-  // null until AddressConfirmModal's onNext runs once -- lets its own
-  // defaultCarrier (the shipping-method guess below) take effect on first
-  // open instead of always being masked by a hardcoded initial value.
-  const [pendingCarrier, setPendingCarrier] = useState<number | null>(null)
-  // Same null-until-first-onNext rationale as pendingCarrier above.
-  const [pendingPackageType, setPendingPackageType] = useState<number | null>(null)
-  const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
-  const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
-  // labelTab: the browser tab a label was last opened into (see
-  // openLabel.ts) -- kept only so LabelOpenedNotice's explicit Print
-  // button can call .print() on it directly.
-  const [labelTab, setLabelTab] = useState<Window | null>(null)
-  // existingShipment: set when "Create shipping label" is clicked and a
-  // shipment already exists for this order (checkForExistingShipment) --
-  // shows ExistingShipmentConfirmModal instead of silently opening the
-  // address-confirm flow, so staff choose to reprint rather than a second
-  // MyParcel shipment quietly getting created underneath them.
-  const [existingShipment, setExistingShipment] = useState<Shipment | null>(null)
-  // auto_print_enabled -- see SalesOrders.tsx's identical logic for the doc;
-  // same setting, same "still the OS print dialog" caveat.
-  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
-  const [connectionDefaultCarrier, setConnectionDefaultCarrier] = useState(1)
-  const [connectionDefaultPackageType, setConnectionDefaultPackageType] = useState(1)
-  useEffect(() => {
-    if (!token || !myParcelConnection) return
-    shippingApi.getShippingSettings(token, myParcelConnection.id)
-      .then(result => {
-        setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false)
-        setLabelSize(result.settings?.default_label_size ?? 'A4')
-        setConnectionDefaultCarrier(result.settings?.default_carrier ?? 1)
-        setConnectionDefaultPackageType(result.settings?.default_package_type ?? 1)
-      })
-      .catch(() => setAutoPrintEnabled(false))
-  }, [token, myParcelConnection])
-
-  // Regression: none of this label-creation state was ever cleared when
-  // staff switched to a different order in the sidebar (activeOrder
-  // changing doesn't remount anything) -- a previous order's
-  // pendingRecipient stuck around and won over the new order's own
-  // address (AddressConfirmModal's initialRecipient always takes priority
-  // over initialAddress), so "Create label" on order B could silently
-  // reopen with order A's already-edited recipient still in it.
-  useEffect(() => {
-    setLabelStep(null)
-    setPendingRecipient(null)
-    setPendingCarrier(null)
-    setPendingPackageType(null)
-    setCreatedShipmentId(null)
-    setLabelTab(null)
-    setExistingShipment(null)
-  }, [activeOrder?.id])
+  const navigate = useNavigate()
 
   const loadOrders = useCallback(async () => {
     if (!token) return
@@ -218,6 +152,24 @@ export default function Picking() {
 
   useEffect(() => { codeRef.current?.focus() }, [session, pickLine, addItemOpen])
 
+  // Heartbeat: refresh this session's lock every 60s while it's open, so a
+  // long pick doesn't outlive the backend's PickingLockTTL and get taken
+  // over by someone else mid-pack. A 409 means it already was -- surface it
+  // once and stop touching (further scans/completes will 409 too and
+  // report the same thing).
+  useEffect(() => {
+    const sessionId = session?.session.id
+    if (!sessionId || !token || session?.session.status === 'completed') return
+    const interval = setInterval(() => {
+      pickingApi.touchPickingSession(token, sessionId).catch(err => {
+        if (err instanceof Error && /locked/i.test(err.message)) {
+          setError('Another user has taken over this picking session')
+        }
+      })
+    }, 60_000)
+    return () => clearInterval(interval)
+  }, [session?.session.id, session?.session.status, token])
+
   async function selectOrder(order: SalesOrder) {
     setError('')
     setCompleteResult(null)
@@ -247,11 +199,17 @@ export default function Picking() {
     setCompleteResult(null)
     setStockShortfalls(null)
     setError('')
-    setCreatedShipmentId(null)
-    setLabelStep(null)
-    setPendingRecipient(null)
     setConfirmingFinish(false)
-    setExistingShipment(null)
+  }
+
+  // Hands off to the packing screen for this same order -- picking's job is
+  // done (see CompletePickingUseCase), packing (box + label) happens there
+  // now, whether that's the same person continuing immediately or a
+  // different person picking it up later from the packing screen's own
+  // order list.
+  function continueToPacking() {
+    if (!activeOrder) return
+    navigate(`/packing?order=${activeOrder.id}`)
   }
 
   // A scanned/typed code that matches one of this order's own line items
@@ -294,8 +252,13 @@ export default function Picking() {
         playErrorSound()
         setScanErrorAlert('Item not on this order')
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Scan not recognized')
+    } catch {
+      // Code didn't resolve to any known SKU at all -- must block the same
+      // way as the "item not on this order" / "already fully picked" cases
+      // above, not just show inline text a picker can scan straight past
+      // (see PickingScreen.tsx's resolveAndRoute, which already blocks here).
+      playErrorSound()
+      setScanErrorAlert('Barcode not recognized')
     } finally {
       setBusy(false)
       codeRef.current?.focus()
@@ -464,6 +427,27 @@ export default function Picking() {
     }
   }
 
+  // Discards every staged scan on the session and hands it back fresh --
+  // the "start over" escape hatch for a wrong box / mis-pick spree. Only
+  // legal pre-complete (see ResetPickingSessionUseCase's doc); confirmed
+  // via resetConfirmOpen since it's destructive to in-progress work.
+  async function handleResetSession() {
+    if (!session || !token) return
+    setResetting(true)
+    setError('')
+    try {
+      await pickingApi.resetPickingSession(token, session.session.id)
+      setResetConfirmOpen(false)
+      setPickLine(null)
+      setAddItemOpen(null)
+      await loadSession(session.session.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset picking session')
+    } finally {
+      setResetting(false)
+    }
+  }
+
   // handleConfirmComplete is the ONLY place that calls the completePicking
   // API -- the header's "Complete" button just opens the review step
   // (setConfirmingFinish(true) below), it never calls this directly.
@@ -487,77 +471,6 @@ export default function Picking() {
       setError(err instanceof Error ? err.message : 'Failed to complete picking')
     } finally {
       setCompleting(false)
-    }
-  }
-
-  // Entry point for both "Create shipping label" buttons (review screen and
-  // post-complete screen) -- checks for an already-created shipment first
-  // (see ExistingShipmentConfirmModal's doc) instead of jumping straight
-  // into the address-confirm flow.
-  async function handleCreateLabelClick() {
-    if (!token || !activeOrder) return
-    const shipments = await shippingApi.listShipmentsForOrder(token, activeOrder.id)
-    // A cancelled shipment (wrong carrier, "Delete & create new") no longer
-    // blocks creating a fresh one -- same rule CreateShipmentUseCase's own
-    // duplicate-guard applies server-side.
-    const active = shipments.find(s => !s.cancelled_at)
-    if (active) {
-      setExistingShipment(active)
-      return
-    }
-    setLabelStep('address')
-  }
-
-  // Reprint entry points (no shipment-creation call involved) -- opens a
-  // blank tab synchronously (see openShipmentLabel) and loads the label
-  // into it. Used by both "Print shipping label"/"Retry print" buttons and
-  // ExistingShipmentConfirmModal's "Download & print again".
-  async function handleOpenLabel(shipmentId: string) {
-    if (!token) return
-    try {
-      setLabelTab(await openShipmentLabel(token, shipmentId, labelSize))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load label')
-    }
-  }
-
-  // The actual shipment-creation call -- moved here from the old
-  // AddressConfirmModal.onConfirm. Staff have already seen this exact data
-  // laid out label-style in LabelPreviewModal and explicitly clicked "Print
-  // label"; this is what that click does, then opens the label in a new
-  // tab immediately (the click itself was the print intent, independent of
-  // auto_print_enabled -- that setting only matters for the *separate*
-  // "Retry print" entry point below, after this flow has already finished
-  // once).
-  //
-  // The blank tab is opened here, synchronously, before the createShipment
-  // await -- opening it after would run outside the click's "user
-  // activation" window and get blocked as a popup (see openLabel.ts's doc).
-  // A creation failure closes the tab and rethrows so LabelPreviewModal's
-  // own try/catch can show it inline and let staff fix the address; a
-  // label-fetch failure (shipment already exists at that point) surfaces
-  // via the page's own error banner instead.
-  async function handlePrintLabel() {
-    if (!token || !activeOrder || !myParcelConnection || !pendingRecipient) return
-    const tab = window.open('', '_blank')
-    let shipment
-    try {
-      shipment = await shippingApi.createShipment(token, {
-        carrier: pendingCarrier ?? connectionDefaultCarrier,
-        package_type: pendingPackageType ?? connectionDefaultPackageType,
-        recipient: pendingRecipient,
-        connection_id: myParcelConnection.id, sales_order_id: activeOrder.id,
-      })
-    } catch (err) {
-      tab?.close()
-      throw err
-    }
-    setLabelStep(null)
-    setCreatedShipmentId(shipment.id)
-    try {
-      setLabelTab(await loadShipmentLabelIntoTab(tab, token, shipment.id, labelSize))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load label')
     }
   }
 
@@ -654,77 +567,20 @@ export default function Picking() {
               </div>
             )}
 
-            {myParcelConnection && !createdShipmentId && (
-              <button
-                type="button" onClick={handleCreateLabelClick}
-                className="mt-5 px-4 py-2 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
-              >
-                Create shipping label
-              </button>
-            )}
-            {createdShipmentId && (
-              <button
-                type="button" onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
-                className="mt-5 px-4 py-2 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
-              >
-                {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
-              </button>
-            )}
+            <button
+              type="button" onClick={continueToPacking}
+              className="mt-5 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 flex items-center gap-1.5"
+            >
+              <PackageCheck size={13} /> Continue to Packing
+            </button>
 
             <button
               type="button" onClick={backToOrders}
-              className="mt-3 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700"
+              className="mt-3 px-4 py-2 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
             >
               Back to orders
             </button>
           </div>
-        )}
-
-        {labelStep === 'address' && activeOrder && (
-          <AddressConfirmModal
-            token={token ?? ''}
-            initialAddress={activeOrder.shipping}
-            fallbackEmail={activeOrder.billing?.email}
-            connectionId={myParcelConnection?.id}
-            initialRecipient={pendingRecipient ?? undefined}
-            initialCarrier={pendingCarrier ?? undefined}
-            initialPackageType={pendingPackageType ?? undefined}
-            defaultCarrier={guessCarrierFromShippingMethod(activeOrder.shipping_method_title, activeOrder.shipping_method, connectionDefaultCarrier)}
-            defaultPackageType={connectionDefaultPackageType}
-            onNext={({ carrier, packageType, recipient }) => { setPendingCarrier(carrier); setPendingPackageType(packageType); setPendingRecipient(recipient); setLabelStep('preview') }}
-            onClose={() => setLabelStep(null)}
-          />
-        )}
-        {labelStep === 'preview' && pendingRecipient && (
-          <LabelPreviewModal
-            recipient={pendingRecipient}
-            carrier={pendingCarrier ?? connectionDefaultCarrier}
-            packageType={pendingPackageType ?? connectionDefaultPackageType}
-            labelSize={labelSize}
-            onLabelSizeChange={setLabelSize}
-            onBack={() => setLabelStep('address')}
-            onPrint={handlePrintLabel}
-            onClose={() => setLabelStep(null)}
-          />
-        )}
-        {labelTab && (
-          <LabelOpenedNotice onPrint={() => labelTab.print()} onDismiss={() => setLabelTab(null)} />
-        )}
-        {existingShipment && (
-          <ExistingShipmentConfirmModal
-            token={token ?? ''}
-            shipment={existingShipment}
-            onCancel={() => setExistingShipment(null)}
-            onReprint={() => {
-              setCreatedShipmentId(existingShipment.id)
-              handleOpenLabel(existingShipment.id)
-              setExistingShipment(null)
-            }}
-            onCreateNew={() => {
-              setExistingShipment(null)
-              setLabelStep('address')
-            }}
-          />
         )}
 
         {stockShortfalls && (
@@ -780,22 +636,6 @@ export default function Picking() {
             </div>
             <div className="p-6 border-t dark:border-[#2D3748] border-gray-200 shrink-0 space-y-2">
               {error && <p className="text-sm text-red-400">{error}</p>}
-              {myParcelConnection && !createdShipmentId && (
-                <button
-                  type="button" onClick={handleCreateLabelClick}
-                  className="w-full py-2.5 rounded-xl dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-sm font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
-                >
-                  Create shipping label
-                </button>
-              )}
-              {createdShipmentId && (
-                <button
-                  type="button" onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
-                  className="w-full py-2.5 rounded-xl dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-sm font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
-                >
-                  {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
-                </button>
-              )}
               <button
                 onClick={() => handleConfirmComplete()} disabled={completing}
                 className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
@@ -835,6 +675,12 @@ export default function Picking() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 disabled:opacity-50"
                 >
                   <PauseCircle size={13} /> {pausing ? 'Pausing…' : 'Pause'}
+                </button>
+                <button
+                  type="button" onClick={() => setResetConfirmOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-red-400 text-red-500 hover:dark:bg-[#2D3748] hover:bg-gray-50"
+                >
+                  <Undo2 size={13} /> Start over
                 </button>
                 <button
                   type="button" onClick={() => setAddItemOpen({ skuId: '', productName: '' })}
@@ -1167,6 +1013,31 @@ export default function Picking() {
             >
               OK
             </button>
+          </div>
+        </div>
+      )}
+
+      {resetConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-xs rounded-xl dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 p-5 text-center shadow-xl">
+            <p className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Start over?</p>
+            <p className="text-xs dark:text-gray-400 text-gray-500 mb-4">
+              This discards every item picked so far on this order and starts the session fresh. This can't be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button" onClick={() => setResetConfirmOpen(false)} disabled={resetting}
+                className="flex-1 py-2 rounded-lg border dark:border-[#2D3748] border-gray-200 text-xs font-medium dark:text-gray-300 text-gray-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button" onClick={handleResetSession} disabled={resetting}
+                className="flex-1 py-2 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 disabled:opacity-50"
+              >
+                {resetting ? 'Resetting…' : 'Start over'}
+              </button>
+            </div>
           </div>
         </div>
       )}

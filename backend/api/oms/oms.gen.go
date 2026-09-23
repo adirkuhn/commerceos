@@ -38,6 +38,24 @@ func (e CompletePickingRequestResolutions) Valid() bool {
 	}
 }
 
+// Defines values for PackingSessionStatus.
+const (
+	PackingSessionStatusCompleted  PackingSessionStatus = "completed"
+	PackingSessionStatusInProgress PackingSessionStatus = "in_progress"
+)
+
+// Valid indicates whether the value is a known member of the PackingSessionStatus enum.
+func (e PackingSessionStatus) Valid() bool {
+	switch e {
+	case PackingSessionStatusCompleted:
+		return true
+	case PackingSessionStatusInProgress:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PickScanActionType.
 const (
 	Freebie    PickScanActionType = "freebie"
@@ -260,6 +278,18 @@ type BulkUpdateSalesOrderStatusResult struct {
 	Updated *[]string `json:"updated,omitempty"`
 }
 
+// CompletePackingResult defines model for CompletePackingResult.
+type CompletePackingResult struct {
+	MissingItems *[]MissingPackItem `json:"missing_items,omitempty"`
+	Session      PackingSession     `json:"session"`
+}
+
+// CompletePackingResultResponse defines model for CompletePackingResultResponse.
+type CompletePackingResultResponse struct {
+	Data  *CompletePackingResult `json:"data,omitempty"`
+	Error interface{}            `json:"error,omitempty"`
+}
+
 // CompletePickingRequest defines model for CompletePickingRequest.
 type CompletePickingRequest struct {
 	// Resolutions Maps a PickScan id (one already returned in a prior call's stock_shortfalls) to "with_item" (ship it anyway, reconciling the shortfall) or "without_item" (ship without it).
@@ -349,6 +379,14 @@ type LinkLineItemSKURequest struct {
 	SkuId string `json:"sku_id"`
 }
 
+// MissingPackItem defines model for MissingPackItem.
+type MissingPackItem struct {
+	ExpectedQty int64  `json:"expected_qty"`
+	LineItemId  string `json:"line_item_id"`
+	Name        string `json:"name"`
+	PackedQty   int64  `json:"packed_qty"`
+}
+
 // MissingPickItem defines model for MissingPickItem.
 type MissingPickItem struct {
 	ExpectedQty int64  `json:"expected_qty"`
@@ -356,6 +394,53 @@ type MissingPickItem struct {
 	Name        string `json:"name"`
 	PickedQty   int64  `json:"picked_qty"`
 }
+
+// PackScan defines model for PackScan.
+type PackScan struct {
+	Id         string    `json:"id"`
+	LineItemId string    `json:"line_item_id"`
+	Quantity   int64     `json:"quantity"`
+	ScannedAt  time.Time `json:"scanned_at"`
+	ScannedBy  string    `json:"scanned_by"`
+	SessionId  string    `json:"session_id"`
+	SkuId      string    `json:"sku_id"`
+}
+
+// PackingSession defines model for PackingSession.
+type PackingSession struct {
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	CompletedBy string     `json:"completed_by"`
+	Id          string     `json:"id"`
+	LockedAt    *time.Time `json:"locked_at,omitempty"`
+
+	// LockedBy lm2 UserID currently holding this session's lock, if any.
+	LockedBy     *string              `json:"locked_by,omitempty"`
+	SalesOrderId string               `json:"sales_order_id"`
+	StartedAt    time.Time            `json:"started_at"`
+	Status       PackingSessionStatus `json:"status"`
+}
+
+// PackingSessionDetail defines model for PackingSessionDetail.
+type PackingSessionDetail struct {
+	LineItems []SalesOrderLineItem `json:"line_items"`
+	Scans     []PackScan           `json:"scans"`
+	Session   PackingSession       `json:"session"`
+}
+
+// PackingSessionDetailResponse defines model for PackingSessionDetailResponse.
+type PackingSessionDetailResponse struct {
+	Data  *PackingSessionDetail `json:"data,omitempty"`
+	Error interface{}           `json:"error,omitempty"`
+}
+
+// PackingSessionResponse defines model for PackingSessionResponse.
+type PackingSessionResponse struct {
+	Data  *PackingSession `json:"data,omitempty"`
+	Error interface{}     `json:"error,omitempty"`
+}
+
+// PackingSessionStatus defines model for PackingSessionStatus.
+type PackingSessionStatus string
 
 // PickScan defines model for PickScan.
 type PickScan struct {
@@ -392,9 +477,13 @@ type PickScanActionType string
 
 // PickingSession defines model for PickingSession.
 type PickingSession struct {
-	CompletedAt  *time.Time           `json:"completed_at,omitempty"`
-	CompletedBy  string               `json:"completed_by"`
-	Id           string               `json:"id"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	CompletedBy string     `json:"completed_by"`
+	Id          string     `json:"id"`
+	LockedAt    *time.Time `json:"locked_at,omitempty"`
+
+	// LockedBy lm2 UserID currently holding this session's lock, if any (see StartOrResumePickingUseCase).
+	LockedBy     *string              `json:"locked_by,omitempty"`
 	PausedAt     *time.Time           `json:"paused_at,omitempty"`
 	SalesOrderId string               `json:"sales_order_id"`
 	StartedAt    time.Time            `json:"started_at"`
@@ -510,6 +599,9 @@ type SalesOrder struct {
 	Number           *string   `json:"number,omitempty"`
 	OccurredAt       time.Time `json:"occurred_at"`
 	OrderKey         *string   `json:"order_key,omitempty"`
+
+	// Packed Fulfilled's packing-phase counterpart -- true once a PackingSession has completed for this order. See GET's packed filter.
+	Packed *bool `json:"packed,omitempty"`
 
 	// PaymentExternalId That provider's own checkout-session/order id -- what a refund (see RefundLineItemRequest) is issued against. Empty whenever payment_provider is.
 	PaymentExternalId  *string `json:"payment_external_id,omitempty"`
@@ -629,6 +721,27 @@ type SalesOrderSource string
 
 // SalesOrderStatus defines model for SalesOrderStatus.
 type SalesOrderStatus string
+
+// ScanPackItemRequest defines model for ScanPackItemRequest.
+type ScanPackItemRequest struct {
+	// Code Raw scanned text. Mutually exclusive with sku_id -- exactly one is required.
+	Code     *string `json:"code,omitempty"`
+	Quantity *int64  `json:"quantity,omitempty"`
+
+	// SkuId Scan directly against an already-known SKU. Mutually exclusive with code.
+	SkuId *string `json:"sku_id,omitempty"`
+}
+
+// ScanPackItemResult defines model for ScanPackItemResult.
+type ScanPackItemResult struct {
+	Scan PackScan `json:"scan"`
+}
+
+// ScanPackItemResultResponse defines model for ScanPackItemResultResponse.
+type ScanPackItemResultResponse struct {
+	Data  *ScanPackItemResult `json:"data,omitempty"`
+	Error interface{}         `json:"error,omitempty"`
+}
 
 // ScanPickItemRequest defines model for ScanPickItemRequest.
 type ScanPickItemRequest struct {
@@ -764,6 +877,9 @@ type ListSalesOrdersParams struct {
 
 	// CustomerId Filter to orders placed by this customer -- the Customer detail page's order history and lifetime-spend figures.
 	CustomerId *string `form:"customer_id,omitempty" json:"customer_id,omitempty"`
+
+	// Packed Filter by the order's packing status -- combined with fulfilled=true, false powers the packing screens' "orders ready to pack" search.
+	Packed *bool `form:"packed,omitempty" json:"packed,omitempty"`
 }
 
 // ListSalesOrdersParamsSortBy defines parameters for ListSalesOrders.
@@ -771,6 +887,9 @@ type ListSalesOrdersParamsSortBy string
 
 // ListSalesOrdersParamsSortDir defines parameters for ListSalesOrders.
 type ListSalesOrdersParamsSortDir string
+
+// ScanPackItemJSONRequestBody defines body for ScanPackItem for application/json ContentType.
+type ScanPackItemJSONRequestBody = ScanPackItemRequest
 
 // CompletePickingJSONRequestBody defines body for CompletePicking for application/json ContentType.
 type CompletePickingJSONRequestBody = CompletePickingRequest
@@ -804,6 +923,24 @@ type LinkLineItemSKUJSONRequestBody = LinkLineItemSKURequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// GetPackingSession Packing screen -- get a packing session with its order's line items and scan history
+	// (GET /packing-sessions/{id})
+	GetPackingSession(c *gin.Context, id Id)
+	// CompletePacking Packing screen -- finish a packing session; returns a missing-items report if any order line wasn't fully packed. Always completes (gaps or not) and marks the order packed. completed_by is taken from the caller's own JWT claims.
+	// (POST /packing-sessions/{id}/complete)
+	CompletePacking(c *gin.Context, id Id)
+	// ResetPackingSession Packing screen -- discard every pack scan on this session and release its lock, handing it back fresh. Only legal while the session is in_progress -- 422 once completed.
+	// (POST /packing-sessions/{id}/reset)
+	ResetPackingSession(c *gin.Context, id Id)
+	// ScanPackItem Packing screen -- resolve a scanned code (or an already-known sku_id), match it to the order's own line item, and record it as packed. Rejects (422) a SKU not on the order, or a quantity that would exceed the line item's own ordered quantity.
+	// (POST /packing-sessions/{id}/scan)
+	ScanPackItem(c *gin.Context, id Id)
+	// DeletePackScan Packing screen -- remove a pack scan (fix a mis-scan, or move an item to a different box). Only legal while the session is still in_progress.
+	// (DELETE /packing-sessions/{id}/scans/{scanId})
+	DeletePackScan(c *gin.Context, id Id, scanId string)
+	// TouchPackingSession Packing screen -- heartbeat call while a packing session stays open, refreshing the caller's lock. Returns 409 if another user has since taken over the lock.
+	// (POST /packing-sessions/{id}/touch)
+	TouchPackingSession(c *gin.Context, id Id)
 	// GetPickingSession Scanner app -- get a picking session with its order's line items and scan history, for the progress view
 	// (GET /picking-sessions/{id})
 	GetPickingSession(c *gin.Context, id Id)
@@ -816,6 +953,9 @@ type ServerInterface interface {
 	// RefundLineItem Scanner app -- stage refunding part or all of an existing line item's own quantity, when staff choose not to substitute it. Real money only moves at session completion (see PickScan's doc and CompletePickingUseCase); if the order has no known payment provider or the refund API call fails, the order is instead flagged for manual review rather than blocking completion. A customer_user caller needs the oms.line_item.refund permission (403 otherwise).
 	// (POST /picking-sessions/{id}/refund)
 	RefundLineItem(c *gin.Context, id Id)
+	// ResetPickingSession Scanner/admin app -- discard every staged scan on this session and release its lock, handing it back fresh (e.g. picker wants to switch boxes or start the pick over). Only legal while the session is in_progress or paused -- 422 once it's completed, same one-way- door rule as DELETE .../scans/{scanId}.
+	// (POST /picking-sessions/{id}/reset)
+	ResetPickingSession(c *gin.Context, id Id)
 	// ResolvePickScanCode Scanner app -- resolve a scanned barcode/box-alias/SKU code (or this order's own line items) to a SKU, without staging anything yet. Lets the app show a confirm screen before staging a PickScan via POST .../scan.
 	// (POST /picking-sessions/{id}/resolve-scan)
 	ResolvePickScanCode(c *gin.Context, id Id)
@@ -828,6 +968,9 @@ type ServerInterface interface {
 	// SubstituteLineItem Scanner app -- stage one or more Substitute PickScan rows for the same original line item in a single call, one per substitute SKU. Lets a single original unit be replaced by several different (typically cheaper) substitutes at once. lines' original_quantity_covered must sum to the original line item's own quantity exactly. Never touches real inventory or the order's line items -- see PickScan's doc.
 	// (POST /picking-sessions/{id}/substitute-batch)
 	SubstituteLineItem(c *gin.Context, id Id)
+	// TouchPickingSession Scanner/admin app -- heartbeat call while a picking session stays open, refreshing the caller's lock so it doesn't go stale under PickingLockTTL. Returns 409 if another user has since taken over the lock (this caller's own session expired and someone else started it).
+	// (POST /picking-sessions/{id}/touch)
+	TouchPickingSession(c *gin.Context, id Id)
 	// ListSalesOrders List sales orders for the current tenant, newest first
 	// (GET /sales-orders)
 	ListSalesOrders(c *gin.Context, params ListSalesOrdersParams)
@@ -858,7 +1001,10 @@ type ServerInterface interface {
 	// LinkLineItemSKU Link a line item that was imported without a matching catalog SKU (sku_id nil) to a real SKU -- the "Unmatched SKUs" admin page's resolve action. Does not itself retry the stock decrement -- call retry-stock separately afterward.
 	// (POST /sales-orders/{id}/line-items/{lineItemId}/link-sku)
 	LinkLineItemSKU(c *gin.Context, id Id, lineItemId string)
-	// StartOrResumePicking Scanner app -- start a new picking session for this order, or resume its existing in_progress/paused one. Rejected if the order is already fulfilled.
+	// StartOrResumePacking Packing screen -- start a new packing session for this order, or resume its existing in_progress one. Rejected (422) if the order hasn't been fully picked yet (fulfilled=false) or is already packed, or if another user currently holds the session's lock (409).
+	// (POST /sales-orders/{id}/packing)
+	StartOrResumePacking(c *gin.Context, id Id)
+	// StartOrResumePicking Scanner app -- start a new picking session for this order, or resume its existing in_progress/paused one. Rejected if the order is already fulfilled, or if another user currently holds the session's lock (409 -- see PickingSession.locked_by).
 	// (POST /sales-orders/{id}/picking)
 	StartOrResumePicking(c *gin.Context, id Id)
 	// RetryStockDecrement Retry the stock decrement for every line item on this order whose decrement is pending (SKU linked, but the earlier attempt hit insufficient stock) -- the "Stock Issues" admin page's resolve action, run after staff fix the underlying stock. A line item still insufficient after retrying is reported in the response, not an error for the call as a whole.
@@ -874,6 +1020,165 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// GetPackingSession operation middleware
+func (siw *ServerInterfaceWrapper) GetPackingSession(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetPackingSession(c, id)
+}
+
+// CompletePacking operation middleware
+func (siw *ServerInterfaceWrapper) CompletePacking(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CompletePacking(c, id)
+}
+
+// ResetPackingSession operation middleware
+func (siw *ServerInterfaceWrapper) ResetPackingSession(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ResetPackingSession(c, id)
+}
+
+// ScanPackItem operation middleware
+func (siw *ServerInterfaceWrapper) ScanPackItem(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ScanPackItem(c, id)
+}
+
+// DeletePackScan operation middleware
+func (siw *ServerInterfaceWrapper) DeletePackScan(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "scanId" -------------
+	var scanId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "scanId", c.Param("scanId"), &scanId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter scanId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeletePackScan(c, id, scanId)
+}
+
+// TouchPackingSession operation middleware
+func (siw *ServerInterfaceWrapper) TouchPackingSession(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.TouchPackingSession(c, id)
+}
 
 // GetPickingSession operation middleware
 func (siw *ServerInterfaceWrapper) GetPickingSession(c *gin.Context) {
@@ -973,6 +1278,31 @@ func (siw *ServerInterfaceWrapper) RefundLineItem(c *gin.Context) {
 	}
 
 	siw.Handler.RefundLineItem(c, id)
+}
+
+// ResetPickingSession operation middleware
+func (siw *ServerInterfaceWrapper) ResetPickingSession(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ResetPickingSession(c, id)
 }
 
 // ResolvePickScanCode operation middleware
@@ -1084,6 +1414,31 @@ func (siw *ServerInterfaceWrapper) SubstituteLineItem(c *gin.Context) {
 	siw.Handler.SubstituteLineItem(c, id)
 }
 
+// TouchPickingSession operation middleware
+func (siw *ServerInterfaceWrapper) TouchPickingSession(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.TouchPickingSession(c, id)
+}
+
 // ListSalesOrders operation middleware
 func (siw *ServerInterfaceWrapper) ListSalesOrders(c *gin.Context) {
 
@@ -1170,6 +1525,14 @@ func (siw *ServerInterfaceWrapper) ListSalesOrders(c *gin.Context) {
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "customer_id", c.Request.URL.Query(), &params.CustomerId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter customer_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "packed" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "packed", c.Request.URL.Query(), &params.Packed, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter packed: %w", err), http.StatusBadRequest)
 		return
 	}
 
@@ -1393,6 +1756,31 @@ func (siw *ServerInterfaceWrapper) LinkLineItemSKU(c *gin.Context) {
 	siw.Handler.LinkLineItemSKU(c, id, lineItemId)
 }
 
+// StartOrResumePacking operation middleware
+func (siw *ServerInterfaceWrapper) StartOrResumePacking(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.StartOrResumePacking(c, id)
+}
+
 // StartOrResumePicking operation middleware
 func (siw *ServerInterfaceWrapper) StartOrResumePicking(c *gin.Context) {
 
@@ -1488,8 +1876,17 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/picking-sessions/:id/refund", wrapper.RefundLineItem)
 	router.POST(options.BaseURL+"/picking-sessions/:id/resolve-scan", wrapper.ResolvePickScanCode)
 	router.DELETE(options.BaseURL+"/picking-sessions/:id/scans/:scanId", wrapper.DeletePickScan)
+	router.POST(options.BaseURL+"/picking-sessions/:id/touch", wrapper.TouchPickingSession)
+	router.POST(options.BaseURL+"/picking-sessions/:id/reset", wrapper.ResetPickingSession)
 	router.POST(options.BaseURL+"/picking-sessions/:id/pause", wrapper.PausePicking)
 	router.POST(options.BaseURL+"/picking-sessions/:id/complete", wrapper.CompletePicking)
+	router.POST(options.BaseURL+"/sales-orders/:id/packing", wrapper.StartOrResumePacking)
+	router.GET(options.BaseURL+"/packing-sessions/:id", wrapper.GetPackingSession)
+	router.POST(options.BaseURL+"/packing-sessions/:id/scan", wrapper.ScanPackItem)
+	router.DELETE(options.BaseURL+"/packing-sessions/:id/scans/:scanId", wrapper.DeletePackScan)
+	router.POST(options.BaseURL+"/packing-sessions/:id/touch", wrapper.TouchPackingSession)
+	router.POST(options.BaseURL+"/packing-sessions/:id/reset", wrapper.ResetPackingSession)
+	router.POST(options.BaseURL+"/packing-sessions/:id/complete", wrapper.CompletePacking)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -1497,130 +1894,146 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

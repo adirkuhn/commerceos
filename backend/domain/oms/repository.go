@@ -46,6 +46,10 @@ type ListSalesOrdersFilter struct {
 	// picking scanner app's "unfulfilled orders" search; also usable from
 	// the OMS Orders page's own filter.
 	Fulfilled *bool
+	// Packed nil means "don't filter on this" -- combined with fulfilled=
+	// true, false powers the packing screens' "orders ready to pack" search
+	// (see SalesOrder.Packed's doc).
+	Packed *bool
 	// Status empty means "don't filter on this". Non-empty narrows to those
 	// statuses only -- powers the picking screens' exclusion of
 	// completed/cancelled/refunded/failed orders (a terminal-status order
@@ -196,6 +200,17 @@ type PickingSessionRepository interface {
 	// instead of creating a duplicate. Nil (not an error) when none exists.
 	FindActiveBySalesOrder(ctx context.Context, salesOrderID string) (*PickingSession, error)
 	Update(ctx context.Context, s *PickingSession) error
+	// AcquireLock claims (or refreshes) the session's lock for userID,
+	// unconditionally -- callers must check PickingSession.LockedBy/
+	// LockedAt themselves first (see StartOrResumePickingUseCase/
+	// TouchPickingSessionUseCase) before calling this. A dedicated
+	// map-based update, not Update, because Update's struct-based
+	// .Updates() silently skips nil-pointer (zero-value) fields -- it
+	// could never clear LockedBy back to NULL on release.
+	AcquireLock(ctx context.Context, id, userID string, at time.Time) error
+	// ReleaseLock clears the session's lock unconditionally -- see
+	// AcquireLock's doc for why this can't just be Update.
+	ReleaseLock(ctx context.Context, id string) error
 }
 
 type PickScanRepository interface {
@@ -209,5 +224,28 @@ type PickScanRepository interface {
 	MarkReplayed(ctx context.Context, id string, replayedAt time.Time) error
 	// Delete removes a staged row before it's ever been replayed -- see
 	// DeletePickScanUseCase, mirrors procurement.BookingScanRepository.Delete.
+	Delete(ctx context.Context, id string) error
+}
+
+// PackingSessionRepository mirrors PickingSessionRepository exactly -- see
+// that interface's doc comments, identical here.
+type PackingSessionRepository interface {
+	Create(ctx context.Context, s *PackingSession) error
+	FindByID(ctx context.Context, id string) (*PackingSession, error)
+	// FindActiveBySalesOrder returns the order's current in_progress
+	// session, if any. Nil (not an error) when none exists.
+	FindActiveBySalesOrder(ctx context.Context, salesOrderID string) (*PackingSession, error)
+	Update(ctx context.Context, s *PackingSession) error
+	AcquireLock(ctx context.Context, id, userID string, at time.Time) error
+	ReleaseLock(ctx context.Context, id string) error
+}
+
+// PackScanRepository is PickScanRepository without the replay bookkeeping
+// (see PackScan's doc comment for why none is needed).
+type PackScanRepository interface {
+	Create(ctx context.Context, s *PackScan) error
+	// ListBySession returns every scan for the session in ScannedAt order.
+	ListBySession(ctx context.Context, sessionID string) ([]PackScan, error)
+	// Delete removes a scan -- see DeletePackScanUseCase.
 	Delete(ctx context.Context, id string) error
 }

@@ -11,6 +11,7 @@ import Inventory from './pages/Inventory'
 import Warehouses from './pages/Warehouses'
 import Orders from './pages/Orders'
 import Picking from './pages/Picking'
+import Packing from './pages/Packing'
 import Integrations from './pages/Integrations'
 import Webhooks from './pages/Webhooks'
 import SalesChannels from './pages/SalesChannels'
@@ -64,6 +65,7 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'warehouses', path: '/warehouses', Component: Warehouses },
   { nav: 'orders', path: '/orders', Component: Orders },
   { nav: 'picking', path: '/picking', Component: Picking },
+  { nav: 'packing', path: '/packing', Component: Packing },
   { nav: 'suppliers', path: '/suppliers', Component: Suppliers },
   { nav: 'procurement', path: '/procurement', Component: Procurement },
   { nav: 'integrations', path: '/integrations', Component: Integrations },

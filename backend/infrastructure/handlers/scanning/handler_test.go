@@ -3,6 +3,7 @@ package scanning_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -50,6 +51,25 @@ func (s *stubGetPairingCodeStatus) Execute(_ context.Context, _ string) (*iamDom
 	return s.out, s.err
 }
 
+type stubRefreshScannerSession struct {
+	out       string
+	err       error
+	gotUserID string
+	gotTenant string
+	gotRole   string
+}
+
+func (s *stubRefreshScannerSession) Execute(userID, tenantID, role string) (string, error) {
+	s.gotUserID, s.gotTenant, s.gotRole = userID, tenantID, role
+	if s.err != nil {
+		return "", s.err
+	}
+	if s.out != "" {
+		return s.out, nil
+	}
+	return "refreshed-token-abc", nil
+}
+
 func newTestRouter(h *scanning.Handler) *gin.Engine {
 	r := gin.New()
 	// Inject claims the way middleware.JWT would, so handler tests exercise
@@ -71,7 +91,7 @@ func doRequest(rg *gin.Engine, method, path string) *httptest.ResponseRecorder {
 
 func TestGeneratePairingCodeHandler_usesCallersClaims(t *testing.T) {
 	generate := &stubGeneratePairingCode{}
-	h := scanning.NewHandler(generate, &stubGetPairingCodeStatus{})
+	h := scanning.NewHandler(generate, &stubGetPairingCodeStatus{}, &stubRefreshScannerSession{})
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/iam/scanner-pairing")
 
 	require.Equal(t, http.StatusCreated, w.Code)
@@ -83,7 +103,7 @@ func TestGeneratePairingCodeHandler_usesCallersClaims(t *testing.T) {
 
 func TestGetPairingCodeStatusHandler_returnsStatus(t *testing.T) {
 	status := &stubGetPairingCodeStatus{out: &iamDomain.ScannerPairingCode{ID: "pairing-1", Status: iamDomain.ScannerPairingCodeStatusClaimed}}
-	h := scanning.NewHandler(&stubGeneratePairingCode{}, status)
+	h := scanning.NewHandler(&stubGeneratePairingCode{}, status, &stubRefreshScannerSession{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/iam/scanner-pairing/pairing-1")
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -92,8 +112,28 @@ func TestGetPairingCodeStatusHandler_returnsStatus(t *testing.T) {
 
 func TestGetPairingCodeStatusHandler_notFound(t *testing.T) {
 	status := &stubGetPairingCodeStatus{err: iamDomain.ErrPairingCodeNotFound}
-	h := scanning.NewHandler(&stubGeneratePairingCode{}, status)
+	h := scanning.NewHandler(&stubGeneratePairingCode{}, status, &stubRefreshScannerSession{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/iam/scanner-pairing/missing")
 
 	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestRefreshScannerSessionHandler_usesCallersClaims(t *testing.T) {
+	refresh := &stubRefreshScannerSession{}
+	h := scanning.NewHandler(&stubGeneratePairingCode{}, &stubGetPairingCodeStatus{}, refresh)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/iam/scanner-pairing/refresh")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "user-1", refresh.gotUserID)
+	assert.Equal(t, "tenant-1", refresh.gotTenant)
+	assert.Equal(t, "customer_owner", refresh.gotRole)
+	assert.Contains(t, w.Body.String(), "refreshed-token-abc")
+}
+
+func TestRefreshScannerSessionHandler_internalError(t *testing.T) {
+	refresh := &stubRefreshScannerSession{err: errors.New("sign failure")}
+	h := scanning.NewHandler(&stubGeneratePairingCode{}, &stubGetPairingCodeStatus{}, refresh)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/iam/scanner-pairing/refresh")
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
 }

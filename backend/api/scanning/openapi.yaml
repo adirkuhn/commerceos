@@ -40,6 +40,24 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /iam/scanner-pairing/refresh:
+    post:
+      operationId: refreshScannerSession
+      summary: >
+        Reissue the caller's own scanner-session token with a fresh
+        expiry, same claims. Requires an already-valid token (unlike
+        /iam/scanner-pairing/claim in api/scannerauth, which is public
+        since the scanner has no identity yet) -- this is how an
+        actively-used pairing-code session avoids hitting its fixed TTL
+        mid-shift.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshScannerSessionResponse'
+
 components:
   parameters:
     id:
@@ -79,6 +97,18 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/ScannerPairingCode' }
+        error: { nullable: true }
+
+    RefreshScannerSessionResult:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, description: Newly-minted token, same claims, fresh expiry. }
+
+    RefreshScannerSessionResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/RefreshScannerSessionResult' }
         error: { nullable: true }
 
     ErrorResponse:

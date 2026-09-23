@@ -57,6 +57,15 @@ var (
 	// ErrPickScanNotFound guards DeletePickScanUseCase against a scan ID
 	// that doesn't belong to the named session.
 	ErrPickScanNotFound = errors.New("pick scan not found")
+	// ErrPickingSessionLocked guards StartOrResumePickingUseCase/
+	// TouchPickingSessionUseCase against a session already locked by a
+	// different user within PickingLockTTL -- two people must not work the
+	// same order's picking session at once.
+	ErrPickingSessionLocked = errors.New("picking session is locked by another user")
+	// ErrPickingSessionAlreadyCompleted guards ResetPickingSessionUseCase --
+	// completion is a one-way door (CompletePickingUseCase's replay already
+	// made staged rows real), so there's nothing left to reset.
+	ErrPickingSessionAlreadyCompleted = errors.New("picking session is already completed")
 	// ErrSubstituteViaBatchEndpointOnly guards ScanPickItemUseCase against
 	// the Substitute action type -- substitution now always goes through
 	// SubstituteLineItemUseCase (one or more substitute lines at once), not
@@ -85,6 +94,35 @@ var (
 	// line item with no SKUID (an unmatched Woo import line) -- there's no
 	// SKU to attribute the refund's PickScan row to.
 	ErrRefundRequiresLinkedSKU = errors.New("line item must be linked to a sku before it can be refunded")
+	// ErrPackingSessionNotFound guards every packing use case's session lookup.
+	ErrPackingSessionNotFound = errors.New("packing session not found")
+	// ErrPackingSessionNotActive guards actions (scan, complete) against a
+	// packing session that's already completed.
+	ErrPackingSessionNotActive = errors.New("packing session is not active")
+	// ErrPackingSessionLocked mirrors ErrPickingSessionLocked, for packing.
+	ErrPackingSessionLocked = errors.New("packing session is locked by another user")
+	// ErrPackingSessionAlreadyCompleted guards ResetPackingSessionUseCase --
+	// completion is a one-way door here too, same reasoning as
+	// ErrPickingSessionAlreadyCompleted.
+	ErrPackingSessionAlreadyCompleted = errors.New("packing session is already completed")
+	// ErrOrderNotYetPicked guards StartOrResumePackingUseCase -- packing has
+	// nothing to do until the order's Fulfilled flag says picking finished.
+	ErrOrderNotYetPicked = errors.New("sales order has not been fully picked yet")
+	// ErrOrderAlreadyPacked guards StartOrResumePackingUseCase against
+	// starting a new packing session for an order that's already packed.
+	ErrOrderAlreadyPacked = errors.New("sales order is already packed")
+	// ErrPackScanNotFound guards DeletePackScanUseCase against a scan ID
+	// that doesn't belong to the named session.
+	ErrPackScanNotFound = errors.New("pack scan not found")
+	// ErrPackScanCodeOrSKURequired mirrors ErrPickScanCodeOrSKURequired.
+	ErrPackScanCodeOrSKURequired = errors.New("either a scanned code or a sku_id is required")
+	// ErrPackScanSKUMismatch guards ScanPackItemUseCase against a scanned
+	// SKU that isn't linked to any of this order's line items.
+	ErrPackScanSKUMismatch = errors.New("scanned item does not match any line item on this order")
+	// ErrPackQuantityExceedsOrdered guards ScanPackItemUseCase against
+	// packing more of a line item than the order actually contains.
+	ErrPackQuantityExceedsOrdered = errors.New("packed quantity would exceed the line item's ordered quantity")
+
 	// ErrPermissionDenied guards a use case's fine-grained RBAC check (see
 	// iam.GroupPermissionRepository.HasPermission) against a customer_user
 	// caller who lacks the specific rule required -- e.g.

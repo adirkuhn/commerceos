@@ -30,6 +30,10 @@ vi.mock('../api', () => ({
   pausePicking: vi.fn(),
   completePicking: vi.fn(),
   addSalesOrderLineItem: vi.fn(),
+  touchPickingSession: vi.fn(),
+  resetPickingSession: vi.fn(),
+  refreshScannerSession: vi.fn(),
+  setOnTokenActivity: vi.fn(),
 }))
 
 vi.mock('../../procurement/api', () => ({

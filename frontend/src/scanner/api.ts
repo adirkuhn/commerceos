@@ -4,11 +4,25 @@ import type {
   PickingSession, PickingSessionDetail, ScanPickItemInput, ScanPickItemResult,
   SubstituteLineItemInput, SubstituteLineItemResult, RefundLineItemRequest, RefundLineItemResult,
   ResolvePickScanCodeResult, CompletePickingResult, StockShortfallResolution, AddSalesOrderLineItemInput,
+  PackingSession, PackingSessionDetail, ScanPackItemInput, ScanPackItemResult, CompletePackingResult,
 } from './types'
 import type { SalesOrderLineItem } from '../oms/types'
 
 function base(): string {
   return import.meta.env.VITE_API_BASE_URL as string
+}
+
+// onTokenActivity lets useScannerAuth observe real API traffic without this
+// module holding any session state itself -- every authenticated call funnels
+// through request() below, so registering one callback here is enough for
+// useScannerAuth to drive activity-based token refresh (see its doc comment).
+// A single module-level slot is enough: only one scanner session is ever
+// active per app instance.
+type TokenActivityHandler = (token: string) => void
+let onTokenActivity: TokenActivityHandler | null = null
+
+export function setOnTokenActivity(handler: TokenActivityHandler | null): void {
+  onTokenActivity = handler
 }
 
 async function request<T>(path: string, options: RequestInit, token?: string): Promise<T> {
@@ -24,6 +38,7 @@ async function request<T>(path: string, options: RequestInit, token?: string): P
   if (!res.ok || body.error) {
     throw new Error(body.error?.message ?? `HTTP ${res.status}`)
   }
+  if (token) onTokenActivity?.(token)
   return body.data as T
 }
 
@@ -48,6 +63,12 @@ export function generatePairingCode(token: string): Promise<ScannerPairingCode> 
 
 export function getPairingCodeStatus(token: string, id: string): Promise<ScannerPairingCode> {
   return request<ScannerPairingCode>(`${base()}/iam/scanner-pairing/${id}`, { method: 'GET' }, token)
+}
+
+// refreshScannerSession reissues a still-valid pairing-code token with a
+// fresh expiry, same claims -- see useScannerAuth's activity-based refresh.
+export function refreshScannerSession(token: string): Promise<{ token: string }> {
+  return request<{ token: string }>(`${base()}/iam/scanner-pairing/refresh`, { method: 'POST' }, token)
 }
 
 // ── Booking ──────────────────────────────────────────────────────────────────
@@ -123,6 +144,21 @@ export function pausePicking(token: string, id: string): Promise<PickingSession>
   return request<PickingSession>(`${base()}/picking-sessions/${id}/pause`, { method: 'POST' }, token)
 }
 
+// touchPickingSession is a heartbeat call while a session stays open --
+// refreshes the caller's lock so it doesn't go stale under the backend's
+// PickingLockTTL. Fire-and-poll from a setInterval; a 409 means someone
+// else has since taken over the session.
+export function touchPickingSession(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/picking-sessions/${id}/touch`, { method: 'POST' }, token)
+}
+
+// resetPickingSession discards every staged scan on the session and
+// releases its lock, handing it back fresh -- the picker's "start over"
+// button. Only legal while the session is in_progress/paused.
+export function resetPickingSession(token: string, id: string): Promise<PickingSession> {
+  return request<PickingSession>(`${base()}/picking-sessions/${id}/reset`, { method: 'POST' }, token)
+}
+
 // resolutions maps a PickScan id (one already returned in a prior call's
 // stock_shortfalls) to how staff want it handled -- see
 // StockShortfallResolution. Omit/empty on the first attempt.
@@ -142,4 +178,38 @@ export function completePicking(
 // the picking flow calls it from the scanner app.
 export function addSalesOrderLineItem(token: string, salesOrderId: string, input: AddSalesOrderLineItemInput): Promise<SalesOrderLineItem> {
   return request<SalesOrderLineItem>(`${base()}/sales-orders/${salesOrderId}/line-items`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+// ── Packing ──────────────────────────────────────────────────────────────────
+
+export function startOrResumePacking(token: string, salesOrderId: string): Promise<PackingSession> {
+  return request<PackingSession>(`${base()}/sales-orders/${salesOrderId}/packing`, { method: 'POST' }, token)
+}
+
+export function getPackingSession(token: string, id: string): Promise<PackingSessionDetail> {
+  return request<PackingSessionDetail>(`${base()}/packing-sessions/${id}`, { method: 'GET' }, token)
+}
+
+export function scanPackItem(token: string, sessionId: string, input: ScanPackItemInput): Promise<ScanPackItemResult> {
+  return request<ScanPackItemResult>(`${base()}/packing-sessions/${sessionId}/scan`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function deletePackScan(token: string, sessionId: string, scanId: string): Promise<null> {
+  return request<null>(`${base()}/packing-sessions/${sessionId}/scans/${scanId}`, { method: 'DELETE' }, token)
+}
+
+// touchPackingSession mirrors touchPickingSession -- heartbeat call while a
+// packing session stays open.
+export function touchPackingSession(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/packing-sessions/${id}/touch`, { method: 'POST' }, token)
+}
+
+// resetPackingSession mirrors resetPickingSession -- the packer's "start
+// over" button.
+export function resetPackingSession(token: string, id: string): Promise<PackingSession> {
+  return request<PackingSession>(`${base()}/packing-sessions/${id}/reset`, { method: 'POST' }, token)
+}
+
+export function completePacking(token: string, id: string): Promise<CompletePackingResult> {
+  return request<CompletePackingResult>(`${base()}/packing-sessions/${id}/complete`, { method: 'POST' }, token)
 }

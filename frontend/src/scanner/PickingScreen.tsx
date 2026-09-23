@@ -9,16 +9,6 @@ import { ProductCandidateRow } from './ProductCandidateRow'
 import { playErrorSound } from './errorSound'
 import { useWakeLock } from './useWakeLock'
 import { computeMissingItems, pickedQuantityByLineItem } from './pickingMissingItems'
-import { useConnections } from '../integrations/hooks/useConnections'
-import * as shippingApi from '../shipping/api'
-import type { RecipientAddress } from '../shipping/types'
-import { guessCarrierFromShippingMethod } from '../shipping/carrierGuess'
-import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
-import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
-import { ExistingShipmentConfirmModal } from '../shipping/ExistingShipmentConfirmModal'
-import type { Shipment } from '../shipping/types'
-import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLabel'
-import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import type {
   PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult,
   StockShortfall, StockShortfallResolution, PickScanActionType, SubstituteLine,
@@ -74,13 +64,18 @@ interface PickingScreenProps {
   order: SalesOrder
   onExit: () => void
   onAuthError: () => void
+  // Hands off to the packing screen for this same order -- see Picking.tsx's
+  // continueToPacking doc. Starts (or resumes) the packing session itself
+  // (picking already has the order/token in hand) and lets ScannerApp just
+  // switch screens with the result.
+  onContinueToPacking: (sessionId: string, order: SalesOrder) => void
 }
 
 function isAuthError(err: unknown): boolean {
   return err instanceof Error && /401|unauthorized/i.test(err.message)
 }
 
-export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: PickingScreenProps) {
+export function PickingScreen({ token, sessionId, order, onExit, onAuthError, onContinueToPacking }: PickingScreenProps) {
   const [detail, setDetail] = useState<PickingSessionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -95,90 +90,9 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   const [candidates, setCandidates] = useState<SKUCandidate[]>([])
   const [pickLine, setPickLine] = useState<{ lineItem: PickingSessionLineItem; pickedSoFar: number } | null>(null)
   const [addItemOpen, setAddItemOpen] = useState(false)
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const codeInputRef = useRef<HTMLInputElement>(null)
-
-  const { connections } = useConnections(token)
-  const myParcelConnection = connections.find(c => c.provider === 'myparcel')
-  // Same 3-step label flow as the desktop picking screens (see Picking.tsx's
-  // doc comment): 'address' -> 'preview' -> Print label actually creates the
-  // shipment (handlePrintLabel).
-  const [labelStep, setLabelStep] = useState<'address' | 'preview' | null>(null)
-  const [pendingRecipient, setPendingRecipient] = useState<RecipientAddress | null>(null)
-  // null until AddressConfirmModal's onNext runs once -- lets its own
-  // defaultCarrier (the shipping-method guess below) take effect on first
-  // open instead of always being masked by a hardcoded initial value.
-  const [pendingCarrier, setPendingCarrier] = useState<number | null>(null)
-  // Same null-until-first-onNext rationale as pendingCarrier above.
-  const [pendingPackageType, setPendingPackageType] = useState<number | null>(null)
-  const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
-  const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
-  // See Picking.tsx's identical labelTab doc.
-  const [labelTab, setLabelTab] = useState<Window | null>(null)
-  // See Picking.tsx's identical existingShipment doc.
-  const [existingShipment, setExistingShipment] = useState<Shipment | null>(null)
-  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
-  const [connectionDefaultCarrier, setConnectionDefaultCarrier] = useState(1)
-  const [connectionDefaultPackageType, setConnectionDefaultPackageType] = useState(1)
-  useEffect(() => {
-    if (!myParcelConnection) return
-    shippingApi.getShippingSettings(token, myParcelConnection.id)
-      .then(result => {
-        setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false)
-        setLabelSize(result.settings?.default_label_size ?? 'A4')
-        setConnectionDefaultCarrier(result.settings?.default_carrier ?? 1)
-        setConnectionDefaultPackageType(result.settings?.default_package_type ?? 1)
-      })
-      .catch(() => setAutoPrintEnabled(false))
-  }, [token, myParcelConnection])
-
-  // See Picking.tsx's identical handleCreateLabelClick doc.
-  async function handleCreateLabelClick() {
-    if (!myParcelConnection) return
-    const shipments = await shippingApi.listShipmentsForOrder(token, order.id)
-    // A cancelled shipment (wrong carrier, "Delete & create new") no longer
-    // blocks creating a fresh one -- same rule CreateShipmentUseCase's own
-    // duplicate-guard applies server-side.
-    const active = shipments.find(s => !s.cancelled_at)
-    if (active) {
-      setExistingShipment(active)
-      return
-    }
-    setLabelStep('address')
-  }
-
-  // See Picking.tsx's identical handleOpenLabel doc.
-  async function handleOpenLabel(shipmentId: string) {
-    try {
-      setLabelTab(await openShipmentLabel(token, shipmentId, labelSize))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load label')
-    }
-  }
-
-  // See Picking.tsx's identical handlePrintLabel doc.
-  async function handlePrintLabel() {
-    if (!myParcelConnection || !pendingRecipient) return
-    const tab = window.open('', '_blank')
-    let shipment
-    try {
-      shipment = await shippingApi.createShipment(token, {
-        carrier: pendingCarrier ?? connectionDefaultCarrier,
-        package_type: pendingPackageType ?? connectionDefaultPackageType,
-        recipient: pendingRecipient,
-        connection_id: myParcelConnection.id, sales_order_id: order.id,
-      })
-    } catch (err) {
-      tab?.close()
-      throw err
-    }
-    setLabelStep(null)
-    setCreatedShipmentId(shipment.id)
-    try {
-      setLabelTab(await loadShipmentLabelIntoTab(tab, token, shipment.id, labelSize))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load label')
-    }
-  }
 
   const load = async () => {
     try {
@@ -193,6 +107,21 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
 
   useEffect(() => { load() }, [sessionId])
   useEffect(() => { codeInputRef.current?.focus() }, [detail])
+
+  // Heartbeat: refresh this session's lock every 60s while it stays open --
+  // see Picking.tsx's identical effect for the full rationale.
+  useEffect(() => {
+    if (detail?.session.status === 'completed') return
+    const interval = setInterval(() => {
+      api.touchPickingSession(token, sessionId).catch(err => {
+        if (isAuthError(err)) return onAuthError()
+        if (err instanceof Error && /locked/i.test(err.message)) {
+          setError('Another user has taken over this picking session')
+        }
+      })
+    }, 60_000)
+    return () => clearInterval(interval)
+  }, [sessionId, detail?.session.status, token, onAuthError])
   useWakeLock()
 
   async function stage(input: Parameters<typeof api.scanPickItem>[2]): Promise<boolean> {
@@ -366,6 +295,22 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
     }
   }
 
+  async function handleResetSession() {
+    setResetting(true)
+    try {
+      await api.resetPickingSession(token, sessionId)
+      setResetConfirmOpen(false)
+      setPickLine(null)
+      setAddItemOpen(false)
+      await load()
+    } catch (err) {
+      if (isAuthError(err)) return onAuthError()
+      setError(err instanceof Error ? err.message : 'Failed to reset picking session')
+    } finally {
+      setResetting(false)
+    }
+  }
+
   async function handlePause() {
     try {
       await api.pausePicking(token, sessionId)
@@ -373,6 +318,20 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
       setError(err instanceof Error ? err.message : 'Failed to pause')
+    }
+  }
+
+  const [startingPacking, setStartingPacking] = useState(false)
+
+  async function handleContinueToPacking() {
+    setStartingPacking(true)
+    try {
+      const session = await api.startOrResumePacking(token, order.id)
+      onContinueToPacking(session.id, order)
+    } catch (err) {
+      if (isAuthError(err)) return onAuthError()
+      setError(err instanceof Error ? err.message : 'Failed to start packing')
+      setStartingPacking(false)
     }
   }
 
@@ -453,22 +412,6 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         </div>
         <div className="p-4 border-t border-[#2D3748] shrink-0 space-y-2">
           {error && <p className="text-sm text-red-400">{error}</p>}
-          {myParcelConnection && !createdShipmentId && (
-            <button
-              type="button" onClick={handleCreateLabelClick}
-              className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
-            >
-              Create shipping label
-            </button>
-          )}
-          {createdShipmentId && (
-            <button
-              type="button" onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
-              className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
-            >
-              {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
-            </button>
-          )}
           <button
             onClick={() => handleConfirmComplete()}
             disabled={finishing}
@@ -480,53 +423,6 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             Back, scan more
           </button>
         </div>
-
-        {labelStep === 'address' && (
-          <AddressConfirmModal
-            token={token}
-            initialAddress={order.shipping}
-            fallbackEmail={order.billing?.email}
-            connectionId={myParcelConnection?.id}
-            initialRecipient={pendingRecipient ?? undefined}
-            initialCarrier={pendingCarrier ?? undefined}
-            initialPackageType={pendingPackageType ?? undefined}
-            defaultCarrier={guessCarrierFromShippingMethod(order.shipping_method_title, order.shipping_method, connectionDefaultCarrier)}
-            defaultPackageType={connectionDefaultPackageType}
-            onNext={({ carrier, packageType, recipient }) => { setPendingCarrier(carrier); setPendingPackageType(packageType); setPendingRecipient(recipient); setLabelStep('preview') }}
-            onClose={() => setLabelStep(null)}
-          />
-        )}
-        {labelStep === 'preview' && pendingRecipient && (
-          <LabelPreviewModal
-            recipient={pendingRecipient}
-            carrier={pendingCarrier ?? connectionDefaultCarrier}
-            packageType={pendingPackageType ?? connectionDefaultPackageType}
-            labelSize={labelSize}
-            onLabelSizeChange={setLabelSize}
-            onBack={() => setLabelStep('address')}
-            onPrint={handlePrintLabel}
-            onClose={() => setLabelStep(null)}
-          />
-        )}
-        {labelTab && (
-          <LabelOpenedNotice onPrint={() => labelTab.print()} onDismiss={() => setLabelTab(null)} />
-        )}
-        {existingShipment && (
-          <ExistingShipmentConfirmModal
-            token={token}
-            shipment={existingShipment}
-            onCancel={() => setExistingShipment(null)}
-            onReprint={() => {
-              setCreatedShipmentId(existingShipment.id)
-              handleOpenLabel(existingShipment.id)
-              setExistingShipment(null)
-            }}
-            onCreateNew={() => {
-              setExistingShipment(null)
-              setLabelStep('address')
-            }}
-          />
-        )}
       </div>
     )
   }
@@ -553,73 +449,17 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
           </div>
         )}
         <div className="p-6 shrink-0 space-y-2">
-          {myParcelConnection && !createdShipmentId && (
-            <button
-              type="button" onClick={handleCreateLabelClick}
-              className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
-            >
-              Create shipping label
-            </button>
-          )}
-          {createdShipmentId && (
-            <button
-              type="button" onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
-              className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
-            >
-              {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
-            </button>
-          )}
-          <button onClick={onExit} className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700">
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <button
+            onClick={handleContinueToPacking} disabled={startingPacking}
+            className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50"
+          >
+            {startingPacking ? 'Starting…' : 'Continue to Packing'}
+          </button>
+          <button onClick={onExit} className="w-full py-2.5 rounded-xl bg-[#1F2937] text-gray-300 text-sm font-medium">
             Done
           </button>
         </div>
-
-        {labelStep === 'address' && (
-          <AddressConfirmModal
-            token={token}
-            initialAddress={order.shipping}
-            fallbackEmail={order.billing?.email}
-            connectionId={myParcelConnection?.id}
-            initialRecipient={pendingRecipient ?? undefined}
-            initialCarrier={pendingCarrier ?? undefined}
-            initialPackageType={pendingPackageType ?? undefined}
-            defaultCarrier={guessCarrierFromShippingMethod(order.shipping_method_title, order.shipping_method, connectionDefaultCarrier)}
-            defaultPackageType={connectionDefaultPackageType}
-            onNext={({ carrier, packageType, recipient }) => { setPendingCarrier(carrier); setPendingPackageType(packageType); setPendingRecipient(recipient); setLabelStep('preview') }}
-            onClose={() => setLabelStep(null)}
-          />
-        )}
-        {labelStep === 'preview' && pendingRecipient && (
-          <LabelPreviewModal
-            recipient={pendingRecipient}
-            carrier={pendingCarrier ?? connectionDefaultCarrier}
-            packageType={pendingPackageType ?? connectionDefaultPackageType}
-            labelSize={labelSize}
-            onLabelSizeChange={setLabelSize}
-            onBack={() => setLabelStep('address')}
-            onPrint={handlePrintLabel}
-            onClose={() => setLabelStep(null)}
-          />
-        )}
-        {labelTab && (
-          <LabelOpenedNotice onPrint={() => labelTab.print()} onDismiss={() => setLabelTab(null)} />
-        )}
-        {existingShipment && (
-          <ExistingShipmentConfirmModal
-            token={token}
-            shipment={existingShipment}
-            onCancel={() => setExistingShipment(null)}
-            onReprint={() => {
-              setCreatedShipmentId(existingShipment.id)
-              handleOpenLabel(existingShipment.id)
-              setExistingShipment(null)
-            }}
-            onCreateNew={() => {
-              setExistingShipment(null)
-              setLabelStep('address')
-            }}
-          />
-        )}
       </div>
     )
   }
@@ -657,6 +497,12 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         {shippingAddressLine(order.billing) && !addressesEqual(order.billing, order.shipping) && (
           <p className="text-sm text-amber-400 mt-0.5">Billing: {shippingAddressLine(order.billing)}</p>
         )}
+        <button
+          type="button" onClick={() => setResetConfirmOpen(true)}
+          className="mt-1.5 flex items-center gap-1 text-xs text-red-400"
+        >
+          <Undo2 size={12} /> Start over
+        </button>
       </div>
 
       {cameraOpen && (
@@ -801,6 +647,31 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             >
               OK
             </button>
+          </div>
+        </div>
+      )}
+
+      {resetConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+          <div className="w-full max-w-xs rounded-2xl bg-[#111827] border border-[#2D3748] p-5 text-center">
+            <p className="text-sm font-semibold mb-1">Start over?</p>
+            <p className="text-xs text-gray-400 mb-4">
+              This discards every item picked so far on this order and starts the session fresh. This can't be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button" onClick={() => setResetConfirmOpen(false)} disabled={resetting}
+                className="flex-1 py-3 rounded-xl border border-[#2D3748] text-sm font-medium text-gray-300 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button" onClick={handleResetSession} disabled={resetting}
+                className="flex-1 py-3 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+              >
+                {resetting ? 'Resetting…' : 'Start over'}
+              </button>
+            </div>
           </div>
         </div>
       )}

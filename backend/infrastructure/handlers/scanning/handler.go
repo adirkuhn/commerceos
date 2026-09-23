@@ -24,16 +24,20 @@ type generatePairingCodeUC interface {
 type getPairingCodeStatusUC interface {
 	Execute(ctx context.Context, id string) (*iamDomain.ScannerPairingCode, error)
 }
+type refreshScannerSessionUC interface {
+	Execute(userID, tenantID, role string) (string, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	generatePairingCode  generatePairingCodeUC
-	getPairingCodeStatus getPairingCodeStatusUC
+	generatePairingCode   generatePairingCodeUC
+	getPairingCodeStatus  getPairingCodeStatusUC
+	refreshScannerSession refreshScannerSessionUC
 }
 
-func NewHandler(generatePairingCode generatePairingCodeUC, getPairingCodeStatus getPairingCodeStatusUC) *Handler {
-	return &Handler{generatePairingCode: generatePairingCode, getPairingCodeStatus: getPairingCodeStatus}
+func NewHandler(generatePairingCode generatePairingCodeUC, getPairingCodeStatus getPairingCodeStatusUC, refreshScannerSession refreshScannerSessionUC) *Handler {
+	return &Handler{generatePairingCode: generatePairingCode, getPairingCodeStatus: getPairingCodeStatus, refreshScannerSession: refreshScannerSession}
 }
 
 var _ genscanning.ServerInterface = (*Handler)(nil)
@@ -43,11 +47,12 @@ var _ genscanning.ServerInterface = (*Handler)(nil)
 // applied to the router group this is called with -- see
 // api/scanning/generate.go's doc comment for why this is deliberately
 // separate from api/iam's admin-only Groups module.
-func Register(rg gin.IRouter, db *gorm.DB) {
+func Register(rg gin.IRouter, db *gorm.DB, jwtSecret []byte) {
 	repo := repositories.NewScannerPairingCodeRepo(db)
 	h := NewHandler(
 		appiam.NewGeneratePairingCodeUseCase(db, repo),
 		appiam.NewGetPairingCodeStatusUseCase(db, repo),
+		appiam.NewRefreshScannerSessionUseCase(jwtSecret),
 	)
 	genscanning.RegisterHandlers(rg, h)
 }
@@ -75,6 +80,22 @@ func (h *Handler) GetPairingCodeStatus(c *gin.Context, id genscanning.Id) {
 	}
 	resp := toGenPairingCode(*pairing)
 	c.JSON(http.StatusOK, genscanning.ScannerPairingCodeResponse{Data: &resp})
+}
+
+func (h *Handler) RefreshScannerSession(c *gin.Context) {
+	claims := middleware.ClaimsFromGin(c)
+	if claims == nil {
+		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "no claims in context")
+		return
+	}
+	token, err := h.refreshScannerSession.Execute(claims.UserID, claims.TenantID, string(claims.Role))
+	if err != nil {
+		log.Printf("scanning: refresh scanner session: %v", err)
+		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
+		return
+	}
+	resp := genscanning.RefreshScannerSessionResult{Token: token}
+	c.JSON(http.StatusOK, genscanning.RefreshScannerSessionResponse{Data: &resp})
 }
 
 func toGenPairingCode(p iamDomain.ScannerPairingCode) genscanning.ScannerPairingCode {

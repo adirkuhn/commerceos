@@ -79,6 +79,7 @@ type salesOrderModel struct {
 	NeedsSKUReview          bool `gorm:"column:needs_sku_review;not null;default:false"`
 	NeedsManualRefundReview bool `gorm:"column:needs_manual_refund_review;not null;default:false"`
 	Fulfilled               bool `gorm:"not null;default:false"`
+	Packed                  bool `gorm:"not null;default:false"`
 }
 
 func (salesOrderModel) TableName() string { return "sales_orders" }
@@ -157,6 +158,7 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 		NeedsStockReview: o.NeedsStockReview, NeedsSKUReview: o.NeedsSKUReview,
 		NeedsManualRefundReview: o.NeedsManualRefundReview,
 		Fulfilled:               o.Fulfilled,
+		Packed:                  o.Packed,
 	}
 }
 
@@ -291,6 +293,9 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 	if filter.Fulfilled != nil {
 		q = q.Where("fulfilled = ?", *filter.Fulfilled)
 	}
+	if filter.Packed != nil {
+		q = q.Where("packed = ?", *filter.Packed)
+	}
 	if len(filter.Status) > 0 {
 		statuses := make([]string, len(filter.Status))
 		for i, s := range filter.Status {
@@ -368,6 +373,7 @@ func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 		NeedsStockReview: m.NeedsStockReview, NeedsSKUReview: m.NeedsSKUReview,
 		NeedsManualRefundReview: m.NeedsManualRefundReview,
 		Fulfilled:               m.Fulfilled,
+		Packed:                  m.Packed,
 	}
 }
 

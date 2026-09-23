@@ -57,6 +57,10 @@ export interface SalesOrder {
   // has physically shipped/been picked. false powers the picking scanner
   // app's "orders to pick" search.
   fulfilled?: boolean
+  // Fulfilled's packing-phase counterpart -- true once a PackingSession has
+  // completed for this order. false (combined with fulfilled:true) powers
+  // the packing screens' "orders ready to pack" search.
+  packed?: boolean
 }
 
 export type StockStatus = 'decremented' | 'pending'

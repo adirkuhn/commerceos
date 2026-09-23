@@ -9,6 +9,7 @@ export type NavItem =
   | 'warehouses'
   | 'orders'
   | 'picking'
+  | 'packing'
   | 'suppliers'
   | 'procurement'
   | 'customers'

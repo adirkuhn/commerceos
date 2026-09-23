@@ -156,6 +156,8 @@ export interface PickingSession {
   paused_at?: string | null
   completed_at?: string | null
   completed_by: string
+  locked_by?: string | null
+  locked_at?: string | null
 }
 
 export type PickScanActionType = 'pick' | 'substitute' | 'freebie' | 'new_item' | 'refund'
@@ -332,6 +334,67 @@ export interface AddSalesOrderLineItemInput {
   name?: string
   quantity: number
   price_minor_units: number
+}
+
+// ── Packing ──────────────────────────────────────────────────────────────────
+// The second half of fulfillment, carved out from picking -- box up an
+// already-picked order and get it ready to ship. See backend
+// domain/oms/packing.go's doc comment.
+
+export type PackingSessionStatus = 'in_progress' | 'completed'
+
+export interface PackingSession {
+  id: string
+  sales_order_id: string
+  status: PackingSessionStatus
+  started_at: string
+  completed_at?: string | null
+  completed_by: string
+  locked_by?: string | null
+  locked_at?: string | null
+}
+
+// Unlike PickScan, a PackScan is real the moment it's created -- packing
+// never touches stock or the order's line items, so there's no staged/
+// replayed distinction here.
+export interface PackScan {
+  id: string
+  session_id: string
+  line_item_id: string
+  sku_id: string
+  quantity: number
+  scanned_at: string
+  scanned_by: string
+}
+
+export interface PackingSessionDetail {
+  session: PackingSession
+  // Reuses the same loosely-typed line item shape as PickingSessionDetail.
+  line_items: PickingSessionLineItem[]
+  scans: PackScan[]
+}
+
+export interface ScanPackItemInput {
+  // Exactly one of code/sku_id is required.
+  code?: string
+  sku_id?: string
+  quantity?: number
+}
+
+export interface ScanPackItemResult {
+  scan: PackScan
+}
+
+export interface MissingPackItem {
+  line_item_id: string
+  name: string
+  expected_qty: number
+  packed_qty: number
+}
+
+export interface CompletePackingResult {
+  session: PackingSession
+  missing_items?: MissingPackItem[]
 }
 
 export interface APIError {

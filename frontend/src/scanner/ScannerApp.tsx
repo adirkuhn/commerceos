@@ -9,6 +9,8 @@ import { PurchaseOrderPickerScreen } from './PurchaseOrderPickerScreen'
 import { BookingScreen } from './BookingScreen'
 import { SalesOrderPickerScreen } from './SalesOrderPickerScreen'
 import { PickingScreen } from './PickingScreen'
+import { SalesOrderPackerScreen } from './SalesOrderPackerScreen'
+import { PackingScreen } from './PackingScreen'
 import type { SalesOrder } from '../oms/types'
 
 // Full-screen kiosk-style app for the handheld scanner device -- bypasses
@@ -22,6 +24,8 @@ export default function ScannerApp() {
   const [bookingId, setBookingId] = useState<string | null>(null)
   const [pickingSessionId, setPickingSessionId] = useState<string | null>(null)
   const [pickingOrder, setPickingOrder] = useState<SalesOrder | null>(null)
+  const [packingSessionId, setPackingSessionId] = useState<string | null>(null)
+  const [packingOrder, setPackingOrder] = useState<SalesOrder | null>(null)
   // Set by Price Lookup's "View in Inventory" -- lets Inventory open
   // straight to this SKU's screen instead of showing its own scan step.
   const [inventoryInitialResolved, setInventoryInitialResolved] = useState<Resolved | null>(null)
@@ -76,12 +80,38 @@ export default function ScannerApp() {
         order={pickingOrder}
         onExit={() => { setPickingSessionId(null); setPickingOrder(null) }}
         onAuthError={clearToken}
+        onContinueToPacking={(sessionId, order) => {
+          setPickingSessionId(null); setPickingOrder(null)
+          setPackingSessionId(sessionId); setPackingOrder(order); setApp('pack-order')
+        }}
       />
     )
   }
 
-  // Only 'receive-po', 'inventory', 'price-lookup', 'discard', and
-  // 'pick-order' are implemented -- the other tiles in AppLauncher are
+  if (app === 'pack-order') {
+    if (!packingSessionId || !packingOrder) {
+      return (
+        <SalesOrderPackerScreen
+          token={token}
+          onPackingStarted={(sessionId, order) => { setPackingSessionId(sessionId); setPackingOrder(order) }}
+          onLogout={clearToken}
+          onBack={() => setApp(null)}
+        />
+      )
+    }
+    return (
+      <PackingScreen
+        token={token}
+        sessionId={packingSessionId}
+        order={packingOrder}
+        onExit={() => { setPackingSessionId(null); setPackingOrder(null) }}
+        onAuthError={clearToken}
+      />
+    )
+  }
+
+  // Only 'receive-po', 'inventory', 'price-lookup', 'discard', 'pick-order',
+  // and 'pack-order' are implemented -- the other tiles in AppLauncher are
   // disabled, so app can't reach this branch with any other value yet.
   if (!bookingId) {
     return (

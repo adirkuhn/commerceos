@@ -490,7 +490,7 @@ func main() {
 	scanningGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(scanningSpec, &ginmiddleware.Options{
 		SilenceServersWarning: true,
 	}))
-	scanninghandler.Register(scanningGroup, db)
+	scanninghandler.Register(scanningGroup, db, []byte(cfg.JWTSecret))
 
 	// Scanner claim is the one genuinely public, unauthenticated route in
 	// this API -- mounted on its own /api/v1 group with no JWT middleware,

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as api from '../api'
 import type { Booking, BookingDetail, ScannerPairingCode, APIResponse, PickingSession } from '../types'
 
@@ -93,6 +93,53 @@ describe('getPairingCodeStatus', () => {
       'https://api.commerceos.dev.localhost/api/v1/iam/scanner-pairing/pairing-1',
       expect.objectContaining({ method: 'GET' }),
     )
+  })
+})
+
+describe('refreshScannerSession', () => {
+  it('posts to the correct endpoint with the caller token', async () => {
+    mockFetch({ token: 'new-signed-jwt' })
+    const result = await api.refreshScannerSession(TOKEN)
+
+    expect(result).toEqual({ token: 'new-signed-jwt' })
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/iam/scanner-pairing/refresh')
+    expect(opts.method).toBe('POST')
+    expect((opts.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN}`)
+  })
+})
+
+describe('onTokenActivity', () => {
+  afterEach(() => api.setOnTokenActivity(null))
+
+  it('is invoked with the token after a successful authenticated call', async () => {
+    mockFetch(samplePairing, 201)
+    const handler = vi.fn()
+    api.setOnTokenActivity(handler)
+
+    await api.generatePairingCode(TOKEN)
+
+    expect(handler).toHaveBeenCalledWith(TOKEN)
+  })
+
+  it('is not invoked for the unauthenticated claim call', async () => {
+    mockFetch({ token: 'signed-jwt' })
+    const handler = vi.fn()
+    api.setOnTokenActivity(handler)
+
+    await api.claimPairingCode('123456')
+
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('is not invoked when the call fails', async () => {
+    mockFetchError('VALIDATION_ERROR', 'nope')
+    const handler = vi.fn()
+    api.setOnTokenActivity(handler)
+
+    await expect(api.getPairingCodeStatus(TOKEN, 'pairing-1')).rejects.toThrow()
+
+    expect(handler).not.toHaveBeenCalled()
   })
 })
 

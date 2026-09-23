@@ -326,6 +326,64 @@ func TestPickScanRepo_Integration_Delete(t *testing.T) {
 	require.Empty(t, scans, "a deleted staged scan no longer appears in the session's scan list")
 }
 
+func TestPickingSessionRepo_Integration_AcquireAndReleaseLock(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	sessionRepo := repositories.NewPickingSessionRepo(db)
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	orderID := seedSalesOrderForPickingDB(t, db, ctx, warehouseID)
+
+	var sessionID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		session := omsDomain.PickingSession{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID,
+			Status: omsDomain.PickingSessionStatusInProgress, StartedAt: time.Now(),
+		}
+		if err := sessionRepo.Create(ctx, &session); err != nil {
+			return err
+		}
+		sessionID = session.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	lockedAt := time.Now().Truncate(time.Microsecond)
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return sessionRepo.AcquireLock(ctx, sessionID, "user-1", lockedAt)
+	})
+	require.NoError(t, err)
+
+	var found *omsDomain.PickingSession
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = sessionRepo.FindByID(ctx, sessionID)
+		return err
+	})
+	require.NoError(t, err)
+	require.NotNil(t, found.LockedBy)
+	require.Equal(t, "user-1", *found.LockedBy)
+	require.NotNil(t, found.LockedAt)
+	require.WithinDuration(t, lockedAt, *found.LockedAt, time.Second)
+
+	// ReleaseLock must actually clear locked_by/locked_at to NULL -- a
+	// struct-based Update() would silently skip nil pointer fields here
+	// (see AcquireLock/ReleaseLock's doc comment), so this proves the
+	// map-based update really does it.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return sessionRepo.ReleaseLock(ctx, sessionID)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = sessionRepo.FindByID(ctx, sessionID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Nil(t, found.LockedBy)
+	require.Nil(t, found.LockedAt)
+}
+
 // TestPickingSessionRepo_Integration_RLSIsolatesTenants proves the new
 // tables' tenant_isolation policy actually enforces isolation (not just
 // that the SQL runs) -- routed through commerceos_app, not the

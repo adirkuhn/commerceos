@@ -1,6 +1,6 @@
-import { Boxes, PackageCheck, Tag, ClipboardList, LogOut, Trash2 } from 'lucide-react'
+import { Boxes, PackageCheck, Tag, ClipboardList, LogOut, Trash2, Package } from 'lucide-react'
 
-export type ScannerAppID = 'receive-po' | 'inventory' | 'price-lookup' | 'pick-order' | 'discard'
+export type ScannerAppID = 'receive-po' | 'inventory' | 'price-lookup' | 'pick-order' | 'pack-order' | 'discard'
 
 interface AppLauncherProps {
   onSelect: (app: ScannerAppID) => void
@@ -13,6 +13,7 @@ const APPS: { id: ScannerAppID; label: string; icon: typeof PackageCheck; enable
   { id: 'price-lookup', label: 'Price Lookup', icon: Tag, enabled: true },
   { id: 'discard', label: 'Discard', icon: Trash2, enabled: true },
   { id: 'pick-order', label: 'Pick Order', icon: ClipboardList, enabled: true },
+  { id: 'pack-order', label: 'Pack Order', icon: Package, enabled: true },
 ]
 
 // Entry point once a handheld is paired -- hosts every scanner mini-app.

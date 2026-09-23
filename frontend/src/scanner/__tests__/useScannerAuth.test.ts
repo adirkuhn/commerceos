@@ -2,6 +2,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useScannerAuth, storeScannerSession, SCANNER_TOKEN_KEY, SCANNER_REFRESH_KEY } from '../useScannerAuth'
+import * as api from '../api'
 
 function makeJWT(expSeconds: number): string {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
@@ -54,7 +55,7 @@ describe('useScannerAuth — pairing-code path (no refresh token)', () => {
     expect(localStorage.getItem(SCANNER_REFRESH_KEY)).toBeNull()
   })
 
-  it('never calls fetch for a pairing-code session, even well past its expiry', async () => {
+  it('never calls fetch for a pairing-code session, even well past its expiry, absent any activity', async () => {
     vi.useFakeTimers()
     const fetchSpy = vi.fn()
     vi.stubGlobal('fetch', fetchSpy)
@@ -64,6 +65,72 @@ describe('useScannerAuth — pairing-code path (no refresh token)', () => {
     await vi.advanceTimersByTimeAsync(3600 * 1000 + 1000)
 
     expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('useScannerAuth — pairing-code path, activity-based refresh', () => {
+  function registeredHandler(setSpy: ReturnType<typeof vi.spyOn>): (token: string) => void {
+    const calls = setSpy.mock.calls as unknown as Array<[((t: string) => void) | null]>
+    const last = calls.filter(([h]) => h !== null).pop()
+    if (!last) throw new Error('no handler registered')
+    return last[0] as (t: string) => void
+  }
+
+  it('does not refresh when the token has plenty of remaining TTL', async () => {
+    const setSpy = vi.spyOn(api, 'setOnTokenActivity')
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const { result } = renderHook(() => useScannerAuth())
+    const handler = registeredHandler(setSpy)
+
+    const freshToken = makeJWT(Math.floor(Date.now() / 1000) + 12 * 3600)
+    act(() => result.current.setToken(freshToken))
+    act(() => handler(freshToken))
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('refreshes and updates the stored token once remaining TTL drops under the threshold', async () => {
+    const setSpy = vi.spyOn(api, 'setOnTokenActivity')
+    const newToken = makeJWT(Math.floor(Date.now() / 1000) + 12 * 3600)
+    mockFetchOnce({ token: newToken })
+    const { result } = renderHook(() => useScannerAuth())
+    const handler = registeredHandler(setSpy)
+
+    const nearlySpentToken = makeJWT(Math.floor(Date.now() / 1000) + 3600) // 1h left, under the 6h threshold
+    act(() => result.current.setToken(nearlySpentToken))
+    await act(async () => {
+      handler(nearlySpentToken)
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/iam/scanner-pairing/refresh'),
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(result.current.token).toBe(newToken)
+  })
+
+  it('throttles repeated refresh attempts within the cooldown window', async () => {
+    const setSpy = vi.spyOn(api, 'setOnTokenActivity')
+    const newToken = makeJWT(Math.floor(Date.now() / 1000) + 12 * 3600)
+    mockFetchOnce({ token: newToken })
+    const { result } = renderHook(() => useScannerAuth())
+    const handler = registeredHandler(setSpy)
+
+    const nearlySpentToken = makeJWT(Math.floor(Date.now() / 1000) + 3600)
+    act(() => result.current.setToken(nearlySpentToken))
+    // Two activity events back-to-back, same still-current token, before
+    // the first refresh call's promise has a chance to resolve -- the
+    // cooldown timestamp is recorded synchronously, so the second must
+    // be dropped regardless of the first's outcome.
+    await act(async () => {
+      handler(nearlySpentToken)
+      handler(nearlySpentToken)
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 })
 

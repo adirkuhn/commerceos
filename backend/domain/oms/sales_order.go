@@ -240,6 +240,13 @@ type SalesOrder struct {
 	// -- see UpdateSalesOrderInput.Fulfilled for the manual override escape
 	// hatch.
 	Fulfilled bool
+
+	// Packed is Fulfilled's packing-phase counterpart -- true once a
+	// PackingSession has completed for this order (see
+	// CompletePackingUseCase). Always false while Fulfilled is false (packing
+	// can't start before picking finishes, see
+	// StartOrResumePackingUseCase.ErrOrderNotYetPicked). Never auto-cleared.
+	Packed bool
 }
 
 // SalesOrderLineItem is one SKU sold within a SalesOrder. The POS resolves

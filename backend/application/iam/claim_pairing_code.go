@@ -82,17 +82,29 @@ func (uc *ClaimPairingCodeUseCase) claim(ctx context.Context, lookup func(contex
 		return "", fmt.Errorf("claimPairingCode: %w", err)
 	}
 
+	token, err := mintScannerToken(pairing.UserID, pairing.TenantID, pairing.Role, uc.jwtSecret)
+	if err != nil {
+		return "", fmt.Errorf("claimPairingCode: %w", err)
+	}
+	return token, nil
+}
+
+// mintScannerToken builds and signs a scanner-session JWT for the given
+// identity, expiring scannerSessionTTL from now. Shared by
+// ClaimPairingCodeUseCase (first mint) and RefreshScannerSessionUseCase
+// (reissue) so the claims shape/signing never drifts between the two.
+func mintScannerToken(userID, tenantID, role string, jwtSecret []byte) (string, error) {
 	now := time.Now()
 	c := claims{
-		UserID: pairing.UserID, TenantID: pairing.TenantID, Role: pairing.Role,
+		UserID: userID, TenantID: tenantID, Role: role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(scannerSessionTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
 		},
 	}
-	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, c).SignedString(uc.jwtSecret)
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, c).SignedString(jwtSecret)
 	if err != nil {
-		return "", fmt.Errorf("claimPairingCode: sign token: %w", err)
+		return "", fmt.Errorf("mintScannerToken: sign token: %w", err)
 	}
 	return token, nil
 }

@@ -57,10 +57,16 @@ type addSalesOrderLineItemUC interface {
 	Execute(ctx context.Context, in appoms.AddSalesOrderLineItemInput) (*omsDomain.SalesOrderLineItem, error)
 }
 type startOrResumePickingUC interface {
-	Execute(ctx context.Context, salesOrderID string) (*omsDomain.PickingSession, error)
+	Execute(ctx context.Context, salesOrderID, userID string) (*omsDomain.PickingSession, error)
 }
 type getPickingSessionUC interface {
 	Execute(ctx context.Context, id string) (*appoms.PickingSessionDetail, error)
+}
+type touchPickingSessionUC interface {
+	Execute(ctx context.Context, sessionID, userID string) error
+}
+type resetPickingSessionUC interface {
+	Execute(ctx context.Context, sessionID string) (*omsDomain.PickingSession, error)
 }
 type scanPickItemUC interface {
 	Execute(ctx context.Context, in appoms.ScanPickItemInput) (*appoms.ScanPickItemResult, error)
@@ -87,6 +93,9 @@ type listSalesOrderActivitiesUC interface {
 	Execute(ctx context.Context, salesOrderID string) ([]omsDomain.SalesOrderActivity, error)
 }
 
+// Packing use-case interfaces live in packing_handler.go alongside the
+// handler methods that use them (see that file's doc comment for why).
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
@@ -101,6 +110,8 @@ type Handler struct {
 	addSalesOrderLineItem      addSalesOrderLineItemUC
 	startOrResumePicking       startOrResumePickingUC
 	getPickingSession          getPickingSessionUC
+	touchPickingSession        touchPickingSessionUC
+	resetPickingSession        resetPickingSessionUC
 	scanPickItem               scanPickItemUC
 	substituteLineItem         substituteLineItemUC
 	refundLineItem             refundLineItemUC
@@ -110,6 +121,14 @@ type Handler struct {
 	completePicking            completePickingUC
 	bulkUpdateSalesOrderStatus bulkUpdateSalesOrderStatusUC
 	listSalesOrderActivities   listSalesOrderActivitiesUC
+
+	startOrResumePacking startOrResumePackingUC
+	getPackingSession    getPackingSessionUC
+	touchPackingSession  touchPackingSessionUC
+	resetPackingSession  resetPackingSessionUC
+	scanPackItem         scanPackItemUC
+	deletePackScan       deletePackScanUC
+	completePacking      completePackingUC
 }
 
 func NewHandler(
@@ -117,24 +136,32 @@ func NewHandler(
 	updateSalesOrder updateSalesOrderUC, deleteSalesOrder deleteSalesOrderUC, linkLineItemSKU linkLineItemSKUUC,
 	retryStockDecrement retryStockDecrementUC, forceAcceptStock forceAcceptStockUC,
 	addSalesOrderLineItem addSalesOrderLineItemUC, startOrResumePicking startOrResumePickingUC,
-	getPickingSession getPickingSessionUC, scanPickItem scanPickItemUC, substituteLineItem substituteLineItemUC,
+	getPickingSession getPickingSessionUC, touchPickingSession touchPickingSessionUC, resetPickingSession resetPickingSessionUC,
+	scanPickItem scanPickItemUC, substituteLineItem substituteLineItemUC,
 	refundLineItem refundLineItemUC,
 	resolvePickScanCode resolvePickScanCodeUC,
 	deletePickScan deletePickScanUC, pausePicking pausePickingUC, completePicking completePickingUC,
 	bulkUpdateSalesOrderStatus bulkUpdateSalesOrderStatusUC,
 	listSalesOrderActivities listSalesOrderActivitiesUC,
+	startOrResumePacking startOrResumePackingUC, getPackingSession getPackingSessionUC,
+	touchPackingSession touchPackingSessionUC, resetPackingSession resetPackingSessionUC,
+	scanPackItem scanPackItemUC, deletePackScan deletePackScanUC, completePacking completePackingUC,
 ) *Handler {
 	return &Handler{
 		listSalesOrders: listSalesOrders, getSalesOrder: getSalesOrder,
 		createSalesOrder: createSalesOrder, updateSalesOrder: updateSalesOrder, deleteSalesOrder: deleteSalesOrder,
 		linkLineItemSKU: linkLineItemSKU, retryStockDecrement: retryStockDecrement, forceAcceptStock: forceAcceptStock,
 		addSalesOrderLineItem: addSalesOrderLineItem, startOrResumePicking: startOrResumePicking,
-		getPickingSession: getPickingSession, scanPickItem: scanPickItem, substituteLineItem: substituteLineItem,
+		getPickingSession: getPickingSession, touchPickingSession: touchPickingSession, resetPickingSession: resetPickingSession,
+		scanPickItem: scanPickItem, substituteLineItem: substituteLineItem,
 		refundLineItem:      refundLineItem,
 		resolvePickScanCode: resolvePickScanCode,
 		deletePickScan:      deletePickScan, pausePicking: pausePicking, completePicking: completePicking,
 		bulkUpdateSalesOrderStatus: bulkUpdateSalesOrderStatus,
 		listSalesOrderActivities:   listSalesOrderActivities,
+		startOrResumePacking:       startOrResumePacking, getPackingSession: getPackingSession,
+		touchPackingSession: touchPackingSession, resetPackingSession: resetPackingSession,
+		scanPackItem: scanPackItem, deletePackScan: deletePackScan, completePacking: completePacking,
 	}
 }
 
@@ -188,6 +215,9 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 	addLineItem := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
 	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, recordMovement, outboxRepo)
 
+	packingSessionRepo := repositories.NewPackingSessionRepo(db)
+	packScanRepo := repositories.NewPackScanRepo(db)
+
 	permissionRepo := repositories.NewGroupPermissionRepo(db)
 	connRepo := repositories.NewConnectionRepo(db)
 	refundClientResolver := appoms.NewPaymentRefundClientResolver(db, connRepo, stripe.NewClientFactory(), revolut.NewClientFactory(), encryptionSecret)
@@ -204,6 +234,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		addLineItem,
 		appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, pickingSessionRepo),
 		appoms.NewGetPickingSessionUseCase(db, pickingSessionRepo, lineItemRepo, pickScanRepo, skuRepo, variantRepo),
+		appoms.NewTouchPickingSessionUseCase(db, pickingSessionRepo),
+		appoms.NewResetPickingSessionUseCase(db, pickingSessionRepo, pickScanRepo),
 		appoms.NewScanPickItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, salesOrderRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
 		appoms.NewSubstituteLineItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo),
 		appoms.NewRefundLineItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, permissionRepo),
@@ -218,6 +250,13 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewCompletePickingUseCase(db, pickingSessionRepo, salesOrderRepo, lineItemRepo, linkRepo, pickScanRepo, addLineItem, allocateStock, recordMovement, allocateStock, skuRepo, outboxRepo, refundClientResolver),
 		appoms.NewBulkUpdateSalesOrderStatusUseCase(updateSalesOrder),
 		appoms.NewListSalesOrderActivitiesUseCase(db, repositories.NewSalesOrderActivityRepo(db)),
+		appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, packingSessionRepo),
+		appoms.NewGetPackingSessionUseCase(db, packingSessionRepo, lineItemRepo, packScanRepo, skuRepo, variantRepo),
+		appoms.NewTouchPackingSessionUseCase(db, packingSessionRepo),
+		appoms.NewResetPackingSessionUseCase(db, packingSessionRepo, packScanRepo),
+		appoms.NewScanPackItemUseCase(db, packingSessionRepo, packScanRepo, lineItemRepo, skuRepo, barcodeAliasRepo),
+		appoms.NewDeletePackScanUseCase(db, packingSessionRepo, packScanRepo),
+		appoms.NewCompletePackingUseCase(db, packingSessionRepo, salesOrderRepo, lineItemRepo, packScanRepo),
 	)
 	genoms.RegisterHandlers(rg, h)
 }
@@ -255,7 +294,7 @@ func (h *Handler) ListSalesOrders(c *gin.Context, params genoms.ListSalesOrdersP
 	result, err := h.listSalesOrders.Execute(c.Request.Context(), appoms.ListSalesOrdersInput{
 		Page: page, PerPage: perPage, SortBy: sortBy, SortDir: sortDir,
 		NeedsStockReview: params.NeedsStockReview, NeedsSKUReview: params.NeedsSkuReview,
-		Fulfilled: params.Fulfilled, Status: statuses, Source: sources, CustomerID: params.CustomerId,
+		Fulfilled: params.Fulfilled, Packed: params.Packed, Status: statuses, Source: sources, CustomerID: params.CustomerId,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -437,7 +476,34 @@ func (h *Handler) AddSalesOrderLineItem(c *gin.Context, id genoms.Id) {
 }
 
 func (h *Handler) StartOrResumePicking(c *gin.Context, id genoms.Id) {
-	session, err := h.startOrResumePicking.Execute(c.Request.Context(), id)
+	claims := middleware.ClaimsFromGin(c)
+	userID := ""
+	if claims != nil {
+		userID = claims.UserID
+	}
+	session, err := h.startOrResumePicking.Execute(c.Request.Context(), id, userID)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenPickingSession(*session)
+	c.JSON(http.StatusOK, genoms.PickingSessionResponse{Data: &resp})
+}
+
+func (h *Handler) TouchPickingSession(c *gin.Context, id genoms.Id) {
+	claims := middleware.ClaimsFromGin(c)
+	userID := ""
+	if claims != nil {
+		userID = claims.UserID
+	}
+	err := h.touchPickingSession.Execute(c.Request.Context(), id, userID)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) ResetPickingSession(c *gin.Context, id genoms.Id) {
+	session, err := h.resetPickingSession.Execute(c.Request.Context(), id)
 	if err := mapError(c, err); err != nil {
 		return
 	}
@@ -687,6 +753,7 @@ func toGenSalesOrder(o omsDomain.SalesOrder) genoms.SalesOrder {
 		ShippingMethod: &o.ShippingMethod, ShippingMethodTitle: &o.ShippingMethodTitle, TransactionId: &o.TransactionID,
 		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted, OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt,
 		NeedsStockReview: &o.NeedsStockReview, NeedsSkuReview: &o.NeedsSKUReview, Fulfilled: &o.Fulfilled,
+		Packed: &o.Packed,
 	}
 }
 
@@ -711,6 +778,7 @@ func toGenPickingSession(s omsDomain.PickingSession) genoms.PickingSession {
 	return genoms.PickingSession{
 		Id: s.ID, SalesOrderId: s.SalesOrderID, Status: genoms.PickingSessionStatus(s.Status),
 		StartedAt: s.StartedAt, PausedAt: s.PausedAt, CompletedAt: s.CompletedAt, CompletedBy: s.CompletedBy,
+		LockedBy: s.LockedBy, LockedAt: s.LockedAt,
 	}
 }
 
@@ -749,7 +817,8 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, omsDomain.ErrSalesOrderNotFound), errors.Is(err, omsDomain.ErrSalesOrderLineItemNotFound),
 		errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, omsDomain.ErrPickingSessionNotFound),
-		errors.Is(err, omsDomain.ErrPickScanNotFound):
+		errors.Is(err, omsDomain.ErrPickScanNotFound), errors.Is(err, omsDomain.ErrPackingSessionNotFound),
+		errors.Is(err, omsDomain.ErrPackScanNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, omsDomain.ErrEmptyLineItems), errors.Is(err, invDomain.ErrInsufficientStock),
 		errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, omsDomain.ErrLineItemNotOnOrder),
@@ -763,8 +832,14 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, omsDomain.ErrSubstituteLinesRequired), errors.Is(err, omsDomain.ErrInvalidSubstituteQuantity),
 		errors.Is(err, omsDomain.ErrSubstitutionCoverageMismatch), errors.Is(err, omsDomain.ErrInvalidRefundQuantity),
 		errors.Is(err, omsDomain.ErrRefundRequiresLinkedSKU), errors.Is(err, pmsDomain.ErrWeightRequiredForPerWeightSKU),
-		errors.Is(err, pmsDomain.ErrInvalidCheckDigit):
+		errors.Is(err, pmsDomain.ErrInvalidCheckDigit), errors.Is(err, omsDomain.ErrPickingSessionAlreadyCompleted),
+		errors.Is(err, omsDomain.ErrPackingSessionNotActive), errors.Is(err, omsDomain.ErrPackingSessionAlreadyCompleted),
+		errors.Is(err, omsDomain.ErrOrderNotYetPicked), errors.Is(err, omsDomain.ErrOrderAlreadyPacked),
+		errors.Is(err, omsDomain.ErrPackScanCodeOrSKURequired), errors.Is(err, omsDomain.ErrPackScanSKUMismatch),
+		errors.Is(err, omsDomain.ErrPackQuantityExceedsOrdered):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+	case errors.Is(err, omsDomain.ErrPickingSessionLocked), errors.Is(err, omsDomain.ErrPackingSessionLocked):
+		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
 	case errors.Is(err, omsDomain.ErrPermissionDenied):
 		middleware.Fail(c, http.StatusForbidden, "FORBIDDEN", err.Error())
 	default:

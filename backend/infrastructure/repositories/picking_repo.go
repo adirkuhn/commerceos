@@ -21,6 +21,8 @@ type pickingSessionModel struct {
 	PausedAt     *time.Time
 	CompletedAt  *time.Time
 	CompletedBy  string
+	LockedBy     *string    `gorm:"column:locked_by"`
+	LockedAt     *time.Time `gorm:"column:locked_at"`
 }
 
 func (pickingSessionModel) TableName() string { return "picking_sessions" }
@@ -66,6 +68,7 @@ func (r *PickingSessionRepo) Create(ctx context.Context, s *omsDomain.PickingSes
 	m := pickingSessionModel{
 		ID: s.ID, TenantID: s.TenantID, SalesOrderID: s.SalesOrderID, Status: string(s.Status),
 		StartedAt: s.StartedAt, PausedAt: s.PausedAt, CompletedAt: s.CompletedAt, CompletedBy: s.CompletedBy,
+		LockedBy: s.LockedBy, LockedAt: s.LockedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("pickingSessionRepo.Create: %w", err)
@@ -115,9 +118,37 @@ func (r *PickingSessionRepo) Update(ctx context.Context, s *omsDomain.PickingSes
 	m := pickingSessionModel{
 		ID: s.ID, TenantID: s.TenantID, SalesOrderID: s.SalesOrderID, Status: string(s.Status),
 		StartedAt: s.StartedAt, PausedAt: s.PausedAt, CompletedAt: s.CompletedAt, CompletedBy: s.CompletedBy,
+		LockedBy: s.LockedBy, LockedAt: s.LockedAt,
 	}
 	if err := tx.Model(&pickingSessionModel{}).Where("id = ?", s.ID).Updates(&m).Error; err != nil {
 		return fmt.Errorf("pickingSessionRepo.Update: %w", err)
+	}
+	return nil
+}
+
+// AcquireLock -- see PickingSessionRepository.AcquireLock's doc for why
+// this is a map-based update rather than Update.
+func (r *PickingSessionRepo) AcquireLock(ctx context.Context, id, userID string, at time.Time) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&pickingSessionModel{}).Where("id = ?", id).
+		Updates(map[string]interface{}{"locked_by": userID, "locked_at": at}).Error; err != nil {
+		return fmt.Errorf("pickingSessionRepo.AcquireLock: %w", err)
+	}
+	return nil
+}
+
+// ReleaseLock -- see PickingSessionRepository.ReleaseLock's doc.
+func (r *PickingSessionRepo) ReleaseLock(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&pickingSessionModel{}).Where("id = ?", id).
+		Updates(map[string]interface{}{"locked_by": nil, "locked_at": nil}).Error; err != nil {
+		return fmt.Errorf("pickingSessionRepo.ReleaseLock: %w", err)
 	}
 	return nil
 }
@@ -126,6 +157,7 @@ func toPickingSessionDomain(m pickingSessionModel) *omsDomain.PickingSession {
 	return &omsDomain.PickingSession{
 		ID: m.ID, TenantID: m.TenantID, SalesOrderID: m.SalesOrderID, Status: omsDomain.PickingSessionStatus(m.Status),
 		StartedAt: m.StartedAt, PausedAt: m.PausedAt, CompletedAt: m.CompletedAt, CompletedBy: m.CompletedBy,
+		LockedBy: m.LockedBy, LockedAt: m.LockedAt,
 	}
 }
 

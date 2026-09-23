@@ -25,7 +25,7 @@ func NewStartOrResumePickingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesO
 	return &StartOrResumePickingUseCase{db: db, salesOrderRepo: salesOrderRepo, sessionRepo: sessionRepo}
 }
 
-func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID string) (*omsDomain.PickingSession, error) {
+func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID, userID string) (*omsDomain.PickingSession, error) {
 	var session omsDomain.PickingSession
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		order, err := uc.salesOrderRepo.FindByID(ctx, salesOrderID)
@@ -41,6 +41,19 @@ func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID
 			return err
 		}
 		if existing != nil {
+			// Someone else is already working this session -- refuse
+			// unless their lock has gone stale (no heartbeat touch within
+			// PickingLockTTL), otherwise two people end up scanning into
+			// the same order at once.
+			if existing.LockedBy != nil && *existing.LockedBy != userID &&
+				existing.LockedAt != nil && time.Since(*existing.LockedAt) < omsDomain.PickingLockTTL {
+				return omsDomain.ErrPickingSessionLocked
+			}
+			now := time.Now()
+			if err := uc.sessionRepo.AcquireLock(ctx, existing.ID, userID, now); err != nil {
+				return err
+			}
+			existing.LockedBy, existing.LockedAt = &userID, &now
 			if existing.Status == omsDomain.PickingSessionStatusPaused {
 				existing.Status = omsDomain.PickingSessionStatusInProgress
 				existing.PausedAt = nil
@@ -52,9 +65,11 @@ func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID
 			return nil
 		}
 
+		now := time.Now()
 		session = omsDomain.PickingSession{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: salesOrderID,
-			Status: omsDomain.PickingSessionStatusInProgress, StartedAt: time.Now(),
+			Status: omsDomain.PickingSessionStatusInProgress, StartedAt: now,
+			LockedBy: &userID, LockedAt: &now,
 		}
 		return uc.sessionRepo.Create(ctx, &session)
 	})

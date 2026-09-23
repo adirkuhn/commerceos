@@ -1,10 +1,25 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { msUntilRefresh, buildRefreshPayload } from '../auth/tokenRefresh'
 import { APP_ID, lm2Origin } from '../auth/loginConfig'
+import { refreshScannerSession, setOnTokenActivity } from './api'
 
 export const SCANNER_TOKEN_KEY = 'commerceos_scanner_jwt'
 export const SCANNER_REFRESH_KEY = 'commerceos_scanner_refresh'
 const REFRESH_BUFFER_SECONDS = 60
+
+// A pairing-code session's server-side TTL (claim_pairing_code.go's
+// scannerSessionTTL) is a fixed 12h regardless of use. Rather than schedule
+// a blind wall-clock renewal (which would need its own drift-prone timer),
+// every successful API call reports its token here via api.ts's
+// onTokenActivity hook -- once the token is more than half spent, that
+// activity itself triggers a refresh. A picker who's actively scanning never
+// runs the clock down; one left genuinely idle just rides out the original
+// 12h and re-pairs, same as today.
+const PAIRING_REFRESH_THRESHOLD_MS = 6 * 60 * 60 * 1000
+// Refreshing on every single call once under the threshold would hammer the
+// endpoint during a busy scan burst -- one attempt per cooldown window is
+// plenty to keep a session that's still in use alive.
+const PAIRING_REFRESH_COOLDOWN_MS = 10 * 60 * 1000
 
 // Deliberately separate from ../auth/AuthContext's TOKEN_KEY -- a scanner
 // device and the desktop admin session it was paired from are different
@@ -65,6 +80,12 @@ function refreshEndpoint(): string {
 export function useScannerAuth(): ScannerAuthState {
   const [state, setState] = useState(loadStored)
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stateRef = useRef(state)
+  const lastPairingRefreshAttempt = useRef(0)
+
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
 
   const setToken = useCallback((t: string) => {
     localStorage.setItem(SCANNER_TOKEN_KEY, t)
@@ -83,6 +104,33 @@ export function useScannerAuth(): ScannerAuthState {
     if (refreshTimer.current) clearTimeout(refreshTimer.current)
     setState(null)
   }, [])
+
+  // Activity-based renewal for pairing-code sessions (Google-login sessions
+  // already get their own silent renewal below via refreshToken). Registers
+  // once; reads live session state via stateRef so it never needs to be
+  // re-registered as state changes.
+  useEffect(() => {
+    const handler = (usedToken: string) => {
+      const current = stateRef.current
+      if (!current || current.refreshToken) return
+      if (current.token !== usedToken) return
+      const exp = decodeExp(usedToken)
+      if (exp == null) return
+      const remainingMs = exp * 1000 - Date.now()
+      if (remainingMs > PAIRING_REFRESH_THRESHOLD_MS) return
+      const now = Date.now()
+      if (now - lastPairingRefreshAttempt.current < PAIRING_REFRESH_COOLDOWN_MS) return
+      lastPairingRefreshAttempt.current = now
+      refreshScannerSession(usedToken)
+        .then((res) => setToken(res.token))
+        .catch(() => {
+          // Best-effort: a failed refresh just leaves the existing token to
+          // ride out its remaining TTL, same as before this feature existed.
+        })
+    }
+    setOnTokenActivity(handler)
+    return () => setOnTokenActivity(null)
+  }, [setToken])
 
   // Silent renewal, same shape as ../auth/AuthContext's -- only armed for a
   // Google-login session (refreshToken set). A pairing-code session has none
