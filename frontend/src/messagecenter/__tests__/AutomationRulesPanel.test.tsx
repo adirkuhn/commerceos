@@ -71,7 +71,7 @@ describe('AutomationRulesPanel', () => {
     await screen.findByText('No automation rules yet')
 
     await userEvent.click(screen.getByText('New rule'))
-    await userEvent.type(screen.getByLabelText('Name'), 'Notify on collect point')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Notify on collect point')
     await userEvent.selectOptions(screen.getByLabelText('Send this template'), 'template-1')
     await userEvent.click(screen.getByText('Create rule'))
 

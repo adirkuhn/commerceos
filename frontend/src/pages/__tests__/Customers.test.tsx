@@ -148,12 +148,12 @@ describe('Customer detail page', () => {
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Jane Doe'))
 
-    expect(screen.getByText('jane@example.com')).toBeInTheDocument()
+    expect(await screen.findByText('jane@example.com')).toBeInTheDocument()
     expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
-    expect(screen.getByLabelText('Email')).toHaveValue('jane@example.com')
+    expect(await screen.findByLabelText('Email')).toHaveValue('jane@example.com')
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
   })
 
@@ -274,7 +274,7 @@ describe('Customer detail page', () => {
     await screen.findByText('No notes')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit notes' }))
-    await userEvent.type(screen.getByLabelText('Notes'), 'VIP')
+    await userEvent.type(await screen.findByLabelText('Notes'), 'VIP')
     await userEvent.click(screen.getByRole('button', { name: 'Save note' }))
 
     await waitFor(() => expect(customersApi.updateCustomer).toHaveBeenCalledWith('test-token', 'customer-1', expect.objectContaining({
@@ -289,7 +289,7 @@ describe('Customer edit page', () => {
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Customer' }))
 
-    expect(screen.getByText('New Customer', { selector: 'h1' })).toBeInTheDocument()
+    expect(await screen.findByText('New Customer', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toHaveValue('')
     expect(screen.getByRole('button', { name: 'Create Customer' })).toBeInTheDocument()
   })
@@ -301,7 +301,7 @@ describe('Customer edit page', () => {
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Customer' }))
-    await userEvent.type(screen.getByLabelText('First name'), 'Bob')
+    await userEvent.type(await screen.findByLabelText('First name'), 'Bob')
     await userEvent.type(screen.getByLabelText('Last name'), 'Smith')
     await userEvent.type(screen.getByLabelText('Email'), 'bob@example.com')
     await userEvent.click(screen.getByRole('button', { name: 'Create Customer' }))
@@ -319,7 +319,7 @@ describe('Customer edit page', () => {
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Customer' }))
-    await userEvent.type(screen.getByLabelText('First name'), 'Bob')
+    await userEvent.type(await screen.findByLabelText('First name'), 'Bob')
     await userEvent.type(screen.getByLabelText('Last name'), 'Smith')
     await userEvent.type(screen.getByLabelText('Email'), 'bob@example.com')
     await userEvent.type(screen.getByLabelText('Billing city'), 'Rotterdam')
@@ -335,7 +335,7 @@ describe('Customer edit page', () => {
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Customer' }))
-    await userEvent.type(screen.getByLabelText('Email'), 'bob@example.com')
+    await userEvent.type(await screen.findByLabelText('Email'), 'bob@example.com')
     await userEvent.click(screen.getByRole('button', { name: 'Create Customer' }))
 
     expect(await screen.findByText('email already taken')).toBeInTheDocument()
@@ -346,11 +346,11 @@ describe('Customer edit page', () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
     vi.mocked(customersApi.updateCustomer).mockResolvedValue(customer({ last_name: 'Doelist' }))
 
-    render(<MemoryRouter><Customers /></MemoryRouter>)
+    const { router } = renderAt(<Customers />, '/customers')
     await userEvent.click(await screen.findByText('Jane Doe'))
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
 
-    const input = screen.getByLabelText('Last name')
+    const input = await screen.findByLabelText('Last name')
     await userEvent.clear(input)
     await userEvent.type(input, 'Doelist')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -358,6 +358,11 @@ describe('Customer edit page', () => {
     await waitFor(() => expect(customersApi.updateCustomer).toHaveBeenCalledWith(
       'test-token', 'customer-1', expect.objectContaining({ last_name: 'Doelist' }),
     ))
+    // The edit form's own heading also shows the new name -- wait until
+    // we're actually back on the detail URL before asserting on it.
+    // (router state flips before React commits, so wait on the detail view's own UI)
+    await screen.findByRole('button', { name: 'Edit' })
+    expect(router.state.location.search).toBe('')
     expect(await screen.findByText('Jane Doelist', { selector: 'h1' })).toBeInTheDocument()
   })
 
@@ -368,9 +373,9 @@ describe('Customer edit page', () => {
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Jane Doe'))
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
 
-    expect(screen.getByLabelText('Email')).toHaveValue('jane@example.com')
+    expect(await screen.findByLabelText('Email')).toHaveValue('jane@example.com')
     expect(screen.getByLabelText('Billing city')).toHaveValue('Rotterdam')
     expect(screen.getByLabelText('Billing country')).toHaveValue('NL')
     expect(screen.getByLabelText('Billing phone')).toHaveValue('+31 6 1234 5678')
@@ -421,8 +426,8 @@ describe('Customer edit page', () => {
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Jane Doe'))
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
-    await userEvent.type(screen.getByLabelText('Last name'), ' extra')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    await userEvent.type(await screen.findByLabelText('Last name'), ' extra')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 
     expect(customersApi.updateCustomer).not.toHaveBeenCalled()

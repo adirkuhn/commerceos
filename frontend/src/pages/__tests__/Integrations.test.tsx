@@ -180,7 +180,7 @@ describe('Import products', () => {
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
 
-    expect(screen.getByText('Import products')).toBeInTheDocument()
+    expect(await screen.findByText('Import products')).toBeInTheDocument()
     expect(screen.getByLabelText('Default warehouse ID')).toBeInTheDocument()
     expect(screen.getByLabelText('Default currency')).toBeInTheDocument()
   })
@@ -191,7 +191,7 @@ describe('Import products', () => {
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
 
-    expect(screen.getByLabelText('Default currency')).toHaveValue('EUR')
+    expect(await screen.findByLabelText('Default currency')).toHaveValue('EUR')
   })
 
   it('prefills the currency even when stored in a different case or with stray whitespace', async () => {
@@ -200,7 +200,7 @@ describe('Import products', () => {
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
 
-    expect(screen.getByLabelText('Default currency')).toHaveValue('EUR')
+    expect(await screen.findByLabelText('Default currency')).toHaveValue('EUR')
   })
 
   it('falls back to the tenant-wide Localization currency when the connection has none of its own', async () => {
@@ -214,7 +214,7 @@ describe('Import products', () => {
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
 
-    expect(screen.getByLabelText('Default currency')).toHaveValue('EUR')
+    expect(await screen.findByLabelText('Default currency')).toHaveValue('EUR')
   })
 
   it('prefers the connection-level currency over the tenant-wide default when both are set', async () => {
@@ -228,7 +228,7 @@ describe('Import products', () => {
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
 
-    expect(screen.getByLabelText('Default currency')).toHaveValue('GBP')
+    expect(await screen.findByLabelText('Default currency')).toHaveValue('GBP')
   })
 
   it('submitting calls importWooProducts and shows a background-job confirmation, not a blocking result', async () => {
@@ -293,7 +293,7 @@ describe('Import products', () => {
     await userEvent.selectOptions(screen.getByLabelText('Default currency'), 'USD')
     await userEvent.click(screen.getByRole('button', { name: 'Start import' }))
 
-    expect(screen.getByRole('button', { name: 'Importing…' })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: 'Importing…' })).toBeDisabled()
     expect(integrationsApi.importWooProducts).toHaveBeenCalledTimes(1)
 
     resolveImport({
@@ -327,7 +327,7 @@ describe('Import products', () => {
     expect(screen.queryByText('Import products')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Import' }))
-    expect(screen.getByLabelText('Default warehouse ID')).toHaveValue('')
+    expect(await screen.findByLabelText('Default warehouse ID')).toHaveValue('')
   })
 })
 
@@ -336,7 +336,7 @@ describe('Delete imported products', () => {
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
 
-    expect(screen.getByText('Delete imported products')).toBeInTheDocument()
+    expect(await screen.findByText('Delete imported products')).toBeInTheDocument()
     expect(screen.getAllByText(/https:\/\/mystore\.com/).length).toBeGreaterThan(0)
     const confirmButton = screen.getByRole('button', { name: 'Delete' })
     expect(confirmButton).toBeDisabled()
@@ -355,7 +355,7 @@ describe('Delete imported products', () => {
 
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
-    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    await userEvent.type(await screen.findByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => expect(integrationsApi.deleteAllImportedProducts).toHaveBeenCalledWith('test-token', 'conn-1'))
@@ -370,7 +370,7 @@ describe('Delete imported products', () => {
 
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
-    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    await userEvent.type(await screen.findByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     expect(await screen.findByText(/3/)).toBeInTheDocument()
@@ -384,7 +384,7 @@ describe('Delete imported products', () => {
 
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
-    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    await userEvent.type(await screen.findByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => expect(listener).toHaveBeenCalled())
@@ -397,7 +397,7 @@ describe('Delete imported products', () => {
 
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
-    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    await userEvent.type(await screen.findByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     expect(await screen.findByText(/805/)).toBeInTheDocument()
@@ -408,7 +408,7 @@ describe('Delete imported products', () => {
 
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
-    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    await userEvent.type(await screen.findByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     expect(await screen.findByText('db down')).toBeInTheDocument()
@@ -417,7 +417,7 @@ describe('Delete imported products', () => {
   it('Cancel closes the modal without calling the API', async () => {
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
-    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    await userEvent.type(await screen.findByLabelText('Type DELETE to confirm'), 'DELETE')
 
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
@@ -434,9 +434,9 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     })
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
-    await userEvent.click(screen.getByText('WhatsApp'))
+    await userEvent.click(await screen.findByText('WhatsApp'))
 
-    await userEvent.type(screen.getByPlaceholderText('https://evolution.example.com'), 'https://evolution.example.com')
+    await userEvent.type(await screen.findByPlaceholderText('https://evolution.example.com'), 'https://evolution.example.com')
     await userEvent.type(screen.getByLabelText('Instance name'), 'tenant-1-instance')
     await userEvent.type(screen.getByLabelText('API key'), 'api-key-1')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
@@ -455,9 +455,9 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     })
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
-    await userEvent.click(screen.getByText('Stripe'))
+    await userEvent.click(await screen.findByText('Stripe'))
 
-    await userEvent.type(screen.getByPlaceholderText('sk_live_...'), 'sk_test_secret')
+    await userEvent.type(await screen.findByPlaceholderText('sk_live_...'), 'sk_test_secret')
     await userEvent.type(screen.getByPlaceholderText('pk_live_...'), 'pk_test_publishable')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
 
@@ -474,8 +474,8 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     vi.mocked(integrationsApi.setWebhookSecret).mockResolvedValue({ connection_id: 'conn-stripe-1', webhook_secret: 'whsec_from_dashboard' })
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
-    await userEvent.click(screen.getByText('Stripe'))
-    await userEvent.type(screen.getByPlaceholderText('sk_live_...'), 'sk_test_secret')
+    await userEvent.click(await screen.findByText('Stripe'))
+    await userEvent.type(await screen.findByPlaceholderText('sk_live_...'), 'sk_test_secret')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
     await screen.findByLabelText('Stripe webhook signing secret')
 
@@ -493,9 +493,9 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     })
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
-    await userEvent.click(screen.getByText('Revolut'))
+    await userEvent.click(await screen.findByText('Revolut'))
 
-    await userEvent.type(screen.getByLabelText(/merchant api secret key/i), 'revolut-secret')
+    await userEvent.type(await screen.findByLabelText(/merchant api secret key/i), 'revolut-secret')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
 
     await waitFor(() => expect(integrationsApi.connectRevolut).toHaveBeenCalledWith('test-token', 'revolut-secret'))
@@ -510,8 +510,8 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     })
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
-    await userEvent.click(screen.getByText('Revolut'))
-    await userEvent.type(screen.getByLabelText(/merchant api secret key/i), 'revolut-secret')
+    await userEvent.click(await screen.findByText('Revolut'))
+    await userEvent.type(await screen.findByLabelText(/merchant api secret key/i), 'revolut-secret')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
     await screen.findByRole('button', { name: 'Skip for now' })
 
@@ -525,8 +525,8 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     vi.mocked(integrationsApi.connectStripe).mockRejectedValue(new Error('invalid key'))
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
-    await userEvent.click(screen.getByText('Stripe'))
-    await userEvent.type(screen.getByPlaceholderText('sk_live_...'), 'sk_bad')
+    await userEvent.click(await screen.findByText('Stripe'))
+    await userEvent.type(await screen.findByPlaceholderText('sk_live_...'), 'sk_bad')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
 
     expect(await screen.findByText('invalid key')).toBeInTheDocument()
@@ -538,9 +538,9 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     )
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
-    await userEvent.click(screen.getByText('Email'))
+    await userEvent.click(await screen.findByText('Email'))
 
-    await userEvent.type(screen.getByLabelText('SMTP host'), 'smtp.mystore.com')
+    await userEvent.type(await screen.findByLabelText('SMTP host'), 'smtp.mystore.com')
     await userEvent.clear(screen.getByLabelText('Port'))
     await userEvent.type(screen.getByLabelText('Port'), '587')
     await userEvent.type(screen.getByLabelText('From address'), 'orders@mystore.com')
@@ -557,8 +557,8 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     vi.mocked(integrationsApi.connectEmail).mockRejectedValue(new Error('connection refused'))
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
-    await userEvent.click(screen.getByText('Email'))
-    await userEvent.type(screen.getByLabelText('SMTP host'), 'smtp.mystore.com')
+    await userEvent.click(await screen.findByText('Email'))
+    await userEvent.type(await screen.findByLabelText('SMTP host'), 'smtp.mystore.com')
     await userEvent.type(screen.getByLabelText('From address'), 'orders@mystore.com')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
 
@@ -587,7 +587,7 @@ describe('WhatsApp test mode', () => {
     expect(screen.queryByLabelText('Test phone number')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByLabelText('Enable test mode'))
-    await userEvent.type(screen.getByLabelText('Test phone number'), '31612345678')
+    await userEvent.type(await screen.findByLabelText('Test phone number'), '31612345678')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(integrationsApi.setWhatsAppTestMode).toHaveBeenCalledWith('test-token', 'conn-wa-1', true, '31612345678'))
@@ -608,9 +608,9 @@ describe('WhatsApp test mode', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([whatsappConnection()])
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Test mode' }))
-    await userEvent.click(screen.getByLabelText('Enable test mode'))
+    await userEvent.click(await screen.findByLabelText('Enable test mode'))
 
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: 'Save' })).toBeDisabled()
   })
 
   it('surfaces an error instead of a silent failure', async () => {
@@ -618,8 +618,8 @@ describe('WhatsApp test mode', () => {
     vi.mocked(integrationsApi.setWhatsAppTestMode).mockRejectedValue(new Error('a test phone number is required'))
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Test mode' }))
-    await userEvent.click(screen.getByLabelText('Enable test mode'))
-    await userEvent.type(screen.getByLabelText('Test phone number'), '31612345678')
+    await userEvent.click(await screen.findByLabelText('Enable test mode'))
+    await userEvent.type(await screen.findByLabelText('Test phone number'), '31612345678')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('a test phone number is required')).toBeInTheDocument()
@@ -660,7 +660,7 @@ describe('WhatsApp AI-assisted parsing', () => {
     const toggle = screen.getByLabelText('Enable AI-assisted parsing')
     expect(toggle).not.toBeDisabled()
     await userEvent.click(toggle)
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(integrationsApi.setWhatsAppAIParsing).toHaveBeenCalledWith('test-token', 'conn-wa-1', true))
     expect(screen.queryByText('WhatsApp AI-assisted parsing')).not.toBeInTheDocument()
@@ -684,8 +684,8 @@ describe('WhatsApp AI-assisted parsing', () => {
     vi.mocked(integrationsApi.setWhatsAppAIParsing).mockRejectedValue(new Error('connect an AI provider first'))
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'AI parsing' }))
-    await userEvent.click(screen.getByLabelText('Enable AI-assisted parsing'))
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(await screen.findByLabelText('Enable AI-assisted parsing'))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('connect an AI provider first')).toBeInTheDocument()
   })
@@ -746,7 +746,7 @@ describe('WhatsApp credentials edit', () => {
     vi.mocked(integrationsApi.updateWhatsAppCredentials).mockRejectedValue(new Error('base_url is invalid'))
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Edit credentials' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('base_url is invalid')).toBeInTheDocument()
   })
@@ -781,7 +781,7 @@ describe('WhatsApp webhook URL', () => {
     vi.mocked(integrationsApi.setWebhookSecret).mockRejectedValue(new Error('connection not found'))
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Webhook' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Regenerate webhook URL' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Regenerate webhook URL' }))
 
     expect(await screen.findByText('connection not found')).toBeInTheDocument()
   })

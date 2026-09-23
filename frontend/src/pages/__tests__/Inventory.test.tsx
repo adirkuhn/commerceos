@@ -931,7 +931,7 @@ describe('Expired batch review queue', () => {
     await screen.findByText('LOT-2')
 
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
-    await userEvent.type(screen.getByLabelText('Reason'), 'expired')
+    await userEvent.type(await screen.findByLabelText('Reason'), 'expired')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(inventoryApi.discardBatch).toHaveBeenCalledWith('test-token', 'sku-1', {
@@ -948,7 +948,7 @@ describe('Expired batch review queue', () => {
     await screen.findByText('LOT-2')
 
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument()
     expect(inventoryApi.discardBatch).not.toHaveBeenCalled()
@@ -965,7 +965,7 @@ describe('Expired batch review queue', () => {
     await screen.findByText('LOT-2')
 
     await userEvent.click(screen.getByRole('button', { name: 'Extend' }))
-    await userEvent.type(screen.getByLabelText('New expiry date'), '2026-12-01')
+    await userEvent.type(await screen.findByLabelText('New expiry date'), '2026-12-01')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(inventoryApi.extendBatchExpiry).toHaveBeenCalledWith('test-token', 'batch-2', { new_expiry_date: '2026-12-01' }))
@@ -997,7 +997,7 @@ describe('Expired batch review queue', () => {
     await screen.findByText('LOT-2')
 
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm' }))
 
     expect(await screen.findByText('insufficient stock')).toBeInTheDocument()
   })
@@ -1029,11 +1029,11 @@ describe('Expired batch review queue', () => {
 
     renderAt(<Inventory />, '/inventory')
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
-    await userEvent.click(screen.getByRole('button', { name: 'Expiring soon' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Expiring soon' }))
 
     expect(await screen.findByText('GADGET-1')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(inventoryApi.discardBatch).toHaveBeenCalledWith('test-token', 'sku-2', {
       warehouse_id: 'wh-1', batch_id: 'batch-3', quantity: 7, reason: '', photo: undefined,
@@ -1054,7 +1054,7 @@ describe('Expired batch review queue', () => {
 
     renderAt(<Inventory />, '/inventory')
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
-    await userEvent.click(screen.getByRole('button', { name: 'Discarded' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Discarded' }))
 
     expect(await screen.findByText('GADGET-1')).toBeInTheDocument()
     expect(screen.getByText('Gadget')).toBeInTheDocument()

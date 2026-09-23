@@ -479,7 +479,7 @@ describe('Settings > Integrations > AI', () => {
     renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
-    await userEvent.type(screen.getByLabelText('API Key'), 'sk-test-key')
+    await userEvent.type(await screen.findByLabelText('API Key'), 'sk-test-key')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(integrationsApi.connectAIProvider).toHaveBeenCalledWith('test-token', {
@@ -522,7 +522,7 @@ describe('Settings > Integrations > AI', () => {
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
 
-    expect(screen.getByLabelText(/Fallback models/)).toHaveValue('gemini-3.5-flash-lite')
+    expect(await screen.findByLabelText(/Fallback models/)).toHaveValue('gemini-3.5-flash-lite')
   })
 
   it('requires a server URL instead of an API key for Ollama', async () => {
@@ -531,7 +531,7 @@ describe('Settings > Integrations > AI', () => {
     renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
-    await userEvent.selectOptions(screen.getByLabelText('Provider'), 'ollama')
+    await userEvent.selectOptions(await screen.findByLabelText('Provider'), 'ollama')
 
     expect(screen.queryByLabelText('API Key')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Server URL')).toBeInTheDocument()
@@ -544,7 +544,7 @@ describe('Settings > Integrations > AI', () => {
     renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
-    await userEvent.type(screen.getByLabelText('API Key'), 'sk-test')
+    await userEvent.type(await screen.findByLabelText('API Key'), 'sk-test')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('an API key is required for this provider')).toBeInTheDocument()
@@ -717,7 +717,7 @@ describe('WooCommerce sync settings page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported products' }))
 
-    const confirmButton = screen.getByRole('button', { name: 'Delete' })
+    const confirmButton = await screen.findByRole('button', { name: 'Delete' })
     expect(confirmButton).toBeDisabled()
 
     await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
@@ -733,7 +733,7 @@ describe('WooCommerce sync settings page', () => {
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported products' }))
-    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    await userEvent.type(await screen.findByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => expect(integrationsApi.deleteAllImportedProducts).toHaveBeenCalledWith('test-token', 'conn-1'))
@@ -750,7 +750,7 @@ describe('WooCommerce sync settings page', () => {
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported products' }))
-    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    await userEvent.type(await screen.findByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => expect(listener).toHaveBeenCalled())
@@ -766,7 +766,7 @@ describe('WooCommerce sync settings page', () => {
     await openIntegrationsSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported products' }))
-    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    await userEvent.type(await screen.findByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     expect(await screen.findByText(/805/)).toBeInTheDocument()
@@ -852,7 +852,7 @@ describe('Store defaults currency', () => {
     await screen.findByText('Sync schedule')
 
     await userEvent.click(screen.getByRole('switch', { name: 'Products import' }))
-    expect(screen.getByLabelText('Default currency (e.g. USD)')).toHaveValue('GBP')
+    expect(await screen.findByLabelText('Default currency (e.g. USD)')).toHaveValue('GBP')
   })
 })
 
@@ -937,7 +937,7 @@ describe('Store defaults location', () => {
     await screen.findByText('Sync schedule')
 
     await userEvent.click(screen.getByRole('switch', { name: 'Products import' }))
-    expect(screen.getByLabelText('Default warehouse ID')).toHaveValue('wh-1')
+    expect(await screen.findByLabelText('Default warehouse ID')).toHaveValue('wh-1')
   })
 
   it("keeps a row's own saved default warehouse instead of the connection default", async () => {
@@ -1078,7 +1078,7 @@ describe('Settings > Inventory Rules > Sync & expiry rules', () => {
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
     await userEvent.click(screen.getByRole('switch', { name: 'Enable inventory sync rules' }))
-    await userEvent.clear(screen.getByLabelText('Auto-expire batches after (days)'))
+    await userEvent.clear(await screen.findByLabelText('Auto-expire batches after (days)'))
     await userEvent.type(screen.getByLabelText('Auto-expire batches after (days)'), '45')
     await userEvent.click(screen.getByRole('button', { name: 'Save inventory rules' }))
 
@@ -1140,7 +1140,7 @@ describe('Settings > Tax', () => {
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
     await userEvent.click(screen.getByRole('switch', { name: 'Prices include tax' }))
-    await userEvent.clear(screen.getByLabelText('Default tax country'))
+    await userEvent.clear(await screen.findByLabelText('Default tax country'))
     await userEvent.type(screen.getByLabelText('Default tax country'), 'us')
     await userEvent.click(screen.getByRole('button', { name: 'Save tax defaults' }))
 
@@ -1168,7 +1168,7 @@ describe('Settings > Tax', () => {
     await screen.findByText('Tax classes')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add tax class' }))
-    await userEvent.type(screen.getByLabelText('Name'), 'Reduced rate')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Reduced rate')
     await userEvent.click(screen.getByRole('button', { name: 'Add class' }))
 
     await waitFor(() => expect(taxApi.createTaxClass).toHaveBeenCalledWith('test-token', { name: 'Reduced rate', is_default: false }))
@@ -1184,7 +1184,7 @@ describe('Settings > Tax', () => {
     await screen.findAllByText('Standard')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
-    expect(screen.getByLabelText('Name')).toHaveValue('Standard')
+    expect(await screen.findByLabelText('Name')).toHaveValue('Standard')
 
     await userEvent.clear(screen.getByLabelText('Name'))
     await userEvent.type(screen.getByLabelText('Name'), 'Standard rate')

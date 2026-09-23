@@ -71,9 +71,9 @@ describe('MessageTemplatesPanel', () => {
     await screen.findByText('No message templates yet')
 
     await userEvent.click(screen.getByText('New template'))
-    await userEvent.type(screen.getByLabelText('Name'), 'Welcome message')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Welcome message')
     await userEvent.click(screen.getByLabelText('WhatsApp'))
-    await userEvent.type(screen.getByLabelText('Body'), 'Welcome!')
+    await userEvent.type(await screen.findByLabelText('Body'), 'Welcome!')
     await userEvent.click(screen.getByText('Create template'))
 
     await waitFor(() => expect(messagecenterApi.createMessageTemplate).toHaveBeenCalledWith(

@@ -560,7 +560,7 @@ describe('Add Variant / Add SKU are not nested <form> elements', () => {
     await screen.findByText('Small')
 
     await userEvent.click(screen.getByRole('button', { name: '+ Add Variant' }))
-    await userEvent.type(screen.getByPlaceholderText('Variant name (e.g. Large)'), 'Large')
+    await userEvent.type(await screen.findByPlaceholderText('Variant name (e.g. Large)'), 'Large')
     await userEvent.click(screen.getByRole('button', { name: 'Add Variant' }))
 
     await waitFor(() => expect(pmsApi.createVariant).toHaveBeenCalledWith('test-token', 'prod-1', { name: 'Large' }))
@@ -616,7 +616,7 @@ describe('creating a new product', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    await userEvent.type(screen.getByLabelText('Name'), 'New Shirt')
+    await userEvent.type(await screen.findByLabelText('Name'), 'New Shirt')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'NEWSHIRT-1')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
 
@@ -639,10 +639,10 @@ describe('creating a new product', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    await userEvent.type(screen.getByLabelText('Name'), 'Configurable Shirt')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Configurable Shirt')
 
     await userEvent.click(screen.getByRole('button', { name: '+ Add variants like size or color' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Create Product' }))
 
     await waitFor(() => expect(pmsApi.createProduct).toHaveBeenCalled())
     expect(pmsApi.createProduct).toHaveBeenCalledWith('test-token', expect.objectContaining({ has_variants: true }))
@@ -662,7 +662,7 @@ describe('Tags', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    const tagsInput = screen.getByLabelText('Tags')
+    const tagsInput = await screen.findByLabelText('Tags')
     await userEvent.type(tagsInput, 'summer{Enter}')
     expect(screen.getByText('summer')).toBeInTheDocument()
     expect(tagsInput).toHaveValue('')
@@ -675,7 +675,7 @@ describe('Tags', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    const tagsInput = screen.getByLabelText('Tags')
+    const tagsInput = await screen.findByLabelText('Tags')
     await userEvent.type(tagsInput, 'sale,sale,')
     expect(screen.getAllByText('sale')).toHaveLength(1)
   })
@@ -689,7 +689,7 @@ describe('Tags', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    await userEvent.type(screen.getByLabelText('Name'), 'Tagged Shirt')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Tagged Shirt')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'TAGGEDSHIRT-1')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
     await userEvent.type(screen.getByLabelText('Tags'), 'summer{Enter}sale{Enter}')
@@ -789,7 +789,7 @@ describe('sync variants as WooCommerce variations toggle', () => {
     const checkbox = screen.getByRole('checkbox', { name: toggleLabel })
     expect(checkbox).not.toBeChecked()
     await userEvent.click(checkbox)
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(pmsApi.updateProduct).toHaveBeenCalledWith('test-token', 'prod-1', expect.objectContaining({
       sync_variants_as_woo_variations: true,
@@ -1146,7 +1146,7 @@ describe('editing an existing variant and its SKU\'s own fields (VariantRow)', (
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit variant' }))
 
-    expect(screen.getByPlaceholderText('Variant name')).toHaveValue('378g')
+    expect(await screen.findByPlaceholderText('Variant name')).toHaveValue('378g')
     expect(screen.getByPlaceholderText('SKU code')).toHaveValue(baseSku.sku_code)
     expect(screen.getByPlaceholderText('0.00')).toHaveValue(19.99)
     expect(inputAfterLabel('Weight (g)')).toHaveValue(378)
@@ -1167,7 +1167,7 @@ describe('editing an existing variant and its SKU\'s own fields (VariantRow)', (
     await screen.findByText('378g')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit variant' }))
-    const nameInput = screen.getByPlaceholderText('Variant name')
+    const nameInput = await screen.findByPlaceholderText('Variant name')
     const editPanel = nameInput.closest('div')!.parentElement!
     await userEvent.clear(nameInput)
     await userEvent.type(nameInput, '412g')
@@ -1216,7 +1216,7 @@ describe('editing an existing variant and its SKU\'s own fields (VariantRow)', (
     await screen.findByText('378g')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit variant' }))
-    expect(screen.getByPlaceholderText('Variant name')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Variant name')).toBeInTheDocument()
     const editPanel = screen.getByPlaceholderText('Variant name').closest('div')!.parentElement!
     await userEvent.click(within(editPanel).getByRole('button', { name: 'Cancel' }))
 
@@ -1274,7 +1274,7 @@ describe('SKU currency overrides (VariantRow)', () => {
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('378g')
     await userEvent.click(screen.getByRole('button', { name: 'Edit variant' }))
-    await userEvent.click(screen.getByRole('button', { name: /currency overrides/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /currency overrides/i }))
     await screen.findByText(/USD.*21\.99/)
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
@@ -1379,7 +1379,7 @@ describe('weight pool (unit_type / portioned_from_sku_id)', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    await userEvent.type(screen.getByLabelText('Name'), 'Dried Beef')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Dried Beef')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'DRIED-BEEF')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
 
@@ -1408,7 +1408,7 @@ describe('weight pool (unit_type / portioned_from_sku_id)', () => {
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
-    await userEvent.type(screen.getByLabelText('Name'), 'New Shirt')
+    await userEvent.type(await screen.findByLabelText('Name'), 'New Shirt')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'NEWSHIRT-1')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
 
@@ -1449,7 +1449,7 @@ describe('weight pool (unit_type / portioned_from_sku_id)', () => {
     await screen.findByText(/Portioned from/)
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
       unit_type: 'unit', portioned_from_sku_id: null,
@@ -1702,7 +1702,7 @@ describe('SKU weight/dimensions and virtual flag', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    expect(screen.getByLabelText('Weight (g)')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Weight (g)')).toBeInTheDocument()
     expect(screen.getByLabelText('Length (mm)')).toBeInTheDocument()
     expect(screen.getByLabelText('Width (mm)')).toBeInTheDocument()
     expect(screen.getByLabelText('Height (mm)')).toBeInTheDocument()
@@ -1713,7 +1713,7 @@ describe('SKU weight/dimensions and virtual flag', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    await userEvent.click(screen.getByRole('switch', { name: 'Virtual product (no shipping)' }))
+    await userEvent.click(await screen.findByRole('switch', { name: 'Virtual product (no shipping)' }))
 
     expect(screen.queryByLabelText('Weight (g)')).not.toBeInTheDocument()
   })
@@ -1731,7 +1731,7 @@ describe('SKU weight/dimensions and virtual flag', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    await userEvent.type(screen.getByLabelText('Name'), 'New Shirt')
+    await userEvent.type(await screen.findByLabelText('Name'), 'New Shirt')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'NEWSHIRT-1')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
     await userEvent.type(screen.getByLabelText('Weight (g)'), '500')
@@ -1760,12 +1760,12 @@ describe('SKU weight/dimensions and virtual flag', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    await userEvent.type(screen.getByLabelText('Name'), 'E-Book')
+    await userEvent.type(await screen.findByLabelText('Name'), 'E-Book')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'EBOOK-1')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '9.99')
     await userEvent.click(screen.getByRole('switch', { name: 'Virtual product (no shipping)' }))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Create Product' }))
 
     await waitFor(() => expect(pmsApi.createSKU).toHaveBeenCalled())
     expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'new-var', expect.objectContaining({
@@ -1806,7 +1806,7 @@ describe('Tax class picker + price preview', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    await userEvent.type(screen.getByLabelText('Name'), 'New Shirt')
+    await userEvent.type(await screen.findByLabelText('Name'), 'New Shirt')
     await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'NEWSHIRT-1')
     await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
     await userEvent.selectOptions(await screen.findByLabelText('Tax class'), 'class-2')
@@ -1863,7 +1863,7 @@ describe('product edit page chrome', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    await userEvent.type(screen.getByLabelText('Name'), 'Abandoned Product')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Abandoned Product')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
@@ -1944,7 +1944,7 @@ describe('Variant image picker', () => {
 
     await userEvent.click(thumbnailButton)
 
-    expect(screen.getByLabelText('Front')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Front')).toBeInTheDocument()
     expect(screen.getByLabelText('Product image')).toBeInTheDocument()
     expect(screen.getByLabelText('No image')).toBeInTheDocument()
 
@@ -1969,7 +1969,7 @@ describe('Variant image picker', () => {
     await userEvent.click(await screen.findByTitle('Edit'))
 
     await userEvent.click(await screen.findByLabelText('Small image'))
-    await userEvent.click(screen.getByLabelText('No image'))
+    await userEvent.click(await screen.findByLabelText('No image'))
 
     await waitFor(() => expect(pmsApi.updateVariant).toHaveBeenCalledWith('test-token', 'var-1', expect.objectContaining({
       featured_media_id: null,
@@ -1989,7 +1989,7 @@ describe('Variant image picker', () => {
     await userEvent.click(await screen.findByTitle('Edit'))
 
     await userEvent.click(await screen.findByLabelText('Small image'))
-    await userEvent.click(screen.getByLabelText('Front'))
+    await userEvent.click(await screen.findByLabelText('Front'))
 
     expect(await screen.findByText('boom')).toBeInTheDocument()
   })
@@ -2006,7 +2006,7 @@ describe('Media section', () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    expect(screen.getByText('Save the product first, then add images.')).toBeInTheDocument()
+    expect(await screen.findByText('Save the product first, then add images.')).toBeInTheDocument()
   })
 
   it('lists existing media and uploads a new file for an existing product', async () => {
@@ -2110,7 +2110,7 @@ describe('Media section', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit image title' }))
 
-    const titleInput = screen.getByLabelText('Title')
+    const titleInput = await screen.findByLabelText('Title')
     expect(titleInput).toHaveValue('Old title')
 
     await userEvent.clear(titleInput)
@@ -2130,7 +2130,7 @@ describe('Media section', () => {
     await screen.findByAltText('')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit image title' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByLabelText('Title')).not.toBeInTheDocument()
     expect(pmsApi.updateMedia).not.toHaveBeenCalled()
@@ -2146,7 +2146,7 @@ describe('Media section', () => {
     await screen.findByAltText('')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit image title' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Save title' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save title' }))
 
     expect(await screen.findByText('title too long')).toBeInTheDocument()
   })

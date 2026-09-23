@@ -225,7 +225,7 @@ describe('InventoryApp search by name', () => {
 
     renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
     await userEvent.click(screen.getByRole('button', { name: 'Search by name' }))
-    await userEvent.type(screen.getByPlaceholderText('Product name…'), 'Widget{Enter}')
+    await userEvent.type(await screen.findByPlaceholderText('Product name…'), 'Widget{Enter}')
 
     expect(pmsApi.listProducts).toHaveBeenCalledWith(TOKEN, expect.objectContaining({ search: 'Widget' }))
     expect(await screen.findByText('WID-L')).toBeInTheDocument()
@@ -246,7 +246,7 @@ describe('InventoryApp search by name', () => {
 
     renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
     await userEvent.click(screen.getByRole('button', { name: 'Search by name' }))
-    await userEvent.type(screen.getByPlaceholderText('Product name…'), 'Widget{Enter}')
+    await userEvent.type(await screen.findByPlaceholderText('Product name…'), 'Widget{Enter}')
 
     expect(await screen.findByText('Widget Pro')).toBeInTheDocument()
     expect(screen.getByText('WID-PRO')).toBeInTheDocument()
@@ -273,7 +273,7 @@ describe('InventoryApp search by name', () => {
 
     renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
     await userEvent.click(screen.getByRole('button', { name: 'Search by name' }))
-    await userEvent.type(screen.getByPlaceholderText('Product name…'), 'Widget{Enter}')
+    await userEvent.type(await screen.findByPlaceholderText('Product name…'), 'Widget{Enter}')
     await screen.findByText('Widget Pro')
 
     expect(await screen.findByRole('img', { name: 'Widget' })).toHaveAttribute('src', 'https://example.com/widget.jpg')
@@ -285,7 +285,7 @@ describe('InventoryApp search by name', () => {
 
     renderAt(<InventoryApp token={TOKEN} onExit={() => {}} />, '/scanner/inventory')
     await userEvent.click(screen.getByRole('button', { name: 'Search by name' }))
-    await userEvent.type(screen.getByPlaceholderText('Product name…'), 'Nope{Enter}')
+    await userEvent.type(await screen.findByPlaceholderText('Product name…'), 'Nope{Enter}')
 
     expect(await screen.findByText('No products found')).toBeInTheDocument()
   })
@@ -297,7 +297,7 @@ describe('InventoryApp SKU screen', () => {
 
     await userEvent.click(screen.getByTitle('Back to scan'))
 
-    expect(screen.getByPlaceholderText('Scan or type SKU / barcode…')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Scan or type SKU / barcode…')).toBeInTheDocument()
   })
 
   it('tapping a batch row opens the action sheet scoped to that row', async () => {
@@ -319,8 +319,8 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch(), generalLedgerRow()])
 
     await userEvent.click(screen.getByText('LOT-1'))
-    await userEvent.click(screen.getByRole('button', { name: /Adjust/ }))
-    await userEvent.type(screen.getByLabelText('Quantity change'), '5')
+    await userEvent.click(await screen.findByRole('button', { name: /Adjust/ }))
+    await userEvent.type(await screen.findByLabelText('Quantity change'), '5')
     await userEvent.type(screen.getByLabelText('Reason'), 'recount')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
@@ -337,8 +337,8 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch(), generalLedgerRow()])
 
     await userEvent.click(screen.getByText('General ledger'))
-    await userEvent.click(screen.getByRole('button', { name: /Adjust/ }))
-    await userEvent.type(screen.getByLabelText('Quantity change'), '3')
+    await userEvent.click(await screen.findByRole('button', { name: /Adjust/ }))
+    await userEvent.type(await screen.findByLabelText('Quantity change'), '3')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(inventoryApi.recordStockMovement).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
@@ -355,8 +355,8 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch()])
 
     await userEvent.click(screen.getByText('LOT-1'))
-    await userEvent.click(screen.getByRole('button', { name: /Move/ }))
-    await userEvent.selectOptions(screen.getByLabelText('To warehouse'), 'wh-2')
+    await userEvent.click(await screen.findByRole('button', { name: /Move/ }))
+    await userEvent.selectOptions(await screen.findByLabelText('To warehouse'), 'wh-2')
     await userEvent.type(screen.getByLabelText('Quantity to move'), '3')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
@@ -374,13 +374,13 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch(), batch({ id: 'batch-2', lot_number: 'LOT-2', warehouse_id: 'wh-1' })])
 
     await userEvent.click(screen.getByText('LOT-1'))
-    await userEvent.click(screen.getByRole('button', { name: /Move/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Move/ }))
     // "LOT-2" appears both as the underlying row (still rendered behind the
     // sheet) and as the sheet's own destination-batch option -- the sheet's
     // is the one that renders last in DOM order.
     const lot2Options = screen.getAllByText('LOT-2')
     await userEvent.click(lot2Options[lot2Options.length - 1])
-    await userEvent.type(screen.getByLabelText('Quantity to move'), '2')
+    await userEvent.type(await screen.findByLabelText('Quantity to move'), '2')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(inventoryApi.transferStock).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
@@ -397,9 +397,9 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [generalLedgerRow()])
 
     await userEvent.click(screen.getByText('General ledger'))
-    await userEvent.click(screen.getByRole('button', { name: /Move/ }))
-    await userEvent.click(screen.getByText('+ New batch'))
-    await userEvent.type(screen.getByLabelText('Lot number'), 'LOT-NEW')
+    await userEvent.click(await screen.findByRole('button', { name: /Move/ }))
+    await userEvent.click(await screen.findByText('+ New batch'))
+    await userEvent.type(await screen.findByLabelText('Lot number'), 'LOT-NEW')
     await userEvent.type(screen.getByLabelText('Quantity to move'), '4')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
@@ -419,8 +419,8 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch()])
 
     await userEvent.click(screen.getByText('LOT-1'))
-    await userEvent.click(screen.getByRole('button', { name: /Damaged.*Lost/ }))
-    await userEvent.type(screen.getByLabelText('Quantity'), '2')
+    await userEvent.click(await screen.findByRole('button', { name: /Damaged.*Lost/ }))
+    await userEvent.type(await screen.findByLabelText('Quantity'), '2')
     await userEvent.type(screen.getByLabelText('Reason'), 'dropped')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
@@ -433,41 +433,41 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch({ quantity: 10 })]) // LOT-1, qty 10
 
     await userEvent.click(screen.getByText('LOT-1'))
-    await userEvent.click(screen.getByRole('button', { name: /Move/ }))
-    await userEvent.type(screen.getByLabelText('Quantity to move'), '25')
+    await userEvent.click(await screen.findByRole('button', { name: /Move/ }))
+    await userEvent.type(await screen.findByLabelText('Quantity to move'), '25')
 
     expect(screen.getByLabelText('Quantity to move')).toHaveValue('10')
 
     await userEvent.clear(screen.getByLabelText('Quantity to move'))
     await userEvent.click(screen.getByRole('button', { name: 'Max' }))
 
-    expect(screen.getByLabelText('Quantity to move')).toHaveValue('10')
+    expect(await screen.findByLabelText('Quantity to move')).toHaveValue('10')
   })
 
   it('Move quantity cannot be decremented below 0', async () => {
     await resolveAndEnterSKU(sku(), [batch({ quantity: 10 })])
 
     await userEvent.click(screen.getByText('LOT-1'))
-    await userEvent.click(screen.getByRole('button', { name: /Move/ }))
-    await userEvent.click(screen.getByRole('button', { name: 'Decrease Quantity to move' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Decrease Quantity to move' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Move/ }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Decrease Quantity to move' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Decrease Quantity to move' }))
 
-    expect(screen.getByLabelText('Quantity to move')).toHaveValue('0')
+    expect(await screen.findByLabelText('Quantity to move')).toHaveValue('0')
   })
 
   it('Damaged/Lost quantity is capped at the row\'s available stock, and Max fills it in one tap', async () => {
     await resolveAndEnterSKU(sku(), [generalLedgerRow({ quantity: 20 })])
 
     await userEvent.click(screen.getByText('General ledger'))
-    await userEvent.click(screen.getByRole('button', { name: /Damaged.*Lost/ }))
-    await userEvent.type(screen.getByLabelText('Quantity'), '99')
+    await userEvent.click(await screen.findByRole('button', { name: /Damaged.*Lost/ }))
+    await userEvent.type(await screen.findByLabelText('Quantity'), '99')
 
     expect(screen.getByLabelText('Quantity')).toHaveValue('20')
 
     await userEvent.clear(screen.getByLabelText('Quantity'))
     await userEvent.click(screen.getByRole('button', { name: 'Max' }))
 
-    expect(screen.getByLabelText('Quantity')).toHaveValue('20')
+    expect(await screen.findByLabelText('Quantity')).toHaveValue('20')
   })
 
   it('Price edits the SKU price, round-tripping every other field so nothing gets silently wiped', async () => {
@@ -479,7 +479,7 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(mySKU, [batch()])
 
     await userEvent.click(screen.getByRole('button', { name: /Price/ }))
-    await userEvent.clear(screen.getByLabelText(/Regular price/))
+    await userEvent.clear(await screen.findByLabelText(/Regular price/))
     await userEvent.type(screen.getByLabelText(/Regular price/), '24.99')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
@@ -496,7 +496,7 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch()])
 
     await userEvent.click(screen.getByRole('button', { name: /Price/ }))
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('price update failed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
@@ -533,7 +533,7 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch()])
 
     await userEvent.click(screen.getByRole('button', { name: '+ Add batch' }))
-    await userEvent.type(screen.getByLabelText('Lot number'), 'LOT-NEW')
+    await userEvent.type(await screen.findByLabelText('Lot number'), 'LOT-NEW')
     await userEvent.click(screen.getByRole('button', { name: 'Create' }))
 
     await waitFor(() => expect(inventoryApi.createBatch).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
@@ -551,7 +551,7 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch()])
 
     await userEvent.click(screen.getByRole('button', { name: '+ Add batch' }))
-    await userEvent.type(screen.getByLabelText('Lot number'), 'LOT-NEW')
+    await userEvent.type(await screen.findByLabelText('Lot number'), 'LOT-NEW')
     await userEvent.type(screen.getByLabelText('Initial quantity'), '15')
     await userEvent.type(screen.getByLabelText('Reason'), 'first delivery')
     await userEvent.click(screen.getByRole('button', { name: 'Create' }))
@@ -569,7 +569,7 @@ describe('InventoryApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch()])
 
     await userEvent.click(screen.getByRole('button', { name: '+ Add batch' }))
-    await userEvent.type(screen.getByLabelText('Lot number'), 'LOT-NEW')
+    await userEvent.type(await screen.findByLabelText('Lot number'), 'LOT-NEW')
     await userEvent.click(screen.getByRole('button', { name: 'Create' }))
 
     expect(await screen.findByText('lot number already exists')).toBeInTheDocument()

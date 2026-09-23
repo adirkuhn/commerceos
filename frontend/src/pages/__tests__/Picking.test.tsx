@@ -366,7 +366,7 @@ describe('Picking page', () => {
     await user.click(screen.getByText('Widget'))
     await screen.findByText('Confirm pick')
     await user.click(screen.getByRole('button', { name: 'Substitute' }))
-    await user.type(screen.getByPlaceholderText('Scan or type replacement SKU/barcode'), 'sub-code')
+    await user.type(await screen.findByPlaceholderText('Scan or type replacement SKU/barcode'), 'sub-code')
     await user.clear(screen.getByLabelText('Covers (of original)'))
     await user.type(screen.getByLabelText('Covers (of original)'), '2')
     await user.click(screen.getByRole('button', { name: 'Confirm substitute' }))
@@ -424,7 +424,7 @@ describe('Picking page', () => {
     await user.click(screen.getByText('Beans'))
     await screen.findByText('Confirm pick')
     await user.click(screen.getByRole('button', { name: 'Substitute' }))
-    await user.type(screen.getByPlaceholderText('Scan or type replacement SKU/barcode'), 'sub-code')
+    await user.type(await screen.findByPlaceholderText('Scan or type replacement SKU/barcode'), 'sub-code')
 
     // Covering the OLD full-quantity requirement (4) must now be rejected.
     await user.clear(screen.getByLabelText('Covers (of original)'))
@@ -459,7 +459,7 @@ describe('Picking page', () => {
     await user.click(screen.getByText('Widget'))
     await screen.findByText('Confirm pick')
     await user.click(screen.getByRole('button', { name: 'Refund' }))
-    const qtyInput = screen.getByLabelText('Quantity to refund')
+    const qtyInput = await screen.findByLabelText('Quantity to refund')
     await user.clear(qtyInput)
     await user.type(qtyInput, '2')
     await user.click(screen.getByRole('button', { name: 'Confirm refund' }))
@@ -482,7 +482,7 @@ describe('Picking page', () => {
     await user.click(screen.getByText('Widget'))
     await screen.findByText('Confirm pick')
     await user.click(screen.getByRole('button', { name: 'Refund' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm refund' }))
+    await user.click(await screen.findByRole('button', { name: 'Confirm refund' }))
 
     expect(await screen.findByText('caller does not have permission to perform this action')).toBeInTheDocument()
   })

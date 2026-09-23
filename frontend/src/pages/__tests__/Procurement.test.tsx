@@ -214,7 +214,7 @@ describe('Purchase orders list', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'sent' }))
 
-    expect(screen.getByText((_, node) => node?.tagName === 'SPAN' && node.textContent === '1 purchase order')).toBeInTheDocument()
+    expect(await screen.findByText((_, node) => node?.tagName === 'SPAN' && node.textContent === '1 purchase order')).toBeInTheDocument()
   })
 
   it('deletes a purchase order after confirming', async () => {
@@ -264,7 +264,7 @@ describe('Purchase order create', () => {
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Purchase Order' }))
 
-    expect(screen.getByText('New Purchase Order', { selector: 'h1' })).toBeInTheDocument()
+    expect(await screen.findByText('New Purchase Order', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Create Purchase Order' })).toBeInTheDocument()
     expect(screen.queryByText('Line Items')).not.toBeInTheDocument()
   })
@@ -275,7 +275,7 @@ describe('Purchase order create', () => {
 
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Purchase Order' }))
-    await userEvent.selectOptions(screen.getByLabelText('Supplier'), 'supplier-1')
+    await userEvent.selectOptions(await screen.findByLabelText('Supplier'), 'supplier-1')
     await userEvent.selectOptions(screen.getByLabelText('Warehouse (optional)'), 'warehouse-1')
     await userEvent.click(screen.getByRole('button', { name: 'Create Purchase Order' }))
 
@@ -312,7 +312,7 @@ describe('Purchase order create', () => {
 
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Purchase Order' }))
-    await userEvent.selectOptions(screen.getByLabelText('Currency'), 'GBP')
+    await userEvent.selectOptions(await screen.findByLabelText('Currency'), 'GBP')
 
     resolveSettings!({ tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '', prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '' })
 
@@ -327,7 +327,7 @@ describe('Upload document to create a PO', () => {
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Upload Document' }))
 
-    expect(screen.getByText('Upload Document', { selector: 'h2' })).toBeInTheDocument()
+    expect(await screen.findByText('Upload Document', { selector: 'h2' })).toBeInTheDocument()
     expect(screen.getByLabelText('Document')).toBeInTheDocument()
     expect(screen.queryByLabelText(/Supplier/)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Warehouse/)).not.toBeInTheDocument()
@@ -374,7 +374,8 @@ describe('Upload document to create a PO', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Upload & Create' }))
 
     expect(await screen.findByText('Parsing document…')).toBeInTheDocument()
-    expect(procurementApi.getDocumentParsingJob).toHaveBeenCalledWith('test-token', 'job-1')
+    // polling starts in an effect right after the spinner renders
+    await waitFor(() => expect(procurementApi.getDocumentParsingJob).toHaveBeenCalledWith('test-token', 'job-1'))
   })
 
   it('picks up line items on the new PO once the background parse finishes', async () => {
@@ -406,7 +407,7 @@ describe('Upload document to create a PO', () => {
 
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Upload Document' }))
-    await userEvent.upload(screen.getByLabelText('Document'), new File(['bad'], 'bad.csv', { type: 'text/csv' }))
+    await userEvent.upload(await screen.findByLabelText('Document'), new File(['bad'], 'bad.csv', { type: 'text/csv' }))
     await userEvent.click(screen.getByRole('button', { name: 'Upload & Create' }))
 
     expect(await screen.findByText('document is missing required columns')).toBeInTheDocument()
@@ -436,7 +437,7 @@ describe('Purchase order edit with line items', () => {
     await screen.findByText('Widget A')
 
     await userEvent.click(screen.getAllByRole('button', { name: /Add Line Item/ })[0])
-    await userEvent.type(screen.getByLabelText('Line item description'), 'Widget B')
+    await userEvent.type(await screen.findByLabelText('Line item description'), 'Widget B')
     await userEvent.clear(screen.getByLabelText('Quantity'))
     await userEvent.type(screen.getByLabelText('Quantity'), '5')
     await userEvent.clear(screen.getByLabelText('Unit cost'))
@@ -458,7 +459,7 @@ describe('Purchase order edit with line items', () => {
     const addButtons = screen.getAllByRole('button', { name: /Add Line Item/ })
     expect(addButtons).toHaveLength(2)
     await userEvent.click(addButtons[1])
-    await userEvent.type(screen.getByLabelText('Line item description'), 'Widget B')
+    await userEvent.type(await screen.findByLabelText('Line item description'), 'Widget B')
     await userEvent.click(screen.getByRole('button', { name: 'Save Line' }))
 
     await waitFor(() => expect(procurementApi.addLineItem).toHaveBeenCalledWith('test-token', 'po-1', expect.objectContaining({
@@ -474,7 +475,7 @@ describe('Purchase order edit with line items', () => {
     await screen.findByText('Widget A')
 
     await userEvent.click(screen.getAllByRole('button', { name: /Add Line Item/ })[0])
-    await userEvent.type(screen.getByLabelText('Line item description'), 'Shipping')
+    await userEvent.type(await screen.findByLabelText('Line item description'), 'Shipping')
     await userEvent.selectOptions(screen.getByLabelText('Line item type'), 'shipping')
     expect(screen.queryByRole('button', { name: /Link product/ })).not.toBeInTheDocument()
     await userEvent.clear(screen.getByLabelText('Unit cost'))
@@ -633,8 +634,8 @@ describe('Purchase order edit with line items', () => {
     await screen.findByText('Widget A')
 
     await userEvent.click(screen.getAllByRole('button', { name: /Add Line Item/ })[0])
-    await userEvent.click(screen.getByRole('button', { name: /Link product/ }))
-    await userEvent.type(screen.getByPlaceholderText('Search products by name…'), 'Widget')
+    await userEvent.click(await screen.findByRole('button', { name: /Link product/ }))
+    await userEvent.type(await screen.findByPlaceholderText('Search products by name…'), 'Widget')
     await userEvent.click(await screen.findByText('Widget Product'))
     await userEvent.click(await screen.findByText('WID-001'))
 
@@ -976,8 +977,8 @@ describe('Reviewing unmatched line items', () => {
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await userEvent.click(await screen.findByText('Needs review'))
-    await userEvent.click(screen.getByRole('button', { name: /Link to existing product/ }))
-    await userEvent.type(screen.getByPlaceholderText('Search products by name…'), 'Widget')
+    await userEvent.click(await screen.findByRole('button', { name: /Link to existing product/ }))
+    await userEvent.type(await screen.findByPlaceholderText('Search products by name…'), 'Widget')
     await userEvent.click(await screen.findByText('Widget Product'))
     await userEvent.click(await screen.findByText('WID-001'))
 
@@ -1009,8 +1010,8 @@ describe('Reviewing unmatched line items', () => {
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await userEvent.click(await screen.findByText('Needs review'))
-    await userEvent.click(screen.getByRole('button', { name: /Link to existing product/ }))
-    await userEvent.clear(screen.getByLabelText('Units per purchased item'))
+    await userEvent.click(await screen.findByRole('button', { name: /Link to existing product/ }))
+    await userEvent.clear(await screen.findByLabelText('Units per purchased item'))
     await userEvent.type(screen.getByLabelText('Units per purchased item'), '36')
     await userEvent.type(screen.getByPlaceholderText('Search products by name…'), 'Rapadurinha')
     await userEvent.click(await screen.findByText('Rapadurinha de Minas 25g'))
@@ -1027,9 +1028,9 @@ describe('Reviewing unmatched line items', () => {
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
     await userEvent.click(await screen.findByText('Needs review'))
-    await userEvent.click(screen.getByRole('button', { name: /Create new product/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Create new product/ }))
 
-    const nameInput = screen.getByDisplayValue('Mystery Item')
+    const nameInput = await screen.findByDisplayValue('Mystery Item')
     await userEvent.clear(nameInput)
     await userEvent.type(nameInput, 'Mystery Widget')
     await userEvent.click(screen.getByRole('button', { name: 'Create & Link' }))
@@ -1066,7 +1067,7 @@ describe('Missing supplier review', () => {
 
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Missing supplier'))
-    await userEvent.type(screen.getByLabelText('New supplier name'), 'Brand New Supplier')
+    await userEvent.type(await screen.findByLabelText('New supplier name'), 'Brand New Supplier')
     await userEvent.click(screen.getByRole('button', { name: 'Create & Assign' }))
 
     await waitFor(() => expect(procurementApi.createSupplierAndAssignToPurchaseOrder).toHaveBeenCalledWith(
@@ -1247,7 +1248,7 @@ describe('Receiving', () => {
     await screen.findByText('invoice.csv')
     await userEvent.click(screen.getByText('invoice.csv'))
     await userEvent.click(await screen.findByRole('button', { name: /Receive stock/ }))
-    await userEvent.click(screen.getByRole('button', { name: 'Save receipt' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save receipt' }))
 
     await waitFor(() => expect(inventoryApi.receiveStock).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
       warehouse_id: 'warehouse-1', quantity: 8,
@@ -1324,7 +1325,7 @@ describe('Receiving', () => {
     await screen.findByText('invoice.csv')
     await userEvent.click(screen.getByText('invoice.csv'))
     await userEvent.click(await screen.findByRole('button', { name: /Receive stock/ }))
-    await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'warehouse-1')
+    await userEvent.selectOptions(await screen.findByLabelText('Warehouse'), 'warehouse-1')
     await userEvent.click(screen.getByRole('button', { name: 'Save receipt' }))
 
     await waitFor(() => expect(procurementApi.updatePurchaseOrder).toHaveBeenCalledWith('test-token', 'po-1', expect.objectContaining({
@@ -1398,7 +1399,7 @@ describe('Receiving', () => {
     await screen.findByText('invoice.csv')
     await userEvent.click(screen.getByText('invoice.csv'))
     await userEvent.click((await screen.findAllByRole('button', { name: /Link to…/ }))[0])
-    await userEvent.selectOptions(screen.getByLabelText('Link to discrepancy'), 'missing-1')
+    await userEvent.selectOptions(await screen.findByLabelText('Link to discrepancy'), 'missing-1')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(procurementApi.linkReceivingDiscrepancies).toHaveBeenCalledWith('test-token', 'unexpected-1', 'missing-1'))
@@ -1418,7 +1419,7 @@ describe('Receiving', () => {
     await screen.findByText('invoice.csv')
     await userEvent.click(screen.getByText('invoice.csv'))
     await userEvent.click(await screen.findByRole('button', { name: /Flag damaged item/ }))
-    await userEvent.clear(screen.getByRole('spinbutton'))
+    await userEvent.clear(await screen.findByRole('spinbutton'))
     await userEvent.type(screen.getByRole('spinbutton'), '2')
     await userEvent.type(screen.getByPlaceholderText('Note (optional)'), 'crushed box')
     await userEvent.click(screen.getByRole('button', { name: 'Flag as damaged' }))
@@ -1549,7 +1550,7 @@ describe('Procurement URLs (refresh + Back)', () => {
 
     const { router } = renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByRole('button', { name: 'Upload Document' }))
-    await userEvent.upload(screen.getByLabelText('Document'), new File(['a'], 'order.csv', { type: 'text/csv' }))
+    await userEvent.upload(await screen.findByLabelText('Document'), new File(['a'], 'order.csv', { type: 'text/csv' }))
     await userEvent.click(screen.getByRole('button', { name: 'Upload & Create' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/procurement/po-new'))

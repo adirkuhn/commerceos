@@ -108,7 +108,7 @@ describe('Promotion edit page', () => {
     renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
 
-    expect(screen.getByText('New Promotion', { selector: 'h1' })).toBeInTheDocument()
+    expect(await screen.findByText('New Promotion', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toHaveValue('')
     expect(screen.getByRole('button', { name: 'Create Promotion' })).toBeInTheDocument()
   })
@@ -122,7 +122,7 @@ describe('Promotion edit page', () => {
 
     renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
-    await userEvent.type(screen.getByPlaceholderText('SKU code'), 'ACAI-1L')
+    await userEvent.type(await screen.findByPlaceholderText('SKU code'), 'ACAI-1L')
     await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
 
     expect(await screen.findByText('Acai 1L')).toBeInTheDocument()
@@ -134,7 +134,7 @@ describe('Promotion edit page', () => {
 
     renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
-    await userEvent.type(screen.getByPlaceholderText('SKU code'), 'MISSING')
+    await userEvent.type(await screen.findByPlaceholderText('SKU code'), 'MISSING')
     await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
 
     expect(await screen.findByText('sku not found')).toBeInTheDocument()
@@ -150,7 +150,7 @@ describe('Promotion edit page', () => {
 
     renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
-    await userEvent.type(screen.getByLabelText('Name'), 'Winter Sale')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Winter Sale')
     await userEvent.type(screen.getByLabelText('Starts at'), '2026-07-01T00:00')
     await userEvent.type(screen.getByPlaceholderText('SKU code'), 'ACAI-1L')
     await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
@@ -180,7 +180,7 @@ describe('Promotion edit page', () => {
 
     renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
-    await userEvent.type(screen.getByLabelText('Name'), 'Winter Sale')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Winter Sale')
     await userEvent.type(screen.getByLabelText('Starts at'), '2026-07-01T00:00')
     await userEvent.type(screen.getByPlaceholderText('SKU code'), 'ACAI-1L')
     await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
@@ -195,7 +195,7 @@ describe('Promotion edit page', () => {
   it('rejects creating a promotion with no SKU lines', async () => {
     renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
-    await userEvent.type(screen.getByLabelText('Name'), 'Empty Promo')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Empty Promo')
 
     expect(screen.getByRole('button', { name: 'Create Promotion' })).toBeDisabled()
   })
@@ -248,7 +248,7 @@ describe('Promotion edit page', () => {
   it('Discard returns to the list without saving', async () => {
     renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
-    await userEvent.type(screen.getByLabelText('Name'), 'Draft Promo')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Draft Promo')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 
     expect(promotionsApi.createPromotion).not.toHaveBeenCalled()

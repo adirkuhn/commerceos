@@ -146,7 +146,7 @@ describe('DiscardApp SKU screen', () => {
 
     await userEvent.click(screen.getByTitle('Back to scan'))
 
-    expect(screen.getByPlaceholderText('Scan or type SKU / barcode…')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Scan or type SKU / barcode…')).toBeInTheDocument()
   })
 
   it('tapping a row opens the discard sheet pre-filled with its full quantity, capped Max', async () => {
@@ -154,7 +154,7 @@ describe('DiscardApp SKU screen', () => {
 
     await userEvent.click(screen.getByText('LOT-1'))
 
-    expect(screen.getByText('Discard LOT-1')).toBeInTheDocument()
+    expect(await screen.findByText('Discard LOT-1')).toBeInTheDocument()
     expect(screen.getByLabelText('Quantity to discard')).toHaveValue('6')
     await userEvent.type(screen.getByLabelText('Quantity to discard'), '99')
     expect(screen.getByLabelText('Quantity to discard')).toHaveValue('6')
@@ -169,7 +169,7 @@ describe('DiscardApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch({ quantity: 6 })])
 
     await userEvent.click(screen.getByText('LOT-1'))
-    await userEvent.clear(screen.getByLabelText('Quantity to discard'))
+    await userEvent.clear(await screen.findByLabelText('Quantity to discard'))
     await userEvent.type(screen.getByLabelText('Quantity to discard'), '4')
     await userEvent.type(screen.getByLabelText('Reason'), 'expired')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
@@ -189,7 +189,7 @@ describe('DiscardApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [generalLedgerRow({ quantity: 20 })])
 
     await userEvent.click(screen.getByText('General ledger'))
-    await userEvent.clear(screen.getByLabelText('Quantity to discard'))
+    await userEvent.clear(await screen.findByLabelText('Quantity to discard'))
     await userEvent.type(screen.getByLabelText('Quantity to discard'), '3')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 
@@ -203,7 +203,7 @@ describe('DiscardApp SKU screen', () => {
     await resolveAndEnterSKU(sku(), [batch({ quantity: 6 })])
 
     await userEvent.click(screen.getByText('LOT-1'))
-    await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Discard' }))
 
     expect(await screen.findByText('insufficient stock')).toBeInTheDocument()
     expect(screen.getByLabelText('Quantity to discard')).toBeInTheDocument()

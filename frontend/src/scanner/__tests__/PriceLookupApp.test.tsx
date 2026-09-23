@@ -185,7 +185,7 @@ describe('PriceLookupApp', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Look up another' }))
 
-    expect(screen.getByPlaceholderText('Scan or type SKU / barcode…')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Scan or type SKU / barcode…')).toBeInTheDocument()
   })
 
   it('resolves a code decoded via the camera', async () => {

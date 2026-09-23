@@ -85,7 +85,7 @@ describe('Coupon edit page', () => {
     renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Coupon' }))
 
-    expect(screen.getByText('New Coupon', { selector: 'h1' })).toBeInTheDocument()
+    expect(await screen.findByText('New Coupon', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Code')).toHaveValue('')
     expect(screen.getByRole('button', { name: 'Create Coupon' })).toBeInTheDocument()
   })
@@ -95,7 +95,7 @@ describe('Coupon edit page', () => {
 
     renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Coupon' }))
-    await userEvent.type(screen.getByLabelText('Code'), 'winter20')
+    await userEvent.type(await screen.findByLabelText('Code'), 'winter20')
     await userEvent.type(screen.getByLabelText('Percent off'), '20')
     await userEvent.click(screen.getByRole('button', { name: 'Create Coupon' }))
 
@@ -110,7 +110,7 @@ describe('Coupon edit page', () => {
   it('rejects creating a coupon with a zero discount value', async () => {
     renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Coupon' }))
-    await userEvent.type(screen.getByLabelText('Code'), 'EMPTY')
+    await userEvent.type(await screen.findByLabelText('Code'), 'EMPTY')
     await userEvent.type(screen.getByLabelText('Percent off'), '0')
     await userEvent.click(screen.getByRole('button', { name: 'Create Coupon' }))
 
@@ -183,7 +183,7 @@ describe('Coupon edit page', () => {
   it('Discard returns to the list without saving', async () => {
     renderAt(<Coupons />, '/coupons')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Coupon' }))
-    await userEvent.type(screen.getByLabelText('Code'), 'DRAFT')
+    await userEvent.type(await screen.findByLabelText('Code'), 'DRAFT')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 
     expect(couponsApi.createCoupon).not.toHaveBeenCalled()

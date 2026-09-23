@@ -126,7 +126,7 @@ describe('Create sales channel', () => {
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.type(screen.getByLabelText('Name'), 'New Channel')
+    await userEvent.type(await screen.findByLabelText('Name'), 'New Channel')
     await userEvent.selectOptions(screen.getByLabelText('Connection'), 'conn-1')
     await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
 
@@ -145,7 +145,7 @@ describe('Create sales channel', () => {
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'bol')
+    await userEvent.selectOptions(await screen.findByLabelText('Type'), 'bol')
     const connectionSelect = screen.getByLabelText('Connection')
     expect(within(connectionSelect).queryByText(/mystore.com/)).not.toBeInTheDocument()
     await userEvent.type(screen.getByLabelText('Name'), 'BOL')
@@ -165,7 +165,7 @@ describe('Create sales channel', () => {
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.selectOptions(await screen.findByLabelText('Type'), 'internal')
     expect(screen.queryByLabelText('Connection')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Default location')).not.toBeInTheDocument()
 
@@ -203,7 +203,7 @@ describe('Create sales channel', () => {
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.selectOptions(await screen.findByLabelText('Type'), 'internal')
     await userEvent.selectOptions(await screen.findByLabelText('Currency'), 'GBP')
 
     expect(screen.getByText(/No exchange rate configured for GBP yet/)).toBeInTheDocument()
@@ -219,7 +219,7 @@ describe('Create sales channel', () => {
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.selectOptions(await screen.findByLabelText('Type'), 'internal')
     await userEvent.type(screen.getByLabelText('Name'), 'US Store')
     await userEvent.selectOptions(await screen.findByLabelText('Currency'), 'USD')
     await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
@@ -259,7 +259,7 @@ describe('Create sales channel', () => {
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.type(screen.getByLabelText('Name'), 'New Channel')
+    await userEvent.type(await screen.findByLabelText('Name'), 'New Channel')
     await userEvent.selectOptions(screen.getByLabelText('Connection'), 'conn-1')
     await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
 
@@ -274,7 +274,7 @@ describe('Edit sales channel', () => {
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
-    expect(screen.getByLabelText('Name')).toHaveValue('My Woo Store')
+    expect(await screen.findByLabelText('Name')).toHaveValue('My Woo Store')
 
     await userEvent.clear(screen.getByLabelText('Name'))
     await userEvent.type(screen.getByLabelText('Name'), 'Renamed')
@@ -405,7 +405,7 @@ describe('Sales channel default location', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
-    expect(screen.getByLabelText('Default location')).toHaveValue('wh-1')
+    expect(await screen.findByLabelText('Default location')).toHaveValue('wh-1')
   })
 
   it('keeps the connection default location unchanged when saving other channel edits', async () => {
@@ -418,7 +418,7 @@ describe('Sales channel default location', () => {
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
-    await userEvent.clear(screen.getByLabelText('Name'))
+    await userEvent.clear(await screen.findByLabelText('Name'))
     await userEvent.type(screen.getByLabelText('Name'), 'Renamed')
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
@@ -443,7 +443,7 @@ describe('Sales channel fulfillment warehouse', () => {
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.selectOptions(await screen.findByLabelText('Type'), 'internal')
 
     expect(screen.getByLabelText('Fulfillment warehouse')).toBeRequired()
   })
@@ -459,7 +459,7 @@ describe('Sales channel fulfillment warehouse', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
-    expect(screen.getByLabelText('Fulfillment warehouse')).toHaveValue('wh-2')
+    expect(await screen.findByLabelText('Fulfillment warehouse')).toHaveValue('wh-2')
   })
 
   it('saves a changed fulfillment warehouse on an Internal channel edit', async () => {
@@ -472,7 +472,7 @@ describe('Sales channel fulfillment warehouse', () => {
     await screen.findByText('B2C Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
-    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-2')
+    await userEvent.selectOptions(await screen.findByLabelText('Fulfillment warehouse'), 'wh-2')
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => {
@@ -499,7 +499,7 @@ describe('Headless API docs', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'API docs' }))
 
-    expect(screen.getByText('https://api.example.com/api/v1/storefront/v1')).toBeInTheDocument()
+    expect(await screen.findByText('https://api.example.com/api/v1/storefront/v1')).toBeInTheDocument()
     expect(screen.getByText('Authorization: Bearer chan-int')).toBeInTheDocument()
     expect(screen.getByText('/products')).toBeInTheDocument()
     expect(screen.getByText('/carts/{token}/checkout')).toBeInTheDocument()
@@ -512,7 +512,7 @@ describe('Headless API docs', () => {
     await screen.findByText('B2C Store')
     await userEvent.click(screen.getByRole('button', { name: 'API docs' }))
 
-    await userEvent.click(screen.getByLabelText('Close'))
+    await userEvent.click(await screen.findByLabelText('Close'))
 
     expect(screen.queryByText('B2C Store — headless API')).not.toBeInTheDocument()
   })
@@ -533,7 +533,7 @@ describe('Pricing (Products tab)', () => {
     await screen.findByText('B2C Store')
     await userEvent.click(screen.getByRole('button', { name: 'Products' }))
 
-    expect(screen.getByText('Pricing')).toBeInTheDocument()
+    expect(await screen.findByText('Pricing')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save pricing' })).toBeDisabled()
   })
 
@@ -546,7 +546,7 @@ describe('Pricing (Products tab)', () => {
     await screen.findByText('B2C Store')
     await userEvent.click(screen.getByRole('button', { name: 'Products' }))
 
-    expect(screen.getByLabelText('Discount off list price (%)')).toHaveValue(15)
+    expect(await screen.findByLabelText('Discount off list price (%)')).toHaveValue(15)
     expect(screen.getByLabelText('Quantity tier 1 minimum quantity')).toHaveValue(10)
     expect(screen.getByLabelText('Quantity tier 1 discount percent')).toHaveValue(20)
   })
@@ -558,7 +558,7 @@ describe('Pricing (Products tab)', () => {
     await screen.findByText('B2C Store')
     await userEvent.click(screen.getByRole('button', { name: 'Products' }))
 
-    await userEvent.type(screen.getByLabelText('Discount off list price (%)'), '20')
+    await userEvent.type(await screen.findByLabelText('Discount off list price (%)'), '20')
     await userEvent.click(screen.getByRole('button', { name: 'Save pricing' }))
 
     await waitFor(() => {
@@ -575,7 +575,7 @@ describe('Pricing (Products tab)', () => {
     await screen.findByText('B2C Store')
     await userEvent.click(screen.getByRole('button', { name: 'Products' }))
 
-    await userEvent.type(screen.getByLabelText('Discount off list price (%)'), '150')
+    await userEvent.type(await screen.findByLabelText('Discount off list price (%)'), '150')
     await userEvent.click(screen.getByRole('button', { name: 'Save pricing' }))
 
     expect(await screen.findByText('Discount must be between 0 and 100%.')).toBeInTheDocument()
@@ -591,8 +591,8 @@ describe('Pricing (Products tab)', () => {
     await screen.findByText('B2C Store')
     await userEvent.click(screen.getByRole('button', { name: 'Products' }))
 
-    await userEvent.click(screen.getByRole('button', { name: '+ Add tier' }))
-    await userEvent.type(screen.getByLabelText('Quantity tier 1 minimum quantity'), '10')
+    await userEvent.click(await screen.findByRole('button', { name: '+ Add tier' }))
+    await userEvent.type(await screen.findByLabelText('Quantity tier 1 minimum quantity'), '10')
     await userEvent.type(screen.getByLabelText('Quantity tier 1 discount percent'), '15')
     await userEvent.click(screen.getByRole('button', { name: 'Save pricing' }))
 
@@ -611,7 +611,7 @@ describe('Pricing (Products tab)', () => {
     renderPage()
     await screen.findByText('B2C Store')
     await userEvent.click(screen.getByRole('button', { name: 'Products' }))
-    expect(screen.getByLabelText('Quantity tier 1 minimum quantity')).toHaveValue(10)
+    expect(await screen.findByLabelText('Quantity tier 1 minimum quantity')).toHaveValue(10)
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove quantity tier 1' }))
 
@@ -624,8 +624,8 @@ describe('Pricing (Products tab)', () => {
     await screen.findByText('B2C Store')
     await userEvent.click(screen.getByRole('button', { name: 'Products' }))
 
-    await userEvent.click(screen.getByRole('button', { name: '+ Add tier' }))
-    await userEvent.type(screen.getByLabelText('Quantity tier 1 discount percent'), '15')
+    await userEvent.click(await screen.findByRole('button', { name: '+ Add tier' }))
+    await userEvent.type(await screen.findByLabelText('Quantity tier 1 discount percent'), '15')
     await userEvent.click(screen.getByRole('button', { name: 'Save pricing' }))
 
     expect(await screen.findByText('Each quantity tier needs a minimum quantity of at least 1.')).toBeInTheDocument()
@@ -680,7 +680,7 @@ describe('WhatsApp payment method', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
-    expect(screen.getByLabelText('Payment method')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Payment method')).toBeInTheDocument()
   })
 
   it('lists only connected Stripe/Revolut connections as payment method options', async () => {
@@ -691,7 +691,7 @@ describe('WhatsApp payment method', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
-    const select = screen.getByLabelText('Payment method')
+    const select = await screen.findByLabelText('Payment method')
     expect(within(select).getByText('Stripe')).toBeInTheDocument()
     expect(within(select).queryByText('Revolut')).not.toBeInTheDocument()
   })
@@ -704,7 +704,7 @@ describe('WhatsApp payment method', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
-    expect(screen.getByLabelText('Payment method')).toHaveValue('conn-stripe-1')
+    expect(await screen.findByLabelText('Payment method')).toHaveValue('conn-stripe-1')
   })
 
   it('saves the selected payment connection alongside other channel edits', async () => {
@@ -716,7 +716,7 @@ describe('WhatsApp payment method', () => {
     await screen.findByText('WA Channel')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
-    await userEvent.selectOptions(screen.getByLabelText('Payment method'), 'conn-stripe-1')
+    await userEvent.selectOptions(await screen.findByLabelText('Payment method'), 'conn-stripe-1')
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => {
@@ -733,7 +733,7 @@ describe('WhatsApp payment method', () => {
     await screen.findByText('WA Channel')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
-    await userEvent.selectOptions(screen.getByLabelText('Payment method'), '')
+    await userEvent.selectOptions(await screen.findByLabelText('Payment method'), '')
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => {

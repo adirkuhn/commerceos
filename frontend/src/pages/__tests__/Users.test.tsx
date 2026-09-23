@@ -151,7 +151,7 @@ describe('Users page — invites', () => {
     await waitFor(() => expect(teamApi.listMembers).toHaveBeenCalled())
 
     fireEvent.click(screen.getByRole('button', { name: /invite user/i }))
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'joe@example.com' } })
+    fireEvent.change(await screen.findByLabelText(/email/i), { target: { value: 'joe@example.com' } })
     fireEvent.click(screen.getByRole('button', { name: /send invite/i }))
 
     await waitFor(() => expect(teamApi.createInvite).toHaveBeenCalledWith('test-token', 'joe@example.com', 'customer_user'))

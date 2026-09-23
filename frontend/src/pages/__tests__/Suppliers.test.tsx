@@ -126,7 +126,7 @@ describe('Supplier edit page', () => {
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Acme Foods'))
 
-    expect(screen.getByDisplayValue('Acme Foods')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('Acme Foods')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
   })
 
@@ -134,7 +134,7 @@ describe('Supplier edit page', () => {
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Supplier' }))
 
-    expect(screen.getByText('New Supplier', { selector: 'h1' })).toBeInTheDocument()
+    expect(await screen.findByText('New Supplier', { selector: 'h1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toHaveValue('')
     expect(screen.getByRole('button', { name: 'Create Supplier' })).toBeInTheDocument()
   })
@@ -144,7 +144,7 @@ describe('Supplier edit page', () => {
 
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Supplier' }))
-    await userEvent.type(screen.getByLabelText('Name'), 'Beta Supply')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Beta Supply')
     await userEvent.click(screen.getByRole('button', { name: 'Create Supplier' }))
 
     await waitFor(() => expect(suppliersApi.createSupplier).toHaveBeenCalledWith('test-token', expect.objectContaining({ name: 'Beta Supply' })))
@@ -156,7 +156,7 @@ describe('Supplier edit page', () => {
 
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Supplier' }))
-    await userEvent.type(screen.getByLabelText('Name'), 'Beta Supply')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Beta Supply')
     await userEvent.type(screen.getByLabelText('Email'), 'hi@beta.example')
     await userEvent.type(screen.getByLabelText('Phone'), '+1 555-0100')
     await userEvent.type(screen.getByLabelText('Country'), 'US')
@@ -176,7 +176,7 @@ describe('Supplier edit page', () => {
 
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Supplier' }))
-    await userEvent.type(screen.getByLabelText('Name'), 'Beta Supply')
+    await userEvent.type(await screen.findByLabelText('Name'), 'Beta Supply')
     await userEvent.click(screen.getByRole('button', { name: 'Create Supplier' }))
 
     expect(await screen.findByText('name already taken')).toBeInTheDocument()
@@ -187,10 +187,10 @@ describe('Supplier edit page', () => {
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
     vi.mocked(suppliersApi.updateSupplier).mockResolvedValue(supplier({ name: 'Acme Foods Ltd' }))
 
-    render(<MemoryRouter><Suppliers /></MemoryRouter>)
+    const { router } = renderAt(<Suppliers />, '/suppliers')
     await userEvent.click(await screen.findByText('Acme Foods'))
 
-    const input = screen.getByLabelText('Name')
+    const input = await screen.findByLabelText('Name')
     await userEvent.clear(input)
     await userEvent.type(input, 'Acme Foods Ltd')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -198,6 +198,11 @@ describe('Supplier edit page', () => {
     await waitFor(() => expect(suppliersApi.updateSupplier).toHaveBeenCalledWith(
       'test-token', 'supplier-1', expect.objectContaining({ name: 'Acme Foods Ltd' }),
     ))
+    // The editor's heading also shows the new name -- wait until we're
+    // actually back on the list URL before asserting on it.
+    // (router state flips before React commits, so wait on the list's own UI)
+    await screen.findByRole('button', { name: /Add Supplier/ })
+    expect(router.state.location.pathname).toBe('/suppliers')
     expect(await screen.findByText('Acme Foods Ltd')).toBeInTheDocument()
   })
 
@@ -209,7 +214,7 @@ describe('Supplier edit page', () => {
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Acme Foods'))
 
-    expect(screen.getByLabelText('Email')).toHaveValue('hi@acme.example')
+    expect(await screen.findByLabelText('Email')).toHaveValue('hi@acme.example')
     expect(screen.getByLabelText('Phone')).toHaveValue('+1 555-0100')
     expect(screen.getByLabelText('Country')).toHaveValue('US')
     expect(screen.getByLabelText('Lead time (days)')).toHaveValue(14)
@@ -264,7 +269,7 @@ describe('Supplier edit page', () => {
 
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Acme Foods'))
-    await userEvent.type(screen.getByLabelText('Name'), ' extra')
+    await userEvent.type(await screen.findByLabelText('Name'), ' extra')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 
     expect(suppliersApi.updateSupplier).not.toHaveBeenCalled()

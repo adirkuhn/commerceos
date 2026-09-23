@@ -211,7 +211,7 @@ describe('ScannerApp pairing', () => {
 
     renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(screen.getByRole('button', { name: 'Type code' }))
-    await userEvent.type(screen.getByPlaceholderText('000000'), '123456')
+    await userEvent.type(await screen.findByPlaceholderText('000000'), '123456')
     await userEvent.click(screen.getByRole('button', { name: 'Pair' }))
 
     expect(await screen.findByText('Receive PO')).toBeInTheDocument()
@@ -223,7 +223,7 @@ describe('ScannerApp pairing', () => {
 
     renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(screen.getByRole('button', { name: 'Type code' }))
-    await userEvent.type(screen.getByPlaceholderText('000000'), '000000')
+    await userEvent.type(await screen.findByPlaceholderText('000000'), '000000')
     await userEvent.click(screen.getByRole('button', { name: 'Pair' }))
 
     expect(await screen.findByText('pairing code is invalid or expired')).toBeInTheDocument()
@@ -466,9 +466,9 @@ describe('ScannerApp booking screen', () => {
     await enterBookingScreen()
     await userEvent.click(await screen.findByText('Widget A'))
 
-    expect(screen.getByLabelText('Quantity to receive')).toHaveValue('6')
+    expect(await screen.findByLabelText('Quantity to receive')).toHaveValue('6')
     await userEvent.click(await screen.findByText('LOT-9'))
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(expect.any(String), 'booking-1', expect.objectContaining({
       sku_id: 'sku-1', action_type: 'receive', quantity: 6, batch_id: 'batch-9',
@@ -490,7 +490,7 @@ describe('ScannerApp booking screen', () => {
     await userEvent.click(await screen.findByText('Widget A'))
 
     await userEvent.click(await screen.findByText('+ New batch'))
-    await userEvent.type(screen.getByLabelText('Lot number'), 'LOT-NEW')
+    await userEvent.type(await screen.findByLabelText('Lot number'), 'LOT-NEW')
     await userEvent.type(screen.getByLabelText('Expiry date'), '2027-01-01')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
@@ -513,10 +513,10 @@ describe('ScannerApp booking screen', () => {
 
     await enterBookingScreen()
     await userEvent.click(await screen.findByText('Widget A'))
-    await userEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove' }))
 
     await userEvent.click(await screen.findByText('LOT-9'))
-    await userEvent.type(screen.getByLabelText('Quantity to remove'), '3')
+    await userEvent.type(await screen.findByLabelText('Quantity to remove'), '3')
     await userEvent.type(screen.getByLabelText('Reason (optional)'), 'counted wrong')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
@@ -541,10 +541,10 @@ describe('ScannerApp booking screen', () => {
 
     await enterBookingScreen()
     await userEvent.click(await screen.findByText('Widget A'))
-    await userEvent.click(screen.getByRole('button', { name: 'Damaged/Lost' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Damaged/Lost' }))
 
     await userEvent.click(await screen.findByText('LOT-9'))
-    await userEvent.type(screen.getByLabelText('Quantity'), '2')
+    await userEvent.type(await screen.findByLabelText('Quantity'), '2')
     await userEvent.type(screen.getByLabelText('Reason (optional)'), 'arrived crushed')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
@@ -653,7 +653,7 @@ describe('ScannerApp booking screen', () => {
     await screen.findByText('Review before finishing')
     await userEvent.click(screen.getByRole('button', { name: 'Back, scan more' }))
 
-    expect(screen.getByText('Booking')).toBeInTheDocument()
+    expect(await screen.findByText('Booking')).toBeInTheDocument()
     expect(api.completeBooking).not.toHaveBeenCalled()
   })
 
@@ -774,7 +774,7 @@ describe('ScannerApp picking screen', () => {
     await enterPickingScreen()
     await userEvent.click(await screen.findByText('Widget A'))
 
-    expect(screen.getByLabelText('Quantity to pick')).toHaveValue('10')
+    expect(await screen.findByLabelText('Quantity to pick')).toHaveValue('10')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm pick' }))
 
     await waitFor(() => expect(api.scanPickItem).toHaveBeenCalledWith(expect.any(String), 'session-1', expect.objectContaining({
@@ -863,11 +863,11 @@ describe('ScannerApp picking screen', () => {
 
     await enterPickingScreen()
     await userEvent.click(await screen.findByText('Widget A'))
-    await userEvent.click(screen.getByRole('button', { name: /Substitute/ }))
-    await userEvent.type(screen.getByPlaceholderText('Search or scan barcode…'), 'Widget B')
+    await userEvent.click(await screen.findByRole('button', { name: /Substitute/ }))
+    await userEvent.type(await screen.findByPlaceholderText('Search or scan barcode…'), 'Widget B')
     await userEvent.click(screen.getByRole('button', { name: 'Find' }))
     await userEvent.click(await screen.findByText('Widget B'))
-    await userEvent.clear(screen.getByLabelText('Covers (of original)'))
+    await userEvent.clear(await screen.findByLabelText('Covers (of original)'))
     await userEvent.type(screen.getByLabelText('Covers (of original)'), '10')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm substitute' }))
 
@@ -902,12 +902,12 @@ describe('ScannerApp picking screen', () => {
 
     await enterPickingScreen()
     await userEvent.click(await screen.findByText('Widget A'))
-    await userEvent.click(screen.getByRole('button', { name: /Substitute/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Substitute/ }))
 
-    await userEvent.type(screen.getByPlaceholderText('Search or scan barcode…'), 'Widget B')
+    await userEvent.type(await screen.findByPlaceholderText('Search or scan barcode…'), 'Widget B')
     await userEvent.click(screen.getByRole('button', { name: 'Find' }))
     await userEvent.click(await screen.findByText('Widget B'))
-    await userEvent.clear(screen.getByLabelText('Covers (of original)'))
+    await userEvent.clear(await screen.findByLabelText('Covers (of original)'))
     await userEvent.type(screen.getByLabelText('Covers (of original)'), '5')
 
     // Return to stock defaults unchecked.
@@ -919,7 +919,7 @@ describe('ScannerApp picking screen', () => {
     await userEvent.type(screen.getByPlaceholderText('Search or scan barcode…'), 'Widget C')
     await userEvent.click(screen.getByRole('button', { name: 'Find' }))
     await userEvent.click(await screen.findByText('Widget C'))
-    const coverInputs = screen.getAllByLabelText('Covers (of original)')
+    const coverInputs = await screen.findAllByLabelText('Covers (of original)')
     await userEvent.clear(coverInputs[coverInputs.length - 1])
     await userEvent.type(coverInputs[coverInputs.length - 1], '5')
     await userEvent.click(screen.getAllByRole('checkbox')[1])
@@ -945,9 +945,9 @@ describe('ScannerApp picking screen', () => {
 
     await enterPickingScreen()
     await userEvent.click(await screen.findByText('Widget A'))
-    await userEvent.click(screen.getByRole('button', { name: /Refund/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Refund/ }))
 
-    const qtyInput = screen.getByLabelText('Quantity to refund')
+    const qtyInput = await screen.findByLabelText('Quantity to refund')
     await userEvent.clear(qtyInput)
     await userEvent.type(qtyInput, '3')
     await userEvent.type(screen.getByLabelText('Reason (optional)'), 'damaged')
@@ -964,8 +964,8 @@ describe('ScannerApp picking screen', () => {
 
     await enterPickingScreen()
     await userEvent.click(await screen.findByText('Widget A'))
-    await userEvent.click(screen.getByRole('button', { name: /Refund/ }))
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm refund' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Refund/ }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm refund' }))
 
     expect(await screen.findByText('caller does not have permission to perform this action')).toBeInTheDocument()
   })
@@ -983,7 +983,7 @@ describe('ScannerApp picking screen', () => {
 
     await enterPickingScreen()
     await userEvent.click(await screen.findByText('Add freebie or new item'))
-    await userEvent.type(screen.getByPlaceholderText('Search or scan barcode…'), 'Free Sample')
+    await userEvent.type(await screen.findByPlaceholderText('Search or scan barcode…'), 'Free Sample')
     await userEvent.click(screen.getByRole('button', { name: 'Find' }))
     await userEvent.click(await screen.findByText('Free Sample'))
 
