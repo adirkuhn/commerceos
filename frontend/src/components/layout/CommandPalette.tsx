@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Search, LayoutDashboard, Package, Warehouse, ShoppingCart, ScanBarcode,
-  Settings, Factory, ShoppingBag, Plug, Truck, BarChart3, Users, Loader2,
-} from 'lucide-react'
+import { Search, Package, ShoppingCart, Factory, Users, Loader2 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
 import { navItemToPath } from '../../routes'
@@ -11,22 +8,7 @@ import { globalSearch } from '../../search/api'
 import { Dialog } from '../common/Dialog'
 import type { GlobalSearchResult } from '../../search/types'
 import type { NavItem } from '../../types'
-
-const COMMANDS: { label: string; icon: React.ElementType; nav: NavItem; shortcut?: string }[] = [
-  { label: 'Go to Dashboard', icon: LayoutDashboard, nav: 'dashboard', shortcut: 'G D' },
-  { label: 'Go to Products', icon: Package, nav: 'products', shortcut: 'G P' },
-  { label: 'Go to Inventory', icon: Warehouse, nav: 'inventory', shortcut: 'G I' },
-  { label: 'Go to Orders', icon: ShoppingCart, nav: 'orders', shortcut: 'G O' },
-  { label: 'Go to Picking', icon: ScanBarcode, nav: 'picking', shortcut: 'G W' },
-  { label: 'Go to Packing', icon: Package, nav: 'packing' },
-  { label: 'Go to Suppliers', icon: Factory, nav: 'suppliers' },
-  { label: 'Go to Procurement', icon: ShoppingBag, nav: 'procurement' },
-  { label: 'Go to Integrations', icon: Plug, nav: 'integrations' },
-  { label: 'Go to Shipping', icon: Truck, nav: 'shipping' },
-  { label: 'Go to Reports', icon: BarChart3, nav: 'reports-overview' },
-  { label: 'Go to Users & Roles', icon: Users, nav: 'users' },
-  { label: 'Go to Settings', icon: Settings, nav: 'settings' },
-]
+import { HOME_LINK, navGroupsForRole, navTitle } from './navConfig'
 
 // MIN_QUERY_LENGTH_FOR_SEARCH: a single character against every entity
 // table is both slow and useless (hundreds of near-random matches) --
@@ -45,13 +27,12 @@ interface PaletteEntry {
   icon: React.ElementType
   label: string
   sublabel?: string
-  shortcut?: string
   onSelect: () => void
 }
 
 export default function CommandPalette() {
   const { commandOpen, setCommandOpen, setActiveNav } = useApp()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
@@ -115,11 +96,12 @@ export default function CommandPalette() {
     setCommandOpen(false)
   }
 
-  const navEntries: PaletteEntry[] = COMMANDS
-    .filter(c => query.trim() === '' || c.label.toLowerCase().includes(query.trim().toLowerCase()))
-    .map(cmd => ({
-      key: `nav-${cmd.nav}`, section: 'Navigation', icon: cmd.icon, label: cmd.label,
-      shortcut: cmd.shortcut, onSelect: () => openNav(cmd.nav),
+  // Same pages, names and role gating as the sidebar.
+  const navEntries: PaletteEntry[] = [HOME_LINK, ...navGroupsForRole(user?.role).flatMap(g => g.items)]
+    .map(link => ({ link, label: `Go to ${navTitle(link.id)}` }))
+    .filter(({ label }) => query.trim() === '' || label.toLowerCase().includes(query.trim().toLowerCase()))
+    .map(({ link, label }) => ({
+      key: `nav-${link.id}`, section: 'Navigation', icon: link.icon, label, onSelect: () => openNav(link.id),
     }))
 
   const productEntries: PaletteEntry[] = (results?.products ?? []).map(p => ({
@@ -225,9 +207,6 @@ export default function CommandPalette() {
                         <span className="block text-2xs text-ink-4 truncate">{entry.sublabel}</span>
                       )}
                     </span>
-                    {entry.shortcut && (
-                      <span className="text-2xs text-ink-4 font-mono shrink-0">{entry.shortcut}</span>
-                    )}
                   </button>
                 )
               })}

@@ -153,4 +153,13 @@ describe('CommandPalette', () => {
 
     expect(await screen.findByText('search backend down')).toBeInTheDocument()
   })
+
+  it('offers the sidebar pages under the same names, without advertising shortcuts that do not exist', async () => {
+    renderPalette()
+    await openPalette()
+
+    expect(screen.getByText('Go to Sales Orders')).toBeInTheDocument()
+    expect(screen.getByText('Go to Reports: Overview')).toBeInTheDocument()
+    expect(screen.queryByText('G D')).not.toBeInTheDocument()
+  })
 })

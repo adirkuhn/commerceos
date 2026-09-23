@@ -1,252 +1,164 @@
-import { useState, useEffect } from 'react'
-import {
-  LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
-  ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3, Ticket, Star,
-  ChevronRight, ChevronDown, Zap, Webhook, MessageSquare,
-} from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, ChevronRight, LogOut, Zap } from 'lucide-react'
+import clsx from 'clsx'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
 import { useProducts } from '../../pms/hooks/useProducts'
 import type { NavItem } from '../../types'
-import clsx from 'clsx'
+import { HOME_LINK, navGroupsForRole, roleLabel, type NavGroup, type NavLink } from './navConfig'
 
-interface NavEntry {
-  id: NavItem
-  label: string
-  icon: React.ElementType
-  badge?: string | number
-  badgeColor?: string
-}
-
-// A section header row -- purely a visual divider/label in the nav list,
-// never itself clickable/active (see isSection).
-interface NavSection {
-  section: string
-}
-
-// A submenu row -- a parent label that expands/collapses to reveal its own
-// child NavEntry rows (used for Reports, where every report gets its own
-// page under one collapsible group instead of a single flat item).
-interface NavSubmenu {
-  label: string
-  icon: React.ElementType
-  children: NavEntry[]
-}
-
-type NavRow = NavEntry | NavSection | NavSubmenu
-
-function isSection(row: NavRow): row is NavSection {
-  return 'section' in row
-}
-
-function isSubmenu(row: NavRow): row is NavSubmenu {
-  return 'children' in row
-}
-
-const REPORTS_SUBMENU: NavSubmenu = {
-  label: 'Reports',
-  icon: BarChart3,
-  children: [
-    { id: 'reports-overview', label: 'Overview', icon: BarChart3 },
-    { id: 'reports-product-performance', label: 'Product Performance', icon: BarChart3 },
-    { id: 'reports-product-performance-matrix', label: 'Performance Matrix', icon: BarChart3 },
-    { id: 'reports-customer-performance', label: 'Customer Performance', icon: BarChart3 },
-    { id: 'reports-category-performance', label: 'Category Performance', icon: BarChart3 },
-    { id: 'reports-slow-moving-products', label: 'Slow-Moving Products', icon: BarChart3 },
-    { id: 'reports-inventory-sales', label: 'Inventory + Sales', icon: BarChart3 },
-    { id: 'reports-sales-trends', label: 'Sales Trends', icon: BarChart3 },
-    { id: 'reports-product-lifecycle', label: 'Product Lifecycle', icon: BarChart3 },
-    { id: 'reports-customer-cohorts', label: 'Customer Cohorts', icon: BarChart3 },
-    { id: 'reports-customer-rfm', label: 'Customer Segments (RFM)', icon: BarChart3 },
-    { id: 'reports-frequently-bought-together', label: 'Frequently Bought Together', icon: BarChart3 },
-    { id: 'reports-stockout-risk', label: 'Stockout Risk', icon: BarChart3 },
-  ],
-}
-
-const NAV_ITEMS: NavRow[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'sales-orders', label: 'Sales Order', icon: ShoppingCart },
-  { id: 'stock-issues', label: 'Stock Issues', icon: AlertTriangle },
-  { id: 'unmatched-skus', label: 'Unmatched SKUs', icon: PackageSearch },
-  { id: 'customers', label: 'Customer', icon: Users },
-  { id: 'products', label: 'Products', icon: Package },
-  { id: 'warehouses', label: 'Warehouses', icon: Warehouse },
-  { id: 'inventory', label: 'Inventory', icon: Boxes },
-  // { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: '38', badgeColor: 'blue' },
-  { id: 'picking', label: 'Picking', icon: ScanBarcode },
-  { id: 'packing', label: 'Packing', icon: Package },
-  { id: 'suppliers', label: 'Suppliers', icon: Truck },
-  { id: 'procurement', label: 'Procurement', icon: ShoppingBag },
-  { id: 'integrations', label: 'Integrations', icon: Plug, badge: '1', badgeColor: 'red' },
-  { id: 'webhooks', label: 'Webhooks', icon: Webhook },
-  { id: 'sales-channels', label: 'Sales Channels', icon: Radio },
-  { id: 'sync-log', label: 'Sync History', icon: History },
-  { id: 'message-center', label: 'Message Center', icon: MessageSquare },
-  // { id: 'shipping', label: 'Shipping', icon: Truck },
-  // Intelligence & Recommendation roadmap (Phase 0) -- promotions,
-  // reports, and future BI/recommendation screens all group here rather
-  // than scattering as flat top-level items.
-  { section: 'Intelligence' },
-  { id: 'promotions', label: 'Promotions', icon: Tag },
-  { id: 'coupons', label: 'Coupons', icon: Ticket },
-  { id: 'reviews', label: 'Reviews', icon: Star },
-  REPORTS_SUBMENU,
-  { id: 'settings', label: 'Settings', icon: Settings },
-]
-
-// OWNER_NAV_ITEMS -- team/user management calls lm2's company-owner (or
-// super_admin, e.g. akantio staff managing their own company for support)
-// endpoints (see team/api.ts), so the nav entry itself is hidden from
-// anyone else, same reasoning as SUPER_ADMIN_NAV_ITEMS.
-const OWNER_NAV_ITEMS: NavRow[] = [
-  { id: 'users', label: 'Users & Roles', icon: Users },
-]
-
-// SUPER_ADMIN_NAV_ITEMS are cross-tenant platform-operational pages --
-// visible only to the super_admin role (matches the backend's
-// middleware.RequireRole(RoleSuperAdmin) gate on their APIs), never shown
-// to a regular tenant user.
-const SUPER_ADMIN_NAV_ITEMS: NavRow[] = [
-  { id: 'scheduled-jobs', label: 'Scheduled Jobs', icon: Clock },
-]
-
-const BADGE_COLORS: Record<string, string> = {
-  red: 'bg-red-500/20 text-danger',
-  blue: 'bg-blue-500/20 text-accent',
-  amber: 'bg-amber-500/20 text-warning',
-  default: 'bg-gray-700 text-ink-4',
+function initiallyOpen(groups: NavGroup[], active: NavItem): Set<string> {
+  return new Set(groups
+    .filter(g => !g.collapsedByDefault || g.items.some(i => i.id === active))
+    .map(g => g.id))
 }
 
 export default function Sidebar() {
   const { activeNav, setActiveNav } = useApp()
-  const { user, logout, token } = useAuth()
+  const { user, token } = useAuth()
   // Only page 1 is fetched here — the badge needs the server-side total,
   // not the current page's item count, now that products are paginated.
   const { total } = useProducts(token ?? '', { page: 1, perPage: 1 })
 
-  const reportsChildActive = REPORTS_SUBMENU.children.some(c => c.id === activeNav)
-  const [reportsExpanded, setReportsExpanded] = useState(reportsChildActive)
-  useEffect(() => { if (reportsChildActive) setReportsExpanded(true) }, [reportsChildActive])
+  const groups = navGroupsForRole(user?.role)
+  const [open, setOpen] = useState(() => initiallyOpen(groups, activeNav))
 
-  const navItems: NavRow[] = [
-    ...NAV_ITEMS,
-    ...(user?.role === 'customer_owner' || user?.role === 'super_admin' ? OWNER_NAV_ITEMS : []),
-    ...(user?.role === 'super_admin' ? SUPER_ADMIN_NAV_ITEMS : []),
-  ].map(row =>
-    !isSection(row) && !isSubmenu(row) && row.id === 'products' && total > 0
-      ? { ...row, badge: total }
-      : row,
-  )
+  // Navigating into a closed group (URL, search, Back) opens it, so the
+  // current page is always visible in the sidebar.
+  const activeGroup = groups.find(g => g.items.some(i => i.id === activeNav))?.id
+  useEffect(() => {
+    if (activeGroup) setOpen(prev => (prev.has(activeGroup) ? prev : new Set(prev).add(activeGroup)))
+  }, [activeGroup])
+
+  function toggle(id: string) {
+    setOpen(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function renderLink(link: NavLink) {
+    const active = activeNav === link.id
+    const Icon = link.icon
+    const badge = link.id === 'products' && total > 0 ? total : null
+    return (
+      <button
+        key={link.id}
+        onClick={() => setActiveNav(link.id)}
+        aria-current={active ? 'page' : undefined}
+        className={clsx(
+          'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left transition-colors',
+          active ? 'bg-accent/15 text-accent' : 'text-ink-3 hover:bg-hover hover:text-ink',
+        )}
+      >
+        <Icon size={16} className="shrink-0" aria-hidden />
+        <span className="text-body font-medium flex-1 truncate">{link.label}</span>
+        {badge !== null && (
+          <span className="text-2xs font-medium px-1.5 py-0.5 rounded-full bg-fill text-ink-3 tabular-nums">{badge}</span>
+        )}
+      </button>
+    )
+  }
 
   return (
-    <aside className="w-56 shrink-0 flex flex-col h-full bg-surface border-r border-line">
-      {/* Logo */}
-      <div className="h-14 flex items-center px-4 border-b border-line shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
-            <Zap size={14} className="text-white" />
-          </div>
-          <span className="font-semibold text-sm text-ink tracking-tight">CommerceOS</span>
+    <aside className="w-60 shrink-0 flex flex-col h-full bg-surface border-r border-line">
+      <div className="h-14 flex items-center gap-2 px-4 border-b border-line shrink-0">
+        <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+          <Zap size={14} className="text-white" aria-hidden />
         </div>
+        <span className="font-semibold text-sm text-ink tracking-tight">CommerceOS</span>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto scrollbar-none py-3 px-2">
-        {navItems.map(item => {
-          if (isSection(item)) {
-            return (
-              <p
-                key={`section-${item.section}`}
-                className="px-2.5 pt-3 pb-1.5 text-2xs font-semibold uppercase tracking-wider text-ink-4"
-              >
-                {item.section}
-              </p>
-            )
-          }
-          if (isSubmenu(item)) {
-            const ParentIcon = item.icon
-            return (
-              <div key={`submenu-${item.label}`}>
-                <button
-                  onClick={() => setReportsExpanded(prev => !prev)}
-                  className={clsx(
-                    'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left mb-0.5 transition-all duration-150',
-                    reportsChildActive
-                      ? 'text-accent'
-                      : 'text-ink-3 hover:bg-hover hover:text-ink',
-                  )}
-                >
-                  <ParentIcon size={16} className={clsx('shrink-0', reportsChildActive ? 'text-accent' : '')} />
-                  <span className="text-xs font-medium flex-1 truncate">{item.label}</span>
-                  {reportsExpanded ? <ChevronDown size={12} className="shrink-0" /> : <ChevronRight size={12} className="shrink-0" />}
-                </button>
-                {reportsExpanded && (
-                  <div className="ml-3.5 pl-2.5 border-l border-line space-y-0.5 mb-0.5">
-                    {item.children.map(child => {
-                      const childActive = activeNav === child.id
-                      return (
-                        <button
-                          key={child.id}
-                          onClick={() => setActiveNav(child.id)}
-                          className={clsx(
-                            'w-full flex items-center px-2.5 py-1.5 rounded-lg text-left group transition-all duration-150',
-                            childActive
-                              ? 'bg-blue-600/15 text-accent'
-                              : 'text-ink-3 hover:bg-hover hover:text-ink',
-                          )}
-                        >
-                          <span className="text-xs font-medium flex-1 truncate">{child.label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          }
-          const active = activeNav === item.id
-          const Icon = item.icon
+      <nav aria-label="Main" className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+        {renderLink(HOME_LINK)}
+        {groups.map(group => {
+          const expanded = open.has(group.id)
+          const listId = `nav-group-${group.id}`
+          const Chevron = expanded ? ChevronDown : ChevronRight
           return (
-            <button
-              key={item.id}
-              onClick={() => setActiveNav(item.id)}
-              className={clsx(
-                'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left mb-0.5 group transition-all duration-150',
-                active
-                  ? 'bg-blue-600/15 text-accent'
-                  : 'text-ink-3 hover:bg-hover hover:text-ink',
+            <div key={group.id} className="pt-3">
+              <button
+                onClick={() => toggle(group.id)}
+                aria-expanded={expanded}
+                aria-controls={listId}
+                className="w-full flex items-center gap-1 px-2.5 py-1 rounded-md text-left text-2xs font-semibold uppercase tracking-wider text-ink-4 hover:text-ink-2"
+              >
+                <span className="flex-1">{group.label}</span>
+                <Chevron size={12} aria-hidden />
+              </button>
+              {expanded && (
+                <div id={listId} className="mt-0.5 space-y-0.5">
+                  {group.items.map(renderLink)}
+                </div>
               )}
-            >
-              <Icon size={16} className={clsx('shrink-0', active ? 'text-accent' : '')} />
-              <span className="text-xs font-medium flex-1 truncate">{item.label}</span>
-              {item.badge && (
-                <span className={clsx(
-                  'text-2xs font-medium px-1.5 py-0.5 rounded-full',
-                  item.badgeColor ? BADGE_COLORS[item.badgeColor] : BADGE_COLORS.default,
-                )}>
-                  {item.badge}
-                </span>
-              )}
-              {active && <ChevronRight size={12} className="text-accent shrink-0" />}
-            </button>
+            </div>
           )
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-3 border-t border-line shrink-0">
-        <button
-          onClick={logout}
-          title="Sign out"
-          className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-hover cursor-pointer text-left"
-        >
-          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-ink truncate">{user?.role ?? 'Signed in'}</p>
-            <p className="text-2xs text-ink-4 truncate">Sign out</p>
-          </div>
-        </button>
-      </div>
+      <AccountMenu role={user?.role} />
     </aside>
+  )
+}
+
+function AccountMenu({ role }: { role?: string }) {
+  const { logout } = useAuth()
+  const [open, setOpen] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const itemRef = useRef<HTMLButtonElement>(null)
+  const label = roleLabel(role)
+
+  useEffect(() => {
+    if (open) itemRef.current?.focus()
+  }, [open])
+
+  function close() {
+    setOpen(false)
+    buttonRef.current?.focus()
+  }
+
+  return (
+    <div className="relative p-3 border-t border-line shrink-0">
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            role="menu"
+            aria-label="Account"
+            onKeyDown={e => { if (e.key === 'Escape') close() }}
+            className="absolute bottom-full left-3 right-3 mb-2 z-50 rounded-xl bg-raised border border-line shadow-2xl p-1"
+          >
+            <p className="px-2.5 pt-1.5 pb-1 text-2xs text-ink-4">Signed in as</p>
+            <p className="px-2.5 pb-2 text-xs font-medium text-ink">{label}</p>
+            <div className="border-t border-line my-1" />
+            <button
+              ref={itemRef}
+              role="menuitem"
+              onClick={logout}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs text-ink-2 hover:bg-hover"
+            >
+              <LogOut size={14} aria-hidden />
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
+      <button
+        ref={buttonRef}
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Account: ${label}`}
+        className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-hover text-left"
+      >
+        <span className="w-7 h-7 rounded-full bg-fill border border-line flex items-center justify-center text-2xs font-semibold text-ink-2 shrink-0" aria-hidden>
+          {label.charAt(0)}
+        </span>
+        <span className="flex-1 min-w-0 text-xs font-medium text-ink truncate">{label}</span>
+        <ChevronDown size={12} className="text-ink-4 shrink-0" aria-hidden />
+      </button>
+    </div>
   )
 }

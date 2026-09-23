@@ -64,7 +64,7 @@ describe('AppShell routing', () => {
       </MemoryRouter>,
     )
 
-    await userEvent.click(screen.getByText('Sales Order'))
+    await userEvent.click(screen.getByRole('button', { name: 'Sales Orders' }))
 
     expect(await screen.findByText('SALES_ORDERS_PAGE')).toBeInTheDocument()
     expect(screen.queryByText('DASHBOARD_PAGE')).not.toBeInTheDocument()

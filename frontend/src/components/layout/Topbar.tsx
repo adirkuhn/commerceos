@@ -5,28 +5,12 @@ import { useAuth } from '../../auth/AuthContext'
 import { PairScannerModal } from '../../scanner/PairScannerModal'
 import NotificationBell from './NotificationBell'
 import type { ThemePreference } from '../../theme/themePreference'
+import { navTitle } from './navConfig'
 
 const APPEARANCE: Record<ThemePreference, { label: string; icon: React.ElementType }> = {
   system: { label: 'System', icon: Monitor },
   light: { label: 'Light', icon: Sun },
   dark: { label: 'Dark', icon: Moon },
-}
-
-const NAV_TITLES: Record<string, string> = {
-  dashboard: 'Dashboard',
-  'sales-orders': 'Sales Order',
-  customers: 'Customer',
-  products: 'Products · PIM',
-  inventory: 'Inventory · WMS',
-  orders: 'Orders · OMS',
-  picking: 'Picking & Packing',
-  suppliers: 'Suppliers',
-  procurement: 'Procurement',
-  integrations: 'Integrations',
-  shipping: 'Shipping',
-  reports: 'Reports',
-  users: 'Users & Permissions',
-  settings: 'Settings',
 }
 
 export default function Topbar() {
@@ -39,7 +23,7 @@ export default function Topbar() {
   return (
     <header className="h-14 shrink-0 flex items-center gap-4 px-5 border-b border-line bg-surface">
       <h1 className="text-sm font-semibold text-ink mr-2">
-        {NAV_TITLES[activeNav] ?? activeNav}
+        {navTitle(activeNav)}
       </h1>
 
       {/* Search */}
@@ -77,12 +61,6 @@ export default function Topbar() {
         >
           <AppearanceIcon size={16} className="text-ink-3" />
         </button>
-
-        {/* Status pill */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full dark:bg-green-500/10 bg-green-50 border dark:border-green-500/20 border-green-200">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-2xs font-medium text-success">All systems live</span>
-        </div>
       </div>
 
       {pairScannerOpen && token && (

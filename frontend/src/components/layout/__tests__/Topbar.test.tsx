@@ -74,3 +74,15 @@ describe('Topbar appearance control', () => {
     expect(screen.getByRole('button', { name: 'Pair Scanner' })).toBeInTheDocument()
   })
 })
+
+describe('Topbar title', () => {
+  it('names the current page the way the sidebar does', () => {
+    render(<MemoryRouter initialEntries={['/reports/sales-trends']}><AppProvider><Topbar /></AppProvider></MemoryRouter>)
+    expect(screen.getByRole('heading', { level: 1, name: 'Reports: Sales Trends' })).toBeInTheDocument()
+  })
+
+  it('shows no made-up system status', () => {
+    renderTopbar()
+    expect(screen.queryByText('All systems live')).not.toBeInTheDocument()
+  })
+})
