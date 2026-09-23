@@ -14,9 +14,13 @@ vi.mock('../../auth/AuthContext', () => ({
 }))
 
 vi.mock('../../oms/api', () => ({
-  listSalesOrders: vi.fn(),
+  listPackingQueue: vi.fn(),
   getSalesOrder: vi.fn(),
   getPickList: vi.fn(),
+}))
+
+vi.mock('../../team/api', () => ({
+  listMembers: vi.fn(),
 }))
 
 vi.mock('../../scanner/api', () => ({
@@ -50,6 +54,7 @@ vi.mock('../../scanner/errorSound', () => ({
 }))
 
 import * as omsApi from '../../oms/api'
+import * as teamApi from '../../team/api'
 import * as packingApi from '../../scanner/api'
 import * as pmsApi from '../../pms/api'
 import * as shippingApi from '../../shipping/api'
@@ -84,7 +89,8 @@ function detail(overrides: Partial<PackingSessionDetail> = {}): PackingSessionDe
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+  vi.mocked(omsApi.listPackingQueue).mockResolvedValue({ entries: [{ sales_order: salesOrder(), lock: null }], total: 1 })
+  vi.mocked(teamApi.listMembers).mockResolvedValue([])
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
   vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
   vi.mocked(shippingApi.lookupAddress).mockResolvedValue(null)
@@ -150,11 +156,25 @@ describe('Packing page URLs (refresh + Back)', () => {
 })
 
 describe('Packing page', () => {
-  it('lists orders ready to pack -- picked or not, the backend decides', async () => {
+  it('lists the packing queue -- every unpacked order, the backend decides', async () => {
     render(<MemoryRouter><Packing /></MemoryRouter>)
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
-    expect(vi.mocked(omsApi.listSalesOrders)).toHaveBeenCalledWith('test-token', { readyToPack: true, perPage: 100 })
+    expect(vi.mocked(omsApi.listPackingQueue)).toHaveBeenCalledWith('test-token', { perPage: 100 })
+  })
+
+  it('an order another user is packing is read-only, naming them and how long', async () => {
+    vi.mocked(omsApi.listPackingQueue).mockResolvedValue({
+      entries: [{ sales_order: salesOrder(), lock: { activity: 'packing', user_id: 'u-9', since: new Date(Date.now() - 5 * 60_000).toISOString() } }],
+      total: 1,
+    })
+    vi.mocked(teamApi.listMembers).mockResolvedValue([
+      { membership_id: 'm', user_id: 'u-9', email: 'x@y.z', first_name: 'Dana', last_name: 'Box', role: 'customer_user', status: 'active', last_login_at: null },
+    ])
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+
+    expect(await screen.findByText('Packing · Dana Box · 5 min')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /#1001/ })).not.toBeInTheDocument()
   })
 
   it('ticking orders and opening the pick list puts it in the URL (Back closes it)', async () => {

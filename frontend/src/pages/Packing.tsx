@@ -3,12 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ScanBarcode, CheckCircle, Package, X, Trash2, ArrowLeft, Undo2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
-import * as omsApi from '../oms/api'
 import { useRoutedSession } from '../oms/useRoutedSession'
 import { SessionErrorPanel } from '../oms/SessionErrorPanel'
 import { PackingOrderQueue } from '../packing/PackingOrderQueue'
 import { PickListPrintView } from '../packing/PickListPrintView'
 import { customerName, formatMoney } from '../packing/orderDisplay'
+import { canTakeOverLocks } from '../packing/lockDisplay'
+import { usePackingQueue } from '../oms/hooks/usePackingQueue'
+import { useMemberNames } from '../team/hooks/useMemberNames'
 import { useQueryString } from '../routing/useQueryState'
 import type { SalesOrder, Address } from '../oms/types'
 import * as packingApi from '../scanner/api'
@@ -58,7 +60,7 @@ const PACKING_PATH = '/packing'
 // "Continue to packing"): it starts/resumes that order's session, then
 // replaces itself with the session URL.
 export default function Packing() {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   // ?pick=<id,id> shows the multi-order pick list. Opening pushes (Back
@@ -68,9 +70,8 @@ export default function Packing() {
   const [, clearPickParam] = useQueryString('pick')
   const pickIds = pickParam ? pickParam.split(',').filter(Boolean) : []
 
-  const [orders, setOrders] = useState<SalesOrder[]>([])
-  const [ordersLoading, setOrdersLoading] = useState(true)
-  const [ordersError, setOrdersError] = useState('')
+  const queue = usePackingQueue(token ?? '')
+  const nameFor = useMemberNames(token ?? '')
 
   const [activeOrder, setActiveOrder] = useState<SalesOrder | null>(null)
   const [session, setSession] = useState<PackingSessionDetail | null>(null)
@@ -129,21 +130,6 @@ export default function Packing() {
     setExistingShipment(null)
   }, [activeOrder?.id])
 
-  const loadOrders = useCallback(async () => {
-    if (!token) return
-    setOrdersLoading(true)
-    setOrdersError('')
-    try {
-      const result = await omsApi.listSalesOrders(token, { readyToPack: true, perPage: 100 })
-      setOrders(result.salesOrders)
-    } catch (err) {
-      setOrdersError(err instanceof Error ? err.message : 'Failed to load orders')
-    } finally {
-      setOrdersLoading(false)
-    }
-  }, [token])
-
-  useEffect(() => { loadOrders() }, [loadOrders])
 
   const loadSession = useCallback(async (sessionId: string) => {
     if (!token) return
@@ -320,7 +306,7 @@ export default function Packing() {
       const result = await packingApi.completePacking(token, session.session.id)
       setCompleteResult(result)
       setConfirmingFinish(false)
-      await loadOrders()
+      await queue.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to complete packing')
     } finally {
@@ -388,7 +374,8 @@ export default function Packing() {
   return (
     <div className="flex h-full">
       <PackingOrderQueue
-        orders={orders} loading={ordersLoading} error={ordersError}
+        entries={queue.entries} loading={queue.loading} error={queue.error}
+        currentUserId={user?.user_id ?? ''} isAdmin={canTakeOverLocks(user?.role)} nameFor={nameFor}
         activeOrderId={activeOrder?.id ?? null} activeInProgress={session?.session.status === 'in_progress'}
         onSelect={selectOrder} onOpenPickList={ids => setPickParam(ids.join(','))}
       />

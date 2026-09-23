@@ -221,3 +221,23 @@ export interface PickListItem {
 export interface PickList {
   items: PickListItem[]
 }
+
+// PackingQueue mirrors api/oms's PackingQueue -- every order still to be
+// packed, each with whoever is actively working it (lock null when free).
+export type PackingQueueLockActivity = 'picking' | 'packing'
+
+export interface PackingQueueLock {
+  activity: PackingQueueLockActivity
+  user_id: string
+  since: string
+}
+
+export interface PackingQueueEntry {
+  sales_order: SalesOrder
+  lock: PackingQueueLock | null
+}
+
+export interface PackingQueue {
+  entries: PackingQueueEntry[]
+  total: number
+}

@@ -50,15 +50,16 @@ describe('listSalesOrders', () => {
   })
 })
 
-describe('listSalesOrders readyToPack', () => {
-  it('sends ready_to_pack=true when requested, omits it otherwise', async () => {
-    const fetchMock = mockFetch({ sales_orders: [], total: 0 })
+describe('listPackingQueue', () => {
+  it('requests the packing queue page and returns entries with locks', async () => {
+    const queue = { entries: [{ sales_order: { id: 'so-1' }, lock: { activity: 'picking', user_id: 'u1', since: '2026-09-24T10:00:00Z' } }], total: 1 }
+    const fetchMock = mockFetch(queue)
 
-    await api.listSalesOrders(TOKEN, { readyToPack: true })
-    expect(fetchMock.mock.calls[0][0] as string).toContain('ready_to_pack=true')
+    const result = await api.listPackingQueue(TOKEN, { perPage: 100 })
 
-    await api.listSalesOrders(TOKEN, {})
-    expect(fetchMock.mock.calls[1][0] as string).not.toContain('ready_to_pack')
+    const url = fetchMock.mock.calls[0][0] as string
+    expect(url).toMatch(/\/packing-queue\?per_page=100$/)
+    expect(result).toEqual(queue)
   })
 })
 

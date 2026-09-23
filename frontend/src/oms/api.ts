@@ -1,4 +1,4 @@
-import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity, PickList } from './types'
+import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity, PickList, PackingQueue } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/sales-orders`
@@ -33,10 +33,6 @@ export interface ListSalesOrdersParams {
   // packed: filter on the order's packing status. Omit for the normal
   // unfiltered sales orders list.
   packed?: boolean
-  // readyToPack: true powers the packing screens' queue -- orders a packing
-  // session may start for. Picking is optional, so this includes unpicked
-  // orders; the rule lives in the backend (SalesOrder.CanStartPacking).
-  readyToPack?: boolean
   // status: narrows to the given statuses -- combined with fulfilled:false,
   // the picking screens use this to exclude completed/cancelled/refunded/
   // failed orders. Omit for the normal unfiltered sales orders list.
@@ -65,7 +61,6 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
   if (params.needsSkuReview !== undefined) qs.set('needs_sku_review', String(params.needsSkuReview))
   if (params.fulfilled !== undefined) qs.set('fulfilled', String(params.fulfilled))
   if (params.packed !== undefined) qs.set('packed', String(params.packed))
-  if (params.readyToPack) qs.set('ready_to_pack', 'true')
   for (const status of params.status ?? []) qs.append('status', status)
   for (const source of params.source ?? []) qs.append('source', source)
   if (params.customerId) qs.set('customer_id', params.customerId)
@@ -75,6 +70,16 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
     `${base()}${query ? `?${query}` : ''}`, token,
   )
   return { salesOrders: result.sales_orders, total: result.total }
+}
+
+// The packing screens' queue: every unpacked order with who is working it.
+// Lives outside /sales-orders on the backend, hence the separate base.
+export function listPackingQueue(token: string, params: { page?: number; perPage?: number } = {}): Promise<PackingQueue> {
+  const qs = new URLSearchParams()
+  if (params.page) qs.set('page', String(params.page))
+  if (params.perPage) qs.set('per_page', String(params.perPage))
+  const query = qs.toString()
+  return request<PackingQueue>(`${import.meta.env.VITE_API_BASE_URL}/packing-queue${query ? `?${query}` : ''}`, token)
 }
 
 export function getPickList(token: string, salesOrderIds: string[]): Promise<PickList> {

@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Search, LogOut, Package, ArrowLeft } from 'lucide-react'
-import * as omsApi from '../oms/api'
+import { useState } from 'react'
+import { Search, LogOut, Package, ArrowLeft, Lock } from 'lucide-react'
+import { usePackingQueue } from '../oms/hooks/usePackingQueue'
+import { useMemberNames } from '../team/hooks/useMemberNames'
+import { readClaims } from '../auth/jwtClaims'
+import { canTakeOverLocks, lockLabel } from '../packing/lockDisplay'
 import * as api from './api'
 import type { SalesOrder } from '../oms/types'
 
@@ -25,38 +28,36 @@ function customerName(order: SalesOrder): string {
   return name || order.billing?.email || 'Unknown customer'
 }
 
-// Mirrors SalesOrderPickerScreen -- the packing-phase counterpart. Picking is
-// optional, so it lists every order a packing session may start for
-// (readyToPack, rule owned by the backend's SalesOrder.CanStartPacking),
-// picked or not; "Not picked" marks the latter.
+// Mirrors SalesOrderPickerScreen -- the packing-phase counterpart. Shows the
+// packing queue: every unpacked order, picked or not ("Not picked" marks
+// the latter). An order someone else is working is read-only, labelled with
+// who and for how long -- admins may still tap it to take over (the backend
+// decides).
 export function SalesOrderPackerScreen({ token, onPackingStarted, onLogout, onBack }: SalesOrderPackerScreenProps) {
-  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([])
+  const queue = usePackingQueue(token)
+  const nameFor = useMemberNames(token)
+  const me = readClaims(token)
+  const isAdmin = canTakeOverLocks(me?.role)
   const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [startError, setStartError] = useState('')
   const [startingId, setStartingId] = useState<string | null>(null)
+  const loading = queue.loading
+  const error = startError || queue.error
 
-  useEffect(() => {
-    omsApi.listSalesOrders(token, { readyToPack: true, perPage: 100 })
-      .then(result => setSalesOrders(result.salesOrders))
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load sales orders'))
-      .finally(() => setLoading(false))
-  }, [token])
-
-  const filtered = salesOrders.filter(o =>
+  const filtered = queue.entries.filter(({ sales_order: o }) =>
     query.trim() === ''
     || customerName(o).toLowerCase().includes(query.toLowerCase())
     || (o.number || o.external_order_id).toLowerCase().includes(query.toLowerCase()),
   )
 
   async function handleSelect(order: SalesOrder) {
-    setError('')
+    setStartError('')
     setStartingId(order.id)
     try {
       const session = await api.startOrResumePacking(token, order.id)
       onPackingStarted(session.id, order)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start packing')
+      setStartError(err instanceof Error ? err.message : 'Failed to start packing')
       setStartingId(null)
     }
   }
@@ -87,36 +88,46 @@ export function SalesOrderPackerScreen({ token, onPackingStarted, onLogout, onBa
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
         {loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
         {!loading && filtered.length === 0 && (
-          <p className="text-center text-sm text-gray-400 py-8">No orders ready to pack</p>
+          <p className="text-center text-sm text-gray-400 py-8">No orders to pack</p>
         )}
-        {filtered.map(o => (
-          <button
-            key={o.id}
-            onClick={() => handleSelect(o)}
-            disabled={startingId !== null}
-            className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700 text-left hover:border-accent disabled:opacity-50 transition-colors"
-          >
-            <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0">
-              <Package size={16} className="text-gray-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{customerName(o)}</p>
-              <p className="text-xs text-gray-400 flex items-center gap-1.5">
-                <span>#{o.number || o.external_order_id}</span>
-                <span>·</span>
-                <span>{formatDate(o.occurred_at)}</span>
-                {!o.fulfilled && (
-                  <>
-                    <span>·</span>
-                    <span className="text-amber-400">Not picked</span>
-                  </>
+        {filtered.map(({ sales_order: o, lock }) => {
+          const lockedByOther = lock !== null && lock.user_id !== me?.userId
+          return (
+            <button
+              key={o.id}
+              onClick={() => handleSelect(o)}
+              disabled={startingId !== null || (lockedByOther && !isAdmin)}
+              className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700 text-left hover:border-accent disabled:opacity-50 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0">
+                <Package size={16} className="text-gray-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{customerName(o)}</p>
+                <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                  <span>#{o.number || o.external_order_id}</span>
+                  <span>·</span>
+                  <span>{formatDate(o.occurred_at)}</span>
+                  {!o.fulfilled && (
+                    <>
+                      <span>·</span>
+                      <span className="text-amber-400">Not picked</span>
+                    </>
+                  )}
+                </p>
+                {lockedByOther && (
+                  <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                    <Lock size={11} className="shrink-0" />
+                    <span className="truncate">{lockLabel(lock, nameFor(lock.user_id))}</span>
+                    {isAdmin && <span className="text-accent shrink-0">· Take over</span>}
+                  </p>
                 )}
-              </p>
-            </div>
-            <p className="text-xs font-medium text-gray-300 shrink-0">{formatPrice(o.total_minor_units, o.currency_code)}</p>
-            {startingId === o.id && <span className="text-xs text-accent shrink-0">Starting…</span>}
-          </button>
-        ))}
+              </div>
+              <p className="text-xs font-medium text-gray-300 shrink-0">{formatPrice(o.total_minor_units, o.currency_code)}</p>
+              {startingId === o.id && <span className="text-xs text-accent shrink-0">Starting…</span>}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
