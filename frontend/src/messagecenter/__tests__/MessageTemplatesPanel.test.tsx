@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { renderAt } from '../../test/renderAt'
 import MessageTemplatesPanel from '../MessageTemplatesPanel'
 import type { MessageTemplate } from '../types'
 
@@ -34,7 +35,7 @@ beforeEach(() => {
 
 describe('MessageTemplatesPanel', () => {
   it('shows an empty state when there are no templates', async () => {
-    render(<MessageTemplatesPanel />)
+    renderAt(<MessageTemplatesPanel />, '/message-center')
 
     expect(await screen.findByText('No message templates yet')).toBeInTheDocument()
   })
@@ -42,7 +43,7 @@ describe('MessageTemplatesPanel', () => {
   it('lists templates with name, category, and body', async () => {
     vi.mocked(messagecenterApi.listMessageTemplates).mockResolvedValue([template()])
 
-    render(<MessageTemplatesPanel />)
+    renderAt(<MessageTemplatesPanel />, '/message-center')
 
     expect(await screen.findByText('Order confirmed')).toBeInTheDocument()
     expect(screen.getByText('Hi {{customer_name}}')).toBeInTheDocument()
@@ -54,7 +55,7 @@ describe('MessageTemplatesPanel', () => {
       template(), template({ id: 'template-2', name: 'Shipment delivered', body: 'It arrived' }),
     ])
 
-    render(<MessageTemplatesPanel />)
+    renderAt(<MessageTemplatesPanel />, '/message-center')
     await screen.findByText('Order confirmed')
 
     await userEvent.type(screen.getByPlaceholderText('Search templates...'), 'delivered')
@@ -66,7 +67,7 @@ describe('MessageTemplatesPanel', () => {
   it('creating a template calls createMessageTemplate with the form values', async () => {
     vi.mocked(messagecenterApi.createMessageTemplate).mockResolvedValue(template({ id: 'template-new' }))
 
-    render(<MessageTemplatesPanel />)
+    renderAt(<MessageTemplatesPanel />, '/message-center')
     await screen.findByText('No message templates yet')
 
     await userEvent.click(screen.getByText('New template'))
@@ -85,7 +86,7 @@ describe('MessageTemplatesPanel', () => {
     vi.mocked(messagecenterApi.listMessageTemplates).mockResolvedValue([template()])
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<MessageTemplatesPanel />)
+    renderAt(<MessageTemplatesPanel />, '/message-center')
     await userEvent.click(await screen.findByTitle('Delete'))
 
     await waitFor(() => expect(messagecenterApi.deleteMessageTemplate).toHaveBeenCalledWith('test-token', 'template-1'))

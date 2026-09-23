@@ -8,6 +8,9 @@ import { useWarehouses } from '../../inventory/hooks/useWarehouses'
 import { useTaxClasses } from '../../tax/hooks/useTaxClasses'
 import { useCompanyMembers } from '../../team/hooks/useCompanyMembers'
 import { useGroups } from '../../iam/hooks/useGroups'
+import { useMessageTemplates } from '../../messagecenter/hooks/useMessageTemplates'
+import { useAutomationRules } from '../../messagecenter/hooks/useAutomationRules'
+import { useWhatsAppConversations } from '../../whatsapp/hooks/useWhatsAppConversations'
 
 vi.mock('../../integrations/api', () => ({ listConnections: vi.fn(() => new Promise(() => {})), listSalesChannels: vi.fn(() => new Promise(() => {})) }))
 vi.mock('../../coupons/api', () => ({ listCoupons: vi.fn(() => new Promise(() => {})) }))
@@ -15,6 +18,8 @@ vi.mock('../../inventory/api', () => ({ listWarehouses: vi.fn(() => new Promise(
 vi.mock('../../tax/api', () => ({ listTaxClasses: vi.fn(() => new Promise(() => {})) }))
 vi.mock('../../team/api', () => ({ listMembers: vi.fn(() => new Promise(() => {})) }))
 vi.mock('../../iam/api', () => ({ listGroups: vi.fn(() => new Promise(() => {})) }))
+vi.mock('../../messagecenter/api', () => ({ listMessageTemplates: vi.fn(() => new Promise(() => {})), listAutomationRules: vi.fn(() => new Promise(() => {})) }))
+vi.mock('../../whatsapp/api', () => ({ listWhatsAppConversations: vi.fn(() => new Promise(() => {})) }))
 
 // Pages resolve a record from the URL (/coupons/<id>, ...) against these
 // lists and show "not found" when it's missing and the list isn't loading.
@@ -28,6 +33,9 @@ describe.each([
   ['useTaxClasses', useTaxClasses],
   ['useCompanyMembers', useCompanyMembers],
   ['useGroups', useGroups],
+  ['useMessageTemplates', useMessageTemplates],
+  ['useAutomationRules', useAutomationRules],
+  ['useWhatsAppConversations', useWhatsAppConversations],
 ] as const)('%s', (_name, useList) => {
   it('reports loading on the first render when it has a token to load with', () => {
     const renders: boolean[] = []

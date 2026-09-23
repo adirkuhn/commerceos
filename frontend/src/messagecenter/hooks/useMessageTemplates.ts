@@ -17,7 +17,8 @@ interface UseMessageTemplatesActions {
 
 export function useMessageTemplates(token: string): UseMessageTemplatesState & UseMessageTemplatesActions {
   const [templates, setTemplates] = useState<MessageTemplate[]>([])
-  const [loading, setLoading] = useState(false)
+  // true from the first render when a load is coming -- see useConnections.
+  const [loading, setLoading] = useState(Boolean(token))
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {

@@ -2,6 +2,10 @@ import { useState } from 'react'
 import clsx from 'clsx'
 import { Trash2 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
+import { useLocation } from 'react-router-dom'
+import { idFromPath } from '../routes'
+import { useStackNavigation } from '../routing/useStackNavigation'
+import { CONVERSATIONS_PATH } from '../messagecenter/messageCenterPaths'
 import { useWhatsAppConversations } from './hooks/useWhatsAppConversations'
 import { useWhatsAppConversationMessages } from './hooks/useWhatsAppConversationMessages'
 import type { WhatsAppConversation } from './types'
@@ -18,7 +22,14 @@ function conversationLabel(conv: WhatsAppConversation): string {
 export default function WhatsAppConversationsPanel() {
   const { token } = useAuth()
   const { conversations, loading, error, deleteConversation } = useWhatsAppConversations(token ?? '')
-  const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
+  // Selected thread is the URL (/message-center/conversations/<e164>).
+  const location = useLocation()
+  const { open, exitTo } = useStackNavigation()
+  const selectedPhone = idFromPath(location.pathname, CONVERSATIONS_PATH)
+  const setSelectedPhone = (phone: string | null) => {
+    if (phone === null) exitTo(CONVERSATIONS_PATH)
+    else if (phone !== selectedPhone) open(`${CONVERSATIONS_PATH}/${encodeURIComponent(phone)}`)
+  }
   const { messages, loading: loadingMessages } = useWhatsAppConversationMessages(token ?? '', selectedPhone)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')

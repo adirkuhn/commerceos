@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { renderAt } from '../../test/renderAt'
 import AutomationRulesPanel from '../AutomationRulesPanel'
 import type { AutomationRule, MessageTemplate } from '../types'
 
@@ -48,7 +49,7 @@ beforeEach(() => {
 
 describe('AutomationRulesPanel', () => {
   it('shows an empty state when there are no rules', async () => {
-    render(<AutomationRulesPanel />)
+    renderAt(<AutomationRulesPanel />, '/message-center')
 
     expect(await screen.findByText('No automation rules yet')).toBeInTheDocument()
   })
@@ -56,7 +57,7 @@ describe('AutomationRulesPanel', () => {
   it('lists rules with name, trigger, and conditions', async () => {
     vi.mocked(messagecenterApi.listAutomationRules).mockResolvedValue([rule()])
 
-    render(<AutomationRulesPanel />)
+    renderAt(<AutomationRulesPanel />, '/message-center')
 
     expect(await screen.findByText('Collect point rule')).toBeInTheDocument()
     expect(screen.getByText('Shipment status update')).toBeInTheDocument()
@@ -66,7 +67,7 @@ describe('AutomationRulesPanel', () => {
   it('creating a rule calls createAutomationRule with the form values', async () => {
     vi.mocked(messagecenterApi.createAutomationRule).mockResolvedValue(rule({ id: 'rule-new' }))
 
-    render(<AutomationRulesPanel />)
+    renderAt(<AutomationRulesPanel />, '/message-center')
     await screen.findByText('No automation rules yet')
 
     await userEvent.click(screen.getByText('New rule'))
@@ -84,7 +85,7 @@ describe('AutomationRulesPanel', () => {
     vi.mocked(messagecenterApi.listAutomationRules).mockResolvedValue([rule()])
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<AutomationRulesPanel />)
+    renderAt(<AutomationRulesPanel />, '/message-center')
     await userEvent.click(await screen.findByTitle('Delete'))
 
     await waitFor(() => expect(messagecenterApi.deleteAutomationRule).toHaveBeenCalledWith('test-token', 'rule-1'))

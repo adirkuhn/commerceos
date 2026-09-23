@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Search, Plus, Pencil, Trash2, X, Mail, MessageSquare, Phone } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
+import { TEMPLATES_PATH } from './messageCenterPaths'
+import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
+import { useInitOnce } from '../routing/useInitOnce'
 import { useMessageTemplates } from './hooks/useMessageTemplates'
 import type { MessageTemplate, MessageChannel, MessageCategory } from './types'
 
@@ -49,8 +52,10 @@ export default function MessageTemplatesPanel() {
   const { templates, loading, error, create, update, remove } = useMessageTemplates(token ?? '')
 
   const [search, setSearch] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null)
+  // Editor open state is the URL (/message-center/templates/<new|id>).
+  const editor = useRoutedEditor(TEMPLATES_PATH)
+  const creating = editor.editingId === NEW_RECORD
+  const editingTemplate = editor.editingId && !creating ? templates.find(t => t.id === editor.editingId) ?? null : null
   const [form, setForm] = useState<FormState>(emptyForm())
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
@@ -59,22 +64,13 @@ export default function MessageTemplatesPanel() {
   const q = search.toLowerCase()
   const filtered = templates.filter(t => t.name.toLowerCase().includes(q) || t.body.toLowerCase().includes(q))
 
-  function openCreate() {
-    setForm(emptyForm())
+  const formReady = useInitOnce(editor.editingId, creating || !!editingTemplate, () => {
+    setForm(editingTemplate ? toForm(editingTemplate) : emptyForm())
     setFormError('')
-    setCreating(true)
-  }
-
-  function openEdit(t: MessageTemplate) {
-    setForm(toForm(t))
-    setFormError('')
-    setEditingTemplate(t)
-  }
-
-  function closeForm() {
-    setCreating(false)
-    setEditingTemplate(null)
-  }
+  })
+  const openCreate = editor.openNew
+  const openEdit = (t: MessageTemplate) => editor.openEdit(t.id)
+  const closeForm = editor.close
 
   function toggleChannel(ch: MessageChannel) {
     setForm(f => ({
@@ -197,7 +193,7 @@ export default function MessageTemplatesPanel() {
         </table>
       </div>
 
-      {(creating || editingTemplate) && (
+      {formReady && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeForm} />
           <div className="relative w-full max-w-md dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">

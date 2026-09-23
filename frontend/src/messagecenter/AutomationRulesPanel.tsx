@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, X } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
+import { RULES_PATH } from './messageCenterPaths'
+import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
+import { useInitOnce } from '../routing/useInitOnce'
 import { useAutomationRules } from './hooks/useAutomationRules'
 import { useMessageTemplates } from './hooks/useMessageTemplates'
 import type { AutomationRule, Condition, Operator, TriggerSubject, MessageChannel } from './types'
@@ -75,10 +78,12 @@ function toForm(r: AutomationRule): FormState {
 export default function AutomationRulesPanel() {
   const { token } = useAuth()
   const { rules, loading, error, create, update, remove } = useAutomationRules(token ?? '')
-  const { templates } = useMessageTemplates(token ?? '')
+  const { templates, loading: templatesLoading } = useMessageTemplates(token ?? '')
 
-  const [creating, setCreating] = useState(false)
-  const [editingRule, setEditingRule] = useState<AutomationRule | null>(null)
+  // Editor open state is the URL (/message-center/rules/<new|id>).
+  const editor = useRoutedEditor(RULES_PATH)
+  const creating = editor.editingId === NEW_RECORD
+  const editingRule = editor.editingId && !creating ? rules.find(r => r.id === editor.editingId) ?? null : null
   const [form, setForm] = useState<FormState>(emptyForm())
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
@@ -88,22 +93,14 @@ export default function AutomationRulesPanel() {
     return templates.find(t => t.id === id)?.name ?? id
   }
 
-  function openCreate() {
-    setForm({ ...emptyForm(), templateId: templates[0]?.id ?? '' })
+  // A new rule defaults to the first template, so it waits for templates.
+  const formReady = useInitOnce(editor.editingId, creating ? !templatesLoading : !!editingRule, () => {
+    setForm(editingRule ? toForm(editingRule) : { ...emptyForm(), templateId: templates[0]?.id ?? '' })
     setFormError('')
-    setCreating(true)
-  }
-
-  function openEdit(r: AutomationRule) {
-    setForm(toForm(r))
-    setFormError('')
-    setEditingRule(r)
-  }
-
-  function closeForm() {
-    setCreating(false)
-    setEditingRule(null)
-  }
+  })
+  const openCreate = editor.openNew
+  const openEdit = (r: AutomationRule) => editor.openEdit(r.id)
+  const closeForm = editor.close
 
   function addCondition() {
     setForm(f => ({ ...f, conditions: [...f.conditions, { field: '', operator: 'eq', valueText: '' }] }))
@@ -227,7 +224,7 @@ export default function AutomationRulesPanel() {
         </table>
       </div>
 
-      {(creating || editingRule) && (
+      {formReady && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeForm} />
           <div className="relative w-full max-w-lg dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5 max-h-[90vh] overflow-y-auto">

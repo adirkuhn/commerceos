@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { renderAt } from '../../test/renderAt'
 import WhatsAppConversationsPanel from '../WhatsAppConversationsPanel'
 import type { WhatsAppConversation, WhatsAppConversationMessage } from '../types'
 
@@ -41,7 +42,7 @@ beforeEach(() => {
 
 describe('WhatsAppConversationsPanel', () => {
   it('shows an empty state when there are no conversations', async () => {
-    render(<WhatsAppConversationsPanel />)
+    renderAt(<WhatsAppConversationsPanel />, '/message-center')
 
     expect(await screen.findByText('No WhatsApp conversations yet.')).toBeInTheDocument()
   })
@@ -52,7 +53,7 @@ describe('WhatsAppConversationsPanel', () => {
       conversation({ phone_e164: '31699999999', customer_id: null, customer_name: undefined, last_direction: 'inbound', last_body: 'hello' }),
     ])
 
-    render(<WhatsAppConversationsPanel />)
+    renderAt(<WhatsAppConversationsPanel />, '/message-center')
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
     expect(screen.getByText('31699999999')).toBeInTheDocument()
@@ -66,7 +67,7 @@ describe('WhatsAppConversationsPanel', () => {
       message({ id: 'msg-1', direction: 'inbound', body: 'STOCK ABC123', created_at: '2026-08-23T10:00:00Z' }),
     ])
 
-    render(<WhatsAppConversationsPanel />)
+    renderAt(<WhatsAppConversationsPanel />, '/message-center')
     expect(await screen.findByText('Select a conversation')).toBeInTheDocument()
 
     await userEvent.click(await screen.findByText('Jane Doe'))
@@ -84,7 +85,7 @@ describe('WhatsAppConversationsPanel', () => {
 
     it('does nothing when the confirm dialog is declined', async () => {
       vi.spyOn(window, 'confirm').mockReturnValue(false)
-      render(<WhatsAppConversationsPanel />)
+      renderAt(<WhatsAppConversationsPanel />, '/message-center')
       await userEvent.click(await screen.findByText('Jane Doe'))
 
       await userEvent.click(await screen.findByLabelText('Delete chat'))
@@ -96,7 +97,7 @@ describe('WhatsAppConversationsPanel', () => {
 
     it('confirms, deletes, clears the selection and removes it from the list', async () => {
       vi.spyOn(window, 'confirm').mockReturnValue(true)
-      render(<WhatsAppConversationsPanel />)
+      renderAt(<WhatsAppConversationsPanel />, '/message-center')
       await userEvent.click(await screen.findByText('Jane Doe'))
       await screen.findByText('STOCK ABC123')
 
@@ -110,7 +111,7 @@ describe('WhatsAppConversationsPanel', () => {
     it('shows an inline error when the delete fails', async () => {
       vi.spyOn(window, 'confirm').mockReturnValue(true)
       vi.mocked(whatsappApi.deleteWhatsAppConversation).mockRejectedValue(new Error('db down'))
-      render(<WhatsAppConversationsPanel />)
+      renderAt(<WhatsAppConversationsPanel />, '/message-center')
       await userEvent.click(await screen.findByText('Jane Doe'))
 
       await userEvent.click(await screen.findByLabelText('Delete chat'))
