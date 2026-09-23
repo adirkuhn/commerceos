@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { Dialog } from '../../components/common/Dialog'
 
 // Generic modal shell + shared field styles -- used by every inventory
 // stock-action modal (adjust/recount/transfer/portion-from-bulk/damaged-
@@ -7,17 +8,17 @@ import type { ReactNode } from 'react'
 // its own file instead of growing that already-large page further.
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <Dialog onClose={onClose}>
       <div className="w-full max-w-sm rounded-xl bg-raised border border-line shadow-xl">
         <div className="flex items-center justify-between px-4 py-3 border-b border-line">
           <h3 className="text-sm font-semibold text-ink">{title}</h3>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-ink-4 hover:text-ink-2">
+          <button type="button" onClick={onClose} aria-label="Close" className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
             <X size={16} />
           </button>
         </div>
         <div className="p-4">{children}</div>
       </div>
-    </div>
+    </Dialog>
   )
 }
 
