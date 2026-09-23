@@ -123,6 +123,21 @@ export function navTitle(nav: NavItem): string {
   return UNLISTED_TITLES[nav] ?? nav
 }
 
+// "g then <letter>" jumps (see shortcuts/useGoToShortcuts). Kept to the
+// few pages used all day -- custom shortcuts should be rare.
+export const GO_TO_SHORTCUTS: Readonly<Record<string, NavItem>> = {
+  d: 'dashboard',
+  o: 'sales-orders',
+  c: 'customers',
+  p: 'products',
+  i: 'inventory',
+}
+
+export function shortcutFor(nav: NavItem): string | undefined {
+  const letter = Object.keys(GO_TO_SHORTCUTS).find(k => GO_TO_SHORTCUTS[k] === nav)
+  return letter ? `G ${letter.toUpperCase()}` : undefined
+}
+
 const ROLE_LABELS: Record<string, string> = {
   customer_owner: 'Owner',
   customer_admin: 'Admin',

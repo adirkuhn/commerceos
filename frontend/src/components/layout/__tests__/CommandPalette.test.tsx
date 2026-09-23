@@ -154,12 +154,21 @@ describe('CommandPalette', () => {
     expect(await screen.findByText('search backend down')).toBeInTheDocument()
   })
 
-  it('offers the sidebar pages under the same names, without advertising shortcuts that do not exist', async () => {
+  it('offers the sidebar pages under the same names', async () => {
     renderPalette()
     await openPalette()
 
     expect(screen.getByText('Go to Sales Orders')).toBeInTheDocument()
     expect(screen.getByText('Go to Reports: Overview')).toBeInTheDocument()
-    expect(screen.queryByText('G D')).not.toBeInTheDocument()
+  })
+
+  it('shows the real g-then-letter shortcut next to the pages that have one', async () => {
+    renderPalette()
+    await openPalette()
+
+    const products = screen.getByText('Go to Products').closest('button')!
+    expect(products).toHaveTextContent('G P')
+    const warehouses = screen.getByText('Go to Warehouses').closest('button')!
+    expect(warehouses).not.toHaveTextContent(/G [A-Z]$/)
   })
 })

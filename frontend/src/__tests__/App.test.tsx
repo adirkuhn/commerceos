@@ -80,3 +80,17 @@ describe('AppShell routing', () => {
     expect(screen.getByText(/page not found/i)).toBeInTheDocument()
   })
 })
+
+describe('AppShell keyboard shortcuts', () => {
+  it('jumps to a page with g then its letter', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+
+    await userEvent.keyboard('go')
+
+    expect(await screen.findByText('SALES_ORDERS_PAGE')).toBeInTheDocument()
+  })
+})

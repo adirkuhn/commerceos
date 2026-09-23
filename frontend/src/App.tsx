@@ -11,6 +11,9 @@ import Sidebar from './components/layout/Sidebar'
 import Topbar from './components/layout/Topbar'
 import CommandPalette from './components/layout/CommandPalette'
 import { PAGE_ROUTES, SUB_PAGE_ROUTES } from './routes'
+import { useApp } from './context/AppContext'
+import { GO_TO_SHORTCUTS } from './components/layout/navConfig'
+import { useGoToShortcuts } from './shortcuts/useGoToShortcuts'
 
 const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
 const SCANNER_CALLBACK_PATH = '/scanner/auth/callback'
@@ -25,6 +28,12 @@ function NotFoundPage() {
       </div>
     </div>
   )
+}
+
+function GoToShortcuts() {
+  const { setActiveNav } = useApp()
+  useGoToShortcuts(GO_TO_SHORTCUTS, setActiveNav)
+  return null
 }
 
 function AppContent() {
@@ -46,6 +55,7 @@ function AppContent() {
         </main>
       </div>
       <CommandPalette />
+      <GoToShortcuts />
     </div>
   )
 }

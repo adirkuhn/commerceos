@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { PAGE_ROUTES } from '../../../routes'
-import { navGroupsForRole, navTitle, roleLabel, HOME_LINK } from '../navConfig'
+import { navGroupsForRole, navTitle, roleLabel, HOME_LINK, GO_TO_SHORTCUTS } from '../navConfig'
 
 function ids(role?: string) {
   return navGroupsForRole(role).flatMap(g => g.items.map(i => i.id))
@@ -62,5 +62,14 @@ describe('roleLabel', () => {
   it('falls back to a generic label for unknown roles', () => {
     expect(roleLabel(undefined)).toBe('Signed in')
     expect(roleLabel('something_new')).toBe('Signed in')
+  })
+})
+
+describe('GO_TO_SHORTCUTS', () => {
+  it('keeps custom shortcuts few, and only for pages everyone can reach', () => {
+    const targets = Object.values(GO_TO_SHORTCUTS)
+    expect(targets.length).toBeLessThanOrEqual(6)
+    const reachable = [HOME_LINK.id, ...navGroupsForRole('customer_user').flatMap(g => g.items.map(i => i.id))]
+    for (const t of targets) expect(reachable).toContain(t)
   })
 })

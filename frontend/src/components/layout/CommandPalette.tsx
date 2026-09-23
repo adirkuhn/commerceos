@@ -8,7 +8,7 @@ import { globalSearch } from '../../search/api'
 import { Dialog } from '../common/Dialog'
 import type { GlobalSearchResult } from '../../search/types'
 import type { NavItem } from '../../types'
-import { HOME_LINK, navGroupsForRole, navTitle } from './navConfig'
+import { HOME_LINK, navGroupsForRole, navTitle, shortcutFor } from './navConfig'
 
 // MIN_QUERY_LENGTH_FOR_SEARCH: a single character against every entity
 // table is both slow and useless (hundreds of near-random matches) --
@@ -27,6 +27,7 @@ interface PaletteEntry {
   icon: React.ElementType
   label: string
   sublabel?: string
+  shortcut?: string
   onSelect: () => void
 }
 
@@ -101,7 +102,8 @@ export default function CommandPalette() {
     .map(link => ({ link, label: `Go to ${navTitle(link.id)}` }))
     .filter(({ label }) => query.trim() === '' || label.toLowerCase().includes(query.trim().toLowerCase()))
     .map(({ link, label }) => ({
-      key: `nav-${link.id}`, section: 'Navigation', icon: link.icon, label, onSelect: () => openNav(link.id),
+      key: `nav-${link.id}`, section: 'Navigation', icon: link.icon, label,
+      shortcut: shortcutFor(link.id), onSelect: () => openNav(link.id),
     }))
 
   const productEntries: PaletteEntry[] = (results?.products ?? []).map(p => ({
@@ -207,6 +209,9 @@ export default function CommandPalette() {
                         <span className="block text-2xs text-ink-4 truncate">{entry.sublabel}</span>
                       )}
                     </span>
+                    {entry.shortcut && (
+                      <kbd className="text-2xs text-ink-4 font-mono shrink-0">{entry.shortcut}</kbd>
+                    )}
                   </button>
                 )
               })}
