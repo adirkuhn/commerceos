@@ -63,11 +63,11 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onLogout, onBa
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
+        <button aria-label="Back to apps" onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <h1 className="flex-1 text-base font-semibold">Select an order to pick</h1>
-        <button onClick={onLogout} className="p-2 rounded-lg hover:bg-night-800" title="Unpair">
+        <button aria-label="Unpair" onClick={onLogout} className="p-2 rounded-lg hover:bg-night-800" title="Unpair">
           <LogOut size={16} className="text-gray-400" />
         </button>
       </div>

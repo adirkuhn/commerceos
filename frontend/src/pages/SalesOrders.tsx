@@ -1022,7 +1022,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
             >
               {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <button
+            <button aria-label="Delete sales order"
               onClick={handleDelete}
               disabled={deleting}
               title="Delete sales order"

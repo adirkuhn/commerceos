@@ -371,7 +371,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
     return (
       <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
         <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-          <button onClick={() => setConfirmingFinish(false)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to picking">
+          <button aria-label="Back to picking" onClick={() => setConfirmingFinish(false)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to picking">
             <ArrowLeft size={18} className="text-gray-400" />
           </button>
           <h1 className="flex-1 text-base font-semibold">Review before finishing</h1>
@@ -471,7 +471,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button onClick={handlePause} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Pause and go back">
+        <button aria-label="Pause and go back" onClick={handlePause} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Pause and go back">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <h1 className="flex-1 text-base font-semibold">Picking</h1>
@@ -587,7 +587,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
             disabled={scanning || !!scanErrorAlert}
             className="flex-1 px-3 py-3 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus disabled:opacity-50"
           />
-          <button
+          <button aria-label="Use camera"
             type="button"
             onClick={() => setCameraOpen(true)}
             title="Use camera"
@@ -771,7 +771,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
             <h2 className="text-sm font-semibold truncate">{lineItem.name}</h2>
             <p className="text-xs text-gray-400 mt-0.5">Picked {pickedSoFar} of {lineItem.quantity}</p>
           </div>
-          <button onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
+          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
             <X size={18} />
           </button>
         </div>
@@ -791,7 +791,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                   </p>
                   {s.reason && <p className="text-xs text-gray-400 truncate">{s.reason}</p>}
                 </div>
-                <button
+                <button aria-label="Delete this staged scan"
                   type="button"
                   onClick={() => onDeleteScan(s.id)}
                   title="Delete this staged scan"
@@ -884,7 +884,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                   {row.selected ? (
                     <div className="flex items-center gap-2">
                       <div className="flex-1 min-w-0 text-sm text-gray-200 truncate">{row.selected.sku.sku_code}</div>
-                      <button
+                      <button aria-label="Change product"
                         type="button"
                         onClick={() => updateRow(row.key, { selected: undefined, candidates: [] })}
                         className="shrink-0 w-11 h-11 -m-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400"
@@ -1031,7 +1031,7 @@ function AddItemSheet({ token, onCancel, onAdd }: {
       <div className="w-full max-w-sm rounded-t-2xl bg-night-900 border-t border-night-700 max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <h2 className="text-sm font-semibold">Add freebie or new item</h2>
-          <button onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
+          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
             <X size={18} />
           </button>
         </div>

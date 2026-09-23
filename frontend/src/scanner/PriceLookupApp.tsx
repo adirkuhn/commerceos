@@ -60,7 +60,7 @@ function PriceLookupShell({ onExit, children }: { onExit: () => void; children: 
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
+        <button aria-label="Back to apps" onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <h1 className="flex-1 text-base font-semibold">Price Lookup</h1>

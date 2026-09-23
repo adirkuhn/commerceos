@@ -28,7 +28,7 @@ export function AppLauncher({ onSelect, onLogout }: AppLauncherProps) {
           <BrandMark size={18} className="text-white" />
         </span>
         <h1 className="flex-1 text-base font-semibold">CommerceOS Scanner</h1>
-        <button onClick={onLogout} className="w-11 h-11 -my-2 -mr-2 flex items-center justify-center rounded-lg hover:bg-night-800" title="Unpair">
+        <button aria-label="Unpair" onClick={onLogout} className="w-11 h-11 -my-2 -mr-2 flex items-center justify-center rounded-lg hover:bg-night-800" title="Unpair">
           <LogOut size={16} className="text-gray-400" />
         </button>
       </div>

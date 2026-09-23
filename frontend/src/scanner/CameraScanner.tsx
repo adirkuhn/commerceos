@@ -59,7 +59,7 @@ export function CameraScanner({ onDecode, onClose, frameShape = 'square', varian
         <p className="flex items-center gap-2 text-sm text-white">
           <Camera size={16} /> Point camera at code
         </p>
-        <button onClick={onClose} title="Close">
+        <button aria-label="Close" onClick={onClose} title="Close">
           <X size={20} className="text-white" />
         </button>
       </div>

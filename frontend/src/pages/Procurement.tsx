@@ -294,14 +294,14 @@ export default function Procurement() {
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button
+                    <button aria-label="Edit"
                       onClick={e => { e.stopPropagation(); openEdit(po.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Edit"
                     >
                       <Edit3 size={12} className="text-ink-3" />
                     </button>
-                    <button
+                    <button aria-label="Delete"
                       onClick={e => { e.stopPropagation(); handleDelete(po) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Delete"
@@ -495,7 +495,7 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
       <div className="w-full max-w-md rounded-xl bg-surface border border-line shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <h2 className="text-sm font-semibold text-ink">Upload Document</h2>
-          <button type="button" onClick={onClose} title="Close">
+          <button aria-label="Close" type="button" onClick={onClose} title="Close">
             <X size={16} className="text-ink-4" />
           </button>
         </div>
@@ -960,7 +960,7 @@ function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSectionPr
                   <AlertTriangle size={10} /> Possible duplicate
                 </span>
               )}
-              <button
+              <button aria-label="Reparse"
                 type="button"
                 title="Reparse"
                 onClick={() => handleReparse(doc)}
@@ -969,7 +969,7 @@ function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSectionPr
               >
                 <RefreshCw size={13} className={reparsingId === doc.id ? 'animate-spin' : ''} />
               </button>
-              <button
+              <button aria-label="Delete"
                 type="button"
                 title="Delete"
                 onClick={() => handleDelete(doc)}
@@ -1230,7 +1230,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-1">
-                      <button
+                      <button aria-label="Edit"
                         type="button"
                         onClick={() => setEditingLineId(li.id)}
                         className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
@@ -1238,7 +1238,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                       >
                         <Edit3 size={12} className="text-ink-3" />
                       </button>
-                      <button
+                      <button aria-label="Remove"
                         type="button"
                         onClick={() => handleRemove(li.id)}
                         className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
@@ -1967,7 +1967,7 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
       <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl dark:bg-night-900 bg-white border border-line shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <h2 className="text-sm font-semibold text-ink">Receiving Discrepancy Report</h2>
-          <button type="button" onClick={onClose} title="Close">
+          <button aria-label="Close" type="button" onClick={onClose} title="Close">
             <X size={16} className="text-ink-4" />
           </button>
         </div>
@@ -2274,7 +2274,7 @@ export function ProductSkuPicker({ onSelect, onClose }: ProductSkuPickerProps) {
             className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
-        <button type="button" onClick={onClose} title="Close">
+        <button aria-label="Close" type="button" onClick={onClose} title="Close">
           <X size={14} className="text-ink-4" />
         </button>
       </div>

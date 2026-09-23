@@ -271,7 +271,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
     return (
       <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
         <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-          <button onClick={() => setConfirmingFinish(false)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to packing">
+          <button aria-label="Back to packing" onClick={() => setConfirmingFinish(false)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to packing">
             <ArrowLeft size={18} className="text-gray-400" />
           </button>
           <h1 className="flex-1 text-base font-semibold">Review before finishing</h1>
@@ -416,7 +416,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back">
+        <button aria-label="Back" onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <h1 className="flex-1 text-base font-semibold">Packing</h1>
@@ -488,7 +488,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
             disabled={scanning || !!scanErrorAlert}
             className="flex-1 px-3 py-3 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus disabled:opacity-50"
           />
-          <button
+          <button aria-label="Use camera"
             type="button"
             onClick={() => setCameraOpen(true)}
             title="Use camera"
@@ -581,7 +581,7 @@ function PackLineSheet({ lineItem, packedSoFar, scans, onDeleteScan, onCancel, o
             <h2 className="text-sm font-semibold truncate">{lineItem.name}</h2>
             <p className="text-xs text-gray-400 mt-0.5">Packed {packedSoFar} of {lineItem.quantity}</p>
           </div>
-          <button onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
+          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
             <X size={18} />
           </button>
         </div>
@@ -592,7 +592,7 @@ function PackLineSheet({ lineItem, packedSoFar, scans, onDeleteScan, onCancel, o
             {scans.map(s => (
               <div key={s.id} className="flex items-center gap-2 rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                 <p className="flex-1 text-sm text-gray-200">Packed × {s.quantity}</p>
-                <button
+                <button aria-label="Delete this scan"
                   type="button"
                   onClick={() => onDeleteScan(s.id)}
                   title="Delete this scan"

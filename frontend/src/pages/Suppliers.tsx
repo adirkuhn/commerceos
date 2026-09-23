@@ -141,14 +141,14 @@ export default function Suppliers() {
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button
+                    <button aria-label="Edit"
                       onClick={e => { e.stopPropagation(); openEditor(s.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Edit"
                     >
                       <Edit3 size={12} className="text-ink-3" />
                     </button>
-                    <button
+                    <button aria-label="Delete"
                       onClick={e => { e.stopPropagation(); handleDelete(s) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Delete"

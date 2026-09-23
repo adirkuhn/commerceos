@@ -77,7 +77,7 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
       <div className="w-full max-w-sm rounded-xl bg-surface border border-line shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <h2 className="text-sm font-semibold text-ink">Pair a Scanner</h2>
-          <button type="button" onClick={onClose} title="Close">
+          <button aria-label="Close" type="button" onClick={onClose} title="Close">
             <X size={16} className="text-ink-4" />
           </button>
         </div>

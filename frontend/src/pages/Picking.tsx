@@ -621,7 +621,7 @@ export default function Picking() {
         {activeOrder && session && confirmingFinish && !completeResult && !stockShortfalls && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-line shrink-0">
-              <button onClick={() => setConfirmingFinish(false)} className="p-1 -ml-1" title="Back to picking">
+              <button aria-label="Back to picking" onClick={() => setConfirmingFinish(false)} className="p-1 -ml-1" title="Back to picking">
                 <ArrowLeft size={18} className="text-ink-3" />
               </button>
               <h2 className="text-sm font-semibold text-ink flex-1">Review before completing</h2>

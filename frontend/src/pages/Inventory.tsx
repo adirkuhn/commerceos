@@ -1457,7 +1457,7 @@ function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
               Records a Lost movement for {target.quantity} unit{target.quantity === 1 ? '' : 's'} — cannot be undone.
             </p>
           </div>
-          <button onClick={onCancel} title="Close" className="shrink-0 text-ink-4 dark:hover:text-ink-2">
+          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 text-ink-4 dark:hover:text-ink-2">
             <X size={16} />
           </button>
         </div>

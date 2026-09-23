@@ -115,7 +115,7 @@ export default function Reviews() {
                 <td className="px-3 py-2.5 text-ink-3">{formatDate(r.created_at)}</td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button
+                    <button aria-label="Delete"
                       onClick={() => handleDelete(r)}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Delete"

@@ -241,14 +241,14 @@ export default function Products() {
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button
+                    <button aria-label="Edit"
                       onClick={e => { e.stopPropagation(); openEditor(p.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       title="Edit"
                     >
                       <Edit3 size={12} className="text-ink-3" />
                     </button>
-                    <button
+                    <button aria-label="Duplicate"
                       onClick={e => { e.stopPropagation(); handleDuplicate(p.id) }}
                       disabled={duplicatingId === p.id}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors disabled:opacity-50"
@@ -256,7 +256,7 @@ export default function Products() {
                     >
                       <Copy size={12} className="text-ink-3" />
                     </button>
-                    <button
+                    <button aria-label="Delete"
                       onClick={async e => {
                         e.stopPropagation()
                         if (await confirm({ title: `Delete "${p.name}"?`, message: 'Its variants and SKUs are deleted too.', confirmLabel: 'Delete product', destructive: true })) {
@@ -2294,7 +2294,7 @@ function CaseOfSKUPicker({ excludeSKUID, filterSku, onSelect, onClose }: CaseOfS
             className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
-        <button type="button" onClick={onClose} title="Close">
+        <button aria-label="Close" type="button" onClick={onClose} title="Close">
           <X size={14} className="text-ink-4" />
         </button>
       </div>
@@ -3004,13 +3004,13 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         )}
         {sku && <StockBadge skuId={sku.id} />}
         <div className="flex items-center gap-0.5 shrink-0">
-          <button
+          <button aria-label="Edit variant"
             type="button" onClick={openEdit} title="Edit variant"
             className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
           >
             <Edit3 size={12} className="text-ink-3" />
           </button>
-          <button
+          <button aria-label="Remove variant"
             type="button"
             onClick={async () => {
               if (await confirm({ title: `Remove variant "${variant.name}"?`, message: 'Its SKU and stock records are removed too.', confirmLabel: 'Remove variant', destructive: true })) {

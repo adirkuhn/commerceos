@@ -87,7 +87,7 @@ function DiscardScanScreen({ token, onResolved, onExit }: { token: string; onRes
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
+        <button aria-label="Back to apps" onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <h1 className="flex-1 text-base font-semibold">Discard</h1>
@@ -145,7 +145,7 @@ function DiscardSKUScreen({ token, sku, productName, onBack }: { token: string; 
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to scan">
+        <button aria-label="Back to scan" onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to scan">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <div className="flex-1 min-w-0">
@@ -217,7 +217,7 @@ function DiscardSheet({ row, submitting, error, onCancel, onConfirm }: {
             <h2 className="text-sm font-semibold truncate">Discard {row.label}</h2>
             <p className="text-xs text-gray-400 mt-0.5">{row.quantity} in stock</p>
           </div>
-          <button onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
+          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
             <X size={18} />
           </button>
         </div>

@@ -354,7 +354,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
     return (
       <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
         <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-          <button onClick={() => setConfirmingFinish(false)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to booking">
+          <button aria-label="Back to booking" onClick={() => setConfirmingFinish(false)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to booking">
             <ArrowLeft size={18} className="text-gray-400" />
           </button>
           <h1 className="flex-1 text-base font-semibold">Review before finishing</h1>
@@ -431,7 +431,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button onClick={handlePause} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Pause and go back">
+        <button aria-label="Pause and go back" onClick={handlePause} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Pause and go back">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <h1 className="flex-1 text-base font-semibold">Booking</h1>
@@ -526,7 +526,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
             placeholder="Scan or type barcode…"
             className="flex-1 px-3 py-3 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
           />
-          <button
+          <button aria-label="Use camera"
             type="button"
             onClick={() => setCameraOpen(true)}
             title="Use camera"
@@ -702,7 +702,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
             <h2 className="text-sm font-semibold truncate">{description}</h2>
             <p className="text-xs text-gray-400 mt-0.5">Received {scannedSoFar} of {expected}</p>
           </div>
-          <button onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
+          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
             <X size={18} />
           </button>
         </div>
@@ -718,7 +718,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
                     <p className="text-xs text-gray-400 truncate">{[s.lot_number, s.reason].filter(Boolean).join(' · ')}</p>
                   )}
                 </div>
-                <button
+                <button aria-label="Delete this staged scan"
                   type="button"
                   onClick={() => onDeleteScan(s.id)}
                   title="Delete this staged scan"

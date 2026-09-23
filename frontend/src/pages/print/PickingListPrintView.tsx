@@ -23,7 +23,7 @@ export function PickingListPrintView({ order, lineItems, onClose }: PickingListP
 
   return (
     <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-      <button
+      <button aria-label="Close"
         onClick={onClose}
         className="print:hidden fixed top-4 right-4 w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"
         title="Close"
