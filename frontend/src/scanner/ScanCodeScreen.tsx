@@ -55,7 +55,7 @@ export function ScanCodeScreen({
             value={code}
             onChange={e => setCode(e.target.value)}
             placeholder={placeholder}
-            className="w-full px-4 py-4 text-center text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-4 text-center text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
           />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
@@ -68,7 +68,7 @@ export function ScanCodeScreen({
           <button
             type="button"
             onClick={() => setCameraOpen(true)}
-            className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-300 text-xs font-medium flex items-center justify-center gap-1.5"
+            className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-300 text-xs font-medium flex items-center justify-center gap-1.5"
           >
             <Camera size={13} /> Use camera
           </button>

@@ -49,7 +49,7 @@ function LineItemThumb({ token, name, productId }: { token: string; name: string
   const { media } = useProductMedia(token, productId ?? null)
   const featured = media[0]
   return (
-    <div className="w-9 h-9 rounded-lg bg-[#2D3748] flex items-center justify-center shrink-0 overflow-hidden" title={name}>
+    <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0 overflow-hidden" title={name}>
       {featured ? (
         <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
       ) : (
@@ -369,9 +369,9 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
   if (confirmingFinish && detail) {
     const missing = computeMissingItems(detail.line_items, detail.scans)
     return (
-      <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-[#2D3748] shrink-0">
-          <button onClick={() => setConfirmingFinish(false)} className="p-1 -ml-1" title="Back to picking">
+      <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
+          <button onClick={() => setConfirmingFinish(false)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to picking">
             <ArrowLeft size={18} className="text-gray-400" />
           </button>
           <h1 className="flex-1 text-base font-semibold">Review before finishing</h1>
@@ -380,10 +380,10 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
             picking -- staff confirming completion should never have to go
             back just to double-check who this ships to (or create the label
             below without knowing the destination). */}
-        <div className="px-4 py-3 border-b border-[#2D3748] shrink-0 bg-[#111827]">
+        <div className="px-4 py-3 border-b border-night-700 shrink-0 bg-night-900">
           <div className="flex items-baseline gap-1.5 flex-wrap">
             <span className="text-base font-semibold">#{order.number || order.external_order_id}</span>
-            <span className="text-gray-500">·</span>
+            <span className="text-gray-400">·</span>
             <span className="text-base text-gray-300">{customerName(order)}</span>
           </div>
           {shippingAddressLine(order.shipping) && (
@@ -403,15 +403,15 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
             <>
               <p className="text-sm text-amber-400">{missing.length} line(s) aren't fully picked yet:</p>
               {missing.map(m => (
-                <div key={m.line_item_id} className="rounded-lg bg-[#1F2937] border border-[#2D3748] px-3 py-2">
+                <div key={m.line_item_id} className="rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                   <p className="text-sm text-gray-200">{m.name}</p>
-                  <p className="text-xs text-gray-500">expected {m.expected_qty} · picked {m.picked_qty}</p>
+                  <p className="text-xs text-gray-400">expected {m.expected_qty} · picked {m.picked_qty}</p>
                 </div>
               ))}
             </>
           )}
         </div>
-        <div className="p-4 border-t border-[#2D3748] shrink-0 space-y-2">
+        <div className="p-4 border-t border-night-700 shrink-0 space-y-2">
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             onClick={() => handleConfirmComplete()}
@@ -420,7 +420,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
           >
             {finishing ? 'Completing…' : 'Confirm & Complete'}
           </button>
-          <button onClick={() => setConfirmingFinish(false)} className="w-full py-2.5 rounded-xl bg-[#1F2937] text-gray-300 text-sm font-medium">
+          <button onClick={() => setConfirmingFinish(false)} className="w-full py-2.5 rounded-xl bg-night-800 text-gray-300 text-sm font-medium">
             Back, scan more
           </button>
         </div>
@@ -430,7 +430,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
 
   if (result) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
+      <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
         <div className="flex flex-col items-center text-center gap-3 px-6 pt-8 pb-4 shrink-0">
           <div className="w-14 h-14 rounded-2xl bg-green-600/20 flex items-center justify-center">
             <PackageCheck size={26} className="text-green-400" />
@@ -442,9 +442,9 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
           <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-2">
             <p className="text-sm text-amber-400">{result.missing_items.length} line(s) weren't fully picked:</p>
             {result.missing_items.map(m => (
-              <div key={m.line_item_id} className="rounded-lg bg-[#1F2937] border border-[#2D3748] px-3 py-2">
+              <div key={m.line_item_id} className="rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                 <p className="text-sm text-gray-200">{m.name}</p>
-                <p className="text-xs text-gray-500">expected {m.expected_qty} · picked {m.picked_qty}</p>
+                <p className="text-xs text-gray-400">expected {m.expected_qty} · picked {m.picked_qty}</p>
               </div>
             ))}
           </div>
@@ -457,7 +457,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
           >
             {startingPacking ? 'Starting…' : 'Continue to Packing'}
           </button>
-          <button onClick={onExit} className="w-full py-2.5 rounded-xl bg-[#1F2937] text-gray-300 text-sm font-medium">
+          <button onClick={onExit} className="w-full py-2.5 rounded-xl bg-night-800 text-gray-300 text-sm font-medium">
             Done
           </button>
         </div>
@@ -469,15 +469,15 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
   const addedItems = (detail?.scans ?? []).filter(s => s.action_type === 'freebie' || s.action_type === 'new_item')
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-[#2D3748] shrink-0">
-        <button onClick={handlePause} className="p-1 -ml-1" title="Pause and go back">
+    <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
+        <button onClick={handlePause} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Pause and go back">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <h1 className="flex-1 text-base font-semibold">Picking</h1>
         <button
           onClick={() => setConfirmingFinish(true)}
-          className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700"
+          className="px-4 min-h-11 -my-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700"
         >
           Finish
         </button>
@@ -486,10 +486,10 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
       {/* Order info -- its own full-width band, separate from the control
           row above, so the address has room to wrap instead of getting
           truncated next to the back/Finish buttons. */}
-      <div className="px-4 py-3 border-b border-[#2D3748] shrink-0 bg-[#111827]">
+      <div className="px-4 py-3 border-b border-night-700 shrink-0 bg-night-900">
         <div className="flex items-baseline gap-1.5 flex-wrap">
           <span className="text-base font-semibold">#{order.number || order.external_order_id}</span>
-          <span className="text-gray-500">·</span>
+          <span className="text-gray-400">·</span>
           <span className="text-base text-gray-300">{customerName(order)}</span>
         </div>
         {shippingAddressLine(order.shipping) && (
@@ -500,7 +500,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
         )}
         <button
           type="button" onClick={() => setResetConfirmOpen(true)}
-          className="mt-1.5 flex items-center gap-1 text-xs text-red-400"
+          className="mt-0.5 -mb-2 py-2.5 flex items-center gap-1.5 text-sm text-red-400"
         >
           <Undo2 size={12} /> Start over
         </button>
@@ -513,7 +513,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
       )}
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-        {loading && <p className="text-center text-sm text-gray-500 py-8">Loading…</p>}
+        {loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
         {detail?.line_items.map(li => {
           const pickedQty = pickedByLineItem.get(li.id) ?? 0
           const done = pickedQty >= li.quantity
@@ -522,15 +522,15 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
               key={li.id}
               type="button"
               onClick={() => setPickLine({ lineItem: li, pickedSoFar: pickedQty })}
-              className="w-full flex items-center gap-3 rounded-xl bg-[#1F2937] border border-[#2D3748] px-3.5 py-3 text-left hover:border-blue-500 transition-colors"
+              className="w-full flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3 text-left hover:border-blue-500 transition-colors"
             >
               <LineItemThumb token={token} name={li.name} productId={li.product_id} />
               {done && <Check size={16} className="text-green-400 shrink-0" />}
               <div className="flex-1 min-w-0">
                 <p className="text-sm truncate">{li.name}</p>
-                {li.sku_code && <p className="text-xs text-gray-500 truncate">{li.sku_code}</p>}
+                {li.sku_code && <p className="text-xs text-gray-400 truncate">{li.sku_code}</p>}
                 {li.sold_expiry_date && (
-                  <p className="text-xs text-gray-500 truncate" title="Reported by WooCommerce at checkout -- may not match the batch actually allocated">
+                  <p className="text-xs text-gray-400 truncate" title="Reported by WooCommerce at checkout -- may not match the batch actually allocated">
                     Sold exp. {formatDate(li.sold_expiry_date)}
                   </p>
                 )}
@@ -545,13 +545,13 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
 
         {addedItems.length > 0 && (
           <div className="pt-2 space-y-2">
-            <p className="text-xs text-gray-500 px-1">Added during picking:</p>
+            <p className="text-xs text-gray-400 px-1">Added during picking:</p>
             {addedItems.map(s => (
-              <div key={s.id} className="w-full flex items-center gap-3 rounded-xl bg-[#1F2937]/60 border border-[#2D3748] px-3.5 py-3">
+              <div key={s.id} className="w-full flex items-center gap-3 rounded-xl bg-night-800/60 border border-night-700 px-3.5 py-3">
                 {s.action_type === 'freebie' ? <Gift size={16} className="text-purple-400 shrink-0" /> : <PackagePlus size={16} className="text-blue-400 shrink-0" />}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate">{s.reason || 'New item'}</p>
-                  <p className="text-xs text-gray-500 capitalize">{s.action_type === 'freebie' ? 'Freebie' : 'New item'}</p>
+                  <p className="text-xs text-gray-400 capitalize">{s.action_type === 'freebie' ? 'Freebie' : 'New item'}</p>
                 </div>
                 <p className="text-sm font-medium text-gray-300 shrink-0">×{s.quantity}</p>
               </div>
@@ -562,17 +562,17 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
         <button
           type="button"
           onClick={() => setAddItemOpen(true)}
-          className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#2D3748] px-3.5 py-3 text-sm text-blue-400 hover:border-blue-500 transition-colors"
+          className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-night-700 px-3.5 py-3 text-sm text-blue-400 hover:border-blue-500 transition-colors"
         >
           <Gift size={14} /> Add freebie or new item
         </button>
       </div>
 
-      <form onSubmit={handleScan} className="border-t border-[#2D3748] p-4 space-y-2 shrink-0">
+      <form onSubmit={handleScan} className="border-t border-night-700 p-4 space-y-2 shrink-0">
         {error && <p className="text-sm text-red-400">{error}</p>}
         {candidates.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-xs text-gray-500">Multiple matches -- pick one:</p>
+            <p className="text-xs text-gray-400">Multiple matches -- pick one:</p>
             {candidates.map(c => (
               <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => handleCandidateSelect(c)} />
             ))}
@@ -585,13 +585,13 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
             onChange={e => setCode(e.target.value)}
             placeholder="Scan or type barcode…"
             disabled={scanning || !!scanErrorAlert}
-            className="flex-1 px-3 py-3 text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="flex-1 px-3 py-3 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
           <button
             type="button"
             onClick={() => setCameraOpen(true)}
             title="Use camera"
-            className="w-11 shrink-0 rounded-xl bg-[#1F2937] border border-[#2D3748] flex items-center justify-center text-gray-300"
+            className="w-11 shrink-0 rounded-xl bg-night-800 border border-night-700 flex items-center justify-center text-gray-300"
           >
             <Camera size={16} />
           </button>
@@ -640,7 +640,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
 
       {scanErrorAlert && (
         <Dialog onClose={dismissScanError} label="Scan error" initialFocus="dialog" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
-          <div className="w-full max-w-xs rounded-2xl bg-[#111827] border border-red-500/40 p-5 text-center">
+          <div className="w-full max-w-xs rounded-2xl bg-night-900 border border-red-500/40 p-5 text-center">
             <p className="text-sm font-semibold text-red-400 mb-4">{scanErrorAlert}</p>
             <button
               type="button" onClick={dismissScanError}
@@ -654,7 +654,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
 
       {resetConfirmOpen && (
         <Dialog onClose={() => setResetConfirmOpen(false)} label="Start over?" dismissible={!resetting} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
-          <div className="w-full max-w-xs rounded-2xl bg-[#111827] border border-[#2D3748] p-5 text-center">
+          <div className="w-full max-w-xs rounded-2xl bg-night-900 border border-night-700 p-5 text-center">
             <p className="text-sm font-semibold mb-1">Start over?</p>
             <p className="text-xs text-gray-400 mb-4">
               This discards every item picked so far on this order and starts the session fresh. This can't be undone.
@@ -662,7 +662,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
             <div className="flex gap-2">
               <button
                 type="button" onClick={() => setResetConfirmOpen(false)} disabled={resetting}
-                className="flex-1 py-3 rounded-xl border border-[#2D3748] text-sm font-medium text-gray-300 disabled:opacity-50"
+                className="flex-1 py-3 rounded-xl border border-night-700 text-sm font-medium text-gray-300 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -765,22 +765,22 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
 
   return (
     <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
-      <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] max-h-[85vh] overflow-y-auto">
+      <div className="w-full max-w-sm rounded-t-2xl bg-night-900 border-t border-night-700 max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold truncate">{lineItem.name}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Picked {pickedSoFar} of {lineItem.quantity}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Picked {pickedSoFar} of {lineItem.quantity}</p>
           </div>
-          <button onClick={onCancel} title="Close" className="shrink-0 p-1 -mt-1 -mr-1 text-gray-500 hover:text-gray-300">
+          <button onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
             <X size={18} />
           </button>
         </div>
 
         {scans.length > 0 && (
           <div className="px-5 pt-3 space-y-1.5">
-            <p className="text-xs text-gray-500">Already staged for this line:</p>
+            <p className="text-xs text-gray-400">Already staged for this line:</p>
             {scans.map(s => (
-              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-[#1F2937] border border-[#2D3748] px-3 py-2">
+              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-200">
                     {s.action_type === 'substitute'
@@ -789,13 +789,13 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                         ? `Refunded × ${s.quantity}`
                         : `Picked × ${s.quantity}`}
                   </p>
-                  {s.reason && <p className="text-xs text-gray-500 truncate">{s.reason}</p>}
+                  {s.reason && <p className="text-xs text-gray-400 truncate">{s.reason}</p>}
                 </div>
                 <button
                   type="button"
                   onClick={() => onDeleteScan(s.id)}
                   title="Delete this staged scan"
-                  className="shrink-0 p-1.5 text-gray-500 hover:text-red-400"
+                  className="shrink-0 w-11 h-11 -m-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400"
                 >
                   <X size={14} />
                 </button>
@@ -809,21 +809,21 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
             <button
               type="button"
               onClick={() => setMode('pick')}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'pick' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'pick' ? 'bg-blue-600 text-white' : 'bg-night-800 text-gray-400'}`}
             >
               <Check size={15} /> Pick
             </button>
             <button
               type="button"
               onClick={() => setMode('substitute')}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'substitute' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'substitute' ? 'bg-blue-600 text-white' : 'bg-night-800 text-gray-400'}`}
             >
               <Repeat size={15} /> Substitute
             </button>
             <button
               type="button"
               onClick={() => setMode('refund')}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'refund' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'refund' ? 'bg-blue-600 text-white' : 'bg-night-800 text-gray-400'}`}
             >
               <Undo2 size={15} /> Refund
             </button>
@@ -831,7 +831,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
 
           {mode === 'refund' ? (
             <>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-400">
                 Can't fulfill this and don't want to substitute? Refund part or all of this line's quantity
                 ({lineItem.quantity}) instead -- money only moves once the session is completed.
               </p>
@@ -842,7 +842,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                   id="refund-reason"
                   value={refundReason}
                   onChange={e => setRefundReason(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <button
@@ -862,7 +862,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                   id="pick-reason"
                   value={reason}
                   onChange={e => setReason(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <button
@@ -875,19 +875,19 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
             </>
           ) : (
             <>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-400">
                 Out of stock? Replace it with one or more products -- each row's "covers" quantity must add up to
                 this line's remaining quantity ({remaining}) before you can confirm.
               </p>
               {substituteRows.map((row, i) => (
-                <div key={row.key} className="rounded-xl bg-[#1F2937] border border-[#2D3748] p-3 space-y-2">
+                <div key={row.key} className="rounded-xl bg-night-800 border border-night-700 p-3 space-y-2">
                   {row.selected ? (
                     <div className="flex items-center gap-2">
                       <div className="flex-1 min-w-0 text-sm text-gray-200 truncate">{row.selected.sku.sku_code}</div>
                       <button
                         type="button"
                         onClick={() => updateRow(row.key, { selected: undefined, candidates: [] })}
-                        className="shrink-0 p-1 text-gray-500 hover:text-red-400"
+                        className="shrink-0 w-11 h-11 -m-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400"
                         title="Change product"
                       >
                         <X size={14} />
@@ -897,15 +897,15 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                     <>
                       <form onSubmit={e => handleRowSearch(row.key, e)} className="flex gap-2">
                         <div className="relative flex-1">
-                          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                           <input
                             value={row.query}
                             onChange={e => updateRow(row.key, { query: e.target.value })}
                             placeholder="Search or scan barcode…"
-                            className="w-full pl-8 pr-3 py-2 text-sm rounded-xl bg-[#111827] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full pl-8 pr-3 py-2 text-sm rounded-xl bg-night-900 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
-                        <button type="submit" disabled={row.searching || !row.query.trim()} className="px-4 rounded-xl bg-[#111827] border border-[#2D3748] text-sm text-gray-300 disabled:opacity-50">
+                        <button type="submit" disabled={row.searching || !row.query.trim()} className="px-4 rounded-xl bg-night-900 border border-night-700 text-sm text-gray-300 disabled:opacity-50">
                           {row.searching ? '…' : 'Find'}
                         </button>
                       </form>
@@ -920,19 +920,19 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                     <>
                       <div className="grid grid-cols-2 gap-2">
                         <label className="block">
-                          <span className="block text-2xs text-gray-500 mb-1">Qty added</span>
+                          <span className="block text-2xs text-gray-400 mb-1">Qty added</span>
                           <input
                             type="number" min={1} value={row.substituteQty}
                             onChange={e => updateRow(row.key, { substituteQty: e.target.value })}
-                            className="w-full px-3 py-2 text-sm rounded-xl bg-[#111827] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 text-sm rounded-xl bg-night-900 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </label>
                         <label className="block">
-                          <span className="block text-2xs text-gray-500 mb-1">Covers (of original)</span>
+                          <span className="block text-2xs text-gray-400 mb-1">Covers (of original)</span>
                           <input
                             type="number" min={1} value={row.coveredQty}
                             onChange={e => updateRow(row.key, { coveredQty: e.target.value })}
-                            className="w-full px-3 py-2 text-sm rounded-xl bg-[#111827] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 text-sm rounded-xl bg-night-900 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </label>
                       </div>
@@ -940,7 +940,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                         <input
                           type="checkbox" checked={row.returnToStock}
                           onChange={e => updateRow(row.key, { returnToStock: e.target.checked })}
-                          className="rounded border-[#2D3748] bg-[#111827]"
+                          className="rounded border-night-700 bg-night-900"
                         />
                         Return original quantity to stock
                       </label>
@@ -950,7 +950,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                     <button
                       type="button"
                       onClick={() => setSubstituteRows(rows => rows.filter((_, idx) => idx !== i))}
-                      className="text-xs text-gray-500 hover:text-red-400"
+                      className="text-xs text-gray-400 hover:text-red-400"
                     >
                       Remove this row
                     </button>
@@ -960,11 +960,11 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
               <button
                 type="button"
                 onClick={() => setSubstituteRows(rows => [...rows, newSubstituteRow()])}
-                className="w-full py-2 rounded-xl border border-dashed border-[#2D3748] text-sm text-gray-400 hover:text-gray-200"
+                className="w-full py-2 rounded-xl border border-dashed border-night-700 text-sm text-gray-400 hover:text-gray-200"
               >
                 + Add another substitute
               </button>
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-xs text-gray-400 text-center">
                 Covers {coveredTotal} of {remaining}
               </p>
               <button
@@ -1028,10 +1028,10 @@ function AddItemSheet({ token, onCancel, onAdd }: {
 
   return (
     <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
-      <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] max-h-[85vh] overflow-y-auto">
+      <div className="w-full max-w-sm rounded-t-2xl bg-night-900 border-t border-night-700 max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <h2 className="text-sm font-semibold">Add freebie or new item</h2>
-          <button onClick={onCancel} title="Close" className="shrink-0 p-1 -mt-1 -mr-1 text-gray-500 hover:text-gray-300">
+          <button onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
             <X size={18} />
           </button>
         </div>
@@ -1041,16 +1041,16 @@ function AddItemSheet({ token, onCancel, onAdd }: {
             <>
               <form onSubmit={handleSearch} className="flex gap-2">
                 <div className="relative flex-1">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                     placeholder="Search or scan barcode…"
-                    className="w-full pl-8 pr-3 py-2.5 text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-8 pr-3 py-2.5 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
                     autoFocus
                   />
                 </div>
-                <button type="submit" disabled={searching || !query.trim()} className="px-4 rounded-xl bg-[#1F2937] border border-[#2D3748] text-sm text-gray-300 disabled:opacity-50">
+                <button type="submit" disabled={searching || !query.trim()} className="px-4 rounded-xl bg-night-800 border border-night-700 text-sm text-gray-300 disabled:opacity-50">
                   {searching ? '…' : 'Find'}
                 </button>
               </form>
@@ -1062,10 +1062,10 @@ function AddItemSheet({ token, onCancel, onAdd }: {
             </>
           ) : (
             <>
-              <div className="flex items-center gap-3 rounded-xl bg-[#1F2937] border border-[#2D3748] px-3.5 py-3">
+              <div className="flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{selected.productName}</p>
-                  <p className="text-xs text-gray-500 truncate">{selected.sku.sku_code}</p>
+                  <p className="text-xs text-gray-400 truncate">{selected.sku.sku_code}</p>
                 </div>
                 <button type="button" onClick={() => setSelected(null)} className="text-xs text-blue-400 shrink-0">Change</button>
               </div>
@@ -1074,14 +1074,14 @@ function AddItemSheet({ token, onCancel, onAdd }: {
                 <button
                   type="button"
                   onClick={() => setIsFreebie(true)}
-                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${isFreebie ? 'bg-purple-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${isFreebie ? 'bg-purple-600 text-white' : 'bg-night-800 text-gray-400'}`}
                 >
                   <Gift size={15} /> Freebie
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsFreebie(false)}
-                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${!isFreebie ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${!isFreebie ? 'bg-blue-600 text-white' : 'bg-night-800 text-gray-400'}`}
                 >
                   <PackagePlus size={15} /> New item
                 </button>
@@ -1098,7 +1098,7 @@ function AddItemSheet({ token, onCancel, onAdd }: {
                     value={price}
                     onChange={e => setPrice(e.target.value)}
                     placeholder="0.00"
-                    className="w-full px-3 py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               )}
@@ -1109,7 +1109,7 @@ function AddItemSheet({ token, onCancel, onAdd }: {
                   id="add-item-reason"
                   value={reason}
                   onChange={e => setReason(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 

@@ -20,7 +20,7 @@ function LineItemThumb({ token, productId }: { token: string; productId?: string
   const { media } = useProductMedia(token, productId ?? null)
   const featured = media[0]
   return (
-    <div className="w-9 h-9 rounded-lg bg-[#2D3748] flex items-center justify-center shrink-0 overflow-hidden">
+    <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0 overflow-hidden">
       {featured ? (
         <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
       ) : (
@@ -352,9 +352,9 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
   if (confirmingFinish && detail) {
     const missing = computeMissingItems(detail)
     return (
-      <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-[#2D3748] shrink-0">
-          <button onClick={() => setConfirmingFinish(false)} className="p-1 -ml-1" title="Back to booking">
+      <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
+          <button onClick={() => setConfirmingFinish(false)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to booking">
             <ArrowLeft size={18} className="text-gray-400" />
           </button>
           <h1 className="flex-1 text-base font-semibold">Review before finishing</h1>
@@ -366,15 +366,15 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
             <>
               <p className="text-sm text-amber-400">{missing.length} line(s) aren't fully scanned yet:</p>
               {missing.map(m => (
-                <div key={m.line_item_id} className="rounded-lg bg-[#1F2937] border border-[#2D3748] px-3 py-2">
+                <div key={m.line_item_id} className="rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                   <p className="text-sm text-gray-200">{m.raw_description}</p>
-                  <p className="text-xs text-gray-500">expected {m.expected_qty} · scanned {m.scanned_qty}</p>
+                  <p className="text-xs text-gray-400">expected {m.expected_qty} · scanned {m.scanned_qty}</p>
                 </div>
               ))}
             </>
           )}
         </div>
-        <div className="p-4 border-t border-[#2D3748] shrink-0 space-y-2">
+        <div className="p-4 border-t border-night-700 shrink-0 space-y-2">
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             onClick={handleConfirmComplete}
@@ -383,7 +383,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           >
             {finishing ? 'Completing…' : 'Confirm & Complete'}
           </button>
-          <button onClick={() => setConfirmingFinish(false)} className="w-full py-2.5 rounded-xl bg-[#1F2937] text-gray-300 text-sm font-medium">
+          <button onClick={() => setConfirmingFinish(false)} className="w-full py-2.5 rounded-xl bg-night-800 text-gray-300 text-sm font-medium">
             Back, scan more
           </button>
         </div>
@@ -393,7 +393,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
 
   if (result) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
+      <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
         <div className="flex flex-col items-center text-center gap-3 px-6 pt-8 pb-4 shrink-0">
           <div className="w-14 h-14 rounded-2xl bg-green-600/20 flex items-center justify-center">
             <PackageCheck size={26} className="text-green-400" />
@@ -405,9 +405,9 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-2">
             <p className="text-sm text-amber-400">{result.missing_items.length} line(s) weren't fully scanned:</p>
             {result.missing_items.map(m => (
-              <div key={m.line_item_id} className="rounded-lg bg-[#1F2937] border border-[#2D3748] px-3 py-2">
+              <div key={m.line_item_id} className="rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                 <p className="text-sm text-gray-200">{m.raw_description}</p>
-                <p className="text-xs text-gray-500">expected {m.expected_qty} · scanned {m.scanned_qty}</p>
+                <p className="text-xs text-gray-400">expected {m.expected_qty} · scanned {m.scanned_qty}</p>
               </div>
             ))}
           </div>
@@ -429,22 +429,22 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-[#2D3748] shrink-0">
-        <button onClick={handlePause} className="p-1 -ml-1" title="Pause and go back">
+    <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
+        <button onClick={handlePause} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Pause and go back">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <h1 className="flex-1 text-base font-semibold">Booking</h1>
         <button
           onClick={() => setConfirmingFinish(true)}
-          className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700"
+          className="px-4 min-h-11 -my-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700"
         >
           Finish
         </button>
       </div>
 
       {purchaseOrder && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-[#2D3748] shrink-0 text-xs text-gray-400">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-night-700 shrink-0 text-xs text-gray-400">
           <WarehouseIcon size={13} className="shrink-0" />
           <span className="flex-1 truncate">{warehouses.find(w => w.id === purchaseOrder.warehouse_id)?.name ?? 'No warehouse'}</span>
           <button type="button" onClick={() => setWarehouseSheetOpen(true)} className="text-blue-400 font-medium shrink-0">
@@ -460,7 +460,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       )}
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-        {loading && <p className="text-center text-sm text-gray-500 py-8">Loading…</p>}
+        {loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
         {detail?.line_items.map(li => {
           const scannedQty = li.sku_id ? scannedBySKU.get(li.sku_id) ?? 0 : 0
           const damagedLostQty = li.sku_id ? damagedLostBySKU.get(li.sku_id) ?? 0 : 0
@@ -487,7 +487,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           )
           if (!skuId) {
             return (
-              <div key={li.id} className="flex items-center gap-3 rounded-xl bg-[#1F2937] border border-[#2D3748] px-3.5 py-3">
+              <div key={li.id} className="flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3">
                 {content}
               </div>
             )
@@ -500,7 +500,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
                 skuId, description: li.raw_description, remaining: Math.max(li.quantity - scannedBoxes, 0), scannedSoFar: scannedBoxes, expected: li.quantity,
                 suggestedLotNumber: li.suggested_lot_number, suggestedExpiryDate: li.suggested_expiry_date,
               })}
-              className="w-full flex items-center gap-3 rounded-xl bg-[#1F2937] border border-[#2D3748] px-3.5 py-3 text-left hover:border-blue-500 transition-colors"
+              className="w-full flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3 text-left hover:border-blue-500 transition-colors"
             >
               {content}
             </button>
@@ -508,11 +508,11 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
         })}
       </div>
 
-      <form onSubmit={handleScan} className="border-t border-[#2D3748] p-4 space-y-2 shrink-0">
+      <form onSubmit={handleScan} className="border-t border-night-700 p-4 space-y-2 shrink-0">
         {error && <p className="text-sm text-red-400">{error}</p>}
         {candidates.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-xs text-gray-500">Multiple matches -- pick one:</p>
+            <p className="text-xs text-gray-400">Multiple matches -- pick one:</p>
             {candidates.map(c => (
               <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => handleCandidateBook(c)} />
             ))}
@@ -524,29 +524,29 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
             value={code}
             onChange={e => setCode(e.target.value)}
             placeholder="Scan or type barcode…"
-            className="flex-1 px-3 py-3 text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-3 py-3 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="button"
             onClick={() => setCameraOpen(true)}
             title="Use camera"
-            className="w-11 shrink-0 rounded-xl bg-[#1F2937] border border-[#2D3748] flex items-center justify-center text-gray-300"
+            className="w-11 shrink-0 rounded-xl bg-night-800 border border-night-700 flex items-center justify-center text-gray-300"
           >
             <Camera size={16} />
           </button>
         </div>
-        <button type="button" onClick={() => setAdvancedOpen(o => !o)} className="flex items-center gap-1 text-xs text-gray-500">
+        <button type="button" onClick={() => setAdvancedOpen(o => !o)} className="flex items-center gap-1 text-xs text-gray-400">
           {advancedOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Lot / expiry
         </button>
         {advancedOpen && (
           <div className="grid grid-cols-2 gap-2">
             <input
               value={lotNumber} onChange={e => setLotNumber(e.target.value)} placeholder="Lot number"
-              className="px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
+              className="px-3 py-2 text-sm rounded-lg bg-night-800 border border-night-700 text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
             />
             <input
               type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)}
-              className="px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
+              className="px-3 py-2 text-sm rounded-lg bg-night-800 border border-night-700 text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
             />
           </div>
         )}
@@ -696,33 +696,33 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
 
   return (
     <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
-      <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] max-h-[85vh] overflow-y-auto">
+      <div className="w-full max-w-sm rounded-t-2xl bg-night-900 border-t border-night-700 max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold truncate">{description}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Received {scannedSoFar} of {expected}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Received {scannedSoFar} of {expected}</p>
           </div>
-          <button onClick={onCancel} title="Close" className="shrink-0 p-1 -mt-1 -mr-1 text-gray-500 hover:text-gray-300">
+          <button onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
             <X size={18} />
           </button>
         </div>
 
         {scans.length > 0 && (
           <div className="px-5 pt-3 space-y-1.5">
-            <p className="text-xs text-gray-500">Already staged for this line:</p>
+            <p className="text-xs text-gray-400">Already staged for this line:</p>
             {scans.map(s => (
-              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-[#1F2937] border border-[#2D3748] px-3 py-2">
+              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-200">{scanSummary(s)}</p>
                   {(s.lot_number || s.reason) && (
-                    <p className="text-xs text-gray-500 truncate">{[s.lot_number, s.reason].filter(Boolean).join(' · ')}</p>
+                    <p className="text-xs text-gray-400 truncate">{[s.lot_number, s.reason].filter(Boolean).join(' · ')}</p>
                   )}
                 </div>
                 <button
                   type="button"
                   onClick={() => onDeleteScan(s.id)}
                   title="Delete this staged scan"
-                  className="shrink-0 p-1.5 text-gray-500 hover:text-red-400"
+                  className="shrink-0 w-11 h-11 -m-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -739,7 +739,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
                 type="button"
                 onClick={() => switchMode(t.id)}
                 className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${
-                  mode === t.id ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'
+                  mode === t.id ? 'bg-blue-600 text-white' : 'bg-night-800 text-gray-400'
                 }`}
               >
                 <t.icon size={15} />
@@ -747,7 +747,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
               </button>
             ))}
           </div>
-          <p className="text-xs text-gray-500 -mt-2">{activeTab.help}</p>
+          <p className="text-xs text-gray-400 -mt-2">{activeTab.help}</p>
 
           {mode === 'damaged-lost' && (
             <div className="flex gap-2">
@@ -756,7 +756,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
                   key={t}
                   type="button"
                   onClick={() => setDlType(t)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium capitalize ${dlType === t ? 'bg-red-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium capitalize ${dlType === t ? 'bg-red-600 text-white' : 'bg-night-800 text-gray-400'}`}
                 >
                   {t}
                 </button>
@@ -769,7 +769,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
               {mode === 'receive' ? 'Quantity to receive' : mode === 'remove' ? 'Quantity to remove' : 'Quantity'}
             </label>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setQty(String(Math.max(n - 1, 0)))} className="w-9 h-9 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label="Decrease quantity">
+              <button type="button" onClick={() => setQty(String(Math.max(n - 1, 0)))} className="w-9 h-9 shrink-0 rounded-xl bg-night-800 flex items-center justify-center" aria-label="Decrease quantity">
                 <Minus size={14} />
               </button>
               <input
@@ -777,13 +777,13 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
                 inputMode="numeric"
                 value={qty}
                 onChange={e => setQty(e.target.value.replace(/\D/g, ''))}
-                className="flex-1 min-w-0 px-2 py-2 text-center text-base rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 min-w-0 px-2 py-2 text-center text-base rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <button type="button" onClick={() => setQty(String(n + 1))} className="w-9 h-9 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label="Increase quantity">
+              <button type="button" onClick={() => setQty(String(n + 1))} className="w-9 h-9 shrink-0 rounded-xl bg-night-800 flex items-center justify-center" aria-label="Increase quantity">
                 <Plus size={14} />
               </button>
             </div>
-            {maxQty !== undefined && <p className="mt-1 text-xs text-gray-500">Up to {scannedSoFar} already received</p>}
+            {maxQty !== undefined && <p className="mt-1 text-xs text-gray-400">Up to {scannedSoFar} already received</p>}
           </div>
 
           <div>
@@ -835,7 +835,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
                   id="line-lot"
                   value={lotNumber}
                   onChange={e => setLotNumber(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
+                  className="w-full px-3 py-2 text-sm rounded-lg bg-night-800 border border-night-700 text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
                 />
               </div>
               <div>
@@ -845,7 +845,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
                   type="date"
                   value={expiryDate}
                   onChange={e => setExpiryDate(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
+                  className="w-full px-3 py-2 text-sm rounded-lg bg-night-800 border border-night-700 text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
                 />
               </div>
             </div>
@@ -859,7 +859,7 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
                 value={reason}
                 onChange={e => setReason(e.target.value)}
                 placeholder={mode === 'remove' ? 'e.g. counted wrong' : 'e.g. arrived crushed'}
-                className="w-full px-3 py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-600"
+                className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
               />
             </div>
           )}
@@ -883,12 +883,12 @@ function BatchOption({ selected, onClick, title, subtitle }: { selected: boolean
       type="button"
       onClick={onClick}
       className={`w-full flex items-center gap-2 p-2.5 rounded-lg border text-left transition-colors ${
-        selected ? 'border-blue-500 bg-blue-500/10' : 'border-[#2D3748] bg-[#1F2937]'
+        selected ? 'border-blue-500 bg-blue-500/10' : 'border-night-700 bg-night-800'
       }`}
     >
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{title}</p>
-        <p className="text-xs text-gray-500 truncate">{subtitle}</p>
+        <p className="text-xs text-gray-400 truncate">{subtitle}</p>
       </div>
       {selected && <Check size={14} className="text-blue-400 shrink-0" />}
     </button>
@@ -908,7 +908,7 @@ function WarehouseSheet({ warehouses, currentWarehouseId, changing, onCancel, on
 }) {
   return (
     <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
-      <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] p-5 space-y-3">
+      <div className="w-full max-w-sm rounded-t-2xl bg-night-900 border-t border-night-700 p-5 space-y-3">
         <h2 className="text-sm font-semibold">Change warehouse</h2>
         <div className="space-y-2">
           {warehouses.map(w => (
@@ -917,17 +917,17 @@ function WarehouseSheet({ warehouses, currentWarehouseId, changing, onCancel, on
               type="button"
               disabled={changing || w.id === currentWarehouseId}
               onClick={() => onSelect(w.id)}
-              className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-left hover:border-blue-500 disabled:opacity-50 transition-colors"
+              className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700 text-left hover:border-blue-500 disabled:opacity-50 transition-colors"
             >
-              <div className="w-9 h-9 rounded-lg bg-[#2D3748] flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0">
                 <WarehouseIcon size={16} className="text-gray-400" />
               </div>
               <p className="text-sm font-medium flex-1 truncate">{w.name}</p>
-              {w.id === currentWarehouseId && <span className="text-xs text-gray-500 shrink-0">Current</span>}
+              {w.id === currentWarehouseId && <span className="text-xs text-gray-400 shrink-0">Current</span>}
             </button>
           ))}
         </div>
-        <button onClick={onCancel} className="w-full py-2.5 rounded-xl bg-[#1F2937] text-gray-300 text-sm font-medium">
+        <button onClick={onCancel} className="w-full py-2.5 rounded-xl bg-night-800 text-gray-300 text-sm font-medium">
           Cancel
         </button>
       </div>

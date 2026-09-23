@@ -74,8 +74,8 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
 
   return (
     <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-xl dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2D3748] border-gray-200">
+      <div className="w-full max-w-sm rounded-xl dark:bg-night-900 bg-white border dark:border-night-700 border-gray-200 shadow-xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b dark:border-night-700 border-gray-200">
           <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Pair a Scanner</h2>
           <button type="button" onClick={onClose} title="Close">
             <X size={16} className="dark:text-gray-500 text-gray-400" />
@@ -83,7 +83,7 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
         </div>
 
         {!error && pairing && pairing.status !== 'claimed' && (
-          <div className="flex border-b dark:border-[#2D3748] border-gray-200">
+          <div className="flex border-b dark:border-night-700 border-gray-200">
             {TABS.map(t => (
               <button
                 key={t.id}

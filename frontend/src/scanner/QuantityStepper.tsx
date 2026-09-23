@@ -25,7 +25,7 @@ export function QuantityStepper({ id, label, value, onChange, min, max }: { id: 
         )}
       </div>
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => onChange(String(clamp(n - 1)))} className="w-9 h-9 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label={`Decrease ${label}`}>
+        <button type="button" onClick={() => onChange(String(clamp(n - 1)))} className="w-9 h-9 shrink-0 rounded-xl bg-night-800 flex items-center justify-center" aria-label={`Decrease ${label}`}>
           <Minus size={14} />
         </button>
         <input
@@ -36,9 +36,9 @@ export function QuantityStepper({ id, label, value, onChange, min, max }: { id: 
             const digits = e.target.value.replace(/(?!^-)[^\d]/g, '')
             onChange(digits === '' || digits === '-' ? digits : String(clamp(Number(digits))))
           }}
-          className="flex-1 min-w-0 px-2 py-2 text-center text-base rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 min-w-0 px-2 py-2 text-center text-base rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <button type="button" onClick={() => onChange(String(clamp(n + 1)))} className="w-9 h-9 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label={`Increase ${label}`}>
+        <button type="button" onClick={() => onChange(String(clamp(n + 1)))} className="w-9 h-9 shrink-0 rounded-xl bg-night-800 flex items-center justify-center" aria-label={`Increase ${label}`}>
           <Plus size={14} />
         </button>
       </div>

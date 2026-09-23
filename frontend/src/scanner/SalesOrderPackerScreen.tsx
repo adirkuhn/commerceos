@@ -61,46 +61,46 @@ export function SalesOrderPackerScreen({ token, onPackingStarted, onLogout, onBa
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-[#2D3748] shrink-0">
-        <button onClick={onBack} className="p-1 -ml-1" title="Back to apps">
+    <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
+        <button onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <h1 className="flex-1 text-base font-semibold">Select an order to pack</h1>
-        <button onClick={onLogout} className="p-2 rounded-lg hover:bg-[#1F2937]" title="Unpair">
+        <button onClick={onLogout} className="p-2 rounded-lg hover:bg-night-800" title="Unpair">
           <LogOut size={16} className="text-gray-400" />
         </button>
       </div>
       <div className="px-4 py-3 shrink-0">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search by customer or order number…"
-            className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
       </div>
       {error && <p className="mx-4 mb-2 text-sm text-red-400">{error}</p>}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
-        {loading && <p className="text-center text-sm text-gray-500 py-8">Loading…</p>}
+        {loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
         {!loading && filtered.length === 0 && (
-          <p className="text-center text-sm text-gray-500 py-8">No orders ready to pack</p>
+          <p className="text-center text-sm text-gray-400 py-8">No orders ready to pack</p>
         )}
         {filtered.map(o => (
           <button
             key={o.id}
             onClick={() => handleSelect(o)}
             disabled={startingId !== null}
-            className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-left hover:border-blue-500 disabled:opacity-50 transition-colors"
+            className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700 text-left hover:border-blue-500 disabled:opacity-50 transition-colors"
           >
-            <div className="w-9 h-9 rounded-lg bg-[#2D3748] flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0">
               <Package size={16} className="text-gray-400" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{customerName(o)}</p>
-              <p className="text-xs text-gray-500 flex items-center gap-1.5">
+              <p className="text-xs text-gray-400 flex items-center gap-1.5">
                 <span>#{o.number || o.external_order_id}</span>
                 <span>·</span>
                 <span>{formatDate(o.occurred_at)}</span>

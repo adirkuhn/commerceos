@@ -15,7 +15,7 @@ export function ScannerLoadGate<T>({ resource, onBack, children }: ScannerLoadGa
   if (resource.data !== null) return <>{children(resource.data)}</>
 
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 p-6 bg-[#0B1220] text-gray-100 text-center">
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 p-6 bg-night-950 text-gray-100 text-center">
       {resource.loading ? (
         <p className="text-sm text-gray-400">Loading…</p>
       ) : (
@@ -23,7 +23,7 @@ export function ScannerLoadGate<T>({ resource, onBack, children }: ScannerLoadGa
           <p className="text-sm text-red-400">{resource.error || 'Not found'}</p>
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 font-medium"
+            className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-night-800 border border-night-700 text-gray-200 font-medium"
           >
             <ArrowLeft size={16} /> Back
           </button>

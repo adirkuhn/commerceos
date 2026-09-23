@@ -14,9 +14,9 @@ export function ProductCandidateRow({ token, candidate, onClick }: { token: stri
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-3 p-2.5 rounded-lg border border-[#2D3748] bg-[#1F2937] text-left hover:border-blue-500 transition-colors"
+      className="w-full flex items-center gap-3 p-2.5 rounded-lg border border-night-700 bg-night-800 text-left hover:border-blue-500 transition-colors"
     >
-      <div className="w-9 h-9 rounded-lg bg-[#2D3748] flex items-center justify-center shrink-0 overflow-hidden">
+      <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0 overflow-hidden">
         {featured ? (
           <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
         ) : (
@@ -25,7 +25,7 @@ export function ProductCandidateRow({ token, candidate, onClick }: { token: stri
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{candidate.productName}</p>
-        <p className="text-xs text-gray-500 truncate">{candidate.sku.sku_code}</p>
+        <p className="text-xs text-gray-400 truncate">{candidate.sku.sku_code}</p>
       </div>
     </button>
   )

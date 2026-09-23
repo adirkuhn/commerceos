@@ -23,16 +23,16 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
   return (
     <Dialog onClose={onCancel} dismissible={!submitting} className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onCancel} />
-      <div className="relative w-full max-w-md dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
-        <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Not enough stock</h3>
-        <p className="text-xs dark:text-gray-400 text-gray-500 mb-4">
+      <div className="relative w-full max-w-md bg-raised rounded-xl shadow-2xl border border-line p-5">
+        <h3 className="text-sm font-semibold text-ink mb-1">Not enough stock</h3>
+        <p className="text-xs text-ink-3 mb-4">
           Tracked stock is short for these items. Decide how to finish for each.
         </p>
         <div className="space-y-3 mb-4">
           {shortfalls.map(s => (
-            <div key={s.scan_id} className="rounded-lg border dark:border-[#2D3748] border-gray-200 p-3">
-              <p className="text-xs font-medium dark:text-gray-200 text-gray-800">{s.name}</p>
-              <p className="text-2xs dark:text-gray-500 text-gray-400 mb-2">
+            <div key={s.scan_id} className="rounded-lg border border-line p-3">
+              <p className="text-xs font-medium text-ink">{s.name}</p>
+              <p className="text-xs text-ink-4 mb-2">
                 Needed {s.needed}, {s.short} short
               </p>
               <div className="flex items-center gap-2">
@@ -40,7 +40,7 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
                   type="button"
                   onClick={() => setChoices(prev => ({ ...prev, [s.scan_id]: 'with_item' }))}
                   aria-pressed={choices[s.scan_id] === 'with_item'}
-                  className={`flex-1 px-2 py-1.5 rounded-lg text-2xs font-medium transition-colors ${choices[s.scan_id] === 'with_item' ? 'bg-blue-600 text-white' : 'dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600'}`}
+                  className={`flex-1 px-2 py-2.5 rounded-lg text-xs font-medium transition-colors ${choices[s.scan_id] === 'with_item' ? 'bg-blue-600 text-white' : 'bg-fill text-ink-2'}`}
                 >
                   Send it (fix inventory)
                 </button>
@@ -48,7 +48,7 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
                   type="button"
                   onClick={() => setChoices(prev => ({ ...prev, [s.scan_id]: 'without_item' }))}
                   aria-pressed={choices[s.scan_id] === 'without_item'}
-                  className={`flex-1 px-2 py-1.5 rounded-lg text-2xs font-medium transition-colors ${choices[s.scan_id] === 'without_item' ? 'bg-blue-600 text-white' : 'dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600'}`}
+                  className={`flex-1 px-2 py-2.5 rounded-lg text-xs font-medium transition-colors ${choices[s.scan_id] === 'without_item' ? 'bg-blue-600 text-white' : 'bg-fill text-ink-2'}`}
                 >
                   Skip it
                 </button>
@@ -59,7 +59,7 @@ export function StockShortfallDialog({ shortfalls, submitting, onConfirm, onCanc
         <div className="flex items-center gap-2">
           <button
             type="button" onClick={onCancel} disabled={submitting}
-            className="px-4 py-2 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-700 text-xs font-medium disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg bg-fill text-ink-2 text-xs font-medium disabled:opacity-50 transition-colors"
           >
             Cancel
           </button>

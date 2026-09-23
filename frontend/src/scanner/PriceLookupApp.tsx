@@ -58,9 +58,9 @@ export function PriceLookupApp({ token, onExit }: PriceLookupAppProps) {
 
 function PriceLookupShell({ onExit, children }: { onExit: () => void; children: ReactNode }) {
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-[#2D3748] shrink-0">
-        <button onClick={onExit} className="p-1 -ml-1" title="Back to apps">
+    <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
+        <button onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <h1 className="flex-1 text-base font-semibold">Price Lookup</h1>
@@ -111,7 +111,7 @@ function PriceLookupScan({ token, onResolved }: { token: string; onResolved: (r:
       <ScanCodeScreen icon={Tag} prompt="Scan a barcode or type a SKU code" loading={loading} error={error} onSubmit={handleSubmit} />
       {candidates.length > 0 && (
         <div className="w-full max-w-xs mx-auto px-6 pb-6 space-y-1.5 shrink-0">
-          <p className="text-xs text-gray-500">Multiple matches -- pick one:</p>
+          <p className="text-xs text-gray-400">Multiple matches -- pick one:</p>
           {candidates.map(c => (
             <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => onResolved({ sku: c.sku, productName: c.productName })} />
           ))}
@@ -148,13 +148,13 @@ function PriceLookupResult({ token, resolved, onViewInventory, onLookUpAnother }
       </div>
       <div>
         <p className="text-lg font-semibold">{productName}</p>
-        <p className="text-xs text-gray-500">{sku.sku_code}</p>
+        <p className="text-xs text-gray-400">{sku.sku_code}</p>
       </div>
       <div className="space-y-1">
         {sku.sale_price_minor_units != null ? (
           <>
             <p className="text-3xl font-bold text-blue-400">{formatPrice(sku.sale_price_minor_units, sku.currency_code)}</p>
-            <p className="text-sm text-gray-500 line-through">{formatPrice(sku.price_minor_units, sku.currency_code)}</p>
+            <p className="text-sm text-gray-400 line-through">{formatPrice(sku.price_minor_units, sku.currency_code)}</p>
           </>
         ) : (
           <p className="text-3xl font-bold text-gray-100">{formatPrice(sku.price_minor_units, sku.currency_code)}</p>
@@ -172,7 +172,7 @@ function PriceLookupResult({ token, resolved, onViewInventory, onLookUpAnother }
         </button>
         <button
           onClick={onLookUpAnother}
-          className="w-full py-3 rounded-xl bg-[#1F2937] text-gray-200 font-medium border border-[#2D3748]"
+          className="w-full py-3 rounded-xl bg-night-800 text-gray-200 font-medium border border-night-700"
         >
           Look up another
         </button>

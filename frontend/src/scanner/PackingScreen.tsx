@@ -37,7 +37,7 @@ function LineItemThumb({ token, name, productId }: { token: string; name: string
   const { media } = useProductMedia(token, productId ?? null)
   const featured = media[0]
   return (
-    <div className="w-9 h-9 rounded-lg bg-[#2D3748] flex items-center justify-center shrink-0 overflow-hidden" title={name}>
+    <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0 overflow-hidden" title={name}>
       {featured ? (
         <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
       ) : (
@@ -269,17 +269,17 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
   if (confirmingFinish && detail) {
     const missing = computeMissingPackItems(detail.line_items, detail.scans)
     return (
-      <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-[#2D3748] shrink-0">
-          <button onClick={() => setConfirmingFinish(false)} className="p-1 -ml-1" title="Back to packing">
+      <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
+          <button onClick={() => setConfirmingFinish(false)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to packing">
             <ArrowLeft size={18} className="text-gray-400" />
           </button>
           <h1 className="flex-1 text-base font-semibold">Review before finishing</h1>
         </div>
-        <div className="px-4 py-3 border-b border-[#2D3748] shrink-0 bg-[#111827]">
+        <div className="px-4 py-3 border-b border-night-700 shrink-0 bg-night-900">
           <div className="flex items-baseline gap-1.5 flex-wrap">
             <span className="text-base font-semibold">#{order.number || order.external_order_id}</span>
-            <span className="text-gray-500">·</span>
+            <span className="text-gray-400">·</span>
             <span className="text-base text-gray-300">{customerName(order)}</span>
           </div>
           {shippingAddressLine(order.shipping) && (
@@ -293,15 +293,15 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
             <>
               <p className="text-sm text-amber-400">{missing.length} line(s) aren't fully packed yet:</p>
               {missing.map(m => (
-                <div key={m.line_item_id} className="rounded-lg bg-[#1F2937] border border-[#2D3748] px-3 py-2">
+                <div key={m.line_item_id} className="rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                   <p className="text-sm text-gray-200">{m.name}</p>
-                  <p className="text-xs text-gray-500">expected {m.expected_qty} · packed {m.packed_qty}</p>
+                  <p className="text-xs text-gray-400">expected {m.expected_qty} · packed {m.packed_qty}</p>
                 </div>
               ))}
             </>
           )}
         </div>
-        <div className="p-4 border-t border-[#2D3748] shrink-0 space-y-2">
+        <div className="p-4 border-t border-night-700 shrink-0 space-y-2">
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             onClick={handleConfirmComplete}
@@ -310,7 +310,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
           >
             {finishing ? 'Completing…' : 'Confirm & Complete'}
           </button>
-          <button onClick={() => setConfirmingFinish(false)} className="w-full py-2.5 rounded-xl bg-[#1F2937] text-gray-300 text-sm font-medium">
+          <button onClick={() => setConfirmingFinish(false)} className="w-full py-2.5 rounded-xl bg-night-800 text-gray-300 text-sm font-medium">
             Back, scan more
           </button>
         </div>
@@ -320,7 +320,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
 
   if (result) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
+      <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
         <div className="flex flex-col items-center text-center gap-3 px-6 pt-8 pb-4 shrink-0">
           <div className="w-14 h-14 rounded-2xl bg-green-600/20 flex items-center justify-center">
             <PackageCheck size={26} className="text-green-400" />
@@ -332,9 +332,9 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
           <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-2">
             <p className="text-sm text-amber-400">{result.missing_items.length} line(s) weren't fully packed:</p>
             {result.missing_items.map(m => (
-              <div key={m.line_item_id} className="rounded-lg bg-[#1F2937] border border-[#2D3748] px-3 py-2">
+              <div key={m.line_item_id} className="rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                 <p className="text-sm text-gray-200">{m.name}</p>
-                <p className="text-xs text-gray-500">expected {m.expected_qty} · packed {m.packed_qty}</p>
+                <p className="text-xs text-gray-400">expected {m.expected_qty} · packed {m.packed_qty}</p>
               </div>
             ))}
           </div>
@@ -343,7 +343,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
           {myParcelConnection && !createdShipmentId && (
             <button
               type="button" onClick={handleCreateLabelClick}
-              className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
+              className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
             >
               Create shipping label
             </button>
@@ -351,7 +351,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
           {createdShipmentId && (
             <button
               type="button" onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
-              className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
+              className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
             >
               {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
             </button>
@@ -414,24 +414,24 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
   const packedByLineItem = packedQuantityByLineItem(detail?.scans ?? [])
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-[#2D3748] shrink-0">
-        <button onClick={onExit} className="p-1 -ml-1" title="Back">
+    <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
+        <button onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <h1 className="flex-1 text-base font-semibold">Packing</h1>
         <button
           onClick={() => setConfirmingFinish(true)}
-          className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700"
+          className="px-4 min-h-11 -my-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700"
         >
           Finish
         </button>
       </div>
 
-      <div className="px-4 py-3 border-b border-[#2D3748] shrink-0 bg-[#111827]">
+      <div className="px-4 py-3 border-b border-night-700 shrink-0 bg-night-900">
         <div className="flex items-baseline gap-1.5 flex-wrap">
           <span className="text-base font-semibold">#{order.number || order.external_order_id}</span>
-          <span className="text-gray-500">·</span>
+          <span className="text-gray-400">·</span>
           <span className="text-base text-gray-300">{customerName(order)}</span>
         </div>
         {shippingAddressLine(order.shipping) && (
@@ -439,7 +439,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
         )}
         <button
           type="button" onClick={() => setResetConfirmOpen(true)}
-          className="mt-1.5 flex items-center gap-1 text-xs text-red-400"
+          className="mt-0.5 -mb-2 py-2.5 flex items-center gap-1.5 text-sm text-red-400"
         >
           <Undo2 size={12} /> Start over
         </button>
@@ -452,7 +452,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
       )}
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-        {loading && <p className="text-center text-sm text-gray-500 py-8">Loading…</p>}
+        {loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
         {detail?.line_items.map(li => {
           const packedQty = packedByLineItem.get(li.id) ?? 0
           const done = packedQty >= li.quantity
@@ -461,13 +461,13 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
               key={li.id}
               type="button"
               onClick={() => setPackLine({ lineItem: li, packedSoFar: packedQty })}
-              className="w-full flex items-center gap-3 rounded-xl bg-[#1F2937] border border-[#2D3748] px-3.5 py-3 text-left hover:border-blue-500 transition-colors"
+              className="w-full flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3 text-left hover:border-blue-500 transition-colors"
             >
               <LineItemThumb token={token} name={li.name} productId={li.product_id} />
               {done && <Check size={16} className="text-green-400 shrink-0" />}
               <div className="flex-1 min-w-0">
                 <p className="text-sm truncate">{li.name}</p>
-                {li.sku_code && <p className="text-xs text-gray-500 truncate">{li.sku_code}</p>}
+                {li.sku_code && <p className="text-xs text-gray-400 truncate">{li.sku_code}</p>}
               </div>
               <p className={`text-sm font-medium shrink-0 ${done ? 'text-green-400' : 'text-gray-300'}`}>
                 {packedQty} / {li.quantity}
@@ -477,7 +477,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
         })}
       </div>
 
-      <form onSubmit={handleScan} className="border-t border-[#2D3748] p-4 space-y-2 shrink-0">
+      <form onSubmit={handleScan} className="border-t border-night-700 p-4 space-y-2 shrink-0">
         {error && <p className="text-sm text-red-400">{error}</p>}
         <div className="flex gap-2">
           <input
@@ -486,13 +486,13 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
             onChange={e => setCode(e.target.value)}
             placeholder="Scan or type barcode…"
             disabled={scanning || !!scanErrorAlert}
-            className="flex-1 px-3 py-3 text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="flex-1 px-3 py-3 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
           <button
             type="button"
             onClick={() => setCameraOpen(true)}
             title="Use camera"
-            className="w-11 shrink-0 rounded-xl bg-[#1F2937] border border-[#2D3748] flex items-center justify-center text-gray-300"
+            className="w-11 shrink-0 rounded-xl bg-night-800 border border-night-700 flex items-center justify-center text-gray-300"
           >
             <Camera size={16} />
           </button>
@@ -521,7 +521,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
 
       {scanErrorAlert && (
         <Dialog onClose={dismissScanError} label="Scan error" initialFocus="dialog" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
-          <div className="w-full max-w-xs rounded-2xl bg-[#111827] border border-red-500/40 p-5 text-center">
+          <div className="w-full max-w-xs rounded-2xl bg-night-900 border border-red-500/40 p-5 text-center">
             <p className="text-sm font-semibold text-red-400 mb-4">{scanErrorAlert}</p>
             <button
               type="button" onClick={dismissScanError}
@@ -535,7 +535,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
 
       {resetConfirmOpen && (
         <Dialog onClose={() => setResetConfirmOpen(false)} label="Start over?" dismissible={!resetting} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
-          <div className="w-full max-w-xs rounded-2xl bg-[#111827] border border-[#2D3748] p-5 text-center">
+          <div className="w-full max-w-xs rounded-2xl bg-night-900 border border-night-700 p-5 text-center">
             <p className="text-sm font-semibold mb-1">Start over?</p>
             <p className="text-xs text-gray-400 mb-4">
               This discards every item packed so far on this order and starts the session fresh. This can't be undone.
@@ -543,7 +543,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
             <div className="flex gap-2">
               <button
                 type="button" onClick={() => setResetConfirmOpen(false)} disabled={resetting}
-                className="flex-1 py-3 rounded-xl border border-[#2D3748] text-sm font-medium text-gray-300 disabled:opacity-50"
+                className="flex-1 py-3 rounded-xl border border-night-700 text-sm font-medium text-gray-300 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -575,28 +575,28 @@ function PackLineSheet({ lineItem, packedSoFar, scans, onDeleteScan, onCancel, o
 
   return (
     <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
-      <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] max-h-[85vh] overflow-y-auto">
+      <div className="w-full max-w-sm rounded-t-2xl bg-night-900 border-t border-night-700 max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold truncate">{lineItem.name}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Packed {packedSoFar} of {lineItem.quantity}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Packed {packedSoFar} of {lineItem.quantity}</p>
           </div>
-          <button onClick={onCancel} title="Close" className="shrink-0 p-1 -mt-1 -mr-1 text-gray-500 hover:text-gray-300">
+          <button onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
             <X size={18} />
           </button>
         </div>
 
         {scans.length > 0 && (
           <div className="px-5 pt-3 space-y-1.5">
-            <p className="text-xs text-gray-500">Already packed for this line:</p>
+            <p className="text-xs text-gray-400">Already packed for this line:</p>
             {scans.map(s => (
-              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-[#1F2937] border border-[#2D3748] px-3 py-2">
+              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                 <p className="flex-1 text-sm text-gray-200">Packed × {s.quantity}</p>
                 <button
                   type="button"
                   onClick={() => onDeleteScan(s.id)}
                   title="Delete this scan"
-                  className="shrink-0 p-1.5 text-gray-500 hover:text-red-400"
+                  className="shrink-0 w-11 h-11 -m-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400"
                 >
                   <X size={14} />
                 </button>

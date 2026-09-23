@@ -82,7 +82,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center gap-6 bg-[#0B1220] p-6 text-center">
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-6 bg-night-950 p-6 text-center">
       <div className="w-16 h-16 rounded-2xl bg-blue-600/20 flex items-center justify-center">
         {tab === 'digits' ? <Hash size={28} className="text-blue-400" /> : <ScanLine size={28} className="text-blue-400" />}
       </div>
@@ -93,12 +93,12 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
         </p>
       </div>
 
-      <div className="flex w-full max-w-xs rounded-xl overflow-hidden border border-[#2D3748]">
+      <div className="flex w-full max-w-xs rounded-xl overflow-hidden border border-night-700">
         <button
           type="button"
           onClick={() => setTab('digits')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors ${
-            tab === 'digits' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'
+            tab === 'digits' ? 'bg-blue-600 text-white' : 'bg-night-800 text-gray-400'
           }`}
         >
           <Hash size={13} /> Type code
@@ -107,7 +107,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
           type="button"
           onClick={() => setTab('scan')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors ${
-            tab === 'scan' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'
+            tab === 'scan' ? 'bg-blue-600 text-white' : 'bg-night-800 text-gray-400'
           }`}
         >
           <ScanLine size={13} /> Scan
@@ -123,7 +123,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
             value={code}
             onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
             placeholder="000000"
-            className="w-full px-4 py-4 text-center text-3xl tracking-[0.3em] rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-4 text-center text-3xl tracking-[0.3em] rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
           />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
@@ -147,7 +147,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
             value={scanValue}
             onChange={e => setScanValue(e.target.value)}
             placeholder="Scan QR code or barcode…"
-            className="w-full px-4 py-4 text-center text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-4 text-center text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
           />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
@@ -160,7 +160,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
           <button
             type="button"
             onClick={() => setCameraOpen(true)}
-            className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-300 text-xs font-medium flex items-center justify-center gap-1.5"
+            className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-300 text-xs font-medium flex items-center justify-center gap-1.5"
           >
             <Camera size={13} /> Use camera
           </button>
@@ -173,17 +173,17 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
 
       {hasLoginUrl(import.meta.env) && (
         <div className="w-full max-w-xs space-y-3">
-          <div className="flex items-center gap-3 text-2xs text-gray-500">
-            <div className="h-px flex-1 bg-[#2D3748]" />
+          <div className="flex items-center gap-3 text-2xs text-gray-400">
+            <div className="h-px flex-1 bg-night-700" />
             or
-            <div className="h-px flex-1 bg-[#2D3748]" />
+            <div className="h-px flex-1 bg-night-700" />
           </div>
           {googleError && <p className="text-sm text-red-400">{googleError}</p>}
           <button
             type="button"
             onClick={handleGoogleLogin}
             disabled={googleLoading}
-            className="w-full py-3 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium disabled:opacity-50 transition-colors"
+            className="w-full py-3 rounded-xl bg-night-800 border border-night-700 text-gray-200 text-sm font-medium disabled:opacity-50 transition-colors"
           >
             {googleLoading ? 'Redirecting…' : 'Sign in with Google'}
           </button>

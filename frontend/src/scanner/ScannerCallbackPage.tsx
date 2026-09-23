@@ -29,7 +29,7 @@ export function ScannerCallbackPage() {
 
   if (error) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[#0B1220] p-6 text-center">
+      <div className="fixed inset-0 flex items-center justify-center bg-night-950 p-6 text-center">
         <div>
           <p className="text-sm text-red-400">{error}</p>
           <a href="/scanner" className="mt-2 inline-block text-sm text-blue-400">Back to pairing</a>
@@ -39,7 +39,7 @@ export function ScannerCallbackPage() {
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-[#0B1220]">
+    <div className="fixed inset-0 flex items-center justify-center bg-night-950">
       <p className="text-sm text-gray-300">Signing you in…</p>
     </div>
   )

@@ -21,10 +21,10 @@ const APPS: { id: ScannerAppID; label: string; icon: typeof PackageCheck; enable
 // must work by tapping alone, not just by physical trigger-scanning.
 export function AppLauncher({ onSelect, onLogout }: AppLauncherProps) {
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-[#2D3748] shrink-0">
+    <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
         <h1 className="flex-1 text-base font-semibold">CommerceOS Scanner</h1>
-        <button onClick={onLogout} className="p-2 rounded-lg hover:bg-[#1F2937]" title="Unpair">
+        <button onClick={onLogout} className="p-2 rounded-lg hover:bg-night-800" title="Unpair">
           <LogOut size={16} className="text-gray-400" />
         </button>
       </div>
@@ -34,13 +34,13 @@ export function AppLauncher({ onSelect, onLogout }: AppLauncherProps) {
             key={app.id}
             onClick={() => app.enabled && onSelect(app.id)}
             disabled={!app.enabled}
-            className="flex flex-col items-center justify-center gap-3 aspect-square rounded-2xl bg-[#1F2937] border border-[#2D3748] disabled:opacity-40 hover:border-blue-500 disabled:hover:border-[#2D3748] transition-colors"
+            className="flex flex-col items-center justify-center gap-3 aspect-square rounded-2xl bg-night-800 border border-night-700 disabled:opacity-40 hover:border-blue-500 disabled:hover:border-night-700 transition-colors"
           >
-            <div className="w-12 h-12 rounded-xl bg-[#2D3748] flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-night-700 flex items-center justify-center">
               <app.icon size={22} className="text-gray-300" />
             </div>
             <span className="text-sm font-medium">{app.label}</span>
-            {!app.enabled && <span className="text-2xs text-gray-500">Coming soon</span>}
+            {!app.enabled && <span className="text-2xs text-gray-400">Coming soon</span>}
           </button>
         ))}
       </div>
