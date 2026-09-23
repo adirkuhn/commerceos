@@ -1,9 +1,16 @@
 import { useState } from 'react'
-import { Search, Sun, Moon, Command, QrCode } from 'lucide-react'
+import { Search, Sun, Moon, Monitor, Command, QrCode } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
 import { PairScannerModal } from '../../scanner/PairScannerModal'
 import NotificationBell from './NotificationBell'
+import type { ThemePreference } from '../../theme/themePreference'
+
+const APPEARANCE: Record<ThemePreference, { label: string; icon: React.ElementType }> = {
+  system: { label: 'System', icon: Monitor },
+  light: { label: 'Light', icon: Sun },
+  dark: { label: 'Dark', icon: Moon },
+}
 
 const NAV_TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -23,7 +30,9 @@ const NAV_TITLES: Record<string, string> = {
 }
 
 export default function Topbar() {
-  const { activeNav, theme, toggleTheme, setCommandOpen } = useApp()
+  const { activeNav, themePreference, cycleThemePreference, setCommandOpen } = useApp()
+  const appearance = APPEARANCE[themePreference]
+  const AppearanceIcon = appearance.icon
   const { token } = useAuth()
   const [pairScannerOpen, setPairScannerOpen] = useState(false)
 
@@ -50,6 +59,7 @@ export default function Topbar() {
         <button
           onClick={() => setPairScannerOpen(true)}
           title="Pair Scanner"
+          aria-label="Pair Scanner"
           className="w-8 h-8 flex items-center justify-center rounded-lg dark:hover:bg-[#1F2937] hover:bg-gray-100 transition-colors"
         >
           <QrCode size={16} className="dark:text-gray-400 text-gray-500" />
@@ -58,16 +68,14 @@ export default function Topbar() {
         {/* Notifications */}
         <NotificationBell />
 
-        {/* Theme toggle */}
+        {/* Appearance: follows the OS by default, click to override */}
         <button
-          onClick={toggleTheme}
+          onClick={cycleThemePreference}
+          aria-label={`Appearance: ${appearance.label}`}
+          title={`Appearance: ${appearance.label}`}
           className="w-8 h-8 flex items-center justify-center rounded-lg dark:hover:bg-[#1F2937] hover:bg-gray-100 transition-colors"
         >
-          {theme === 'dark' ? (
-            <Sun size={16} className="text-gray-400" />
-          ) : (
-            <Moon size={16} className="text-gray-500" />
-          )}
+          <AppearanceIcon size={16} className="dark:text-gray-400 text-gray-500" />
         </button>
 
         {/* Status pill */}

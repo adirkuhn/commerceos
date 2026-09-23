@@ -3,8 +3,73 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * Semantic color tokens (RGB channels so Tailwind's /opacity works).
+   * One token = one meaning; every text token meets 4.5:1 on the surfaces
+   * it is used on, in both appearances. Use these via tailwind.config.js
+   * (bg-raised, text-ink-3, border-line, ...) instead of raw hex/gray.
+   */
+  :root {
+    color-scheme: light;
+    --canvas: 249 250 251;   /* page background */
+    --surface: 255 255 255;  /* chrome: sidebar, topbar, inputs */
+    --raised: 255 255 255;   /* cards, popovers, dialogs */
+    --sunken: 249 250 251;   /* wells inside a card: table heads, inputs */
+    --fill: 243 244 246;     /* quiet control fill */
+    --hover: 243 244 246;    /* hover/selected row */
+    --line: 229 231 235;     /* borders, dividers */
+    --ink: 17 24 39;         /* primary text */
+    --ink-2: 55 65 81;       /* strong secondary text */
+    --ink-3: 75 85 99;       /* secondary text */
+    --ink-4: 100 108 121;    /* meta, captions, placeholders (≥4.8:1) */
+    --accent: 37 99 235;
+    --danger: 220 38 38;
+    --success: 21 128 61;
+    --warning: 180 83 9;
+    --focus: 37 99 235;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --canvas: 11 18 32;
+    --surface: 17 24 39;
+    --raised: 31 41 55;
+    --sunken: 17 24 39;
+    --fill: 17 24 39;
+    --hover: 45 55 72;
+    --line: 45 55 72;
+    --ink: 243 244 246;
+    --ink-2: 209 213 219;
+    --ink-3: 156 163 175;
+    --ink-4: 147 156 171;    /* ≥5.3:1 on raised */
+    --accent: 96 165 250;
+    --danger: 248 113 113;
+    --success: 74 222 128;
+    --warning: 251 191 36;
+    --focus: 96 165 250;
+  }
+
+  /* Increase Contrast / Windows high-contrast preference */
+  @media (prefers-contrast: more) {
+    :root {
+      --ink-3: 55 65 81;
+      --ink-4: 75 85 99;
+      --line: 156 163 175;
+    }
+    .dark {
+      --ink-3: 209 213 219;
+      --ink-4: 192 198 208;
+      --line: 107 114 128;
+    }
+  }
+
   * {
     box-sizing: border-box;
+  }
+
+  body {
+    background-color: rgb(var(--canvas));
+    color: rgb(var(--ink));
   }
 
   html {

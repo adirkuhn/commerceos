@@ -55,3 +55,22 @@ describe('Topbar Pair Scanner', () => {
     expect(screen.queryByRole('img', { name: 'Scan to pair' })).not.toBeInTheDocument()
   })
 })
+
+describe('Topbar appearance control', () => {
+  it('is labelled with the current appearance and cycles System → Light → Dark', async () => {
+    localStorage.clear()
+    renderTopbar()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Appearance: System' }))
+    expect(screen.getByRole('button', { name: 'Appearance: Light' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Appearance: Light' }))
+    expect(screen.getByRole('button', { name: 'Appearance: Dark' })).toBeInTheDocument()
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+
+  it('labels the Pair Scanner button for screen readers', () => {
+    renderTopbar()
+    expect(screen.getByRole('button', { name: 'Pair Scanner' })).toBeInTheDocument()
+  })
+})

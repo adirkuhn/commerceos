@@ -5,18 +5,33 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          500: '#3b82f6',
-          600: '#2563EB',
-          700: '#1d4ed8',
+        // Semantic tokens -- values live in src/index.css and switch with
+        // the appearance. Prefer these over raw hex or gray-N.
+        canvas: 'rgb(var(--canvas) / <alpha-value>)',
+        surface: 'rgb(var(--surface) / <alpha-value>)',
+        raised: 'rgb(var(--raised) / <alpha-value>)',
+        sunken: 'rgb(var(--sunken) / <alpha-value>)',
+        fill: 'rgb(var(--fill) / <alpha-value>)',
+        hover: 'rgb(var(--hover) / <alpha-value>)',
+        line: 'rgb(var(--line) / <alpha-value>)',
+        ink: {
+          DEFAULT: 'rgb(var(--ink) / <alpha-value>)',
+          2: 'rgb(var(--ink-2) / <alpha-value>)',
+          3: 'rgb(var(--ink-3) / <alpha-value>)',
+          4: 'rgb(var(--ink-4) / <alpha-value>)',
         },
-        surface: {
-          bg: '#0B1220',
-          DEFAULT: '#111827',
-          card: '#1F2937',
-          border: '#2D3748',
+        accent: 'rgb(var(--accent) / <alpha-value>)',
+        danger: 'rgb(var(--danger) / <alpha-value>)',
+        success: 'rgb(var(--success) / <alpha-value>)',
+        warning: 'rgb(var(--warning) / <alpha-value>)',
+        focus: 'rgb(var(--focus) / <alpha-value>)',
+        // Fixed dark palette for surfaces that are dark in both
+        // appearances (the handheld scanner app) or one-off dark-only shades.
+        night: {
+          950: '#0B1220',
+          900: '#111827',
+          800: '#1F2937',
+          700: '#2D3748',
         },
       },
       fontFamily: {

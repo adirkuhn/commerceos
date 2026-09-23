@@ -38,8 +38,6 @@ export type NavItem =
   | 'settings'
   | 'scheduled-jobs'
 
-export type ThemeMode = 'dark' | 'light'
-
 export interface Product {
   id: string
   name: string

@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import type { NavItem, ThemeMode } from '../types'
+import type { NavItem } from '../types'
+import { useTheme } from '../theme/useTheme'
+import type { ResolvedTheme, ThemePreference } from '../theme/themePreference'
 import { navItemToPath, pathToNavItem } from '../routes'
 
 interface AppContextValue {
@@ -14,8 +16,9 @@ interface AppContextValue {
   // clicked again, since the path not changing would otherwise mean no
   // re-render to key off of.
   navSignal: string
-  theme: ThemeMode
-  toggleTheme: () => void
+  theme: ResolvedTheme
+  themePreference: ThemePreference
+  cycleThemePreference: () => void
   commandOpen: boolean
   setCommandOpen: (open: boolean) => void
 }
@@ -26,27 +29,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const location = useLocation()
   const navigate = useNavigate()
   const activeNav = pathToNavItem(location.pathname)
-  const [theme, setTheme] = useState<ThemeMode>('dark')
+  const { theme, preference: themePreference, cyclePreference: cycleThemePreference } = useTheme()
   const [commandOpen, setCommandOpen] = useState(false)
 
   const setActiveNav = useCallback((nav: NavItem) => {
     navigate(navItemToPath(nav))
   }, [navigate])
 
-  const toggleTheme = useCallback(() => {
-    setTheme(prev => {
-      const next = prev === 'dark' ? 'light' : 'dark'
-      if (next === 'dark') {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
-      return next
-    })
-  }, [])
-
   return (
-    <AppContext.Provider value={{ activeNav, setActiveNav, navSignal: location.key, theme, toggleTheme, commandOpen, setCommandOpen }}>
+    <AppContext.Provider value={{ activeNav, setActiveNav, navSignal: location.key, theme, themePreference, cycleThemePreference, commandOpen, setCommandOpen }}>
       {children}
     </AppContext.Provider>
   )
