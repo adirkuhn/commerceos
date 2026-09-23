@@ -74,16 +74,16 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
 
   return (
     <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-xl dark:bg-night-900 bg-white border dark:border-night-700 border-gray-200 shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b dark:border-night-700 border-gray-200">
-          <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Pair a Scanner</h2>
+      <div className="w-full max-w-sm rounded-xl bg-surface border border-line shadow-xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+          <h2 className="text-sm font-semibold text-ink">Pair a Scanner</h2>
           <button type="button" onClick={onClose} title="Close">
-            <X size={16} className="dark:text-gray-500 text-gray-400" />
+            <X size={16} className="text-ink-4" />
           </button>
         </div>
 
         {!error && pairing && pairing.status !== 'claimed' && (
-          <div className="flex border-b dark:border-night-700 border-gray-200">
+          <div className="flex border-b border-line">
             {TABS.map(t => (
               <button
                 key={t.id}
@@ -91,8 +91,8 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
                 onClick={() => setTab(t.id)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors ${
                   tab === t.id
-                    ? 'text-blue-500 border-b-2 border-blue-500'
-                    : 'dark:text-gray-500 text-gray-400'
+                    ? 'text-accent border-b-2 border-blue-500'
+                    : 'text-ink-4'
                 }`}
               >
                 <t.icon size={14} />
@@ -103,13 +103,13 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
         )}
 
         <div className="p-6 flex flex-col items-center gap-4 text-center">
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-danger">{error}</p>}
           {!error && pairing?.status === 'claimed' && (
             <>
               <div className="w-14 h-14 rounded-2xl bg-green-500/15 flex items-center justify-center">
-                <Check size={24} className="text-green-500" />
+                <Check size={24} className="text-success" />
               </div>
-              <p className="text-sm font-medium dark:text-gray-100 text-gray-900">Scanner paired</p>
+              <p className="text-sm font-medium text-ink">Scanner paired</p>
             </>
           )}
           {!error && pairing && pairing.status !== 'claimed' && (
@@ -117,10 +117,10 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
               {tab === 'digits' && (
                 <>
                   <div className="w-14 h-14 rounded-2xl bg-blue-500/15 flex items-center justify-center">
-                    <Hash size={24} className="text-blue-500" />
+                    <Hash size={24} className="text-accent" />
                   </div>
-                  <p className="text-4xl font-bold tracking-[0.3em] dark:text-gray-100 text-gray-900">{pairing.code}</p>
-                  <p className="text-xs dark:text-gray-500 text-gray-400">Type this code on the scanner device.</p>
+                  <p className="text-4xl font-bold tracking-[0.3em] text-ink">{pairing.code}</p>
+                  <p className="text-xs text-ink-4">Type this code on the scanner device.</p>
                 </>
               )}
               {tab === 'qr' && (
@@ -134,13 +134,13 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
                 </div>
               )}
               {tab !== 'digits' && (
-                <p className="text-xs dark:text-gray-500 text-gray-400">Point the scanner's camera/lens at this {tab === 'qr' ? 'QR code' : 'barcode'}.</p>
+                <p className="text-xs text-ink-4">Point the scanner's camera/lens at this {tab === 'qr' ? 'QR code' : 'barcode'}.</p>
               )}
-              <p className="text-xs dark:text-gray-500 text-gray-400">Expires in 5 minutes.</p>
-              <p className="text-xs text-amber-400">Waiting for scanner…</p>
+              <p className="text-xs text-ink-4">Expires in 5 minutes.</p>
+              <p className="text-xs text-warning">Waiting for scanner…</p>
             </>
           )}
-          {!error && !pairing && <p className="text-xs dark:text-gray-500 text-gray-400">Generating code…</p>}
+          {!error && !pairing && <p className="text-xs text-ink-4">Generating code…</p>}
         </div>
       </div>
     </Dialog>
