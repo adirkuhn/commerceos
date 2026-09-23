@@ -19,6 +19,30 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for NotificationCategory.
+const (
+	ChannelOffers     NotificationCategory = "channel_offers"
+	Imports           NotificationCategory = "imports"
+	Other             NotificationCategory = "other"
+	PurchaseDocuments NotificationCategory = "purchase_documents"
+)
+
+// Valid indicates whether the value is a known member of the NotificationCategory enum.
+func (e NotificationCategory) Valid() bool {
+	switch e {
+	case ChannelOffers:
+		return true
+	case Imports:
+		return true
+	case Other:
+		return true
+	case PurchaseDocuments:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PickingMode.
 const (
 	List PickingMode = "list"
@@ -168,6 +192,46 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// NotificationCategory imports = catalog/order imports; purchase_documents = supplier document and invoice parsing; channel_offers = marketplace offer problems (e.g. Bol "not for sale"); other = anything else.
+type NotificationCategory string
+
+// NotificationCategoryPreference defines model for NotificationCategoryPreference.
+type NotificationCategoryPreference struct {
+	// Category imports = catalog/order imports; purchase_documents = supplier document and invoice parsing; channel_offers = marketplace offer problems (e.g. Bol "not for sale"); other = anything else.
+	Category NotificationCategory `json:"category"`
+
+	// Email Email to email_recipients.
+	Email bool `json:"email"`
+
+	// InApp Show in the admin notification bell.
+	InApp bool `json:"in_app"`
+}
+
+// NotificationPreferences defines model for NotificationPreferences.
+type NotificationPreferences struct {
+	// Categories Every category, in display order.
+	Categories      []NotificationCategoryPreference `json:"categories"`
+	EmailRecipients []string                         `json:"email_recipients"`
+
+	// UpdatedAt Null until the preferences are first saved.
+	UpdatedAt *time.Time `json:"updated_at"`
+}
+
+// NotificationPreferencesInput defines model for NotificationPreferencesInput.
+type NotificationPreferencesInput struct {
+	// Categories Categories not listed keep their defaults (bell on, email off).
+	Categories []NotificationCategoryPreference `json:"categories"`
+
+	// EmailRecipients Plain email addresses. Required (at least one) when any category has email on.
+	EmailRecipients []string `json:"email_recipients"`
+}
+
+// NotificationPreferencesResponse defines model for NotificationPreferencesResponse.
+type NotificationPreferencesResponse struct {
+	Data  *NotificationPreferences `json:"data,omitempty"`
+	Error interface{}              `json:"error,omitempty"`
+}
+
 // PickingMode How the picking module works. scan -- pickers scan each item into a picking session. list -- pickers see an order's items as a plain list and mark the whole order picked with one action (no scanning, no session). Picking is optional either way: packing is where items are scanned and labels made. Omitted on update means scan.
 type PickingMode string
 
@@ -241,6 +305,9 @@ type CreateApiKeyJSONRequestBody = CreateApiKeyRequest
 // UpdateCompanyProfileJSONRequestBody defines body for UpdateCompanyProfile for application/json ContentType.
 type UpdateCompanyProfileJSONRequestBody = CompanyProfileInput
 
+// UpdateNotificationPreferencesJSONRequestBody defines body for UpdateNotificationPreferences for application/json ContentType.
+type UpdateNotificationPreferencesJSONRequestBody = NotificationPreferencesInput
+
 // UpdateTenantSettingsJSONRequestBody defines body for UpdateTenantSettings for application/json ContentType.
 type UpdateTenantSettingsJSONRequestBody = UpdateTenantSettingsRequest
 
@@ -261,6 +328,12 @@ type ServerInterface interface {
 	// UpdateCompanyProfile Replace the tenant's company profile
 	// (PUT /settings/company-profile)
 	UpdateCompanyProfile(c *gin.Context)
+	// GetNotificationPreferences Get where each notification category is delivered
+	// (GET /settings/notification-preferences)
+	GetNotificationPreferences(c *gin.Context)
+	// UpdateNotificationPreferences Replace the notification delivery preferences
+	// (PUT /settings/notification-preferences)
+	UpdateNotificationPreferences(c *gin.Context)
 	// GetTenantSettings Get the current tenant's settings
 	// (GET /settings/tenant)
 	GetTenantSettings(c *gin.Context)
@@ -355,6 +428,32 @@ func (siw *ServerInterfaceWrapper) UpdateCompanyProfile(c *gin.Context) {
 	siw.Handler.UpdateCompanyProfile(c)
 }
 
+// GetNotificationPreferences operation middleware
+func (siw *ServerInterfaceWrapper) GetNotificationPreferences(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetNotificationPreferences(c)
+}
+
+// UpdateNotificationPreferences operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNotificationPreferences(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateNotificationPreferences(c)
+}
+
 // GetTenantSettings operation middleware
 func (siw *ServerInterfaceWrapper) GetTenantSettings(c *gin.Context) {
 
@@ -412,6 +511,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PATCH(options.BaseURL+"/settings/tenant", wrapper.UpdateTenantSettings)
 	router.GET(options.BaseURL+"/settings/company-profile", wrapper.GetCompanyProfile)
 	router.PUT(options.BaseURL+"/settings/company-profile", wrapper.UpdateCompanyProfile)
+	router.GET(options.BaseURL+"/settings/notification-preferences", wrapper.GetNotificationPreferences)
+	router.PUT(options.BaseURL+"/settings/notification-preferences", wrapper.UpdateNotificationPreferences)
 	router.GET(options.BaseURL+"/settings/api-keys", wrapper.ListApiKeys)
 	router.POST(options.BaseURL+"/settings/api-keys", wrapper.CreateApiKey)
 	router.DELETE(options.BaseURL+"/settings/api-keys/:id", wrapper.RevokeApiKey)
@@ -422,59 +523,68 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"AAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

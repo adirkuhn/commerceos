@@ -207,7 +207,9 @@ func main() {
 		categoryRepo, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockRecorderUC, uploadMediaUC,
 		taxClassRepo, taxRateRepo, taxLinkRepo,
 	)
-	notifyUC := notificationsapp.NewCreateNotificationUseCase(db, notificationRepo)
+	// Notifications honour each tenant's delivery preferences (bell and/or
+	// email); the email half is sent by NotificationEmailConsumer below.
+	notifyUC := notificationsapp.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), outboxRepo)
 
 	poRepo := repositories.NewPurchaseOrderRepo(db)
 	documentRepo := repositories.NewPurchaseOrderDocumentRepo(db)
@@ -368,6 +370,17 @@ func main() {
 			consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, automationEngineConsumer.Handle); sub != nil {
 			defer sub.Unsubscribe()
 		}
+	}
+
+	// Email half of notifications (see DeliverNotificationUseCase): same
+	// per-tenant email connection / platform SMTP fallback as automations.
+	sendNotificationEmailUC := notificationsapp.NewSendNotificationEmailUseCase(
+		db, connRepo, cfg.IntegrationsEncryptionSecret, smtp.NewClientFactory(), automationEmailClient, cfg.FrontendBaseURL,
+	)
+	notificationEmailConsumer := consumers.NewNotificationEmailConsumer(processedEventRepo, sendNotificationEmailUC, js)
+	if sub := subscribeConsumer(js, events.NotificationEmailRequested{}.EventName(), "notification-email-scheduler",
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, notificationEmailConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
 	}
 
 	rs := buildRunners(
@@ -550,7 +563,7 @@ func recoverOrphanedImportJobs(ctx context.Context, db *gorm.DB, jobRepo channel
 // again.
 func runPendingImportJobs(
 	ctx context.Context, db *gorm.DB, jobRepo channelsDomain.ImportJobRepository,
-	runImportUC *channelsapp.RunManualWooImportUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
+	runImportUC *channelsapp.RunManualWooImportUseCase, notifyUC *notificationsapp.DeliverNotificationUseCase,
 ) {
 	adminCtx := tenant.WithSuperAdmin(ctx)
 
@@ -580,7 +593,7 @@ func runPendingImportJobs(
 // import (the job's primary purpose) already succeeded.
 func runImportJob(
 	adminCtx context.Context, db *gorm.DB, jobRepo channelsDomain.ImportJobRepository,
-	runImportUC *channelsapp.RunManualWooImportUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
+	runImportUC *channelsapp.RunManualWooImportUseCase, notifyUC *notificationsapp.DeliverNotificationUseCase,
 	job channelsDomain.ImportJob,
 ) {
 	runCtx := tenant.WithTenantID(adminCtx, job.TenantID)
@@ -656,7 +669,7 @@ func recoverOrphanedDocumentParsingJobs(ctx context.Context, db *gorm.DB, jobRep
 // DocumentParsingJob -- same cross-tenant/SuperAdmin poll shape.
 func runPendingDocumentParsingJobs(
 	ctx context.Context, db *gorm.DB, jobRepo procurementDomain.DocumentParsingJobRepository,
-	runUC *procurementapp.RunDocumentParsingJobUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
+	runUC *procurementapp.RunDocumentParsingJobUseCase, notifyUC *notificationsapp.DeliverNotificationUseCase,
 ) {
 	adminCtx := tenant.WithSuperAdmin(ctx)
 
@@ -681,7 +694,7 @@ func runPendingDocumentParsingJobs(
 // a matching notification, even on failure -- same shape as runImportJob.
 func runDocumentParsingJob(
 	adminCtx context.Context, db *gorm.DB, jobRepo procurementDomain.DocumentParsingJobRepository,
-	runUC *procurementapp.RunDocumentParsingJobUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
+	runUC *procurementapp.RunDocumentParsingJobUseCase, notifyUC *notificationsapp.DeliverNotificationUseCase,
 	job procurementDomain.DocumentParsingJob,
 ) {
 	runCtx := tenant.WithTenantID(adminCtx, job.TenantID)
@@ -750,7 +763,7 @@ func recoverOrphanedReceivingParsingJobs(ctx context.Context, db *gorm.DB, jobRe
 // ReceivingParsingJob -- same cross-tenant/SuperAdmin poll shape.
 func runPendingReceivingParsingJobs(
 	ctx context.Context, db *gorm.DB, jobRepo procurementDomain.ReceivingParsingJobRepository,
-	runUC *procurementapp.RunReceivingParsingJobUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
+	runUC *procurementapp.RunReceivingParsingJobUseCase, notifyUC *notificationsapp.DeliverNotificationUseCase,
 ) {
 	adminCtx := tenant.WithSuperAdmin(ctx)
 
@@ -775,7 +788,7 @@ func runPendingReceivingParsingJobs(
 // a matching notification, even on failure -- same shape as runDocumentParsingJob.
 func runReceivingParsingJob(
 	adminCtx context.Context, db *gorm.DB, jobRepo procurementDomain.ReceivingParsingJobRepository,
-	runUC *procurementapp.RunReceivingParsingJobUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
+	runUC *procurementapp.RunReceivingParsingJobUseCase, notifyUC *notificationsapp.DeliverNotificationUseCase,
 	job procurementDomain.ReceivingParsingJob,
 ) {
 	runCtx := tenant.WithTenantID(adminCtx, job.TenantID)
@@ -819,7 +832,7 @@ func runReceivingParsingJob(
 
 // notifyBestEffort never aborts the caller — a notification failing to
 // write shouldn't hide that the actual import job did complete or fail.
-func notifyBestEffort(ctx context.Context, notifyUC *notificationsapp.CreateNotificationUseCase, t notificationsDomain.Type, title, message string) {
+func notifyBestEffort(ctx context.Context, notifyUC *notificationsapp.DeliverNotificationUseCase, t notificationsDomain.Type, title, message string) {
 	if _, err := notifyUC.Execute(ctx, notificationsapp.CreateNotificationInput{Type: t, Title: title, Message: message}); err != nil {
 		log.Printf("notify %s: %v", t, err)
 	}

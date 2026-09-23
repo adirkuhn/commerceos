@@ -3,6 +3,7 @@ package messagecenter
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/tenantemail"
 	"log"
 
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
@@ -10,7 +11,6 @@ import (
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
-	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -247,24 +247,5 @@ func (uc *EvaluateAutomationRulesUseCase) dispatch(ctx context.Context, sends []
 // platform-level SMTP client every automation email used before per-tenant
 // email connections existed.
 func (uc *EvaluateAutomationRulesUseCase) resolveEmailClient(conns []integrationsDomain.Connection) (messaging.Client, error) {
-	for i := range conns {
-		if conns[i].Provider != integrationsDomain.ProviderEmail {
-			continue
-		}
-		conn := conns[i]
-		password, err := crypto.Decrypt(uc.encryptionSecret, conn.ConsumerSecretEncrypted)
-		if err != nil {
-			return nil, fmt.Errorf("decrypt email connection secret: %w", err)
-		}
-		port := ""
-		if conn.SMTPPort != nil {
-			port = *conn.SMTPPort
-		}
-		from := ""
-		if conn.EmailFrom != nil {
-			from = *conn.EmailFrom
-		}
-		return uc.emailClientFactory.NewClient(conn.StoreURL.String(), port, conn.ConsumerKey, password, from), nil
-	}
-	return uc.fallbackEmailClient, nil
+	return tenantemail.Resolve(conns, uc.encryptionSecret, uc.emailClientFactory, uc.fallbackEmailClient)
 }

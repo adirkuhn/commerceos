@@ -22,7 +22,7 @@ const StreamName = "COMMERCEOS_EVENTS"
 // one here whenever a new domain starts publishing events; EnsureStream
 // updates an already-existing stream's subject list too, so this doesn't
 // require dropping the stream in a live deployment.
-var subjects = []string{"integrations.>", "pms.>", "inventory.>", "oms.>", "shipping.>", "settings.>"}
+var subjects = []string{"integrations.>", "pms.>", "inventory.>", "oms.>", "shipping.>", "settings.>", "notifications.>"}
 
 // EnsureStream creates the stream if it doesn't exist yet, or widens its
 // subject list if it exists but is missing one of `subjects` (e.g. a new
@@ -63,7 +63,16 @@ const DLQStreamName = "COMMERCEOS_EVENTS_DLQ"
 
 // dlqSubjects mirrors StreamName's subjects under the "dlq." prefix that
 // infrastructure/consumers.deadLetterSubject publishes under.
-var dlqSubjects = []string{"dlq.integrations.>", "dlq.pms.>", "dlq.inventory.>"}
+// Derived, not hand-listed: a hand-kept copy had drifted (oms, shipping and
+// settings were missing), so dead-letters from those consumers had no
+// stream to land on.
+var dlqSubjects = func() []string {
+	out := make([]string, len(subjects))
+	for i, s := range subjects {
+		out[i] = "dlq." + s
+	}
+	return out
+}()
 
 // EnsureDLQStream is EnsureStream's counterpart for DLQStreamName. Called
 // from cmd/scheduler, which is where every consumer that can dead-letter a

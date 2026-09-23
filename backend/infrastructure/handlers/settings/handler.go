@@ -11,6 +11,7 @@ import (
 
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
 	appapikeys "github.com/adirkuhn/commerceos/application/apikeys"
+	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	appsettings "github.com/adirkuhn/commerceos/application/settings"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
@@ -41,6 +42,7 @@ type Handler struct {
 	createAPIKey         createAPIKeyUC
 	revokeAPIKey         revokeAPIKeyUC
 	*CompanyProfileHandler
+	*NotificationPreferencesHandler
 }
 
 func NewHandler(
@@ -50,11 +52,12 @@ func NewHandler(
 	createAPIKey createAPIKeyUC,
 	revokeAPIKey revokeAPIKeyUC,
 	companyProfile *CompanyProfileHandler,
+	notificationPreferences *NotificationPreferencesHandler,
 ) *Handler {
 	return &Handler{
 		getTenantSettings: getTenantSettings, updateTenantSettings: updateTenantSettings,
 		listAPIKeys: listAPIKeys, createAPIKey: createAPIKey, revokeAPIKey: revokeAPIKey,
-		CompanyProfileHandler: companyProfile,
+		CompanyProfileHandler: companyProfile, NotificationPreferencesHandler: notificationPreferences,
 	}
 }
 
@@ -66,6 +69,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outbox appsettings.EventEnqueuer) {
 	repo := repositories.NewTenantSettingsRepo(db)
 	apiKeyRepo := repositories.NewAPIKeyRepo(db)
 	companyRepo := repositories.NewCompanyProfileRepo(db)
+	prefsRepo := repositories.NewNotificationPreferencesRepo(db)
 	h := NewHandler(
 		appsettings.NewGetTenantSettingsUseCase(db, repo),
 		appsettings.NewUpdateTenantSettingsUseCase(db, repo),
@@ -75,6 +79,10 @@ func Register(rg gin.IRouter, db *gorm.DB, outbox appsettings.EventEnqueuer) {
 		NewCompanyProfileHandler(
 			appsettings.NewGetCompanyProfileUseCase(db, companyRepo),
 			appsettings.NewUpdateCompanyProfileUseCase(db, companyRepo, outbox),
+		),
+		NewNotificationPreferencesHandler(
+			appnotifications.NewGetPreferencesUseCase(db, prefsRepo),
+			appnotifications.NewUpdatePreferencesUseCase(db, prefsRepo, outbox),
 		),
 	)
 	gensettings.RegisterHandlers(rg, h)

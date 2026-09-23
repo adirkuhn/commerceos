@@ -84,6 +84,49 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /settings/notification-preferences:
+    get:
+      operationId: getNotificationPreferences
+      summary: Get where each notification category is delivered
+      description: >
+        Per category: shown in the admin bell (in_app) and/or emailed to
+        email_recipients. Defaults (never saved): every category in the
+        bell, none by email. Readable by every role.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesResponse'
+    put:
+      operationId: updateNotificationPreferences
+      summary: Replace the notification delivery preferences
+      description: Requires the customer_owner, customer_admin or super_admin role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferencesInput'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '422':
+          description: >
+            Validation failed. error.code is one of INVALID_RECIPIENT,
+            TOO_MANY_RECIPIENTS, EMAIL_RECIPIENTS_REQUIRED, UNKNOWN_CATEGORY.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /settings/api-keys:
     get:
       operationId: listApiKeys
@@ -296,6 +339,55 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/CompanyProfile' }
+        error: { nullable: true }
+
+    NotificationCategory:
+      type: string
+      enum: [imports, purchase_documents, channel_offers, other]
+      description: >
+        imports = catalog/order imports; purchase_documents = supplier
+        document and invoice parsing; channel_offers = marketplace offer
+        problems (e.g. Bol "not for sale"); other = anything else.
+    NotificationCategoryPreference:
+      type: object
+      required: [category, in_app, email]
+      properties:
+        category: { $ref: '#/components/schemas/NotificationCategory' }
+        in_app: { type: boolean, description: Show in the admin notification bell. }
+        email: { type: boolean, description: Email to email_recipients. }
+    NotificationPreferencesInput:
+      type: object
+      required: [categories, email_recipients]
+      properties:
+        categories:
+          type: array
+          items: { $ref: '#/components/schemas/NotificationCategoryPreference' }
+          description: Categories not listed keep their defaults (bell on, email off).
+        email_recipients:
+          type: array
+          maxItems: 10
+          items: { type: string, maxLength: 254 }
+          description: Plain email addresses. Required (at least one) when any category has email on.
+    NotificationPreferences:
+      type: object
+      required: [categories, email_recipients, updated_at]
+      properties:
+        categories:
+          type: array
+          description: Every category, in display order.
+          items: { $ref: '#/components/schemas/NotificationCategoryPreference' }
+        email_recipients:
+          type: array
+          items: { type: string }
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Null until the preferences are first saved.
+    NotificationPreferencesResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/NotificationPreferences' }
         error: { nullable: true }
 
     ApiKey:

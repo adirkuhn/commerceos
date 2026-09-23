@@ -25,6 +25,7 @@ func TestSubjectsCoverEveryPublishedDomain(t *testing.T) {
 		"oms.>",
 		"shipping.>",
 		"settings.>",
+		"notifications.>",
 	}
 
 	for _, want := range wantPrefixes {
@@ -61,5 +62,22 @@ func TestHasAllSubjects(t *testing.T) {
 				t.Errorf("hasAllSubjects(%v, %v) = %v, want %v", tc.existing, tc.want, got, tc.expect)
 			}
 		})
+	}
+}
+
+// Every subject a consumer can dead-letter from must have a DLQ subject,
+// or the dead-letter publish fails ("no stream matches subject").
+func TestDLQSubjectsMirrorEveryEventSubject(t *testing.T) {
+	for _, s := range subjects {
+		want := "dlq." + s
+		found := false
+		for _, d := range dlqSubjects {
+			if d == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("dlqSubjects is missing %q", want)
+		}
 	}
 }

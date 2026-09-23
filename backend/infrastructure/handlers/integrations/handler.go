@@ -570,7 +570,7 @@ func Register(
 	bolContentRepo := repositories.NewBolProductContentRepo(db)
 	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
 		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC,
-		appnotifications.NewCreateNotificationUseCase(db, notificationRepo),
+		appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), outboxRepo),
 	)
 	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
 		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret, pushProductToBolUC,
@@ -596,7 +596,7 @@ func Register(
 		appintegrations.NewTestConnectionUseCase(db, connRepo, wooFactory, encryptionSecret),
 		appintegrations.NewListWooTaxesUseCase(db, connRepo, wooFactory, encryptionSecret),
 		appchannels.NewCreateImportJobUseCase(
-			db, importJobRepo, listingRepo, appnotifications.NewCreateNotificationUseCase(db, notificationRepo),
+			db, importJobRepo, listingRepo, appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), outboxRepo),
 		),
 		pushProductToWooUC,
 		appchannels.NewListSyncSchedulesUseCase(db, scheduleRepo),
