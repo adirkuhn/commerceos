@@ -9,6 +9,9 @@ import { useWebhookEvents } from '../integrations/hooks/useWebhookEvents'
 import * as api from '../integrations/api'
 import type { AvailableWebhookTopics } from '../integrations/api'
 import type { WebhookEvent } from '../integrations/types'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { subPathSegments } from '../routes'
+import { useQueryEnum, useQueryString } from '../routing/useQueryState'
 
 // Known providers get a friendlier display name; any future provider this
 // codebase doesn't know the name of yet falls back to capitalizing what the
@@ -28,7 +31,11 @@ function canManageWebhooks(role: string | undefined): boolean {
   return role === 'customer_owner' || role === 'customer_admin' || role === 'super_admin'
 }
 
-type Tab = 'fanout' | 'subscriptions' | 'messages'
+const WEBHOOKS_PATH = '/webhooks'
+const TABS = ['fanout', 'subscriptions', 'messages'] as const
+type Tab = typeof TABS[number]
+const DEFAULT_TAB: Tab = 'fanout'
+const MESSAGE_VIEWS = ['all', 'needsAttention'] as const
 
 // The dedicated home for everything webhook-related: Screen 1 (Fan-out)
 // configures CommerceOS's own fan-out rules (provider/topic -> target
@@ -40,8 +47,17 @@ type Tab = 'fanout' | 'subscriptions' | 'messages'
 // filterable by sender.
 export default function Webhooks() {
   const { token, user } = useAuth()
-  const [tab, setTab] = useState<Tab>('fanout')
-  const [messageProvider, setMessageProvider] = useState('')
+  // Tab is the path (/webhooks/<tab>); the Messages tab's sender filter
+  // and view are query params -- refresh and Back keep them.
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [segment] = subPathSegments(location.pathname, WEBHOOKS_PATH)
+  const tab: Tab = (TABS as readonly string[]).includes(segment) ? segment as Tab : DEFAULT_TAB
+  const setTab = (next: Tab) => {
+    if (next !== tab) navigate(next === DEFAULT_TAB ? WEBHOOKS_PATH : `${WEBHOOKS_PATH}/${next}`)
+  }
+  const [senderParam, setMessageProvider] = useQueryString('sender')
+  const messageProvider = senderParam ?? ''
   const allowed = canManageWebhooks(user?.role)
 
   const { setActiveNav } = useApp()
@@ -414,7 +430,7 @@ function MessagesTab({
   events, loading, error, updateEvent, topics, provider, onProviderChange,
 }: ReturnType<typeof useWebhookEvents> & { topics: AvailableWebhookTopics; provider: string; onProviderChange: (provider: string) => void }) {
   const senders = Array.from(new Set([...Object.keys(topics.active_webhooks), ...Object.keys(topics.all_events)])).sort()
-  const [view, setView] = useState<'all' | 'needsAttention'>('all')
+  const [view, setView] = useQueryEnum('view', MESSAGE_VIEWS, 'all')
   const [retryingId, setRetryingId] = useState<string | null>(null)
   const [bulkRetrying, setBulkRetrying] = useState(false)
   const [retryError, setRetryError] = useState('')

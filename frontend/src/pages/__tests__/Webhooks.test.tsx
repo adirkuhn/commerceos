@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { AppProvider } from '../../context/AppContext'
 import Webhooks from '../Webhooks'
+import { renderAt } from '../../test/renderAt'
+import { act } from 'react'
 import type { WebhookForwardRule, WebhookForwardDelivery, ProviderWebhook, WebhookEvent } from '../../integrations/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -300,7 +302,7 @@ describe('Webhooks page — Messages tab', () => {
 
     await userEvent.click(preview)
 
-    expect(screen.getByText('Collapse')).toBeInTheDocument()
+    expect(await screen.findByText('Collapse')).toBeInTheDocument()
     expect(screen.getByText(/a-very-long-tracking-identifier-that-is-quite-long/)).toBeInTheDocument()
   })
 
@@ -389,5 +391,29 @@ describe('Webhooks page — Messages tab', () => {
     await screen.findByText('Processed')
 
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+  })
+})
+
+describe('Webhooks URLs (refresh + Back)', () => {
+  function renderWebhooksAt(url: string) {
+    return renderAt(<AppProvider><Webhooks /></AppProvider>, '/webhooks', url)
+  }
+
+  it('each tab has its own URL and Back returns to the previous tab', async () => {
+    const { router } = renderWebhooksAt('/webhooks')
+    await userEvent.click(await screen.findByRole('button', { name: 'Messages' }))
+    expect(router.state.location.pathname).toBe('/webhooks/messages')
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname).toBe('/webhooks')
+  })
+
+  it('/webhooks/messages?sender= loads that tab filtered by sender', async () => {
+    renderWebhooksAt('/webhooks/messages?sender=woocommerce')
+    await waitFor(() => expect(integrationsApi.listWebhookEvents).toHaveBeenCalledWith('test-token', { provider: 'woocommerce' }))
+  })
+
+  it('/webhooks/subscriptions opens that tab on load', async () => {
+    renderWebhooksAt('/webhooks/subscriptions')
+    await waitFor(() => expect(integrationsApi.listAllProviderWebhooks).toHaveBeenCalled())
   })
 })
