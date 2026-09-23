@@ -1252,18 +1252,18 @@ func TestSalesOrderRepo_Integration_ListFiltersByStatus(t *testing.T) {
 	require.Equal(t, processingID, pickable[0].ID)
 }
 
-// TestSalesOrderRepo_Integration_ListFiltersByReadyToPack proves the
-// packing queue's filter against real Postgres mirrors
-// SalesOrder.CanStartPacking: picked-or-pickable, not packed, and no open
-// picking session.
-func TestSalesOrderRepo_Integration_ListFiltersByReadyToPack(t *testing.T) {
+// TestSalesOrderRepo_Integration_ListFiltersByAwaitingPacking proves the
+// packing queue's filter against real Postgres: picked-or-pickable and not
+// packed -- orders being picked right now included (the queue shows them
+// locked).
+func TestSalesOrderRepo_Integration_ListFiltersByAwaitingPacking(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()
 	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	pickingRepo := repositories.NewPickingSessionRepo(db)
 
-	var pickedID, unpickedID, finishedPickingID string
+	var pickedID, unpickedID, finishedPickingID, inProgressID, pausedID string
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		specs := []struct {
@@ -1279,8 +1279,8 @@ func TestSalesOrderRepo_Integration_ListFiltersByReadyToPack(t *testing.T) {
 			{"rtp-picking-completed", omsDomain.SalesOrderStatusProcessing, false, false, omsDomain.PickingSessionStatusCompleted, &finishedPickingID},
 			{"rtp-packed", omsDomain.SalesOrderStatusProcessing, true, true, "", nil},
 			{"rtp-cancelled-unpicked", omsDomain.SalesOrderStatusCancelled, false, false, "", nil},
-			{"rtp-picking-in-progress", omsDomain.SalesOrderStatusProcessing, false, false, omsDomain.PickingSessionStatusInProgress, nil},
-			{"rtp-picking-paused", omsDomain.SalesOrderStatusOnHold, false, false, omsDomain.PickingSessionStatusPaused, nil},
+			{"rtp-picking-in-progress", omsDomain.SalesOrderStatusProcessing, false, false, omsDomain.PickingSessionStatusInProgress, &inProgressID},
+			{"rtp-picking-paused", omsDomain.SalesOrderStatusOnHold, false, false, omsDomain.PickingSessionStatusPaused, &pausedID},
 		}
 		for _, s := range specs {
 			order := omsDomain.SalesOrder{
@@ -1311,7 +1311,7 @@ func TestSalesOrderRepo_Integration_ListFiltersByReadyToPack(t *testing.T) {
 	var total int64
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		ready, total, err = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{Limit: 50, ReadyToPack: true})
+		ready, total, err = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{Limit: 50, AwaitingPacking: true})
 		return err
 	})
 	require.NoError(t, err)
@@ -1319,8 +1319,8 @@ func TestSalesOrderRepo_Integration_ListFiltersByReadyToPack(t *testing.T) {
 	for i, o := range ready {
 		ids[i] = o.ID
 	}
-	assert.ElementsMatch(t, []string{pickedID, unpickedID, finishedPickingID}, ids)
-	assert.Equal(t, int64(3), total)
+	assert.ElementsMatch(t, []string{pickedID, unpickedID, finishedPickingID, inProgressID, pausedID}, ids)
+	assert.Equal(t, int64(5), total)
 }
 
 func TestSalesOrderRepo_Integration_ListFiltersBySource(t *testing.T) {

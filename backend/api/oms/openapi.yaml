@@ -82,15 +82,6 @@ paths:
           description: >
             Filter by the order's packing status.
           schema: { type: boolean }
-        - name: ready_to_pack
-          in: query
-          description: >
-            true narrows to orders a packing session may start for -- the
-            packing screens' queue. Picking is optional, so this is: not
-            packed, no open (in_progress/paused) picking session, and either
-            already fulfilled or still in a pickable status
-            (pending/processing/on-hold). Omitted or false means no filter.
-          schema: { type: boolean }
       responses:
         '200':
           description: ok
@@ -140,6 +131,31 @@ paths:
                 $ref: '#/components/schemas/BulkUpdateSalesOrderStatusResponse'
         '422':
           $ref: '#/components/responses/Error'
+
+  /packing-queue:
+    get:
+      operationId: listPackingQueue
+      summary: >
+        Packing screens' order queue -- every order not yet packed that is
+        either already picked or still pending/processing/on-hold (picking
+        is optional). Each entry carries who is actively working the order
+        right now (lock), if anyone: the UI shows those read-only to
+        everyone else. A lock whose holder sent no heartbeat for 2 minutes
+        is stale and not reported.
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackingQueueResponse'
 
   /sales-orders/pick-list:
     get:
@@ -362,7 +378,10 @@ paths:
         resume its existing in_progress/paused one. Picking is optional.
         Rejected (422) if the order is already fulfilled or packed; 409 if
         the order has a packing session in progress, or another user
-        currently holds the session's lock (see PickingSession.locked_by).
+        actively holds the session's lock (see PickingSession.locked_by).
+        A lock is stale after 2 minutes without a heartbeat; admins
+        (super_admin/customer_owner/customer_admin) may take over an active
+        one, and the previous holder's next scan/heartbeat then gets 409.
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -636,10 +655,14 @@ paths:
         Packing screen -- start a new packing session for this order, or
         resume its existing in_progress one. Picking is optional: an order
         that was never picked may be packed directly while its status is
-        pending/processing/on-hold. Rejected (422) if the order is already
-        packed, or unpicked in any other status; 409 if the order has an
-        open (in_progress/paused) picking session, or another user
-        currently holds the session's lock. Completing packing also marks
+        pending/processing/on-hold. An open picking session is taken over
+        (closed as abandoned) when its lock is stale (no heartbeat for 2
+        minutes), is the caller's own, or the caller is an admin
+        (super_admin/customer_owner/customer_admin); the same takeover rule
+        applies to another user's packing lock. Rejected (422) if the order
+        is already packed, or unpicked in any other status; 409 if someone
+        else actively holds the picking or packing lock, or the picking
+        session still has unapplied changes. Completing packing also marks
         the order fulfilled.
       parameters:
         - $ref: '#/components/parameters/id'
@@ -988,6 +1011,46 @@ components:
         data: { $ref: '#/components/schemas/SalesOrderList' }
         error: { nullable: true }
 
+    PackingQueueLock:
+      type: object
+      required: [activity, user_id, since]
+      properties:
+        activity:
+          type: string
+          enum: [picking, packing]
+        user_id:
+          type: string
+          description: lm2 user id of the holder -- resolve the name client-side.
+        since:
+          type: string
+          format: date-time
+          description: When the holder acquired the lock.
+
+    PackingQueueEntry:
+      type: object
+      required: [sales_order, lock]
+      properties:
+        sales_order: { $ref: '#/components/schemas/SalesOrder' }
+        lock:
+          allOf:
+            - $ref: '#/components/schemas/PackingQueueLock'
+          nullable: true
+
+    PackingQueue:
+      type: object
+      required: [entries, total]
+      properties:
+        entries:
+          type: array
+          items: { $ref: '#/components/schemas/PackingQueueEntry' }
+        total: { type: integer, format: int64 }
+
+    PackingQueueResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PackingQueue' }
+        error: { nullable: true }
+
     PickListOrderLine:
       type: object
       required: [sales_order_id, order_number, line_item_id, quantity]
@@ -1237,7 +1300,7 @@ components:
 
     PickingSessionStatus:
       type: string
-      enum: [in_progress, paused, completed]
+      enum: [in_progress, paused, completed, abandoned]
 
     PickingSession:
       type: object
@@ -1255,6 +1318,11 @@ components:
           nullable: true
           description: lm2 UserID currently holding this session's lock, if any (see StartOrResumePickingUseCase).
         locked_at: { type: string, format: date-time, nullable: true }
+        locked_since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the current locked_by acquired the lock -- heartbeats don't move it.
 
     PickingSessionResponse:
       type: object
@@ -1583,6 +1651,11 @@ components:
           nullable: true
           description: lm2 UserID currently holding this session's lock, if any.
         locked_at: { type: string, format: date-time, nullable: true }
+        locked_since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the current locked_by acquired the lock -- heartbeats don't move it.
 
     PackingSessionResponse:
       type: object

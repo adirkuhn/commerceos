@@ -304,11 +304,9 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 	if filter.Packed != nil {
 		q = q.Where("packed = ?", *filter.Packed)
 	}
-	if filter.ReadyToPack {
+	if filter.AwaitingPacking {
 		q = q.Where("packed = false").
-			Where("(fulfilled = true OR status IN ?)", salesOrderStatusStrings(omsDomain.PickableStatuses())).
-			Where("NOT EXISTS (SELECT 1 FROM picking_sessions ps WHERE ps.sales_order_id = sales_orders.id AND ps.status IN ?)",
-				[]string{string(omsDomain.PickingSessionStatusInProgress), string(omsDomain.PickingSessionStatusPaused)})
+			Where("(fulfilled = true OR status IN ?)", salesOrderStatusStrings(omsDomain.PickableStatuses()))
 	}
 	if len(filter.Status) > 0 {
 		q = q.Where("status IN ?", salesOrderStatusStrings(filter.Status))

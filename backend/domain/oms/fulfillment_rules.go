@@ -23,15 +23,12 @@ func PickableStatuses() []SalesOrderStatus {
 // CanStartPacking decides whether a packing session may start for this
 // order. Picking is optional: an order may go straight to packing (items
 // collected off a printed pick list, then scanned during packing) as long as
-// it's still in a pickable status. pickingInProgress is whether the order
-// has an in_progress/paused picking session -- packing then has to wait, so
-// two people never work the same order through both flows at once.
-func (o SalesOrder) CanStartPacking(pickingInProgress bool) error {
+// it's still in a pickable status. An open picking session on the order is
+// the use case's call (StartOrResumePackingUseCase takes it over when its
+// lock allows), not this rule's.
+func (o SalesOrder) CanStartPacking() error {
 	if o.Packed {
 		return ErrOrderAlreadyPacked
-	}
-	if pickingInProgress {
-		return ErrOrderPickingInProgress
 	}
 	if !o.Fulfilled && !o.Status.IsPickable() {
 		return ErrOrderNotPackable
@@ -52,4 +49,22 @@ func (o SalesOrder) CanStartPicking(packingInProgress bool) error {
 		return ErrOrderPackingInProgress
 	}
 	return nil
+}
+
+// HasPendingPickChanges reports whether a picking session still holds
+// order changes (substitute/refund/freebie/new item) not yet applied by
+// CompletePickingUseCase's replay -- plain picks change nothing.
+func HasPendingPickChanges(scans []PickScan) bool {
+	for _, s := range scans {
+		if s.ActionType != PickScanActionPick && s.ReplayedAt == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// IsOpen reports whether the session can still be worked (scanned into,
+// completed) -- in_progress or paused.
+func (s PickingSession) IsOpen() bool {
+	return s.Status == PickingSessionStatusInProgress || s.Status == PickingSessionStatusPaused
 }

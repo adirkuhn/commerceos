@@ -113,6 +113,11 @@ var (
 	// order with an open (in_progress/paused) picking session -- finish or
 	// reset that session first.
 	ErrOrderPickingInProgress = errors.New("sales order has a picking session in progress")
+	// ErrPickingSessionHasPendingChanges guards StartOrResumePackingUseCase's
+	// takeover of an open picking session that still holds unapplied
+	// substitute/refund/add changes -- abandoning it would silently drop
+	// them, so the picking session must be completed or reset first.
+	ErrPickingSessionHasPendingChanges = errors.New("picking session has unapplied changes; complete or reset it first")
 	// ErrOrderPackingInProgress guards SalesOrder.CanStartPicking against an
 	// order already being packed.
 	ErrOrderPackingInProgress = errors.New("sales order has a packing session in progress")

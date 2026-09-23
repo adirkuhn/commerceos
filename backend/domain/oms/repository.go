@@ -50,12 +50,12 @@ type ListSalesOrdersFilter struct {
 	// true, false powers the packing screens' "orders ready to pack" search
 	// (see SalesOrder.Packed's doc).
 	Packed *bool
-	// ReadyToPack true narrows to orders SalesOrder.CanStartPacking would
-	// accept: not packed, no open (in_progress/paused) picking session, and
+	// AwaitingPacking true narrows to the packing queue: not packed, and
 	// either already fulfilled or still in a pickable status (see
-	// PickableStatuses) -- the packing screens' queue, now that picking is
-	// optional. false means "don't filter on this".
-	ReadyToPack bool
+	// PickableStatuses) -- orders being picked right now included, the queue
+	// shows them locked (see PackingQueueEntry). false means "don't filter
+	// on this".
+	AwaitingPacking bool
 	// Status empty means "don't filter on this". Non-empty narrows to those
 	// statuses only -- powers the picking screens' exclusion of
 	// completed/cancelled/refunded/failed orders (a terminal-status order
@@ -212,11 +212,15 @@ type PickingSessionRepository interface {
 	// TouchPickingSessionUseCase) before calling this. A dedicated
 	// map-based update, not Update, because Update's struct-based
 	// .Updates() silently skips nil-pointer (zero-value) fields -- it
-	// could never clear LockedBy back to NULL on release.
+	// could never clear LockedBy back to NULL on release. Sets LockedSince
+	// to at only when the holder changes, so heartbeats keep it.
 	AcquireLock(ctx context.Context, id, userID string, at time.Time) error
 	// ReleaseLock clears the session's lock unconditionally -- see
 	// AcquireLock's doc for why this can't just be Update.
 	ReleaseLock(ctx context.Context, id string) error
+	// ListOpenBySalesOrders returns the in_progress/paused sessions of the
+	// given orders -- the packing queue's lock lookup for one page.
+	ListOpenBySalesOrders(ctx context.Context, salesOrderIDs []string) ([]PickingSession, error)
 }
 
 type PickScanRepository interface {
@@ -244,6 +248,9 @@ type PackingSessionRepository interface {
 	Update(ctx context.Context, s *PackingSession) error
 	AcquireLock(ctx context.Context, id, userID string, at time.Time) error
 	ReleaseLock(ctx context.Context, id string) error
+	// ListActiveBySalesOrders returns the in_progress sessions of the given
+	// orders -- the packing queue's lock lookup for one page.
+	ListActiveBySalesOrders(ctx context.Context, salesOrderIDs []string) ([]PackingSession, error)
 }
 
 // PackScanRepository is PickScanRepository without the replay bookkeeping

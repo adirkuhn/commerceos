@@ -225,8 +225,11 @@ func (uc *CompletePickingUseCase) Execute(ctx context.Context, in CompletePickin
 		if err != nil {
 			return err
 		}
-		if session.Status == omsDomain.PickingSessionStatusCompleted {
+		if !session.IsOpen() {
 			return omsDomain.ErrPickingSessionNotActive
+		}
+		if session.Lock().IsHeldByOther(in.CompletedBy, time.Now()) {
+			return omsDomain.ErrPickingSessionLocked
 		}
 
 		order, err = uc.salesOrderRepo.FindByID(ctx, session.SalesOrderID)

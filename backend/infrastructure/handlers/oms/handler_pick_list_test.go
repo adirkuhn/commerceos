@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	genoms "github.com/adirkuhn/commerceos/api/oms"
-	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	omshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/oms"
 	"github.com/gin-gonic/gin"
@@ -40,7 +39,7 @@ func newTestRouterWithPickList(pickList *stubBuildPickList, list *stubListSalesO
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{},
 		&stubListSalesOrderActivities{},
 		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, pickList)
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, pickList, &stubListPackingQueue{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -114,12 +113,4 @@ func TestGetPickList_emptySelectionIsUnprocessable(t *testing.T) {
 		"GET", "/api/v1/sales-orders/pick-list?sales_order_id=so-1", nil)
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-}
-
-func TestListSalesOrders_passesReadyToPackThrough(t *testing.T) {
-	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{}}
-	w := doRequest(newTestRouterWithPickList(&stubBuildPickList{}, list), "GET", "/api/v1/sales-orders?ready_to_pack=true", nil)
-
-	require.Equal(t, http.StatusOK, w.Code)
-	assert.True(t, list.gotInput.ReadyToPack)
 }

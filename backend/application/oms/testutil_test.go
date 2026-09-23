@@ -418,6 +418,15 @@ type stubPickingSessionRepo struct {
 	acquiredLocks  []string
 	releaseLockErr error
 	released       []string
+
+	openBySalesOrders []omsDomain.PickingSession
+	openErr           error
+	gotOpenIDs        []string
+}
+
+func (s *stubPickingSessionRepo) ListOpenBySalesOrders(_ context.Context, ids []string) ([]omsDomain.PickingSession, error) {
+	s.gotOpenIDs = ids
+	return s.openBySalesOrders, s.openErr
 }
 
 func (s *stubPickingSessionRepo) Create(_ context.Context, session *omsDomain.PickingSession) error {
@@ -512,6 +521,15 @@ type stubPackingSessionRepo struct {
 	acquiredLocks  []string
 	releaseLockErr error
 	released       []string
+
+	activeBySalesOrders []omsDomain.PackingSession
+	listActiveErr       error
+	gotActiveIDs        []string
+}
+
+func (s *stubPackingSessionRepo) ListActiveBySalesOrders(_ context.Context, ids []string) ([]omsDomain.PackingSession, error) {
+	s.gotActiveIDs = ids
+	return s.activeBySalesOrders, s.listActiveErr
 }
 
 func (s *stubPackingSessionRepo) Create(_ context.Context, session *omsDomain.PackingSession) error {

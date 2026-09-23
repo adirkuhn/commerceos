@@ -1,0 +1,90 @@
+package oms_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	appoms "github.com/adirkuhn/commerceos/application/oms"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/stretchr/testify/assert"
+)
+
+// After a takeover the previous holder must not keep working the session:
+// every write checks the caller still holds (or can hold) the lock.
+
+func lockedBy(user string) (*string, *time.Time) {
+	now := time.Now()
+	return &user, &now
+}
+
+func TestScanPackItem_rejectsCallerWhoLostTheLock(t *testing.T) {
+	db := newMockGormDB(t)
+	holder, at := lockedBy("admin-1")
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{
+		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress, LockedBy: holder, LockedAt: at,
+	}}
+	scanRepo := &stubPackScanRepo{}
+	uc := appoms.NewScanPackItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{})
+
+	_, err := uc.Execute(context.Background(), appoms.ScanPackItemInput{SessionID: "session-1", SKUID: "sku-1", Quantity: 1, ScannedBy: "user-1"})
+
+	assert.ErrorIs(t, err, omsDomain.ErrPackingSessionLocked)
+	assert.Empty(t, scanRepo.created)
+}
+
+func TestCompletePacking_rejectsCallerWhoLostTheLock(t *testing.T) {
+	db := newMockGormDB(t)
+	holder, at := lockedBy("admin-1")
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{
+		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress, LockedBy: holder, LockedAt: at,
+	}}
+	salesOrderRepo := &stubSalesOrderRepo{}
+	uc := appoms.NewCompletePackingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubPackScanRepo{})
+
+	_, err := uc.Execute(context.Background(), appoms.CompletePackingInput{SessionID: "session-1", CompletedBy: "user-1"})
+
+	assert.ErrorIs(t, err, omsDomain.ErrPackingSessionLocked)
+	assert.Empty(t, sessionRepo.updated)
+	assert.Empty(t, salesOrderRepo.gotUpdateID)
+}
+
+func TestScanPickItem_rejectsCallerWhoLostTheLock(t *testing.T) {
+	db := newMockGormDB(t)
+	holder, at := lockedBy("admin-1")
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{
+		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress, LockedBy: holder, LockedAt: at,
+	}}
+	scanRepo := &stubPickScanRepo{}
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+
+	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-1", Quantity: 1, ScannedBy: "user-1"})
+
+	assert.ErrorIs(t, err, omsDomain.ErrPickingSessionLocked)
+	assert.Empty(t, scanRepo.created)
+}
+
+func TestCompletePicking_rejectsCallerWhoLostTheLock(t *testing.T) {
+	db := newMockGormDB(t)
+	holder, at := lockedBy("admin-1")
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{
+		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress, LockedBy: holder, LockedAt: at,
+	}}
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}}
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubPickScanRepo{}, &stubAddLineItemForPickCompletion{}, &stubRecordMovement{}, &stubReverseMovement{}, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{}, &stubOutboxRepo{}, &stubPaymentRefundClientResolver{})
+
+	_, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
+
+	assert.ErrorIs(t, err, omsDomain.ErrPickingSessionLocked)
+	assert.Empty(t, sessionRepo.updated)
+}
+
+func TestCompletePicking_rejectsAbandonedSession(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusAbandoned}}
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubPickScanRepo{}, &stubAddLineItemForPickCompletion{}, &stubRecordMovement{}, &stubReverseMovement{}, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{}, &stubOutboxRepo{}, &stubPaymentRefundClientResolver{})
+
+	_, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
+
+	assert.ErrorIs(t, err, omsDomain.ErrPickingSessionNotActive)
+}

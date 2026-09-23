@@ -18,7 +18,7 @@ import (
 )
 
 type startOrResumePackingUC interface {
-	Execute(ctx context.Context, salesOrderID, userID string) (*omsDomain.PackingSession, error)
+	Execute(ctx context.Context, salesOrderID string, actor omsDomain.LockActor) (*omsDomain.PackingSession, error)
 }
 type getPackingSessionUC interface {
 	Execute(ctx context.Context, id string) (*appoms.PackingSessionDetail, error)
@@ -40,12 +40,7 @@ type completePackingUC interface {
 }
 
 func (h *Handler) StartOrResumePacking(c *gin.Context, id genoms.Id) {
-	claims := middleware.ClaimsFromGin(c)
-	userID := ""
-	if claims != nil {
-		userID = claims.UserID
-	}
-	session, err := h.startOrResumePacking.Execute(c.Request.Context(), id, userID)
+	session, err := h.startOrResumePacking.Execute(c.Request.Context(), id, lockActorFrom(middleware.ClaimsFromGin(c)))
 	if err := mapError(c, err); err != nil {
 		return
 	}
@@ -146,7 +141,7 @@ func toGenPackingSession(s omsDomain.PackingSession) genoms.PackingSession {
 	return genoms.PackingSession{
 		Id: s.ID, SalesOrderId: s.SalesOrderID, Status: genoms.PackingSessionStatus(s.Status),
 		StartedAt: s.StartedAt, CompletedAt: s.CompletedAt, CompletedBy: s.CompletedBy,
-		LockedBy: s.LockedBy, LockedAt: s.LockedAt,
+		LockedBy: s.LockedBy, LockedAt: s.LockedAt, LockedSince: s.LockedSince,
 	}
 }
 

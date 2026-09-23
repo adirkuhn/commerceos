@@ -81,6 +81,9 @@ func (uc *ScanPackItemUseCase) Execute(ctx context.Context, in ScanPackItemInput
 		if session.Status != omsDomain.PackingSessionStatusInProgress {
 			return omsDomain.ErrPackingSessionNotActive
 		}
+		if session.Lock().IsHeldByOther(in.ScannedBy, time.Now()) {
+			return omsDomain.ErrPackingSessionLocked
+		}
 
 		lineItems, err := uc.lineItemRepo.ListBySalesOrder(ctx, session.SalesOrderID)
 		if err != nil {

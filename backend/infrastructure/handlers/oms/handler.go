@@ -57,7 +57,7 @@ type addSalesOrderLineItemUC interface {
 	Execute(ctx context.Context, in appoms.AddSalesOrderLineItemInput) (*omsDomain.SalesOrderLineItem, error)
 }
 type startOrResumePickingUC interface {
-	Execute(ctx context.Context, salesOrderID, userID string) (*omsDomain.PickingSession, error)
+	Execute(ctx context.Context, salesOrderID string, actor omsDomain.LockActor) (*omsDomain.PickingSession, error)
 }
 type getPickingSessionUC interface {
 	Execute(ctx context.Context, id string) (*appoms.PickingSessionDetail, error)
@@ -130,7 +130,8 @@ type Handler struct {
 	deletePackScan       deletePackScanUC
 	completePacking      completePackingUC
 
-	buildPickList buildPickListUC
+	buildPickList    buildPickListUC
+	listPackingQueue listPackingQueueUC
 }
 
 func NewHandler(
@@ -148,7 +149,7 @@ func NewHandler(
 	startOrResumePacking startOrResumePackingUC, getPackingSession getPackingSessionUC,
 	touchPackingSession touchPackingSessionUC, resetPackingSession resetPackingSessionUC,
 	scanPackItem scanPackItemUC, deletePackScan deletePackScanUC, completePacking completePackingUC,
-	buildPickList buildPickListUC,
+	buildPickList buildPickListUC, listPackingQueue listPackingQueueUC,
 ) *Handler {
 	return &Handler{
 		listSalesOrders: listSalesOrders, getSalesOrder: getSalesOrder,
@@ -165,7 +166,7 @@ func NewHandler(
 		startOrResumePacking:       startOrResumePacking, getPackingSession: getPackingSession,
 		touchPackingSession: touchPackingSession, resetPackingSession: resetPackingSession,
 		scanPackItem: scanPackItem, deletePackScan: deletePackScan, completePacking: completePacking,
-		buildPickList: buildPickList,
+		buildPickList: buildPickList, listPackingQueue: listPackingQueue,
 	}
 }
 
@@ -254,7 +255,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewCompletePickingUseCase(db, pickingSessionRepo, salesOrderRepo, lineItemRepo, linkRepo, pickScanRepo, addLineItem, allocateStock, recordMovement, allocateStock, skuRepo, outboxRepo, refundClientResolver),
 		appoms.NewBulkUpdateSalesOrderStatusUseCase(updateSalesOrder),
 		appoms.NewListSalesOrderActivitiesUseCase(db, repositories.NewSalesOrderActivityRepo(db)),
-		appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, packingSessionRepo, pickingSessionRepo),
+		appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, packingSessionRepo, pickingSessionRepo, pickScanRepo),
 		appoms.NewGetPackingSessionUseCase(db, packingSessionRepo, lineItemRepo, packScanRepo, skuRepo, variantRepo),
 		appoms.NewTouchPackingSessionUseCase(db, packingSessionRepo),
 		appoms.NewResetPackingSessionUseCase(db, packingSessionRepo, packScanRepo),
@@ -262,6 +263,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewDeletePackScanUseCase(db, packingSessionRepo, packScanRepo),
 		appoms.NewCompletePackingUseCase(db, packingSessionRepo, salesOrderRepo, lineItemRepo, packScanRepo),
 		appoms.NewBuildPickListUseCase(db, salesOrderRepo, lineItemRepo),
+		appoms.NewListPackingQueueUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo),
 	)
 	genoms.RegisterHandlers(rg, h)
 }
@@ -299,7 +301,7 @@ func (h *Handler) ListSalesOrders(c *gin.Context, params genoms.ListSalesOrdersP
 	result, err := h.listSalesOrders.Execute(c.Request.Context(), appoms.ListSalesOrdersInput{
 		Page: page, PerPage: perPage, SortBy: sortBy, SortDir: sortDir,
 		NeedsStockReview: params.NeedsStockReview, NeedsSKUReview: params.NeedsSkuReview,
-		Fulfilled: params.Fulfilled, Packed: params.Packed, ReadyToPack: params.ReadyToPack != nil && *params.ReadyToPack, Status: statuses, Source: sources, CustomerID: params.CustomerId,
+		Fulfilled: params.Fulfilled, Packed: params.Packed, Status: statuses, Source: sources, CustomerID: params.CustomerId,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -481,12 +483,7 @@ func (h *Handler) AddSalesOrderLineItem(c *gin.Context, id genoms.Id) {
 }
 
 func (h *Handler) StartOrResumePicking(c *gin.Context, id genoms.Id) {
-	claims := middleware.ClaimsFromGin(c)
-	userID := ""
-	if claims != nil {
-		userID = claims.UserID
-	}
-	session, err := h.startOrResumePicking.Execute(c.Request.Context(), id, userID)
+	session, err := h.startOrResumePicking.Execute(c.Request.Context(), id, lockActorFrom(middleware.ClaimsFromGin(c)))
 	if err := mapError(c, err); err != nil {
 		return
 	}
@@ -783,7 +780,7 @@ func toGenPickingSession(s omsDomain.PickingSession) genoms.PickingSession {
 	return genoms.PickingSession{
 		Id: s.ID, SalesOrderId: s.SalesOrderID, Status: genoms.PickingSessionStatus(s.Status),
 		StartedAt: s.StartedAt, PausedAt: s.PausedAt, CompletedAt: s.CompletedAt, CompletedBy: s.CompletedBy,
-		LockedBy: s.LockedBy, LockedAt: s.LockedAt,
+		LockedBy: s.LockedBy, LockedAt: s.LockedAt, LockedSince: s.LockedSince,
 	}
 }
 
@@ -845,7 +842,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, omsDomain.ErrPackQuantityExceedsOrdered):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, omsDomain.ErrPickingSessionLocked), errors.Is(err, omsDomain.ErrPackingSessionLocked),
-		errors.Is(err, omsDomain.ErrOrderPickingInProgress), errors.Is(err, omsDomain.ErrOrderPackingInProgress):
+		errors.Is(err, omsDomain.ErrOrderPickingInProgress), errors.Is(err, omsDomain.ErrOrderPackingInProgress),
+		errors.Is(err, omsDomain.ErrPickingSessionHasPendingChanges):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
 	case errors.Is(err, omsDomain.ErrPermissionDenied):
 		middleware.Fail(c, http.StatusForbidden, "FORBIDDEN", err.Error())

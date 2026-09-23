@@ -30,11 +30,13 @@ func (uc *TouchPackingSessionUseCase) Execute(ctx context.Context, sessionID, us
 		if session.Status == omsDomain.PackingSessionStatusCompleted {
 			return omsDomain.ErrPackingSessionNotActive
 		}
-		if session.LockedBy != nil && *session.LockedBy != userID &&
-			session.LockedAt != nil && time.Since(*session.LockedAt) < omsDomain.PackingLockTTL {
+		// A heartbeat never takes a lock by force, even for an admin -- that
+		// would silently undo someone else's takeover.
+		now := time.Now()
+		if session.Lock().IsHeldByOther(userID, now) {
 			return omsDomain.ErrPackingSessionLocked
 		}
-		return uc.sessionRepo.AcquireLock(ctx, sessionID, userID, time.Now())
+		return uc.sessionRepo.AcquireLock(ctx, sessionID, userID, now)
 	})
 	if err != nil {
 		return fmt.Errorf("touchPackingSession: %w", err)

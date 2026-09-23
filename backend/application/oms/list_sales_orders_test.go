@@ -67,16 +67,6 @@ func TestListSalesOrders_passesFulfilledFilterThrough(t *testing.T) {
 	assert.False(t, *repo.gotListFilter.Fulfilled)
 }
 
-func TestListSalesOrders_passesReadyToPackThrough(t *testing.T) {
-	repo := &stubSalesOrderRepo{}
-	uc := appoms.NewListSalesOrdersUseCase(newMockGormDB(t), repo)
-
-	_, err := uc.Execute(context.Background(), appoms.ListSalesOrdersInput{ReadyToPack: true})
-
-	require.NoError(t, err)
-	assert.True(t, repo.gotListFilter.ReadyToPack)
-}
-
 func TestListSalesOrders_passesStatusFilterThrough(t *testing.T) {
 	repo := &stubSalesOrderRepo{}
 	uc := appoms.NewListSalesOrdersUseCase(newMockGormDB(t), repo)

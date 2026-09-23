@@ -22,6 +22,7 @@ type packingSessionModel struct {
 	CompletedBy  string
 	LockedBy     *string    `gorm:"column:locked_by"`
 	LockedAt     *time.Time `gorm:"column:locked_at"`
+	LockedSince  *time.Time `gorm:"column:locked_since"`
 }
 
 func (packingSessionModel) TableName() string { return "packing_sessions" }
@@ -62,7 +63,7 @@ func (r *PackingSessionRepo) Create(ctx context.Context, s *omsDomain.PackingSes
 	m := packingSessionModel{
 		ID: s.ID, TenantID: s.TenantID, SalesOrderID: s.SalesOrderID, Status: string(s.Status),
 		StartedAt: s.StartedAt, CompletedAt: s.CompletedAt, CompletedBy: s.CompletedBy,
-		LockedBy: s.LockedBy, LockedAt: s.LockedAt,
+		LockedBy: s.LockedBy, LockedAt: s.LockedAt, LockedSince: s.LockedSince,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("packingSessionRepo.Create: %w", err)
@@ -111,7 +112,7 @@ func (r *PackingSessionRepo) Update(ctx context.Context, s *omsDomain.PackingSes
 	m := packingSessionModel{
 		ID: s.ID, TenantID: s.TenantID, SalesOrderID: s.SalesOrderID, Status: string(s.Status),
 		StartedAt: s.StartedAt, CompletedAt: s.CompletedAt, CompletedBy: s.CompletedBy,
-		LockedBy: s.LockedBy, LockedAt: s.LockedAt,
+		LockedBy: s.LockedBy, LockedAt: s.LockedAt, LockedSince: s.LockedSince,
 	}
 	if err := tx.Model(&packingSessionModel{}).Where("id = ?", s.ID).Updates(&m).Error; err != nil {
 		return fmt.Errorf("packingSessionRepo.Update: %w", err)
@@ -127,7 +128,13 @@ func (r *PackingSessionRepo) AcquireLock(ctx context.Context, id, userID string,
 		return err
 	}
 	if err := tx.Model(&packingSessionModel{}).Where("id = ?", id).
-		Updates(map[string]interface{}{"locked_by": userID, "locked_at": at}).Error; err != nil {
+		Updates(map[string]interface{}{
+			"locked_by": userID, "locked_at": at,
+			// Postgres evaluates every SET against the old row, so this sees
+			// the previous holder: a new holder's lock starts now, a
+			// heartbeat from the same holder keeps it.
+			"locked_since": gorm.Expr("CASE WHEN locked_by IS DISTINCT FROM ? OR locked_since IS NULL THEN ? ELSE locked_since END", userID, at),
+		}).Error; err != nil {
 		return fmt.Errorf("packingSessionRepo.AcquireLock: %w", err)
 	}
 	return nil
@@ -140,7 +147,7 @@ func (r *PackingSessionRepo) ReleaseLock(ctx context.Context, id string) error {
 		return err
 	}
 	if err := tx.Model(&packingSessionModel{}).Where("id = ?", id).
-		Updates(map[string]interface{}{"locked_by": nil, "locked_at": nil}).Error; err != nil {
+		Updates(map[string]interface{}{"locked_by": nil, "locked_at": nil, "locked_since": nil}).Error; err != nil {
 		return fmt.Errorf("packingSessionRepo.ReleaseLock: %w", err)
 	}
 	return nil
@@ -150,7 +157,7 @@ func toPackingSessionDomain(m packingSessionModel) *omsDomain.PackingSession {
 	return &omsDomain.PackingSession{
 		ID: m.ID, TenantID: m.TenantID, SalesOrderID: m.SalesOrderID, Status: omsDomain.PackingSessionStatus(m.Status),
 		StartedAt: m.StartedAt, CompletedAt: m.CompletedAt, CompletedBy: m.CompletedBy,
-		LockedBy: m.LockedBy, LockedAt: m.LockedAt,
+		LockedBy: m.LockedBy, LockedAt: m.LockedAt, LockedSince: m.LockedSince,
 	}
 }
 
@@ -212,4 +219,25 @@ func (r *PackScanRepo) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("packScanRepo.Delete: %w", err)
 	}
 	return nil
+}
+
+// ListActiveBySalesOrders -- see PackingSessionRepository.ListActiveBySalesOrders.
+func (r *PackingSessionRepo) ListActiveBySalesOrders(ctx context.Context, salesOrderIDs []string) ([]omsDomain.PackingSession, error) {
+	if len(salesOrderIDs) == 0 {
+		return nil, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var models []packingSessionModel
+	if err := tx.Where("sales_order_id IN ? AND status = ?", salesOrderIDs, string(omsDomain.PackingSessionStatusInProgress)).
+		Find(&models).Error; err != nil {
+		return nil, fmt.Errorf("packingSessionRepo.ListActiveBySalesOrders: %w", err)
+	}
+	out := make([]omsDomain.PackingSession, len(models))
+	for i, m := range models {
+		out[i] = *toPackingSessionDomain(m)
+	}
+	return out, nil
 }

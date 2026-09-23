@@ -23,6 +23,7 @@ type pickingSessionModel struct {
 	CompletedBy  string
 	LockedBy     *string    `gorm:"column:locked_by"`
 	LockedAt     *time.Time `gorm:"column:locked_at"`
+	LockedSince  *time.Time `gorm:"column:locked_since"`
 }
 
 func (pickingSessionModel) TableName() string { return "picking_sessions" }
@@ -68,7 +69,7 @@ func (r *PickingSessionRepo) Create(ctx context.Context, s *omsDomain.PickingSes
 	m := pickingSessionModel{
 		ID: s.ID, TenantID: s.TenantID, SalesOrderID: s.SalesOrderID, Status: string(s.Status),
 		StartedAt: s.StartedAt, PausedAt: s.PausedAt, CompletedAt: s.CompletedAt, CompletedBy: s.CompletedBy,
-		LockedBy: s.LockedBy, LockedAt: s.LockedAt,
+		LockedBy: s.LockedBy, LockedAt: s.LockedAt, LockedSince: s.LockedSince,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("pickingSessionRepo.Create: %w", err)
@@ -118,7 +119,7 @@ func (r *PickingSessionRepo) Update(ctx context.Context, s *omsDomain.PickingSes
 	m := pickingSessionModel{
 		ID: s.ID, TenantID: s.TenantID, SalesOrderID: s.SalesOrderID, Status: string(s.Status),
 		StartedAt: s.StartedAt, PausedAt: s.PausedAt, CompletedAt: s.CompletedAt, CompletedBy: s.CompletedBy,
-		LockedBy: s.LockedBy, LockedAt: s.LockedAt,
+		LockedBy: s.LockedBy, LockedAt: s.LockedAt, LockedSince: s.LockedSince,
 	}
 	if err := tx.Model(&pickingSessionModel{}).Where("id = ?", s.ID).Updates(&m).Error; err != nil {
 		return fmt.Errorf("pickingSessionRepo.Update: %w", err)
@@ -134,7 +135,13 @@ func (r *PickingSessionRepo) AcquireLock(ctx context.Context, id, userID string,
 		return err
 	}
 	if err := tx.Model(&pickingSessionModel{}).Where("id = ?", id).
-		Updates(map[string]interface{}{"locked_by": userID, "locked_at": at}).Error; err != nil {
+		Updates(map[string]interface{}{
+			"locked_by": userID, "locked_at": at,
+			// Postgres evaluates every SET against the old row, so this sees
+			// the previous holder: a new holder's lock starts now, a
+			// heartbeat from the same holder keeps it.
+			"locked_since": gorm.Expr("CASE WHEN locked_by IS DISTINCT FROM ? OR locked_since IS NULL THEN ? ELSE locked_since END", userID, at),
+		}).Error; err != nil {
 		return fmt.Errorf("pickingSessionRepo.AcquireLock: %w", err)
 	}
 	return nil
@@ -147,7 +154,7 @@ func (r *PickingSessionRepo) ReleaseLock(ctx context.Context, id string) error {
 		return err
 	}
 	if err := tx.Model(&pickingSessionModel{}).Where("id = ?", id).
-		Updates(map[string]interface{}{"locked_by": nil, "locked_at": nil}).Error; err != nil {
+		Updates(map[string]interface{}{"locked_by": nil, "locked_at": nil, "locked_since": nil}).Error; err != nil {
 		return fmt.Errorf("pickingSessionRepo.ReleaseLock: %w", err)
 	}
 	return nil
@@ -157,7 +164,7 @@ func toPickingSessionDomain(m pickingSessionModel) *omsDomain.PickingSession {
 	return &omsDomain.PickingSession{
 		ID: m.ID, TenantID: m.TenantID, SalesOrderID: m.SalesOrderID, Status: omsDomain.PickingSessionStatus(m.Status),
 		StartedAt: m.StartedAt, PausedAt: m.PausedAt, CompletedAt: m.CompletedAt, CompletedBy: m.CompletedBy,
-		LockedBy: m.LockedBy, LockedAt: m.LockedAt,
+		LockedBy: m.LockedBy, LockedAt: m.LockedAt, LockedSince: m.LockedSince,
 	}
 }
 
@@ -233,4 +240,26 @@ func (r *PickScanRepo) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("pickScanRepo.Delete: %w", err)
 	}
 	return nil
+}
+
+// ListOpenBySalesOrders -- see PickingSessionRepository.ListOpenBySalesOrders.
+func (r *PickingSessionRepo) ListOpenBySalesOrders(ctx context.Context, salesOrderIDs []string) ([]omsDomain.PickingSession, error) {
+	if len(salesOrderIDs) == 0 {
+		return nil, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var models []pickingSessionModel
+	if err := tx.Where("sales_order_id IN ? AND status IN ?", salesOrderIDs,
+		[]string{string(omsDomain.PickingSessionStatusInProgress), string(omsDomain.PickingSessionStatusPaused)}).
+		Find(&models).Error; err != nil {
+		return nil, fmt.Errorf("pickingSessionRepo.ListOpenBySalesOrders: %w", err)
+	}
+	out := make([]omsDomain.PickingSession, len(models))
+	for i, m := range models {
+		out[i] = *toPickingSessionDomain(m)
+	}
+	return out, nil
 }

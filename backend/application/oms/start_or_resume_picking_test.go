@@ -17,7 +17,7 @@ func TestStartOrResumePicking_createsNewSessionWhenNoneActive(t *testing.T) {
 	sessionRepo := &stubPickingSessionRepo{}
 	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{})
 
-	session, err := uc.Execute(context.Background(), "order-1", "user-1")
+	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
 	require.NoError(t, err)
 	require.Len(t, sessionRepo.created, 1)
@@ -33,7 +33,7 @@ func TestStartOrResumePicking_reusesInProgressSession(t *testing.T) {
 	sessionRepo := &stubPickingSessionRepo{activeResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
 	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{})
 
-	session, err := uc.Execute(context.Background(), "order-1", "user-1")
+	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
 	require.NoError(t, err)
 	assert.Empty(t, sessionRepo.created, "must not create a duplicate session")
@@ -47,7 +47,7 @@ func TestStartOrResumePicking_resumesPausedSession(t *testing.T) {
 	sessionRepo := &stubPickingSessionRepo{activeResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusPaused}}
 	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{})
 
-	session, err := uc.Execute(context.Background(), "order-1", "user-1")
+	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
 	require.NoError(t, err)
 	require.Len(t, sessionRepo.updated, 1)
@@ -62,7 +62,7 @@ func TestStartOrResumePicking_rejectsAlreadyFulfilledOrder(t *testing.T) {
 	sessionRepo := &stubPickingSessionRepo{}
 	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{})
 
-	_, err := uc.Execute(context.Background(), "order-1", "user-1")
+	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
 	assert.ErrorIs(t, err, omsDomain.ErrOrderAlreadyFulfilled)
 	assert.Empty(t, sessionRepo.created)
@@ -74,7 +74,7 @@ func TestStartOrResumePicking_rejectsAlreadyPackedOrder(t *testing.T) {
 	sessionRepo := &stubPickingSessionRepo{}
 	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{})
 
-	_, err := uc.Execute(context.Background(), "order-1", "user-1")
+	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
 	assert.ErrorIs(t, err, omsDomain.ErrOrderAlreadyPacked)
 	assert.Empty(t, sessionRepo.created)
@@ -87,7 +87,7 @@ func TestStartOrResumePicking_rejectsWhenPackingSessionInProgress(t *testing.T) 
 	packingRepo := &stubPackingSessionRepo{activeResult: &omsDomain.PackingSession{ID: "packing-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, packingRepo)
 
-	_, err := uc.Execute(context.Background(), "order-1", "user-1")
+	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
 	assert.ErrorIs(t, err, omsDomain.ErrOrderPackingInProgress)
 	assert.Empty(t, sessionRepo.created)
@@ -98,7 +98,7 @@ func TestStartOrResumePicking_propagatesSalesOrderNotFound(t *testing.T) {
 	salesOrderRepo := &stubSalesOrderRepo{findByIDErr: omsDomain.ErrSalesOrderNotFound}
 	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubPickingSessionRepo{}, &stubPackingSessionRepo{})
 
-	_, err := uc.Execute(context.Background(), "missing", "user-1")
+	_, err := uc.Execute(context.Background(), "missing", omsDomain.LockActor{UserID: "user-1"})
 
 	assert.ErrorIs(t, err, omsDomain.ErrSalesOrderNotFound)
 }
@@ -114,7 +114,7 @@ func TestStartOrResumePicking_rejectsWhenLockedByAnotherFreshUser(t *testing.T) 
 	}}
 	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{})
 
-	_, err := uc.Execute(context.Background(), "order-1", "user-1")
+	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
 	assert.ErrorIs(t, err, omsDomain.ErrPickingSessionLocked)
 	assert.Empty(t, sessionRepo.acquiredLocks)
@@ -131,7 +131,7 @@ func TestStartOrResumePicking_allowsTakeoverWhenLockStale(t *testing.T) {
 	}}
 	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{})
 
-	session, err := uc.Execute(context.Background(), "order-1", "user-1")
+	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"session-1"}, sessionRepo.acquiredLocks)
@@ -149,8 +149,58 @@ func TestStartOrResumePicking_sameUserReopeningOwnLockSucceeds(t *testing.T) {
 	}}
 	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{})
 
-	session, err := uc.Execute(context.Background(), "order-1", "user-1")
+	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
 	require.NoError(t, err)
 	assert.Equal(t, "session-1", session.ID)
+}
+
+func TestStartOrResumePicking_adminTakesOverFreshLock(t *testing.T) {
+	db := newMockGormDB(t)
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}}
+	otherUser := "user-2"
+	lockedAt := time.Now()
+	sessionRepo := &stubPickingSessionRepo{activeResult: &omsDomain.PickingSession{
+		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress,
+		LockedBy: &otherUser, LockedAt: &lockedAt, LockedSince: &lockedAt,
+	}}
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{})
+
+	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "admin-1", IsAdmin: true})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"session-1"}, sessionRepo.acquiredLocks)
+	require.NotNil(t, session.LockedBy)
+	assert.Equal(t, "admin-1", *session.LockedBy)
+	require.NotNil(t, session.LockedSince)
+	assert.WithinDuration(t, time.Now(), *session.LockedSince, time.Second, "a new holder's lock starts now")
+}
+
+func TestStartOrResumePicking_sameHolderKeepsLockedSince(t *testing.T) {
+	db := newMockGormDB(t)
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}}
+	user := "user-1"
+	lockedAt := time.Now()
+	since := lockedAt.Add(-20 * time.Minute)
+	sessionRepo := &stubPickingSessionRepo{activeResult: &omsDomain.PickingSession{
+		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress,
+		LockedBy: &user, LockedAt: &lockedAt, LockedSince: &since,
+	}}
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{})
+
+	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, since, *session.LockedSince)
+}
+
+func TestStartOrResumePicking_newSessionLockedSinceNow(t *testing.T) {
+	db := newMockGormDB(t)
+	uc := appoms.NewStartOrResumePickingUseCase(db, &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}}, &stubPickingSessionRepo{}, &stubPackingSessionRepo{})
+
+	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
+
+	require.NoError(t, err)
+	require.NotNil(t, session.LockedSince)
+	assert.Equal(t, *session.LockedAt, *session.LockedSince)
 }

@@ -31,14 +31,17 @@ type PackingSession struct {
 	CompletedBy string
 	// LockedBy/LockedAt mirror PickingSession's own fields exactly -- see
 	// that type's doc comment. StartOrResumePackingUseCase/
-	// TouchPackingSessionUseCase enforce the same PackingLockTTL rule so two
+	// TouchPackingSessionUseCase enforce the same SessionLock rules so two
 	// people can't pack the same order at once.
-	LockedBy *string
-	LockedAt *time.Time
+	LockedBy    *string
+	LockedAt    *time.Time
+	LockedSince *time.Time
 }
 
-// PackingLockTTL mirrors PickingLockTTL -- see that constant's doc comment.
-const PackingLockTTL = 5 * time.Minute
+// Lock is the session's lock state, for SessionLock's rules.
+func (s PackingSession) Lock() SessionLock {
+	return SessionLock{HolderID: s.LockedBy, HeartbeatAt: s.LockedAt, Since: s.LockedSince}
+}
 
 // PackScan is one line item's worth of units placed into the box -- unlike
 // PickScan there's no staged/replayed distinction (see PickScan's doc

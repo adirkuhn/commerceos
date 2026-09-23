@@ -8,6 +8,11 @@ const (
 	PickingSessionStatusInProgress PickingSessionStatus = "in_progress"
 	PickingSessionStatusPaused     PickingSessionStatus = "paused"
 	PickingSessionStatusCompleted  PickingSessionStatus = "completed"
+	// PickingSessionStatusAbandoned closes a session nobody finished --
+	// packing took the order over (see StartOrResumePackingUseCase). Its
+	// scans are kept for the audit trail; the order is not marked
+	// fulfilled by it (completing packing does that).
+	PickingSessionStatusAbandoned PickingSessionStatus = "abandoned"
 )
 
 // PickingSession tracks one scanner-app session working a sales order on
@@ -31,23 +36,25 @@ type PickingSession struct {
 	CompletedBy string
 	// LockedBy is the lm2 UserID currently holding this session open --
 	// StartOrResumePickingUseCase refuses to hand the session to a
-	// different caller while the lock is held and fresh (see
-	// PickingLockTTL), so two people can't work the same order at once.
-	// Nil means unlocked (never started, or the holder released/timed out).
+	// different caller while the lock is held and fresh (see SessionLock),
+	// so two people can't work the same order at once. Nil means unlocked
+	// (never started, or the holder released/timed out).
 	LockedBy *string
 	// LockedAt is when LockedBy last claimed or refreshed the lock --
 	// TouchPickingSessionUseCase bumps it periodically while the session
-	// stays open; once it's older than PickingLockTTL the lock is
+	// stays open; once it's older than SessionLockTTL the lock is
 	// considered stale and any caller may take over.
 	LockedAt *time.Time
+	// LockedSince is when the current LockedBy first acquired the lock --
+	// unlike LockedAt, heartbeats don't move it, so it answers "how long
+	// has this person had the order".
+	LockedSince *time.Time
 }
 
-// PickingLockTTL is how long a picking-session lock stays valid without a
-// heartbeat touch -- long enough to survive a brief network blip, short
-// enough that an abandoned/expired-session tab doesn't block the order for
-// long. Chosen to comfortably outlast the frontend's own touch interval
-// (see Picking.tsx/PickingScreen.tsx's heartbeat setInterval).
-const PickingLockTTL = 5 * time.Minute
+// Lock is the session's lock state, for SessionLock's rules.
+func (s PickingSession) Lock() SessionLock {
+	return SessionLock{HolderID: s.LockedBy, HeartbeatAt: s.LockedAt, Since: s.LockedSince}
+}
 
 // PickScanActionType classifies what a staged PickScan row will do once
 // the picking session is completed.

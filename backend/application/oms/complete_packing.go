@@ -70,6 +70,9 @@ func (uc *CompletePackingUseCase) Execute(ctx context.Context, in CompletePackin
 		if session.Status != omsDomain.PackingSessionStatusInProgress {
 			return omsDomain.ErrPackingSessionNotActive
 		}
+		if session.Lock().IsHeldByOther(in.CompletedBy, time.Now()) {
+			return omsDomain.ErrPackingSessionLocked
+		}
 
 		lineItems, err := uc.lineItemRepo.ListBySalesOrder(ctx, session.SalesOrderID)
 		if err != nil {

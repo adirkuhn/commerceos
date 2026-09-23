@@ -200,11 +200,11 @@ type stubStartOrResumePicking struct {
 	out        *omsDomain.PickingSession
 	err        error
 	gotOrderID string
-	gotUserID  string
+	gotActor   omsDomain.LockActor
 }
 
-func (s *stubStartOrResumePicking) Execute(_ context.Context, salesOrderID, userID string) (*omsDomain.PickingSession, error) {
-	s.gotOrderID, s.gotUserID = salesOrderID, userID
+func (s *stubStartOrResumePicking) Execute(_ context.Context, salesOrderID string, actor omsDomain.LockActor) (*omsDomain.PickingSession, error) {
+	s.gotOrderID, s.gotActor = salesOrderID, actor
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -390,11 +390,11 @@ type stubStartOrResumePacking struct {
 	out        *omsDomain.PackingSession
 	err        error
 	gotOrderID string
-	gotUserID  string
+	gotActor   omsDomain.LockActor
 }
 
-func (s *stubStartOrResumePacking) Execute(_ context.Context, salesOrderID, userID string) (*omsDomain.PackingSession, error) {
-	s.gotOrderID, s.gotUserID = salesOrderID, userID
+func (s *stubStartOrResumePacking) Execute(_ context.Context, salesOrderID string, actor omsDomain.LockActor) (*omsDomain.PackingSession, error) {
+	s.gotOrderID, s.gotActor = salesOrderID, actor
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -511,7 +511,7 @@ func newTestRouterWithPicking(
 		addLineItem, startPicking, getPicking, touchPicking, resetPicking, scan, substitute, refund, resolve, deleteScan, pause, complete, bulk,
 		&stubListSalesOrderActivities{},
 		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{})
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -524,7 +524,7 @@ func newTestRouterWithPacking(packStubs packingStubs) *gin.Engine {
 		&stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{},
 		&stubListSalesOrderActivities{},
-		packStubs.start, packStubs.get, packStubs.touch, packStubs.reset, packStubs.scan, packStubs.deleteScan, packStubs.complete, &stubBuildPickList{})
+		packStubs.start, packStubs.get, packStubs.touch, packStubs.reset, packStubs.scan, packStubs.deleteScan, packStubs.complete, &stubBuildPickList{}, &stubListPackingQueue{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -867,7 +867,7 @@ func newTestRouterWithActivities(activities *stubListSalesOrderActivities) *gin.
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{},
 		&stubBulkUpdateSalesOrderStatus{}, activities,
 		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{})
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
