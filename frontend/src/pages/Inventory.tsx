@@ -4,7 +4,13 @@ import {
   Trash2, Edit3, X, PackageMinus, ClipboardList, Tag, ArrowLeft, History, Boxes, Scale, Image as ImageIcon,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { parseInventoryPath, inventoryPaths, INVENTORY_PATH } from '../inventory/inventoryRoutes'
+import { useInventoryHistoryTarget } from '../inventory/useInventoryHistoryTarget'
+import { useStackNavigation } from '../routing/useStackNavigation'
+import { useQueryEnum, useQueryPage, useQueryString } from '../routing/useQueryState'
+import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 import Pagination from '../components/common/Pagination'
 import { useProducts } from '../pms/hooks/useProducts'
 import { useProductDetail } from '../pms/hooks/useProductDetail'
@@ -28,7 +34,8 @@ const PAGE_SIZE = 20
 // zero) until a real configurable threshold field is added.
 const LOW_STOCK_THRESHOLD = 10
 
-type StockFilter = 'all' | 'low' | 'out'
+const STOCK_FILTERS = ['all', 'low', 'out'] as const
+type StockFilter = typeof STOCK_FILTERS[number]
 
 function formatDate(iso?: string | null): string {
   if (!iso) return '—'
@@ -1470,26 +1477,26 @@ function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
   )
 }
 
-type ExpiryTab = 'expired' | 'expiring' | 'discarded'
+const EXPIRY_TABS = ['expired', 'expiring', 'discarded'] as const
+type ExpiryTab = typeof EXPIRY_TABS[number]
 
+// The tab lives in ?tab= (see inventoryRoutes). Defaults to 'expired' --
+// the permanent "Damaged / Lost / Discarded" submenu entry opens straight
+// to 'discarded' instead, since that's the whole reason it exists: unlike
+// the red "Expired batches" alert (only shown when something needs review
+// right now), this history is only reachable through an explicit menu
+// entry, always -- not gated behind any current-state condition.
 function ExpiryDiscardPage({
-  onClose, initialTab, expiredReview, expiringBatches, discardsReport, discardHook,
+  onClose, expiredReview, expiringBatches, discardsReport, discardHook,
 }: {
   onClose: () => void
-  // Defaults to 'expired' -- the permanent "Damaged / Lost / Discarded"
-  // submenu entry opens straight to 'discarded' instead, since that's the
-  // whole reason it exists: unlike the red "Expired batches" alert (only
-  // shown when something needs review right now), this history is only
-  // reachable through an explicit menu entry, always -- not gated behind
-  // any current-state condition.
-  initialTab?: ExpiryTab
   expiredReview: ReturnType<typeof useExpiredBatchReview>
   expiringBatches: ReturnType<typeof useExpiringBatches>
   discardsReport: ReturnType<typeof useDiscards>
   discardHook: ReturnType<typeof useDiscardBatch>
 }) {
   const { batches, loading, error, extend, dismiss } = expiredReview
-  const [tab, setTab] = useState<ExpiryTab>(initialTab ?? 'expired')
+  const [tab, setTab] = useQueryEnum<ExpiryTab>('tab', EXPIRY_TABS, 'expired')
   const [rowError, setRowError] = useState('')
   const [extendingBatchId, setExtendingBatchId] = useState<string | null>(null)
   const [newExpiryDate, setNewExpiryDate] = useState('')
@@ -1790,28 +1797,32 @@ function ExpiryDiscardPage({
 
 export default function Inventory() {
   const { token } = useAuth()
-  const [searchInput, setSearchInput] = useState('')
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [stockFilter, setStockFilter] = useState<StockFilter>('all')
+  // Search/page/stock filter (?q=&page=&stock=) and every full-screen view
+  // (history, expiry review -- see inventoryRoutes) live in the URL, so a
+  // refresh or Back keeps the user where they were.
+  const location = useLocation()
+  const view = parseInventoryPath(location.pathname)
+  const { open, exitToOpener } = useStackNavigation()
+  const backToList = () => exitToOpener(INVENTORY_PATH)
+  const [urlSearch, setUrlSearch] = useQueryString('q', { resets: ['page'] })
+  const search = urlSearch ?? ''
+  const [searchInput, setSearchInput] = useState(search)
+  const [page, setPage] = useQueryPage()
+  const [stockFilter, setStockFilter] = useQueryEnum<StockFilter>('stock', STOCK_FILTERS, 'all')
   const [summaryByProduct, setSummaryByProduct] = useState<Record<string, ProductStockSummary>>({})
-  const [historySKU, setHistorySKU] = useState<SKU | null>(null)
-  const [historyBatch, setHistoryBatch] = useState<{ sku: SKU; batch: Batch } | null>(null)
-  const [historyProduct, setHistoryProduct] = useState<{ name: string; skus: SKU[] } | null>(null)
-  const [showExpiredReview, setShowExpiredReview] = useState(false)
-  const [expiryInitialTab, setExpiryInitialTab] = useState<ExpiryTab>('expired')
   const expiredReview = useExpiredBatchReview(token ?? '')
   const expiringBatches = useExpiringBatches(token ?? '')
   const discardsReport = useDiscards(token ?? '')
   const discardHook = useDiscardBatch(token ?? '')
 
+  // Debounced into ?q=; only writes a real change, so landing on a URL
+  // with ?page= doesn't get reset by the search write (which clears page).
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      setSearch(searchInput)
-      setPage(1)
-    }, 300)
+    if (searchInput === search) return
+    const timeout = setTimeout(() => setUrlSearch(searchInput), 300)
     return () => clearTimeout(timeout)
-  }, [searchInput])
+  }, [searchInput, search, setUrlSearch])
+  useEffect(() => { setSearchInput(search) }, [search])
 
   const { products, total, loading, error } = useProducts(token ?? '', { page, perPage: PAGE_SIZE, search })
   const { warehouses } = useWarehouses(token ?? '')
@@ -1836,33 +1847,14 @@ export default function Inventory() {
     return summary.totalStock > 0 && summary.totalStock <= LOW_STOCK_THRESHOLD
   })
 
-  if (historySKU) {
-    return <SKUMovementHistoryPage token={token ?? ''} sku={historySKU} warehouses={warehouses} onClose={() => setHistorySKU(null)} />
+  if (view.kind === 'productHistory' || view.kind === 'skuHistory' || view.kind === 'batchHistory') {
+    return <InventoryHistoryView token={token ?? ''} view={view} warehouses={warehouses} onClose={backToList} />
   }
 
-  if (historyBatch) {
-    return (
-      <BatchMovementHistoryPage
-        token={token ?? ''} sku={historyBatch.sku} batch={historyBatch.batch} warehouses={warehouses}
-        onClose={() => setHistoryBatch(null)}
-      />
-    )
-  }
-
-  if (historyProduct) {
-    return (
-      <ProductMovementHistoryPage
-        token={token ?? ''} productName={historyProduct.name} skus={historyProduct.skus} warehouses={warehouses}
-        onClose={() => setHistoryProduct(null)}
-      />
-    )
-  }
-
-  if (showExpiredReview) {
+  if (view.kind === 'expiry') {
     return (
       <ExpiryDiscardPage
-        onClose={() => setShowExpiredReview(false)}
-        initialTab={expiryInitialTab}
+        onClose={backToList}
         expiredReview={expiredReview}
         expiringBatches={expiringBatches}
         discardsReport={discardsReport}
@@ -1906,14 +1898,14 @@ export default function Inventory() {
         </div>
         {expiredReview.batches.length > 0 && (
           <button
-            onClick={() => { setExpiryInitialTab('expired'); setShowExpiredReview(true) }}
+            onClick={() => open(inventoryPaths.expiry)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg dark:bg-red-500/10 bg-red-50 text-red-400 text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100 transition-colors shrink-0"
           >
             <AlertTriangle size={12} /> Expired batches ({expiredReview.batches.length})
           </button>
         )}
         <button
-          onClick={() => { setExpiryInitialTab('discarded'); setShowExpiredReview(true) }}
+          onClick={() => open(`${inventoryPaths.expiry}?tab=discarded`)}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-400 text-gray-500 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-100 transition-colors shrink-0"
         >
           <Trash2 size={12} /> Damaged / Lost / Discarded
@@ -1950,9 +1942,9 @@ export default function Inventory() {
             {!loading && visibleProducts.map(p => (
               <ProductStockRow
                 key={p.id} token={token ?? ''} productId={p.id} productName={p.name} productImageUrl={p.image_url} warehouses={warehouses}
-                onSummary={handleSummary} onViewHistory={setHistorySKU}
-                onViewBatchHistory={(sku, batch) => setHistoryBatch({ sku, batch })}
-                onViewProductHistory={(name, skus) => setHistoryProduct({ name, skus })}
+                onSummary={handleSummary} onViewHistory={sku => open(inventoryPaths.skuHistory(p.id, sku.id))}
+                onViewBatchHistory={(sku, batch) => open(inventoryPaths.batchHistory(p.id, sku.id, batch.id))}
+                onViewProductHistory={() => open(inventoryPaths.productHistory(p.id))}
               />
             ))}
           </tbody>
@@ -1962,4 +1954,31 @@ export default function Inventory() {
       <Pagination page={page} pageSize={PAGE_SIZE} totalItems={total} onPageChange={setPage} />
     </div>
   )
+}
+
+// Movement history page for the product / SKU / batch named in the URL
+// (see inventoryRoutes) -- reloads its subject from the ids, so it works
+// straight from a refresh or a shared link.
+function InventoryHistoryView({ token, view, warehouses, onClose }: {
+  token: string
+  view: Parameters<typeof useInventoryHistoryTarget>[1]
+  warehouses: { id: string; name: string }[]
+  onClose: () => void
+}) {
+  const target = useInventoryHistoryTarget(token, view)
+  const data = target.data
+  if (!data) {
+    if (target.loading) return <RecordLoading />
+    // A missing SKU/batch reports itself; anything else means the product
+    // lookup (the first request) failed.
+    const subject = target.error === 'SKU not found' ? 'SKU' : target.error === 'Batch not found' ? 'Batch' : 'Product'
+    return <RecordNotFound label={subject} onBack={onClose} />
+  }
+  if (view.kind === 'batchHistory' && data.sku && data.batch) {
+    return <BatchMovementHistoryPage token={token} sku={data.sku} batch={data.batch} warehouses={warehouses} onClose={onClose} />
+  }
+  if (view.kind === 'skuHistory' && data.sku) {
+    return <SKUMovementHistoryPage token={token} sku={data.sku} warehouses={warehouses} onClose={onClose} />
+  }
+  return <ProductMovementHistoryPage token={token} productName={data.productName} skus={data.skus} warehouses={warehouses} onClose={onClose} />
 }

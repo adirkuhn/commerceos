@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Inventory from '../Inventory'
+import { renderAt } from '../../test/renderAt'
+import { act } from 'react'
 import type { Product, ProductDetail } from '../../pms/types'
 import type { Warehouse, Batch, StockLevel, StockMovement, ExpiredBatchReview } from '../../inventory/types'
 
@@ -98,12 +100,12 @@ beforeEach(() => {
 
 describe('Inventory page', () => {
   it('lists products from the real API', async () => {
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     expect(await screen.findByText('Widget')).toBeInTheDocument()
   })
 
   it('shows price, sale price, and total stock in the collapsed product row', async () => {
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
 
     expect(await screen.findByText('Widget')).toBeInTheDocument()
     expect(await screen.findByText('USD 10.00')).toBeInTheDocument()
@@ -114,14 +116,14 @@ describe('Inventory page', () => {
 
   it('shows the product thumbnail image when one is set', async () => {
     vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [{ ...product, image_url: 'https://example.com/widget.jpg' }], total: 1 })
-    const { container } = render(<Inventory />)
+    const { container } = renderAt(<Inventory />, '/inventory')
 
     await screen.findByText('Widget')
     expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/widget.jpg')
   })
 
   it('shows a placeholder icon when the product has no image', async () => {
-    const { container } = render(<Inventory />)
+    const { container } = renderAt(<Inventory />, '/inventory')
 
     await screen.findByText('Widget')
     expect(container.querySelector('img')).not.toBeInTheDocument()
@@ -146,7 +148,7 @@ describe('Inventory page', () => {
     })
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await screen.findByText('Widget')
     await screen.findByText('Low Stock Widget')
     await screen.findByText('Empty Widget')
@@ -175,7 +177,7 @@ describe('Inventory page', () => {
 
   it('expanding a product loads its SKUs, stock level, and batches', async () => {
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
 
     await user.click(await screen.findByText('Widget'))
 
@@ -188,26 +190,26 @@ describe('Inventory page', () => {
 
   it('keeps a row expanded across a remount (page refresh)', async () => {
     const user = userEvent.setup()
-    const { unmount } = render(<Inventory />)
+    const { unmount } = renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
     unmount()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
 
     expect(await screen.findByText('WIDGET-1')).toBeInTheDocument()
   })
 
   it('collapses again after the user explicitly re-collapses it, even across a remount', async () => {
     const user = userEvent.setup()
-    const { unmount } = render(<Inventory />)
+    const { unmount } = renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
     await user.click(screen.getByText('Widget'))
     expect(screen.queryByText('WIDGET-1')).not.toBeInTheDocument()
 
     unmount()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await screen.findByText('Widget')
 
     expect(screen.queryByText('WIDGET-1')).not.toBeInTheDocument()
@@ -217,7 +219,7 @@ describe('Inventory page', () => {
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([{ ...batch, quantity: 82 }])
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('LOT-1')
 
@@ -232,7 +234,7 @@ describe('Inventory page', () => {
     ])
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('LOT-2')
 
@@ -251,7 +253,7 @@ describe('Inventory page', () => {
     vi.mocked(inventoryApi.listBatches).mockResolvedValueOnce([batch]).mockResolvedValue([batch, newBatch])
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('LOT-1')
 
@@ -270,7 +272,7 @@ describe('Inventory page', () => {
     ])
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
 
     expect(await screen.findByText('General ledger')).toBeInTheDocument()
@@ -284,7 +286,7 @@ describe('Inventory page', () => {
     ])
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('LOT-1')
 
@@ -303,7 +305,7 @@ describe('Inventory page', () => {
     vi.mocked(inventoryApi.recordStockMovement).mockRejectedValue(new Error('insufficient stock for this batch/ledger'))
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
@@ -325,7 +327,7 @@ describe('Inventory page', () => {
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValueOnce(level).mockResolvedValue({ sku_id: 'sku-1', total: 15, syncable: 15 })
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
@@ -352,7 +354,7 @@ describe('Inventory page', () => {
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValueOnce(level).mockResolvedValue({ sku_id: 'sku-1', total: 15, syncable: 15 })
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     const productRow = (await screen.findByText('Widget')).closest('tr')!
     await waitFor(() => expect(within(productRow).getByText('10')).toBeInTheDocument())
 
@@ -372,7 +374,7 @@ describe('Inventory page', () => {
     vi.mocked(inventoryApi.recordStockMovement).mockRejectedValue(new Error('quantity_delta must be positive for receipt'))
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
@@ -389,7 +391,7 @@ describe('Inventory page', () => {
     vi.mocked(pmsApi.updateSKU).mockResolvedValue({ ...sku, price_minor_units: 1200, sale_price_minor_units: 900 })
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
@@ -418,7 +420,7 @@ describe('Inventory page', () => {
     vi.mocked(pmsApi.updateSKU).mockRejectedValue(new Error('sale price cannot exceed regular price'))
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
@@ -432,7 +434,7 @@ describe('Inventory page', () => {
 
   it('does not show a Split case action for an ordinary SKU', async () => {
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
@@ -452,7 +454,7 @@ describe('Inventory page', () => {
     })
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
@@ -471,7 +473,7 @@ describe('Inventory page', () => {
 
   it('does not show an Add item from weight pool action for an ordinary SKU', async () => {
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
@@ -491,7 +493,7 @@ describe('Inventory page', () => {
     })
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
@@ -520,7 +522,7 @@ describe('Inventory page', () => {
     })
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
@@ -555,7 +557,7 @@ describe('Inventory page', () => {
     )
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
@@ -576,7 +578,7 @@ describe('Inventory page', () => {
     vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([movement])
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
@@ -598,7 +600,7 @@ describe('Inventory page', () => {
 describe('Variant name in the SKU header', () => {
   it('shows the owning variant name next to the SKU code', async () => {
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
 
     const skuHeader = (await screen.findByText('WIDGET-1')).closest('span')!
@@ -609,7 +611,7 @@ describe('Variant name in the SKU header', () => {
 describe('Clicking a batch row opens a scoped action window', () => {
   it('opens a chooser naming the clicked batch, offering Adjust/Recount/Transfer/Damaged-Lost, with a Cancel', async () => {
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('LOT-1')
 
@@ -634,7 +636,7 @@ describe('Clicking a batch row opens a scoped action window', () => {
     vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue(movement)
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('LOT-1')
 
@@ -672,7 +674,7 @@ describe('Clicking a batch row opens a scoped action window', () => {
     vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue(movement)
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('General ledger')
 
@@ -700,7 +702,7 @@ describe('Clicking a batch row opens a scoped action window', () => {
     })
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('LOT-1')
 
@@ -728,7 +730,7 @@ describe('Clicking a batch row opens a scoped action window', () => {
 
   it('clicking a row action icon (History/Edit/Delete) does not open the row chooser', async () => {
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('LOT-1')
 
@@ -744,7 +746,7 @@ describe('Product-level movement history (account book across all SKUs)', () => 
     vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([])
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await screen.findByText('Widget')
 
     await user.click(screen.getByRole('button', { name: 'View full movement history' }))
@@ -777,7 +779,7 @@ describe('Product-level movement history (account book across all SKUs)', () => 
     })
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await screen.findByText('Widget')
 
     await user.click(screen.getByRole('button', { name: 'View full movement history' }))
@@ -798,7 +800,7 @@ describe('Product-level movement history (account book across all SKUs)', () => 
     vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([])
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await screen.findByText('Widget')
     await user.click(screen.getByRole('button', { name: 'View full movement history' }))
 
@@ -809,7 +811,7 @@ describe('Product-level movement history (account book across all SKUs)', () => 
     vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([])
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await screen.findByText('Widget')
     await user.click(screen.getByRole('button', { name: 'View full movement history' }))
     await screen.findByText('Movement History')
@@ -830,7 +832,7 @@ describe('Per-batch movement history', () => {
     vi.mocked(inventoryApi.listBatchMovements).mockResolvedValue([movement])
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('LOT-1')
 
@@ -851,7 +853,7 @@ describe('Per-batch movement history', () => {
     ])
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('General ledger')
 
@@ -862,7 +864,7 @@ describe('Per-batch movement history', () => {
     vi.mocked(inventoryApi.listBatchMovements).mockResolvedValue([])
 
     const user = userEvent.setup()
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('LOT-1')
 
@@ -883,7 +885,7 @@ describe('Expired batch review queue', () => {
   }
 
   it('shows no entry button when nothing is pending review', async () => {
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await screen.findByText('Widget')
 
     expect(screen.queryByText(/Expired batches/)).not.toBeInTheDocument()
@@ -892,7 +894,7 @@ describe('Expired batch review queue', () => {
   it('the Damaged / Lost / Discarded entry is always reachable, even with nothing pending review, and opens straight to the Discarded tab', async () => {
     vi.mocked(inventoryApi.listDiscards).mockResolvedValue({ discards: [], total: 0 })
 
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await screen.findByText('Widget')
     expect(screen.queryByText(/Expired batches/)).not.toBeInTheDocument()
 
@@ -905,7 +907,7 @@ describe('Expired batch review queue', () => {
   it('shows a badge button with the count when batches are pending review, opens the queue on click', async () => {
     vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
 
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     const badge = await screen.findByRole('button', { name: /Expired batches \(1\)/ })
     await userEvent.click(badge)
 
@@ -924,7 +926,7 @@ describe('Expired batch review queue', () => {
       discarded_at: '2026-08-17T00:00:00Z', created_at: '2026-08-17T00:00:00Z',
     })
 
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
     await screen.findByText('LOT-2')
 
@@ -941,7 +943,7 @@ describe('Expired batch review queue', () => {
   it('Discard modal Cancel closes without calling the API', async () => {
     vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
 
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
     await screen.findByText('LOT-2')
 
@@ -958,7 +960,7 @@ describe('Expired batch review queue', () => {
       .mockResolvedValue([])
     vi.mocked(inventoryApi.extendBatchExpiry).mockResolvedValue(null)
 
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
     await screen.findByText('LOT-2')
 
@@ -976,7 +978,7 @@ describe('Expired batch review queue', () => {
     vi.mocked(inventoryApi.dismissExpiredBatch).mockResolvedValue(null)
     const confirmSpy = vi.spyOn(window, 'confirm')
 
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
     await screen.findByText('LOT-2')
 
@@ -990,7 +992,7 @@ describe('Expired batch review queue', () => {
     vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
     vi.mocked(inventoryApi.discardBatch).mockRejectedValue(new Error('insufficient stock'))
 
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
     await screen.findByText('LOT-2')
 
@@ -1003,7 +1005,7 @@ describe('Expired batch review queue', () => {
   it('Back returns to the product list', async () => {
     vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
 
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
     await screen.findByText('Expiry & Discards')
 
@@ -1025,7 +1027,7 @@ describe('Expired batch review queue', () => {
       discarded_at: '2026-08-17T00:00:00Z', created_at: '2026-08-17T00:00:00Z',
     })
 
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Expiring soon' }))
 
@@ -1050,7 +1052,7 @@ describe('Expired batch review queue', () => {
       total: 1,
     })
 
-    render(<Inventory />)
+    renderAt(<Inventory />, '/inventory')
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Discarded' }))
 
@@ -1058,5 +1060,66 @@ describe('Expired batch review queue', () => {
     expect(screen.getByText('Gadget')).toBeInTheDocument()
     expect(screen.getByText('expired')).toBeInTheDocument()
     expect(screen.getByRole('img')).toHaveAttribute('src', 'https://example.com/photo.jpg')
+  })
+})
+
+describe('Inventory URLs (refresh + Back)', () => {
+  it('SKU history pushes its URL, which reloads the same history on its own', async () => {
+    vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([])
+    const user = userEvent.setup()
+    const { router, unmount } = renderAt(<Inventory />, '/inventory')
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+    await user.click(screen.getByRole('button', { name: /^History$/ }))
+    expect(router.state.location.pathname).toBe('/inventory/products/prod-1/skus/sku-1/history')
+    unmount()
+
+    vi.mocked(inventoryApi.listStockMovements).mockClear()
+    renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/history')
+    expect(await screen.findByText('Movement History')).toBeInTheDocument()
+    await waitFor(() => expect(inventoryApi.listStockMovements).toHaveBeenCalledWith('test-token', 'sku-1'))
+  })
+
+  it('/inventory/products/:id/history opens the product history on load', async () => {
+    vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([])
+    renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/history')
+    expect(await screen.findByText('Movement History')).toBeInTheDocument()
+    await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalledWith('test-token', 'prod-1'))
+  })
+
+  it('/inventory/products/:p/skus/:s/batches/:b/history opens the batch history on load', async () => {
+    vi.mocked(inventoryApi.listBatchMovements).mockResolvedValue([])
+    renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/batches/batch-1/history')
+    expect(await screen.findByText('Batch Movement History')).toBeInTheDocument()
+    await waitFor(() => expect(inventoryApi.listBatchMovements).toHaveBeenCalledWith('test-token', 'batch-1'))
+  })
+
+  it('browser Back from a history page returns to the list', async () => {
+    vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([])
+    const user = userEvent.setup()
+    const { router } = renderAt(<Inventory />, '/inventory')
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'View full movement history' }))
+    await screen.findByText('Movement History')
+
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname).toBe('/inventory')
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+  })
+
+  it('an unknown SKU in a history URL shows not-found', async () => {
+    renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/nope/history')
+    expect(await screen.findByText('SKU not found')).toBeInTheDocument()
+  })
+
+  it('search, page and stock filter are read from the URL', async () => {
+    renderAt(<Inventory />, '/inventory', '/inventory?q=wid&page=2')
+    await waitFor(() => expect(pmsApi.listProducts).toHaveBeenCalledWith('test-token', expect.objectContaining({ page: 2, search: 'wid' })))
+  })
+
+  it('/inventory/expiry opens the expiry review, tab in ?tab=', async () => {
+    const { router } = renderAt(<Inventory />, '/inventory', '/inventory/expiry?tab=discarded')
+    await waitFor(() => expect(inventoryApi.listDiscards).toHaveBeenCalled())
+    expect(router.state.location.pathname).toBe('/inventory/expiry')
   })
 })
