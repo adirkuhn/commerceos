@@ -77,10 +77,10 @@ type lockStubs struct {
 	releasePicking  *stubReleaseLock
 	takeOverPacking *stubTakeOverPacking
 	takeOverPicking *stubTakeOverPicking
-	queue        *stubListPackingQueue
-	startPacking *stubStartOrResumePacking
-	startPicking *stubStartOrResumePicking
-	markPicked   *stubMarkOrderPicked
+	queue           *stubListPackingQueue
+	startPacking    *stubStartOrResumePacking
+	startPicking    *stubStartOrResumePicking
+	markPicked      *stubMarkOrderPicked
 }
 
 // newTestRouterAs injects claims the way middleware.JWT would, so the

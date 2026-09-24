@@ -131,4 +131,3 @@ func TestStartOrResumePicking_opensAnotherUsersSessionReadOnly(t *testing.T) {
 	assert.Empty(t, sessionRepo.acquiredLocks)
 	assert.Equal(t, "user-2", *session.LockedBy)
 }
-
