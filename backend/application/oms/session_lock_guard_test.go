@@ -8,6 +8,7 @@ import (
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // After a takeover the previous holder must not keep working the session:
@@ -124,4 +125,47 @@ func TestRefundLineItem_rejectsCallerWhoLostTheLock(t *testing.T) {
 
 	assert.ErrorIs(t, err, omsDomain.ErrPackingSessionLocked)
 	assert.Empty(t, scanRepo.created)
+}
+
+// Opening a session only views it; the first write takes the lock.
+
+func TestScanPackItem_firstActionTakesTheLock(t *testing.T) {
+	db := newMockGormDB(t)
+	skuID := "sku-1"
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: &skuID, Quantity: 2}}}
+	uc := appoms.NewScanPackItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{})
+
+	_, err := uc.Execute(context.Background(), appoms.ScanPackItemInput{SessionID: "session-1", SKUID: skuID, Quantity: 1, ScannedBy: "user-1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"session-1"}, sessionRepo.acquiredLocks)
+}
+
+func TestSubstituteLineItem_firstActionTakesTheLock(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", Quantity: 1}}
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo)
+
+	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
+		SessionID: "session-1", LineItemID: "li-1", ScannedBy: "user-1",
+		Lines: []appoms.SubstituteLineInput{{SKUID: "sku-a", SubstituteQuantity: 1, OriginalQtyCovered: 1}},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"session-1"}, sessionRepo.acquiredLocks)
+}
+
+func TestScanPickItem_firstActionTakesTheLock(t *testing.T) {
+	db := newMockGormDB(t)
+	skuID := "sku-1"
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: &skuID, Quantity: 2}}}
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+
+	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: skuID, Quantity: 1, ScannedBy: "user-1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"session-1"}, sessionRepo.acquiredLocks)
 }

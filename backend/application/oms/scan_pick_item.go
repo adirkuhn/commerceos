@@ -128,8 +128,8 @@ func (uc *ScanPickItemUseCase) Execute(ctx context.Context, in ScanPickItemInput
 		if session.Status != omsDomain.PickingSessionStatusInProgress {
 			return omsDomain.ErrPickingSessionNotActive
 		}
-		if session.Lock().IsHeldByOther(in.ScannedBy, time.Now()) {
-			return omsDomain.ErrPickingSessionLocked
+		if err := claimPickingLock(ctx, uc.sessionRepo, session, in.ScannedBy, time.Now()); err != nil {
+			return err
 		}
 
 		skuID := in.SKUID

@@ -24,8 +24,7 @@ func TestStartOrResumePacking_createsNewSessionWhenNoneActive(t *testing.T) {
 	require.Len(t, sessionRepo.created, 1)
 	assert.Equal(t, "order-1", session.SalesOrderID)
 	assert.Equal(t, omsDomain.PackingSessionStatusInProgress, session.Status)
-	require.NotNil(t, session.LockedBy)
-	assert.Equal(t, "user-1", *session.LockedBy)
+	assert.Nil(t, session.LockedBy, "opening only views -- the first action takes the lock")
 }
 
 func TestStartOrResumePacking_reusesInProgressSession(t *testing.T) {
@@ -39,7 +38,7 @@ func TestStartOrResumePacking_reusesInProgressSession(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, sessionRepo.created, "must not create a duplicate session")
 	assert.Equal(t, "session-1", session.ID)
-	assert.Equal(t, []string{"session-1"}, sessionRepo.acquiredLocks)
+	assert.Empty(t, sessionRepo.acquiredLocks, "opening only views")
 }
 
 func TestStartOrResumePacking_allowsUnpickedOrderInPickableStatus(t *testing.T) {
@@ -141,24 +140,6 @@ func TestStartOrResumePacking_refusesToAbandonPickingWithPendingChanges(t *testi
 	assert.Empty(t, sessionRepo.created)
 }
 
-func TestStartOrResumePacking_adminTakesOverFreshPackingLock(t *testing.T) {
-	db := newMockGormDB(t)
-	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true, Status: omsDomain.SalesOrderStatusProcessing}}
-	other, now := "user-2", time.Now()
-	sessionRepo := &stubPackingSessionRepo{activeResult: &omsDomain.PackingSession{
-		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress,
-		LockedBy: &other, LockedAt: &now, LockedSince: &now,
-	}}
-	uc := appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, sessionRepo, &stubPickingSessionRepo{}, &stubPickScanRepo{})
-
-	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "admin-1", IsAdmin: true})
-
-	require.NoError(t, err)
-	assert.Equal(t, []string{"session-1"}, sessionRepo.acquiredLocks)
-	assert.Equal(t, "admin-1", *session.LockedBy)
-	assert.WithinDuration(t, time.Now(), *session.LockedSince, time.Second)
-}
-
 func TestStartOrResumePacking_propagatesPickingSessionLookupError(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing}}
@@ -182,7 +163,7 @@ func TestStartOrResumePacking_rejectsAlreadyPackedOrder(t *testing.T) {
 	assert.Empty(t, sessionRepo.created)
 }
 
-func TestStartOrResumePacking_rejectsWhenLockedByAnotherFreshUser(t *testing.T) {
+func TestStartOrResumePacking_opensAnotherUsersSessionReadOnly(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true, Status: omsDomain.SalesOrderStatusProcessing}}
 	otherUser := "user-2"
@@ -193,28 +174,12 @@ func TestStartOrResumePacking_rejectsWhenLockedByAnotherFreshUser(t *testing.T) 
 	}}
 	uc := appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, sessionRepo, &stubPickingSessionRepo{}, &stubPickScanRepo{})
 
-	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
-
-	assert.ErrorIs(t, err, omsDomain.ErrPackingSessionLocked)
-	assert.Empty(t, sessionRepo.acquiredLocks)
-}
-
-func TestStartOrResumePacking_allowsTakeoverWhenLockStale(t *testing.T) {
-	db := newMockGormDB(t)
-	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true, Status: omsDomain.SalesOrderStatusProcessing}}
-	otherUser := "user-2"
-	staleAt := time.Now().Add(-10 * time.Minute)
-	sessionRepo := &stubPackingSessionRepo{activeResult: &omsDomain.PackingSession{
-		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress,
-		LockedBy: &otherUser, LockedAt: &staleAt,
-	}}
-	uc := appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, sessionRepo, &stubPickingSessionRepo{}, &stubPickScanRepo{})
-
 	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
-	require.NoError(t, err)
-	assert.Equal(t, []string{"session-1"}, sessionRepo.acquiredLocks)
-	assert.Equal(t, "session-1", session.ID)
+	require.NoError(t, err, "anyone may look at an order someone else is packing")
+	assert.Empty(t, sessionRepo.acquiredLocks)
+	require.NotNil(t, session.LockedBy)
+	assert.Equal(t, "user-2", *session.LockedBy, "the lock is reported so the screen can show who has it")
 }
 
 func TestStartOrResumePacking_rejectsPickedOrderThatAlreadyShipped(t *testing.T) {

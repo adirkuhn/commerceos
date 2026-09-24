@@ -407,8 +407,9 @@ paths:
     post:
       operationId: startOrResumePicking
       summary: >
-        Scanner app -- start a new picking session for this order, or
-        resume its existing in_progress/paused one. Picking is optional.
+        Scanner app -- open this order's picking session (a new one, or its
+        existing in_progress/paused one). Opening only views: the first
+        scan takes the lock. Picking is optional.
         Rejected (422) if the order is already fulfilled or packed; 409 if
         the order has a packing session in progress, or another user
         actively holds the session's lock (see PickingSession.locked_by).
@@ -445,6 +446,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/PickingSessionDetailResponse'
         '404':
+          $ref: '#/components/responses/Error'
+
+  /picking-sessions/{id}/release:
+    post:
+      operationId: releasePickingSessionLock
+      summary: >
+        Leaving an order (select another, go back, close the tab) frees the
+        caller's lock on this picking session, so browsing never keeps
+        orders locked. A no-op (still 204) unless the caller holds the
+        lock -- leaving never frees someone else's.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: released (or nothing to release)
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /picking-sessions/{id}/take-over:
+    post:
+      operationId: takeOverPickingSession
+      summary: >
+        Explicitly take this picking session's lock: allowed when it's free,
+        stale (no heartbeat for 2 minutes), already the caller's, or the
+        caller is an admin (super_admin/customer_owner/customer_admin). The
+        previous holder's next action or heartbeat then gets 409.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: taken over
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickingSessionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
           $ref: '#/components/responses/Error'
 
   /picking-sessions/{id}/scan:
@@ -621,8 +662,11 @@ paths:
     post:
       operationId: startOrResumePacking
       summary: >
-        Packing screen -- start a new packing session for this order, or
-        resume its existing in_progress one. Only a pending/processing/
+        Packing screen -- open this order's packing session (a new one, or
+        its existing in_progress one). Opening only views: it never takes
+        the lock -- the first action (scan, change, finish) does, and a
+        session someone else holds comes back with their lock for a
+        read-only view. Only a pending/processing/
         on-hold, non-POS order is packed -- picked or not (picking is
         optional). An open picking session is taken over
         (closed as abandoned) when its lock is stale (no heartbeat for 2
@@ -757,6 +801,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ResolvePickScanCodeResultResponse'
         '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /packing-sessions/{id}/release:
+    post:
+      operationId: releasePackingSessionLock
+      summary: >
+        Leaving an order (select another, go back, close the tab) frees the
+        caller's lock on this packing session, so browsing never keeps
+        orders locked. A no-op (still 204) unless the caller holds the
+        lock -- leaving never frees someone else's.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: released (or nothing to release)
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /packing-sessions/{id}/take-over:
+    post:
+      operationId: takeOverPackingSession
+      summary: >
+        Explicitly take this packing session's lock: allowed when it's free,
+        stale (no heartbeat for 2 minutes), already the caller's, or the
+        caller is an admin (super_admin/customer_owner/customer_admin). The
+        previous holder's next action or heartbeat then gets 409.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: taken over
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackingSessionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
         '422':
           $ref: '#/components/responses/Error'

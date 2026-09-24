@@ -98,8 +98,8 @@ func (uc *RefundLineItemUseCase) Execute(ctx context.Context, in RefundLineItemI
 		if session.Status != omsDomain.PackingSessionStatusInProgress {
 			return omsDomain.ErrPackingSessionNotActive
 		}
-		if session.Lock().IsHeldByOther(in.ScannedBy, time.Now()) {
-			return omsDomain.ErrPackingSessionLocked
+		if err := claimPackingLock(ctx, uc.sessionRepo, session, in.ScannedBy, time.Now()); err != nil {
+			return err
 		}
 
 		li, err := uc.lineItemRepo.FindByID(ctx, in.LineItemID)

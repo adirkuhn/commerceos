@@ -54,18 +54,9 @@ func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID
 			return err
 		}
 		now := time.Now()
+		// Opening only views -- the lock is taken by the first scan (see
+		// claimPickingLock), so browsing orders never locks them.
 		if existing != nil {
-			// Someone else is actively working this session -- refuse
-			// unless their lock has gone stale or the caller is an admin
-			// (see SessionLock.CanTakeOver), otherwise two people end up
-			// scanning into the same order at once.
-			if !existing.Lock().CanTakeOver(actor, now) {
-				return omsDomain.ErrPickingSessionLocked
-			}
-			if err := uc.sessionRepo.AcquireLock(ctx, existing.ID, actor.UserID, now); err != nil {
-				return err
-			}
-			existing.ApplyLock(existing.Lock().AcquiredBy(actor.UserID, now))
 			if existing.Status == omsDomain.PickingSessionStatusPaused {
 				existing.Status = omsDomain.PickingSessionStatusInProgress
 				existing.PausedAt = nil
@@ -81,7 +72,6 @@ func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: salesOrderID,
 			Status: omsDomain.PickingSessionStatusInProgress, StartedAt: now,
 		}
-		session.ApplyLock(omsDomain.SessionLock{}.AcquiredBy(actor.UserID, now))
 		return uc.sessionRepo.Create(ctx, &session)
 	})
 	if err != nil {

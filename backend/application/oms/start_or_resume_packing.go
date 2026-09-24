@@ -10,9 +10,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// StartOrResumePackingUseCase mirrors StartOrResumePickingUseCase -- reuses
-// the order's existing in_progress packing session rather than creating a
-// duplicate, and enforces the same per-order lock (see SessionLock). Picking
+// StartOrResumePackingUseCase opens the order's packing session (reusing an
+// in_progress one rather than creating a duplicate). Opening only views --
+// it never takes the lock; the first write does (see claimPackingLock). Picking
 // is optional: an order that skipped the picking module may go straight to
 // packing (see SalesOrder.CanStartPacking). An open picking session on the
 // order is taken over when its lock allows (stale, the caller's own, or the
@@ -49,14 +49,11 @@ func (uc *StartOrResumePackingUseCase) Execute(ctx context.Context, salesOrderID
 		if err != nil {
 			return err
 		}
+		// Opening only views -- the lock is taken by the first write (see
+		// claimPackingLock), so browsing orders never locks them. A
+		// session someone else holds comes back with their lock, for the
+		// screen to show read-only.
 		if existing != nil {
-			if !existing.Lock().CanTakeOver(actor, now) {
-				return omsDomain.ErrPackingSessionLocked
-			}
-			if err := uc.sessionRepo.AcquireLock(ctx, existing.ID, actor.UserID, now); err != nil {
-				return err
-			}
-			existing.ApplyLock(existing.Lock().AcquiredBy(actor.UserID, now))
 			session = *existing
 			return nil
 		}
@@ -65,7 +62,6 @@ func (uc *StartOrResumePackingUseCase) Execute(ctx context.Context, salesOrderID
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: salesOrderID,
 			Status: omsDomain.PackingSessionStatusInProgress, StartedAt: now,
 		}
-		session.ApplyLock(omsDomain.SessionLock{}.AcquiredBy(actor.UserID, now))
 		return uc.sessionRepo.Create(ctx, &session)
 	})
 	if err != nil {

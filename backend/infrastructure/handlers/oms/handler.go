@@ -135,6 +135,7 @@ type Handler struct {
 	markOrderPicked  markOrderPickedUC
 
 	resolvePackScanCode resolvePickScanCodeUC
+	locks               SessionLockUseCases
 }
 
 func NewHandler(
@@ -153,7 +154,7 @@ func NewHandler(
 	touchPackingSession touchPackingSessionUC, resetPackingSession resetPackingSessionUC,
 	scanPackItem scanPackItemUC, deletePackScan deletePackScanUC, completePacking completePackingUC,
 	buildPickList buildPickListUC, listPackingQueue listPackingQueueUC, markOrderPicked markOrderPickedUC,
-	resolvePackScanCode resolvePickScanCodeUC,
+	resolvePackScanCode resolvePickScanCodeUC, locks SessionLockUseCases,
 ) *Handler {
 	return &Handler{
 		listSalesOrders: listSalesOrders, getSalesOrder: getSalesOrder,
@@ -171,7 +172,7 @@ func NewHandler(
 		touchPackingSession: touchPackingSession, resetPackingSession: resetPackingSession,
 		scanPackItem: scanPackItem, deletePackScan: deletePackScan, completePacking: completePacking,
 		buildPickList: buildPickList, listPackingQueue: listPackingQueue, markOrderPicked: markOrderPicked,
-		resolvePackScanCode: resolvePackScanCode,
+		resolvePackScanCode: resolvePackScanCode, locks: locks,
 	}
 }
 
@@ -276,6 +277,12 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewListPackingQueueUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo),
 		appoms.NewMarkOrderPickedUseCase(db, salesOrderRepo, packingSessionRepo, pickingSessionRepo, pickScanRepo, repositories.NewSalesOrderActivityRepo(db)),
 		appoms.NewResolvePackScanCodeUseCase(db, packingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
+		SessionLockUseCases{
+			ReleasePacking:  appoms.NewReleasePackingSessionLockUseCase(db, packingSessionRepo),
+			ReleasePicking:  appoms.NewReleasePickingSessionLockUseCase(db, pickingSessionRepo),
+			TakeOverPacking: appoms.NewTakeOverPackingSessionUseCase(db, packingSessionRepo),
+			TakeOverPicking: appoms.NewTakeOverPickingSessionUseCase(db, pickingSessionRepo),
+		},
 	)
 	genoms.RegisterHandlers(rg, h)
 }

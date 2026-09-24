@@ -35,7 +35,48 @@ func (s *stubListPackingQueue) Execute(_ context.Context, page, perPage int) (*a
 	return &appoms.ListPackingQueueResult{}, nil
 }
 
+type stubReleaseLock struct {
+	err          error
+	gotSessionID string
+	gotUserID    string
+}
+
+func (s *stubReleaseLock) Execute(_ context.Context, sessionID, userID string) error {
+	s.gotSessionID, s.gotUserID = sessionID, userID
+	return s.err
+}
+
+type stubTakeOverPacking struct {
+	err      error
+	gotActor omsDomain.LockActor
+}
+
+func (s *stubTakeOverPacking) Execute(_ context.Context, sessionID string, actor omsDomain.LockActor) (*omsDomain.PackingSession, error) {
+	s.gotActor = actor
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &omsDomain.PackingSession{ID: sessionID, Status: omsDomain.PackingSessionStatusInProgress, LockedBy: &actor.UserID}, nil
+}
+
+type stubTakeOverPicking struct {
+	err      error
+	gotActor omsDomain.LockActor
+}
+
+func (s *stubTakeOverPicking) Execute(_ context.Context, sessionID string, actor omsDomain.LockActor) (*omsDomain.PickingSession, error) {
+	s.gotActor = actor
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &omsDomain.PickingSession{ID: sessionID, Status: omsDomain.PickingSessionStatusInProgress, LockedBy: &actor.UserID}, nil
+}
+
 type lockStubs struct {
+	releasePacking  *stubReleaseLock
+	releasePicking  *stubReleaseLock
+	takeOverPacking *stubTakeOverPacking
+	takeOverPicking *stubTakeOverPicking
 	queue        *stubListPackingQueue
 	startPacking *stubStartOrResumePacking
 	startPicking *stubStartOrResumePicking
@@ -52,7 +93,8 @@ func newTestRouterAs(role middleware.Role, s lockStubs) *gin.Engine {
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{},
 		&stubListSalesOrderActivities{},
 		s.startPacking, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, s.queue, s.markPicked, &stubResolvePickScanCode{})
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, s.queue, s.markPicked, &stubResolvePickScanCode{},
+		omshandler.SessionLockUseCases{ReleasePacking: s.releasePacking, ReleasePicking: s.releasePicking, TakeOverPacking: s.takeOverPacking, TakeOverPicking: s.takeOverPicking})
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
 		c.Set("jwt_claims", &middleware.Claims{UserID: "user-1", TenantID: "tenant-1", Role: role})
@@ -63,7 +105,8 @@ func newTestRouterAs(role middleware.Role, s lockStubs) *gin.Engine {
 }
 
 func newLockStubs() lockStubs {
-	return lockStubs{queue: &stubListPackingQueue{}, startPacking: &stubStartOrResumePacking{}, startPicking: &stubStartOrResumePicking{}, markPicked: &stubMarkOrderPicked{}}
+	return lockStubs{queue: &stubListPackingQueue{}, startPacking: &stubStartOrResumePacking{}, startPicking: &stubStartOrResumePicking{}, markPicked: &stubMarkOrderPicked{},
+		releasePacking: &stubReleaseLock{}, releasePicking: &stubReleaseLock{}, takeOverPacking: &stubTakeOverPacking{}, takeOverPicking: &stubTakeOverPicking{}}
 }
 
 func TestListPackingQueue_returnsEntriesWithLocks(t *testing.T) {
@@ -192,4 +235,50 @@ func TestMarkOrderPicked_errors(t *testing.T) {
 			assert.Equal(t, tc.code, w.Code)
 		})
 	}
+}
+
+func TestReleaseSessionLocks_useTheCaller(t *testing.T) {
+	s := newLockStubs()
+	r := newTestRouterAs(middleware.RoleCustomerUser, s)
+
+	require.Equal(t, http.StatusNoContent, doRequest(r, "POST", "/api/v1/packing-sessions/pack-1/release", nil).Code)
+	require.Equal(t, http.StatusNoContent, doRequest(r, "POST", "/api/v1/picking-sessions/pick-1/release", nil).Code)
+
+	assert.Equal(t, "pack-1", s.releasePacking.gotSessionID)
+	assert.Equal(t, "user-1", s.releasePacking.gotUserID)
+	assert.Equal(t, "pick-1", s.releasePicking.gotSessionID)
+	assert.Equal(t, "user-1", s.releasePicking.gotUserID)
+}
+
+func TestReleaseSessionLock_notFound(t *testing.T) {
+	s := newLockStubs()
+	s.releasePacking.err = omsDomain.ErrPackingSessionNotFound
+
+	w := doRequest(newTestRouterAs(middleware.RoleCustomerUser, s), "POST", "/api/v1/packing-sessions/missing/release", nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestTakeOverSessions_passTheCallersAdminRights(t *testing.T) {
+	s := newLockStubs()
+	r := newTestRouterAs(middleware.RoleCustomerOwner, s)
+
+	w := doRequest(r, "POST", "/api/v1/packing-sessions/pack-1/take-over", nil)
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"locked_by":"user-1"`)
+	require.Equal(t, http.StatusOK, doRequest(r, "POST", "/api/v1/picking-sessions/pick-1/take-over", nil).Code)
+
+	want := omsDomain.LockActor{UserID: "user-1", IsAdmin: true}
+	assert.Equal(t, want, s.takeOverPacking.gotActor)
+	assert.Equal(t, want, s.takeOverPicking.gotActor)
+}
+
+func TestTakeOverSession_lockedIsConflict(t *testing.T) {
+	s := newLockStubs()
+	s.takeOverPacking.err = omsDomain.ErrPackingSessionLocked
+	s.takeOverPicking.err = omsDomain.ErrPickingSessionLocked
+	r := newTestRouterAs(middleware.RoleCustomerUser, s)
+
+	assert.Equal(t, http.StatusConflict, doRequest(r, "POST", "/api/v1/packing-sessions/pack-1/take-over", nil).Code)
+	assert.Equal(t, http.StatusConflict, doRequest(r, "POST", "/api/v1/picking-sessions/pick-1/take-over", nil).Code)
 }
