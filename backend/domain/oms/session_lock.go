@@ -61,7 +61,11 @@ func setLock(l SessionLock, holder **string, heartbeat, since **time.Time) {
 }
 
 // ApplyLock sets the session's lock fields from l.
-func (s *PickingSession) ApplyLock(l SessionLock) { setLock(l, &s.LockedBy, &s.LockedAt, &s.LockedSince) }
+func (s *PickingSession) ApplyLock(l SessionLock) {
+	setLock(l, &s.LockedBy, &s.LockedAt, &s.LockedSince)
+}
 
 // ApplyLock sets the session's lock fields from l.
-func (s *PackingSession) ApplyLock(l SessionLock) { setLock(l, &s.LockedBy, &s.LockedAt, &s.LockedSince) }
+func (s *PackingSession) ApplyLock(l SessionLock) {
+	setLock(l, &s.LockedBy, &s.LockedAt, &s.LockedSince)
+}

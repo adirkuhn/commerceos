@@ -332,4 +332,3 @@ func (a *orderChangeApplier) markApplied(ctx context.Context, marker changeMarke
 		return marker.MarkReplayed(ctx, id, time.Now())
 	})
 }
-
