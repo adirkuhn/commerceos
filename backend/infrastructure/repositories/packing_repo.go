@@ -28,14 +28,20 @@ type packingSessionModel struct {
 func (packingSessionModel) TableName() string { return "packing_sessions" }
 
 type packScanModel struct {
-	ID         string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID   string `gorm:"not null;type:uuid"`
-	SessionID  string `gorm:"column:session_id;not null;type:uuid"`
-	LineItemID string `gorm:"column:line_item_id;not null;type:uuid"`
-	SKUID      string `gorm:"column:sku_id;not null;type:uuid"`
-	Quantity   int64
-	ScannedAt  time.Time
-	ScannedBy  string
+	ID                 string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID           string  `gorm:"not null;type:uuid"`
+	SessionID          string  `gorm:"column:session_id;not null;type:uuid"`
+	LineItemID         *string `gorm:"column:line_item_id;type:uuid"`
+	SKUID              string  `gorm:"column:sku_id;not null;type:uuid"`
+	ActionType         string  `gorm:"column:action_type;not null;default:pack"`
+	Quantity           int64
+	OriginalQtyCovered *int64 `gorm:"column:original_qty_covered"`
+	ReturnToStock      bool   `gorm:"column:return_to_stock;not null;default:false"`
+	PriceMinorUnits    *int64 `gorm:"column:price_minor_units"`
+	Reason             string
+	ScannedAt          time.Time
+	ScannedBy          string
+	ReplayedAt         *time.Time `gorm:"column:replayed_at"`
 }
 
 func (packScanModel) TableName() string { return "pack_scans" }
@@ -180,14 +186,21 @@ func (r *PackScanRepo) Create(ctx context.Context, s *omsDomain.PackScan) error 
 	if err != nil {
 		return err
 	}
+	action := s.ActionType
+	if action == "" {
+		action = omsDomain.PackScanActionPack
+	}
 	m := packScanModel{
 		ID: s.ID, TenantID: s.TenantID, SessionID: s.SessionID, LineItemID: s.LineItemID, SKUID: s.SKUID,
-		Quantity: s.Quantity, ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
+		ActionType: string(action), Quantity: s.Quantity, OriginalQtyCovered: s.OriginalQtyCovered,
+		ReturnToStock: s.ReturnToStock, PriceMinorUnits: s.PriceMinorUnits, Reason: s.Reason,
+		ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy, ReplayedAt: s.ReplayedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("packScanRepo.Create: %w", err)
 	}
 	s.ID = m.ID
+	s.ActionType = action
 	return nil
 }
 
@@ -204,10 +217,24 @@ func (r *PackScanRepo) ListBySession(ctx context.Context, sessionID string) ([]o
 	for i, m := range rows {
 		scans[i] = omsDomain.PackScan{
 			ID: m.ID, TenantID: m.TenantID, SessionID: m.SessionID, LineItemID: m.LineItemID, SKUID: m.SKUID,
-			Quantity: m.Quantity, ScannedAt: m.ScannedAt, ScannedBy: m.ScannedBy,
+			ActionType: omsDomain.PackScanActionType(m.ActionType), Quantity: m.Quantity,
+			OriginalQtyCovered: m.OriginalQtyCovered, ReturnToStock: m.ReturnToStock, PriceMinorUnits: m.PriceMinorUnits,
+			Reason: m.Reason, ScannedAt: m.ScannedAt, ScannedBy: m.ScannedBy, ReplayedAt: m.ReplayedAt,
 		}
 	}
 	return scans, nil
+}
+
+// MarkReplayed -- see PackScanRepository.MarkReplayed.
+func (r *PackScanRepo) MarkReplayed(ctx context.Context, id string, replayedAt time.Time) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&packScanModel{}).Where("id = ?", id).Update("replayed_at", replayedAt).Error; err != nil {
+		return fmt.Errorf("packScanRepo.MarkReplayed: %w", err)
+	}
+	return nil
 }
 
 func (r *PackScanRepo) Delete(ctx context.Context, id string) error {

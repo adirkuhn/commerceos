@@ -172,7 +172,7 @@ type paymentRefundClientResolver interface {
 // StockShortfallWithoutItem) are soft-reported via MissingItems, which
 // never blocks completion.
 //
-// The changes themselves are applied by orderChangeApplier, shared with
+// The changes themselves are applied by OrderChangeApplier, shared with
 // CompletePackingUseCase.
 type CompletePickingUseCase struct {
 	db             *gorm.DB
@@ -180,7 +180,7 @@ type CompletePickingUseCase struct {
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	scanRepo       omsDomain.PickScanRepository
-	applier        *orderChangeApplier
+	applier        *OrderChangeApplier
 }
 
 func NewCompletePickingUseCase(
@@ -200,11 +200,8 @@ func NewCompletePickingUseCase(
 ) *CompletePickingUseCase {
 	return &CompletePickingUseCase{
 		db: db, sessionRepo: sessionRepo, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, scanRepo: scanRepo,
-		applier: &orderChangeApplier{
-			db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo,
-			addLineItem: addLineItem, recordMovement: recordMovement, reverseMovement: reverseMovement,
-			stockChecker: stockChecker, skuRepo: skuRepo, outboxRepo: outboxRepo, refundClientResolver: refundClientResolver,
-		},
+		applier: NewOrderChangeApplier(db, salesOrderRepo, lineItemRepo, linkRepo, addLineItem, recordMovement,
+			reverseMovement, stockChecker, skuRepo, outboxRepo, refundClientResolver),
 	}
 }
 

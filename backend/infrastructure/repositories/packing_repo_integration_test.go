@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
@@ -16,8 +17,8 @@ import (
 )
 
 // seedSalesOrderWithLineItemForPackingDB seeds an order plus one real line
-// item -- pack_scans.line_item_id is NOT NULL (unlike pick_scans, packing
-// never targets a not-yet-linked line, see PackScan's doc comment), so a
+// item -- a plain pack scan always targets a real line (only a freebie/new
+// item has none, see PackScan's doc comment), so a
 // packing test always needs a real line item row to reference.
 func seedSalesOrderWithLineItemForPackingDB(t *testing.T, db *gorm.DB, ctx context.Context, skuID, warehouseID string) (orderID, lineItemID string) {
 	t.Helper()
@@ -197,7 +198,7 @@ func TestPackScanRepo_Integration_CreateListBySessionOrdersByScannedAtAndDelete(
 
 		older := time.Now().Add(-time.Hour)
 		olderScan := omsDomain.PackScan{
-			TenantID: tenant.IDFromContext(ctx), SessionID: sessionID, LineItemID: lineItemID, SKUID: skuID,
+			TenantID: tenant.IDFromContext(ctx), SessionID: sessionID, LineItemID: &lineItemID, SKUID: skuID,
 			Quantity: 1, ScannedAt: older, ScannedBy: "user-1",
 		}
 		if err := scanRepo.Create(ctx, &olderScan); err != nil {
@@ -207,7 +208,7 @@ func TestPackScanRepo_Integration_CreateListBySessionOrdersByScannedAtAndDelete(
 
 		newer := time.Now()
 		newerScan := omsDomain.PackScan{
-			TenantID: tenant.IDFromContext(ctx), SessionID: sessionID, LineItemID: lineItemID, SKUID: skuID,
+			TenantID: tenant.IDFromContext(ctx), SessionID: sessionID, LineItemID: &lineItemID, SKUID: skuID,
 			Quantity: 1, ScannedAt: newer, ScannedBy: "user-1",
 		}
 		return scanRepo.Create(ctx, &newerScan)
@@ -274,4 +275,74 @@ func TestPackingSessionRepo_Integration_RLSIsolatesTenants(t *testing.T) {
 		return err
 	})
 	require.ErrorIs(t, err, omsDomain.ErrPackingSessionNotFound, "tenant B must not see tenant A's packing session")
+}
+
+// Order changes recorded while packing round-trip every field, a freebie
+// stores no line item, and MarkReplayed stamps a row once applied.
+func TestPackScanRepo_Integration_OrderChangesRoundTripAndMarkReplayed(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	sessionRepo := repositories.NewPackingSessionRepo(db)
+	scanRepo := repositories.NewPackScanRepo(db)
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	orderID, lineItemID := seedSalesOrderWithLineItemForPackingDB(t, db, ctx, skuID, warehouseID)
+
+	covered, price := int64(1), int64(250)
+	var substituteID, freebieID, plainID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		session := omsDomain.PackingSession{TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, Status: omsDomain.PackingSessionStatusInProgress, StartedAt: time.Now()}
+		if err := sessionRepo.Create(ctx, &session); err != nil {
+			return err
+		}
+		base := time.Now().Add(-time.Minute)
+		rows := []*omsDomain.PackScan{
+			{TenantID: tenant.IDFromContext(ctx), SessionID: session.ID, LineItemID: &lineItemID, SKUID: skuID, Quantity: 1, ScannedAt: base},
+			{TenantID: tenant.IDFromContext(ctx), SessionID: session.ID, LineItemID: &lineItemID, SKUID: skuID, ActionType: omsDomain.PackScanActionSubstitute,
+				Quantity: 3, OriginalQtyCovered: &covered, ReturnToStock: true, Reason: "out of stock", ScannedAt: base.Add(time.Second)},
+			{TenantID: tenant.IDFromContext(ctx), SessionID: session.ID, SKUID: skuID, ActionType: omsDomain.PackScanActionNewItem,
+				Quantity: 1, PriceMinorUnits: &price, Reason: "Extra jar", ScannedAt: base.Add(2 * time.Second)},
+		}
+		for _, r := range rows {
+			if err := scanRepo.Create(ctx, r); err != nil {
+				return err
+			}
+		}
+		plainID, substituteID, freebieID = rows[0].ID, rows[1].ID, rows[2].ID
+		if rows[0].ActionType != omsDomain.PackScanActionPack {
+			t.Errorf("an unset action is stored as pack, got %q", rows[0].ActionType)
+		}
+		return scanRepo.MarkReplayed(ctx, substituteID, time.Now())
+	})
+	require.NoError(t, err)
+
+	var scans []omsDomain.PackScan
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		sessions, err := sessionRepo.ListActiveBySalesOrders(ctx, []string{orderID})
+		if err != nil {
+			return err
+		}
+		scans, err = scanRepo.ListBySession(ctx, sessions[0].ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, scans, 3)
+
+	assert.Equal(t, plainID, scans[0].ID)
+	assert.Equal(t, omsDomain.PackScanActionPack, scans[0].ActionType)
+
+	sub := scans[1]
+	assert.Equal(t, substituteID, sub.ID)
+	assert.Equal(t, omsDomain.PackScanActionSubstitute, sub.ActionType)
+	require.NotNil(t, sub.OriginalQtyCovered)
+	assert.Equal(t, int64(1), *sub.OriginalQtyCovered)
+	assert.True(t, sub.ReturnToStock)
+	assert.Equal(t, "out of stock", sub.Reason)
+	assert.NotNil(t, sub.ReplayedAt)
+
+	extra := scans[2]
+	assert.Equal(t, freebieID, extra.ID)
+	assert.Nil(t, extra.LineItemID)
+	require.NotNil(t, extra.PriceMinorUnits)
+	assert.Equal(t, int64(250), *extra.PriceMinorUnits)
+	assert.Nil(t, extra.ReplayedAt)
 }

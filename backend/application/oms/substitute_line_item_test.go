@@ -12,7 +12,7 @@ import (
 
 func TestSubstituteLineItem_rejectsEmptyLines(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{})
+	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{SessionID: "session-1", LineItemID: "li-1"})
 
@@ -21,7 +21,7 @@ func TestSubstituteLineItem_rejectsEmptyLines(t *testing.T) {
 
 func TestSubstituteLineItem_rejectsNonPositiveSubstituteQuantity(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{})
+	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -33,7 +33,7 @@ func TestSubstituteLineItem_rejectsNonPositiveSubstituteQuantity(t *testing.T) {
 
 func TestSubstituteLineItem_rejectsNonPositiveOriginalQtyCovered(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{})
+	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -45,7 +45,7 @@ func TestSubstituteLineItem_rejectsNonPositiveOriginalQtyCovered(t *testing.T) {
 
 func TestSubstituteLineItem_rejectsEmptySKUID(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{})
+	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -57,35 +57,35 @@ func TestSubstituteLineItem_rejectsEmptySKUID(t *testing.T) {
 
 func TestSubstituteLineItem_rejectsWhenSessionNotFound(t *testing.T) {
 	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDErr: omsDomain.ErrPickingSessionNotFound}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{})
+	sessionRepo := &stubPackingSessionRepo{findByIDErr: omsDomain.ErrPackingSessionNotFound}
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
 		Lines: []appoms.SubstituteLineInput{{SKUID: "sku-a", SubstituteQuantity: 1, OriginalQtyCovered: 1}},
 	})
 
-	assert.ErrorIs(t, err, omsDomain.ErrPickingSessionNotFound)
+	assert.ErrorIs(t, err, omsDomain.ErrPackingSessionNotFound)
 }
 
 func TestSubstituteLineItem_rejectsWhenSessionNotActive(t *testing.T) {
 	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusPaused}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{})
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusCompleted}}
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
 		Lines: []appoms.SubstituteLineInput{{SKUID: "sku-a", SubstituteQuantity: 1, OriginalQtyCovered: 1}},
 	})
 
-	assert.ErrorIs(t, err, omsDomain.ErrPickingSessionNotActive)
+	assert.ErrorIs(t, err, omsDomain.ErrPackingSessionNotActive)
 }
 
 func TestSubstituteLineItem_rejectsLineItemNotFound(t *testing.T) {
 	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDErr: omsDomain.ErrSalesOrderLineItemNotFound}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo)
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -97,9 +97,9 @@ func TestSubstituteLineItem_rejectsLineItemNotFound(t *testing.T) {
 
 func TestSubstituteLineItem_rejectsLineItemFromAnotherOrder(t *testing.T) {
 	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-2", Quantity: 1}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo)
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -111,9 +111,9 @@ func TestSubstituteLineItem_rejectsLineItemFromAnotherOrder(t *testing.T) {
 
 func TestSubstituteLineItem_rejectsCoverageTooLow(t *testing.T) {
 	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", Quantity: 5}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo)
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -125,9 +125,9 @@ func TestSubstituteLineItem_rejectsCoverageTooLow(t *testing.T) {
 
 func TestSubstituteLineItem_rejectsCoverageTooHigh(t *testing.T) {
 	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", Quantity: 5}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo)
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -139,9 +139,9 @@ func TestSubstituteLineItem_rejectsCoverageTooHigh(t *testing.T) {
 
 func TestSubstituteLineItem_happyPathSingleLine(t *testing.T) {
 	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", Quantity: 5}}
-	scanRepo := &stubPickScanRepo{}
+	scanRepo := &stubPackScanRepo{}
 	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
 
 	result, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
@@ -153,7 +153,7 @@ func TestSubstituteLineItem_happyPathSingleLine(t *testing.T) {
 	require.Len(t, scanRepo.created, 1)
 	require.Len(t, result.Scans, 1)
 	s := result.Scans[0]
-	assert.Equal(t, omsDomain.PickScanActionSubstitute, s.ActionType)
+	assert.Equal(t, omsDomain.PackScanActionSubstitute, s.ActionType)
 	require.NotNil(t, s.LineItemID)
 	assert.Equal(t, "li-1", *s.LineItemID)
 	assert.Equal(t, "sku-sub", s.SKUID)
@@ -165,19 +165,19 @@ func TestSubstituteLineItem_happyPathSingleLine(t *testing.T) {
 	assert.Equal(t, "out of stock", s.Reason)
 }
 
-// TestSubstituteLineItem_partialPick_substituteJustTheRemainder is a
+// TestSubstituteLineItem_partialPack_substituteJustTheRemainder is a
 // regression test for a real bug: an order line for 4x Beans, 3 already
-// picked (staged Pick scans), and a picker wants to substitute only the
+// picked (Pack scans), and a picker wants to substitute only the
 // last unit. The coverage check used to require covering the line's full
 // original Quantity (4) regardless of what was already picked, making a
 // partial substitute impossible. It must now require covering exactly
 // what's left (1).
-func TestSubstituteLineItem_partialPick_substituteJustTheRemainder(t *testing.T) {
+func TestSubstituteLineItem_partialPack_substituteJustTheRemainder(t *testing.T) {
 	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-beans", SalesOrderID: "order-1", Quantity: 4}}
-	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
-		{ID: "scan-1", LineItemID: strPtr("li-beans"), ActionType: omsDomain.PickScanActionPick, Quantity: 3},
+	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{
+		{ID: "scan-1", LineItemID: strPtr("li-beans"), ActionType: omsDomain.PackScanActionPack, Quantity: 3},
 	}}
 	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
 
@@ -191,16 +191,16 @@ func TestSubstituteLineItem_partialPick_substituteJustTheRemainder(t *testing.T)
 	assert.Equal(t, int64(1), *result.Scans[0].OriginalQtyCovered)
 }
 
-// TestSubstituteLineItem_partialPick_rejectsSubstitutingTheFullOriginalQuantity
+// TestSubstituteLineItem_partialPack_rejectsSubstitutingTheFullOriginalQuantity
 // is the flip side: after 3 of 4 are already picked, trying to substitute
 // all 4 (the old, buggy requirement) must now be rejected -- only 1 unit is
 // actually available to substitute.
-func TestSubstituteLineItem_partialPick_rejectsSubstitutingTheFullOriginalQuantity(t *testing.T) {
+func TestSubstituteLineItem_partialPack_rejectsSubstitutingTheFullOriginalQuantity(t *testing.T) {
 	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-beans", SalesOrderID: "order-1", Quantity: 4}}
-	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
-		{ID: "scan-1", LineItemID: strPtr("li-beans"), ActionType: omsDomain.PickScanActionPick, Quantity: 3},
+	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{
+		{ID: "scan-1", LineItemID: strPtr("li-beans"), ActionType: omsDomain.PackScanActionPack, Quantity: 3},
 	}}
 	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
 
@@ -214,15 +214,15 @@ func TestSubstituteLineItem_partialPick_rejectsSubstitutingTheFullOriginalQuanti
 
 // TestSubstituteLineItem_coverageCountsExistingSubstituteScansToo proves
 // coveredQuantity's second scan type (Substitute, via OriginalQtyCovered)
-// is honored too, not just Pick -- e.g. a prior partial substitute already
+// is honored too, not just Pack -- e.g. a prior partial substitute already
 // covered 2 of 4, so a second batch must cover exactly the remaining 2.
 func TestSubstituteLineItem_coverageCountsExistingSubstituteScansToo(t *testing.T) {
 	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-beans", SalesOrderID: "order-1", Quantity: 4}}
 	alreadyCovered := int64(2)
-	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
-		{ID: "scan-1", LineItemID: strPtr("li-beans"), ActionType: omsDomain.PickScanActionSubstitute, Quantity: 10, OriginalQtyCovered: &alreadyCovered},
+	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{
+		{ID: "scan-1", LineItemID: strPtr("li-beans"), ActionType: omsDomain.PackScanActionSubstitute, Quantity: 10, OriginalQtyCovered: &alreadyCovered},
 	}}
 	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
 
@@ -236,14 +236,14 @@ func TestSubstituteLineItem_coverageCountsExistingSubstituteScansToo(t *testing.
 }
 
 // TestSubstituteLineItem_ignoresOtherLineItemsScans proves coveredQuantity
-// filters by LineItemID -- a Pick scan against a different line on the
+// filters by LineItemID -- a Pack scan against a different line on the
 // same order/session must not affect this line's remaining-quantity math.
 func TestSubstituteLineItem_ignoresOtherLineItemsScans(t *testing.T) {
 	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-beans", SalesOrderID: "order-1", Quantity: 4}}
-	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
-		{ID: "scan-1", LineItemID: strPtr("li-other"), ActionType: omsDomain.PickScanActionPick, Quantity: 3},
+	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{
+		{ID: "scan-1", LineItemID: strPtr("li-other"), ActionType: omsDomain.PackScanActionPack, Quantity: 3},
 	}}
 	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
 
@@ -257,13 +257,13 @@ func TestSubstituteLineItem_ignoresOtherLineItemsScans(t *testing.T) {
 
 func TestSubstituteLineItem_happyPathMultipleLinesSplitAcrossCheaperSKUs(t *testing.T) {
 	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	// One original unit covered jointly by two different cheaper SKUs
 	// (3 of one, 4 of the other) plus a second original unit returned to
 	// stock via a third substitute line -- exercises both multi-line split
 	// and per-line ReturnToStock varying within the same batch.
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", Quantity: 2}}
-	scanRepo := &stubPickScanRepo{}
+	scanRepo := &stubPackScanRepo{}
 	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
 
 	result, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{

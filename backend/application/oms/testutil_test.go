@@ -578,6 +578,16 @@ type stubPackScanRepo struct {
 	listErr       error
 	deleteErr     error
 	deleted       []string
+	markReplayed  []string
+	markErr       error
+}
+
+func (s *stubPackScanRepo) MarkReplayed(_ context.Context, id string, _ time.Time) error {
+	if s.markErr != nil {
+		return s.markErr
+	}
+	s.markReplayed = append(s.markReplayed, id)
+	return nil
 }
 
 func (s *stubPackScanRepo) Create(_ context.Context, scan *omsDomain.PackScan) error {
@@ -738,3 +748,5 @@ func (s *stubPaymentRefundClientResolver) Resolve(_ context.Context, provider st
 	s.gotProvider = provider
 	return s.resolveResult, s.resolveOK, s.resolveErr
 }
+
+func strPtrLI(s string) *string { return &s }

@@ -44,22 +44,15 @@ type ScanPickItemInput struct {
 	// tapping a line item row on the scanner screen) without a barcode --
 	// skips the Code resolution path entirely when set.
 	SKUID string
-	// LineItemID is unused here -- Substitute (the only action type that
-	// ever needed a caller-supplied line item) is rejected by this use
-	// case, see ErrSubstituteViaBatchEndpointOnly. Pick resolves its own
-	// line item by matching the scanned SKU against the order's line items
-	// (never trusts a caller-supplied one); Freebie/NewItem have no line
-	// item yet.
-	LineItemID string
-	// ActionType defaults to PickScanActionPick when empty.
+	// ActionType defaults to PickScanActionPick when empty -- the only
+	// action picking accepts; order changes are recorded in packing (see
+	// ErrOrderChangesHappenInPacking). The line item is always resolved by
+	// matching the scanned SKU against the order's lines.
 	ActionType omsDomain.PickScanActionType
 	// Quantity is always a positive magnitude.
-	Quantity int64
-	// PriceMinorUnits is required for NewItem, ignored (forced to 0) for
-	// Freebie, and ignored (nil) for Pick/Substitute.
-	PriceMinorUnits *int64
-	Reason          string
-	ScannedBy       string
+	Quantity  int64
+	Reason    string
+	ScannedBy string
 }
 
 type ScanPickItemResult struct {
@@ -67,8 +60,8 @@ type ScanPickItemResult struct {
 }
 
 // ScanPickItemUseCase is the scanner app's "scan a barcode, confirm" action
-// for picking -- and its Substitute/Freebie/New-Item siblings. Resolves the
-// code to a SKU and writes ONE staged PickScan row. That's it -- this use
+// for picking. Picking only picks (order changes are recorded in packing).
+// Resolves the code to a SKU and writes ONE staged PickScan row. That's it -- this use
 // case never touches real inventory or the order's line items. A session in
 // progress can still be paused, resumed, or have the picker switch to
 // another order, so nothing should reach real state until
@@ -116,19 +109,14 @@ func (uc *ScanPickItemUseCase) Execute(ctx context.Context, in ScanPickItemInput
 		actionType = omsDomain.PickScanActionPick
 	}
 	switch actionType {
-	case omsDomain.PickScanActionPick, omsDomain.PickScanActionSubstitute,
-		omsDomain.PickScanActionFreebie, omsDomain.PickScanActionNewItem:
+	case omsDomain.PickScanActionPick:
+	case omsDomain.PickScanActionSubstitute, omsDomain.PickScanActionFreebie, omsDomain.PickScanActionNewItem, omsDomain.PickScanActionRefund:
+		return nil, fmt.Errorf("scanPickItem: %w", omsDomain.ErrOrderChangesHappenInPacking)
 	default:
 		return nil, fmt.Errorf("scanPickItem: %w", omsDomain.ErrInvalidPickScanActionType)
 	}
-	if actionType == omsDomain.PickScanActionSubstitute {
-		return nil, fmt.Errorf("scanPickItem: %w", omsDomain.ErrSubstituteViaBatchEndpointOnly)
-	}
 	if in.Quantity <= 0 {
 		return nil, fmt.Errorf("scanPickItem: %w", invDomain.ErrInvalidQuantity)
-	}
-	if actionType == omsDomain.PickScanActionNewItem && in.PriceMinorUnits == nil {
-		return nil, fmt.Errorf("scanPickItem: %w", omsDomain.ErrPriceRequiredForNewItem)
 	}
 
 	var scan omsDomain.PickScan
@@ -152,29 +140,14 @@ func (uc *ScanPickItemUseCase) Execute(ctx context.Context, in ScanPickItemInput
 			}
 		}
 
-		var lineItemID *string
-		quantity := in.Quantity
-		var price *int64
-
-		switch actionType {
-		case omsDomain.PickScanActionPick:
-			id, err := uc.matchLineItemBySKU(ctx, session.SalesOrderID, skuID)
-			if err != nil {
-				return err
-			}
-			lineItemID = &id
-
-		case omsDomain.PickScanActionFreebie:
-			zero := int64(0)
-			price = &zero
-
-		case omsDomain.PickScanActionNewItem:
-			price = in.PriceMinorUnits
+		lineItemID, err := uc.matchLineItemBySKU(ctx, session.SalesOrderID, skuID)
+		if err != nil {
+			return err
 		}
 
 		scan = omsDomain.PickScan{
-			TenantID: tenant.IDFromContext(ctx), SessionID: in.SessionID, LineItemID: lineItemID, SKUID: skuID,
-			ActionType: actionType, Quantity: quantity, PriceMinorUnits: price, Reason: in.Reason,
+			TenantID: tenant.IDFromContext(ctx), SessionID: in.SessionID, LineItemID: &lineItemID, SKUID: skuID,
+			ActionType: actionType, Quantity: in.Quantity, Reason: in.Reason,
 			ScannedAt: time.Now(), ScannedBy: in.ScannedBy,
 		}
 		return uc.scanRepo.Create(ctx, &scan)

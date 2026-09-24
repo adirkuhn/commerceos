@@ -101,6 +101,7 @@ func (h *Handler) ScanPackItem(c *gin.Context, id genoms.Id) {
 	result, err := h.scanPackItem.Execute(c.Request.Context(), appoms.ScanPackItemInput{
 		SessionID: id, Code: strOrEmpty(req.Code), SKUID: strOrEmpty(req.SkuId),
 		Quantity: int64OrZero(req.Quantity), ScannedBy: scannedBy,
+		ActionType: packScanActionOrDefault(req.ActionType), PriceMinorUnits: req.PriceMinorUnits, Reason: strOrEmpty(req.Reason),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -123,17 +124,42 @@ func (h *Handler) CompletePacking(c *gin.Context, id genoms.Id) {
 	if claims != nil {
 		completedBy = claims.UserID
 	}
+	var req genoms.CompletePackingRequest
+	// Optional body (nothing to resolve yet) -- only bind when one was sent.
+	if c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			return
+		}
+	}
+	resolutions := make(map[string]appoms.StockShortfallResolution)
+	if req.Resolutions != nil {
+		for scanID, r := range *req.Resolutions {
+			resolutions[scanID] = appoms.StockShortfallResolution(r)
+		}
+	}
 	result, err := h.completePacking.Execute(c.Request.Context(), appoms.CompletePackingInput{
-		SessionID: id, CompletedBy: completedBy,
+		SessionID: id, CompletedBy: completedBy, Resolutions: resolutions,
 	})
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	missing := make([]genoms.MissingPackItem, len(result.MissingItems))
-	for i, m := range result.MissingItems {
-		missing[i] = genoms.MissingPackItem{LineItemId: m.LineItemID, Name: m.Name, ExpectedQty: m.ExpectedQty, PackedQty: m.PackedQty}
+	resp := genoms.CompletePackingResult{Completed: result.Completed}
+	if result.Completed {
+		session := toGenPackingSession(result.Session)
+		resp.Session = &session
+		missing := make([]genoms.MissingPackItem, len(result.MissingItems))
+		for i, m := range result.MissingItems {
+			missing[i] = genoms.MissingPackItem{LineItemId: m.LineItemID, Name: m.Name, ExpectedQty: m.ExpectedQty, PackedQty: m.PackedQty}
+		}
+		resp.MissingItems = &missing
+	} else {
+		shortfalls := make([]genoms.StockShortfall, len(result.StockShortfalls))
+		for i, s := range result.StockShortfalls {
+			shortfalls[i] = genoms.StockShortfall{ScanId: s.ScanID, SkuId: s.SKUID, Name: s.Name, Needed: s.Needed, Short: s.Short}
+		}
+		resp.StockShortfalls = &shortfalls
 	}
-	resp := genoms.CompletePackingResult{Session: toGenPackingSession(result.Session), MissingItems: &missing}
 	c.JSON(http.StatusOK, genoms.CompletePackingResultResponse{Data: &resp})
 }
 
@@ -148,6 +174,30 @@ func toGenPackingSession(s omsDomain.PackingSession) genoms.PackingSession {
 func toGenPackScan(s omsDomain.PackScan) genoms.PackScan {
 	return genoms.PackScan{
 		Id: s.ID, SessionId: s.SessionID, LineItemId: s.LineItemID, SkuId: s.SKUID,
-		Quantity: s.Quantity, ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
+		ActionType: genoms.PackScanActionType(s.ActionType), Quantity: s.Quantity,
+		OriginalQuantityCovered: s.OriginalQtyCovered, ReturnToStock: s.ReturnToStock, PriceMinorUnits: s.PriceMinorUnits,
+		Reason: s.Reason, ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy, ReplayedAt: s.ReplayedAt,
 	}
+}
+
+func packScanActionOrDefault(a *genoms.ScanPackItemRequestActionType) omsDomain.PackScanActionType {
+	if a == nil {
+		return omsDomain.PackScanActionPack
+	}
+	return omsDomain.PackScanActionType(*a)
+}
+
+// ResolvePackScanCode -- see appoms.ResolvePackScanCodeUseCase.
+func (h *Handler) ResolvePackScanCode(c *gin.Context, id genoms.Id) {
+	var req genoms.ResolvePickScanCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	result, err := h.resolvePackScanCode.Execute(c.Request.Context(), id, req.Code)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := genoms.ResolvePickScanCodeResult{SkuId: result.SKUID, ProductName: result.ProductName, WeightGrams: result.WeightGrams}
+	c.JSON(http.StatusOK, genoms.ResolvePickScanCodeResultResponse{Data: &resp})
 }

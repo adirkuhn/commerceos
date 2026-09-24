@@ -288,13 +288,13 @@ func (s *stubSubstituteLineItem) Execute(_ context.Context, in appoms.Substitute
 	if s.out != nil {
 		return s.out, nil
 	}
-	scans := make([]omsDomain.PickScan, len(in.Lines))
+	scans := make([]omsDomain.PackScan, len(in.Lines))
 	lineItemID := in.LineItemID
 	for i, l := range in.Lines {
 		covered := l.OriginalQtyCovered
-		scans[i] = omsDomain.PickScan{
+		scans[i] = omsDomain.PackScan{
 			ID: fmt.Sprintf("scan-%d", i+1), SessionID: in.SessionID, LineItemID: &lineItemID, SKUID: l.SKUID,
-			ActionType: omsDomain.PickScanActionSubstitute, Quantity: l.SubstituteQuantity,
+			ActionType: omsDomain.PackScanActionSubstitute, Quantity: l.SubstituteQuantity,
 			OriginalQtyCovered: &covered, ReturnToStock: l.ReturnToStock,
 		}
 	}
@@ -316,19 +316,19 @@ func (s *stubRefundLineItem) Execute(_ context.Context, in appoms.RefundLineItem
 		return s.out, nil
 	}
 	lineItemID := in.LineItemID
-	return &appoms.RefundLineItemResult{Scan: omsDomain.PickScan{
-		ID: "scan-1", SessionID: in.SessionID, LineItemID: &lineItemID, ActionType: omsDomain.PickScanActionRefund, Quantity: in.Quantity,
+	return &appoms.RefundLineItemResult{Scan: omsDomain.PackScan{
+		ID: "scan-1", SessionID: in.SessionID, LineItemID: &lineItemID, ActionType: omsDomain.PackScanActionRefund, Quantity: in.Quantity,
 	}}, nil
 }
 
 type stubResolvePickScanCode struct {
-	out          *appoms.ResolvePickScanCodeResult
+	out          *appoms.ResolvedScanCode
 	err          error
 	gotSessionID string
 	gotCode      string
 }
 
-func (s *stubResolvePickScanCode) Execute(_ context.Context, sessionID, code string) (*appoms.ResolvePickScanCodeResult, error) {
+func (s *stubResolvePickScanCode) Execute(_ context.Context, sessionID, code string) (*appoms.ResolvedScanCode, error) {
 	s.gotSessionID, s.gotCode = sessionID, code
 	if s.err != nil {
 		return nil, s.err
@@ -336,7 +336,7 @@ func (s *stubResolvePickScanCode) Execute(_ context.Context, sessionID, code str
 	if s.out != nil {
 		return s.out, nil
 	}
-	return &appoms.ResolvePickScanCodeResult{}, nil
+	return &appoms.ResolvedScanCode{}, nil
 }
 
 type stubDeletePickScan struct {
@@ -511,7 +511,7 @@ func newTestRouterWithPicking(
 		addLineItem, startPicking, getPicking, touchPicking, resetPicking, scan, substitute, refund, resolve, deleteScan, pause, complete, bulk,
 		&stubListSalesOrderActivities{},
 		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{})
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, &stubResolvePickScanCode{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -521,10 +521,10 @@ func newTestRouterWithPacking(packStubs packingStubs) *gin.Engine {
 	h := omshandler.NewHandler(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
 		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubTouchPickingSession{}, &stubResetPickingSession{},
-		&stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
+		&stubScanPickItem{}, packStubs.substitute, packStubs.refund,
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{},
 		&stubListSalesOrderActivities{},
-		packStubs.start, packStubs.get, packStubs.touch, packStubs.reset, packStubs.scan, packStubs.deleteScan, packStubs.complete, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{})
+		packStubs.start, packStubs.get, packStubs.touch, packStubs.reset, packStubs.scan, packStubs.deleteScan, packStubs.complete, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, packStubs.resolve)
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -538,12 +538,16 @@ type packingStubs struct {
 	scan       *stubScanPackItem
 	deleteScan *stubDeletePackScan
 	complete   *stubCompletePacking
+	substitute *stubSubstituteLineItem
+	refund     *stubRefundLineItem
+	resolve    *stubResolvePickScanCode
 }
 
 func newPackingStubs() packingStubs {
 	return packingStubs{
 		start: &stubStartOrResumePacking{}, get: &stubGetPackingSession{}, touch: &stubTouchPackingSession{},
 		reset: &stubResetPackingSession{}, scan: &stubScanPackItem{}, deleteScan: &stubDeletePackScan{}, complete: &stubCompletePacking{},
+		substitute: &stubSubstituteLineItem{}, refund: &stubRefundLineItem{}, resolve: &stubResolvePickScanCode{},
 	}
 }
 
@@ -867,7 +871,7 @@ func newTestRouterWithActivities(activities *stubListSalesOrderActivities) *gin.
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{},
 		&stubBulkUpdateSalesOrderStatus{}, activities,
 		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{})
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, &stubResolvePickScanCode{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -1067,88 +1071,6 @@ func TestScanPickItem_notFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
-func TestSubstituteLineItem_success(t *testing.T) {
-	var substitute *stubSubstituteLineItem
-	body := map[string]any{
-		"line_item_id": "li-1",
-		"lines": []map[string]any{
-			{"sku_id": "sku-a", "substitute_quantity": 3, "original_quantity_covered": 1, "return_to_stock": false},
-			{"sku_id": "sku-b", "substitute_quantity": 4, "original_quantity_covered": 1, "return_to_stock": true},
-		},
-	}
-	w := doRequest(routerWithPicking(func(s *pickingStubs) { substitute = s.substitute }),
-		"POST", "/api/v1/picking-sessions/session-1/substitute-batch", body)
-
-	require.Equal(t, http.StatusCreated, w.Code)
-	assert.Equal(t, "session-1", substitute.gotIn.SessionID)
-	assert.Equal(t, "li-1", substitute.gotIn.LineItemID)
-	require.Len(t, substitute.gotIn.Lines, 2)
-	assert.Equal(t, "sku-a", substitute.gotIn.Lines[0].SKUID)
-	assert.Equal(t, int64(3), substitute.gotIn.Lines[0].SubstituteQuantity)
-	assert.Equal(t, int64(1), substitute.gotIn.Lines[0].OriginalQtyCovered)
-	assert.False(t, substitute.gotIn.Lines[0].ReturnToStock)
-	assert.True(t, substitute.gotIn.Lines[1].ReturnToStock)
-	assert.Contains(t, w.Body.String(), "sku-a")
-	assert.Contains(t, w.Body.String(), "sku-b")
-}
-
-func TestSubstituteLineItem_coverageMismatchIsUnprocessable(t *testing.T) {
-	body := map[string]any{
-		"line_item_id": "li-1",
-		"lines":        []map[string]any{{"sku_id": "sku-a", "substitute_quantity": 1, "original_quantity_covered": 1}},
-	}
-	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.substitute.err = omsDomain.ErrSubstitutionCoverageMismatch }),
-		"POST", "/api/v1/picking-sessions/session-1/substitute-batch", body)
-
-	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-}
-
-func TestSubstituteLineItem_emptyLinesIsUnprocessable(t *testing.T) {
-	body := map[string]any{"line_item_id": "li-1", "lines": []map[string]any{}}
-	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.substitute.err = omsDomain.ErrSubstituteLinesRequired }),
-		"POST", "/api/v1/picking-sessions/session-1/substitute-batch", body)
-
-	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-}
-
-func TestSubstituteLineItem_notFound(t *testing.T) {
-	body := map[string]any{"line_item_id": "li-1", "lines": []map[string]any{{"sku_id": "sku-a", "substitute_quantity": 1, "original_quantity_covered": 1}}}
-	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.substitute.err = omsDomain.ErrPickingSessionNotFound }),
-		"POST", "/api/v1/picking-sessions/missing/substitute-batch", body)
-
-	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func TestRefundLineItem_success(t *testing.T) {
-	var refund *stubRefundLineItem
-	body := map[string]any{"line_item_id": "li-1", "quantity": 1, "reason": "damaged"}
-	w := doRequest(routerWithPicking(func(s *pickingStubs) { refund = s.refund }),
-		"POST", "/api/v1/picking-sessions/session-1/refund", body)
-
-	require.Equal(t, http.StatusCreated, w.Code)
-	assert.Equal(t, "session-1", refund.gotIn.SessionID)
-	assert.Equal(t, "li-1", refund.gotIn.LineItemID)
-	assert.Equal(t, int64(1), refund.gotIn.Quantity)
-	assert.Equal(t, "damaged", refund.gotIn.Reason)
-	assert.Contains(t, w.Body.String(), "refund")
-}
-
-func TestRefundLineItem_invalidQuantityIsUnprocessable(t *testing.T) {
-	body := map[string]any{"line_item_id": "li-1", "quantity": 1}
-	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.refund.err = omsDomain.ErrInvalidRefundQuantity }),
-		"POST", "/api/v1/picking-sessions/session-1/refund", body)
-
-	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-}
-
-func TestRefundLineItem_permissionDeniedIsForbidden(t *testing.T) {
-	body := map[string]any{"line_item_id": "li-1", "quantity": 1}
-	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.refund.err = omsDomain.ErrPermissionDenied }),
-		"POST", "/api/v1/picking-sessions/session-1/refund", body)
-
-	assert.Equal(t, http.StatusForbidden, w.Code)
-}
-
 func TestResolvePickScanCode_success(t *testing.T) {
 	var resolve *stubResolvePickScanCode
 	body := map[string]any{"code": "BARCODE-1"}
@@ -1166,7 +1088,7 @@ func TestResolvePickScanCode_includesWeightGramsForAWeightEmbeddedScan(t *testin
 	body := map[string]any{"code": "2994721004622"}
 	w := doRequest(routerWithPicking(func(s *pickingStubs) {
 		resolve = s.resolve
-		resolve.out = &appoms.ResolvePickScanCodeResult{SKUID: "sku-1", ProductName: "Dry Meat", WeightGrams: &weightGrams}
+		resolve.out = &appoms.ResolvedScanCode{SKUID: "sku-1", ProductName: "Dry Meat", WeightGrams: &weightGrams}
 	}), "POST", "/api/v1/picking-sessions/session-1/resolve-scan", body)
 
 	require.Equal(t, http.StatusOK, w.Code)

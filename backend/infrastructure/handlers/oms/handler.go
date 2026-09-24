@@ -78,7 +78,7 @@ type refundLineItemUC interface {
 	Execute(ctx context.Context, in appoms.RefundLineItemInput) (*appoms.RefundLineItemResult, error)
 }
 type resolvePickScanCodeUC interface {
-	Execute(ctx context.Context, sessionID, code string) (*appoms.ResolvePickScanCodeResult, error)
+	Execute(ctx context.Context, sessionID, code string) (*appoms.ResolvedScanCode, error)
 }
 type deletePickScanUC interface {
 	Execute(ctx context.Context, sessionID, scanID string) error
@@ -133,6 +133,8 @@ type Handler struct {
 	buildPickList    buildPickListUC
 	listPackingQueue listPackingQueueUC
 	markOrderPicked  markOrderPickedUC
+
+	resolvePackScanCode resolvePickScanCodeUC
 }
 
 func NewHandler(
@@ -151,6 +153,7 @@ func NewHandler(
 	touchPackingSession touchPackingSessionUC, resetPackingSession resetPackingSessionUC,
 	scanPackItem scanPackItemUC, deletePackScan deletePackScanUC, completePacking completePackingUC,
 	buildPickList buildPickListUC, listPackingQueue listPackingQueueUC, markOrderPicked markOrderPickedUC,
+	resolvePackScanCode resolvePickScanCodeUC,
 ) *Handler {
 	return &Handler{
 		listSalesOrders: listSalesOrders, getSalesOrder: getSalesOrder,
@@ -168,6 +171,7 @@ func NewHandler(
 		touchPackingSession: touchPackingSession, resetPackingSession: resetPackingSession,
 		scanPackItem: scanPackItem, deletePackScan: deletePackScan, completePacking: completePacking,
 		buildPickList: buildPickList, listPackingQueue: listPackingQueue, markOrderPicked: markOrderPicked,
+		resolvePackScanCode: resolvePackScanCode,
 	}
 }
 
@@ -225,8 +229,13 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 	packScanRepo := repositories.NewPackScanRepo(db)
 
 	permissionRepo := repositories.NewGroupPermissionRepo(db)
+
 	connRepo := repositories.NewConnectionRepo(db)
 	refundClientResolver := appoms.NewPaymentRefundClientResolver(db, connRepo, stripe.NewClientFactory(), revolut.NewClientFactory(), encryptionSecret)
+	// allocateStock/recordMovement's roles swap here vs. their names --
+	// allocateStock (AllocateSaleStockUseCase) is the recordSaleMovementUC
+	// param, recordMovement (RecordStockMovementUseCase) the movementReverser.
+	orderChangeApplier := appoms.NewOrderChangeApplier(db, salesOrderRepo, lineItemRepo, linkRepo, addLineItem, allocateStock, recordMovement, allocateStock, skuRepo, outboxRepo, refundClientResolver)
 
 	h := NewHandler(
 		appoms.NewListSalesOrdersUseCase(db, salesOrderRepo),
@@ -243,8 +252,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewTouchPickingSessionUseCase(db, pickingSessionRepo),
 		appoms.NewResetPickingSessionUseCase(db, pickingSessionRepo, pickScanRepo),
 		appoms.NewScanPickItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, salesOrderRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
-		appoms.NewSubstituteLineItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo),
-		appoms.NewRefundLineItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, permissionRepo),
+		appoms.NewSubstituteLineItemUseCase(db, packingSessionRepo, packScanRepo, lineItemRepo),
+		appoms.NewRefundLineItemUseCase(db, packingSessionRepo, packScanRepo, lineItemRepo, permissionRepo),
 		appoms.NewResolvePickScanCodeUseCase(db, pickingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
 		appoms.NewDeletePickScanUseCase(db, pickingSessionRepo, pickScanRepo),
 		appoms.NewPausePickingUseCase(db, pickingSessionRepo),
@@ -262,10 +271,11 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewResetPackingSessionUseCase(db, packingSessionRepo, packScanRepo),
 		appoms.NewScanPackItemUseCase(db, packingSessionRepo, packScanRepo, lineItemRepo, skuRepo, barcodeAliasRepo),
 		appoms.NewDeletePackScanUseCase(db, packingSessionRepo, packScanRepo),
-		appoms.NewCompletePackingUseCase(db, packingSessionRepo, salesOrderRepo, lineItemRepo, packScanRepo),
+		appoms.NewCompletePackingUseCase(db, packingSessionRepo, salesOrderRepo, lineItemRepo, packScanRepo, orderChangeApplier),
 		appoms.NewBuildPickListUseCase(db, salesOrderRepo, lineItemRepo),
 		appoms.NewListPackingQueueUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo),
 		appoms.NewMarkOrderPickedUseCase(db, salesOrderRepo, packingSessionRepo, pickingSessionRepo, pickScanRepo, repositories.NewSalesOrderActivityRepo(db)),
+		appoms.NewResolvePackScanCodeUseCase(db, packingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
 	)
 	genoms.RegisterHandlers(rg, h)
 }
@@ -548,8 +558,8 @@ func (h *Handler) ScanPickItem(c *gin.Context, id genoms.Id) {
 		actionType = omsDomain.PickScanActionType(*req.ActionType)
 	}
 	result, err := h.scanPickItem.Execute(c.Request.Context(), appoms.ScanPickItemInput{
-		SessionID: id, Code: strOrEmpty(req.Code), SKUID: strOrEmpty(req.SkuId), LineItemID: strOrEmpty(req.LineItemId),
-		ActionType: actionType, Quantity: int64OrZero(req.Quantity), PriceMinorUnits: req.PriceMinorUnits,
+		SessionID: id, Code: strOrEmpty(req.Code), SKUID: strOrEmpty(req.SkuId),
+		ActionType: actionType, Quantity: int64OrZero(req.Quantity),
 		Reason: strOrEmpty(req.Reason), ScannedBy: scannedBy,
 	})
 	if err := mapError(c, err); err != nil {
@@ -587,9 +597,9 @@ func (h *Handler) SubstituteLineItem(c *gin.Context, id genoms.Id) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	scans := make([]genoms.PickScan, len(result.Scans))
+	scans := make([]genoms.PackScan, len(result.Scans))
 	for i, s := range result.Scans {
-		scans[i] = toGenPickScan(s)
+		scans[i] = toGenPackScan(s)
 	}
 	resp := genoms.SubstituteLineItemResult{Scans: scans}
 	c.JSON(http.StatusCreated, genoms.SubstituteLineItemResultResponse{Data: &resp})
@@ -613,7 +623,7 @@ func (h *Handler) RefundLineItem(c *gin.Context, id genoms.Id) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	resp := genoms.RefundLineItemResult{Scan: toGenPickScan(result.Scan)}
+	resp := genoms.RefundLineItemResult{Scan: toGenPackScan(result.Scan)}
 	c.JSON(http.StatusCreated, genoms.RefundLineItemResultResponse{Data: &resp})
 }
 
@@ -832,7 +842,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, omsDomain.ErrPickLineItemRequired), errors.Is(err, omsDomain.ErrLineItemSKUMismatch),
 		errors.Is(err, omsDomain.ErrInvalidLineItemQuantity), errors.Is(err, omsDomain.ErrInvalidPrice),
 		errors.Is(err, omsDomain.ErrPriceRequiredForNewItem), errors.Is(err, omsDomain.ErrBulkUpdateOrderIDsRequired),
-		errors.Is(err, omsDomain.ErrBulkUpdateNoFieldsGiven), errors.Is(err, omsDomain.ErrSubstituteViaBatchEndpointOnly),
+		errors.Is(err, omsDomain.ErrBulkUpdateNoFieldsGiven), errors.Is(err, omsDomain.ErrOrderChangesHappenInPacking), errors.Is(err, omsDomain.ErrInvalidPackScanActionType),
 		errors.Is(err, omsDomain.ErrSubstituteLinesRequired), errors.Is(err, omsDomain.ErrInvalidSubstituteQuantity),
 		errors.Is(err, omsDomain.ErrSubstitutionCoverageMismatch), errors.Is(err, omsDomain.ErrInvalidRefundQuantity),
 		errors.Is(err, omsDomain.ErrRefundRequiresLinkedSKU), errors.Is(err, pmsDomain.ErrWeightRequiredForPerWeightSKU),

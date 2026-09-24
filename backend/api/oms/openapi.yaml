@@ -476,70 +476,6 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
-  /picking-sessions/{id}/substitute-batch:
-    post:
-      operationId: substituteLineItem
-      summary: >
-        Scanner app -- stage one or more Substitute PickScan rows for the
-        same original line item in a single call, one per substitute SKU.
-        Lets a single original unit be replaced by several different
-        (typically cheaper) substitutes at once. lines' original_quantity_covered
-        must sum to the original line item's own quantity exactly. Never
-        touches real inventory or the order's line items -- see PickScan's
-        doc.
-      parameters:
-        - $ref: '#/components/parameters/id'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SubstituteLineItemRequest'
-      responses:
-        '201':
-          description: created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SubstituteLineItemResultResponse'
-        '404':
-          $ref: '#/components/responses/Error'
-        '422':
-          $ref: '#/components/responses/Error'
-
-  /picking-sessions/{id}/refund:
-    post:
-      operationId: refundLineItem
-      summary: >
-        Scanner app -- stage refunding part or all of an existing line
-        item's own quantity, when staff choose not to substitute it. Real
-        money only moves at session completion (see PickScan's doc and
-        CompletePickingUseCase); if the order has no known payment provider
-        or the refund API call fails, the order is instead flagged for
-        manual review rather than blocking completion. A customer_user
-        caller needs the oms.line_item.refund permission (403 otherwise).
-      parameters:
-        - $ref: '#/components/parameters/id'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefundLineItemRequest'
-      responses:
-        '201':
-          description: created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RefundLineItemResultResponse'
-        '403':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        '422':
-          $ref: '#/components/responses/Error'
-
   /picking-sessions/{id}/resolve-scan:
     post:
       operationId: resolvePickScanCode
@@ -729,14 +665,113 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /packing-sessions/{id}/substitute-batch:
+    post:
+      operationId: substituteLineItem
+      summary: >
+        Packing screen -- stage one or more substitute PackScan rows for the
+        same original line item in a single call, one per substitute SKU.
+        Lets a single original unit be replaced by several different
+        (typically cheaper) substitutes at once. lines' original_quantity_covered
+        must sum to what's still uncovered of the original line (ordered
+        minus packed/substituted/refunded). Nothing becomes real (stock,
+        line items) until the packing session completes. Order changes
+        happen in packing -- picking only picks.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubstituteLineItemRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubstituteLineItemResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /packing-sessions/{id}/refund:
+    post:
+      operationId: refundLineItem
+      summary: >
+        Packing screen -- stage refunding (removing) part or all of an
+        existing line item's quantity, when staff choose not to substitute
+        it. Real money only moves when the packing session completes; if the order has no known payment provider
+        or the refund API call fails, the order is instead flagged for
+        manual review rather than blocking completion. A customer_user
+        caller needs the oms.line_item.refund permission (403 otherwise).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundLineItemRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundLineItemResultResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /packing-sessions/{id}/resolve-scan:
+    post:
+      operationId: resolvePackScanCode
+      summary: >-
+        Scanner app -- resolve a scanned barcode/box-alias/SKU code (or this
+        order's own line items) to a SKU, without staging anything yet.
+        Lets the app show a confirm screen before staging a PickScan via
+        POST .../scan.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolvePickScanCodeRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolvePickScanCodeResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /packing-sessions/{id}/scan:
     post:
       operationId: scanPackItem
       summary: >
         Packing screen -- resolve a scanned code (or an already-known
-        sku_id), match it to the order's own line item, and record it as
-        packed. Rejects (422) a SKU not on the order, or a quantity that
-        would exceed the line item's own ordered quantity.
+        sku_id) and record it. action_type pack (default) matches the SKU to
+        the order's own line item and records it as packed -- rejected (422)
+        for a SKU not on the order, or a quantity exceeding what's still
+        uncovered of the line. freebie/new_item stage an extra item (any
+        SKU; new_item needs price_minor_units), added to the order when the
+        session completes. 409 if another user holds the session.
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
@@ -822,12 +857,22 @@ paths:
     post:
       operationId: completePacking
       summary: >-
-        Packing screen -- finish a packing session; returns a missing-items
-        report if any order line wasn't fully packed. Always completes
-        (gaps or not) and marks the order packed. completed_by is taken
-        from the caller's own JWT claims.
+        Packing screen -- finish a packing session. Applies every staged
+        order change (substitutes, extra items, refunds) after a stock
+        pre-check: if a substitute/extra item is short on stock, returns
+        completed:false with stock_shortfalls and changes nothing -- resend
+        with resolutions for each. Otherwise completes, marks the order
+        packed and fulfilled, and reports lines not fully packed
+        (missing_items, never blocking). completed_by comes from the
+        caller's JWT.
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletePackingRequest'
       responses:
         '200':
           description: ok
@@ -1458,25 +1503,19 @@ components:
             Scan directly against an already-known SKU (e.g. tapping a line
             item row) without a barcode. Mutually exclusive with code --
             exactly one is required.
-        line_item_id:
-          type: string
-          description: Unused -- substitute (the only action type that ever needed this) is rejected here, see this path's summary.
         action_type:
-          allOf: [{ $ref: '#/components/schemas/PickScanActionType' }]
+          type: string
+          enum: [pick]
           description: >-
-            Defaults to pick when omitted. substitute is rejected (422) --
-            use POST .../substitute-batch instead.
+            Defaults to pick -- the only action picking accepts. Substitutes,
+            extra items and refunds are recorded in packing.
         quantity:
           type: integer
           format: int64
           minimum: 1
-        price_minor_units:
-          type: integer
-          format: int64
-          description: Required for new_item, ignored (forced to 0) for freebie.
         reason:
           type: string
-          description: Optional comment (pick/substitute), or the new line item's name (freebie/new_item).
+          description: Optional comment.
 
     ScanPickItemResult:
       type: object
@@ -1542,7 +1581,7 @@ components:
         scans:
           type: array
           items:
-            $ref: '#/components/schemas/PickScan'
+            $ref: '#/components/schemas/PackScan'
 
     SubstituteLineItemResultResponse:
       type: object
@@ -1570,7 +1609,7 @@ components:
       type: object
       required: [scan]
       properties:
-        scan: { $ref: '#/components/schemas/PickScan' }
+        scan: { $ref: '#/components/schemas/PackScan' }
 
     RefundLineItemResultResponse:
       type: object
@@ -1696,17 +1735,48 @@ components:
         data: { $ref: '#/components/schemas/PackingSession' }
         error: { nullable: true }
 
+    PackScanActionType:
+      type: string
+      enum: [pack, substitute, freebie, new_item, refund]
+      description: >-
+        pack records box contents. The rest are order changes, staged until
+        the session completes: substitute replaces (part of) a line,
+        freebie/new_item add an extra item, refund removes (part of) a line.
+
     PackScan:
       type: object
-      required: [id, session_id, line_item_id, sku_id, quantity, scanned_at, scanned_by]
+      required: [id, session_id, line_item_id, sku_id, action_type, quantity, return_to_stock, reason, scanned_at, scanned_by, replayed_at]
       properties:
         id: { type: string }
         session_id: { type: string }
-        line_item_id: { type: string }
+        line_item_id:
+          type: string
+          nullable: true
+          description: Null for a freebie/new item -- it becomes a line only when the session completes.
         sku_id: { type: string }
+        action_type: { $ref: '#/components/schemas/PackScanActionType' }
         quantity: { type: integer, format: int64 }
+        original_quantity_covered:
+          type: integer
+          format: int64
+          nullable: true
+          description: For a substitute -- how much of the original line it replaces.
+        return_to_stock:
+          type: boolean
+          description: For a substitute -- the original units go back on the shelf.
+        price_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: A new item's per-unit price; null for a freebie.
+        reason: { type: string }
         scanned_at: { type: string, format: date-time }
         scanned_by: { type: string }
+        replayed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When completing the session applied this change; null for a plain pack or an unapplied change.
 
     PackingSessionDetail:
       type: object
@@ -1741,6 +1811,18 @@ components:
           type: integer
           format: int64
           minimum: 1
+        action_type:
+          type: string
+          enum: [pack, freebie, new_item]
+          description: Defaults to pack. Substitutes and refunds have their own endpoints.
+        price_minor_units:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Required for new_item; ignored otherwise.
+        reason:
+          type: string
+          description: The extra item's name/comment (freebie/new_item).
 
     ScanPackItemResult:
       type: object
@@ -1763,15 +1845,34 @@ components:
         expected_qty: { type: integer, format: int64 }
         packed_qty: { type: integer, format: int64 }
 
+    CompletePackingRequest:
+      type: object
+      properties:
+        resolutions:
+          type: object
+          description: >-
+            Maps a pack scan id (one returned in a prior call's
+            stock_shortfalls) to "with_item" (ship it anyway, reconciling
+            the shortfall) or "without_item" (ship without it).
+          additionalProperties: { type: string, enum: [with_item, without_item] }
+
     CompletePackingResult:
       type: object
-      required: [session]
+      required: [completed]
       properties:
+        # completed:false means nothing was applied or completed --
+        # stock_shortfalls lists what needs a decision (see
+        # CompletePackingRequest.resolutions) before resubmitting.
+        completed: { type: boolean }
         session: { $ref: '#/components/schemas/PackingSession' }
         missing_items:
           type: array
           items:
             $ref: '#/components/schemas/MissingPackItem'
+        stock_shortfalls:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockShortfall'
 
     CompletePackingResultResponse:
       type: object

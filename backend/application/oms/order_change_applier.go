@@ -19,14 +19,14 @@ type changeMarker interface {
 	MarkReplayed(ctx context.Context, id string, replayedAt time.Time) error
 }
 
-// orderChangeApplier makes staged order changes (domain/oms.StagedChange)
+// OrderChangeApplier makes staged order changes (domain/oms.StagedChange)
 // real when a picking or packing session completes: substitutes reverse the
 // original line's stock and decrement the substitute's, freebies/new items
 // become line items with their own stock movements, refunds go through the
 // order's payment provider (or flag the order for manual review). Shared by
 // CompletePickingUseCase and CompletePackingUseCase -- the rules don't depend
 // on which step the change was recorded in.
-type orderChangeApplier struct {
+type OrderChangeApplier struct {
 	db                   *gorm.DB
 	salesOrderRepo       omsDomain.SalesOrderRepository
 	lineItemRepo         omsDomain.SalesOrderLineItemRepository
@@ -40,10 +40,30 @@ type orderChangeApplier struct {
 	refundClientResolver paymentRefundClientResolver
 }
 
+func NewOrderChangeApplier(
+	db *gorm.DB,
+	salesOrderRepo omsDomain.SalesOrderRepository,
+	lineItemRepo omsDomain.SalesOrderLineItemRepository,
+	linkRepo omsDomain.SalesOrderLineItemStockMovementRepository,
+	addLineItem addLineItemForPickCompletionUC,
+	recordMovement recordSaleMovementUC,
+	reverseMovement movementReverser,
+	stockChecker stockAvailabilityChecker,
+	skuRepo skuFinderForShortfallNames,
+	outboxRepo outbox.Repository,
+	refundClientResolver paymentRefundClientResolver,
+) *OrderChangeApplier {
+	return &OrderChangeApplier{
+		db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo,
+		addLineItem: addLineItem, recordMovement: recordMovement, reverseMovement: reverseMovement,
+		stockChecker: stockChecker, skuRepo: skuRepo, outboxRepo: outboxRepo, refundClientResolver: refundClientResolver,
+	}
+}
+
 // CheckStockShortfalls dry-runs every unapplied substitute/freebie/new-item
 // change that doesn't already have a Resolution, so staff get a decision
 // instead of a hard failure. Never writes anything.
-func (a *orderChangeApplier) CheckStockShortfalls(ctx context.Context, warehouseID string, changes []omsDomain.StagedChange, resolutions map[string]StockShortfallResolution) ([]StockShortfall, error) {
+func (a *OrderChangeApplier) CheckStockShortfalls(ctx context.Context, warehouseID string, changes []omsDomain.StagedChange, resolutions map[string]StockShortfallResolution) ([]StockShortfall, error) {
 	var shortfalls []StockShortfall
 	for _, s := range changes {
 		if s.ReplayedAt != nil {
@@ -69,7 +89,7 @@ func (a *orderChangeApplier) CheckStockShortfalls(ctx context.Context, warehouse
 	return shortfalls, nil
 }
 
-func (a *orderChangeApplier) shortfallName(ctx context.Context, s omsDomain.StagedChange) string {
+func (a *OrderChangeApplier) shortfallName(ctx context.Context, s omsDomain.StagedChange) string {
 	if s.Action == omsDomain.ChangeFreebie || s.Action == omsDomain.ChangeNewItem {
 		if s.Reason != "" {
 			return s.Reason
@@ -86,7 +106,7 @@ func (a *orderChangeApplier) shortfallName(ctx context.Context, s omsDomain.Stag
 // refunds -- marking each applied through marker as it commits, so a retry
 // after a partial failure never applies one twice. source labels the stock
 // movements' reason (e.g. "picking session <id>").
-func (a *orderChangeApplier) Apply(ctx context.Context, source string, order *omsDomain.SalesOrder, lineItems []omsDomain.SalesOrderLineItem, changes []omsDomain.StagedChange, resolutions map[string]StockShortfallResolution, marker changeMarker) error {
+func (a *OrderChangeApplier) Apply(ctx context.Context, source string, order *omsDomain.SalesOrder, lineItems []omsDomain.SalesOrderLineItem, changes []omsDomain.StagedChange, resolutions map[string]StockShortfallResolution, marker changeMarker) error {
 	salesOrderID, warehouseID := order.ID, order.WarehouseID
 	lineItemsByID := make(map[string]omsDomain.SalesOrderLineItem, len(lineItems))
 	for _, li := range lineItems {
@@ -184,7 +204,7 @@ func (a *orderChangeApplier) Apply(ctx context.Context, source string, order *om
 // Reverses the original line's stock ONCE, summing OriginalQtyCovered only
 // across rows in the group whose own ReturnToStock is true, then applies
 // each row's own substitute-SKU decrement independently.
-func (a *orderChangeApplier) replaySubstituteGroup(ctx context.Context, source, warehouseID string, li omsDomain.SalesOrderLineItem, changes []omsDomain.StagedChange, resolutions map[string]StockShortfallResolution, handledScanIDs map[string]bool, marker changeMarker) error {
+func (a *OrderChangeApplier) replaySubstituteGroup(ctx context.Context, source, warehouseID string, li omsDomain.SalesOrderLineItem, changes []omsDomain.StagedChange, resolutions map[string]StockShortfallResolution, handledScanIDs map[string]bool, marker changeMarker) error {
 	var group []omsDomain.StagedChange
 	for _, s := range changes {
 		if s.Action == omsDomain.ChangeSubstitute && s.ReplayedAt == nil && derefOrEmpty(s.LineItemID) == li.ID {
@@ -237,7 +257,7 @@ func (a *orderChangeApplier) replaySubstituteGroup(ctx context.Context, source, 
 // reversal primitive, unlike the old whole-line-only version, since not
 // every Substitute row covering this line necessarily opts into
 // ReturnToStock.
-func (a *orderChangeApplier) reverseOriginalStock(ctx context.Context, source, warehouseID string, li omsDomain.SalesOrderLineItem, qty int64, occurredAt time.Time) error {
+func (a *OrderChangeApplier) reverseOriginalStock(ctx context.Context, source, warehouseID string, li omsDomain.SalesOrderLineItem, qty int64, occurredAt time.Time) error {
 	links, err := listLineItemMovements(ctx, a.db, a.linkRepo, li.ID)
 	if err != nil {
 		return err
@@ -279,7 +299,7 @@ type refundTotal struct {
 // way the line item's refunded totals accumulate and picking completion is
 // never blocked by a payment-provider problem. See PickScanActionRefund's
 // domain doc comment for the full policy.
-func (a *orderChangeApplier) replayRefund(ctx context.Context, order *omsDomain.SalesOrder, li omsDomain.SalesOrderLineItem, s omsDomain.StagedChange, totals map[string]refundTotal, marker changeMarker) error {
+func (a *OrderChangeApplier) replayRefund(ctx context.Context, order *omsDomain.SalesOrder, li omsDomain.SalesOrderLineItem, s omsDomain.StagedChange, totals map[string]refundTotal, marker changeMarker) error {
 	amount := li.PriceMinorUnits * s.Quantity
 
 	issued := false
@@ -327,7 +347,7 @@ func (a *orderChangeApplier) replayRefund(ctx context.Context, order *omsDomain.
 // transaction, separate from the effect itself (tenant.WithTenant must
 // never nest), so this is the one small window a crash can still land in:
 // see replay's doc comment.
-func (a *orderChangeApplier) markApplied(ctx context.Context, marker changeMarker, id string) error {
+func (a *OrderChangeApplier) markApplied(ctx context.Context, marker changeMarker, id string) error {
 	return tenant.WithTenant(ctx, a.db, func(ctx context.Context) error {
 		return marker.MarkReplayed(ctx, id, time.Now())
 	})

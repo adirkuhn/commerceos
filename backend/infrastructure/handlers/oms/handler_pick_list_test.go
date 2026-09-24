@@ -39,7 +39,7 @@ func newTestRouterWithPickList(pickList *stubBuildPickList, list *stubListSalesO
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{},
 		&stubListSalesOrderActivities{},
 		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, pickList, &stubListPackingQueue{}, &stubMarkOrderPicked{})
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, pickList, &stubListPackingQueue{}, &stubMarkOrderPicked{}, &stubResolvePickScanCode{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r

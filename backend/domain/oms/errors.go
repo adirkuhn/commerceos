@@ -66,11 +66,6 @@ var (
 	// completion is a one-way door (CompletePickingUseCase's replay already
 	// made staged rows real), so there's nothing left to reset.
 	ErrPickingSessionAlreadyCompleted = errors.New("picking session is already completed")
-	// ErrSubstituteViaBatchEndpointOnly guards ScanPickItemUseCase against
-	// the Substitute action type -- substitution now always goes through
-	// SubstituteLineItemUseCase (one or more substitute lines at once), not
-	// the single-scan endpoint.
-	ErrSubstituteViaBatchEndpointOnly = errors.New("substitute action must use the substitute-batch endpoint")
 	// ErrSubstituteLinesRequired guards SubstituteLineItemUseCase against an
 	// empty batch -- nothing to substitute with.
 	ErrSubstituteLinesRequired = errors.New("at least one substitute line is required")
@@ -143,6 +138,13 @@ var (
 	ErrPackScanNotFound = errors.New("pack scan not found")
 	// ErrPackScanCodeOrSKURequired mirrors ErrPickScanCodeOrSKURequired.
 	ErrPackScanCodeOrSKURequired = errors.New("either a scanned code or a sku_id is required")
+	// ErrOrderChangesHappenInPacking guards ScanPickItemUseCase: picking only
+	// picks -- substitutes, extra items and refunds are recorded in packing.
+	ErrOrderChangesHappenInPacking = errors.New("substitutes, extra items and refunds are recorded in packing, not picking")
+	// ErrInvalidPackScanActionType guards ScanPackItemUseCase: a scan is a
+	// plain pack, a freebie or a new item -- substitutes and refunds have
+	// their own endpoints.
+	ErrInvalidPackScanActionType = errors.New("pack scan action must be pack, freebie or new_item")
 	// ErrPackScanSKUMismatch guards ScanPackItemUseCase against a scanned
 	// SKU that isn't linked to any of this order's line items.
 	ErrPackScanSKUMismatch = errors.New("scanned item does not match any line item on this order")

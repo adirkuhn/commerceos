@@ -15,7 +15,7 @@ func TestGetPackingSession_returnsSessionLineItemsAndScans(t *testing.T) {
 	skuID := "sku-1"
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1"}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: &skuID, Quantity: 2}}}
-	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{{ID: "scan-1", LineItemID: "li-1", SKUID: skuID, Quantity: 1}}}
+	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{{ID: "scan-1", LineItemID: strPtrLI("li-1"), SKUID: skuID, Quantity: 1}}}
 	uc := appoms.NewGetPackingSessionUseCase(db, sessionRepo, lineItemRepo, scanRepo, &stubSKURepo{}, &stubVariantRepoForPicking{})
 
 	detail, err := uc.Execute(context.Background(), "session-1")

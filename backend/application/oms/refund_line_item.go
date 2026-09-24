@@ -26,7 +26,8 @@ const customerUserRole = "customer_user"
 const refundPermissionRule = "oms.line_item.refund"
 
 // RefundLineItemInput stages refunding part or all of an existing line
-// item's own quantity -- see PickScanActionRefund's doc comment.
+// item's own quantity during packing -- see PickScanActionRefund's doc
+// comment for the refund policy, unchanged.
 type RefundLineItemInput struct {
 	SessionID  string
 	LineItemID string
@@ -34,8 +35,8 @@ type RefundLineItemInput struct {
 	// positive, at most the line's own Quantity, need not equal it.
 	Quantity int64
 	Reason   string
-	// ScannedBy is the PickScan row's own ScannedBy (lm2 user id) -- same
-	// field every other picking action stamps.
+	// ScannedBy is the PackScan row's own ScannedBy (lm2 user id) -- same
+	// field every other packing action stamps; must hold the session lock.
 	ScannedBy string
 	// RequesterUserID/RequesterRole identify who's asking, for the
 	// fine-grained RBAC check below -- a customer_owner/customer_admin/
@@ -46,26 +47,25 @@ type RefundLineItemInput struct {
 }
 
 type RefundLineItemResult struct {
-	Scan omsDomain.PickScan
+	Scan omsDomain.PackScan
 }
 
-// RefundLineItemUseCase is the scanner app's "refund instead" action,
-// alongside Pick/Substitute -- the only use case allowed to create a
-// PickScanActionRefund row. Like every other picking action, this only
-// stages the row: nothing is real (no money moves, no line item mutated)
-// until CompletePickingUseCase replays it.
+// RefundLineItemUseCase is the packing screen's "refund instead" (remove an
+// item) action -- the only use case allowed to create a refund PackScan
+// row. It only stages the row: nothing is real (no money moves, no line
+// item mutated) until CompletePackingUseCase applies it.
 type RefundLineItemUseCase struct {
 	db             *gorm.DB
-	sessionRepo    omsDomain.PickingSessionRepository
-	scanRepo       omsDomain.PickScanRepository
+	sessionRepo    omsDomain.PackingSessionRepository
+	scanRepo       omsDomain.PackScanRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	permissionRepo iamDomain.GroupPermissionRepository
 }
 
 func NewRefundLineItemUseCase(
 	db *gorm.DB,
-	sessionRepo omsDomain.PickingSessionRepository,
-	scanRepo omsDomain.PickScanRepository,
+	sessionRepo omsDomain.PackingSessionRepository,
+	scanRepo omsDomain.PackScanRepository,
 	lineItemRepo omsDomain.SalesOrderLineItemRepository,
 	permissionRepo iamDomain.GroupPermissionRepository,
 ) *RefundLineItemUseCase {
@@ -79,7 +79,7 @@ func (uc *RefundLineItemUseCase) Execute(ctx context.Context, in RefundLineItemI
 		return nil, fmt.Errorf("refundLineItem: %w", omsDomain.ErrInvalidRefundQuantity)
 	}
 
-	var scan omsDomain.PickScan
+	var scan omsDomain.PackScan
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		if in.RequesterRole == customerUserRole {
 			allowed, err := uc.permissionRepo.HasPermission(ctx, in.RequesterUserID, iamDomain.Rule(refundPermissionRule))
@@ -95,8 +95,11 @@ func (uc *RefundLineItemUseCase) Execute(ctx context.Context, in RefundLineItemI
 		if err != nil {
 			return err
 		}
-		if session.Status != omsDomain.PickingSessionStatusInProgress {
-			return omsDomain.ErrPickingSessionNotActive
+		if session.Status != omsDomain.PackingSessionStatusInProgress {
+			return omsDomain.ErrPackingSessionNotActive
+		}
+		if session.Lock().IsHeldByOther(in.ScannedBy, time.Now()) {
+			return omsDomain.ErrPackingSessionLocked
 		}
 
 		li, err := uc.lineItemRepo.FindByID(ctx, in.LineItemID)
@@ -114,9 +117,9 @@ func (uc *RefundLineItemUseCase) Execute(ctx context.Context, in RefundLineItemI
 		}
 
 		lineItemID := li.ID
-		scan = omsDomain.PickScan{
+		scan = omsDomain.PackScan{
 			TenantID: tenant.IDFromContext(ctx), SessionID: in.SessionID, LineItemID: &lineItemID, SKUID: *li.SKUID,
-			ActionType: omsDomain.PickScanActionRefund, Quantity: in.Quantity, Reason: in.Reason,
+			ActionType: omsDomain.PackScanActionRefund, Quantity: in.Quantity, Reason: in.Reason,
 			ScannedAt: time.Now(), ScannedBy: in.ScannedBy,
 		}
 		return uc.scanRepo.Create(ctx, &scan)

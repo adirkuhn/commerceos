@@ -216,56 +216,15 @@ func TestScanPickItem_autoLinkAmbiguousWhenMultipleUnlinkedLinesMatch(t *testing
 	assert.ErrorIs(t, err, omsDomain.ErrLineItemSKUMismatch)
 }
 
-// Substitute must go through SubstituteLineItemUseCase's batch endpoint --
-// see ErrSubstituteViaBatchEndpointOnly's doc.
-func TestScanPickItem_rejectsSubstituteActionType(t *testing.T) {
+// Picking only picks: substitutes, extra items and refunds happen in
+// packing now (see ErrOrderChangesHappenInPacking).
+func TestScanPickItem_rejectsOrderChanges(t *testing.T) {
 	db := newMockGormDB(t)
 	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
-
-	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-2", ActionType: omsDomain.PickScanActionSubstitute, Quantity: 1})
-
-	assert.ErrorIs(t, err, omsDomain.ErrSubstituteViaBatchEndpointOnly)
-}
-
-func TestScanPickItem_freebieForcesZeroPriceRegardlessOfInput(t *testing.T) {
-	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
-
-	price := int64(5000)
-	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{
-		SessionID: "session-1", SKUID: "sku-1", ActionType: omsDomain.PickScanActionFreebie, Quantity: 1, PriceMinorUnits: &price,
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, result.Scan.PriceMinorUnits)
-	assert.Equal(t, int64(0), *result.Scan.PriceMinorUnits)
-	assert.Nil(t, result.Scan.LineItemID)
-}
-
-func TestScanPickItem_newItemRequiresPrice(t *testing.T) {
-	db := newMockGormDB(t)
-	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
-
-	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-1", ActionType: omsDomain.PickScanActionNewItem, Quantity: 1})
-
-	assert.ErrorIs(t, err, omsDomain.ErrPriceRequiredForNewItem)
-}
-
-func TestScanPickItem_newItemUsesGivenPrice(t *testing.T) {
-	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
-
-	price := int64(1250)
-	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{
-		SessionID: "session-1", SKUID: "sku-1", ActionType: omsDomain.PickScanActionNewItem, Quantity: 2, PriceMinorUnits: &price,
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, result.Scan.PriceMinorUnits)
-	assert.Equal(t, int64(1250), *result.Scan.PriceMinorUnits)
-	assert.Nil(t, result.Scan.LineItemID)
+	for _, a := range []omsDomain.PickScanActionType{omsDomain.PickScanActionSubstitute, omsDomain.PickScanActionFreebie, omsDomain.PickScanActionNewItem, omsDomain.PickScanActionRefund} {
+		_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-1", ActionType: a, Quantity: 1})
+		assert.ErrorIs(t, err, omsDomain.ErrOrderChangesHappenInPacking, a)
+	}
 }
 
 func TestScanPickItem_rejectsInvalidActionType(t *testing.T) {

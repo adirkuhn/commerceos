@@ -266,4 +266,7 @@ type PackScanRepository interface {
 	ListBySession(ctx context.Context, sessionID string) ([]PackScan, error)
 	// Delete removes a scan -- see DeletePackScanUseCase.
 	Delete(ctx context.Context, id string) error
+	// MarkReplayed records that CompletePackingUseCase applied this row's
+	// order change -- see PackScan.ReplayedAt.
+	MarkReplayed(ctx context.Context, id string, replayedAt time.Time) error
 }

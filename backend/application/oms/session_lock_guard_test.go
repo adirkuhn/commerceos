@@ -39,8 +39,10 @@ func TestCompletePacking_rejectsCallerWhoLostTheLock(t *testing.T) {
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{
 		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress, LockedBy: holder, LockedAt: at,
 	}}
-	salesOrderRepo := &stubSalesOrderRepo{}
-	uc := appoms.NewCompletePackingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubPackScanRepo{})
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}}
+	applier := appoms.NewOrderChangeApplier(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubAddLineItemForPickCompletion{},
+		&stubRecordMovement{}, &stubReverseMovement{}, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{}, &stubOutboxRepo{}, &stubPaymentRefundClientResolver{})
+	uc := appoms.NewCompletePackingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubPackScanRepo{}, applier)
 
 	_, err := uc.Execute(context.Background(), appoms.CompletePackingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
@@ -87,4 +89,39 @@ func TestCompletePicking_rejectsAbandonedSession(t *testing.T) {
 	_, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
 	assert.ErrorIs(t, err, omsDomain.ErrPickingSessionNotActive)
+}
+
+func TestSubstituteLineItem_rejectsCallerWhoLostTheLock(t *testing.T) {
+	db := newMockGormDB(t)
+	holder, at := lockedBy("admin-1")
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{
+		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress, LockedBy: holder, LockedAt: at,
+	}}
+	scanRepo := &stubPackScanRepo{}
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{})
+
+	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
+		SessionID: "session-1", LineItemID: "li-1", ScannedBy: "user-1",
+		Lines: []appoms.SubstituteLineInput{{SKUID: "sku-a", SubstituteQuantity: 1, OriginalQtyCovered: 1}},
+	})
+
+	assert.ErrorIs(t, err, omsDomain.ErrPackingSessionLocked)
+	assert.Empty(t, scanRepo.created)
+}
+
+func TestRefundLineItem_rejectsCallerWhoLostTheLock(t *testing.T) {
+	db := newMockGormDB(t)
+	holder, at := lockedBy("admin-1")
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{
+		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress, LockedBy: holder, LockedAt: at,
+	}}
+	scanRepo := &stubPackScanRepo{}
+	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{}, &stubGroupPermissionRepo{})
+
+	_, err := uc.Execute(context.Background(), appoms.RefundLineItemInput{
+		SessionID: "session-1", LineItemID: "li-1", Quantity: 1, ScannedBy: "user-1", RequesterUserID: "user-1", RequesterRole: "customer_owner",
+	})
+
+	assert.ErrorIs(t, err, omsDomain.ErrPackingSessionLocked)
+	assert.Empty(t, scanRepo.created)
 }

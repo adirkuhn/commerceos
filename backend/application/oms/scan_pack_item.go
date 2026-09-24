@@ -25,6 +25,12 @@ type ScanPackItemInput struct {
 	SKUID     string
 	Quantity  int64
 	ScannedBy string
+	// ActionType empty means a plain pack. Freebie/new item add an extra
+	// item to the order (applied when the session completes) -- the SKU
+	// needn't be on the order; new item requires PriceMinorUnits.
+	ActionType      omsDomain.PackScanActionType
+	PriceMinorUnits *int64
+	Reason          string
 }
 
 type ScanPackItemResult struct {
@@ -71,6 +77,18 @@ func (uc *ScanPackItemUseCase) Execute(ctx context.Context, in ScanPackItemInput
 	if in.Quantity <= 0 {
 		return nil, fmt.Errorf("scanPackItem: %w", invDomain.ErrInvalidQuantity)
 	}
+	if in.ActionType == "" {
+		in.ActionType = omsDomain.PackScanActionPack
+	}
+	switch in.ActionType {
+	case omsDomain.PackScanActionPack, omsDomain.PackScanActionFreebie:
+	case omsDomain.PackScanActionNewItem:
+		if in.PriceMinorUnits == nil {
+			return nil, fmt.Errorf("scanPackItem: %w", omsDomain.ErrPriceRequiredForNewItem)
+		}
+	default:
+		return nil, fmt.Errorf("scanPackItem: %w", omsDomain.ErrInvalidPackScanActionType)
+	}
 
 	var scan omsDomain.PackScan
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -98,6 +116,15 @@ func (uc *ScanPackItemUseCase) Execute(ctx context.Context, in ScanPackItemInput
 			}
 		}
 
+		if in.ActionType != omsDomain.PackScanActionPack {
+			scan = omsDomain.PackScan{
+				TenantID: tenant.IDFromContext(ctx), SessionID: in.SessionID, SKUID: skuID, ActionType: in.ActionType,
+				Quantity: in.Quantity, PriceMinorUnits: in.PriceMinorUnits, Reason: in.Reason,
+				ScannedAt: time.Now(), ScannedBy: in.ScannedBy,
+			}
+			return uc.scanRepo.Create(ctx, &scan)
+		}
+
 		var lineItem *omsDomain.SalesOrderLineItem
 		for i := range lineItems {
 			if lineItems[i].SKUID != nil && *lineItems[i].SKUID == skuID {
@@ -113,19 +140,21 @@ func (uc *ScanPackItemUseCase) Execute(ctx context.Context, in ScanPackItemInput
 		if err != nil {
 			return err
 		}
-		var alreadyPacked int64
+		// Substituted and refunded units count as handled too.
+		var alreadyCovered int64
 		for _, s := range scans {
-			if s.LineItemID == lineItem.ID {
-				alreadyPacked += s.Quantity
+			if id, qty := s.Covers(); id == lineItem.ID {
+				alreadyCovered += qty
 			}
 		}
-		if alreadyPacked+in.Quantity > lineItem.Quantity {
+		if alreadyCovered+in.Quantity > lineItem.Quantity {
 			return omsDomain.ErrPackQuantityExceedsOrdered
 		}
 
+		lineItemID := lineItem.ID
 		scan = omsDomain.PackScan{
-			TenantID: tenant.IDFromContext(ctx), SessionID: in.SessionID, LineItemID: lineItem.ID, SKUID: skuID,
-			Quantity: in.Quantity, ScannedAt: time.Now(), ScannedBy: in.ScannedBy,
+			TenantID: tenant.IDFromContext(ctx), SessionID: in.SessionID, LineItemID: &lineItemID, SKUID: skuID,
+			ActionType: omsDomain.PackScanActionPack, Quantity: in.Quantity, ScannedAt: time.Now(), ScannedBy: in.ScannedBy,
 		}
 		return uc.scanRepo.Create(ctx, &scan)
 	})

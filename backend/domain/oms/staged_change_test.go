@@ -37,3 +37,39 @@ func TestPickScan_ChangeCoversEveryChangeAction(t *testing.T) {
 		assert.Equal(t, string(a), string(c.Action))
 	}
 }
+
+func TestPackScan_Change(t *testing.T) {
+	li, price := "li-1", int64(500)
+	c, ok := omsDomain.PackScan{ID: "p1", LineItemID: nil, SKUID: "sku-9", ActionType: omsDomain.PackScanActionNewItem, Quantity: 1, PriceMinorUnits: &price, Reason: "Extra jar"}.Change()
+	require.True(t, ok)
+	assert.Equal(t, omsDomain.ChangeNewItem, c.Action)
+	assert.Equal(t, "p1", c.ID)
+	assert.Equal(t, &price, c.PriceMinorUnits)
+	assert.Equal(t, "Extra jar", c.Reason)
+
+	_, ok = omsDomain.PackScan{LineItemID: &li, ActionType: omsDomain.PackScanActionPack}.Change()
+	assert.False(t, ok, "a plain pack changes nothing")
+}
+
+func TestPackScan_Covers(t *testing.T) {
+	li, covered := "li-1", int64(2)
+	cases := []struct {
+		name string
+		scan omsDomain.PackScan
+		qty  int64
+	}{
+		{"plain pack", omsDomain.PackScan{LineItemID: &li, ActionType: omsDomain.PackScanActionPack, Quantity: 3}, 3},
+		{"substitute covers the original quantity, not its own", omsDomain.PackScan{LineItemID: &li, ActionType: omsDomain.PackScanActionSubstitute, Quantity: 8, OriginalQtyCovered: &covered}, 2},
+		{"refund resolves its quantity", omsDomain.PackScan{LineItemID: &li, ActionType: omsDomain.PackScanActionRefund, Quantity: 1}, 1},
+		{"freebie covers no line", omsDomain.PackScan{ActionType: omsDomain.PackScanActionFreebie, Quantity: 1}, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			id, qty := tc.scan.Covers()
+			assert.Equal(t, tc.qty, qty)
+			if tc.qty > 0 {
+				assert.Equal(t, "li-1", id)
+			}
+		})
+	}
+}
