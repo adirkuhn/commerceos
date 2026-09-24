@@ -130,13 +130,3 @@ func validateClearanceBatches(ctx context.Context, batches skuBatchLister, lines
 	}
 	return nil
 }
-
-// hasClearanceLine reports whether any line carries a BatchID.
-func hasClearanceLine(lines []PromotionLineInput) bool {
-	for _, l := range lines {
-		if l.BatchID != nil {
-			return true
-		}
-	}
-	return false
-}

@@ -13,7 +13,7 @@ import (
 
 func TestDeletePromotion_deletesByID(t *testing.T) {
 	promoRepo := &stubPromotionRepo{findResult: &promotionsDomain.Promotion{ID: "promo-1"}}
-	uc := apppromotions.NewDeletePromotionUseCase(newMockGormDB(t), promoRepo)
+	uc := apppromotions.NewDeletePromotionUseCase(newMockGormDBN(t, 2), promoRepo, &stubPromotionSKURepo{}, &stubLineReverter{})
 
 	err := uc.Execute(context.Background(), "promo-1")
 
@@ -23,7 +23,7 @@ func TestDeletePromotion_deletesByID(t *testing.T) {
 
 func TestDeletePromotion_propagatesNotFound(t *testing.T) {
 	promoRepo := &stubPromotionRepo{}
-	uc := apppromotions.NewDeletePromotionUseCase(newMockGormDB(t), promoRepo)
+	uc := apppromotions.NewDeletePromotionUseCase(newMockGormDBN(t, 2), promoRepo, &stubPromotionSKURepo{}, &stubLineReverter{})
 
 	err := uc.Execute(context.Background(), "missing")
 

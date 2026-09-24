@@ -27,16 +27,23 @@ type UpdatePromotionUseCase struct {
 	lineRepo   promotionsDomain.PromotionSKURepository
 	skuChecker skuExistenceChecker
 	batches    skuBatchLister
+	reverter   lineReverter
 }
 
-func NewUpdatePromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.PromotionRepository, lineRepo promotionsDomain.PromotionSKURepository, skuChecker skuExistenceChecker, batches skuBatchLister) *UpdatePromotionUseCase {
-	return &UpdatePromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo, skuChecker: skuChecker, batches: batches}
+func NewUpdatePromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.PromotionRepository, lineRepo promotionsDomain.PromotionSKURepository, skuChecker skuExistenceChecker, batches skuBatchLister, reverter lineReverter) *UpdatePromotionUseCase {
+	return &UpdatePromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo, skuChecker: skuChecker, batches: batches, reverter: reverter}
 }
 
 // Execute replaces the promotion's whole line set wholesale (delete then
 // recreate) rather than diffing individual lines -- simplest correct
 // approach for a small per-promotion line count; same tradeoff UpdateSKU's
 // sibling domains accept elsewhere for small child collections.
+//
+// Three steps, because reverting a price opens its own transaction:
+// validate everything (read-only), restore the price of any line currently
+// live (see revertAppliedLines), then write. The new lines start
+// un-applied; the promotion_activation sweep applies them within a minute
+// with a fresh snapshot of the SKU's real pre-promotion price.
 func (uc *UpdatePromotionUseCase) Execute(ctx context.Context, in UpdatePromotionInput) (*promotionsDomain.Promotion, error) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
@@ -52,17 +59,32 @@ func (uc *UpdatePromotionUseCase) Execute(ctx context.Context, in UpdatePromotio
 		return nil, fmt.Errorf("updatePromotion: %w", err)
 	}
 
-	if err := uc.validateClearanceBatches(ctx, in); err != nil {
+	var existingLines []promotionsDomain.PromotionSKU
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		if _, err := uc.promoRepo.FindByID(ctx, in.ID); err != nil {
+			return err
+		}
+		if _, err := validateLines(ctx, uc.skuChecker, in.Lines); err != nil {
+			return err
+		}
+		var err error
+		existingLines, err = uc.lineRepo.ListByPromotion(ctx, in.ID)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("updatePromotion: %w", err)
+	}
+	if err := validateClearanceBatches(ctx, uc.batches, in.Lines, clearanceBatchIDs(existingLines)); err != nil {
+		return nil, fmt.Errorf("updatePromotion: %w", err)
+	}
+	if err := revertAppliedLines(ctx, uc.reverter, existingLines); err != nil {
 		return nil, fmt.Errorf("updatePromotion: %w", err)
 	}
 
 	var promo promotionsDomain.Promotion
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		existing, err := uc.promoRepo.FindByID(ctx, in.ID)
 		if err != nil {
-			return err
-		}
-		if _, err := validateLines(ctx, uc.skuChecker, in.Lines); err != nil {
 			return err
 		}
 
@@ -96,30 +118,4 @@ func (uc *UpdatePromotionUseCase) Execute(ctx context.Context, in UpdatePromotio
 		return nil, fmt.Errorf("updatePromotion: %w", err)
 	}
 	return &promo, nil
-}
-
-// validateClearanceBatches validates only clearance batches new to this
-// promotion -- see the package-level validateClearanceBatches. Skips the
-// extra read entirely when no line is a clearance line.
-func (uc *UpdatePromotionUseCase) validateClearanceBatches(ctx context.Context, in UpdatePromotionInput) error {
-	if !hasClearanceLine(in.Lines) {
-		return nil
-	}
-	existing := map[string]bool{}
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		lines, err := uc.lineRepo.ListByPromotion(ctx, in.ID)
-		if err != nil {
-			return err
-		}
-		for _, l := range lines {
-			if l.BatchID != nil {
-				existing[*l.BatchID] = true
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	return validateClearanceBatches(ctx, uc.batches, in.Lines, existing)
 }

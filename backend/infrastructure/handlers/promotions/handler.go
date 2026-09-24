@@ -11,6 +11,7 @@ import (
 
 	genpromotions "github.com/adirkuhn/commerceos/api/promotions"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
+	apppms "github.com/adirkuhn/commerceos/application/pms"
 	apppromotions "github.com/adirkuhn/commerceos/application/promotions"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	promotionsDomain "github.com/adirkuhn/commerceos/domain/promotions"
@@ -62,10 +63,14 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	lineRepo := repositories.NewPromotionSKURepo(db)
 	skuRepo := repositories.NewSKURepo(db)
 	listBatches := appinventory.NewListBatchesUseCase(db, repositories.NewBatchRepo(db), repositories.NewStockMovementRepo(db), repositories.NewWarehouseRepo(db))
+	// Editing or deleting a running promotion must put its SKUs' prices back
+	// first -- same revert the promotion_activation sweep uses.
+	setPromotionSalePrice := apppms.NewSetPromotionSalePriceUseCase(db, repositories.NewVariantRepo(db), skuRepo, repositories.NewOutboxRepository(db), repositories.NewSKUPriceHistoryRepo(db))
+	revertLine := apppromotions.NewRevertPromotionSKUUseCase(db, setPromotionSalePrice, lineRepo)
 	h := NewHandler(
 		apppromotions.NewCreatePromotionUseCase(db, promoRepo, lineRepo, skuRepo, listBatches),
-		apppromotions.NewUpdatePromotionUseCase(db, promoRepo, lineRepo, skuRepo, listBatches),
-		apppromotions.NewDeletePromotionUseCase(db, promoRepo),
+		apppromotions.NewUpdatePromotionUseCase(db, promoRepo, lineRepo, skuRepo, listBatches, revertLine),
+		apppromotions.NewDeletePromotionUseCase(db, promoRepo, lineRepo, revertLine),
 		apppromotions.NewGetPromotionUseCase(db, promoRepo, lineRepo, skuRepo),
 		apppromotions.NewListPromotionsUseCase(db, promoRepo),
 	)
