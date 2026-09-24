@@ -12,6 +12,8 @@ import { getPromotionPerformanceReport } from '../reports/api'
 import type { Promotion, PromotionInput, PromotionLine, PromotionStatus, PromotionType, CreatePromotionResult } from '../promotions/types'
 import type { PromotionPerformanceReport } from '../reports/types'
 import { useConfirm } from '../components/common/useConfirm'
+import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
+import type { SKU } from '../pms/types'
 
 const PAGE_SIZE = 20
 
@@ -185,6 +187,7 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
   const [lines, setLines] = useState<DraftLine[]>([])
   const [skuCode, setSkuCode] = useState('')
   const [resolving, setResolving] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(promotionId !== null)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
@@ -215,20 +218,31 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
     setResolving(true)
     try {
       const result = await resolveBarcode(token, code)
-      if (lines.some(l => l.sku_id === result.sku.id)) {
-        setFormError('That SKU is already in this promotion')
-        return
-      }
-      setLines(prev => [...prev, {
-        id: `draft-${result.sku.id}`, sku_id: result.sku.id, sku_code: result.sku.sku_code,
-        product_name: result.product_name, discount_type: type, discount_value: 0,
-      }])
-      setSkuCode('')
+      if (addLine(result.sku.id, result.sku.sku_code, result.product_name)) setSkuCode('')
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to resolve SKU')
     } finally {
       setResolving(false)
     }
+  }
+
+  // addLine appends a draft line for skuId, returning false (with a form
+  // error) when the SKU is already in this promotion.
+  function addLine(skuId: string, skuCode: string, productName: string): boolean {
+    if (lines.some(l => l.sku_id === skuId)) {
+      setFormError('That SKU is already in this promotion')
+      return false
+    }
+    setLines(prev => [...prev, {
+      id: `draft-${skuId}`, sku_id: skuId, sku_code: skuCode,
+      product_name: productName, discount_type: type, discount_value: 0,
+    }])
+    return true
+  }
+
+  function handlePickSKU(sku: SKU, _label: string, productName: string) {
+    setFormError('')
+    if (addLine(sku.id, sku.sku_code, productName)) setPickerOpen(false)
   }
 
   function updateLineValue(skuId: string, value: string) {
@@ -367,7 +381,7 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
               <h3 className="text-xs font-semibold text-ink">SKUs</h3>
               <div className="flex items-center gap-2">
                 <input
-                  type="text" placeholder="SKU code" value={skuCode} onChange={e => setSkuCode(e.target.value)}
+                  type="text" placeholder="SKU code or barcode" value={skuCode} onChange={e => setSkuCode(e.target.value)}
                   className={inputClass}
                 />
                 <button
@@ -376,7 +390,14 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
                 >
                   {resolving ? 'Resolving…' : 'Add SKU'}
                 </button>
+                <button
+                  type="button" onClick={() => setPickerOpen(open => !open)}
+                  className="shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-raised border border-line text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
+                >
+                  <Search size={12} /> Search product
+                </button>
               </div>
+              {pickerOpen && <ProductSkuPicker onSelect={handlePickSKU} onClose={() => setPickerOpen(false)} />}
               {lines.length === 0 && (
                 <p className="text-xs text-ink-4">No SKUs added yet.</p>
               )}

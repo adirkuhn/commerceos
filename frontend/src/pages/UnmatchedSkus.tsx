@@ -6,7 +6,7 @@ import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import { useSalesOrderDetail } from '../oms/hooks/useSalesOrderDetail'
 import * as api from '../oms/api'
 import type { SalesOrder } from '../oms/types'
-import { ProductSkuPicker } from './Procurement'
+import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
 import type { SKU } from '../pms/types'
 import { useQueryPage } from '../routing/useQueryState'
 

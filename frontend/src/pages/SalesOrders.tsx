@@ -12,7 +12,7 @@ import type { SalesOrder, SalesOrderStatus, SalesOrderSource, SalesOrderDetail, 
 import { PickingListPrintView } from './print/PickingListPrintView'
 import { InvoiceWithSeller } from './print/InvoiceWithSeller'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
-import { ProductSkuPicker } from './Procurement'
+import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
 import type { SKU } from '../pms/types'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'

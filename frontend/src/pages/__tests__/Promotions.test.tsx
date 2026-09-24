@@ -22,6 +22,8 @@ vi.mock('../../promotions/api', () => ({
 
 vi.mock('../../pms/api', () => ({
   resolveBarcode: vi.fn(),
+  listProducts: vi.fn(),
+  getProduct: vi.fn(),
 }))
 
 vi.mock('../../reports/api', () => ({
@@ -123,11 +125,50 @@ describe('Promotion edit page', () => {
 
     renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
-    await userEvent.type(await screen.findByPlaceholderText('SKU code'), 'ACAI-1L')
+    await userEvent.type(await screen.findByPlaceholderText('SKU code or barcode'), 'ACAI-1L')
     await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
 
     expect(await screen.findByText('Acai 1L')).toBeInTheDocument()
     expect(screen.getByText('ACAI-1L')).toBeInTheDocument()
+  })
+
+  it('adding a SKU line by searching the product name', async () => {
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({
+      products: [{
+        id: 'product-1', tenant_id: 'tenant-1', category_id: null, name: 'Acai 1L',
+        slug: 'acai-1l', description: '', status: 'active', has_variants: false, tags: [],
+        created_at: '', updated_at: '',
+      }],
+      total: 1,
+    })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: {
+        id: 'product-1', tenant_id: 'tenant-1', category_id: null, name: 'Acai 1L',
+        slug: 'acai-1l', description: '', status: 'active', has_variants: false, tags: [],
+        created_at: '', updated_at: '',
+      },
+      variants: [{
+        id: 'variant-1', tenant_id: 'tenant-1', product_id: 'product-1', name: 'Default', position: 0,
+        created_at: '', updated_at: '',
+        skus: [{
+          id: 'sku-1', tenant_id: 'tenant-1', variant_id: 'variant-1', sku_code: 'ACAI-1L',
+          price_minor_units: 999, currency_code: 'EUR', is_virtual: false, status: 'active',
+          created_at: '', updated_at: '',
+        }],
+      }],
+    } as never)
+
+    renderAt(<Promotions />, '/promotions')
+    await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Search product' }))
+    await userEvent.type(screen.getByPlaceholderText('Search products by name…'), 'Acai')
+    await userEvent.click(await screen.findByRole('button', { name: 'Acai 1L' }))
+    await userEvent.click(await screen.findByText('ACAI-1L'))
+
+    expect(await screen.findByLabelText('Discount value')).toBeInTheDocument()
+    expect(screen.getByText('Acai 1L')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Search products by name…')).not.toBeInTheDocument()
+    expect(pmsApi.resolveBarcode).not.toHaveBeenCalled()
   })
 
   it('shows an error when the SKU code does not resolve', async () => {
@@ -135,7 +176,7 @@ describe('Promotion edit page', () => {
 
     renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
-    await userEvent.type(await screen.findByPlaceholderText('SKU code'), 'MISSING')
+    await userEvent.type(await screen.findByPlaceholderText('SKU code or barcode'), 'MISSING')
     await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
 
     expect(await screen.findByText('sku not found')).toBeInTheDocument()
@@ -153,7 +194,7 @@ describe('Promotion edit page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
     await userEvent.type(await screen.findByLabelText('Name'), 'Winter Sale')
     await userEvent.type(screen.getByLabelText('Starts at'), '2026-07-01T00:00')
-    await userEvent.type(screen.getByPlaceholderText('SKU code'), 'ACAI-1L')
+    await userEvent.type(screen.getByPlaceholderText('SKU code or barcode'), 'ACAI-1L')
     await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
     await screen.findByText('Acai 1L')
     await userEvent.type(screen.getByLabelText('Discount value'), '1000')
@@ -183,7 +224,7 @@ describe('Promotion edit page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
     await userEvent.type(await screen.findByLabelText('Name'), 'Winter Sale')
     await userEvent.type(screen.getByLabelText('Starts at'), '2026-07-01T00:00')
-    await userEvent.type(screen.getByPlaceholderText('SKU code'), 'ACAI-1L')
+    await userEvent.type(screen.getByPlaceholderText('SKU code or barcode'), 'ACAI-1L')
     await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
     await screen.findByText('Acai 1L')
     await userEvent.type(screen.getByLabelText('Discount value'), '1000')
