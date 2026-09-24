@@ -13,6 +13,7 @@ import type { Promotion, PromotionInput, PromotionLine, PromotionStatus, Promoti
 import type { PromotionPerformanceReport } from '../reports/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
+import { ClearanceBatchSelect } from '../promotions/components/ClearanceBatchSelect'
 import type { SKU } from '../pms/types'
 
 const PAGE_SIZE = 20
@@ -250,6 +251,10 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
     setLines(prev => prev.map(l => (l.sku_id === skuId ? { ...l, discount_value: parsed } : l)))
   }
 
+  function updateLineBatch(skuId: string, batchId: string | null) {
+    setLines(prev => prev.map(l => (l.sku_id === skuId ? { ...l, batch_id: batchId } : l)))
+  }
+
   function removeLine(skuId: string) {
     setLines(prev => prev.filter(l => l.sku_id !== skuId))
   }
@@ -263,7 +268,10 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
         name, type, starts_at: new Date(startsAt).toISOString(),
         ends_at: endsAt ? new Date(endsAt).toISOString() : null,
         status,
-        lines: lines.map(l => ({ sku_id: l.sku_id, discount_type: type, discount_value: l.discount_value })),
+        lines: lines.map(l => ({
+          sku_id: l.sku_id, discount_type: type, discount_value: l.discount_value,
+          ...(l.batch_id ? { batch_id: l.batch_id } : {}),
+        })),
       }
       if (promotionId) {
         await onUpdate(promotionId, input)
@@ -403,10 +411,16 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
               )}
               <div className="divide-y divide-line/60">
                 {lines.map(l => (
-                  <div key={l.sku_id} className="flex items-center gap-3 py-2">
+                  <div key={l.sku_id} className="flex flex-wrap sm:flex-nowrap items-center gap-3 py-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-ink truncate">{l.product_name || l.sku_code}</p>
                       <p className="text-2xs font-mono text-ink-4">{l.sku_code}</p>
+                      {l.finished_at && (
+                        <p className="text-2xs text-ink-4">Batch finished {formatDate(l.finished_at)} — back to regular price</p>
+                      )}
+                    </div>
+                    <div className="w-56">
+                      <ClearanceBatchSelect token={token} skuId={l.sku_id} value={l.batch_id ?? null} onChange={id => updateLineBatch(l.sku_id, id)} />
                     </div>
                     <div className="w-28">
                       <label htmlFor={`discount-${l.sku_id}`} className="sr-only">Discount value</label>

@@ -10,10 +10,17 @@ export interface PromotionLine {
   discount_type: PromotionType
   // Basis points (1-10000) for percentage, minor currency units for fixed_amount.
   discount_value: number
+  // Set on a clearance line: the batch being sold off. The line ends on its
+  // own (SKU back to its pre-promotion price) once the batch is sold out,
+  // discarded, removed or expired.
+  batch_id?: string | null
+  // When a clearance line's batch finished; absent while it's still running.
+  finished_at?: string | null
 }
 
 export interface PromotionLineInput {
   sku_id: string
+  batch_id?: string | null
   discount_type: PromotionType
   discount_value: number
 }

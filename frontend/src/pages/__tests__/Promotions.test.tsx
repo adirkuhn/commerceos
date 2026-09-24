@@ -26,6 +26,10 @@ vi.mock('../../pms/api', () => ({
   getProduct: vi.fn(),
 }))
 
+vi.mock('../../inventory/api', () => ({
+  listBatches: vi.fn(),
+}))
+
 vi.mock('../../reports/api', () => ({
   getPromotionPerformanceReport: vi.fn(),
 }))
@@ -33,6 +37,7 @@ vi.mock('../../reports/api', () => ({
 import * as promotionsApi from '../../promotions/api'
 import * as pmsApi from '../../pms/api'
 import * as reportsApi from '../../reports/api'
+import * as inventoryApi from '../../inventory/api'
 import { acceptConfirm } from '../../test/confirm'
 
 function promotion(overrides: Partial<Promotion> = {}): Promotion {
@@ -61,6 +66,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(promotionsApi.listPromotions).mockResolvedValue([])
   vi.mocked(reportsApi.getPromotionPerformanceReport).mockResolvedValue(performanceReport())
+  vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
 })
 
 describe('Promotions list', () => {
@@ -254,6 +260,47 @@ describe('Promotion edit page', () => {
     await waitFor(() => expect(promotionsApi.getPromotion).toHaveBeenCalledWith('test-token', 'promo-1'))
     expect(await screen.findAllByText('ACAI-1L')).toHaveLength(2)
     expect(screen.getByDisplayValue('1000')).toBeInTheDocument()
+  })
+
+  it('creates a clearance promotion for a near-expiry batch', async () => {
+    vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({
+      sku: { id: 'sku-1', sku_code: 'YOG-1' } as never,
+      units_per_scan: 1,
+      product_name: 'Yoghurt',
+    })
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([{
+      id: 'batch-1', tenant_id: 't', sku_id: 'sku-1', warehouse_id: 'wh-1', lot_number: 'L-42',
+      expiry_date: '2099-10-01T00:00:00Z', received_at: '', created_at: '', updated_at: '',
+      quantity: 7, is_general_ledger: false,
+    }])
+    vi.mocked(promotionsApi.createPromotion).mockResolvedValue({ promotion: promotionDetail({ id: 'promo-2', name: 'Yoghurt clearance' }), warnings: [] })
+
+    renderAt(<Promotions />, '/promotions')
+    await userEvent.click(await screen.findByRole('button', { name: 'Add promotion' }))
+    await userEvent.type(await screen.findByLabelText('Name'), 'Yoghurt clearance')
+    await userEvent.type(screen.getByLabelText('Starts at'), '2026-09-24T00:00')
+    await userEvent.type(screen.getByPlaceholderText('SKU code or barcode'), 'YOG-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
+    await screen.findByRole('option', { name: /L-42/ })
+    await userEvent.selectOptions(screen.getByLabelText('Clearance batch'), 'batch-1')
+    await userEvent.type(screen.getByLabelText('Discount value'), '3000')
+    await userEvent.click(screen.getByRole('button', { name: 'Create promotion' }))
+
+    await waitFor(() => expect(promotionsApi.createPromotion).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      lines: [{ sku_id: 'sku-1', batch_id: 'batch-1', discount_type: 'percentage', discount_value: 3000 }],
+    })))
+  })
+
+  it('shows when a clearance line has finished', async () => {
+    vi.mocked(promotionsApi.listPromotions).mockResolvedValue([promotion()])
+    vi.mocked(promotionsApi.getPromotion).mockResolvedValue(promotionDetail({
+      lines: [{ id: 'line-1', sku_id: 'sku-1', sku_code: 'YOG-1', discount_type: 'percentage', discount_value: 3000, batch_id: 'batch-1', finished_at: '2026-09-24T10:00:00Z' }],
+    }))
+
+    renderAt(<Promotions />, '/promotions')
+    await userEvent.click(await screen.findByText('Summer Acai'))
+
+    expect(await screen.findByText(/Batch finished/)).toBeInTheDocument()
   })
 
   it('shows the performance comparison for an existing promotion', async () => {
