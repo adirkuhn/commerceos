@@ -50,6 +50,18 @@ describe('listSalesOrders', () => {
   })
 })
 
+describe('listSalesOrders awaitingPicking', () => {
+  it('sends awaiting_picking=true when requested, omits it otherwise', async () => {
+    const fetchMock = mockFetch({ sales_orders: [], total: 0 })
+
+    await api.listSalesOrders(TOKEN, { awaitingPicking: true })
+    expect(fetchMock.mock.calls[0][0] as string).toContain('awaiting_picking=true')
+
+    await api.listSalesOrders(TOKEN, {})
+    expect(fetchMock.mock.calls[1][0] as string).not.toContain('awaiting_picking')
+  })
+})
+
 describe('listPackingQueue', () => {
   it('requests the packing queue page and returns entries with locks', async () => {
     const queue = { entries: [{ sales_order: { id: 'so-1' }, lock: { activity: 'picking', user_id: 'u1', since: '2026-09-24T10:00:00Z' } }], total: 1 }

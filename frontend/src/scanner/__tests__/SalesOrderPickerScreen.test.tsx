@@ -39,6 +39,7 @@ describe('SalesOrderPickerScreen', () => {
 
     await user.click(await screen.findByRole('button', { name: /Ann Lee/, hidden: false }))
 
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('tok', { awaitingPicking: true, perPage: 100 })
     expect(api.startOrResumePicking).toHaveBeenCalledWith('tok', 'so-1')
     expect(onPickingStarted).toHaveBeenCalledWith('ps-1', order)
     expect(onOrderChosenForList).not.toHaveBeenCalled()

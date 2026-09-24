@@ -1,8 +1,4 @@
-import type { SalesOrderLineItem, SalesOrderStatus } from './types'
-
-// Mirrors backend domain/oms.PickableStatuses -- the statuses an order can
-// still be picked in. One place, so the picking queues can't drift.
-export const PICKABLE_STATUSES: SalesOrderStatus[] = ['pending', 'processing', 'on-hold']
+import type { SalesOrderLineItem } from './types'
 
 // What's still to fetch for a line: ordered minus refunded.
 export function quantityToPick(li: SalesOrderLineItem): number {

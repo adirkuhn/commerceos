@@ -35,11 +35,11 @@ beforeEach(() => {
 })
 
 describe('PickingListMode', () => {
-  it('lists unpicked orders in a pickable status', async () => {
+  it('lists the picking queue (unpicked, pickable status, no POS -- backend rule)', async () => {
     renderAt(<PickingListMode token="tok" />, '/picking')
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
-    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('tok', { fulfilled: false, status: ['pending', 'processing', 'on-hold'], perPage: 100 })
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('tok', { awaitingPicking: true, perPage: 100 })
   })
 
   it('opening an order shows what to pick, in the URL', async () => {

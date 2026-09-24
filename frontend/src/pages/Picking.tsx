@@ -4,7 +4,6 @@ import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, Repeat, Gift, P
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as omsApi from '../oms/api'
-import { PICKABLE_STATUSES } from '../oms/pickable'
 import { usePickingMode } from '../picking/usePickingMode'
 import { PickingListMode } from '../picking/PickingListMode'
 import type { SalesOrder } from '../oms/types'
@@ -160,7 +159,7 @@ function ScanPicking() {
     setOrdersLoading(true)
     setOrdersError('')
     try {
-      const result = await omsApi.listSalesOrders(token, { fulfilled: false, status: PICKABLE_STATUSES, perPage: 100 })
+      const result = await omsApi.listSalesOrders(token, { awaitingPicking: true, perPage: 100 })
       setOrders(result.salesOrders)
     } catch (err) {
       setOrdersError(err instanceof Error ? err.message : 'Failed to load orders')

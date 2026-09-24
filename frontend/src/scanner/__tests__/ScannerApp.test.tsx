@@ -702,7 +702,7 @@ describe('ScannerApp sales order picker', () => {
     localStorage.setItem('commerceos_scanner_jwt', makeJWT(Math.floor(Date.now() / 1000) + 3600))
   })
 
-  it('lists unfulfilled orders by customer name and order number', async () => {
+  it('lists the picking queue by customer name and order number', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
     renderAt(<ScannerApp />, '/scanner')
@@ -710,7 +710,7 @@ describe('ScannerApp sales order picker', () => {
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
     expect(screen.getByText('#1001')).toBeInTheDocument()
-    expect(omsApi.listSalesOrders).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ fulfilled: false }))
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ awaitingPicking: true }))
   })
 
   it('starts a picking session and moves to the picking screen', async () => {

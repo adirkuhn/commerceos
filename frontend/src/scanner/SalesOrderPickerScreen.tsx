@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Search, LogOut, ShoppingCart, ArrowLeft } from 'lucide-react'
 import * as omsApi from '../oms/api'
-import { PICKABLE_STATUSES } from '../oms/pickable'
 import { usePickingMode } from '../picking/usePickingMode'
 import * as api from './api'
 import type { SalesOrder } from '../oms/types'
@@ -42,7 +41,7 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenF
   const [startingId, setStartingId] = useState<string | null>(null)
 
   useEffect(() => {
-    omsApi.listSalesOrders(token, { fulfilled: false, status: PICKABLE_STATUSES, perPage: 100 })
+    omsApi.listSalesOrders(token, { awaitingPicking: true, perPage: 100 })
       .then(result => setSalesOrders(result.salesOrders))
       .catch(err => setError(err instanceof Error ? err.message : 'Failed to load sales orders'))
       .finally(() => setLoading(false))

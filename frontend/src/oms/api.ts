@@ -30,6 +30,10 @@ export interface ListSalesOrdersParams {
   // fulfilled: false powers the picking scanner app's "orders to pick"
   // search. Omit for the normal unfiltered sales orders list.
   fulfilled?: boolean
+  // awaitingPicking: true is the picking queue -- not yet picked, still
+  // pending/processing/on-hold, not a POS sale. The rule lives in the
+  // backend (ListSalesOrdersFilter.AwaitingPicking).
+  awaitingPicking?: boolean
   // packed: filter on the order's packing status. Omit for the normal
   // unfiltered sales orders list.
   packed?: boolean
@@ -61,6 +65,7 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
   if (params.needsSkuReview !== undefined) qs.set('needs_sku_review', String(params.needsSkuReview))
   if (params.fulfilled !== undefined) qs.set('fulfilled', String(params.fulfilled))
   if (params.packed !== undefined) qs.set('packed', String(params.packed))
+  if (params.awaitingPicking) qs.set('awaiting_picking', 'true')
   for (const status of params.status ?? []) qs.append('status', status)
   for (const source of params.source ?? []) qs.append('source', source)
   if (params.customerId) qs.set('customer_id', params.customerId)

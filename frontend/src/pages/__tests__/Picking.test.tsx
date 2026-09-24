@@ -664,6 +664,6 @@ describe('Picking page mode', () => {
     renderAt(<Picking />, '/picking')
 
     expect(await screen.findByText('Select an order to see what to pick')).toBeInTheDocument()
-    expect(vi.mocked(omsApi.listSalesOrders)).toHaveBeenCalledWith('test-token', { fulfilled: false, status: ['pending', 'processing', 'on-hold'], perPage: 100 })
+    expect(vi.mocked(omsApi.listSalesOrders)).toHaveBeenCalledWith('test-token', { awaitingPicking: true, perPage: 100 })
   })
 })

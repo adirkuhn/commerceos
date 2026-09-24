@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle, ClipboardList } from 'lucide-react'
 import clsx from 'clsx'
 import * as omsApi from '../oms/api'
-import { PICKABLE_STATUSES, quantityToPick } from '../oms/pickable'
+import { quantityToPick } from '../oms/pickable'
 import { useSalesOrderDetail } from '../oms/hooks/useSalesOrderDetail'
 import type { SalesOrder } from '../oms/types'
 import { customerName, orderNumber } from '../packing/orderDisplay'
@@ -28,7 +28,7 @@ export function PickingListMode({ token }: { token: string }) {
 
   const loadOrders = useCallback(async () => {
     try {
-      const result = await omsApi.listSalesOrders(token, { fulfilled: false, status: PICKABLE_STATUSES, perPage: QUEUE_PAGE_SIZE })
+      const result = await omsApi.listSalesOrders(token, { awaitingPicking: true, perPage: QUEUE_PAGE_SIZE })
       setOrders(result.salesOrders)
       setListError('')
     } catch (err) {
