@@ -306,7 +306,8 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 	}
 	if filter.AwaitingPacking {
 		q = q.Where("packed = false").
-			Where("(fulfilled = true OR status IN ?)", salesOrderStatusStrings(omsDomain.PickableStatuses()))
+			Where("status IN ?", salesOrderStatusStrings(omsDomain.PickableStatuses())).
+			Where("source <> ?", string(omsDomain.SalesOrderSourcePOS))
 	}
 	if len(filter.Status) > 0 {
 		q = q.Where("status IN ?", salesOrderStatusStrings(filter.Status))

@@ -14,7 +14,7 @@ import (
 
 func TestStartOrResumePacking_createsNewSessionWhenNoneActive(t *testing.T) {
 	db := newMockGormDB(t)
-	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true}}
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true, Status: omsDomain.SalesOrderStatusProcessing}}
 	sessionRepo := &stubPackingSessionRepo{}
 	uc := appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, sessionRepo, &stubPickingSessionRepo{}, &stubPickScanRepo{})
 
@@ -30,7 +30,7 @@ func TestStartOrResumePacking_createsNewSessionWhenNoneActive(t *testing.T) {
 
 func TestStartOrResumePacking_reusesInProgressSession(t *testing.T) {
 	db := newMockGormDB(t)
-	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true}}
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true, Status: omsDomain.SalesOrderStatusProcessing}}
 	sessionRepo := &stubPackingSessionRepo{activeResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	uc := appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, sessionRepo, &stubPickingSessionRepo{}, &stubPickScanRepo{})
 
@@ -143,7 +143,7 @@ func TestStartOrResumePacking_refusesToAbandonPickingWithPendingChanges(t *testi
 
 func TestStartOrResumePacking_adminTakesOverFreshPackingLock(t *testing.T) {
 	db := newMockGormDB(t)
-	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true}}
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true, Status: omsDomain.SalesOrderStatusProcessing}}
 	other, now := "user-2", time.Now()
 	sessionRepo := &stubPackingSessionRepo{activeResult: &omsDomain.PackingSession{
 		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress,
@@ -184,7 +184,7 @@ func TestStartOrResumePacking_rejectsAlreadyPackedOrder(t *testing.T) {
 
 func TestStartOrResumePacking_rejectsWhenLockedByAnotherFreshUser(t *testing.T) {
 	db := newMockGormDB(t)
-	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true}}
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true, Status: omsDomain.SalesOrderStatusProcessing}}
 	otherUser := "user-2"
 	lockedAt := time.Now()
 	sessionRepo := &stubPackingSessionRepo{activeResult: &omsDomain.PackingSession{
@@ -201,7 +201,7 @@ func TestStartOrResumePacking_rejectsWhenLockedByAnotherFreshUser(t *testing.T) 
 
 func TestStartOrResumePacking_allowsTakeoverWhenLockStale(t *testing.T) {
 	db := newMockGormDB(t)
-	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true}}
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true, Status: omsDomain.SalesOrderStatusProcessing}}
 	otherUser := "user-2"
 	staleAt := time.Now().Add(-10 * time.Minute)
 	sessionRepo := &stubPackingSessionRepo{activeResult: &omsDomain.PackingSession{
@@ -215,4 +215,28 @@ func TestStartOrResumePacking_allowsTakeoverWhenLockStale(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"session-1"}, sessionRepo.acquiredLocks)
 	assert.Equal(t, "session-1", session.ID)
+}
+
+func TestStartOrResumePacking_rejectsPickedOrderThatAlreadyShipped(t *testing.T) {
+	db := newMockGormDB(t)
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true, Status: omsDomain.SalesOrderStatusShipped}}
+	sessionRepo := &stubPackingSessionRepo{}
+	uc := appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, sessionRepo, &stubPickingSessionRepo{}, &stubPickScanRepo{})
+
+	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
+
+	assert.ErrorIs(t, err, omsDomain.ErrOrderNotPackable)
+	assert.Empty(t, sessionRepo.created)
+}
+
+func TestStartOrResumePacking_rejectsPOSOrder(t *testing.T) {
+	db := newMockGormDB(t)
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing}}
+	sessionRepo := &stubPackingSessionRepo{}
+	uc := appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, sessionRepo, &stubPickingSessionRepo{}, &stubPickScanRepo{})
+
+	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
+
+	assert.ErrorIs(t, err, omsDomain.ErrPOSOrderNotPackable)
+	assert.Empty(t, sessionRepo.created)
 }

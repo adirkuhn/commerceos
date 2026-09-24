@@ -137,8 +137,9 @@ paths:
       operationId: listPackingQueue
       summary: >
         Packing screens' order queue -- every order not yet packed that is
-        either already picked or still pending/processing/on-hold (picking
-        is optional). Each entry carries who is actively working the order
+        still pending/processing/on-hold, picked or not (picking is
+        optional). Completed/shipped/cancelled orders and point-of-sale
+        sales never appear. Each entry carries who is actively working the order
         right now (lock), if anyone: the UI shows those read-only to
         everyone else. A lock whose holder sent no heartbeat for 2 minutes
         is stale and not reported.
@@ -677,14 +678,14 @@ paths:
       operationId: startOrResumePacking
       summary: >
         Packing screen -- start a new packing session for this order, or
-        resume its existing in_progress one. Picking is optional: an order
-        that was never picked may be packed directly while its status is
-        pending/processing/on-hold. An open picking session is taken over
+        resume its existing in_progress one. Only a pending/processing/
+        on-hold, non-POS order is packed -- picked or not (picking is
+        optional). An open picking session is taken over
         (closed as abandoned) when its lock is stale (no heartbeat for 2
         minutes), is the caller's own, or the caller is an admin
         (super_admin/customer_owner/customer_admin); the same takeover rule
         applies to another user's packing lock. Rejected (422) if the order
-        is already packed, or unpicked in any other status; 409 if someone
+        is already packed, a point-of-sale sale, or in any other status; 409 if someone
         else actively holds the picking or packing lock, or the picking
         session still has unapplied changes. Completing packing also marks
         the order fulfilled.

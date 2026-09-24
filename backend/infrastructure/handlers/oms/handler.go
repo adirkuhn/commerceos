@@ -838,7 +838,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, omsDomain.ErrRefundRequiresLinkedSKU), errors.Is(err, pmsDomain.ErrWeightRequiredForPerWeightSKU),
 		errors.Is(err, pmsDomain.ErrInvalidCheckDigit), errors.Is(err, omsDomain.ErrPickingSessionAlreadyCompleted),
 		errors.Is(err, omsDomain.ErrPackingSessionNotActive), errors.Is(err, omsDomain.ErrPackingSessionAlreadyCompleted),
-		errors.Is(err, omsDomain.ErrOrderNotPackable), errors.Is(err, omsDomain.ErrOrderAlreadyPacked), errors.Is(err, omsDomain.ErrOrderNotPickable),
+		errors.Is(err, omsDomain.ErrOrderNotPackable), errors.Is(err, omsDomain.ErrPOSOrderNotPackable), errors.Is(err, omsDomain.ErrOrderAlreadyPacked), errors.Is(err, omsDomain.ErrOrderNotPickable),
 		errors.Is(err, omsDomain.ErrPickListOrderIDsRequired), errors.Is(err, omsDomain.ErrPickListTooManyOrders),
 		errors.Is(err, omsDomain.ErrPackScanCodeOrSKURequired), errors.Is(err, omsDomain.ErrPackScanSKUMismatch),
 		errors.Is(err, omsDomain.ErrPackQuantityExceedsOrdered):

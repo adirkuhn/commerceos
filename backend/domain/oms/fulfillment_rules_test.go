@@ -40,6 +40,10 @@ func TestCanStartPacking(t *testing.T) {
 		{"unpicked pending order", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusPending}, nil},
 		{"already packed", omsDomain.SalesOrder{Fulfilled: true, Packed: true, Status: omsDomain.SalesOrderStatusProcessing}, omsDomain.ErrOrderAlreadyPacked},
 		{"unpicked terminal-status order", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusCancelled}, omsDomain.ErrOrderNotPackable},
+		{"picked but completed", omsDomain.SalesOrder{Fulfilled: true, Status: omsDomain.SalesOrderStatusCompleted}, omsDomain.ErrOrderNotPackable},
+		{"picked but shipped", omsDomain.SalesOrder{Fulfilled: true, Status: omsDomain.SalesOrderStatusShipped}, omsDomain.ErrOrderNotPackable},
+		{"picked on-hold order", omsDomain.SalesOrder{Fulfilled: true, Status: omsDomain.SalesOrderStatusOnHold}, nil},
+		{"point-of-sale order", omsDomain.SalesOrder{Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing}, omsDomain.ErrPOSOrderNotPackable},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -117,5 +121,15 @@ func TestCanMarkPicked(t *testing.T) {
 				assert.ErrorIs(t, err, tc.want)
 			}
 		})
+	}
+}
+
+func TestSalesOrderSource_IsPackable(t *testing.T) {
+	assert.False(t, omsDomain.SalesOrderSourcePOS.IsPackable(), "POS sales are handed over at the counter")
+	for _, src := range []omsDomain.SalesOrderSource{
+		omsDomain.SalesOrderSourceManual, omsDomain.SalesOrderSourceWooCommerce, omsDomain.SalesOrderSourceBol,
+		omsDomain.SalesOrderSourceWhatsApp, omsDomain.SalesOrderSourceInternal,
+	} {
+		assert.True(t, src.IsPackable(), src)
 	}
 }

@@ -105,13 +105,17 @@ var (
 	// completion is a one-way door here too, same reasoning as
 	// ErrPickingSessionAlreadyCompleted.
 	ErrPackingSessionAlreadyCompleted = errors.New("packing session is already completed")
-	// ErrOrderNotPackable guards SalesOrder.CanStartPacking -- an order that
-	// skipped picking may only go straight to packing while its status is
-	// still pickable (see SalesOrderStatus.IsPickable).
+	// ErrOrderNotPackable guards SalesOrder.CanStartPacking -- only a
+	// pending/processing/on-hold order (see SalesOrderStatus.IsPickable) is
+	// packed; a completed/shipped/cancelled one has already left or never
+	// will.
 	ErrOrderNotPackable = errors.New("sales order status does not allow packing")
 	// ErrOrderNotPickable guards SalesOrder.CanMarkPicked -- only a
 	// pending/processing/on-hold order can still be picked.
 	ErrOrderNotPickable = errors.New("sales order status does not allow picking")
+	// ErrPOSOrderNotPackable guards SalesOrder.CanStartPacking -- a POS sale
+	// is handed over at the counter and never packed.
+	ErrPOSOrderNotPackable = errors.New("point-of-sale orders are not packed")
 	// ErrOrderPickingInProgress guards SalesOrder.CanStartPacking against an
 	// order with an open (in_progress/paused) picking session -- finish or
 	// reset that session first.

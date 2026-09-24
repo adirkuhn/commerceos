@@ -20,17 +20,28 @@ func PickableStatuses() []SalesOrderStatus {
 	return []SalesOrderStatus{SalesOrderStatusPending, SalesOrderStatusProcessing, SalesOrderStatusOnHold}
 }
 
+// IsPackable reports whether orders from this source go through packing --
+// a POS sale is handed over at the counter, there's nothing to pack or ship.
+func (s SalesOrderSource) IsPackable() bool {
+	return s != SalesOrderSourcePOS
+}
+
 // CanStartPacking decides whether a packing session may start for this
-// order. Picking is optional: an order may go straight to packing (items
-// collected off a printed pick list, then scanned during packing) as long as
-// it's still in a pickable status. An open picking session on the order is
-// the use case's call (StartOrResumePackingUseCase takes it over when its
-// lock allows), not this rule's.
+// order: not packed, not a POS sale, and still pending/processing/on-hold --
+// picked or not (picking is optional). Status, not Fulfilled, is what says
+// an order hasn't left yet: Fulfilled is also set automatically when an
+// order completes or the carrier confirms a shipment, and those must never
+// be packed. An open picking session on the order is the use case's call
+// (StartOrResumePackingUseCase takes it over when its lock allows), not
+// this rule's.
 func (o SalesOrder) CanStartPacking() error {
 	if o.Packed {
 		return ErrOrderAlreadyPacked
 	}
-	if !o.Fulfilled && !o.Status.IsPickable() {
+	if !o.Source.IsPackable() {
+		return ErrPOSOrderNotPackable
+	}
+	if !o.Status.IsPickable() {
 		return ErrOrderNotPackable
 	}
 	return nil

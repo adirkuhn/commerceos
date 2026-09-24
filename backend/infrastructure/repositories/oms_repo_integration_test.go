@@ -1253,9 +1253,10 @@ func TestSalesOrderRepo_Integration_ListFiltersByStatus(t *testing.T) {
 }
 
 // TestSalesOrderRepo_Integration_ListFiltersByAwaitingPacking proves the
-// packing queue's filter against real Postgres: picked-or-pickable and not
-// packed -- orders being picked right now included (the queue shows them
-// locked).
+// packing queue's filter against real Postgres: not packed, still
+// pending/processing/on-hold (picked or not -- orders being picked right now
+// included, the queue shows them locked), and not a POS sale. A completed or
+// shipped order is out even though it's fulfilled and was never packed.
 func TestSalesOrderRepo_Integration_ListFiltersByAwaitingPacking(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()
@@ -1281,10 +1282,17 @@ func TestSalesOrderRepo_Integration_ListFiltersByAwaitingPacking(t *testing.T) {
 			{"rtp-cancelled-unpicked", omsDomain.SalesOrderStatusCancelled, false, false, "", nil},
 			{"rtp-picking-in-progress", omsDomain.SalesOrderStatusProcessing, false, false, omsDomain.PickingSessionStatusInProgress, &inProgressID},
 			{"rtp-picking-paused", omsDomain.SalesOrderStatusOnHold, false, false, omsDomain.PickingSessionStatusPaused, &pausedID},
+			{"rtp-completed-fulfilled", omsDomain.SalesOrderStatusCompleted, true, false, "", nil},
+			{"rtp-shipped-fulfilled", omsDomain.SalesOrderStatusShipped, true, false, "", nil},
+			{"rtp-pos", omsDomain.SalesOrderStatusProcessing, false, false, "", nil},
 		}
 		for _, s := range specs {
+			source := omsDomain.SalesOrderSourceWooCommerce
+			if s.extID == "rtp-pos" {
+				source = omsDomain.SalesOrderSourcePOS
+			}
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
+				TenantID: tenant.IDFromContext(ctx), Source: source,
 				ExternalOrderID: s.extID, WarehouseID: warehouseID, CurrencyCode: "USD",
 				Status: s.status, Fulfilled: s.fulfilled, Packed: s.packed, OccurredAt: now, CreatedAt: now,
 			}
