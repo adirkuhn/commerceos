@@ -1,4 +1,4 @@
-import type { PackingQueueLock } from '../oms/types'
+import type { QueueLock } from '../oms/types'
 
 // Mirrors the backend's admin roles for lock takeover
 // (infrastructure/handlers/oms lockActorFrom) -- only decides whether to
@@ -22,8 +22,8 @@ export function shortUserId(userId: string): string {
   return `User ${userId.slice(0, 6)}`
 }
 
-const ACTIVITY_LABEL: Record<PackingQueueLock['activity'], string> = { picking: 'Picking', packing: 'Packing' }
+const ACTIVITY_LABEL: Record<QueueLock['activity'], string> = { picking: 'Picking', packing: 'Packing' }
 
-export function lockLabel(lock: PackingQueueLock, name: string, now: number = Date.now()): string {
+export function lockLabel(lock: QueueLock, name: string, now: number = Date.now()): string {
   return `${ACTIVITY_LABEL[lock.activity]} · ${name} · ${formatLockAge(lock.since, now)}`
 }

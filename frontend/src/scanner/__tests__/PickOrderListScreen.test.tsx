@@ -5,7 +5,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PickOrderListScreen } from '../PickOrderListScreen'
 import type { SalesOrder, SalesOrderDetail } from '../../oms/types'
 
-vi.mock('../../oms/api', () => ({ getSalesOrder: vi.fn(), markOrderPicked: vi.fn() }))
+vi.mock('../../oms/api', () => ({ getSalesOrder: vi.fn(), markOrderPicked: vi.fn(), listPickingQueue: vi.fn() }))
+vi.mock('../../team/api', () => ({ listMembers: vi.fn().mockResolvedValue([]) }))
 import * as omsApi from '../../oms/api'
 
 const detail: SalesOrderDetail = {
@@ -16,6 +17,7 @@ const detail: SalesOrderDetail = {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail)
+  vi.mocked(omsApi.listPickingQueue).mockResolvedValue({ entries: [{ sales_order: detail.sales_order, lock: null, in_packing: false }], total: 1 })
 })
 
 describe('PickOrderListScreen', () => {
@@ -55,5 +57,16 @@ describe('PickOrderListScreen', () => {
     render(<PickOrderListScreen token="tok" orderId="missing" onDone={vi.fn()} onBack={vi.fn()} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('sales order not found')
+  })
+
+  it('an order packing has is view only -- no Mark as picked', async () => {
+    vi.mocked(omsApi.listPickingQueue).mockResolvedValue({ entries: [
+      { sales_order: detail.sales_order, lock: { activity: 'packing', user_id: 'u-9', since: new Date().toISOString() }, in_packing: true },
+    ], total: 1 })
+    render(<PickOrderListScreen token="tok" orderId="so-1" onDone={vi.fn()} onBack={vi.fn()} />)
+
+    expect(await screen.findByRole('status')).toHaveTextContent('view only')
+    expect(screen.getByRole('list', { name: 'Items to pick' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Mark as picked' })).not.toBeInTheDocument()
   })
 })

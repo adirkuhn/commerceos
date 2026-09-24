@@ -7,7 +7,8 @@ import { renderAt } from '../../test/renderAt'
 import { PickingListMode } from '../PickingListMode'
 import type { SalesOrder, SalesOrderDetail } from '../../oms/types'
 
-vi.mock('../../oms/api', () => ({ listSalesOrders: vi.fn(), getSalesOrder: vi.fn(), markOrderPicked: vi.fn() }))
+vi.mock('../../oms/api', () => ({ listPickingQueue: vi.fn(), getSalesOrder: vi.fn(), markOrderPicked: vi.fn() }))
+vi.mock('../../team/api', () => ({ listMembers: vi.fn().mockResolvedValue([]) }))
 import * as omsApi from '../../oms/api'
 
 function order(overrides: Partial<SalesOrder> = {}): SalesOrder {
@@ -17,6 +18,10 @@ function order(overrides: Partial<SalesOrder> = {}): SalesOrder {
     total_minor_units: 1250, fulfilled: false, packed: false,
     ...overrides,
   } as SalesOrder
+}
+
+function queue(...orders: SalesOrder[]) {
+  return { entries: orders.map(o => ({ sales_order: o, lock: null, in_packing: false })), total: orders.length }
 }
 
 const detail: SalesOrderDetail = {
@@ -30,7 +35,7 @@ const detail: SalesOrderDetail = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [order(), order({ id: 'so-2', number: '1002' })], total: 2 })
+  vi.mocked(omsApi.listPickingQueue).mockResolvedValue(queue(order(), order({ id: 'so-2', number: '1002' })))
   vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail)
 })
 
@@ -39,7 +44,7 @@ describe('PickingListMode', () => {
     renderAt(<PickingListMode token="tok" />, '/picking')
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
-    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('tok', { awaitingPicking: true, perPage: 100 })
+    expect(omsApi.listPickingQueue).toHaveBeenCalledWith('tok', { perPage: 100 })
   })
 
   it('opening an order shows what to pick, in the URL', async () => {
@@ -60,7 +65,7 @@ describe('PickingListMode', () => {
     vi.mocked(omsApi.markOrderPicked).mockResolvedValue(null)
     const user = userEvent.setup()
     const { router } = renderAt(<PickingListMode token="tok" />, '/picking', '/picking?order=so-1')
-    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [order({ id: 'so-2', number: '1002' })], total: 1 })
+    vi.mocked(omsApi.listPickingQueue).mockResolvedValue(queue(order({ id: 'so-2', number: '1002' })))
 
     await user.click(await screen.findByRole('button', { name: 'Mark as picked' }))
 
@@ -89,5 +94,21 @@ describe('PickingListMode', () => {
     await act(async () => { await router.navigate(-1) })
 
     expect(screen.queryByRole('list', { name: 'Items to pick' })).not.toBeInTheDocument()
+  })
+
+  it('an order packing has opens as a read-only item list, without Mark as picked', async () => {
+    vi.mocked(omsApi.listPickingQueue).mockResolvedValue({ entries: [
+      { sales_order: order(), lock: { activity: 'packing', user_id: 'u-9', since: new Date().toISOString() }, in_packing: true },
+    ], total: 1 })
+    const user = userEvent.setup()
+    renderAt(<PickingListMode token="tok" />, '/picking')
+
+    const row = await screen.findByRole('button', { name: /#1001/ })
+    expect(row).toHaveTextContent('Packing')
+    await user.click(row)
+
+    expect(await screen.findByRole('list', { name: 'Items to pick' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('view only')
+    expect(screen.queryByRole('button', { name: 'Mark as picked' })).not.toBeInTheDocument()
   })
 })

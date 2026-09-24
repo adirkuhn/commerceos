@@ -5,7 +5,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { SalesOrderPickerScreen } from '../SalesOrderPickerScreen'
 import type { SalesOrder } from '../../oms/types'
 
-vi.mock('../../oms/api', () => ({ listSalesOrders: vi.fn() }))
+vi.mock('../../oms/api', () => ({ listPickingQueue: vi.fn() }))
+vi.mock('../../team/api', () => ({ listMembers: vi.fn().mockResolvedValue([]) }))
 vi.mock('../api', () => ({ startOrResumePicking: vi.fn() }))
 vi.mock('../../settings/api', () => ({ getTenantSettings: vi.fn() }))
 import * as omsApi from '../../oms/api'
@@ -27,7 +28,7 @@ function renderScreen() {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [order], total: 1 })
+  vi.mocked(omsApi.listPickingQueue).mockResolvedValue({ entries: [{ sales_order: order, lock: null, in_packing: false }], total: 1 })
 })
 
 describe('SalesOrderPickerScreen', () => {
@@ -39,7 +40,7 @@ describe('SalesOrderPickerScreen', () => {
 
     await user.click(await screen.findByRole('button', { name: /Ann Lee/, hidden: false }))
 
-    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('tok', { awaitingPicking: true, perPage: 100 })
+    expect(omsApi.listPickingQueue).toHaveBeenCalledWith('tok', { perPage: 100 })
     expect(api.startOrResumePicking).toHaveBeenCalledWith('tok', 'so-1')
     expect(onPickingStarted).toHaveBeenCalledWith('ps-1', order)
     expect(onOrderChosenForList).not.toHaveBeenCalled()
@@ -63,5 +64,22 @@ describe('SalesOrderPickerScreen', () => {
     renderScreen()
 
     expect(await screen.findByText(/Couldn't load the picking mode \(boom\)/)).toBeInTheDocument()
+  })
+
+  it('an order packing has opens its read-only item list, no session', async () => {
+    mode('scan')
+    vi.mocked(omsApi.listPickingQueue).mockResolvedValue({ entries: [
+      { sales_order: order, lock: { activity: 'packing', user_id: 'u-9', since: new Date().toISOString() }, in_packing: true },
+    ], total: 1 })
+    const user = userEvent.setup()
+    const { onOrderChosenForList } = renderScreen()
+    const row = await screen.findByRole('button', { name: /Ann Lee/ })
+    expect(row).toHaveTextContent('Packing')
+    await vi.waitFor(() => expect(row).toBeEnabled())
+
+    await user.click(row)
+
+    expect(onOrderChosenForList).toHaveBeenCalledWith('so-1')
+    expect(api.startOrResumePicking).not.toHaveBeenCalled()
   })
 })

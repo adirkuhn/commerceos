@@ -51,9 +51,11 @@ vi.mock('../../inventory/api', () => ({
 }))
 
 vi.mock('../../oms/api', () => ({
-  listSalesOrders: vi.fn(),
+  listPickingQueue: vi.fn(),
   getSalesOrder: vi.fn(),
 }))
+
+vi.mock('../../team/api', () => ({ listMembers: vi.fn().mockResolvedValue([]) }))
 
 vi.mock('../../pms/api', () => ({
   listProducts: vi.fn(),
@@ -700,18 +702,18 @@ describe('ScannerApp sales order picker', () => {
   })
 
   it('lists the picking queue by customer name and order number', async () => {
-    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.listPickingQueue).mockResolvedValue({ entries: [{ sales_order: salesOrder(), lock: null, in_packing: false }], total: 1 })
 
     renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Pick Order'))
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
     expect(screen.getByText('#1001')).toBeInTheDocument()
-    expect(omsApi.listSalesOrders).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ awaitingPicking: true }))
+    expect(omsApi.listPickingQueue).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ perPage: 100 }))
   })
 
   it('starts a picking session and moves to the picking screen', async () => {
-    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.listPickingQueue).mockResolvedValue({ entries: [{ sales_order: salesOrder(), lock: null, in_packing: false }], total: 1 })
     vi.mocked(api.startOrResumePicking).mockResolvedValue(pickingSession())
     vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [], scans: [] })
 
@@ -725,7 +727,7 @@ describe('ScannerApp sales order picker', () => {
   })
 
   it('Back from the sales order picker returns to the launcher', async () => {
-    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [], total: 0 })
+    vi.mocked(omsApi.listPickingQueue).mockResolvedValue({ entries: [], total: 0 })
 
     renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Pick Order'))
@@ -740,7 +742,7 @@ describe('ScannerApp sales order picker', () => {
 describe('ScannerApp picking screen', () => {
   beforeEach(() => {
     localStorage.setItem('commerceos_scanner_jwt', makeJWT(Math.floor(Date.now() / 1000) + 3600))
-    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.listPickingQueue).mockResolvedValue({ entries: [{ sales_order: salesOrder(), lock: null, in_packing: false }], total: 1 })
     vi.mocked(api.startOrResumePicking).mockResolvedValue(pickingSession())
   })
 

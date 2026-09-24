@@ -2,12 +2,12 @@
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { usePackingQueue, PACKING_QUEUE_POLL_MS } from '../usePackingQueue'
-import type { PackingQueue } from '../../types'
+import type { OrderQueue } from '../../types'
 
 vi.mock('../../api', () => ({ listPackingQueue: vi.fn() }))
 import * as api from '../../api'
 
-const queue: PackingQueue = { entries: [{ sales_order: { id: 'so-1' } as PackingQueue['entries'][number]['sales_order'], lock: null }], total: 1 }
+const queue: OrderQueue = { entries: [{ sales_order: { id: 'so-1' } as OrderQueue['entries'][number]['sales_order'], lock: null, in_packing: false }], total: 1 }
 
 beforeEach(() => vi.clearAllMocks())
 afterEach(() => vi.useRealTimers())

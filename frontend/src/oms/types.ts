@@ -225,22 +225,25 @@ export interface PickList {
   items: PickListItem[]
 }
 
-// PackingQueue mirrors api/oms's PackingQueue -- every order still to be
+// OrderQueue mirrors api/oms's OrderQueue -- every order still to be
 // packed, each with whoever is actively working it (lock null when free).
-export type PackingQueueLockActivity = 'picking' | 'packing'
+export type QueueLockActivity = 'picking' | 'packing'
 
-export interface PackingQueueLock {
-  activity: PackingQueueLockActivity
+export interface QueueLock {
+  activity: QueueLockActivity
   user_id: string
   since: string
 }
 
-export interface PackingQueueEntry {
+export interface QueueEntry {
   sales_order: SalesOrder
-  lock: PackingQueueLock | null
+  lock: QueueLock | null
+  // Packing has this order (someone is packing it, or packing already
+  // recorded something) -- picking shows it as a read-only item list.
+  in_packing: boolean
 }
 
-export interface PackingQueue {
-  entries: PackingQueueEntry[]
+export interface OrderQueue {
+  entries: QueueEntry[]
   total: number
 }

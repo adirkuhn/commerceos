@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Lock } from 'lucide-react'
 import * as omsApi from '../oms/api'
+import { usePickingQueue } from '../oms/hooks/usePackingQueue'
+import { useMemberNames } from '../team/hooks/useMemberNames'
+import { lockLabel } from '../packing/lockDisplay'
 import { quantityToPick } from '../oms/pickable'
 import type { SalesOrderDetail } from '../oms/types'
 import { customerName, orderNumber } from '../packing/orderDisplay'
@@ -14,11 +17,16 @@ interface PickOrderListScreenProps {
 
 // Scanner picking in list mode (Settings > Fulfillment): the order's items
 // as a plain list, and one button to mark the whole order picked -- no
-// scanning, no session. Items are scanned later, during packing.
+// scanning, no session. Items are scanned later, during packing. An order
+// packing already has is shown view only -- no Mark as picked.
 export function PickOrderListScreen({ token, orderId, onDone, onBack }: PickOrderListScreenProps) {
   const [detail, setDetail] = useState<SalesOrderDetail | null>(null)
   const [error, setError] = useState('')
   const [marking, setMarking] = useState(false)
+  const queue = usePickingQueue(token)
+  const nameFor = useMemberNames(token)
+  const entry = queue.entries.find(e => e.sales_order.id === orderId)
+  const inPacking = entry?.in_packing ?? false
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +63,12 @@ export function PickOrderListScreen({ token, orderId, onDone, onBack }: PickOrde
           {detail && <p className="text-xs text-gray-400 truncate">{customerName(detail.sales_order)}</p>}
         </div>
       </div>
+      {inPacking && (
+        <p role="status" className="flex items-center gap-2 px-4 py-2 border-b border-night-700 bg-amber-500/10 text-sm text-amber-200 shrink-0">
+          <Lock size={14} className="shrink-0" />
+          {entry?.lock ? `${lockLabel(entry.lock, nameFor(entry.lock.user_id))} -- view only` : 'This order is in packing -- view only'}
+        </p>
+      )}
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {!detail && !error && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
         {detail && (
@@ -71,16 +85,18 @@ export function PickOrderListScreen({ token, orderId, onDone, onBack }: PickOrde
           </ul>
         )}
       </div>
-      <div className="px-4 pb-6 pt-2 shrink-0 space-y-2">
-        {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
-        <button
-          onClick={markPicked}
-          disabled={!detail || marking}
-          className="w-full min-h-11 py-3 rounded-xl bg-accent-solid text-white text-sm font-semibold disabled:opacity-50"
-        >
-          {marking ? 'Marking…' : 'Mark as picked'}
-        </button>
-      </div>
+      {!inPacking && (
+        <div className="px-4 pb-6 pt-2 shrink-0 space-y-2">
+          {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+          <button
+            onClick={markPicked}
+            disabled={!detail || marking}
+            className="w-full min-h-11 py-3 rounded-xl bg-accent-solid text-white text-sm font-semibold disabled:opacity-50"
+          >
+            {marking ? 'Marking…' : 'Mark as picked'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

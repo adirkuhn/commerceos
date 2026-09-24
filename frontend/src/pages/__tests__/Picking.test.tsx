@@ -17,7 +17,7 @@ vi.mock('../../auth/AuthContext', () => ({
 vi.mock('../../team/api', () => ({ listMembers: vi.fn().mockResolvedValue([]) }))
 
 vi.mock('../../oms/api', () => ({
-  listSalesOrders: vi.fn(),
+  listPickingQueue: vi.fn(),
   getSalesOrder: vi.fn(),
 }))
 
@@ -80,6 +80,10 @@ function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   }
 }
 
+function pickQueue(orders: SalesOrder[]) {
+  return { entries: orders.map(o => ({ sales_order: o, lock: null, in_packing: false })), total: orders.length }
+}
+
 function session(overrides: Partial<PickingSession> = {}): PickingSession {
   return { id: 'ps-1', sales_order_id: 'so-1', status: 'in_progress', started_at: '2026-08-22T10:00:00Z', completed_by: '', ...overrides }
 }
@@ -99,7 +103,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockUser = { user_id: 'me', tenant_id: 't', role: 'customer_user', exp: 0, iat: 0 }
   vi.mocked(pickingApi.releasePickingSessionLock).mockResolvedValue(null)
-  vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+  vi.mocked(omsApi.listPickingQueue).mockResolvedValue(pickQueue([salesOrder()]))
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
   vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
   vi.mocked(shippingApi.lookupAddress).mockResolvedValue(null)
@@ -166,10 +170,7 @@ describe('Picking page URLs (refresh + Back)', () => {
 
 describe('Picking page', () => {
   it('lists unfulfilled orders and filters by search', async () => {
-    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
-      salesOrders: [salesOrder({ id: 'so-1', number: '1001' }), salesOrder({ id: 'so-2', number: '2002', billing: { first_name: 'Bob', last_name: 'Smith' } })],
-      total: 2,
-    })
+    vi.mocked(omsApi.listPickingQueue).mockResolvedValue(pickQueue([salesOrder({ id: 'so-1', number: '1001' }), salesOrder({ id: 'so-2', number: '2002', billing: { first_name: 'Bob', last_name: 'Smith' } })]))
     render(<MemoryRouter><Picking /></MemoryRouter>)
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
@@ -344,10 +345,7 @@ describe('Picking page', () => {
   })
 
   it('shows the shipping address in the header once an order is selected', async () => {
-    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
-      salesOrders: [salesOrder({ shipping: { address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' } })],
-      total: 1,
-    })
+    vi.mocked(omsApi.listPickingQueue).mockResolvedValue(pickQueue([salesOrder({ shipping: { address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' } })]))
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
 
@@ -444,13 +442,10 @@ describe('Picking page', () => {
   })
 
   it('shows the shipping method below the address on the review screen', async () => {
-    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
-      salesOrders: [salesOrder({
+    vi.mocked(omsApi.listPickingQueue).mockResolvedValue(pickQueue([salesOrder({
         shipping: { address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' },
         shipping_method_title: 'PostNL PakjeGemak',
-      })],
-      total: 1,
-    })
+      })]))
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
 
@@ -548,7 +543,7 @@ describe('Picking page mode', () => {
     renderAt(<Picking />, '/picking')
 
     expect(await screen.findByText('Select an order to see what to pick')).toBeInTheDocument()
-    expect(vi.mocked(omsApi.listSalesOrders)).toHaveBeenCalledWith('test-token', { awaitingPicking: true, perPage: 100 })
+    expect(vi.mocked(omsApi.listPickingQueue)).toHaveBeenCalledWith('test-token', { perPage: 100 })
   })
 })
 
@@ -594,5 +589,27 @@ describe('Picking page locks', () => {
     unmount()
 
     expect(pickingApi.releasePickingSessionLock).toHaveBeenCalledWith('test-token', 'ps-1')
+  })
+})
+
+describe('Picking page -- orders in packing', () => {
+  it('an order packing has opens read-only, without starting a picking session', async () => {
+    vi.mocked(omsApi.listPickingQueue).mockResolvedValue({ entries: [
+      { sales_order: salesOrder(), lock: { activity: 'packing', user_id: 'u-9', since: new Date().toISOString() }, in_packing: true },
+    ], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue({ sales_order: salesOrder(), line_items: [
+      { id: 'li-1', name: 'Widget', sku_code: 'W-1', barcode: '', quantity: 2, price_minor_units: 1 } as Awaited<ReturnType<typeof omsApi.getSalesOrder>>['line_items'][number],
+    ] })
+
+    const user = userEvent.setup()
+    const { router } = renderAt(<Picking />, '/picking')
+    const row = await screen.findByRole('button', { name: /#1001/ })
+    expect(row).toHaveTextContent('Packing')
+    await user.click(row)
+
+    expect(await screen.findByRole('list', { name: 'Items to pick' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('view only')
+    expect(pickingApi.startOrResumePicking).not.toHaveBeenCalled()
+    expect(router.state.location.search).toBe('?view=so-1')
   })
 })

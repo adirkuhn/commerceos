@@ -1,44 +1,35 @@
-import { useCallback, useEffect, useState } from 'react'
-import { CheckCircle, ClipboardList } from 'lucide-react'
+import { useState } from 'react'
+import { CheckCircle, ClipboardList, Lock } from 'lucide-react'
 import clsx from 'clsx'
 import * as omsApi from '../oms/api'
 import { quantityToPick } from '../oms/pickable'
 import { useSalesOrderDetail } from '../oms/hooks/useSalesOrderDetail'
+import { usePickingQueue } from '../oms/hooks/usePackingQueue'
 import type { SalesOrder } from '../oms/types'
 import { customerName, orderNumber } from '../packing/orderDisplay'
+import { lockLabel } from '../packing/lockDisplay'
 import { useQueryString } from '../routing/useQueryState'
-
-const QUEUE_PAGE_SIZE = 100
+import { useMemberNames } from '../team/hooks/useMemberNames'
+import { ReadOnlyOrderItems } from './ReadOnlyOrderItems'
 
 // The picking module's list mode (Settings > Fulfillment): no scanning, no
 // session. Pickers open an order (?order=<id>, so refresh/Back work), fetch
 // its items off the shelves, and mark the whole order picked with one
 // button. A picked order leaves this list and waits in the packing queue,
-// where the items are scanned.
+// where the items are scanned. An order packing already has opens as a
+// read-only item list (no Mark as picked).
 export function PickingListMode({ token }: { token: string }) {
-  const [orders, setOrders] = useState<SalesOrder[]>([])
-  const [loading, setLoading] = useState(true)
-  const [listError, setListError] = useState('')
+  const { entries, loading, error: listError, refresh } = usePickingQueue(token)
+  const nameFor = useMemberNames(token)
   const [openId, openOrder] = useQueryString('order', { history: 'push' })
   const [, closeOrder] = useQueryString('order')
-  const { detail, loading: detailLoading, error: detailError } = useSalesOrderDetail(token, openId)
+  const openEntry = entries.find(e => e.sales_order.id === openId)
+  const inPacking = openEntry?.in_packing ?? false
+  const { detail, loading: detailLoading, error: detailError } = useSalesOrderDetail(token, inPacking ? null : openId)
   const [marking, setMarking] = useState(false)
   const [markError, setMarkError] = useState('')
   const [notice, setNotice] = useState('')
 
-  const loadOrders = useCallback(async () => {
-    try {
-      const result = await omsApi.listSalesOrders(token, { awaitingPicking: true, perPage: QUEUE_PAGE_SIZE })
-      setOrders(result.salesOrders)
-      setListError('')
-    } catch (err) {
-      setListError(err instanceof Error ? err.message : 'Failed to load orders')
-    } finally {
-      setLoading(false)
-    }
-  }, [token])
-
-  useEffect(() => { loadOrders() }, [loadOrders])
 
   function select(id: string) {
     setMarkError('')
@@ -53,7 +44,7 @@ export function PickingListMode({ token }: { token: string }) {
       await omsApi.markOrderPicked(token, order.id)
       setNotice(`#${orderNumber(order)} marked as picked -- it's now in the packing queue.`)
       closeOrder(null)
-      await loadOrders()
+      await refresh()
     } catch (err) {
       setMarkError(err instanceof Error ? err.message : 'Failed to mark order picked')
     } finally {
@@ -68,13 +59,13 @@ export function PickingListMode({ token }: { token: string }) {
       <div className="w-64 border-r border-line bg-sunken flex flex-col overflow-hidden shrink-0">
         <div className="px-4 py-3 border-b border-line">
           <p className="text-xs font-semibold text-ink">Orders to pick</p>
-          <p className="text-2xs text-ink-4 mt-0.5">{orders.length} to pick</p>
+          <p className="text-2xs text-ink-4 mt-0.5">{entries.length} to pick</p>
         </div>
         <div className="flex-1 overflow-y-auto py-2">
           {loading && <p className="px-4 py-3 text-2xs text-ink-4">Loading…</p>}
           {listError && <p className="px-4 py-3 text-2xs text-danger">{listError}</p>}
-          {!loading && !listError && orders.length === 0 && <p className="px-4 py-3 text-2xs text-ink-4">No orders to pick</p>}
-          {orders.map(o => (
+          {!loading && !listError && entries.length === 0 && <p className="px-4 py-3 text-2xs text-ink-4">No orders to pick</p>}
+          {entries.map(({ sales_order: o, lock, in_packing }) => (
             <button
               key={o.id}
               aria-pressed={openId === o.id}
@@ -86,6 +77,12 @@ export function PickingListMode({ token }: { token: string }) {
             >
               <span className="block text-xs font-medium text-ink">#{orderNumber(o)}</span>
               <span className="block text-2xs text-ink-3 truncate">{customerName(o)}</span>
+              {(lock || in_packing) && (
+                <span className="flex items-center gap-1 mt-1 text-2xs text-ink-4">
+                  <Lock size={10} className="shrink-0" />
+                  <span className="truncate">{lock ? lockLabel(lock, nameFor(lock.user_id)) : 'In packing'}</span>
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -103,9 +100,12 @@ export function PickingListMode({ token }: { token: string }) {
             <p className="text-sm">Select an order to see what to pick</p>
           </div>
         )}
-        {openId && detailLoading && !detail && <p className="text-sm text-ink-4">Loading…</p>}
-        {openId && detailError && <p role="alert" className="text-sm text-danger">{detailError}</p>}
-        {openId && detail && (
+        {openId && inPacking && openEntry && (
+          <ReadOnlyOrderItems token={token} orderId={openId} lock={openEntry.lock} nameFor={nameFor} />
+        )}
+        {openId && !inPacking && detailLoading && !detail && <p className="text-sm text-ink-4">Loading…</p>}
+        {openId && !inPacking && detailError && <p role="alert" className="text-sm text-danger">{detailError}</p>}
+        {openId && !inPacking && detail && (
           <div className="max-w-xl space-y-4">
             <div>
               <h2 className="text-base font-semibold text-ink">#{orderNumber(detail.sales_order)}</h2>

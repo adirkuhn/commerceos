@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, X, Trash2, ArrowLeft, Undo2, PackageCheck, Lock } from 'lucide-react'
 import { useSessionLock } from '../fulfillment/useSessionLock'
 import { useMemberNames } from '../team/hooks/useMemberNames'
-import { canTakeOverLocks, formatLockAge } from '../packing/lockDisplay'
+import { canTakeOverLocks, formatLockAge, lockLabel } from '../packing/lockDisplay'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
-import * as omsApi from '../oms/api'
 import { usePickingMode } from '../picking/usePickingMode'
+import { usePickingQueue } from '../oms/hooks/usePackingQueue'
+import { ReadOnlyOrderItems } from '../picking/ReadOnlyOrderItems'
+import { useQueryString } from '../routing/useQueryState'
 import { PickingListMode } from '../picking/PickingListMode'
 import type { SalesOrder } from '../oms/types'
 import * as pickingApi from '../scanner/api'
@@ -92,9 +94,12 @@ export default function Picking() {
 function ScanPicking() {
   const { token, user } = useAuth()
 
-  const [orders, setOrders] = useState<SalesOrder[]>([])
-  const [ordersLoading, setOrdersLoading] = useState(true)
-  const [ordersError, setOrdersError] = useState('')
+  // The picking queue: orders still to pick, with who is working each and
+  // whether packing has it -- those open as a read-only item list
+  // (?view=<orderId>, so refresh/Back work) instead of a picking session.
+  const queue = usePickingQueue(token ?? '')
+  const [viewId, openView] = useQueryString('view', { history: 'push' })
+  const viewEntry = queue.entries.find(e => e.sales_order.id === viewId && e.in_packing)
   const [search, setSearch] = useState('')
 
   const [activeOrder, setActiveOrder] = useState<SalesOrder | null>(null)
@@ -130,21 +135,6 @@ function ScanPicking() {
 
   const navigate = useNavigate()
 
-  const loadOrders = useCallback(async () => {
-    if (!token) return
-    setOrdersLoading(true)
-    setOrdersError('')
-    try {
-      const result = await omsApi.listSalesOrders(token, { awaitingPicking: true, perPage: 100 })
-      setOrders(result.salesOrders)
-    } catch (err) {
-      setOrdersError(err instanceof Error ? err.message : 'Failed to load orders')
-    } finally {
-      setOrdersLoading(false)
-    }
-  }, [token])
-
-  useEffect(() => { loadOrders() }, [loadOrders])
 
   const loadSession = useCallback(async (sessionId: string) => {
     if (!token) return
@@ -205,7 +195,14 @@ function ScanPicking() {
     onCleared: clearSelection,
   })
 
+  // An order packing has: show its items read-only, no picking session.
+  function viewInPacking(orderId: string) {
+    if (activeOrder) backToOrders()
+    openView(orderId)
+  }
+
   async function selectOrder(order: SalesOrder) {
+    if (viewId) openView(null)
     setError('')
     setCompleteResult(null)
     setStockShortfalls(null)
@@ -337,7 +334,7 @@ function ScanPicking() {
     try {
       await pickingApi.pausePicking(token, session.session.id)
       backToOrders()
-      await loadOrders()
+      await queue.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to pause')
     } finally {
@@ -383,7 +380,7 @@ function ScanPicking() {
       setStockShortfalls(null)
       setCompleteResult(result)
       setConfirmingFinish(false)
-      await loadOrders()
+      await queue.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to complete picking')
     } finally {
@@ -397,7 +394,7 @@ function ScanPicking() {
   const progress = totalItems > 0 ? (pickedItems / totalItems) * 100 : 0
   const allPicked = totalItems > 0 && pickedItems >= totalItems
 
-  const filteredOrders = orders.filter(o => {
+  const filteredEntries = queue.entries.filter(({ sales_order: o }) => {
     if (!search.trim()) return true
     const q = search.toLowerCase()
     return (o.number || o.external_order_id).toLowerCase().includes(q) || customerName(o).toLowerCase().includes(q)
@@ -411,7 +408,7 @@ function ScanPicking() {
       <div className="w-64 border-r border-line bg-sunken flex flex-col overflow-hidden shrink-0">
         <div className="px-4 py-3 border-b border-line">
           <p className="text-xs font-semibold text-ink">Orders to pick</p>
-          <p className="text-2xs text-ink-4 mt-0.5">{orders.length} unfulfilled</p>
+          <p className="text-2xs text-ink-4 mt-0.5">{queue.entries.length} to pick</p>
         </div>
         <div className="px-3 py-2 border-b border-line">
           <div className="relative">
@@ -425,15 +422,15 @@ function ScanPicking() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto py-2">
-          {ordersLoading && <p className="px-4 py-3 text-2xs text-ink-4">Loading…</p>}
-          {ordersError && <p className="px-4 py-3 text-2xs text-danger">{ordersError}</p>}
-          {!ordersLoading && filteredOrders.length === 0 && (
+          {queue.loading && <p className="px-4 py-3 text-2xs text-ink-4">Loading…</p>}
+          {queue.error && <p className="px-4 py-3 text-2xs text-danger">{queue.error}</p>}
+          {!queue.loading && filteredEntries.length === 0 && (
             <p className="px-4 py-3 text-2xs text-ink-4">No unfulfilled orders</p>
           )}
-          {filteredOrders.map(o => (
-            <button aria-pressed={activeOrder?.id === o.id}
+          {filteredEntries.map(({ sales_order: o, lock, in_packing }) => (
+            <button aria-pressed={activeOrder?.id === o.id || viewId === o.id}
               key={o.id}
-              onClick={() => selectOrder(o)}
+              onClick={() => (in_packing ? viewInPacking(o.id) : selectOrder(o))}
               className={clsx(
                 'w-full text-left px-4 py-3 border-b border-line transition-colors',
                 activeOrder?.id === o.id
@@ -449,6 +446,12 @@ function ScanPicking() {
               </div>
               <p className="text-2xs text-ink-3 truncate">{customerName(o)}</p>
               <p className="text-2xs text-ink-4 mt-0.5">{formatMoney(o.total_minor_units, o.currency_code)}</p>
+              {(lock || in_packing) && (
+                <p className="flex items-center gap-1 mt-1 text-2xs text-ink-4">
+                  <Lock size={10} className="shrink-0" />
+                  <span className="truncate">{lock ? lockLabel(lock, nameFor(lock.user_id)) : 'In packing'}</span>
+                </p>
+              )}
             </button>
           ))}
         </div>
@@ -456,7 +459,13 @@ function ScanPicking() {
 
       {/* Main pick area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {!activeOrder && !(urlSessionId && (sessionLoading || error)) && (
+        {viewEntry && (
+          <div className="flex-1 overflow-y-auto p-6">
+            <ReadOnlyOrderItems token={token ?? ''} orderId={viewEntry.sales_order.id} lock={viewEntry.lock} nameFor={nameFor} />
+          </div>
+        )}
+
+        {!viewEntry && !activeOrder && !(urlSessionId && (sessionLoading || error)) && (
           <div className="flex-1 flex flex-col items-center justify-center text-ink-4">
             <ScanBarcode size={32} className="mb-3 opacity-40" />
             <p className="text-sm">Select an order to start picking</p>

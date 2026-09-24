@@ -11,7 +11,7 @@ vi.mock('../api', () => ({ startOrResumePacking: vi.fn() }))
 import * as omsApi from '../../oms/api'
 import * as api from '../api'
 import * as teamApi from '../../team/api'
-import type { PackingQueueEntry } from '../../oms/types'
+import type { QueueEntry } from '../../oms/types'
 
 function order(overrides: Partial<SalesOrder>): SalesOrder {
   return {
@@ -28,7 +28,7 @@ beforeEach(() => {
 })
 
 function queue(...orders: SalesOrder[]) {
-  return { entries: orders.map((o): PackingQueueEntry => ({ sales_order: o, lock: null })), total: orders.length }
+  return { entries: orders.map((o): QueueEntry => ({ sales_order: o, lock: null, in_packing: false })), total: orders.length }
 }
 
 // A scanner token for "me" as a regular user.
@@ -80,7 +80,7 @@ describe('SalesOrderPackerScreen', () => {
   it('an order someone else holds is read-only and says who and for how long', async () => {
     const o = order({})
     vi.mocked(omsApi.listPackingQueue).mockResolvedValue({
-      entries: [{ sales_order: o, lock: { activity: 'picking', user_id: '3f2a9c1e-0000', since: new Date(Date.now() - 3 * 60_000).toISOString() } }], total: 1,
+      entries: [{ sales_order: o, lock: { activity: 'picking', user_id: '3f2a9c1e-0000', since: new Date(Date.now() - 3 * 60_000).toISOString() }, in_packing: false }], total: 1,
     })
     const user = userEvent.setup()
 
@@ -94,7 +94,7 @@ describe('SalesOrderPackerScreen', () => {
   it('an admin may take over an order someone else holds', async () => {
     const o = order({})
     vi.mocked(omsApi.listPackingQueue).mockResolvedValue({
-      entries: [{ sales_order: o, lock: { activity: 'packing', user_id: 'other', since: new Date().toISOString() } }], total: 1,
+      entries: [{ sales_order: o, lock: { activity: 'packing', user_id: 'other', since: new Date().toISOString() }, in_packing: false }], total: 1,
     })
     vi.mocked(api.startOrResumePacking).mockResolvedValue({ id: 'pack-1' } as Awaited<ReturnType<typeof api.startOrResumePacking>>)
     const adminToken = `x.${btoa(JSON.stringify({ user_id: 'me', role: 'customer_owner' }))}.y`

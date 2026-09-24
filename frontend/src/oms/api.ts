@@ -1,4 +1,4 @@
-import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity, PickList, PackingQueue } from './types'
+import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity, PickList, OrderQueue } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/sales-orders`
@@ -79,17 +79,27 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
 
 // The packing screens' queue: every unpacked order with who is working it.
 // Lives outside /sales-orders on the backend, hence the separate base.
-export function listPackingQueue(token: string, params: { page?: number; perPage?: number } = {}): Promise<PackingQueue> {
+export function listPackingQueue(token: string, params: { page?: number; perPage?: number } = {}): Promise<OrderQueue> {
   const qs = new URLSearchParams()
   if (params.page) qs.set('page', String(params.page))
   if (params.perPage) qs.set('per_page', String(params.perPage))
   const query = qs.toString()
-  return request<PackingQueue>(`${import.meta.env.VITE_API_BASE_URL}/packing-queue${query ? `?${query}` : ''}`, token)
+  return request<OrderQueue>(`${import.meta.env.VITE_API_BASE_URL}/packing-queue${query ? `?${query}` : ''}`, token)
 }
 
 // Picking list mode: marks the whole order picked in one action.
 export function markOrderPicked(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/${id}/mark-picked`, token, { method: 'POST' })
+}
+
+// The picking screens' queue: every order still to be picked, with who is
+// working it and whether packing has it (in_packing).
+export function listPickingQueue(token: string, params: { page?: number; perPage?: number } = {}): Promise<OrderQueue> {
+  const qs = new URLSearchParams()
+  if (params.page) qs.set('page', String(params.page))
+  if (params.perPage) qs.set('per_page', String(params.perPage))
+  const query = qs.toString()
+  return request<OrderQueue>(`${import.meta.env.VITE_API_BASE_URL}/picking-queue${query ? `?${query}` : ''}`, token)
 }
 
 export function getPickList(token: string, salesOrderIds: string[]): Promise<PickList> {

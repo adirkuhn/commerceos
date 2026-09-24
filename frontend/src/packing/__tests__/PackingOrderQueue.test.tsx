@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { PackingOrderQueue } from '../PackingOrderQueue'
-import type { PackingQueueEntry, SalesOrder } from '../../oms/types'
+import type { QueueEntry, SalesOrder } from '../../oms/types'
 
 function order(overrides: Partial<SalesOrder>): SalesOrder {
   return {
@@ -16,16 +16,16 @@ function order(overrides: Partial<SalesOrder>): SalesOrder {
 
 const twelveMinAgo = () => new Date(Date.now() - 12 * 60_000).toISOString()
 
-const entries: PackingQueueEntry[] = [
-  { sales_order: order({ id: 'so-1', number: '1001', fulfilled: true }), lock: null },
-  { sales_order: order({ id: 'so-2', number: '1002', fulfilled: false, billing: { first_name: 'Bo', last_name: 'Ng' } }), lock: null },
+const entries: QueueEntry[] = [
+  { sales_order: order({ id: 'so-1', number: '1001', fulfilled: true }), lock: null, in_packing: false },
+  { sales_order: order({ id: 'so-2', number: '1002', fulfilled: false, billing: { first_name: 'Bo', last_name: 'Ng' } }), lock: null, in_packing: false },
   {
     sales_order: order({ id: 'so-3', number: '1003', fulfilled: false }),
-    lock: { activity: 'picking', user_id: 'picker-1', since: twelveMinAgo() },
+    lock: { activity: 'picking', user_id: 'picker-1', since: twelveMinAgo() }, in_packing: false,
   },
   {
     sales_order: order({ id: 'so-4', number: '1004' }),
-    lock: { activity: 'packing', user_id: 'me', since: twelveMinAgo() },
+    lock: { activity: 'packing', user_id: 'me', since: twelveMinAgo() }, in_packing: false,
   },
 ]
 

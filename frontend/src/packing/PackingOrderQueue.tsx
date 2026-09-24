@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { ClipboardList, Lock, Search } from 'lucide-react'
 import clsx from 'clsx'
-import type { PackingQueueEntry, SalesOrder } from '../oms/types'
+import type { QueueEntry, SalesOrder } from '../oms/types'
 import { customerName, formatMoney, orderNumber } from './orderDisplay'
 import { lockLabel } from './lockDisplay'
 
 interface PackingOrderQueueProps {
-  entries: PackingQueueEntry[]
+  entries: QueueEntry[]
   loading: boolean
   error: string
   activeOrderId: string | null

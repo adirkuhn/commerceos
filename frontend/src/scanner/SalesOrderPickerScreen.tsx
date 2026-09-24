@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
-import { Search, LogOut, ShoppingCart, ArrowLeft } from 'lucide-react'
-import * as omsApi from '../oms/api'
+import { useState } from 'react'
+import { Search, LogOut, ShoppingCart, ArrowLeft, Lock } from 'lucide-react'
+import { usePickingQueue } from '../oms/hooks/usePackingQueue'
+import { useMemberNames } from '../team/hooks/useMemberNames'
+import { lockLabel } from '../packing/lockDisplay'
 import { usePickingMode } from '../picking/usePickingMode'
 import * as api from './api'
 import type { SalesOrder } from '../oms/types'
@@ -34,37 +36,34 @@ function customerName(order: SalesOrder): string {
 // picking session directly -- or, in list mode, opens its item list.
 export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenForList, onLogout, onBack }: SalesOrderPickerScreenProps) {
   const { mode, error: modeError } = usePickingMode(token)
-  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([])
+  const queue = usePickingQueue(token)
+  const nameFor = useMemberNames(token)
   const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [startError, setStartError] = useState('')
   const [startingId, setStartingId] = useState<string | null>(null)
+  const loading = queue.loading
+  const error = startError || queue.error
 
-  useEffect(() => {
-    omsApi.listSalesOrders(token, { awaitingPicking: true, perPage: 100 })
-      .then(result => setSalesOrders(result.salesOrders))
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load sales orders'))
-      .finally(() => setLoading(false))
-  }, [token])
-
-  const filtered = salesOrders.filter(o =>
+  const filtered = queue.entries.filter(({ sales_order: o }) =>
     query.trim() === ''
     || customerName(o).toLowerCase().includes(query.toLowerCase())
     || (o.number || o.external_order_id).toLowerCase().includes(query.toLowerCase()),
   )
 
-  async function handleSelect(order: SalesOrder) {
-    if (mode === 'list') {
+  async function handleSelect(order: SalesOrder, inPacking: boolean) {
+    // An order packing has opens as its read-only item list, whatever the
+    // picking mode -- picking stays out of the way.
+    if (mode === 'list' || inPacking) {
       onOrderChosenForList(order.id)
       return
     }
-    setError('')
+    setStartError('')
     setStartingId(order.id)
     try {
       const session = await api.startOrResumePicking(token, order.id)
       onPickingStarted(session.id, order)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start picking')
+      setStartError(err instanceof Error ? err.message : 'Failed to start picking')
       setStartingId(null)
     }
   }
@@ -97,10 +96,10 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenF
         {!loading && filtered.length === 0 && (
           <p className="text-center text-sm text-gray-400 py-8">No unfulfilled orders ready to pick</p>
         )}
-        {filtered.map(o => (
+        {filtered.map(({ sales_order: o, lock, in_packing }) => (
           <button
             key={o.id}
-            onClick={() => handleSelect(o)}
+            onClick={() => handleSelect(o, in_packing)}
             disabled={startingId !== null || mode === null}
             className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700 text-left hover:border-accent disabled:opacity-50 transition-colors"
           >
@@ -114,6 +113,12 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenF
                 <span>·</span>
                 <span>{formatDate(o.occurred_at)}</span>
               </p>
+              {(lock || in_packing) && (
+                <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                  <Lock size={11} className="shrink-0" />
+                  <span className="truncate">{lock ? lockLabel(lock, nameFor(lock.user_id)) : 'In packing'}</span>
+                </p>
+              )}
             </div>
             <p className="text-xs font-medium text-gray-300 shrink-0">{formatPrice(o.total_minor_units, o.currency_code)}</p>
             {startingId === o.id && <span className="text-xs text-accent shrink-0">Starting…</span>}

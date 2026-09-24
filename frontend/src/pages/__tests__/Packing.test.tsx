@@ -98,7 +98,7 @@ beforeEach(() => {
   mockUser = { user_id: 'me', tenant_id: 't', role: 'customer_user', exp: 0, iat: 0 }
   vi.mocked(packingApi.releasePackingSessionLock).mockResolvedValue(null)
   vi.mocked(packingApi.touchPackingSession).mockResolvedValue(null)
-  vi.mocked(omsApi.listPackingQueue).mockResolvedValue({ entries: [{ sales_order: salesOrder(), lock: null }], total: 1 })
+  vi.mocked(omsApi.listPackingQueue).mockResolvedValue({ entries: [{ sales_order: salesOrder(), lock: null, in_packing: false }], total: 1 })
   vi.mocked(teamApi.listMembers).mockResolvedValue([])
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
   vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
@@ -174,7 +174,7 @@ describe('Packing page', () => {
 
   it('an order another user is packing is read-only, naming them and how long', async () => {
     vi.mocked(omsApi.listPackingQueue).mockResolvedValue({
-      entries: [{ sales_order: salesOrder(), lock: { activity: 'packing', user_id: 'u-9', since: new Date(Date.now() - 5 * 60_000).toISOString() } }],
+      entries: [{ sales_order: salesOrder(), lock: { activity: 'packing', user_id: 'u-9', since: new Date(Date.now() - 5 * 60_000).toISOString() }, in_packing: false }],
       total: 1,
     })
     vi.mocked(teamApi.listMembers).mockResolvedValue([
@@ -459,8 +459,8 @@ describe('Packing page locks and labels', () => {
   it('leaving an order you were working releases its lock', async () => {
     const mine = session({ locked_by: 'me', locked_at: new Date().toISOString() })
     vi.mocked(omsApi.listPackingQueue).mockResolvedValue({ entries: [
-      { sales_order: salesOrder(), lock: null },
-      { sales_order: salesOrder({ id: 'so-2', number: '1002' }), lock: null },
+      { sales_order: salesOrder(), lock: null, in_packing: false },
+      { sales_order: salesOrder({ id: 'so-2', number: '1002' }), lock: null, in_packing: false },
     ], total: 2 })
     vi.mocked(packingApi.startOrResumePacking)
       .mockResolvedValueOnce(mine)
