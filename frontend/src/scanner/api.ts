@@ -33,6 +33,12 @@ async function request<T>(path: string, options: RequestInit, token?: string): P
       ...options.headers,
     },
   })
+  // 204 No Content (heartbeats, deletes, releases) has no body to parse --
+  // res.json() would throw on it.
+  if (res.status === 204) {
+    if (token) onTokenActivity?.(token)
+    return null as T
+  }
   const body: APIResponse<T> = await res.json()
   if (!res.ok || body.error) {
     throw new Error(body.error?.message ?? `HTTP ${res.status}`)
@@ -218,4 +224,26 @@ export function refundPackLine(token: string, sessionId: string, input: RefundLi
 
 export function resolvePackScanCode(token: string, sessionId: string, code: string): Promise<ResolvePickScanCodeResult> {
   return request<ResolvePickScanCodeResult>(`${base()}/packing-sessions/${sessionId}/resolve-scan`, { method: 'POST', body: JSON.stringify({ code }) }, token)
+}
+
+// ── Session locks ────────────────────────────────────────────────────────────
+// Opening a picking/packing session only views it; the first action takes
+// the lock. Release it when leaving the order -- keepalive so it still goes
+// out while the page is closing. Take-over is the explicit "Take over"
+// action (admins, or a stale lock).
+
+export function releasePackingSessionLock(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/packing-sessions/${id}/release`, { method: 'POST', keepalive: true }, token)
+}
+
+export function releasePickingSessionLock(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/picking-sessions/${id}/release`, { method: 'POST', keepalive: true }, token)
+}
+
+export function takeOverPackingSession(token: string, id: string): Promise<PackingSession> {
+  return request<PackingSession>(`${base()}/packing-sessions/${id}/take-over`, { method: 'POST' }, token)
+}
+
+export function takeOverPickingSession(token: string, id: string): Promise<PickingSession> {
+  return request<PickingSession>(`${base()}/picking-sessions/${id}/take-over`, { method: 'POST' }, token)
 }

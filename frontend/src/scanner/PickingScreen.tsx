@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, PackageCheck, Camera, X, Package, Gift, PackagePlus, Undo2 } from 'lucide-react'
+import { ArrowLeft, Check, PackageCheck, Camera, X, Package, Gift, PackagePlus, Undo2, Lock } from 'lucide-react'
+import { useSessionLock } from '../fulfillment/useSessionLock'
+import { readClaims } from '../auth/jwtClaims'
+import { useMemberNames } from '../team/hooks/useMemberNames'
+import { canTakeOverLocks, formatLockAge } from '../packing/lockDisplay'
 import * as api from './api'
 import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
@@ -108,20 +112,29 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
   useEffect(() => { load() }, [sessionId])
   useEffect(() => { codeInputRef.current?.focus() }, [detail])
 
-  // Heartbeat: refresh this session's lock every 60s while it stays open --
-  // see Picking.tsx's identical effect for the full rationale.
-  useEffect(() => {
-    if (detail?.session.status === 'completed') return
-    const interval = setInterval(() => {
-      api.touchPickingSession(token, sessionId).catch(err => {
-        if (isAuthError(err)) return onAuthError()
-        if (err instanceof Error && /locked/i.test(err.message)) {
-          setError('Another user has taken over this picking session')
-        }
-      })
-    }, 60_000)
-    return () => clearInterval(interval)
-  }, [sessionId, detail?.session.status, token, onAuthError])
+  // Opening only views; the first scan takes the lock. While we hold it we
+  // heartbeat it, and leaving the order releases it.
+  const me = readClaims(token)
+  const nameFor = useMemberNames(token)
+  const { heldByOther } = useSessionLock({
+    sessionId, me: me?.userId ?? '',
+    lockedBy: detail?.session.locked_by, lockedAt: detail?.session.locked_at,
+    active: !!detail && detail.session.status !== 'completed',
+    touch: id => api.touchPickingSession(token, id),
+    release: id => api.releasePickingSessionLock(token, id),
+    onLost: () => setError('Another user has taken over this picking session'),
+  })
+  const readOnly = heldByOther !== null
+
+  async function handleTakeOver() {
+    try {
+      await api.takeOverPickingSession(token, sessionId)
+      await load()
+    } catch (err) {
+      if (isAuthError(err)) return onAuthError()
+      setError(err instanceof Error ? err.message : 'Failed to take over')
+    }
+  }
   useWakeLock()
 
   async function stage(input: Parameters<typeof api.scanPickItem>[2]): Promise<boolean> {
@@ -434,8 +447,8 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
         </button>
         <h1 className="flex-1 text-base font-semibold">Picking</h1>
         <button
-          onClick={() => setConfirmingFinish(true)}
-          className="px-4 min-h-11 -my-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700"
+          onClick={() => setConfirmingFinish(true)} disabled={readOnly}
+          className="px-4 min-h-11 -my-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
         >
           Finish
         </button>
@@ -457,12 +470,26 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
           <p className="text-sm text-amber-400 mt-0.5">Billing: {shippingAddressLine(order.billing)}</p>
         )}
         <button
-          type="button" onClick={() => setResetConfirmOpen(true)}
-          className="mt-0.5 -mb-2 py-2.5 flex items-center gap-1.5 text-sm text-red-400"
+          type="button" onClick={() => setResetConfirmOpen(true)} disabled={readOnly}
+          className="mt-0.5 -mb-2 py-2.5 flex items-center gap-1.5 text-sm text-red-400 disabled:opacity-50"
         >
           <Undo2 size={12} /> Start over
         </button>
       </div>
+
+      {heldByOther && (
+        <div role="status" className="flex items-center gap-2 px-4 py-2 border-b border-night-700 bg-amber-500/10 text-sm text-amber-200 shrink-0">
+          <Lock size={14} className="shrink-0" />
+          <span className="flex-1">
+            {nameFor(heldByOther)} is picking this order{detail?.session.locked_since ? ` · ${formatLockAge(detail.session.locked_since)}` : ''} -- view only.
+          </span>
+          {canTakeOverLocks(me?.role) && (
+            <button type="button" onClick={handleTakeOver} className="min-h-11 px-3 -my-2 rounded-lg bg-night-800 border border-night-700 text-gray-100 font-medium">
+              Take over
+            </button>
+          )}
+        </div>
+      )}
 
       {cameraOpen && (
         <div className="px-4 pt-3 shrink-0">
@@ -480,6 +507,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
               key={li.id}
               type="button"
               onClick={() => setPickLine({ lineItem: li, pickedSoFar: pickedQty })}
+              disabled={readOnly}
               className="w-full flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3 text-left hover:border-accent transition-colors"
             >
               <LineItemThumb token={token} name={li.name} productId={li.product_id} />
@@ -534,7 +562,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
             value={code}
             onChange={e => setCode(e.target.value)}
             placeholder="Scan or type barcode…"
-            disabled={scanning || !!scanErrorAlert}
+            disabled={scanning || readOnly || !!scanErrorAlert}
             className="flex-1 px-3 py-3 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus disabled:opacity-50"
           />
           <button aria-label="Use camera"

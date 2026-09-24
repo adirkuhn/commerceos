@@ -144,7 +144,7 @@ export function LineChangeSheet({ token, lineItem, packedSoFar, scans, onDeleteS
               onClick={() => setMode('substitute')}
               className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'substitute' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
             >
-              <Repeat size={15} /> Substitute
+              <Repeat size={15} /> Replace
             </button>
             <button aria-pressed={mode === 'refund'}
               type="button"
@@ -279,7 +279,7 @@ export function LineChangeSheet({ token, lineItem, packedSoFar, scans, onDeleteS
                 onClick={() => setSubstituteRows(rows => [...rows, newSubstituteRow()])}
                 className="w-full py-2 rounded-xl border border-dashed border-night-700 text-sm text-gray-400 hover:text-gray-200"
               >
-                + Add another substitute
+                + Add another replacement
               </button>
               <p className="text-xs text-gray-400 text-center">
                 Covers {coveredTotal} of {remaining}
@@ -289,7 +289,7 @@ export function LineChangeSheet({ token, lineItem, packedSoFar, scans, onDeleteS
                 disabled={!substituteReady}
                 className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold disabled:opacity-50"
               >
-                Confirm substitute
+                Confirm replace
               </button>
             </>
           )}

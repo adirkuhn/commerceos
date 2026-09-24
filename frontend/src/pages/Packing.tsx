@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ScanBarcode, CheckCircle, Package, Trash2, ArrowLeft, Undo2, PackagePlus } from 'lucide-react'
+import { ScanBarcode, CheckCircle, Package, Trash2, ArrowLeft, Undo2, PackagePlus, Tag, Lock } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useRoutedSession } from '../oms/useRoutedSession'
@@ -8,7 +8,8 @@ import { SessionErrorPanel } from '../oms/SessionErrorPanel'
 import { PackingOrderQueue } from '../packing/PackingOrderQueue'
 import { PickListPrintView } from '../packing/PickListPrintView'
 import { customerName, formatMoney } from '../packing/orderDisplay'
-import { canTakeOverLocks } from '../packing/lockDisplay'
+import { canTakeOverLocks, formatLockAge } from '../packing/lockDisplay'
+import { useSessionLock } from '../fulfillment/useSessionLock'
 import { usePackingQueue } from '../oms/hooks/usePackingQueue'
 import { useMemberNames } from '../team/hooks/useMemberNames'
 import { useQueryString } from '../routing/useQueryState'
@@ -153,19 +154,29 @@ export default function Packing() {
 
   useEffect(() => { codeRef.current?.focus() }, [session, packLine])
 
-  // Heartbeat -- see Picking.tsx's identical mechanism for the doc.
-  useEffect(() => {
-    const sessionId = session?.session.id
-    if (!sessionId || !token || session?.session.status === 'completed') return
-    const interval = setInterval(() => {
-      packingApi.touchPackingSession(token, sessionId).catch(err => {
-        if (err instanceof Error && /locked/i.test(err.message)) {
-          setError('Another user has taken over this packing session')
-        }
-      })
-    }, 60_000)
-    return () => clearInterval(interval)
-  }, [session?.session.id, session?.session.status, token])
+  // Opening an order only views it; the first action takes the lock. While
+  // we hold it we heartbeat it, and leaving the order releases it.
+  const me = user?.user_id ?? ''
+  const { heldByOther } = useSessionLock({
+    sessionId: session?.session.id ?? null, me,
+    lockedBy: session?.session.locked_by, lockedAt: session?.session.locked_at,
+    active: !!session && session.session.status !== 'completed',
+    touch: id => packingApi.touchPackingSession(token ?? '', id),
+    release: id => packingApi.releasePackingSessionLock(token ?? '', id),
+    onLost: () => setError('Another user has taken over this packing session'),
+  })
+  const readOnly = heldByOther !== null
+
+  async function handleTakeOver() {
+    if (!session || !token) return
+    setError('')
+    try {
+      await packingApi.takeOverPackingSession(token, session.session.id)
+      await loadSession(session.session.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to take over')
+    }
+  }
 
   function clearSelection() {
     setActiveOrder(null)
@@ -366,6 +377,17 @@ export default function Packing() {
 
   async function handleCreateLabelClick() {
     if (!token || !activeOrder) return
+    // Before packing is finished, making the label is working the order --
+    // take the lock first (the heartbeat claims it when free).
+    if (session && session.session.status !== 'completed') {
+      try {
+        await packingApi.touchPackingSession(token, session.session.id)
+        await loadSession(session.session.id)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Someone else is packing this order')
+        return
+      }
+    }
     const shipments = await shippingApi.listShipmentsForOrder(token, activeOrder.id)
     const active = shipments.find(s => !s.cancelled_at)
     if (active) {
@@ -602,26 +624,48 @@ export default function Packing() {
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                {myParcelConnection && !createdShipmentId && (
+                  <button
+                    type="button" onClick={handleCreateLabelClick} disabled={readOnly}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50"
+                  >
+                    <Tag size={13} /> Create label
+                  </button>
+                )}
                 <button
-                  type="button" onClick={() => { setPackLine(null); setAddItemOpen(true) }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover"
+                  type="button" onClick={() => { setPackLine(null); setAddItemOpen(true) }} disabled={readOnly}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50"
                 >
                   <PackagePlus size={13} /> Add item
                 </button>
                 <button
-                  type="button" onClick={() => setResetConfirmOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-danger hover:bg-hover"
+                  type="button" onClick={() => setResetConfirmOpen(true)} disabled={readOnly}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-danger hover:bg-hover disabled:opacity-50"
                 >
                   <Undo2 size={13} /> Start over
                 </button>
                 <button
-                  type="button" onClick={() => setConfirmingFinish(true)}
+                  type="button" onClick={() => setConfirmingFinish(true)} disabled={readOnly}
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50"
                 >
                   <CheckCircle size={13} /> Complete
                 </button>
               </div>
             </div>
+
+            {heldByOther && (
+              <div role="status" className="flex items-center gap-2 px-6 py-2 border-b border-line bg-warning/10 text-xs text-ink-2">
+                <Lock size={12} className="shrink-0" />
+                <span className="flex-1">
+                  {nameFor(heldByOther)} is packing this order{session.session.locked_since ? ` · ${formatLockAge(session.session.locked_since)}` : ''} -- view only.
+                </span>
+                {canTakeOverLocks(user?.role) && (
+                  <button type="button" onClick={handleTakeOver} className="px-2 py-0.5 rounded-md border border-line bg-raised font-medium hover:bg-hover">
+                    Take over
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Scan input */}
             <div className="px-6 py-4 border-b border-line shrink-0 dark:bg-night-900/80 bg-gray-50">
@@ -634,7 +678,7 @@ export default function Packing() {
                   onChange={e => setCode(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleScanSubmit()}
                   placeholder="Scan barcode or type and press Enter..."
-                  disabled={busy || !!packLine || addItemOpen || !!scanErrorAlert}
+                  disabled={busy || readOnly || !!packLine || addItemOpen || !!scanErrorAlert}
                   className="flex-1 bg-transparent text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus/60 placeholder-ink-4 font-mono disabled:opacity-50"
                 />
               </div>
@@ -664,10 +708,10 @@ export default function Packing() {
                 return (
                   <div
                     key={li.id}
-                    onClick={() => !done && openLineForPack(li, packed)}
+                    onClick={() => !readOnly && openLineForPack(li, packed)}
                     className={clsx(
                       'flex items-center gap-4 p-3 rounded-xl border transition-all',
-                      li.sku_id && !done && 'cursor-pointer',
+                      li.sku_id && !readOnly && 'cursor-pointer',
                       done ? 'dark:bg-green-500/5 dark:border-green-500/20 border-green-200 bg-green-50' :
                       partial ? 'dark:bg-amber-500/5 dark:border-amber-500/20 border-amber-200 bg-amber-50' :
                       'bg-raised border-line',
@@ -717,6 +761,8 @@ export default function Packing() {
         <LineChangePanel
           key={packLine.lineItem.id}
           lineItem={packLine.lineItem} coveredSoFar={packLine.packedSoFar} busy={busy}
+          scans={(session?.scans ?? []).filter(sc => sc.line_item_id === packLine.lineItem.id)}
+          onDeleteScan={id => { setPackLine(null); handleDeleteScan(id) }}
           onPack={confirmPack} onSubstitute={confirmSubstitute} onRefund={confirmRefund} onClose={() => setPackLine(null)}
         />
       )}

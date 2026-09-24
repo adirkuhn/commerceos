@@ -9,9 +9,12 @@ import Picking from '../Picking'
 import type { SalesOrder } from '../../oms/types'
 import type { PickingSession, PickingSessionDetail, ScanPickItemResult, CompletePickingResult, ResolvePickScanCodeResult } from '../../scanner/types'
 
+let mockUser: { user_id: string; tenant_id: string; role: string; exp: number; iat: number } | null = null
 vi.mock('../../auth/AuthContext', () => ({
-  useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
+  useAuth: () => ({ token: 'test-token', user: mockUser, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
 }))
+
+vi.mock('../../team/api', () => ({ listMembers: vi.fn().mockResolvedValue([]) }))
 
 vi.mock('../../oms/api', () => ({
   listSalesOrders: vi.fn(),
@@ -34,6 +37,8 @@ vi.mock('../../scanner/api', () => ({
   completePicking: vi.fn(),
   touchPickingSession: vi.fn(),
   resetPickingSession: vi.fn(),
+  releasePickingSessionLock: vi.fn(),
+  takeOverPickingSession: vi.fn(),
 }))
 
 vi.mock('../../pms/api', () => ({
@@ -92,6 +97,8 @@ function detail(overrides: Partial<PickingSessionDetail> = {}): PickingSessionDe
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockUser = { user_id: 'me', tenant_id: 't', role: 'customer_user', exp: 0, iat: 0 }
+  vi.mocked(pickingApi.releasePickingSessionLock).mockResolvedValue(null)
   vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
   vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
@@ -542,5 +549,50 @@ describe('Picking page mode', () => {
 
     expect(await screen.findByText('Select an order to see what to pick')).toBeInTheDocument()
     expect(vi.mocked(omsApi.listSalesOrders)).toHaveBeenCalledWith('test-token', { awaitingPicking: true, perPage: 100 })
+  })
+})
+
+describe('Picking page locks', () => {
+  it('another user\'s session is view only', async () => {
+    const locked = session({ locked_by: 'u-9', locked_at: new Date().toISOString() })
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(locked)
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail({ session: locked }))
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Picking /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('is picking this order')
+    expect(screen.getByPlaceholderText('Scan barcode or type and press Enter...')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Complete' })).toBeDisabled()
+  })
+
+  it('an admin can take it over', async () => {
+    mockUser = { user_id: 'me', tenant_id: 't', role: 'customer_admin', exp: 0, iat: 0 }
+    const locked = session({ locked_by: 'u-9', locked_at: new Date().toISOString() })
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(locked)
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail({ session: locked }))
+    vi.mocked(pickingApi.takeOverPickingSession).mockResolvedValue(session({ locked_by: 'me' }))
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Picking /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await user.click(await screen.findByRole('button', { name: 'Take over' }))
+
+    expect(pickingApi.takeOverPickingSession).toHaveBeenCalledWith('test-token', 'ps-1')
+  })
+
+  it('leaving a session you hold releases it', async () => {
+    const mine = session({ locked_by: 'me', locked_at: new Date().toISOString() })
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(mine)
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail({ session: mine }))
+
+    const user = userEvent.setup()
+    const { unmount } = render(<MemoryRouter><Picking /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    unmount()
+
+    expect(pickingApi.releasePickingSessionLock).toHaveBeenCalledWith('test-token', 'ps-1')
   })
 })

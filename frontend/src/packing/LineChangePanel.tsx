@@ -1,7 +1,8 @@
 import { useId, useState } from 'react'
-import { Repeat, Undo2, X } from 'lucide-react'
+import { Repeat, Trash2, Undo2, X } from 'lucide-react'
 import clsx from 'clsx'
-import type { PickingSessionLineItem } from '../scanner/types'
+import type { PackScan, PickingSessionLineItem } from '../scanner/types'
+import { packScanLabel } from './packScanLabel'
 
 export interface SubstituteRowInput {
   code: string
@@ -14,11 +15,15 @@ interface LineChangePanelProps {
   lineItem: PickingSessionLineItem
   // How much of the line is already packed, substituted or refunded.
   coveredSoFar: number
+  // What's already recorded for this line (packed/replaced/refunded) --
+  // removable, so a fully packed line can still be replaced.
+  scans: PackScan[]
   busy: boolean
   onPack: (quantity: number) => void
   onSubstitute: (rows: SubstituteRowInput[]) => void
   onRefund: (quantity: number, reason: string) => void
   onClose: () => void
+  onDeleteScan: (scanId: string) => void
 }
 
 type Mode = 'pack' | 'substitute' | 'refund'
@@ -44,7 +49,7 @@ const primaryButton = 'w-full px-3 py-2 rounded-lg bg-accent-solid text-white te
 // products, or refund (remove) part of it. Order changes happen in packing
 // now that picking only picks; nothing is real until the session finishes.
 // Pure UI: the page resolves codes and calls the API.
-export function LineChangePanel({ lineItem, coveredSoFar, busy, onPack, onSubstitute, onRefund, onClose }: LineChangePanelProps) {
+export function LineChangePanel({ lineItem, coveredSoFar, scans, busy, onPack, onSubstitute, onRefund, onClose, onDeleteScan }: LineChangePanelProps) {
   const remaining = Math.max(0, lineItem.quantity - coveredSoFar)
   const [mode, setMode] = useState<Mode>('pack')
   const [packQty, setPackQty] = useState(String(Math.max(1, remaining)))
@@ -84,9 +89,23 @@ export function LineChangePanel({ lineItem, coveredSoFar, busy, onPack, onSubsti
         </button>
       </div>
       <div className="p-4 space-y-4 overflow-y-auto">
+        {scans.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-2xs font-medium text-ink-4 uppercase tracking-wider">Already recorded</p>
+            {scans.map(s => (
+              <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg border border-line bg-raised px-2.5 py-1.5">
+                <span className="text-2xs text-ink-2">{packScanLabel(s)}</span>
+                <button type="button" onClick={() => onDeleteScan(s.id)} aria-label={`Remove ${packScanLabel(s)}`} className="text-ink-4 hover:text-danger">
+                  <Trash2 size={11} />
+                </button>
+              </div>
+            ))}
+            {remaining === 0 && <p className="text-2xs text-ink-4">This line is complete. Remove what&apos;s recorded to replace it.</p>}
+          </div>
+        )}
         <div className="flex items-center rounded-lg border border-line overflow-hidden">
           {modeButton('pack', 'Pack')}
-          {modeButton('substitute', <><Repeat size={11} /> Substitute</>)}
+          {modeButton('substitute', <><Repeat size={11} /> Replace</>)}
           {modeButton('refund', <><Undo2 size={11} /> Refund</>)}
         </div>
 
@@ -146,7 +165,7 @@ export function LineChangePanel({ lineItem, coveredSoFar, busy, onPack, onSubsti
               type="button" onClick={() => setRows(rs => [...rs, newRow()])}
               className="w-full py-2 rounded-lg border border-dashed border-line text-2xs text-ink-3"
             >
-              + Add another substitute
+              + Add another replacement
             </button>
             <p className="text-2xs text-center text-ink-4">Covers {coveredTotal} of {remaining}</p>
             <button
@@ -155,7 +174,7 @@ export function LineChangePanel({ lineItem, coveredSoFar, busy, onPack, onSubsti
                 code: r.code.trim(), substituteQuantity: Number(r.substituteQty), coveredQuantity: Number(r.coveredQty), returnToStock: r.returnToStock,
               })))}
             >
-              Confirm substitute
+              Confirm replace
             </button>
           </>
         )}

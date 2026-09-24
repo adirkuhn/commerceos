@@ -3,13 +3,13 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { LineChangePanel } from '../LineChangePanel'
-import type { PickingSessionLineItem } from '../../scanner/types'
+import type { PackScan, PickingSessionLineItem } from '../../scanner/types'
 
 const line: PickingSessionLineItem = { id: 'li-1', sku_id: 'sku-1', name: 'Beans', sku_code: 'B-1', barcode: '111', quantity: 3, price_minor_units: 100, total_minor_units: 300 }
 
-function renderPanel(coveredSoFar = 0) {
-  const props = { onPack: vi.fn(), onSubstitute: vi.fn(), onRefund: vi.fn(), onClose: vi.fn() }
-  render(<LineChangePanel lineItem={line} coveredSoFar={coveredSoFar} busy={false} {...props} />)
+function renderPanel(coveredSoFar = 0, scans: PackScan[] = []) {
+  const props = { onPack: vi.fn(), onSubstitute: vi.fn(), onRefund: vi.fn(), onClose: vi.fn(), onDeleteScan: vi.fn() }
+  render(<LineChangePanel lineItem={line} coveredSoFar={coveredSoFar} scans={scans} busy={false} {...props} />)
   return props
 }
 
@@ -24,11 +24,11 @@ describe('LineChangePanel', () => {
     expect(onPack).toHaveBeenCalledWith(2)
   })
 
-  it('substitute needs rows covering exactly what is left', async () => {
+  it('replace needs rows covering exactly what is left', async () => {
     const user = userEvent.setup()
     const { onSubstitute } = renderPanel(1)
-    await user.click(screen.getByRole('button', { name: /Substitute/ }))
-    const confirm = screen.getByRole('button', { name: 'Confirm substitute' })
+    await user.click(screen.getByRole('button', { name: /Replace/ }))
+    const confirm = screen.getByRole('button', { name: 'Confirm replace' })
 
     await user.type(screen.getByPlaceholderText('Scan or type replacement SKU/barcode'), 'SUB-1')
     await user.type(screen.getByLabelText('Covers (of original)'), '1')
@@ -43,11 +43,11 @@ describe('LineChangePanel', () => {
     expect(onSubstitute).toHaveBeenCalledWith([{ code: 'SUB-1', substituteQuantity: 1, coveredQuantity: 2, returnToStock: true }])
   })
 
-  it('substitute can split across several replacement products', async () => {
+  it('replace can split across several products', async () => {
     const user = userEvent.setup()
     const { onSubstitute } = renderPanel(0)
-    await user.click(screen.getByRole('button', { name: /Substitute/ }))
-    await user.click(screen.getByRole('button', { name: '+ Add another substitute' }))
+    await user.click(screen.getByRole('button', { name: /Replace/ }))
+    await user.click(screen.getByRole('button', { name: '+ Add another replacement' }))
 
     const codes = screen.getAllByPlaceholderText('Scan or type replacement SKU/barcode')
     const covers = screen.getAllByLabelText('Covers (of original)')
@@ -55,7 +55,7 @@ describe('LineChangePanel', () => {
     await user.type(covers[0], '1')
     await user.type(codes[1], 'B')
     await user.type(covers[1], '2')
-    await user.click(screen.getByRole('button', { name: 'Confirm substitute' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm replace' }))
 
     expect(onSubstitute).toHaveBeenCalledWith([
       { code: 'A', substituteQuantity: 1, coveredQuantity: 1, returnToStock: false },
@@ -105,5 +105,17 @@ describe('LineChangePanel', () => {
     await user.click(screen.getByRole('button', { name: 'Close' }))
 
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('lists what is already recorded for the line, removable -- so a fully packed line can still be replaced', async () => {
+    const user = userEvent.setup()
+    const scans: PackScan[] = [{ id: 's1', session_id: 'p', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pack', quantity: 3, scanned_at: '', scanned_by: '' }]
+    const { onDeleteScan } = renderPanel(3, scans)
+
+    expect(screen.getByText('Packed · qty 3')).toBeInTheDocument()
+    expect(screen.getByText(/Remove what's recorded to replace it/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Remove Packed · qty 3' }))
+
+    expect(onDeleteScan).toHaveBeenCalledWith('s1')
   })
 })

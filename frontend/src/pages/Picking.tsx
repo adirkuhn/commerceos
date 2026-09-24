@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, X, Trash2, ArrowLeft, Undo2, PackageCheck } from 'lucide-react'
+import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, X, Trash2, ArrowLeft, Undo2, PackageCheck, Lock } from 'lucide-react'
+import { useSessionLock } from '../fulfillment/useSessionLock'
+import { useMemberNames } from '../team/hooks/useMemberNames'
+import { canTakeOverLocks, formatLockAge } from '../packing/lockDisplay'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as omsApi from '../oms/api'
@@ -87,7 +90,7 @@ export default function Picking() {
 // its order), never a startOrResume, which would fail once the order is
 // fulfilled by completing the session.
 function ScanPicking() {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
 
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [ordersLoading, setOrdersLoading] = useState(true)
@@ -156,23 +159,29 @@ function ScanPicking() {
 
   useEffect(() => { codeRef.current?.focus() }, [session, pickLine])
 
-  // Heartbeat: refresh this session's lock every 60s while it's open, so a
-  // long pick doesn't outlive the backend's PickingLockTTL and get taken
-  // over by someone else mid-pack. A 409 means it already was -- surface it
-  // once and stop touching (further scans/completes will 409 too and
-  // report the same thing).
-  useEffect(() => {
-    const sessionId = session?.session.id
-    if (!sessionId || !token || session?.session.status === 'completed') return
-    const interval = setInterval(() => {
-      pickingApi.touchPickingSession(token, sessionId).catch(err => {
-        if (err instanceof Error && /locked/i.test(err.message)) {
-          setError('Another user has taken over this picking session')
-        }
-      })
-    }, 60_000)
-    return () => clearInterval(interval)
-  }, [session?.session.id, session?.session.status, token])
+  // Opening an order only views it; the first scan takes the lock. While we
+  // hold it we heartbeat it, and leaving the order releases it.
+  const { heldByOther } = useSessionLock({
+    sessionId: session?.session.id ?? null, me: user?.user_id ?? '',
+    lockedBy: session?.session.locked_by, lockedAt: session?.session.locked_at,
+    active: !!session && session.session.status !== 'completed',
+    touch: id => pickingApi.touchPickingSession(token ?? '', id),
+    release: id => pickingApi.releasePickingSessionLock(token ?? '', id),
+    onLost: () => setError('Another user has taken over this picking session'),
+  })
+  const nameFor = useMemberNames(token ?? '')
+  const readOnly = heldByOther !== null
+
+  async function handleTakeOver() {
+    if (!session || !token) return
+    setError('')
+    try {
+      await pickingApi.takeOverPickingSession(token, session.session.id)
+      await loadSession(session.session.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to take over')
+    }
+  }
 
   function clearSelection() {
     setActiveOrder(null)
@@ -581,25 +590,39 @@ function ScanPicking() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
-                  type="button" onClick={handlePause} disabled={pausing}
+                  type="button" onClick={handlePause} disabled={pausing || readOnly}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50"
                 >
                   <PauseCircle size={13} /> {pausing ? 'Pausing…' : 'Pause'}
                 </button>
                 <button
-                  type="button" onClick={() => setResetConfirmOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-danger hover:bg-hover"
+                  type="button" onClick={() => setResetConfirmOpen(true)} disabled={readOnly}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-danger hover:bg-hover disabled:opacity-50"
                 >
                   <Undo2 size={13} /> Start over
                 </button>
                 <button
-                  type="button" onClick={() => setConfirmingFinish(true)}
+                  type="button" onClick={() => setConfirmingFinish(true)} disabled={readOnly}
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50"
                 >
                   <CheckCircle size={13} /> Complete
                 </button>
               </div>
             </div>
+
+            {heldByOther && (
+              <div role="status" className="flex items-center gap-2 px-6 py-2 border-b border-line bg-warning/10 text-xs text-ink-2">
+                <Lock size={12} className="shrink-0" />
+                <span className="flex-1">
+                  {nameFor(heldByOther)} is picking this order{session.session.locked_since ? ` · ${formatLockAge(session.session.locked_since)}` : ''} -- view only.
+                </span>
+                {canTakeOverLocks(user?.role) && (
+                  <button type="button" onClick={handleTakeOver} className="px-2 py-0.5 rounded-md border border-line bg-raised font-medium hover:bg-hover">
+                    Take over
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Scan input */}
             <div className="px-6 py-4 border-b border-line shrink-0 dark:bg-night-900/80 bg-gray-50">
@@ -612,7 +635,7 @@ function ScanPicking() {
                   onChange={e => setCode(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleScanSubmit()}
                   placeholder="Scan barcode or type and press Enter..."
-                  disabled={busy || !!pickLine || !!scanErrorAlert}
+                  disabled={busy || readOnly || !!pickLine || !!scanErrorAlert}
                   className="flex-1 bg-transparent text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus/60 placeholder-ink-4 font-mono disabled:opacity-50"
                 />
               </div>
@@ -642,7 +665,7 @@ function ScanPicking() {
                 return (
                   <div
                     key={li.id}
-                    onClick={() => !done && openLineForPick(li, picked)}
+                    onClick={() => !done && !readOnly && openLineForPick(li, picked)}
                     className={clsx(
                       'flex items-center gap-4 p-3 rounded-xl border transition-all',
                       li.sku_id && !done && 'cursor-pointer',

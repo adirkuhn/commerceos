@@ -433,3 +433,44 @@ describe('completePacking', () => {
     expect(JSON.parse(opts.body as string)).toEqual({ resolutions: { p0: 'with_item' } })
   })
 })
+
+describe('session lock release and take-over', () => {
+  it('release posts with keepalive so it survives closing the page', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204, json: () => Promise.resolve(null) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.releasePackingSessionLock(TOKEN, 'pack-1')
+    await api.releasePickingSessionLock(TOKEN, 'pick-1')
+
+    const [packUrl, packOpts] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(packUrl).toBe('https://api.commerceos.dev.localhost/api/v1/packing-sessions/pack-1/release')
+    expect(packOpts).toMatchObject({ method: 'POST', keepalive: true })
+    expect(fetchMock.mock.calls[1][0]).toBe('https://api.commerceos.dev.localhost/api/v1/picking-sessions/pick-1/release')
+  })
+
+  it('take-over returns the session now held by the caller', async () => {
+    mockFetch({ id: 'pack-1', locked_by: 'me' })
+
+    const got = await api.takeOverPackingSession(TOKEN, 'pack-1')
+
+    expect(got).toEqual({ id: 'pack-1', locked_by: 'me' })
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('https://api.commerceos.dev.localhost/api/v1/packing-sessions/pack-1/take-over')
+  })
+
+  it('picking take-over', async () => {
+    mockFetch({ id: 'pick-1', locked_by: 'me' })
+
+    await api.takeOverPickingSession(TOKEN, 'pick-1')
+
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('https://api.commerceos.dev.localhost/api/v1/picking-sessions/pick-1/take-over')
+  })
+})
+
+describe('request on 204 No Content', () => {
+  it('returns null without parsing a body -- heartbeats, deletes and releases have none', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 204, json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')) }))
+
+    await expect(api.touchPackingSession(TOKEN, 'pack-1')).resolves.toBeNull()
+    await expect(api.deletePackScan(TOKEN, 'pack-1', 'scan-1')).resolves.toBeNull()
+  })
+})

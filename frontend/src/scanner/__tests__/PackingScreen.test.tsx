@@ -16,7 +16,10 @@ vi.mock('../api', () => ({
   completePacking: vi.fn(),
   touchPackingSession: vi.fn(),
   resetPackingSession: vi.fn(),
+  releasePackingSessionLock: vi.fn(),
+  takeOverPackingSession: vi.fn(),
 }))
+vi.mock('../../team/api', () => ({ listMembers: vi.fn().mockResolvedValue([]) }))
 vi.mock('../../pms/searchCandidates', () => ({ searchSKUCandidates: vi.fn() }))
 vi.mock('../../pms/api', () => ({ listProductMedia: vi.fn() }))
 vi.mock('../../integrations/hooks/useConnections', () => ({ useConnections: vi.fn() }))
@@ -28,9 +31,11 @@ vi.mock('../errorSound', () => ({ playErrorSound: vi.fn() }))
 import * as api from '../api'
 import * as pmsApi from '../../pms/api'
 import * as searchCandidatesApi from '../../pms/searchCandidates'
+import * as shippingApi from '../../shipping/api'
 import { useConnections } from '../../integrations/hooks/useConnections'
 
-const TOKEN = 'test-token'
+// A scanner token for user "me".
+const TOKEN = `x.${btoa(JSON.stringify({ user_id: 'me', role: 'customer_user' }))}.y`
 
 const order = {
   id: 'so-1', number: '1001', external_order_id: 'ext-1', currency_code: 'EUR', total_minor_units: 5000,
@@ -58,6 +63,8 @@ beforeEach(() => {
   vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
   vi.mocked(api.getPackingSession).mockResolvedValue(detail())
   vi.mocked(searchCandidatesApi.searchSKUCandidates).mockResolvedValue([candidate])
+  vi.mocked(api.releasePackingSessionLock).mockResolvedValue(null)
+  vi.mocked(api.touchPackingSession).mockResolvedValue(null)
 })
 
 describe('PackingScreen order changes', () => {
@@ -67,11 +74,11 @@ describe('PackingScreen order changes', () => {
     renderScreen()
 
     await user.click(await screen.findByRole('button', { name: /Widget/ }))
-    await user.click(screen.getByRole('button', { name: /Substitute/ }))
+    await user.click(screen.getByRole('button', { name: /Replace/ }))
     await user.type(screen.getByPlaceholderText('Search or scan barcode…'), 'SUB{Enter}')
     await user.click(await screen.findByText('Other widget'))
     await user.type(screen.getByLabelText('Covers (of original)'), '2')
-    await user.click(screen.getByRole('button', { name: 'Confirm substitute' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm replace' }))
 
     await waitFor(() => expect(api.substitutePackLine).toHaveBeenCalledWith(TOKEN, 'pack-1', {
       line_item_id: 'li-1', lines: [{ sku_id: 'sku-sub', substitute_quantity: 1, original_quantity_covered: 2, return_to_stock: false }],
@@ -135,5 +142,39 @@ describe('PackingScreen order changes', () => {
     await user.click(confirms[confirms.length - 1])
 
     await waitFor(() => expect(api.completePacking).toHaveBeenLastCalledWith(TOKEN, 'pack-1', { x1: 'without_item' }))
+  })
+})
+
+describe('PackingScreen locks and labels', () => {
+  it('another user\'s session is view only', async () => {
+    vi.mocked(api.getPackingSession).mockResolvedValue(detail({ session: { ...detail().session, locked_by: 'u-9', locked_at: new Date().toISOString() } }))
+    renderScreen()
+
+    expect(await screen.findByRole('status')).toHaveTextContent('is packing this order')
+    expect(screen.getByPlaceholderText('Scan or type barcode…')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Finish' })).toBeDisabled()
+  })
+
+  it('leaving a session you hold releases it', async () => {
+    vi.mocked(api.getPackingSession).mockResolvedValue(detail({ session: { ...detail().session, locked_by: 'me', locked_at: new Date().toISOString() } }))
+    const { unmount } = render(<PackingScreen token={TOKEN} sessionId="pack-1" order={order} onExit={vi.fn()} onAuthError={vi.fn()} />)
+    await screen.findByText('Widget')
+
+    unmount()
+
+    expect(api.releasePackingSessionLock).toHaveBeenCalledWith(TOKEN, 'pack-1')
+  })
+
+  it('a label can be created before finishing', async () => {
+    vi.mocked(useConnections).mockReturnValue({ connections: [{ id: 'c1', provider: 'myparcel' } as ReturnType<typeof useConnections>['connections'][number]], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+    vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
+    const user = userEvent.setup()
+    renderScreen()
+
+    await user.click(await screen.findByRole('button', { name: 'Create label' }))
+
+    expect(api.touchPackingSession).toHaveBeenCalledWith(TOKEN, 'pack-1')
+    expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
   })
 })

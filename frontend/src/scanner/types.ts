@@ -158,6 +158,7 @@ export interface PickingSession {
   completed_by: string
   locked_by?: string | null
   locked_at?: string | null
+  locked_since?: string | null
 }
 
 export type PickScanActionType = 'pick' | 'substitute' | 'freebie' | 'new_item' | 'refund'

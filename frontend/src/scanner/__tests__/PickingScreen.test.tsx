@@ -15,12 +15,16 @@ vi.mock('../api', () => ({
   completePicking: vi.fn(),
   touchPickingSession: vi.fn(),
   resetPickingSession: vi.fn(),
+  releasePickingSessionLock: vi.fn(),
+  takeOverPickingSession: vi.fn(),
   startOrResumePacking: vi.fn(),
 }))
 
 vi.mock('../../pms/searchCandidates', () => ({
   searchSKUCandidates: vi.fn(),
 }))
+
+vi.mock('../../team/api', () => ({ listMembers: vi.fn().mockResolvedValue([]) }))
 
 vi.mock('../../pms/api', () => ({
   listProductMedia: vi.fn(),
@@ -254,5 +258,28 @@ describe('PickingScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Continue to packing' }))
     expect(api.startOrResumePacking).toHaveBeenCalledWith(TOKEN, 'so-1')
     await waitFor(() => expect(onContinueToPacking).toHaveBeenCalledWith('pack-1', salesOrder()))
+  })
+})
+
+describe('PickingScreen locks', () => {
+  const me = `x.${btoa(JSON.stringify({ user_id: 'me', role: 'customer_user' }))}.y`
+
+  it('another user\'s session is view only', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue(detail({ session: { ...detail().session, locked_by: 'u-9', locked_at: new Date().toISOString() } }))
+    render(<PickingScreen token={me} sessionId="ps-1" order={salesOrder()} onExit={vi.fn()} onAuthError={vi.fn()} onContinueToPacking={vi.fn()} />)
+
+    expect(await screen.findByRole('status')).toHaveTextContent('is picking this order')
+    expect(screen.getByPlaceholderText('Scan or type barcode…')).toBeDisabled()
+  })
+
+  it('leaving a session you hold releases it', async () => {
+    vi.mocked(api.releasePickingSessionLock).mockResolvedValue(null)
+    vi.mocked(api.getPickingSession).mockResolvedValue(detail({ session: { ...detail().session, locked_by: 'me', locked_at: new Date().toISOString() } }))
+    const { unmount } = render(<PickingScreen token={me} sessionId="ps-1" order={salesOrder()} onExit={vi.fn()} onAuthError={vi.fn()} onContinueToPacking={vi.fn()} />)
+    await screen.findByText('Widget')
+
+    unmount()
+
+    expect(api.releasePickingSessionLock).toHaveBeenCalledWith(me, 'ps-1')
   })
 })

@@ -9,8 +9,9 @@ import Packing from '../Packing'
 import type { SalesOrder } from '../../oms/types'
 import type { PackingSession, PackingSessionDetail, ScanPackItemResult, CompletePackingResult } from '../../scanner/types'
 
+let mockUser: { user_id: string; tenant_id: string; role: string; exp: number; iat: number } | null = null
 vi.mock('../../auth/AuthContext', () => ({
-  useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
+  useAuth: () => ({ token: 'test-token', user: mockUser, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
 }))
 
 vi.mock('../../oms/api', () => ({
@@ -31,6 +32,8 @@ vi.mock('../../scanner/api', () => ({
   touchPackingSession: vi.fn(),
   resetPackingSession: vi.fn(),
   completePacking: vi.fn(),
+  releasePackingSessionLock: vi.fn(),
+  takeOverPackingSession: vi.fn(),
   substitutePackLine: vi.fn(),
   refundPackLine: vi.fn(),
   resolvePackScanCode: vi.fn(),
@@ -92,6 +95,9 @@ function detail(overrides: Partial<PackingSessionDetail> = {}): PackingSessionDe
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockUser = { user_id: 'me', tenant_id: 't', role: 'customer_user', exp: 0, iat: 0 }
+  vi.mocked(packingApi.releasePackingSessionLock).mockResolvedValue(null)
+  vi.mocked(packingApi.touchPackingSession).mockResolvedValue(null)
   vi.mocked(omsApi.listPackingQueue).mockResolvedValue({ entries: [{ sales_order: salesOrder(), lock: null }], total: 1 })
   vi.mocked(teamApi.listMembers).mockResolvedValue([])
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
@@ -325,7 +331,7 @@ describe('Packing page', () => {
     expect(packingApi.completePacking).toHaveBeenLastCalledWith('test-token', 'pack-1', { p9: 'without_item' })
   })
 
-  it('substituting a line resolves the replacement code and stages it', async () => {
+  it('replacing a line resolves the replacement code and stages it', async () => {
     vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
     vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
     vi.mocked(packingApi.resolvePackScanCode).mockResolvedValue({ sku_id: 'sku-sub', product_name: 'Other widget' })
@@ -335,10 +341,10 @@ describe('Packing page', () => {
     render(<MemoryRouter><Packing /></MemoryRouter>)
     await user.click(await screen.findByText('#1001'))
     await user.click(await screen.findByText('Widget'))
-    await user.click(screen.getByRole('button', { name: /Substitute/ }))
+    await user.click(screen.getByRole('button', { name: /Replace/ }))
     await user.type(screen.getByPlaceholderText('Scan or type replacement SKU/barcode'), 'SUB-1')
     await user.type(screen.getByLabelText('Covers (of original)'), '2')
-    await user.click(screen.getByRole('button', { name: 'Confirm substitute' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm replace' }))
 
     await waitFor(() => expect(packingApi.substitutePackLine).toHaveBeenCalledWith('test-token', 'pack-1', {
       line_item_id: 'li-1',
@@ -409,5 +415,112 @@ describe('Packing page', () => {
 
     expect(await screen.findByText('Widget')).toBeInTheDocument()
     expect(packingApi.startOrResumePacking).toHaveBeenCalledWith('test-token', 'so-1')
+  })
+})
+
+describe('Packing page locks and labels', () => {
+  const recent = () => new Date(Date.now() - 3 * 60_000 + 60_000).toISOString()
+
+  it('another user\'s open session is read-only with who has it', async () => {
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session({ locked_by: 'u-9', locked_at: new Date().toISOString(), locked_since: recent() }))
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail({ session: session({ locked_by: 'u-9', locked_at: new Date().toISOString(), locked_since: recent() }) }))
+    vi.mocked(teamApi.listMembers).mockResolvedValue([
+      { membership_id: 'm', user_id: 'u-9', email: 'd@x.io', first_name: 'Dana', last_name: 'Box', role: 'customer_user', status: 'active', last_login_at: null },
+    ])
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Dana Box is packing this order')
+    expect(screen.getByPlaceholderText('Scan barcode or type and press Enter...')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Complete' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Take over' })).not.toBeInTheDocument()
+  })
+
+  it('an admin can take over a session someone else is packing', async () => {
+    mockUser = { user_id: 'me', tenant_id: 't', role: 'customer_owner', exp: 0, iat: 0 }
+    const locked = session({ locked_by: 'u-9', locked_at: new Date().toISOString() })
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(locked)
+    vi.mocked(packingApi.getPackingSession)
+      .mockResolvedValueOnce(detail({ session: locked }))
+      .mockResolvedValue(detail({ session: session({ locked_by: 'me', locked_at: new Date().toISOString() }) }))
+    vi.mocked(packingApi.takeOverPackingSession).mockResolvedValue(session({ locked_by: 'me' }))
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await user.click(await screen.findByRole('button', { name: 'Take over' }))
+
+    expect(packingApi.takeOverPackingSession).toHaveBeenCalledWith('test-token', 'pack-1')
+    await waitFor(() => expect(screen.getByPlaceholderText('Scan barcode or type and press Enter...')).not.toBeDisabled())
+  })
+
+  it('leaving an order you were working releases its lock', async () => {
+    const mine = session({ locked_by: 'me', locked_at: new Date().toISOString() })
+    vi.mocked(omsApi.listPackingQueue).mockResolvedValue({ entries: [
+      { sales_order: salesOrder(), lock: null },
+      { sales_order: salesOrder({ id: 'so-2', number: '1002' }), lock: null },
+    ], total: 2 })
+    vi.mocked(packingApi.startOrResumePacking)
+      .mockResolvedValueOnce(mine)
+      .mockResolvedValueOnce(session({ id: 'pack-2', sales_order_id: 'so-2' }))
+    vi.mocked(packingApi.getPackingSession)
+      .mockResolvedValueOnce(detail({ session: mine }))
+      .mockResolvedValue(detail({ session: session({ id: 'pack-2', sales_order_id: 'so-2' }) }))
+    vi.mocked(packingApi.releasePackingSessionLock).mockResolvedValue(null)
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    await user.click(screen.getByText('#1002'))
+
+    await waitFor(() => expect(packingApi.releasePackingSessionLock).toHaveBeenCalledWith('test-token', 'pack-1'))
+  })
+
+  it('just looking at an order does not release anything', async () => {
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
+
+    const user = userEvent.setup()
+    const { unmount } = render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    unmount()
+
+    expect(packingApi.releasePackingSessionLock).not.toHaveBeenCalled()
+  })
+
+  it('a label can be created before finishing, claiming the order first', async () => {
+    vi.mocked(useConnections).mockReturnValue({ connections: [{ id: 'c1', provider: 'myparcel' } as ReturnType<typeof useConnections>['connections'][number]], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+    vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
+    vi.mocked(packingApi.touchPackingSession).mockResolvedValue(null)
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'Create label' }))
+
+    expect(packingApi.touchPackingSession).toHaveBeenCalledWith('test-token', 'pack-1')
+    expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
+  })
+
+  it('a fully packed line still opens, to replace or refund it', async () => {
+    const packed = { id: 'scan-1', session_id: 'pack-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pack' as const, quantity: 2, scanned_at: '', scanned_by: '' }
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail({ scans: [packed] }))
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await user.click(await screen.findByText('Widget'))
+
+    expect(await screen.findByRole('button', { name: /Replace/ })).toBeInTheDocument()
+    expect(screen.getByText(/Remove what's recorded to replace it/)).toBeInTheDocument()
   })
 })
