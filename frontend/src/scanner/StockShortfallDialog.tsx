@@ -9,9 +9,9 @@ interface StockShortfallDialogProps {
   onCancel: () => void
 }
 
-// Shown when finishing a picking session hits a substitute/freebie/
-// new-item pick whose SKU doesn't have enough tracked stock (see backend's
-// CompletePickingUseCase doc comment) -- staff decide, per item, whether to
+// Shown when finishing a packing (or legacy picking) session hits a
+// substitute/freebie/new-item whose SKU doesn't have enough tracked stock
+// (see backend OrderChangeApplier.CheckStockShortfalls) -- staff decide, per item, whether to
 // ship it anyway (fixes the inventory record, reduces stock for real) or
 // ship without it (the line just doesn't go out, same as any other unpicked
 // line).

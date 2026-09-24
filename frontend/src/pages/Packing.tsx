@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ScanBarcode, CheckCircle, Package, X, Trash2, ArrowLeft, Undo2 } from 'lucide-react'
+import { ScanBarcode, CheckCircle, Package, Trash2, ArrowLeft, Undo2, PackagePlus } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useRoutedSession } from '../oms/useRoutedSession'
@@ -14,7 +14,11 @@ import { useMemberNames } from '../team/hooks/useMemberNames'
 import { useQueryString } from '../routing/useQueryState'
 import type { SalesOrder, Address } from '../oms/types'
 import * as packingApi from '../scanner/api'
-import type { PackingSessionDetail, PickingSessionLineItem, PackScan, CompletePackingResult } from '../scanner/types'
+import type { PackingSessionDetail, PickingSessionLineItem, PackScan, CompletePackingResult, StockShortfall, StockShortfallResolution } from '../scanner/types'
+import { StockShortfallDialog } from '../scanner/StockShortfallDialog'
+import { LineChangePanel, type SubstituteRowInput } from '../packing/LineChangePanel'
+import { AddItemPanel, type AddItemInput } from '../packing/AddItemPanel'
+import { packScanLabel } from '../packing/packScanLabel'
 import { packedQuantityByLineItem, computeMissingPackItems } from '../scanner/packingProgress'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
 import { useConnections } from '../integrations/hooks/useConnections'
@@ -83,8 +87,13 @@ export default function Packing() {
   const [scanErrorAlert, setScanErrorAlert] = useState<string | null>(null)
   const codeRef = useRef<HTMLInputElement>(null)
 
+  // The side panel: one line (pack/substitute/refund), or "add an item".
   const [packLine, setPackLine] = useState<{ lineItem: PickingSessionLineItem; packedSoFar: number } | null>(null)
-  const [packQty, setPackQty] = useState(1)
+  const [addItemOpen, setAddItemOpen] = useState(false)
+  // Set when completePacking comes back completed:false -- a substitute or
+  // extra item is short on tracked stock; staff decide per item and finish
+  // again (see StockShortfallDialog).
+  const [stockShortfalls, setStockShortfalls] = useState<StockShortfall[] | null>(null)
 
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -248,24 +257,58 @@ export default function Packing() {
 
   function openLineForPack(li: PickingSessionLineItem, packedSoFar: number) {
     if (!li.sku_id) return
+    setAddItemOpen(false)
     setPackLine({ lineItem: li, packedSoFar })
-    setPackQty(Math.max(1, li.quantity - packedSoFar))
   }
 
-  async function confirmPack() {
-    if (!packLine || !session || !token || !packLine.lineItem.sku_id) return
+  // Runs one staged change against the session and reloads it -- every
+  // panel action (pack, substitute, refund, add item) goes through here.
+  async function stageChange(action: (sessionId: string, token: string) => Promise<unknown>, failure: string) {
+    if (!session || !token) return
     setBusy(true)
     setError('')
     try {
-      await packingApi.scanPackItem(token, session.session.id, { sku_id: packLine.lineItem.sku_id, quantity: packQty })
+      await action(session.session.id, token)
       setPackLine(null)
+      setAddItemOpen(false)
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to record pack')
+      setError(err instanceof Error ? err.message : failure)
     } finally {
       setBusy(false)
       codeRef.current?.focus()
     }
+  }
+
+  function confirmPack(quantity: number) {
+    const skuId = packLine?.lineItem.sku_id
+    if (!skuId) return
+    stageChange((id, t) => packingApi.scanPackItem(t, id, { sku_id: skuId, quantity }), 'Failed to record pack')
+  }
+
+  function confirmSubstitute(rows: SubstituteRowInput[]) {
+    const lineItemId = packLine?.lineItem.id
+    if (!lineItemId) return
+    stageChange(async (id, t) => {
+      const lines = await Promise.all(rows.map(async r => ({
+        sku_id: (await packingApi.resolvePackScanCode(t, id, r.code)).sku_id,
+        substitute_quantity: r.substituteQuantity, original_quantity_covered: r.coveredQuantity, return_to_stock: r.returnToStock,
+      })))
+      return packingApi.substitutePackLine(t, id, { line_item_id: lineItemId, lines })
+    }, 'Failed to record substitute')
+  }
+
+  function confirmRefund(quantity: number, reason: string) {
+    const lineItemId = packLine?.lineItem.id
+    if (!lineItemId) return
+    stageChange((id, t) => packingApi.refundPackLine(t, id, { line_item_id: lineItemId, quantity, reason: reason || undefined }), 'Failed to record refund')
+  }
+
+  function confirmAddItem(item: AddItemInput) {
+    stageChange((id, t) => packingApi.scanPackItem(t, id, {
+      sku_id: item.skuId, quantity: item.quantity, action_type: item.freebie ? 'freebie' : 'new_item',
+      price_minor_units: item.priceMinorUnits, reason: item.name,
+    }), 'Failed to add item')
   }
 
   async function handleDeleteScan(scanId: string) {
@@ -290,6 +333,7 @@ export default function Packing() {
       await packingApi.resetPackingSession(token, session.session.id)
       setResetConfirmOpen(false)
       setPackLine(null)
+      setAddItemOpen(false)
       await loadSession(session.session.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reset packing session')
@@ -298,12 +342,18 @@ export default function Packing() {
     }
   }
 
-  async function handleConfirmComplete() {
+  // resolutions is only passed when resubmitting from StockShortfallDialog.
+  async function handleConfirmComplete(resolutions?: Record<string, StockShortfallResolution>) {
     if (!session || !token) return
     setCompleting(true)
     setError('')
     try {
-      const result = await packingApi.completePacking(token, session.session.id)
+      const result = await packingApi.completePacking(token, session.session.id, resolutions)
+      if (!result.completed) {
+        setStockShortfalls(result.stock_shortfalls ?? [])
+        return
+      }
+      setStockShortfalls(null)
       setCompleteResult(result)
       setConfirmingFinish(false)
       await queue.refresh()
@@ -364,7 +414,6 @@ export default function Packing() {
   const progress = totalItems > 0 ? (packedItems / totalItems) * 100 : 0
   const allPacked = totalItems > 0 && packedItems >= totalItems
 
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
 
 
   if (token && pickIds.length > 0) {
@@ -522,7 +571,7 @@ export default function Packing() {
             <div className="p-6 border-t border-line shrink-0 space-y-2">
               {error && <p className="text-sm text-danger">{error}</p>}
               <button
-                onClick={handleConfirmComplete} disabled={completing}
+                onClick={() => handleConfirmComplete()} disabled={completing}
                 className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
               >
                 {completing ? 'Completing…' : 'Confirm & complete'}
@@ -554,6 +603,12 @@ export default function Packing() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
+                  type="button" onClick={() => { setPackLine(null); setAddItemOpen(true) }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover"
+                >
+                  <PackagePlus size={13} /> Add item
+                </button>
+                <button
                   type="button" onClick={() => setResetConfirmOpen(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-danger hover:bg-hover"
                 >
@@ -579,7 +634,7 @@ export default function Packing() {
                   onChange={e => setCode(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleScanSubmit()}
                   placeholder="Scan barcode or type and press Enter..."
-                  disabled={busy || !!packLine || !!scanErrorAlert}
+                  disabled={busy || !!packLine || addItemOpen || !!scanErrorAlert}
                   className="flex-1 bg-transparent text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus/60 placeholder-ink-4 font-mono disabled:opacity-50"
                 />
               </div>
@@ -646,7 +701,7 @@ export default function Packing() {
                 <p className="text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1">This session</p>
                 {session.scans.map((s: PackScan) => (
                   <div key={s.id} className="flex items-center justify-between py-0.5">
-                    <span className="text-2xs text-ink-3">Packed · qty {s.quantity}</span>
+                    <span className="text-2xs text-ink-3">{packScanLabel(s)}</span>
                     <button type="button" onClick={() => handleDeleteScan(s.id)} aria-label="Remove scan" className="text-ink-4 hover:text-danger">
                       <Trash2 size={11} />
                     </button>
@@ -658,32 +713,27 @@ export default function Packing() {
         )}
       </div>
 
-      {/* Pack confirm panel */}
       {packLine && (
-        <div className="w-80 border-l border-line bg-sunken flex flex-col shrink-0">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-            <p className="text-xs font-semibold text-ink">{packLine.lineItem.name}</p>
-            <button type="button" onClick={() => setPackLine(null)} aria-label="Close" className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
-              <X size={14} />
-            </button>
-          </div>
-          <div className="p-4 space-y-4">
-            <div>
-              <label className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
-              <input
-                type="number" min={1} max={packLine.lineItem.quantity - packLine.packedSoFar || undefined}
-                value={packQty} onChange={e => setPackQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                className={inputClass}
-              />
-            </div>
-            <button
-              type="button" onClick={confirmPack} disabled={busy}
-              className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
-            >
-              Confirm pack
-            </button>
-          </div>
-        </div>
+        <LineChangePanel
+          key={packLine.lineItem.id}
+          lineItem={packLine.lineItem} coveredSoFar={packLine.packedSoFar} busy={busy}
+          onPack={confirmPack} onSubstitute={confirmSubstitute} onRefund={confirmRefund} onClose={() => setPackLine(null)}
+        />
+      )}
+
+      {addItemOpen && session && token && (
+        <AddItemPanel
+          busy={busy}
+          resolveCode={c => packingApi.resolvePackScanCode(token, session.session.id, c)}
+          onAdd={confirmAddItem} onClose={() => setAddItemOpen(false)}
+        />
+      )}
+
+      {stockShortfalls && (
+        <StockShortfallDialog
+          shortfalls={stockShortfalls} submitting={completing}
+          onConfirm={resolutions => handleConfirmComplete(resolutions)} onCancel={() => setStockShortfalls(null)}
+        />
       )}
 
       {scanErrorAlert && (

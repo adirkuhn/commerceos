@@ -31,6 +31,9 @@ vi.mock('../../scanner/api', () => ({
   touchPackingSession: vi.fn(),
   resetPackingSession: vi.fn(),
   completePacking: vi.fn(),
+  substitutePackLine: vi.fn(),
+  refundPackLine: vi.fn(),
+  resolvePackScanCode: vi.fn(),
 }))
 
 vi.mock('../../pms/api', () => ({
@@ -220,8 +223,8 @@ describe('Packing page', () => {
     vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
     vi.mocked(packingApi.getPackingSession)
       .mockResolvedValueOnce(detail())
-      .mockResolvedValueOnce(detail({ scans: [{ id: 'scan-1', session_id: 'pack-1', line_item_id: 'li-1', sku_id: 'sku-1', quantity: 1, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' }] }))
-    const scanResult: ScanPackItemResult = { scan: { id: 'scan-1', session_id: 'pack-1', line_item_id: 'li-1', sku_id: 'sku-1', quantity: 1, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' } }
+      .mockResolvedValueOnce(detail({ scans: [{ id: 'scan-1', session_id: 'pack-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pack', quantity: 1, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' }] }))
+    const scanResult: ScanPackItemResult = { scan: { id: 'scan-1', session_id: 'pack-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pack', quantity: 1, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' } }
     vi.mocked(packingApi.scanPackItem).mockResolvedValue(scanResult)
 
     const user = userEvent.setup()
@@ -258,7 +261,7 @@ describe('Packing page', () => {
   it('start over discards the session and reloads it fresh', async () => {
     vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
     vi.mocked(packingApi.getPackingSession)
-      .mockResolvedValueOnce(detail({ scans: [{ id: 'scan-1', session_id: 'pack-1', line_item_id: 'li-1', sku_id: 'sku-1', quantity: 1, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' }] }))
+      .mockResolvedValueOnce(detail({ scans: [{ id: 'scan-1', session_id: 'pack-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pack', quantity: 1, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' }] }))
       .mockResolvedValueOnce(detail())
     vi.mocked(packingApi.resetPackingSession).mockResolvedValue(session())
 
@@ -280,6 +283,7 @@ describe('Packing page', () => {
     vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
     vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
     const result: CompletePackingResult = {
+      completed: true,
       session: session({ status: 'completed' }),
       missing_items: [{ line_item_id: 'li-1', name: 'Widget', expected_qty: 2, packed_qty: 0 }],
     }
@@ -295,7 +299,106 @@ describe('Packing page', () => {
 
     expect(await screen.findByText('#1001 packed')).toBeInTheDocument()
     expect(screen.getByText('Widget: 0/2')).toBeInTheDocument()
-    expect(packingApi.completePacking).toHaveBeenCalledWith('test-token', 'pack-1')
+    expect(packingApi.completePacking).toHaveBeenCalledWith('test-token', 'pack-1', undefined)
+  })
+
+  it('a stock shortfall at finish asks per item, then finishes with the decisions', async () => {
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
+    vi.mocked(packingApi.completePacking)
+      .mockResolvedValueOnce({ completed: false, stock_shortfalls: [{ scan_id: 'p9', sku_id: 'sku-9', name: 'Jam jar', needed: 3, short: 2 }] })
+      .mockResolvedValueOnce({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'Complete' }))
+    await user.click(await screen.findByRole('button', { name: 'Confirm & complete' }))
+
+    expect(await screen.findByText('Not enough stock')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Skip it' }))
+    const confirms = screen.getAllByRole('button', { name: 'Confirm & complete' })
+    await user.click(confirms[confirms.length - 1])
+
+    expect(await screen.findByText('#1001 packed')).toBeInTheDocument()
+    expect(packingApi.completePacking).toHaveBeenLastCalledWith('test-token', 'pack-1', { p9: 'without_item' })
+  })
+
+  it('substituting a line resolves the replacement code and stages it', async () => {
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
+    vi.mocked(packingApi.resolvePackScanCode).mockResolvedValue({ sku_id: 'sku-sub', product_name: 'Other widget' })
+    vi.mocked(packingApi.substitutePackLine).mockResolvedValue({ scans: [] })
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await user.click(await screen.findByText('Widget'))
+    await user.click(screen.getByRole('button', { name: /Substitute/ }))
+    await user.type(screen.getByPlaceholderText('Scan or type replacement SKU/barcode'), 'SUB-1')
+    await user.type(screen.getByLabelText('Covers (of original)'), '2')
+    await user.click(screen.getByRole('button', { name: 'Confirm substitute' }))
+
+    await waitFor(() => expect(packingApi.substitutePackLine).toHaveBeenCalledWith('test-token', 'pack-1', {
+      line_item_id: 'li-1',
+      lines: [{ sku_id: 'sku-sub', substitute_quantity: 1, original_quantity_covered: 2, return_to_stock: false }],
+    }))
+    expect(packingApi.resolvePackScanCode).toHaveBeenCalledWith('test-token', 'pack-1', 'SUB-1')
+  })
+
+  it('refunding part of a line stages the refund', async () => {
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
+    vi.mocked(packingApi.refundPackLine).mockResolvedValue({ scan: { id: 'r1', session_id: 'pack-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'refund', quantity: 1, scanned_at: '', scanned_by: '' } })
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await user.click(await screen.findByText('Widget'))
+    await user.click(screen.getByRole('button', { name: /Refund/ }))
+    await user.clear(screen.getByLabelText('Quantity to refund'))
+    await user.type(screen.getByLabelText('Quantity to refund'), '1')
+    await user.click(screen.getByRole('button', { name: 'Confirm refund' }))
+
+    await waitFor(() => expect(packingApi.refundPackLine).toHaveBeenCalledWith('test-token', 'pack-1', { line_item_id: 'li-1', quantity: 1, reason: undefined }))
+  })
+
+  it('adding an extra item stages a freebie or new item', async () => {
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
+    vi.mocked(packingApi.resolvePackScanCode).mockResolvedValue({ sku_id: 'sku-9', product_name: 'Jam jar' })
+    vi.mocked(packingApi.scanPackItem).mockResolvedValue({ scan: { id: 'x', session_id: 'pack-1', line_item_id: null, sku_id: 'sku-9', action_type: 'freebie', quantity: 1, scanned_at: '', scanned_by: '' } })
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'Add item' }))
+    await user.type(screen.getByPlaceholderText('Scan or type SKU/barcode'), 'JAM-1{Enter}')
+    await screen.findByText('Jam jar')
+    await user.click(screen.getByRole('button', { name: 'Add to order' }))
+
+    await waitFor(() => expect(packingApi.scanPackItem).toHaveBeenCalledWith('test-token', 'pack-1', {
+      sku_id: 'sku-9', quantity: 1, action_type: 'freebie', price_minor_units: undefined, reason: 'Jam jar',
+    }))
+  })
+
+  it('the session log names each order change', async () => {
+    const covered = 1
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail({ scans: [
+      { id: 's1', session_id: 'pack-1', line_item_id: 'li-1', sku_id: 'sku-sub', action_type: 'substitute', quantity: 2, original_quantity_covered: covered, scanned_at: '', scanned_by: '' },
+      { id: 's2', session_id: 'pack-1', line_item_id: null, sku_id: 'sku-9', action_type: 'new_item', quantity: 1, reason: 'Jam jar', scanned_at: '', scanned_by: '' },
+    ] }))
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByText('Substituted · qty 2')).toBeInTheDocument()
+    expect(screen.getByText('New item · Jam jar · qty 1')).toBeInTheDocument()
+    expect(screen.getByText('1 / 2 items')).toBeInTheDocument()
   })
 
   it('deep-links via ?order=<id> straight into a packing session for that order', async () => {

@@ -228,16 +228,11 @@ export interface ScanPickItemInput {
   // Exactly one of code/sku_id is required.
   code?: string
   sku_id?: string
-  // Defaults to 'pick' server-side when omitted. 'substitute' is rejected
-  // (422) -- use substituteLineItem instead.
-  action_type?: PickScanActionType
-  // Unused -- substitute (the only action type that ever needed this) is
-  // rejected here.
-  line_item_id?: string
+  // Picking only picks -- substitutes, extra items and refunds are
+  // recorded in packing.
+  action_type?: 'pick'
   quantity?: number
-  // Required for new_item, ignored (forced to 0) for freebie.
-  price_minor_units?: number
-  // Optional comment (pick), or the new line item's name (freebie/new_item).
+  // Optional comment.
   reason?: string
 }
 
@@ -257,7 +252,7 @@ export interface SubstituteLine {
   return_to_stock?: boolean
 }
 
-// Stages one or more Substitute PickScan rows for the same original line
+// Stages one or more substitute PackScan rows for the same original line
 // item in a single call, one per substitute SKU -- lets a single original
 // unit be replaced by several different (typically cheaper) substitutes at
 // once. lines' original_quantity_covered must sum to the original line
@@ -269,7 +264,7 @@ export interface SubstituteLineItemInput {
 }
 
 export interface SubstituteLineItemResult {
-  scans: PickScan[]
+  scans: PackScan[]
 }
 
 // Stages refunding part or all of an existing line item's own quantity,
@@ -285,7 +280,7 @@ export interface RefundLineItemRequest {
 }
 
 export interface RefundLineItemResult {
-  scan: PickScan
+  scan: PackScan
 }
 
 // Result of resolving a scanned code to a SKU WITHOUT staging anything yet
@@ -329,17 +324,9 @@ export interface CompletePickingResult {
   stock_shortfalls?: StockShortfall[]
 }
 
-export interface AddSalesOrderLineItemInput {
-  sku_id: string
-  name?: string
-  quantity: number
-  price_minor_units: number
-}
-
 // ── Packing ──────────────────────────────────────────────────────────────────
-// The second half of fulfillment, carved out from picking -- box up an
-// already-picked order and get it ready to ship. See backend
-// domain/oms/packing.go's doc comment.
+// Where an order is scanned, adjusted (substitutes, extra items, refunds)
+// and labelled -- picking is optional. See backend domain/oms/packing.go.
 
 export type PackingSessionStatus = 'in_progress' | 'completed'
 
@@ -352,19 +339,29 @@ export interface PackingSession {
   completed_by: string
   locked_by?: string | null
   locked_at?: string | null
+  locked_since?: string | null
 }
 
-// Unlike PickScan, a PackScan is real the moment it's created -- packing
-// never touches stock or the order's line items, so there's no staged/
-// replayed distinction here.
+export type PackScanActionType = 'pack' | 'substitute' | 'freebie' | 'new_item' | 'refund'
+
+// A packing row: 'pack' records box contents; the rest are order changes
+// staged until the session completes (see backend PackScan). Field meanings
+// for changes mirror PickScan's.
 export interface PackScan {
   id: string
   session_id: string
-  line_item_id: string
+  // Null for a freebie/new item -- it becomes a line only on completion.
+  line_item_id: string | null
   sku_id: string
+  action_type: PackScanActionType
   quantity: number
+  original_quantity_covered?: number | null
+  return_to_stock?: boolean
+  price_minor_units?: number | null
+  reason?: string
   scanned_at: string
   scanned_by: string
+  replayed_at?: string | null
 }
 
 export interface PackingSessionDetail {
@@ -379,6 +376,11 @@ export interface ScanPackItemInput {
   code?: string
   sku_id?: string
   quantity?: number
+  // Defaults to 'pack'. freebie/new_item add an extra item (any SKU) --
+  // new_item needs price_minor_units; reason is its name/comment.
+  action_type?: 'pack' | 'freebie' | 'new_item'
+  price_minor_units?: number
+  reason?: string
 }
 
 export interface ScanPackItemResult {
@@ -392,9 +394,13 @@ export interface MissingPackItem {
   packed_qty: number
 }
 
+// completed:false means nothing was applied or completed -- stock_shortfalls
+// lists what needs a decision (resolutions) before finishing again.
 export interface CompletePackingResult {
-  session: PackingSession
+  completed: boolean
+  session?: PackingSession
   missing_items?: MissingPackItem[]
+  stock_shortfalls?: StockShortfall[]
 }
 
 export interface APIError {

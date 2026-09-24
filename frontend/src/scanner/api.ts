@@ -3,10 +3,9 @@ import type {
   ResolveBookingScanCodeResult, CompleteBookingResult, ScannerPairingCode, APIResponse,
   PickingSession, PickingSessionDetail, ScanPickItemInput, ScanPickItemResult,
   SubstituteLineItemInput, SubstituteLineItemResult, RefundLineItemRequest, RefundLineItemResult,
-  ResolvePickScanCodeResult, CompletePickingResult, StockShortfallResolution, AddSalesOrderLineItemInput,
+  ResolvePickScanCodeResult, CompletePickingResult, StockShortfallResolution,
   PackingSession, PackingSessionDetail, ScanPackItemInput, ScanPackItemResult, CompletePackingResult,
 } from './types'
-import type { SalesOrderLineItem } from '../oms/types'
 
 function base(): string {
   return import.meta.env.VITE_API_BASE_URL as string
@@ -124,14 +123,6 @@ export function scanPickItem(token: string, sessionId: string, input: ScanPickIt
   return request<ScanPickItemResult>(`${base()}/picking-sessions/${sessionId}/scan`, { method: 'POST', body: JSON.stringify(input) }, token)
 }
 
-export function substituteLineItem(token: string, sessionId: string, input: SubstituteLineItemInput): Promise<SubstituteLineItemResult> {
-  return request<SubstituteLineItemResult>(`${base()}/picking-sessions/${sessionId}/substitute-batch`, { method: 'POST', body: JSON.stringify(input) }, token)
-}
-
-export function refundLineItem(token: string, sessionId: string, input: RefundLineItemRequest): Promise<RefundLineItemResult> {
-  return request<RefundLineItemResult>(`${base()}/picking-sessions/${sessionId}/refund`, { method: 'POST', body: JSON.stringify(input) }, token)
-}
-
 export function resolvePickScanCode(token: string, sessionId: string, code: string): Promise<ResolvePickScanCodeResult> {
   return request<ResolvePickScanCodeResult>(`${base()}/picking-sessions/${sessionId}/resolve-scan`, { method: 'POST', body: JSON.stringify({ code }) }, token)
 }
@@ -172,14 +163,6 @@ export function completePicking(
   )
 }
 
-// addSalesOrderLineItem appends a real line item to an already-existing
-// order -- used by the freebie/new-item picking flow. Not itself a picking
-// endpoint (see oms's own openapi.yaml), just co-located here since only
-// the picking flow calls it from the scanner app.
-export function addSalesOrderLineItem(token: string, salesOrderId: string, input: AddSalesOrderLineItemInput): Promise<SalesOrderLineItem> {
-  return request<SalesOrderLineItem>(`${base()}/sales-orders/${salesOrderId}/line-items`, { method: 'POST', body: JSON.stringify(input) }, token)
-}
-
 // ── Packing ──────────────────────────────────────────────────────────────────
 
 export function startOrResumePacking(token: string, salesOrderId: string): Promise<PackingSession> {
@@ -210,6 +193,29 @@ export function resetPackingSession(token: string, id: string): Promise<PackingS
   return request<PackingSession>(`${base()}/packing-sessions/${id}/reset`, { method: 'POST' }, token)
 }
 
-export function completePacking(token: string, id: string): Promise<CompletePackingResult> {
-  return request<CompletePackingResult>(`${base()}/packing-sessions/${id}/complete`, { method: 'POST' }, token)
+// resolutions maps a pack scan id (from a prior call's stock_shortfalls) to
+// how staff want it handled. Omit on the first attempt.
+export function completePacking(
+  token: string, id: string, resolutions?: Record<string, StockShortfallResolution>,
+): Promise<CompletePackingResult> {
+  return request<CompletePackingResult>(
+    `${base()}/packing-sessions/${id}/complete`,
+    { method: 'POST', body: JSON.stringify({ resolutions }) },
+    token,
+  )
+}
+
+// Order changes happen in packing: substitute (part of) a line, refund
+// (remove) part of a line, or resolve a scanned code before staging one.
+// Nothing is real until completePacking.
+export function substitutePackLine(token: string, sessionId: string, input: SubstituteLineItemInput): Promise<SubstituteLineItemResult> {
+  return request<SubstituteLineItemResult>(`${base()}/packing-sessions/${sessionId}/substitute-batch`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function refundPackLine(token: string, sessionId: string, input: RefundLineItemRequest): Promise<RefundLineItemResult> {
+  return request<RefundLineItemResult>(`${base()}/packing-sessions/${sessionId}/refund`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function resolvePackScanCode(token: string, sessionId: string, code: string): Promise<ResolvePickScanCodeResult> {
+  return request<ResolvePickScanCodeResult>(`${base()}/packing-sessions/${sessionId}/resolve-scan`, { method: 'POST', body: JSON.stringify({ code }) }, token)
 }

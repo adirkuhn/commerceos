@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, Repeat, Gift, PackagePlus, X, Trash2, ArrowLeft, Undo2, PackageCheck } from 'lucide-react'
+import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, X, Trash2, ArrowLeft, Undo2, PackageCheck } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as omsApi from '../oms/api'
@@ -60,24 +60,6 @@ const ACTION_LABEL: Record<PickScan['action_type'], string> = {
   pick: 'Picked', substitute: 'Substituted', freebie: 'Freebie', new_item: 'New item', refund: 'Refunded',
 }
 
-// One row of a substitute batch -- each row scans/types its own
-// replacement code, how many of it is being added, how much of the
-// original line it covers, and whether that covered share goes back to
-// stock. Rows' coveredQty must sum to the original line's own quantity
-// exactly before submitting (see SubstituteLineItemUseCase).
-interface SubstituteRowState {
-  key: number
-  code: string
-  substituteQty: string
-  coveredQty: string
-  returnToStock: boolean
-}
-
-let substituteRowKeySeq = 0
-function newSubstituteRow(): SubstituteRowState {
-  return { key: ++substituteRowKeySeq, code: '', substituteQty: '1', coveredQty: '', returnToStock: false }
-}
-
 const PICKING_PATH = '/picking'
 
 // Picking follows the tenant's picking mode (Settings > Fulfillment): list
@@ -124,15 +106,6 @@ function ScanPicking() {
 
   const [pickLine, setPickLine] = useState<{ lineItem: PickingSessionLineItem; pickedSoFar: number } | null>(null)
   const [pickQty, setPickQty] = useState(1)
-  const [pickPanelMode, setPickPanelMode] = useState<'pick' | 'substitute' | 'refund'>('pick')
-  const [substituteRows, setSubstituteRows] = useState<SubstituteRowState[]>([])
-  const [refundQty, setRefundQty] = useState('1')
-  const [refundReason, setRefundReason] = useState('')
-
-  const [addItemOpen, setAddItemOpen] = useState<{ skuId: string; productName: string } | null>(null)
-  const [addItemQty, setAddItemQty] = useState(1)
-  const [addItemPrice, setAddItemPrice] = useState('0')
-  const [addItemFreebie, setAddItemFreebie] = useState(true)
 
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -181,7 +154,7 @@ function ScanPicking() {
     }
   }, [token])
 
-  useEffect(() => { codeRef.current?.focus() }, [session, pickLine, addItemOpen])
+  useEffect(() => { codeRef.current?.focus() }, [session, pickLine])
 
   // Heartbeat: refresh this session's lock every 60s while it's open, so a
   // long pick doesn't outlive the backend's PickingLockTTL and get taken
@@ -210,7 +183,6 @@ function ScanPicking() {
     setError('')
     setConfirmingFinish(false)
     setPickLine(null)
-    setAddItemOpen(null)
   }
 
   const { urlSessionId, showSession, backToList: backToOrders } = useRoutedSession({
@@ -229,7 +201,6 @@ function ScanPicking() {
     setCompleteResult(null)
     setStockShortfalls(null)
     setPickLine(null)
-    setAddItemOpen(null)
     // Switching to a different order while one is actively in progress is
     // just pause-then-resume -- same mechanic as the scanner app.
     if (session && session.session.status === 'in_progress' && session.session.sales_order_id !== order.id && token) {
@@ -290,7 +261,7 @@ function ScanPicking() {
       // ScanPickItemUseCase.autoLinkUnmatchedLine).
       try {
         await pickingApi.scanPickItem(token, session.session.id, {
-          sku_id: resolved.sku_id, line_item_id: li?.id, action_type: 'pick', quantity: 1,
+          sku_id: resolved.sku_id, action_type: 'pick', quantity: 1,
         })
         await loadSession(session.session.id)
       } catch {
@@ -315,35 +286,10 @@ function ScanPicking() {
     codeRef.current?.focus()
   }
 
-  // Separate from handleScanSubmit -- this fires from inside the "Add item"
-  // panel's own scan box, opened explicitly via the toolbar button. Unlike
-  // the main scan bar, it must never divert to the Pick sheet just because
-  // the resolved SKU happens to already be on the order (the picker chose
-  // "Add item" on purpose, e.g. to add a second unit as a freebie).
-  async function handleAddItemScanSubmit() {
-    const scannedCode = code.trim()
-    if (!scannedCode || !session || !token) return
-    setError('')
-    setBusy(true)
-    try {
-      const resolved = await pickingApi.resolvePickScanCode(token, session.session.id, scannedCode)
-      setCode('')
-      setAddItemOpen({ skuId: resolved.sku_id, productName: resolved.product_name })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Scan not recognized')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   function openLineForPick(li: PickingSessionLineItem, pickedSoFar: number) {
     if (!li.sku_id) return // an unmatched Woo-import line has no SKU to pick against -- must be resolved elsewhere first
     setPickLine({ lineItem: li, pickedSoFar })
     setPickQty(Math.max(1, li.quantity - pickedSoFar))
-    setPickPanelMode('pick')
-    setSubstituteRows([newSubstituteRow()])
-    setRefundQty(String(Math.max(1, li.quantity - pickedSoFar)))
-    setRefundReason('')
   }
 
   async function confirmPick() {
@@ -352,94 +298,12 @@ function ScanPicking() {
     setError('')
     try {
       await pickingApi.scanPickItem(token, session.session.id, {
-        sku_id: pickLine.lineItem.sku_id, line_item_id: pickLine.lineItem.id, action_type: 'pick', quantity: pickQty,
+        sku_id: pickLine.lineItem.sku_id, action_type: 'pick', quantity: pickQty,
       })
       setPickLine(null)
       await loadSession(session.session.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to record pick')
-    } finally {
-      setBusy(false)
-      codeRef.current?.focus()
-    }
-  }
-
-  function updateSubstituteRow(key: number, patch: Partial<SubstituteRowState>) {
-    setSubstituteRows(rows => rows.map(r => (r.key === key ? { ...r, ...patch } : r)))
-  }
-
-  const substituteCoveredTotal = substituteRows.reduce((sum, r) => sum + (Number(r.coveredQty) || 0), 0)
-  // Must cover exactly what's left, not the line's full original quantity
-  // -- a line already partially picked can still have the rest substituted.
-  const substituteRemaining = pickLine ? pickLine.lineItem.quantity - pickLine.pickedSoFar : 0
-  const substituteReady = !!pickLine && substituteRows.length > 0
-    && substituteRows.every(r => r.code.trim() && Number(r.substituteQty) > 0 && Number(r.coveredQty) > 0)
-    && substituteCoveredTotal === substituteRemaining
-
-  async function confirmSubstitute() {
-    if (!pickLine || !session || !token || !substituteReady) return
-    setBusy(true)
-    setError('')
-    try {
-      const lines = await Promise.all(substituteRows.map(async r => {
-        const resolved = await pickingApi.resolvePickScanCode(token, session.session.id, r.code.trim())
-        return {
-          sku_id: resolved.sku_id, substitute_quantity: Number(r.substituteQty),
-          original_quantity_covered: Number(r.coveredQty), return_to_stock: r.returnToStock,
-        }
-      }))
-      await pickingApi.substituteLineItem(token, session.session.id, { line_item_id: pickLine.lineItem.id, lines })
-      setPickLine(null)
-      setPickPanelMode('pick')
-      setSubstituteRows([])
-      await loadSession(session.session.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to record substitute')
-    } finally {
-      setBusy(false)
-      codeRef.current?.focus()
-    }
-  }
-
-  const refundQtyNum = Number(refundQty) || 0
-  const refundReady = !!pickLine && refundQtyNum > 0 && refundQtyNum <= pickLine.lineItem.quantity
-
-  async function confirmRefund() {
-    if (!pickLine || !session || !token || !refundReady) return
-    setBusy(true)
-    setError('')
-    try {
-      await pickingApi.refundLineItem(token, session.session.id, {
-        line_item_id: pickLine.lineItem.id, quantity: refundQtyNum, reason: refundReason || undefined,
-      })
-      setPickLine(null)
-      setPickPanelMode('pick')
-      await loadSession(session.session.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to record refund')
-    } finally {
-      setBusy(false)
-      codeRef.current?.focus()
-    }
-  }
-
-  async function confirmAddItem() {
-    if (!addItemOpen || !session || !token) return
-    setBusy(true)
-    setError('')
-    try {
-      const priceMinorUnits = Math.round(parseFloat(addItemPrice || '0') * 100)
-      await pickingApi.scanPickItem(token, session.session.id, {
-        sku_id: addItemOpen.skuId,
-        action_type: addItemFreebie ? 'freebie' : 'new_item',
-        quantity: addItemQty,
-        price_minor_units: addItemFreebie ? undefined : priceMinorUnits,
-        reason: addItemOpen.productName,
-      })
-      setAddItemOpen(null)
-      await loadSession(session.session.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add item')
     } finally {
       setBusy(false)
       codeRef.current?.focus()
@@ -484,8 +348,7 @@ function ScanPicking() {
       await pickingApi.resetPickingSession(token, session.session.id)
       setResetConfirmOpen(false)
       setPickLine(null)
-      setAddItemOpen(null)
-      await loadSession(session.session.id)
+        await loadSession(session.session.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reset picking session')
     } finally {
@@ -730,12 +593,6 @@ function ScanPicking() {
                   <Undo2 size={13} /> Start over
                 </button>
                 <button
-                  type="button" onClick={() => setAddItemOpen({ skuId: '', productName: '' })}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover"
-                >
-                  <PackagePlus size={13} /> Add item
-                </button>
-                <button
                   type="button" onClick={() => setConfirmingFinish(true)}
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50"
                 >
@@ -755,7 +612,7 @@ function ScanPicking() {
                   onChange={e => setCode(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleScanSubmit()}
                   placeholder="Scan barcode or type and press Enter..."
-                  disabled={busy || !!pickLine || !!addItemOpen || !!scanErrorAlert}
+                  disabled={busy || !!pickLine || !!scanErrorAlert}
                   className="flex-1 bg-transparent text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus/60 placeholder-ink-4 font-mono disabled:opacity-50"
                 />
               </div>
@@ -839,7 +696,8 @@ function ScanPicking() {
         )}
       </div>
 
-      {/* Pick / Substitute confirm panel */}
+      {/* Pick confirm panel -- picking only picks; substitutes, extra items
+          and refunds are recorded in packing. */}
       {pickLine && (
         <div className="w-80 border-l border-line bg-sunken flex flex-col shrink-0">
           <div className="flex items-center justify-between px-4 py-3 border-b border-line">
@@ -849,203 +707,21 @@ function ScanPicking() {
             </button>
           </div>
           <div className="p-4 space-y-4">
-            <div className="flex items-center rounded-lg border border-line overflow-hidden">
-              <button aria-pressed={pickPanelMode === 'pick'}
-                type="button" onClick={() => setPickPanelMode('pick')}
-                className={clsx('flex-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'pick' ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
-              >
-                Pick
-              </button>
-              <button aria-pressed={pickPanelMode === 'substitute'}
-                type="button" onClick={() => { setPickPanelMode('substitute'); setSubstituteRows([newSubstituteRow()]) }}
-                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'substitute' ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
-              >
-                <Repeat size={11} /> Substitute
-              </button>
-              <button aria-pressed={pickPanelMode === 'refund'}
-                type="button" onClick={() => setPickPanelMode('refund')}
-                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', pickPanelMode === 'refund' ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
-              >
-                <Undo2 size={11} /> Refund
-              </button>
+            <div>
+              <label htmlFor="pick-qty" className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
+              <input
+                id="pick-qty" type="number" min={1} max={pickLine.lineItem.quantity - pickLine.pickedSoFar || undefined}
+                value={pickQty} onChange={e => setPickQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                className={inputClass}
+              />
             </div>
-
-            {pickPanelMode === 'refund' ? (
-              <>
-                <p className="text-2xs text-ink-3">
-                  Can't fulfill this and don't want to substitute? Refund part or all of this line's own quantity
-                  ({pickLine.lineItem.quantity}) instead -- money only moves once the session is completed.
-                </p>
-                <label className="block">
-                  <span className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity to refund</span>
-                  <input
-                    type="number" min={1} max={pickLine.lineItem.quantity}
-                    value={refundQty} onChange={e => setRefundQty(e.target.value)}
-                    className={inputClass}
-                  />
-                </label>
-                <label className="block">
-                  <span className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Reason (optional)</span>
-                  <input
-                    type="text" value={refundReason} onChange={e => setRefundReason(e.target.value)}
-                    className={inputClass}
-                  />
-                </label>
-                <button
-                  type="button" onClick={confirmRefund} disabled={busy || !refundReady}
-                  className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
-                >
-                  Confirm refund
-                </button>
-              </>
-            ) : pickPanelMode === 'pick' ? (
-              <>
-                <div>
-                  <label className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
-                  <input
-                    type="number" min={1} max={pickLine.lineItem.quantity - pickLine.pickedSoFar || undefined}
-                    value={pickQty} onChange={e => setPickQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    className={inputClass}
-                  />
-                </div>
-                <button
-                  type="button" onClick={confirmPick} disabled={busy}
-                  className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
-                >
-                  Confirm pick
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="text-2xs text-ink-3">
-                  Replace with one or more products -- each row's "covers" quantity must add up to this line's
-                  remaining quantity ({substituteRemaining}) before you can confirm.
-                </p>
-                {substituteRows.map((row, i) => (
-                  <div key={row.key} className="space-y-2 rounded-lg border border-line p-2.5">
-                    <input
-                      type="text" value={row.code} onChange={e => updateSubstituteRow(row.key, { code: e.target.value })}
-                      placeholder="Scan or type replacement SKU/barcode"
-                      className={inputClass} autoFocus={i === 0}
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className="block">
-                        <span className="block text-2xs text-ink-4 mb-1">Qty added</span>
-                        <input
-                          type="number" min={1} value={row.substituteQty}
-                          onChange={e => updateSubstituteRow(row.key, { substituteQty: e.target.value })}
-                          className={inputClass}
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="block text-2xs text-ink-4 mb-1">Covers (of original)</span>
-                        <input
-                          type="number" min={1} value={row.coveredQty}
-                          onChange={e => updateSubstituteRow(row.key, { coveredQty: e.target.value })}
-                          className={inputClass}
-                        />
-                      </label>
-                    </div>
-                    <label className="flex items-center gap-2 text-2xs text-ink-3">
-                      <input
-                        type="checkbox" checked={row.returnToStock}
-                        onChange={e => updateSubstituteRow(row.key, { returnToStock: e.target.checked })}
-                      />
-                      Return original quantity to stock
-                    </label>
-                    {substituteRows.length > 1 && (
-                      <button
-                        type="button" onClick={() => setSubstituteRows(rows => rows.filter((_, idx) => idx !== i))}
-                        className="text-2xs text-ink-4 hover:text-danger"
-                      >
-                        Remove this row
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button" onClick={() => setSubstituteRows(rows => [...rows, newSubstituteRow()])}
-                  className="w-full py-2 rounded-lg border border-dashed dark:border-night-700 border-gray-300 text-2xs text-ink-3"
-                >
-                  + Add another substitute
-                </button>
-                <p className="text-2xs text-center text-ink-4">
-                  Covers {substituteCoveredTotal} of {substituteRemaining}
-                </p>
-                <button
-                  type="button" onClick={confirmSubstitute} disabled={busy || !substituteReady}
-                  className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
-                >
-                  Confirm substitute
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Add item (freebie / new item) panel */}
-      {addItemOpen && (
-        <div className="w-80 border-l border-line bg-sunken flex flex-col shrink-0">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-            <p className="text-xs font-semibold text-ink">Add item not on order</p>
-            <button type="button" onClick={() => setAddItemOpen(null)} aria-label="Close" className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
-              <X size={14} />
+            <button
+              type="button" onClick={confirmPick} disabled={busy}
+              className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
+            >
+              Confirm pick
             </button>
-          </div>
-          <div className="p-4 space-y-4">
-            {!addItemOpen.skuId ? (
-              <>
-                <p className="text-2xs text-ink-3">Scan or type the product's SKU/barcode.</p>
-                <input
-                  type="text" value={code} onChange={e => setCode(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleAddItemScanSubmit()}
-                  placeholder="Scan or type SKU/barcode" className={inputClass} autoFocus
-                />
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-ink">{addItemOpen.productName}</p>
-                <div className="flex items-center rounded-lg border border-line overflow-hidden">
-                  <button
-                    type="button" onClick={() => setAddItemFreebie(true)}
-                    className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', addItemFreebie ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
-                  >
-                    <Gift size={11} /> Freebie
-                  </button>
-                  <button
-                    type="button" onClick={() => setAddItemFreebie(false)}
-                    className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', !addItemFreebie ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
-                  >
-                    <PackagePlus size={11} /> New item
-                  </button>
-                </div>
-                <div>
-                  <label className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
-                  <input
-                    type="number" min={1} value={addItemQty}
-                    onChange={e => setAddItemQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    className={inputClass}
-                  />
-                </div>
-                {!addItemFreebie && (
-                  <div>
-                    <label className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Price</label>
-                    <input
-                      type="number" min={0} step="0.01" value={addItemPrice}
-                      onChange={e => setAddItemPrice(e.target.value)}
-                      className={inputClass}
-                    />
-                  </div>
-                )}
-                <button
-                  type="button" onClick={confirmAddItem} disabled={busy}
-                  className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
-                >
-                  Add to order
-                </button>
-              </>
-            )}
+            <p className="text-2xs text-ink-4">Out of stock or needs replacing? Substitutes and refunds happen in packing.</p>
           </div>
         </div>
       )}

@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, PackageCheck, Camera, X, Package, Undo2 } from 'lucide-react'
+import { ArrowLeft, Check, PackageCheck, Camera, X, Package, Undo2, Gift } from 'lucide-react'
 import * as api from './api'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
-import { QuantityStepper } from './QuantityStepper'
 import { CameraScanner } from './CameraScanner'
 import { playErrorSound } from './errorSound'
 import { useWakeLock } from './useWakeLock'
@@ -17,7 +16,11 @@ import { ExistingShipmentConfirmModal } from '../shipping/ExistingShipmentConfir
 import type { Shipment } from '../shipping/types'
 import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLabel'
 import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
-import type { PackingSessionDetail, PickingSessionLineItem, PackScan, CompletePackingResult } from './types'
+import type { PackingSessionDetail, PickingSessionLineItem, CompletePackingResult, StockShortfall, StockShortfallResolution } from './types'
+import { LineChangeSheet } from './LineChangeSheet'
+import { AddItemSheet } from './AddItemSheet'
+import { StockShortfallDialog } from './StockShortfallDialog'
+import { packScanLabel } from '../packing/packScanLabel'
 import type { SalesOrder, Address } from '../oms/types'
 import { Dialog } from '../components/common/Dialog'
 
@@ -71,6 +74,10 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
   const [confirmingFinish, setConfirmingFinish] = useState(false)
   const [result, setResult] = useState<CompletePackingResult | null>(null)
   const [packLine, setPackLine] = useState<{ lineItem: PickingSessionLineItem; packedSoFar: number } | null>(null)
+  const [addItemOpen, setAddItemOpen] = useState(false)
+  // Set when finishing comes back completed:false -- a substitute or extra
+  // item is short on tracked stock (see StockShortfallDialog).
+  const [stockShortfalls, setStockShortfalls] = useState<StockShortfall[] | null>(null)
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
   const codeInputRef = useRef<HTMLInputElement>(null)
@@ -174,11 +181,13 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
   }, [sessionId, detail?.session.status, token, onAuthError])
   useWakeLock()
 
-  async function stage(input: Parameters<typeof api.scanPackItem>[2]): Promise<boolean> {
+  // Runs one staged action (scan, substitute, refund, extra item) and
+  // reloads the session.
+  async function run(action: () => Promise<unknown>, failure: string): Promise<boolean> {
     setError('')
     setScanning(true)
     try {
-      await api.scanPackItem(token, sessionId, input)
+      await action()
       await load()
       return true
     } catch (err) {
@@ -186,12 +195,16 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
         onAuthError()
         return false
       }
-      setError(err instanceof Error ? err.message : 'Scan failed')
+      setError(err instanceof Error ? err.message : failure)
       return false
     } finally {
       setScanning(false)
       codeInputRef.current?.focus()
     }
+  }
+
+  function stage(input: Parameters<typeof api.scanPackItem>[2]): Promise<boolean> {
+    return run(() => api.scanPackItem(token, sessionId, input), 'Scan failed')
   }
 
   // Unlike picking's two-step resolve-then-stage, scanPackItem resolves and
@@ -238,6 +251,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
       await api.resetPackingSession(token, sessionId)
       setResetConfirmOpen(false)
       setPackLine(null)
+      setAddItemOpen(false)
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
@@ -252,10 +266,16 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
     codeInputRef.current?.focus()
   }
 
-  async function handleConfirmComplete() {
+  // resolutions is only passed when resubmitting from StockShortfallDialog.
+  async function handleConfirmComplete(resolutions?: Record<string, StockShortfallResolution>) {
     setFinishing(true)
     try {
-      const r = await api.completePacking(token, sessionId)
+      const r = await api.completePacking(token, sessionId, resolutions)
+      if (!r.completed) {
+        setStockShortfalls(r.stock_shortfalls ?? [])
+        return
+      }
+      setStockShortfalls(null)
       setResult(r)
       setConfirmingFinish(false)
     } catch (err) {
@@ -304,7 +324,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
         <div className="p-4 border-t border-night-700 shrink-0 space-y-2">
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
-            onClick={handleConfirmComplete}
+            onClick={() => handleConfirmComplete()}
             disabled={finishing}
             className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
           >
@@ -314,6 +334,12 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
             Back, scan more
           </button>
         </div>
+        {stockShortfalls && (
+          <StockShortfallDialog
+            shortfalls={stockShortfalls} submitting={finishing}
+            onConfirm={resolutions => handleConfirmComplete(resolutions)} onCancel={() => setStockShortfalls(null)}
+          />
+        )}
       </div>
     )
   }
@@ -412,6 +438,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
   }
 
   const packedByLineItem = packedQuantityByLineItem(detail?.scans ?? [])
+  const extras = (detail?.scans ?? []).filter(s => s.action_type === 'freebie' || s.action_type === 'new_item')
 
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
@@ -475,6 +502,31 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
             </button>
           )
         })}
+
+        {extras.length > 0 && (
+          <ul aria-label="Extra items" className="space-y-2">
+            {extras.map(s => (
+              <li key={s.id} className="flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3">
+                <Gift size={16} className="text-gray-400 shrink-0" />
+                <p className="flex-1 min-w-0 text-sm truncate">{packScanLabel(s)}</p>
+                <button aria-label={`Remove ${s.reason || 'extra item'}`}
+                  type="button" onClick={() => handleDeleteScan(s.id)} title="Remove"
+                  className="shrink-0 w-11 h-11 -m-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400"
+                >
+                  <X size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setAddItemOpen(true)}
+          className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-night-700 px-3.5 py-3 text-sm text-accent hover:border-accent transition-colors"
+        >
+          <Gift size={14} /> Add freebie or new item
+        </button>
       </div>
 
       <form onSubmit={handleScan} className="border-t border-night-700 p-4 space-y-2 shrink-0">
@@ -506,7 +558,8 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
       </form>
 
       {packLine && (
-        <PackLineSheet
+        <LineChangeSheet
+          token={token}
           lineItem={packLine.lineItem}
           packedSoFar={packLine.packedSoFar}
           scans={(detail?.scans ?? []).filter(s => s.line_item_id === packLine.lineItem.id)}
@@ -515,6 +568,25 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
           onPack={quantity => {
             setPackLine(null)
             stage({ sku_id: packLine.lineItem.sku_id ?? undefined, quantity })
+          }}
+          onSubstitute={lines => {
+            setPackLine(null)
+            run(() => api.substitutePackLine(token, sessionId, { line_item_id: packLine.lineItem.id, lines }), 'Substitute failed')
+          }}
+          onRefund={(quantity, reason) => {
+            setPackLine(null)
+            run(() => api.refundPackLine(token, sessionId, { line_item_id: packLine.lineItem.id, quantity, reason }), 'Refund failed')
+          }}
+        />
+      )}
+
+      {addItemOpen && (
+        <AddItemSheet
+          token={token}
+          onCancel={() => setAddItemOpen(false)}
+          onAdd={(skuId, actionType, quantity, priceMinorUnits, reason) => {
+            setAddItemOpen(false)
+            stage({ sku_id: skuId, action_type: actionType, quantity, price_minor_units: priceMinorUnits, reason })
           }}
         />
       )}
@@ -558,64 +630,5 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
         </Dialog>
       )}
     </div>
-  )
-}
-
-function PackLineSheet({ lineItem, packedSoFar, scans, onDeleteScan, onCancel, onPack }: {
-  lineItem: PickingSessionLineItem
-  packedSoFar: number
-  scans: PackScan[]
-  onDeleteScan: (scanId: string) => void
-  onCancel: () => void
-  onPack: (quantity: number) => void
-}) {
-  const remaining = Math.max(lineItem.quantity - packedSoFar, 0)
-  const [qty, setQty] = useState(String(remaining))
-  const n = Number(qty) || 0
-
-  return (
-    <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
-      <div className="w-full max-w-sm rounded-t-2xl bg-night-900 border-t border-night-700 max-h-[85vh] overflow-y-auto">
-        <div className="flex items-start justify-between gap-3 px-5 pt-5">
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold truncate">{lineItem.name}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Packed {packedSoFar} of {lineItem.quantity}</p>
-          </div>
-          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
-            <X size={18} />
-          </button>
-        </div>
-
-        {scans.length > 0 && (
-          <div className="px-5 pt-3 space-y-1.5">
-            <p className="text-xs text-gray-400">Already packed for this line:</p>
-            {scans.map(s => (
-              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-night-800 border border-night-700 px-3 py-2">
-                <p className="flex-1 text-sm text-gray-200">Packed × {s.quantity}</p>
-                <button aria-label="Delete this scan"
-                  type="button"
-                  onClick={() => onDeleteScan(s.id)}
-                  title="Delete this scan"
-                  className="shrink-0 w-11 h-11 -m-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="p-5 space-y-4">
-          <QuantityStepper id="pack-quantity" label="Quantity to pack" value={qty} onChange={setQty} min={0} max={remaining} />
-          <button
-            onClick={() => onPack(n)}
-            disabled={n <= 0}
-            className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold disabled:opacity-50"
-          >
-            Confirm pack
-          </button>
-        </div>
-      </div>
-    </Dialog>
   )
 }

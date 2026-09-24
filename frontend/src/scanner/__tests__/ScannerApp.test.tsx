@@ -24,13 +24,10 @@ vi.mock('../api', () => ({
   startOrResumePicking: vi.fn(),
   getPickingSession: vi.fn(),
   scanPickItem: vi.fn(),
-  substituteLineItem: vi.fn(),
-  refundLineItem: vi.fn(),
   resolvePickScanCode: vi.fn(),
   deletePickScan: vi.fn(),
   pausePicking: vi.fn(),
   completePicking: vi.fn(),
-  addSalesOrderLineItem: vi.fn(),
   touchPickingSession: vi.fn(),
   resetPickingSession: vi.fn(),
   refreshScannerSession: vi.fn(),
@@ -784,7 +781,7 @@ describe('ScannerApp picking screen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirm pick' }))
 
     await waitFor(() => expect(api.scanPickItem).toHaveBeenCalledWith(expect.any(String), 'session-1', expect.objectContaining({
-      line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 10,
+      sku_id: 'sku-1', action_type: 'pick', quantity: 10,
     })))
   })
 
@@ -806,7 +803,7 @@ describe('ScannerApp picking screen', () => {
     await userEvent.type(screen.getByPlaceholderText('Scan or type barcode…'), 'WID-A-BARCODE{Enter}')
 
     await waitFor(() => expect(api.scanPickItem).toHaveBeenCalledWith(expect.any(String), 'session-1', expect.objectContaining({
-      line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 1,
+      sku_id: 'sku-1', action_type: 'pick', quantity: 1,
     })))
     expect(screen.queryByLabelText('Quantity to pick')).not.toBeInTheDocument()
     expect(await screen.findByText('1 / 10')).toBeInTheDocument()
@@ -856,149 +853,17 @@ describe('ScannerApp picking screen', () => {
     expect(screen.queryByText('Item not on this order')).not.toBeInTheDocument()
   })
 
-  it('Substitute mode swaps the whole line for a searched replacement at the original quantity', async () => {
+  it('picking only picks -- the line sheet has no substitute or refund, and there is no add-item', async () => {
     vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
-    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [{ id: 'product-2', tenant_id: 't1', name: 'Widget B', slug: 'widget-b', description: '', status: 'active', has_variants: false, tags: [], created_at: '', updated_at: '' }], total: 1 })
-    vi.mocked(pmsApi.getProduct).mockResolvedValue({
-      product: { id: 'product-2', tenant_id: 't1', name: 'Widget B', slug: 'widget-b', description: '', status: 'active', has_variants: false, tags: [], created_at: '', updated_at: '' },
-      variants: [{ id: 'v-2', tenant_id: 't1', product_id: 'product-2', name: 'Default', position: 0, created_at: '', updated_at: '', skus: [{ id: 'sku-2', tenant_id: 't1', variant_id: 'v-2', sku_code: 'WID-B', price_minor_units: 100, currency_code: 'USD', is_virtual: false, status: 'active', created_at: '', updated_at: '' }] }],
-    })
-    vi.mocked(api.substituteLineItem).mockResolvedValue({
-      scans: [{ id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute', quantity: 1, original_quantity_covered: 10, return_to_stock: false, scanned_at: '', scanned_by: '' }],
-    })
 
     await enterPickingScreen()
-    await userEvent.click(await screen.findByText('Widget A'))
-    await userEvent.click(await screen.findByRole('button', { name: /Substitute/ }))
-    await userEvent.type(await screen.findByPlaceholderText('Search or scan barcode…'), 'Widget B')
-    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
-    await userEvent.click(await screen.findByText('Widget B'))
-    await userEvent.clear(await screen.findByLabelText('Covers (of original)'))
-    await userEvent.type(screen.getByLabelText('Covers (of original)'), '10')
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm substitute' }))
+    await userEvent.click(await screen.findByText(lineItem.name))
 
-    await waitFor(() => expect(api.substituteLineItem).toHaveBeenCalledWith(expect.any(String), 'session-1', {
-      line_item_id: 'li-1',
-      lines: [{ sku_id: 'sku-2', substitute_quantity: 1, original_quantity_covered: 10, return_to_stock: false }],
-    }))
-  })
-
-  it('Substitute mode allows splitting one line across two different cheaper substitutes', async () => {
-    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
-    const productB = { id: 'product-2', tenant_id: 't1', name: 'Widget B', slug: 'widget-b', description: '', status: 'active' as const, has_variants: false, tags: [], created_at: '', updated_at: '' }
-    const productC = { id: 'product-3', tenant_id: 't1', name: 'Widget C', slug: 'widget-c', description: '', status: 'active' as const, has_variants: false, tags: [], created_at: '', updated_at: '' }
-    vi.mocked(pmsApi.listProducts)
-      .mockResolvedValueOnce({ products: [productB], total: 1 })
-      .mockResolvedValueOnce({ products: [productC], total: 1 })
-    vi.mocked(pmsApi.getProduct)
-      .mockResolvedValueOnce({
-        product: productB,
-        variants: [{ id: 'v-2', tenant_id: 't1', product_id: 'product-2', name: 'Default', position: 0, created_at: '', updated_at: '', skus: [{ id: 'sku-2', tenant_id: 't1', variant_id: 'v-2', sku_code: 'WID-B', price_minor_units: 100, currency_code: 'USD', is_virtual: false, status: 'active', created_at: '', updated_at: '' }] }],
-      })
-      .mockResolvedValueOnce({
-        product: productC,
-        variants: [{ id: 'v-3', tenant_id: 't1', product_id: 'product-3', name: 'Default', position: 0, created_at: '', updated_at: '', skus: [{ id: 'sku-3', tenant_id: 't1', variant_id: 'v-3', sku_code: 'WID-C', price_minor_units: 50, currency_code: 'USD', is_virtual: false, status: 'active', created_at: '', updated_at: '' }] }],
-      })
-    vi.mocked(api.substituteLineItem).mockResolvedValue({
-      scans: [
-        { id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute', quantity: 3, original_quantity_covered: 5, return_to_stock: false, scanned_at: '', scanned_by: '' },
-        { id: 'scan-2', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-3', action_type: 'substitute', quantity: 4, original_quantity_covered: 5, return_to_stock: true, scanned_at: '', scanned_by: '' },
-      ],
-    })
-
-    await enterPickingScreen()
-    await userEvent.click(await screen.findByText('Widget A'))
-    await userEvent.click(await screen.findByRole('button', { name: /Substitute/ }))
-
-    await userEvent.type(await screen.findByPlaceholderText('Search or scan barcode…'), 'Widget B')
-    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
-    await userEvent.click(await screen.findByText('Widget B'))
-    await userEvent.clear(await screen.findByLabelText('Covers (of original)'))
-    await userEvent.type(screen.getByLabelText('Covers (of original)'), '5')
-
-    // Return to stock defaults unchecked.
-    expect(screen.getByRole('checkbox')).not.toBeChecked()
-
-    await userEvent.click(screen.getByRole('button', { name: '+ Add another substitute' }))
-    // Only the new row's search form is visible -- the first row already
-    // has a selected candidate and hides its own search UI.
-    await userEvent.type(screen.getByPlaceholderText('Search or scan barcode…'), 'Widget C')
-    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
-    await userEvent.click(await screen.findByText('Widget C'))
-    const coverInputs = await screen.findAllByLabelText('Covers (of original)')
-    await userEvent.clear(coverInputs[coverInputs.length - 1])
-    await userEvent.type(coverInputs[coverInputs.length - 1], '5')
-    await userEvent.click(screen.getAllByRole('checkbox')[1])
-    await userEvent.clear(screen.getAllByLabelText('Qty added')[1])
-    await userEvent.type(screen.getAllByLabelText('Qty added')[1], '4')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm substitute' }))
-
-    await waitFor(() => expect(api.substituteLineItem).toHaveBeenCalledWith(expect.any(String), 'session-1', {
-      line_item_id: 'li-1',
-      lines: [
-        { sku_id: 'sku-2', substitute_quantity: 1, original_quantity_covered: 5, return_to_stock: false },
-        { sku_id: 'sku-3', substitute_quantity: 4, original_quantity_covered: 5, return_to_stock: true },
-      ],
-    }))
-  })
-
-  it('Refund mode stages a refund for the entered quantity and reason', async () => {
-    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
-    vi.mocked(api.refundLineItem).mockResolvedValue({
-      scan: { id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'refund', quantity: 3, scanned_at: '', scanned_by: '' },
-    })
-
-    await enterPickingScreen()
-    await userEvent.click(await screen.findByText('Widget A'))
-    await userEvent.click(await screen.findByRole('button', { name: /Refund/ }))
-
-    const qtyInput = await screen.findByLabelText('Quantity to refund')
-    await userEvent.clear(qtyInput)
-    await userEvent.type(qtyInput, '3')
-    await userEvent.type(screen.getByLabelText('Reason (optional)'), 'damaged')
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm refund' }))
-
-    await waitFor(() => expect(api.refundLineItem).toHaveBeenCalledWith(expect.any(String), 'session-1', {
-      line_item_id: 'li-1', quantity: 3, reason: 'damaged',
-    }))
-  })
-
-  it('surfaces a permission-denied refund error from the API', async () => {
-    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
-    vi.mocked(api.refundLineItem).mockRejectedValue(new Error('caller does not have permission to perform this action'))
-
-    await enterPickingScreen()
-    await userEvent.click(await screen.findByText('Widget A'))
-    await userEvent.click(await screen.findByRole('button', { name: /Refund/ }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Confirm refund' }))
-
-    expect(await screen.findByText('caller does not have permission to perform this action')).toBeInTheDocument()
-  })
-
-  it('adds a freebie via the search flow, forcing no price input', async () => {
-    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
-    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [{ id: 'product-3', tenant_id: 't1', name: 'Free Sample', slug: 'free-sample', description: '', status: 'active', has_variants: false, tags: [], created_at: '', updated_at: '' }], total: 1 })
-    vi.mocked(pmsApi.getProduct).mockResolvedValue({
-      product: { id: 'product-3', tenant_id: 't1', name: 'Free Sample', slug: 'free-sample', description: '', status: 'active', has_variants: false, tags: [], created_at: '', updated_at: '' },
-      variants: [{ id: 'v-3', tenant_id: 't1', product_id: 'product-3', name: 'Default', position: 0, created_at: '', updated_at: '', skus: [{ id: 'sku-3', tenant_id: 't1', variant_id: 'v-3', sku_code: 'FREE-1', price_minor_units: 0, currency_code: 'USD', is_virtual: false, status: 'active', created_at: '', updated_at: '' }] }],
-    })
-    vi.mocked(api.scanPickItem).mockResolvedValue({
-      scan: { id: 'scan-1', session_id: 'session-1', sku_id: 'sku-3', action_type: 'freebie', quantity: 1, price_minor_units: 0, scanned_at: '', scanned_by: '' },
-    })
-
-    await enterPickingScreen()
-    await userEvent.click(await screen.findByText('Add freebie or new item'))
-    await userEvent.type(await screen.findByPlaceholderText('Search or scan barcode…'), 'Free Sample')
-    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
-    await userEvent.click(await screen.findByText('Free Sample'))
-
-    expect(screen.queryByLabelText('Price (each)')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Add to order' }))
-
-    await waitFor(() => expect(api.scanPickItem).toHaveBeenCalledWith(expect.any(String), 'session-1', expect.objectContaining({
-      sku_id: 'sku-3', action_type: 'freebie', quantity: 1,
-    })))
+    expect(await screen.findByRole('button', { name: 'Confirm pick' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Substitute/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Refund/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('Add freebie or new item')).not.toBeInTheDocument()
+    expect(screen.getByText(/Substitutes and refunds happen in packing/)).toBeInTheDocument()
   })
 
   it('Finish shows a preview of what is still missing, computed locally -- no completion yet', async () => {

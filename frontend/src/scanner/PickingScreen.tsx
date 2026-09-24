@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, PackageCheck, Camera, X, Package, Repeat, Gift, PackagePlus, Search, Undo2 } from 'lucide-react'
+import { ArrowLeft, Check, PackageCheck, Camera, X, Package, Gift, PackagePlus, Undo2 } from 'lucide-react'
 import * as api from './api'
 import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
@@ -11,7 +11,7 @@ import { useWakeLock } from './useWakeLock'
 import { computeMissingItems, pickedQuantityByLineItem } from './pickingMissingItems'
 import type {
   PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult,
-  StockShortfall, StockShortfallResolution, PickScanActionType, SubstituteLine,
+  StockShortfall, StockShortfallResolution,
 } from './types'
 import { StockShortfallDialog } from './StockShortfallDialog'
 import type { SalesOrder, Address } from '../oms/types'
@@ -90,7 +90,6 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
   const [stockShortfalls, setStockShortfalls] = useState<StockShortfall[] | null>(null)
   const [candidates, setCandidates] = useState<SKUCandidate[]>([])
   const [pickLine, setPickLine] = useState<{ lineItem: PickingSessionLineItem; pickedSoFar: number } | null>(null)
-  const [addItemOpen, setAddItemOpen] = useState(false)
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
   const codeInputRef = useRef<HTMLInputElement>(null)
@@ -145,46 +144,6 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
     }
   }
 
-  async function stageSubstitute(input: Parameters<typeof api.substituteLineItem>[2]): Promise<boolean> {
-    setError('')
-    setScanning(true)
-    try {
-      await api.substituteLineItem(token, sessionId, input)
-      await load()
-      return true
-    } catch (err) {
-      if (isAuthError(err)) {
-        onAuthError()
-        return false
-      }
-      setError(err instanceof Error ? err.message : 'Substitute failed')
-      return false
-    } finally {
-      setScanning(false)
-      codeInputRef.current?.focus()
-    }
-  }
-
-  async function stageRefund(input: Parameters<typeof api.refundLineItem>[2]): Promise<boolean> {
-    setError('')
-    setScanning(true)
-    try {
-      await api.refundLineItem(token, sessionId, input)
-      await load()
-      return true
-    } catch (err) {
-      if (isAuthError(err)) {
-        onAuthError()
-        return false
-      }
-      setError(err instanceof Error ? err.message : 'Refund failed')
-      return false
-    } finally {
-      setScanning(false)
-      codeInputRef.current?.focus()
-    }
-  }
-
   // A scanned/typed code matching one of this order's own line items marks
   // one unit picked immediately -- no confirm sheet, just an increment (the
   // sheet is reserved for a deliberate tap on the line itself, to pick a
@@ -211,7 +170,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
         setScanErrorAlert('Already fully picked')
         return
       }
-      await stage({ line_item_id: li.id, sku_id: skuId, action_type: 'pick', quantity })
+      await stage({ sku_id: skuId, action_type: 'pick', quantity })
       return
     }
     // No line item already carries this sku_id -- still worth trying the
@@ -302,7 +261,6 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
       await api.resetPickingSession(token, sessionId)
       setResetConfirmOpen(false)
       setPickLine(null)
-      setAddItemOpen(false)
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
@@ -558,14 +516,6 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
             ))}
           </div>
         )}
-
-        <button
-          type="button"
-          onClick={() => setAddItemOpen(true)}
-          className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-night-700 px-3.5 py-3 text-sm text-accent hover:border-accent transition-colors"
-        >
-          <Gift size={14} /> Add freebie or new item
-        </button>
       </div>
 
       <form onSubmit={handleScan} className="border-t border-night-700 p-4 space-y-2 shrink-0">
@@ -606,7 +556,6 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
 
       {pickLine && (
         <PickLineSheet
-          token={token}
           lineItem={pickLine.lineItem}
           pickedSoFar={pickLine.pickedSoFar}
           scans={(detail?.scans ?? []).filter(s => s.line_item_id === pickLine.lineItem.id)}
@@ -614,26 +563,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
           onCancel={() => setPickLine(null)}
           onPick={(quantity, reason) => {
             setPickLine(null)
-            stage({ line_item_id: pickLine.lineItem.id, sku_id: pickLine.lineItem.sku_id ?? undefined, action_type: 'pick', quantity, reason })
-          }}
-          onSubstitute={lines => {
-            setPickLine(null)
-            stageSubstitute({ line_item_id: pickLine.lineItem.id, lines })
-          }}
-          onRefund={(quantity, reason) => {
-            setPickLine(null)
-            stageRefund({ line_item_id: pickLine.lineItem.id, quantity, reason })
-          }}
-        />
-      )}
-
-      {addItemOpen && (
-        <AddItemSheet
-          token={token}
-          onCancel={() => setAddItemOpen(false)}
-          onAdd={(skuId, actionType, quantity, priceMinorUnits, reason) => {
-            setAddItemOpen(false)
-            stage({ sku_id: skuId, action_type: actionType, quantity, price_minor_units: priceMinorUnits, reason })
+            stage({ sku_id: pickLine.lineItem.sku_id ?? undefined, action_type: 'pick', quantity, reason })
           }}
         />
       )}
@@ -680,88 +610,21 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
   )
 }
 
-// Tap a line item row (or scan/confirm its own barcode) to either confirm
-// it was picked, or -- when it's out of stock -- swap it for one or more
-// replacement products. A single original unit can be split across
-// several substitute SKUs (e.g. 1 unit for 3 of one cheaper item + 4 of
-// another) -- each row picks its own SKU, how many of it is being added,
-// how much of the original line it covers, and whether that covered share
-// goes back to stock. The rows' covered quantities must sum to the
-// original line's own quantity exactly before submitting.
-type PickSheetMode = 'pick' | 'substitute' | 'refund'
-
-let substituteRowKeySeq = 0
-function nextSubstituteRowKey(): string { return `sub-row-${++substituteRowKeySeq}` }
-
-interface SubstituteRowState {
-  key: string
-  query: string
-  candidates: SKUCandidate[]
-  searching: boolean
-  selected?: SKUCandidate
-  substituteQty: string
-  coveredQty: string
-  returnToStock: boolean
-}
-
-function newSubstituteRow(): SubstituteRowState {
-  return { key: nextSubstituteRowKey(), query: '', candidates: [], searching: false, substituteQty: '1', coveredQty: '', returnToStock: false }
-}
-
-function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCancel, onPick, onSubstitute, onRefund }: {
-  token: string
+// Tap a line item row (or scan/confirm its own barcode) to confirm how many
+// were picked. Picking only picks -- substitutes, extra items and refunds
+// happen in packing.
+function PickLineSheet({ lineItem, pickedSoFar, scans, onDeleteScan, onCancel, onPick }: {
   lineItem: PickingSessionLineItem
   pickedSoFar: number
   scans: PickScan[]
   onDeleteScan: (scanId: string) => void
   onCancel: () => void
   onPick: (quantity: number, reason?: string) => void
-  onSubstitute: (lines: SubstituteLine[]) => void
-  onRefund: (quantity: number, reason?: string) => void
 }) {
-  const [mode, setMode] = useState<PickSheetMode>('pick')
-  const [qty, setQty] = useState(String(Math.max(lineItem.quantity - pickedSoFar, 0)))
-  const [reason, setReason] = useState('')
-  const [substituteRows, setSubstituteRows] = useState<SubstituteRowState[]>([newSubstituteRow()])
-  const [refundQty, setRefundQty] = useState(String(Math.max(lineItem.quantity - pickedSoFar, 0)))
-  const [refundReason, setRefundReason] = useState('')
-  const n = Number(qty) || 0
-  const refundN = Number(refundQty) || 0
   const remaining = Math.max(lineItem.quantity - pickedSoFar, 0)
-
-  const coveredTotal = substituteRows.reduce((sum, r) => sum + (Number(r.coveredQty) || 0), 0)
-  // Must cover exactly what's left, not the line's full original quantity
-  // -- a line already partially picked can still have the rest substituted.
-  const substituteReady = substituteRows.length > 0
-    && substituteRows.every(r => r.selected && Number(r.substituteQty) > 0 && Number(r.coveredQty) > 0)
-    && coveredTotal === remaining
-
-  function updateRow(key: string, patch: Partial<SubstituteRowState>) {
-    setSubstituteRows(rows => rows.map(r => (r.key === key ? { ...r, ...patch } : r)))
-  }
-
-  async function handleRowSearch(key: string, e: React.FormEvent) {
-    e.preventDefault()
-    const row = substituteRows.find(r => r.key === key)
-    if (!row || !row.query.trim()) return
-    updateRow(key, { searching: true })
-    try {
-      const candidates = await searchSKUCandidates(token, row.query.trim())
-      updateRow(key, { candidates, searching: false })
-    } catch {
-      updateRow(key, { searching: false })
-    }
-  }
-
-  function handleSubmitSubstitute() {
-    if (!substituteReady) return
-    onSubstitute(substituteRows.map(r => ({
-      sku_id: r.selected!.sku.id,
-      substitute_quantity: Number(r.substituteQty),
-      original_quantity_covered: Number(r.coveredQty),
-      return_to_stock: r.returnToStock,
-    })))
-  }
+  const [qty, setQty] = useState(String(remaining))
+  const [reason, setReason] = useState('')
+  const n = Number(qty) || 0
 
   return (
     <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
@@ -782,13 +645,7 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
             {scans.map(s => (
               <div key={s.id} className="flex items-center gap-2 rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-200">
-                    {s.action_type === 'substitute'
-                      ? `Substituted × ${s.quantity} (covers ${s.original_quantity_covered ?? '?'})`
-                      : s.action_type === 'refund'
-                        ? `Refunded × ${s.quantity}`
-                        : `Picked × ${s.quantity}`}
-                  </p>
+                  <p className="text-sm text-gray-200">Picked × {s.quantity}</p>
                   {s.reason && <p className="text-xs text-gray-400 truncate">{s.reason}</p>}
                 </div>
                 <button aria-label="Delete this staged scan"
@@ -805,323 +662,24 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
         )}
 
         <div className="p-5 space-y-4">
-          <div className="flex gap-2">
-            <button aria-pressed={mode === 'pick'}
-              type="button"
-              onClick={() => setMode('pick')}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'pick' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
-            >
-              <Check size={15} /> Pick
-            </button>
-            <button aria-pressed={mode === 'substitute'}
-              type="button"
-              onClick={() => setMode('substitute')}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'substitute' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
-            >
-              <Repeat size={15} /> Substitute
-            </button>
-            <button aria-pressed={mode === 'refund'}
-              type="button"
-              onClick={() => setMode('refund')}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${mode === 'refund' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
-            >
-              <Undo2 size={15} /> Refund
-            </button>
+          <QuantityStepper id="pick-quantity" label="Quantity to pick" value={qty} onChange={setQty} min={0} max={remaining} />
+          <div>
+            <label htmlFor="pick-reason" className="block text-xs text-gray-400 mb-1.5">Note (optional)</label>
+            <input
+              id="pick-reason"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
+            />
           </div>
-
-          {mode === 'refund' ? (
-            <>
-              <p className="text-xs text-gray-400">
-                Can't fulfill this and don't want to substitute? Refund part or all of this line's quantity
-                ({lineItem.quantity}) instead -- money only moves once the session is completed.
-              </p>
-              <QuantityStepper id="refund-quantity" label="Quantity to refund" value={refundQty} onChange={setRefundQty} min={0} max={lineItem.quantity} />
-              <div>
-                <label htmlFor="refund-reason" className="block text-xs text-gray-400 mb-1.5">Reason (optional)</label>
-                <input
-                  id="refund-reason"
-                  value={refundReason}
-                  onChange={e => setRefundReason(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
-                />
-              </div>
-              <button
-                onClick={() => onRefund(refundN, refundReason || undefined)}
-                disabled={refundN <= 0}
-                className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold disabled:opacity-50"
-              >
-                Confirm refund
-              </button>
-            </>
-          ) : mode === 'pick' ? (
-            <>
-              <QuantityStepper id="pick-quantity" label="Quantity to pick" value={qty} onChange={setQty} min={0} max={remaining} />
-              <div>
-                <label htmlFor="pick-reason" className="block text-xs text-gray-400 mb-1.5">Note (optional)</label>
-                <input
-                  id="pick-reason"
-                  value={reason}
-                  onChange={e => setReason(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
-                />
-              </div>
-              <button
-                onClick={() => onPick(n, reason || undefined)}
-                disabled={n <= 0}
-                className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold disabled:opacity-50"
-              >
-                Confirm pick
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-xs text-gray-400">
-                Out of stock? Replace it with one or more products -- each row's "covers" quantity must add up to
-                this line's remaining quantity ({remaining}) before you can confirm.
-              </p>
-              {substituteRows.map((row, i) => (
-                <div key={row.key} className="rounded-xl bg-night-800 border border-night-700 p-3 space-y-2">
-                  {row.selected ? (
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 min-w-0 text-sm text-gray-200 truncate">{row.selected.sku.sku_code}</div>
-                      <button aria-label="Change product"
-                        type="button"
-                        onClick={() => updateRow(row.key, { selected: undefined, candidates: [] })}
-                        className="shrink-0 w-11 h-11 -m-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400"
-                        title="Change product"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <form onSubmit={e => handleRowSearch(row.key, e)} className="flex gap-2">
-                        <div className="relative flex-1">
-                          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                          <input
-                            value={row.query}
-                            onChange={e => updateRow(row.key, { query: e.target.value })}
-                            placeholder="Search or scan barcode…"
-                            className="w-full pl-8 pr-3 py-2 text-sm rounded-xl bg-night-900 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
-                          />
-                        </div>
-                        <button type="submit" disabled={row.searching || !row.query.trim()} className="px-4 rounded-xl bg-night-900 border border-night-700 text-sm text-gray-300 disabled:opacity-50">
-                          {row.searching ? '…' : 'Find'}
-                        </button>
-                      </form>
-                      <div className="space-y-1.5">
-                        {row.candidates.map(c => (
-                          <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => updateRow(row.key, { selected: c, candidates: [] })} />
-                        ))}
-                      </div>
-                    </>
-                  )}
-                  {row.selected && (
-                    <>
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="block">
-                          <span className="block text-2xs text-gray-400 mb-1">Qty added</span>
-                          <input
-                            type="number" min={1} value={row.substituteQty}
-                            onChange={e => updateRow(row.key, { substituteQty: e.target.value })}
-                            className="w-full px-3 py-2 text-sm rounded-xl bg-night-900 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="block text-2xs text-gray-400 mb-1">Covers (of original)</span>
-                          <input
-                            type="number" min={1} value={row.coveredQty}
-                            onChange={e => updateRow(row.key, { coveredQty: e.target.value })}
-                            className="w-full px-3 py-2 text-sm rounded-xl bg-night-900 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
-                          />
-                        </label>
-                      </div>
-                      <label className="flex items-center gap-2 text-xs text-gray-400">
-                        <input
-                          type="checkbox" checked={row.returnToStock}
-                          onChange={e => updateRow(row.key, { returnToStock: e.target.checked })}
-                          className="rounded border-night-700 bg-night-900"
-                        />
-                        Return original quantity to stock
-                      </label>
-                    </>
-                  )}
-                  {substituteRows.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setSubstituteRows(rows => rows.filter((_, idx) => idx !== i))}
-                      className="text-xs text-gray-400 hover:text-red-400"
-                    >
-                      Remove this row
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setSubstituteRows(rows => [...rows, newSubstituteRow()])}
-                className="w-full py-2 rounded-xl border border-dashed border-night-700 text-sm text-gray-400 hover:text-gray-200"
-              >
-                + Add another substitute
-              </button>
-              <p className="text-xs text-gray-400 text-center">
-                Covers {coveredTotal} of {remaining}
-              </p>
-              <button
-                onClick={handleSubmitSubstitute}
-                disabled={!substituteReady}
-                className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold disabled:opacity-50"
-              >
-                Confirm substitute
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </Dialog>
-  )
-}
-
-// Scan/search any catalog product not on the order, then decide whether
-// it's a no-charge freebie or a real, priced addition. Both create a real
-// SalesOrderLineItem and decrement real stock when the session completes
-// (see CompletePickingUseCase's freebie/new_item replay) -- Freebie forces
-// price to 0 server-side regardless, so the price field is hidden rather
-// than shown-and-ignored.
-function AddItemSheet({ token, onCancel, onAdd }: {
-  token: string
-  onCancel: () => void
-  onAdd: (skuId: string, actionType: PickScanActionType, quantity: number, priceMinorUnits: number | undefined, reason: string | undefined) => void
-}) {
-  const [query, setQuery] = useState('')
-  const [searching, setSearching] = useState(false)
-  const [candidates, setCandidates] = useState<SKUCandidate[]>([])
-  const [selected, setSelected] = useState<SKUCandidate | null>(null)
-  const [isFreebie, setIsFreebie] = useState(true)
-  const [qty, setQty] = useState('1')
-  const [price, setPrice] = useState('')
-  const [reason, setReason] = useState('')
-  const n = Number(qty) || 0
-  const priceMinorUnits = Math.round((Number(price) || 0) * 100)
-
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-    if (!query.trim()) return
-    setSearching(true)
-    try {
-      setCandidates(await searchSKUCandidates(token, query.trim()))
-    } finally {
-      setSearching(false)
-    }
-  }
-
-  function handleConfirm() {
-    if (!selected) return
-    onAdd(
-      selected.sku.id,
-      isFreebie ? 'freebie' : 'new_item',
-      n,
-      isFreebie ? undefined : priceMinorUnits,
-      reason || selected.productName,
-    )
-  }
-
-  return (
-    <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
-      <div className="w-full max-w-sm rounded-t-2xl bg-night-900 border-t border-night-700 max-h-[85vh] overflow-y-auto">
-        <div className="flex items-start justify-between gap-3 px-5 pt-5">
-          <h2 className="text-sm font-semibold">Add freebie or new item</h2>
-          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
-            <X size={18} />
+          <button
+            onClick={() => onPick(n, reason || undefined)}
+            disabled={n <= 0}
+            className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold disabled:opacity-50"
+          >
+            Confirm pick
           </button>
-        </div>
-
-        <div className="p-5 space-y-4">
-          {!selected ? (
-            <>
-              <form onSubmit={handleSearch} className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    value={query}
-                    onChange={e => setQuery(e.target.value)}
-                    placeholder="Search or scan barcode…"
-                    className="w-full pl-8 pr-3 py-2.5 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
-                    autoFocus
-                  />
-                </div>
-                <button type="submit" disabled={searching || !query.trim()} className="px-4 rounded-xl bg-night-800 border border-night-700 text-sm text-gray-300 disabled:opacity-50">
-                  {searching ? '…' : 'Find'}
-                </button>
-              </form>
-              <div className="space-y-1.5">
-                {candidates.map(c => (
-                  <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => { setSelected(c); setReason(c.productName) }} />
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{selected.productName}</p>
-                  <p className="text-xs text-gray-400 truncate">{selected.sku.sku_code}</p>
-                </div>
-                <button type="button" onClick={() => setSelected(null)} className="text-xs text-accent shrink-0">Change</button>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsFreebie(true)}
-                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${isFreebie ? 'bg-purple-600 text-white' : 'bg-night-800 text-gray-400'}`}
-                >
-                  <Gift size={15} /> Freebie
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsFreebie(false)}
-                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${!isFreebie ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
-                >
-                  <PackagePlus size={15} /> New item
-                </button>
-              </div>
-
-              <QuantityStepper id="add-item-quantity" label="Quantity" value={qty} onChange={setQty} min={1} />
-
-              {!isFreebie && (
-                <div>
-                  <label htmlFor="add-item-price" className="block text-xs text-gray-400 mb-1.5">Price (each)</label>
-                  <input
-                    id="add-item-price"
-                    inputMode="decimal"
-                    value={price}
-                    onChange={e => setPrice(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label htmlFor="add-item-reason" className="block text-xs text-gray-400 mb-1.5">Name / note</label>
-                <input
-                  id="add-item-reason"
-                  value={reason}
-                  onChange={e => setReason(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
-                />
-              </div>
-
-              <button
-                onClick={handleConfirm}
-                disabled={n <= 0 || (!isFreebie && priceMinorUnits < 0)}
-                className={`w-full py-3 rounded-xl text-white font-semibold disabled:opacity-50 ${isFreebie ? 'bg-purple-600' : 'bg-accent-solid'}`}
-              >
-                Add to order
-              </button>
-            </>
-          )}
+          <p className="text-xs text-gray-400">Out of stock or needs replacing? Substitutes and refunds happen in packing.</p>
         </div>
       </div>
     </Dialog>

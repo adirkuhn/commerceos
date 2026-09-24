@@ -275,12 +275,12 @@ describe('scanPickItem', () => {
   it('sends the scan input to the correct endpoint', async () => {
     const result = { scan: { id: 'scan-1', session_id: 'session-1', sku_id: 'sku-1', action_type: 'pick', quantity: 3, scanned_at: '', scanned_by: '' } }
     mockFetch(result, 201)
-    const got = await api.scanPickItem(TOKEN, 'session-1', { sku_id: 'sku-1', action_type: 'pick', quantity: 3, line_item_id: 'li-1' })
+    const got = await api.scanPickItem(TOKEN, 'session-1', { sku_id: 'sku-1', action_type: 'pick', quantity: 3 })
 
     expect(got).toEqual(result)
     const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
     expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/picking-sessions/session-1/scan')
-    expect(JSON.parse(opts.body as string)).toEqual({ sku_id: 'sku-1', action_type: 'pick', quantity: 3, line_item_id: 'li-1' })
+    expect(JSON.parse(opts.body as string)).toEqual({ sku_id: 'sku-1', action_type: 'pick', quantity: 3 })
   })
 
   it('throws on validation error', async () => {
@@ -288,13 +288,9 @@ describe('scanPickItem', () => {
     await expect(api.scanPickItem(TOKEN, 'session-1', { sku_id: 'sku-2', action_type: 'pick', quantity: 0 })).rejects.toThrow('quantity must be positive')
   })
 
-  it('substitute is rejected -- use substituteLineItem instead', async () => {
-    mockFetchError('VALIDATION_ERROR', 'substitute action must use the substitute-batch endpoint')
-    await expect(api.scanPickItem(TOKEN, 'session-1', { sku_id: 'sku-2', action_type: 'substitute' })).rejects.toThrow('substitute action must use the substitute-batch endpoint')
-  })
 })
 
-describe('substituteLineItem', () => {
+describe('substitutePackLine', () => {
   it('sends the batch of substitute lines to the correct endpoint', async () => {
     const result = {
       scans: [
@@ -310,40 +306,40 @@ describe('substituteLineItem', () => {
         { sku_id: 'sku-b', substitute_quantity: 4, original_quantity_covered: 1, return_to_stock: true },
       ],
     }
-    const got = await api.substituteLineItem(TOKEN, 'session-1', input)
+    const got = await api.substitutePackLine(TOKEN, 'session-1', input)
 
     expect(got).toEqual(result)
     const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/picking-sessions/session-1/substitute-batch')
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/packing-sessions/session-1/substitute-batch')
     expect(JSON.parse(opts.body as string)).toEqual(input)
   })
 
   it('throws on coverage mismatch validation error', async () => {
     mockFetchError('VALIDATION_ERROR', "substitute lines must cover exactly the original line item's quantity")
-    await expect(api.substituteLineItem(TOKEN, 'session-1', {
+    await expect(api.substitutePackLine(TOKEN, 'session-1', {
       line_item_id: 'li-1', lines: [{ sku_id: 'sku-a', substitute_quantity: 1, original_quantity_covered: 1 }],
     })).rejects.toThrow("substitute lines must cover exactly the original line item's quantity")
   })
 })
 
-describe('refundLineItem', () => {
+describe('refundPackLine', () => {
   it('sends the refund to the correct endpoint', async () => {
     const result = {
       scan: { id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'refund', quantity: 1, scanned_at: '', scanned_by: '' },
     }
     mockFetch(result, 201)
     const input = { line_item_id: 'li-1', quantity: 1, reason: 'damaged' }
-    const got = await api.refundLineItem(TOKEN, 'session-1', input)
+    const got = await api.refundPackLine(TOKEN, 'session-1', input)
 
     expect(got).toEqual(result)
     const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/picking-sessions/session-1/refund')
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/packing-sessions/session-1/refund')
     expect(JSON.parse(opts.body as string)).toEqual(input)
   })
 
   it('throws on a permission-denied error', async () => {
     mockFetchError('FORBIDDEN', 'caller does not have permission to perform this action', 403)
-    await expect(api.refundLineItem(TOKEN, 'session-1', { line_item_id: 'li-1', quantity: 1 }))
+    await expect(api.refundPackLine(TOKEN, 'session-1', { line_item_id: 'li-1', quantity: 1 }))
       .rejects.toThrow('caller does not have permission to perform this action')
   })
 })
@@ -399,15 +395,41 @@ describe('completePicking', () => {
   })
 })
 
-describe('addSalesOrderLineItem', () => {
-  it('posts to the sales-order line-items endpoint', async () => {
-    const lineItem = { id: 'li-new', name: 'Freebie Widget', sku_code: 'FREE-1', barcode: '', quantity: 1, price_minor_units: 0, subtotal_minor_units: 0, subtotal_tax_minor_units: 0, total_minor_units: 0, total_tax_minor_units: 0 }
-    mockFetch(lineItem, 201)
-    const result = await api.addSalesOrderLineItem(TOKEN, 'order-1', { sku_id: 'sku-9', quantity: 1, price_minor_units: 0 })
+describe('resolvePackScanCode', () => {
+  it('resolves against the packing session', async () => {
+    mockFetch({ sku_id: 'sku-1', product_name: 'Apple' })
 
-    expect(result).toEqual(lineItem)
+    const got = await api.resolvePackScanCode(TOKEN, 'pack-1', 'BAR-1')
+
+    expect(got).toEqual({ sku_id: 'sku-1', product_name: 'Apple' })
     const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/sales-orders/order-1/line-items')
-    expect(JSON.parse(opts.body as string)).toEqual({ sku_id: 'sku-9', quantity: 1, price_minor_units: 0 })
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/packing-sessions/pack-1/resolve-scan')
+    expect(JSON.parse(opts.body as string)).toEqual({ code: 'BAR-1' })
+  })
+})
+
+describe('scanPackItem extra items', () => {
+  it('sends action, price and reason for a new item', async () => {
+    mockFetch({ scan: { id: 'p1' } }, 201)
+
+    await api.scanPackItem(TOKEN, 'pack-1', { sku_id: 'sku-9', quantity: 1, action_type: 'new_item', price_minor_units: 399, reason: 'Extra jar' })
+
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/packing-sessions/pack-1/scan')
+    expect(JSON.parse(opts.body as string)).toEqual({ sku_id: 'sku-9', quantity: 1, action_type: 'new_item', price_minor_units: 399, reason: 'Extra jar' })
+  })
+})
+
+describe('completePacking', () => {
+  it('sends resolutions and returns shortfalls', async () => {
+    const result = { completed: false, stock_shortfalls: [{ scan_id: 'p1', sku_id: 'sku-9', name: 'Jar', needed: 3, short: 2 }] }
+    mockFetch(result)
+
+    const got = await api.completePacking(TOKEN, 'pack-1', { p0: 'with_item' })
+
+    expect(got).toEqual(result)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/packing-sessions/pack-1/complete')
+    expect(JSON.parse(opts.body as string)).toEqual({ resolutions: { p0: 'with_item' } })
   })
 })
