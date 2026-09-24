@@ -26,7 +26,7 @@ func TestScanPackItem_rejectsCallerWhoLostTheLock(t *testing.T) {
 		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress, LockedBy: holder, LockedAt: at,
 	}}
 	scanRepo := &stubPackScanRepo{}
-	uc := appoms.NewScanPackItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{})
+	uc := appoms.NewScanPackItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPackItemInput{SessionID: "session-1", SKUID: "sku-1", Quantity: 1, ScannedBy: "user-1"})
 
@@ -134,7 +134,7 @@ func TestScanPackItem_firstActionTakesTheLock(t *testing.T) {
 	skuID := "sku-1"
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: &skuID, Quantity: 2}}}
-	uc := appoms.NewScanPackItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{})
+	uc := appoms.NewScanPackItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPackItemInput{SessionID: "session-1", SKUID: skuID, Quantity: 1, ScannedBy: "user-1"})
 

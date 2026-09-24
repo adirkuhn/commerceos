@@ -270,7 +270,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewGetPackingSessionUseCase(db, packingSessionRepo, lineItemRepo, packScanRepo, skuRepo, variantRepo),
 		appoms.NewTouchPackingSessionUseCase(db, packingSessionRepo),
 		appoms.NewResetPackingSessionUseCase(db, packingSessionRepo, packScanRepo),
-		appoms.NewScanPackItemUseCase(db, packingSessionRepo, packScanRepo, lineItemRepo, skuRepo, barcodeAliasRepo),
+		appoms.NewScanPackItemUseCase(db, packingSessionRepo, packScanRepo, lineItemRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
 		appoms.NewDeletePackScanUseCase(db, packingSessionRepo, packScanRepo),
 		appoms.NewCompletePackingUseCase(db, packingSessionRepo, salesOrderRepo, lineItemRepo, packScanRepo, orderChangeApplier),
 		appoms.NewBuildPickListUseCase(db, salesOrderRepo, lineItemRepo),

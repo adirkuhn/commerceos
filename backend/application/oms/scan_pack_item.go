@@ -2,14 +2,12 @@ package oms
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
-	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -47,12 +45,15 @@ type ScanPackItemResult struct {
 // so an unresolvable line item here is a genuine mismatch, not something to
 // auto-link.
 type ScanPackItemUseCase struct {
-	db               *gorm.DB
-	sessionRepo      omsDomain.PackingSessionRepository
-	scanRepo         omsDomain.PackScanRepository
-	lineItemRepo     omsDomain.SalesOrderLineItemRepository
-	skuRepo          skuResolverRepo
-	barcodeAliasRepo barcodeAliasFinder
+	db           *gorm.DB
+	sessionRepo  omsDomain.PackingSessionRepository
+	scanRepo     omsDomain.PackScanRepository
+	lineItemRepo omsDomain.SalesOrderLineItemRepository
+	// resolver is the same code lookup picking and receiving use --
+	// barcode, alias, scale label (scale code or additional scale code),
+	// SKU code, then the order's own lines; a per-weight SKU only via a
+	// real scale label.
+	resolver scanCodeResolver
 }
 
 func NewScanPackItemUseCase(
@@ -62,10 +63,16 @@ func NewScanPackItemUseCase(
 	lineItemRepo omsDomain.SalesOrderLineItemRepository,
 	skuRepo skuResolverRepo,
 	barcodeAliasRepo barcodeAliasFinder,
+	scaleCodeAliasRepo scaleCodeAliasFinder,
+	variantRepo variantFinderForPickScanResolve,
+	productRepo productFinderForPickScanResolve,
 ) *ScanPackItemUseCase {
 	return &ScanPackItemUseCase{
 		db: db, sessionRepo: sessionRepo, scanRepo: scanRepo, lineItemRepo: lineItemRepo,
-		skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo,
+		resolver: scanCodeResolver{
+			lineItemRepo: lineItemRepo, skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo,
+			scaleCodeAliasRepo: scaleCodeAliasRepo, variantRepo: variantRepo, productRepo: productRepo,
+		},
 	}
 }
 
@@ -110,10 +117,11 @@ func (uc *ScanPackItemUseCase) Execute(ctx context.Context, in ScanPackItemInput
 
 		skuID := in.SKUID
 		if skuID == "" {
-			skuID, err = uc.resolveCode(ctx, lineItems, in.Code)
+			resolved, err := uc.resolver.resolve(ctx, session.SalesOrderID, in.Code)
 			if err != nil {
 				return err
 			}
+			skuID = resolved.SKUID
 		}
 
 		if in.ActionType != omsDomain.PackScanActionPack {
@@ -162,46 +170,4 @@ func (uc *ScanPackItemUseCase) Execute(ctx context.Context, in ScanPackItemInput
 		return nil, fmt.Errorf("scanPackItem: %w", err)
 	}
 	return &ScanPackItemResult{Scan: scan}, nil
-}
-
-// resolveCode is ScanPickItemUseCase.resolveCode's trimmed packing
-// counterpart -- deliberately duplicated, not shared, same "each use case
-// owns its own resolution algorithm" convention that resolve_pick_scan_code.go's
-// doc comment establishes. Skips the weight-embedded-barcode step: a
-// per-weight item's actual weight was already captured at pick time, packing
-// only needs to confirm which line it belongs to.
-func (uc *ScanPackItemUseCase) resolveCode(ctx context.Context, lineItems []omsDomain.SalesOrderLineItem, code string) (string, error) {
-	sku, err := uc.skuRepo.FindByBarcode(ctx, code)
-	if err == nil {
-		return sku.ID, nil
-	}
-	if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
-		return "", err
-	}
-
-	alias, aerr := uc.barcodeAliasRepo.FindByCode(ctx, code)
-	if aerr == nil {
-		return alias.SKUID, nil
-	}
-	if !errors.Is(aerr, pmsDomain.ErrBarcodeAliasNotFound) {
-		return "", aerr
-	}
-
-	byCode, cerr := uc.skuRepo.FindByCode(ctx, code)
-	if cerr == nil {
-		return byCode.ID, nil
-	}
-	if !errors.Is(cerr, pmsDomain.ErrSKUNotFound) {
-		return "", cerr
-	}
-
-	for _, li := range lineItems {
-		if li.SKUID == nil {
-			continue
-		}
-		if strings.EqualFold(strings.TrimSpace(li.SKUCode), code) || strings.EqualFold(strings.TrimSpace(li.Barcode), code) {
-			return *li.SKUID, nil
-		}
-	}
-	return "", pmsDomain.ErrSKUNotFound
 }
