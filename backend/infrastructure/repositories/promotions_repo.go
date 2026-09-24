@@ -36,6 +36,8 @@ type promotionSKUModel struct {
 	Applied                     bool   `gorm:"not null;default:false"`
 	PreviousSalePriceMinorUnits *int64
 	PreviousSaleEndDate         *time.Time
+	BatchID                     *string    `gorm:"column:batch_id;type:uuid"`
+	FinishedAt                  *time.Time `gorm:"column:finished_at"`
 	CreatedAt                   time.Time
 }
 
@@ -160,7 +162,7 @@ func toPromotionSKUDomain(row promotionSKUModel) promotionsDomain.PromotionSKU {
 		ID: row.ID, TenantID: row.TenantID, PromotionID: row.PromotionID, SKUID: row.SKUID,
 		DiscountType: promotionsDomain.PromotionType(row.DiscountType), DiscountValue: row.DiscountValue,
 		Applied: row.Applied, PreviousSalePriceMinorUnits: row.PreviousSalePriceMinorUnits, PreviousSaleEndDate: row.PreviousSaleEndDate,
-		CreatedAt: row.CreatedAt,
+		BatchID: row.BatchID, FinishedAt: row.FinishedAt, CreatedAt: row.CreatedAt,
 	}
 }
 
@@ -171,7 +173,7 @@ func (r *PromotionSKURepo) Create(ctx context.Context, line *promotionsDomain.Pr
 	}
 	m := promotionSKUModel{
 		TenantID: line.TenantID, PromotionID: line.PromotionID, SKUID: line.SKUID,
-		DiscountType: string(line.DiscountType), DiscountValue: line.DiscountValue, CreatedAt: line.CreatedAt,
+		DiscountType: string(line.DiscountType), DiscountValue: line.DiscountValue, BatchID: line.BatchID, CreatedAt: line.CreatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("promotionSKURepo.Create: %w", err)
@@ -221,7 +223,7 @@ func (r *PromotionSKURepo) ListDueForActivation(ctx context.Context, at time.Tim
 	err = tx.Raw(`
 		SELECT ps.* FROM promotion_skus ps
 		JOIN promotions p ON p.id = ps.promotion_id
-		WHERE ps.applied = false AND `+promotionActiveWindowSQL,
+		WHERE ps.applied = false AND ps.finished_at IS NULL AND `+promotionActiveWindowSQL,
 		at, at).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("promotionSKURepo.ListDueForActivation: %w", err)
@@ -242,7 +244,7 @@ func (r *PromotionSKURepo) ListDueForReversal(ctx context.Context, at time.Time)
 	err = tx.Raw(`
 		SELECT ps.* FROM promotion_skus ps
 		JOIN promotions p ON p.id = ps.promotion_id
-		WHERE ps.applied = true AND NOT (`+promotionActiveWindowSQL+`)`,
+		WHERE ps.applied = true AND (ps.finished_at IS NOT NULL OR NOT (`+promotionActiveWindowSQL+`))`,
 		at, at).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("promotionSKURepo.ListDueForReversal: %w", err)
@@ -281,3 +283,65 @@ func (r *PromotionSKURepo) MarkReverted(ctx context.Context, lineID string) erro
 	}
 	return nil
 }
+
+// ── Clearance lines (promotionsDomain.ClearanceLineRepository) ───────────
+
+// openClearanceSQL matches the partial index from migration 183.
+const openClearanceSQL = "batch_id IS NOT NULL AND finished_at IS NULL"
+
+func (r *PromotionSKURepo) ListOpen(ctx context.Context) ([]promotionsDomain.PromotionSKU, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []promotionSKUModel
+	if err := tx.Where(openClearanceSQL).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("promotionSKURepo.ListOpen: %w", err)
+	}
+	return toPromotionSKUDomains(rows), nil
+}
+
+func (r *PromotionSKURepo) ListOpenBySKU(ctx context.Context, skuID string) ([]promotionsDomain.PromotionSKU, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []promotionSKUModel
+	if err := tx.Where("sku_id = ? AND "+openClearanceSQL, skuID).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("promotionSKURepo.ListOpenBySKU: %w", err)
+	}
+	return toPromotionSKUDomains(rows), nil
+}
+
+func (r *PromotionSKURepo) MarkFinished(ctx context.Context, lineID string, at time.Time) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&promotionSKUModel{}).Where("id = ?", lineID).Update("finished_at", at).Error; err != nil {
+		return fmt.Errorf("promotionSKURepo.MarkFinished: %w", err)
+	}
+	return nil
+}
+
+func (r *PromotionSKURepo) CountUnfinished(ctx context.Context, promotionID string) (int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var n int64
+	if err := tx.Model(&promotionSKUModel{}).Where("promotion_id = ? AND finished_at IS NULL", promotionID).Count(&n).Error; err != nil {
+		return 0, fmt.Errorf("promotionSKURepo.CountUnfinished: %w", err)
+	}
+	return n, nil
+}
+
+func toPromotionSKUDomains(rows []promotionSKUModel) []promotionsDomain.PromotionSKU {
+	lines := make([]promotionsDomain.PromotionSKU, len(rows))
+	for i, row := range rows {
+		lines[i] = toPromotionSKUDomain(row)
+	}
+	return lines
+}
+
+var _ promotionsDomain.ClearanceLineRepository = (*PromotionSKURepo)(nil)

@@ -74,5 +74,16 @@ type PromotionSKU struct {
 	// promotion never fabricates or loses an unrelated manual sale.
 	PreviousSalePriceMinorUnits *int64
 	PreviousSaleEndDate         *time.Time
-	CreatedAt                   time.Time
+	// BatchID makes this a clearance line: it sells off one near-expiry
+	// inventory batch and ends on its own once that batch is finished (see
+	// ClearanceBatch.IsFinished). Nil for an ordinary line, which only ends
+	// with its parent promotion's window. The discount still lands on the
+	// whole SKU's sale price -- channels and the POS sell SKUs, not batches.
+	BatchID *string
+	// FinishedAt is set once a clearance line's batch is finished. A
+	// finished line is never (re)applied and, if still applied, is due for
+	// reversal regardless of its promotion's window -- see
+	// PromotionSKURepository.ListDueForActivation/ListDueForReversal.
+	FinishedAt *time.Time
+	CreatedAt  time.Time
 }

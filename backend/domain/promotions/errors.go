@@ -22,4 +22,10 @@ var (
 	// DiscountType: percentage must be 1-10000 basis points (0.01%-100%),
 	// fixed_amount must be positive.
 	ErrInvalidDiscountValue = errors.New("discount value is invalid for the given discount type")
+	// ErrClearanceBatchNotFound guards PromotionSKU.BatchID: the batch must
+	// exist and belong to the line's own SKU.
+	ErrClearanceBatchNotFound = errors.New("batch not found for this sku")
+	// ErrClearanceBatchFinished rejects a clearance line whose batch is
+	// already sold out, removed or expired -- it would end immediately.
+	ErrClearanceBatchFinished = errors.New("batch has no stock left or has already expired")
 )
