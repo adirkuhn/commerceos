@@ -523,4 +523,26 @@ describe('Packing page locks and labels', () => {
     expect(await screen.findByRole('button', { name: /Replace/ })).toBeInTheDocument()
     expect(screen.getByText(/Remove what's recorded to replace it/)).toBeInTheDocument()
   })
+
+  it('after completing, the label is created without re-claiming the finished session', async () => {
+    vi.mocked(useConnections).mockReturnValue({ connections: [{ id: 'c1', provider: 'myparcel' } as ReturnType<typeof useConnections>['connections'][number]], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+    vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
+    vi.mocked(packingApi.completePacking).mockResolvedValue({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
+    vi.mocked(packingApi.touchPackingSession).mockRejectedValue(new Error('touchPackingSession: packing session is not active'))
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'Complete' }))
+    await user.click(await screen.findByRole('button', { name: 'Confirm & complete' }))
+    await screen.findByText('#1001 packed')
+    await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
+
+    expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
+    expect(packingApi.touchPackingSession).not.toHaveBeenCalled()
+  })
 })

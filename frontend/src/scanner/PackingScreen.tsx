@@ -484,9 +484,9 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
         {myParcelConnection && !createdShipmentId && (
           <button aria-label="Create label"
             type="button" onClick={handleCreateLabelClick} disabled={readOnly} title="Create label"
-            className="w-11 h-11 -my-2 flex items-center justify-center rounded-lg bg-night-800 border border-night-700 text-gray-300 disabled:opacity-50"
+            className="min-h-11 px-3 -my-2 flex items-center gap-1.5 rounded-lg bg-night-800 border border-night-700 text-sm font-medium text-gray-200 disabled:opacity-50"
           >
-            <Tag size={16} />
+            <Tag size={16} /> Label
           </button>
         )}
         <button

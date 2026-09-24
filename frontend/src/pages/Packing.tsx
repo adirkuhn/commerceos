@@ -378,8 +378,10 @@ export default function Packing() {
   async function handleCreateLabelClick() {
     if (!token || !activeOrder) return
     // Before packing is finished, making the label is working the order --
-    // take the lock first (the heartbeat claims it when free).
-    if (session && session.session.status !== 'completed') {
+    // take the lock first (the heartbeat claims it when free). Once packing
+    // is complete there's no session left to claim (completeResult is set
+    // but the loaded session still says in_progress).
+    if (session && !completeResult && session.session.status !== 'completed') {
       try {
         await packingApi.touchPackingSession(token, session.session.id)
         await loadSession(session.session.id)
