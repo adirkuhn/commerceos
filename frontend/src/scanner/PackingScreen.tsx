@@ -314,6 +314,19 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
 
   // The label flow runs both before finishing (from the working screen)
   // and after (from the done screen).
+  // The label button shared by the review and done screens: create one, or
+  // print the one just made.
+  const labelButtonClass = 'w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-200 text-sm font-medium hover:border-accent transition-colors'
+  const labelButton = createdShipmentId ? (
+    <button type="button" onClick={() => handleOpenLabel(createdShipmentId)} className={labelButtonClass}>
+      {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
+    </button>
+  ) : myParcelConnection && (
+    <button type="button" onClick={handleCreateLabelClick} className={labelButtonClass}>
+      Create shipping label
+    </button>
+  )
+
   const labelModals = (
     <>
         {labelStep === 'address' && (
@@ -402,6 +415,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
         </div>
         <div className="p-4 border-t border-night-700 shrink-0 space-y-2">
           {error && <p className="text-sm text-red-400">{error}</p>}
+          {labelButton}
           <button
             onClick={() => handleConfirmComplete()}
             disabled={finishing}
@@ -419,6 +433,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
             onConfirm={resolutions => handleConfirmComplete(resolutions)} onCancel={() => setStockShortfalls(null)}
           />
         )}
+        {labelModals}
       </div>
     )
   }
@@ -445,22 +460,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
           </div>
         )}
         <div className="p-6 shrink-0 space-y-2">
-          {myParcelConnection && !createdShipmentId && (
-            <button
-              type="button" onClick={handleCreateLabelClick}
-              className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-200 text-sm font-medium hover:border-accent transition-colors"
-            >
-              Create shipping label
-            </button>
-          )}
-          {createdShipmentId && (
-            <button
-              type="button" onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
-              className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-200 text-sm font-medium hover:border-accent transition-colors"
-            >
-              {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
-            </button>
-          )}
+          {labelButton}
           <button onClick={onExit} className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold hover:bg-accent-solid-hover">
             Done
           </button>

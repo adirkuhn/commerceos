@@ -432,6 +432,24 @@ export default function Packing() {
     }
   }
 
+  // The label button shared by the review and done screens: create one, or
+  // print the one just made.
+  function labelButton(className: string) {
+    if (createdShipmentId) {
+      return (
+        <button type="button" onClick={() => handleOpenLabel(createdShipmentId)} className={className}>
+          {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
+        </button>
+      )
+    }
+    if (!myParcelConnection) return null
+    return (
+      <button type="button" onClick={handleCreateLabelClick} className={className}>
+        Create shipping label
+      </button>
+    )
+  }
+
   const packedByLineItem = session ? packedQuantityByLineItem(session.scans) : new Map<string, number>()
   const totalItems = session?.line_items.reduce((s, li) => s + li.quantity, 0) ?? 0
   const packedItems = session ? session.line_items.reduce((s, li) => s + Math.min(li.quantity, packedByLineItem.get(li.id) ?? 0), 0) : 0
@@ -485,22 +503,7 @@ export default function Packing() {
               </div>
             )}
 
-            {myParcelConnection && !createdShipmentId && (
-              <button
-                type="button" onClick={handleCreateLabelClick}
-                className="mt-5 px-4 py-2 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 text-xs font-medium hover:bg-hover transition-colors"
-              >
-                Create shipping label
-              </button>
-            )}
-            {createdShipmentId && (
-              <button
-                type="button" onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
-                className="mt-5 px-4 py-2 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 text-xs font-medium hover:bg-hover transition-colors"
-              >
-                {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
-              </button>
-            )}
+            {labelButton('mt-5 px-4 py-2 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 text-xs font-medium hover:bg-hover transition-colors')}
 
             <button
               type="button" onClick={backToOrders}
@@ -594,6 +597,7 @@ export default function Packing() {
             </div>
             <div className="p-6 border-t border-line shrink-0 space-y-2">
               {error && <p className="text-sm text-danger">{error}</p>}
+              {labelButton('w-full py-2.5 rounded-xl dark:bg-night-800 bg-gray-100 text-ink-2 text-sm font-medium hover:bg-hover transition-colors')}
               <button
                 onClick={() => handleConfirmComplete()} disabled={completing}
                 className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"

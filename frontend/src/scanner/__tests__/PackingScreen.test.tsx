@@ -177,4 +177,18 @@ describe('PackingScreen locks and labels', () => {
     expect(api.touchPackingSession).toHaveBeenCalledWith(TOKEN, 'pack-1')
     expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
   })
+  it('the review screen offers the label before finishing', async () => {
+    vi.mocked(useConnections).mockReturnValue({ connections: [{ id: 'c1', provider: 'myparcel' } as ReturnType<typeof useConnections>['connections'][number]], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+    vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
+    const user = userEvent.setup()
+    renderScreen()
+
+    await user.click(await screen.findByRole('button', { name: 'Finish' }))
+    await screen.findByText('Review before finishing')
+    await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
+
+    expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
+    expect(api.completePacking).not.toHaveBeenCalled()
+  })
 })

@@ -510,6 +510,26 @@ describe('Packing page locks and labels', () => {
     expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
   })
 
+  it('the review screen offers the label before completing', async () => {
+    vi.mocked(useConnections).mockReturnValue({ connections: [{ id: 'c1', provider: 'myparcel' } as ReturnType<typeof useConnections>['connections'][number]], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+    vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
+    vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
+    vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
+    vi.mocked(packingApi.touchPackingSession).mockResolvedValue(null)
+
+    const user = userEvent.setup()
+    render(<MemoryRouter><Packing /></MemoryRouter>)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'Complete' }))
+    await screen.findByText('Review before completing')
+    await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
+
+    expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
+    expect(packingApi.completePacking).not.toHaveBeenCalled()
+  })
+
   it('a fully packed line still opens, to replace or refund it', async () => {
     const packed = { id: 'scan-1', session_id: 'pack-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pack' as const, quantity: 2, scanned_at: '', scanned_by: '' }
     vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
