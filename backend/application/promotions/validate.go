@@ -3,6 +3,7 @@ package promotions
 import (
 	"context"
 	"fmt"
+	"time"
 
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	promotionsDomain "github.com/adirkuhn/commerceos/domain/promotions"
@@ -19,7 +20,10 @@ type skuExistenceChecker interface {
 // PromotionLineInput is one SKU's discount within a promotion -- shared
 // shape for CreatePromotionUseCase and UpdatePromotionUseCase.
 type PromotionLineInput struct {
-	SKUID         string
+	SKUID string
+	// BatchID, when set, makes this a clearance line -- see
+	// domain/promotions.PromotionSKU.BatchID.
+	BatchID       *string
 	DiscountType  promotionsDomain.PromotionType
 	DiscountValue int64
 }
@@ -97,4 +101,42 @@ func validateLines(ctx context.Context, skuChecker skuExistenceChecker, lines []
 		}
 	}
 	return warnings, nil
+}
+
+// validateClearanceBatches checks every clearance line's batch belongs to
+// its SKU and isn't already finished -- a clearance that would end the
+// moment it starts is almost certainly a mistake. Lines whose batch is in
+// alreadyOnPromotion are skipped: UpdatePromotionUseCase passes the batches
+// the promotion already had, so editing a running (or already sold-out)
+// clearance isn't blocked by its own batch. Must run outside
+// tenant.WithTenant -- see skuBatchLister.
+func validateClearanceBatches(ctx context.Context, batches skuBatchLister, lines []PromotionLineInput, alreadyOnPromotion map[string]bool) error {
+	now := time.Now()
+	for _, line := range lines {
+		if line.BatchID == nil || alreadyOnPromotion[*line.BatchID] {
+			continue
+		}
+		skuBatches, err := batches.Execute(ctx, line.SKUID)
+		if err != nil {
+			return err
+		}
+		batch := clearanceBatchFor(skuBatches, *line.BatchID)
+		if !batch.Found {
+			return promotionsDomain.ErrClearanceBatchNotFound
+		}
+		if batch.IsFinished(now) {
+			return promotionsDomain.ErrClearanceBatchFinished
+		}
+	}
+	return nil
+}
+
+// hasClearanceLine reports whether any line carries a BatchID.
+func hasClearanceLine(lines []PromotionLineInput) bool {
+	for _, l := range lines {
+		if l.BatchID != nil {
+			return true
+		}
+	}
+	return false
 }

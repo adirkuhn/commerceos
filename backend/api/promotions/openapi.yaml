@@ -148,12 +148,30 @@ components:
           type: integer
           format: int64
           description: Basis points for percentage (1-10000), minor currency units for fixed_amount.
+        batch_id:
+          type: string
+          description: >-
+            Set on a clearance line: the inventory batch being sold off. The
+            line ends on its own -- and the SKU returns to its pre-promotion
+            price -- once that batch is sold out, fully discarded, removed or
+            expired. The discount applies to the whole SKU while it runs.
+        finished_at:
+          type: string
+          format: date-time
+          description: When a clearance line's batch finished. Absent while it is still running, and always absent on ordinary lines.
 
     PromotionLineInput:
       type: object
       required: [sku_id, discount_type, discount_value]
       properties:
         sku_id: { type: string }
+        batch_id:
+          type: string
+          description: >-
+            Optional. Makes this a clearance line for that batch of the SKU.
+            Must belong to sku_id and still have stock and not be expired
+            (422 otherwise); a batch the promotion already had is not
+            re-checked on update.
         discount_type: { $ref: '#/components/schemas/PromotionType' }
         discount_value: { type: integer, format: int64 }
 

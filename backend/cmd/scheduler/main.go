@@ -170,6 +170,10 @@ func main() {
 	setPromotionSalePriceUC := pmsapp.NewSetPromotionSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo, priceHistoryRepo)
 	applyPromotionSKUUC := apppromotions.NewApplyPromotionSKUUseCase(db, skuRepo, setPromotionSalePriceUC, promotionSKURepo)
 	revertPromotionSKUUC := apppromotions.NewRevertPromotionSKUUseCase(db, setPromotionSalePriceUC, promotionSKURepo)
+	finishClearanceLinesUC := apppromotions.NewFinishClearanceLinesUseCase(
+		db, invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
+		promotionSKURepo, repositories.NewPromotionRepo(db), revertPromotionSKUUC,
+	)
 	jobRepo := repositories.NewScheduledJobRepo(db)
 
 	costLedgerRecorder := costLedgerRecorderAdapter{uc: pmsapp.NewRecordCostLedgerMovementUseCase(
@@ -190,7 +194,7 @@ func main() {
 		schedulerDomain.JobExpiredSalePrices:      schedulerapp.NewRunExpiredSalePricesUseCase(db, skuRepo, expireSalePriceUC),
 		schedulerDomain.JobExpiredBatches:         schedulerapp.NewRunExpiredBatchesUseCase(db, batchRepo, expireBatchUC),
 		schedulerDomain.JobCostPriceRecalculation: schedulerapp.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC),
-		schedulerDomain.JobPromotionActivation:    schedulerapp.NewRunPromotionActivationUseCase(db, promotionSKURepo, applyPromotionSKUUC, revertPromotionSKUUC),
+		schedulerDomain.JobPromotionActivation:    schedulerapp.NewRunPromotionActivationUseCase(db, promotionSKURepo, applyPromotionSKUUC, revertPromotionSKUUC, promotionSKURepo, finishClearanceLinesUC),
 	}
 	runJobNowUC := schedulerapp.NewRunJobNowUseCase(db, jobRepo, jobRunners)
 	categoryLinkRepo := repositories.NewExternalCategoryLinkRepo(db)
@@ -279,6 +283,12 @@ func main() {
 	stockChangedConsumer := consumers.NewInventoryStockChangedConsumer(processedEventRepo, syncStockUC, js)
 	if sub := subscribeConsumer(js, events.InventoryStockChanged{}.EventName(), "inventory-stock-changed-scheduler",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, stockChangedConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
+	}
+
+	clearancePromotionStockConsumer := consumers.NewClearancePromotionStockConsumer(processedEventRepo, finishClearanceLinesUC, js)
+	if sub := subscribeConsumer(js, events.InventoryStockChanged{}.EventName(), "inventory-stock-changed-clearance-promotions",
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, clearancePromotionStockConsumer.Handle); sub != nil {
 		defer sub.Unsubscribe()
 	}
 

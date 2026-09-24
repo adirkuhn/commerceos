@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	genpromotions "github.com/adirkuhn/commerceos/api/promotions"
+	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	apppromotions "github.com/adirkuhn/commerceos/application/promotions"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	promotionsDomain "github.com/adirkuhn/commerceos/domain/promotions"
@@ -60,9 +61,10 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	promoRepo := repositories.NewPromotionRepo(db)
 	lineRepo := repositories.NewPromotionSKURepo(db)
 	skuRepo := repositories.NewSKURepo(db)
+	listBatches := appinventory.NewListBatchesUseCase(db, repositories.NewBatchRepo(db), repositories.NewStockMovementRepo(db), repositories.NewWarehouseRepo(db))
 	h := NewHandler(
-		apppromotions.NewCreatePromotionUseCase(db, promoRepo, lineRepo, skuRepo),
-		apppromotions.NewUpdatePromotionUseCase(db, promoRepo, lineRepo, skuRepo),
+		apppromotions.NewCreatePromotionUseCase(db, promoRepo, lineRepo, skuRepo, listBatches),
+		apppromotions.NewUpdatePromotionUseCase(db, promoRepo, lineRepo, skuRepo, listBatches),
 		apppromotions.NewDeletePromotionUseCase(db, promoRepo),
 		apppromotions.NewGetPromotionUseCase(db, promoRepo, lineRepo, skuRepo),
 		apppromotions.NewListPromotionsUseCase(db, promoRepo),
@@ -154,7 +156,7 @@ func toLineInputs(lines []genpromotions.PromotionLineInput) []apppromotions.Prom
 	out := make([]apppromotions.PromotionLineInput, len(lines))
 	for i, l := range lines {
 		out[i] = apppromotions.PromotionLineInput{
-			SKUID: l.SkuId, DiscountType: promotionsDomain.PromotionType(l.DiscountType), DiscountValue: l.DiscountValue,
+			SKUID: l.SkuId, BatchID: l.BatchId, DiscountType: promotionsDomain.PromotionType(l.DiscountType), DiscountValue: l.DiscountValue,
 		}
 	}
 	return out
@@ -181,6 +183,7 @@ func toGenPromotionDetail(p promotionsDomain.Promotion, lines []apppromotions.Pr
 	for i, l := range lines {
 		genLines[i] = genpromotions.PromotionLine{
 			Id: l.ID, SkuId: l.SKUID, SkuCode: l.SKUCode, DiscountType: genpromotions.PromotionType(l.DiscountType), DiscountValue: l.DiscountValue,
+			BatchId: l.BatchID, FinishedAt: l.FinishedAt,
 		}
 	}
 	return genpromotions.PromotionDetail{
@@ -204,7 +207,9 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, promotionsDomain.ErrPromotionEndBeforeStart),
 		errors.Is(err, promotionsDomain.ErrPromotionRequiresAtLeastOneSKU),
 		errors.Is(err, promotionsDomain.ErrDuplicatePromotionSKU),
-		errors.Is(err, promotionsDomain.ErrInvalidDiscountValue):
+		errors.Is(err, promotionsDomain.ErrInvalidDiscountValue),
+		errors.Is(err, promotionsDomain.ErrClearanceBatchNotFound),
+		errors.Is(err, promotionsDomain.ErrClearanceBatchFinished):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:
 		log.Printf("promotions: unhandled error: %v", err)

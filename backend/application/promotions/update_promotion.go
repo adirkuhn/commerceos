@@ -26,10 +26,11 @@ type UpdatePromotionUseCase struct {
 	promoRepo  promotionsDomain.PromotionRepository
 	lineRepo   promotionsDomain.PromotionSKURepository
 	skuChecker skuExistenceChecker
+	batches    skuBatchLister
 }
 
-func NewUpdatePromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.PromotionRepository, lineRepo promotionsDomain.PromotionSKURepository, skuChecker skuExistenceChecker) *UpdatePromotionUseCase {
-	return &UpdatePromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo, skuChecker: skuChecker}
+func NewUpdatePromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.PromotionRepository, lineRepo promotionsDomain.PromotionSKURepository, skuChecker skuExistenceChecker, batches skuBatchLister) *UpdatePromotionUseCase {
+	return &UpdatePromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo, skuChecker: skuChecker, batches: batches}
 }
 
 // Execute replaces the promotion's whole line set wholesale (delete then
@@ -48,6 +49,10 @@ func (uc *UpdatePromotionUseCase) Execute(ctx context.Context, in UpdatePromotio
 		return nil, fmt.Errorf("updatePromotion: %w", promotionsDomain.ErrPromotionEndBeforeStart)
 	}
 	if err := validatePromotionStatus(in.Status); err != nil {
+		return nil, fmt.Errorf("updatePromotion: %w", err)
+	}
+
+	if err := uc.validateClearanceBatches(ctx, in); err != nil {
 		return nil, fmt.Errorf("updatePromotion: %w", err)
 	}
 
@@ -78,7 +83,7 @@ func (uc *UpdatePromotionUseCase) Execute(ctx context.Context, in UpdatePromotio
 		now := time.Now()
 		for _, l := range in.Lines {
 			line := promotionsDomain.PromotionSKU{
-				TenantID: tenant.IDFromContext(ctx), PromotionID: promo.ID, SKUID: l.SKUID,
+				TenantID: tenant.IDFromContext(ctx), PromotionID: promo.ID, SKUID: l.SKUID, BatchID: l.BatchID,
 				DiscountType: l.DiscountType, DiscountValue: l.DiscountValue, CreatedAt: now,
 			}
 			if err := uc.lineRepo.Create(ctx, &line); err != nil {
@@ -91,4 +96,30 @@ func (uc *UpdatePromotionUseCase) Execute(ctx context.Context, in UpdatePromotio
 		return nil, fmt.Errorf("updatePromotion: %w", err)
 	}
 	return &promo, nil
+}
+
+// validateClearanceBatches validates only clearance batches new to this
+// promotion -- see the package-level validateClearanceBatches. Skips the
+// extra read entirely when no line is a clearance line.
+func (uc *UpdatePromotionUseCase) validateClearanceBatches(ctx context.Context, in UpdatePromotionInput) error {
+	if !hasClearanceLine(in.Lines) {
+		return nil
+	}
+	existing := map[string]bool{}
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		lines, err := uc.lineRepo.ListByPromotion(ctx, in.ID)
+		if err != nil {
+			return err
+		}
+		for _, l := range lines {
+			if l.BatchID != nil {
+				existing[*l.BatchID] = true
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return validateClearanceBatches(ctx, uc.batches, in.Lines, existing)
 }

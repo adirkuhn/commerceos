@@ -33,10 +33,11 @@ type CreatePromotionUseCase struct {
 	promoRepo  promotionsDomain.PromotionRepository
 	lineRepo   promotionsDomain.PromotionSKURepository
 	skuChecker skuExistenceChecker
+	batches    skuBatchLister
 }
 
-func NewCreatePromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.PromotionRepository, lineRepo promotionsDomain.PromotionSKURepository, skuChecker skuExistenceChecker) *CreatePromotionUseCase {
-	return &CreatePromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo, skuChecker: skuChecker}
+func NewCreatePromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.PromotionRepository, lineRepo promotionsDomain.PromotionSKURepository, skuChecker skuExistenceChecker, batches skuBatchLister) *CreatePromotionUseCase {
+	return &CreatePromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo, skuChecker: skuChecker, batches: batches}
 }
 
 func (uc *CreatePromotionUseCase) Execute(ctx context.Context, in CreatePromotionInput) (*CreatePromotionResult, error) {
@@ -54,6 +55,10 @@ func (uc *CreatePromotionUseCase) Execute(ctx context.Context, in CreatePromotio
 		in.Status = promotionsDomain.PromotionStatusDraft
 	}
 	if err := validatePromotionStatus(in.Status); err != nil {
+		return nil, fmt.Errorf("createPromotion: %w", err)
+	}
+
+	if err := validateClearanceBatches(ctx, uc.batches, in.Lines, nil); err != nil {
 		return nil, fmt.Errorf("createPromotion: %w", err)
 	}
 
@@ -78,7 +83,7 @@ func (uc *CreatePromotionUseCase) Execute(ctx context.Context, in CreatePromotio
 
 		for _, l := range in.Lines {
 			line := promotionsDomain.PromotionSKU{
-				TenantID: tenant.IDFromContext(ctx), PromotionID: promo.ID, SKUID: l.SKUID,
+				TenantID: tenant.IDFromContext(ctx), PromotionID: promo.ID, SKUID: l.SKUID, BatchID: l.BatchID,
 				DiscountType: l.DiscountType, DiscountValue: l.DiscountValue, CreatedAt: now,
 			}
 			if err := uc.lineRepo.Create(ctx, &line); err != nil {

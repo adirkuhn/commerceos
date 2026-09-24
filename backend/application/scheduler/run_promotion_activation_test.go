@@ -2,6 +2,7 @@ package scheduler_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -90,7 +91,7 @@ func TestRunPromotionActivation_ActivatesDueLinesAndRevertsEndedOnesUnderTheirOw
 	salePrice := &stubPromotionActivationSalePrice{}
 	applyUC := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), stubPromotionActivationSKULookup{}, salePrice, lineRepo)
 	revertUC := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDBN(t, 1), salePrice, lineRepo)
-	uc := appscheduler.NewRunPromotionActivationUseCase(newMockGormDBN(t, 2), lineRepo, applyUC, revertUC)
+	uc := appscheduler.NewRunPromotionActivationUseCase(newMockGormDBN(t, 3), lineRepo, applyUC, revertUC, &stubOpenClearanceLines{}, &stubClearanceFinisher{})
 
 	err := uc.Run(context.Background())
 
@@ -113,11 +114,50 @@ func TestRunPromotionActivation_noDueLinesIsNoOp(t *testing.T) {
 	salePrice := &stubPromotionActivationSalePrice{}
 	applyUC := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 0), stubPromotionActivationSKULookup{}, salePrice, lineRepo)
 	revertUC := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDBN(t, 0), salePrice, lineRepo)
-	uc := appscheduler.NewRunPromotionActivationUseCase(newMockGormDBN(t, 2), lineRepo, applyUC, revertUC)
+	uc := appscheduler.NewRunPromotionActivationUseCase(newMockGormDBN(t, 3), lineRepo, applyUC, revertUC, &stubOpenClearanceLines{}, &stubClearanceFinisher{})
 
 	err := uc.Run(context.Background())
 
 	require.NoError(t, err)
 	require.Empty(t, salePrice.applyCalls)
 	require.Empty(t, salePrice.revertCalls)
+}
+
+type stubOpenClearanceLines struct {
+	open []promotionsDomain.PromotionSKU
+}
+
+func (s *stubOpenClearanceLines) ListOpen(context.Context) ([]promotionsDomain.PromotionSKU, error) {
+	return s.open, nil
+}
+
+type stubClearanceFinisher struct {
+	calls []tenantLineCall
+	err   error
+}
+
+func (s *stubClearanceFinisher) ExecuteForLine(ctx context.Context, line promotionsDomain.PromotionSKU) (bool, error) {
+	s.calls = append(s.calls, tenantLineCall{TenantID: tenant.IDFromContext(ctx), LineID: line.ID})
+	return s.err == nil, s.err
+}
+
+// Expiry dates passing and batch deletes raise no stock event, so the sweep
+// is what ends those clearances -- each line checked under its own tenant,
+// one line's failure not stopping the rest.
+func TestRunPromotionActivation_ChecksOpenClearanceLinesUnderTheirOwnTenant(t *testing.T) {
+	lineRepo := &stubPromotionActivationLineRepo{}
+	salePrice := &stubPromotionActivationSalePrice{}
+	applyUC := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 0), stubPromotionActivationSKULookup{}, salePrice, lineRepo)
+	revertUC := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDBN(t, 0), salePrice, lineRepo)
+	open := &stubOpenClearanceLines{open: []promotionsDomain.PromotionSKU{
+		{ID: "clear-1", TenantID: "tenant-a"},
+		{ID: "clear-2", TenantID: "tenant-b"},
+	}}
+	finisher := &stubClearanceFinisher{err: errors.New("batch lookup failed")}
+	uc := appscheduler.NewRunPromotionActivationUseCase(newMockGormDBN(t, 3), lineRepo, applyUC, revertUC, open, finisher)
+
+	err := uc.Run(context.Background())
+
+	require.NoError(t, err)
+	require.Equal(t, []tenantLineCall{{TenantID: "tenant-a", LineID: "clear-1"}, {TenantID: "tenant-b", LineID: "clear-2"}}, finisher.calls)
 }
