@@ -32,17 +32,19 @@ export function CompanyProfileSection() {
   const { profile, loading, error: loadError, save } = useCompanyProfile(token ?? '')
   const canEdit = EDITOR_ROLES.includes(user?.role ?? '')
 
-  const [draft, setDraft] = useState<CompanyProfileInput>(EMPTY)
+  // Edits only: null means "show the saved profile as is". Deriving the
+  // form from the profile (instead of copying it in an effect) means no
+  // render ever shows empty fields or a false "unsaved changes" state.
+  const [edits, setEdits] = useState<CompanyProfileInput | null>(null)
   const [saving, setSaving] = useState(false)
   const [fieldError, setFieldError] = useState<{ field: CompanyProfileField; message: string } | null>(null)
   const [formError, setFormError] = useState('')
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const fieldRefs = useRef<Partial<Record<CompanyProfileField, HTMLInputElement | HTMLSelectElement | null>>>({})
 
-  useEffect(() => { if (profile) setDraft(toInput(profile)) }, [profile])
-
-  const baseline = profile ? JSON.stringify(toInput(profile)) : JSON.stringify(EMPTY)
-  const dirty = JSON.stringify(draft) !== baseline
+  const saved = profile ? toInput(profile) : EMPTY
+  const draft = edits ?? saved
+  const dirty = edits !== null && JSON.stringify(edits) !== JSON.stringify(saved)
 
   // Leaving the tab with unsaved edits asks first.
   useEffect(() => {
@@ -57,11 +59,14 @@ export function CompanyProfileSection() {
   }, [fieldError])
 
   function set<K extends keyof CompanyProfileInput>(key: K, value: CompanyProfileInput[K]) {
-    setDraft(d => ({ ...d, [key]: value }))
+    setEdits(e => ({ ...(e ?? saved), [key]: value }))
     setSavedAt(null)
   }
   function setAddress(key: keyof CompanyProfileInput['address'], value: string) {
-    setDraft(d => ({ ...d, address: { ...d.address, [key]: value } }))
+    setEdits(e => {
+      const base = e ?? saved
+      return { ...base, address: { ...base.address, [key]: value } }
+    })
     setSavedAt(null)
   }
 
@@ -72,6 +77,7 @@ export function CompanyProfileSection() {
     setFormError('')
     try {
       await save(draft)
+      setEdits(null)
       setSavedAt(new Date().toLocaleTimeString())
     } catch (err) {
       if (err instanceof CompanyProfileError && err.field) setFieldError({ field: err.field, message: err.message })

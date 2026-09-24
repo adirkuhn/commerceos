@@ -26,24 +26,22 @@ export function NotificationPreferencesSection() {
   const { preferences, loading, error: loadError, save } = useNotificationPreferences(token ?? '')
   const canEdit = EDITOR_ROLES.includes(user?.role ?? '')
 
-  const [categories, setCategories] = useState<NotificationCategoryPreference[]>([])
-  const [recipientsText, setRecipientsText] = useState('')
+  // Edits only (null = show what's saved) -- derived, not copied in an
+  // effect, so the first render after loading already shows saved values.
+  const [editedCategories, setEditedCategories] = useState<NotificationCategoryPreference[] | null>(null)
+  const [editedRecipients, setEditedRecipients] = useState<string | null>(null)
+  const categories = editedCategories ?? preferences?.categories ?? []
+  const recipientsText = editedRecipients ?? preferences?.email_recipients.join('\n') ?? ''
   const [saving, setSaving] = useState(false)
   const [recipientError, setRecipientError] = useState('')
   const [formError, setFormError] = useState('')
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const recipientsRef = useRef<HTMLTextAreaElement>(null)
 
-  useEffect(() => {
-    if (!preferences) return
-    setCategories(preferences.categories)
-    setRecipientsText(preferences.email_recipients.join('\n'))
-  }, [preferences])
-
   useEffect(() => { if (recipientError) recipientsRef.current?.focus() }, [recipientError])
 
   function toggle(category: NotificationCategory, channel: 'in_app' | 'email') {
-    setCategories(cs => cs.map(c => (c.category === category ? { ...c, [channel]: !c[channel] } : c)))
+    setEditedCategories(categories.map(c => (c.category === category ? { ...c, [channel]: !c[channel] } : c)))
     setSavedAt(null)
   }
 
@@ -55,6 +53,8 @@ export function NotificationPreferencesSection() {
     setFormError('')
     try {
       await save(input)
+      setEditedCategories(null)
+      setEditedRecipients(null)
       setSavedAt(new Date().toLocaleTimeString())
     } catch (err) {
       if (err instanceof NotificationPreferencesError && err.isRecipientError) setRecipientError(err.message)
@@ -115,7 +115,7 @@ export function NotificationPreferencesSection() {
           id="notification-recipients"
           ref={recipientsRef}
           value={recipientsText}
-          onChange={e => { setRecipientsText(e.target.value); setSavedAt(null) }}
+          onChange={e => { setEditedRecipients(e.target.value); setSavedAt(null) }}
           readOnly={!canEdit}
           rows={3}
           placeholder={'ops@example.com\nowner@example.com'}
