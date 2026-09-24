@@ -237,6 +237,6 @@ func TestStartOrResumePacking_rejectsPOSOrder(t *testing.T) {
 
 	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
-	assert.ErrorIs(t, err, omsDomain.ErrPOSOrderNotPackable)
+	assert.ErrorIs(t, err, omsDomain.ErrPOSOrderNotFulfillable)
 	assert.Empty(t, sessionRepo.created)
 }

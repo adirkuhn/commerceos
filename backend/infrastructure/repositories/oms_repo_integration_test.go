@@ -2535,3 +2535,53 @@ func TestSalesOrderRepo_Integration_ListOrderSKUsBetween_ReturnsDistinctSKUsPerQ
 	require.ElementsMatch(t, []string{skuC}, byOrderID[order3ID].SKUIDs)
 	require.ElementsMatch(t, []string{skuA}, byOrderID[order4ID].SKUIDs, "duplicate SKU across two line items must dedupe")
 }
+
+// TestSalesOrderRepo_Integration_ListFiltersByAwaitingPicking proves the
+// picking queue's filter against real Postgres: not yet picked, still
+// pending/processing/on-hold, and not a POS sale.
+func TestSalesOrderRepo_Integration_ListFiltersByAwaitingPicking(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var wantID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		specs := []struct {
+			extID     string
+			source    omsDomain.SalesOrderSource
+			status    omsDomain.SalesOrderStatus
+			fulfilled bool
+		}{
+			{"awp-unpicked", omsDomain.SalesOrderSourceWooCommerce, omsDomain.SalesOrderStatusProcessing, false},
+			{"awp-picked", omsDomain.SalesOrderSourceWooCommerce, omsDomain.SalesOrderStatusProcessing, true},
+			{"awp-cancelled", omsDomain.SalesOrderSourceWooCommerce, omsDomain.SalesOrderStatusCancelled, false},
+			{"awp-pos", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusProcessing, false},
+		}
+		for _, s := range specs {
+			order := omsDomain.SalesOrder{
+				TenantID: tenant.IDFromContext(ctx), Source: s.source, ExternalOrderID: s.extID, WarehouseID: warehouseID,
+				CurrencyCode: "USD", Status: s.status, Fulfilled: s.fulfilled, OccurredAt: now, CreatedAt: now,
+			}
+			if err := salesOrderRepo.Create(ctx, &order); err != nil {
+				return err
+			}
+			if s.extID == "awp-unpicked" {
+				wantID = order.ID
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var found []omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, _, err = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{Limit: 50, AwaitingPicking: true})
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+	assert.Equal(t, wantID, found[0].ID)
+}

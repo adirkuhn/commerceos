@@ -58,6 +58,15 @@ func TestMarkOrderPicked_rejectsWhatThePickingRuleRejects(t *testing.T) {
 	assert.Empty(t, f.activities.created)
 }
 
+func TestMarkOrderPicked_rejectsPOSOrder(t *testing.T) {
+	f := newMarkPickedFixture(omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing})
+
+	err := f.run(t, omsDomain.LockActor{UserID: "user-1"})
+
+	assert.ErrorIs(t, err, omsDomain.ErrPOSOrderNotFulfillable)
+	assert.Empty(t, f.orders.gotUpdateID)
+}
+
 func TestMarkOrderPicked_rejectsWhilePacking(t *testing.T) {
 	f := newMarkPickedFixture(omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing})
 	f.packing.activeResult = &omsDomain.PackingSession{ID: "pack-1", Status: omsDomain.PackingSessionStatusInProgress}

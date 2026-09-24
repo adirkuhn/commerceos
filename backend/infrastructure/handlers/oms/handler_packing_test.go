@@ -28,7 +28,7 @@ func TestStartOrResumePacking_notPackableIsUnprocessable(t *testing.T) {
 }
 
 func TestStartOrResumePacking_posOrderIsUnprocessable(t *testing.T) {
-	w := doRequest(routerWithPacking(func(s *packingStubs) { s.start.err = omsDomain.ErrPOSOrderNotPackable }),
+	w := doRequest(routerWithPacking(func(s *packingStubs) { s.start.err = omsDomain.ErrPOSOrderNotFulfillable }),
 		"POST", "/api/v1/sales-orders/so-1/packing", nil)
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)

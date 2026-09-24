@@ -56,6 +56,11 @@ type ListSalesOrdersFilter struct {
 	// picked right now are included; the queue shows them locked (see
 	// PackingQueueEntry). false means "don't filter on this".
 	AwaitingPacking bool
+	// AwaitingPicking true narrows to the picking queue -- the SQL form of
+	// SalesOrder.CanMarkPicked: not yet picked (Fulfilled false), still in a
+	// pickable status, and not a POS sale. false means "don't filter on
+	// this".
+	AwaitingPicking bool
 	// Status empty means "don't filter on this". Non-empty narrows to those
 	// statuses only -- powers the picking screens' exclusion of
 	// completed/cancelled/refunded/failed orders (a terminal-status order

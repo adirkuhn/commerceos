@@ -82,6 +82,14 @@ paths:
           description: >
             Filter by the order's packing status.
           schema: { type: boolean }
+        - name: awaiting_picking
+          in: query
+          description: >
+            true narrows to the picking queue -- not yet picked, still
+            pending/processing/on-hold, and not a point-of-sale sale (POS
+            sales are handed over at the counter). Omitted or false means no
+            filter.
+          schema: { type: boolean }
       responses:
         '200':
           description: ok

@@ -31,6 +31,9 @@ type ListSalesOrdersInput struct {
 	// Packed nil means "don't filter" -- combined with Fulfilled=true,
 	// false powers the packing screens' "orders ready to pack" search.
 	Packed *bool
+	// AwaitingPicking true narrows to the picking queue -- see
+	// domain/oms.ListSalesOrdersFilter.AwaitingPicking's doc.
+	AwaitingPicking bool
 	// Status empty means "don't filter" -- see domain/oms.ListSalesOrdersFilter.Status's doc.
 	Status []omsDomain.SalesOrderStatus
 	// Source empty means "don't filter" -- see domain/oms.ListSalesOrdersFilter.Source's doc.
@@ -73,7 +76,7 @@ func (uc *ListSalesOrdersUseCase) Execute(ctx context.Context, in ListSalesOrder
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		orders, total, err := uc.salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{
 			Limit: perPage, Offset: (page - 1) * perPage, SortBy: in.SortBy, SortDir: in.SortDir,
-			NeedsStockReview: in.NeedsStockReview, NeedsSKUReview: in.NeedsSKUReview, Fulfilled: in.Fulfilled, Packed: in.Packed,
+			NeedsStockReview: in.NeedsStockReview, NeedsSKUReview: in.NeedsSKUReview, Fulfilled: in.Fulfilled, Packed: in.Packed, AwaitingPicking: in.AwaitingPicking,
 			Status: in.Status, Source: in.Source, CustomerID: in.CustomerID,
 		})
 		if err != nil {

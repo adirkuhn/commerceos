@@ -93,6 +93,18 @@ func TestStartOrResumePicking_rejectsWhenPackingSessionInProgress(t *testing.T) 
 	assert.Empty(t, sessionRepo.created)
 }
 
+func TestStartOrResumePicking_rejectsPOSOrder(t *testing.T) {
+	db := newMockGormDB(t)
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing}}
+	sessionRepo := &stubPickingSessionRepo{}
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{})
+
+	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
+
+	assert.ErrorIs(t, err, omsDomain.ErrPOSOrderNotFulfillable)
+	assert.Empty(t, sessionRepo.created)
+}
+
 func TestStartOrResumePicking_propagatesSalesOrderNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDErr: omsDomain.ErrSalesOrderNotFound}

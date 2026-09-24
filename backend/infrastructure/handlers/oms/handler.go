@@ -303,7 +303,7 @@ func (h *Handler) ListSalesOrders(c *gin.Context, params genoms.ListSalesOrdersP
 	result, err := h.listSalesOrders.Execute(c.Request.Context(), appoms.ListSalesOrdersInput{
 		Page: page, PerPage: perPage, SortBy: sortBy, SortDir: sortDir,
 		NeedsStockReview: params.NeedsStockReview, NeedsSKUReview: params.NeedsSkuReview,
-		Fulfilled: params.Fulfilled, Packed: params.Packed, Status: statuses, Source: sources, CustomerID: params.CustomerId,
+		Fulfilled: params.Fulfilled, Packed: params.Packed, AwaitingPicking: params.AwaitingPicking != nil && *params.AwaitingPicking, Status: statuses, Source: sources, CustomerID: params.CustomerId,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -838,7 +838,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, omsDomain.ErrRefundRequiresLinkedSKU), errors.Is(err, pmsDomain.ErrWeightRequiredForPerWeightSKU),
 		errors.Is(err, pmsDomain.ErrInvalidCheckDigit), errors.Is(err, omsDomain.ErrPickingSessionAlreadyCompleted),
 		errors.Is(err, omsDomain.ErrPackingSessionNotActive), errors.Is(err, omsDomain.ErrPackingSessionAlreadyCompleted),
-		errors.Is(err, omsDomain.ErrOrderNotPackable), errors.Is(err, omsDomain.ErrPOSOrderNotPackable), errors.Is(err, omsDomain.ErrOrderAlreadyPacked), errors.Is(err, omsDomain.ErrOrderNotPickable),
+		errors.Is(err, omsDomain.ErrOrderNotPackable), errors.Is(err, omsDomain.ErrPOSOrderNotFulfillable), errors.Is(err, omsDomain.ErrOrderAlreadyPacked), errors.Is(err, omsDomain.ErrOrderNotPickable),
 		errors.Is(err, omsDomain.ErrPickListOrderIDsRequired), errors.Is(err, omsDomain.ErrPickListTooManyOrders),
 		errors.Is(err, omsDomain.ErrPackScanCodeOrSKURequired), errors.Is(err, omsDomain.ErrPackScanSKUMismatch),
 		errors.Is(err, omsDomain.ErrPackQuantityExceedsOrdered):

@@ -127,6 +127,23 @@ func TestStartPackingAndPicking_passTheCallersAdminRightsAsLockActor(t *testing.
 	}
 }
 
+func TestListSalesOrders_passesAwaitingPickingThrough(t *testing.T) {
+	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{}}
+	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}),
+		"GET", "/api/v1/sales-orders?awaiting_picking=true", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, list.gotInput.AwaitingPicking)
+}
+
+func TestMarkOrderPicked_posOrderIsUnprocessable(t *testing.T) {
+	s := newLockStubs()
+	s.markPicked.err = omsDomain.ErrPOSOrderNotFulfillable
+	w := doRequest(newTestRouterAs(middleware.RoleCustomerUser, s), "POST", "/api/v1/sales-orders/so-1/mark-picked", nil)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
 func TestStartOrResumePacking_pendingPickingChangesIsConflict(t *testing.T) {
 	s := newLockStubs()
 	s.startPacking.err = omsDomain.ErrPickingSessionHasPendingChanges

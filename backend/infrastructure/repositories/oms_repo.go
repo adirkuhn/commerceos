@@ -304,6 +304,11 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 	if filter.Packed != nil {
 		q = q.Where("packed = ?", *filter.Packed)
 	}
+	if filter.AwaitingPicking {
+		q = q.Where("fulfilled = false").
+			Where("status IN ?", salesOrderStatusStrings(omsDomain.PickableStatuses())).
+			Where("source <> ?", string(omsDomain.SalesOrderSourcePOS))
+	}
 	if filter.AwaitingPacking {
 		q = q.Where("packed = false").
 			Where("status IN ?", salesOrderStatusStrings(omsDomain.PickableStatuses())).

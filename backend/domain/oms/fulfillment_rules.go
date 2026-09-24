@@ -20,9 +20,10 @@ func PickableStatuses() []SalesOrderStatus {
 	return []SalesOrderStatus{SalesOrderStatusPending, SalesOrderStatusProcessing, SalesOrderStatusOnHold}
 }
 
-// IsPackable reports whether orders from this source go through packing --
-// a POS sale is handed over at the counter, there's nothing to pack or ship.
-func (s SalesOrderSource) IsPackable() bool {
+// IsFulfillable reports whether orders from this source go through picking
+// and packing -- a POS sale is handed over at the counter, there's nothing
+// to pick, pack or ship.
+func (s SalesOrderSource) IsFulfillable() bool {
 	return s != SalesOrderSourcePOS
 }
 
@@ -38,8 +39,8 @@ func (o SalesOrder) CanStartPacking() error {
 	if o.Packed {
 		return ErrOrderAlreadyPacked
 	}
-	if !o.Source.IsPackable() {
-		return ErrPOSOrderNotPackable
+	if !o.Source.IsFulfillable() {
+		return ErrPOSOrderNotFulfillable
 	}
 	if !o.Status.IsPickable() {
 		return ErrOrderNotPackable
@@ -50,6 +51,9 @@ func (o SalesOrder) CanStartPacking() error {
 // CanStartPicking is CanStartPacking's picking-side counterpart.
 // packingInProgress is whether the order has an in_progress packing session.
 func (o SalesOrder) CanStartPicking(packingInProgress bool) error {
+	if !o.Source.IsFulfillable() {
+		return ErrPOSOrderNotFulfillable
+	}
 	if o.Fulfilled {
 		return ErrOrderAlreadyFulfilled
 	}

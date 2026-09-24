@@ -113,9 +113,10 @@ var (
 	// ErrOrderNotPickable guards SalesOrder.CanMarkPicked -- only a
 	// pending/processing/on-hold order can still be picked.
 	ErrOrderNotPickable = errors.New("sales order status does not allow picking")
-	// ErrPOSOrderNotPackable guards SalesOrder.CanStartPacking -- a POS sale
-	// is handed over at the counter and never packed.
-	ErrPOSOrderNotPackable = errors.New("point-of-sale orders are not packed")
+	// ErrPOSOrderNotFulfillable guards SalesOrder.CanStartPicking/
+	// CanStartPacking -- a POS sale is handed over at the counter, never
+	// picked or packed.
+	ErrPOSOrderNotFulfillable = errors.New("point-of-sale orders are not picked or packed")
 	// ErrOrderPickingInProgress guards SalesOrder.CanStartPacking against an
 	// order with an open (in_progress/paused) picking session -- finish or
 	// reset that session first.
