@@ -237,6 +237,22 @@ func (r *PackScanRepo) MarkReplayed(ctx context.Context, id string, replayedAt t
 	return nil
 }
 
+// SessionIDsWithScans -- see PackScanRepository.SessionIDsWithScans.
+func (r *PackScanRepo) SessionIDsWithScans(ctx context.Context, sessionIDs []string) ([]string, error) {
+	if len(sessionIDs) == 0 {
+		return nil, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	if err := tx.Model(&packScanModel{}).Distinct("session_id").Where("session_id IN ?", sessionIDs).Pluck("session_id", &ids).Error; err != nil {
+		return nil, fmt.Errorf("packScanRepo.SessionIDsWithScans: %w", err)
+	}
+	return ids, nil
+}
+
 func (r *PackScanRepo) Delete(ctx context.Context, id string) error {
 	tx, err := r.tx(ctx)
 	if err != nil {

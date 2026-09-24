@@ -136,6 +136,7 @@ type Handler struct {
 
 	resolvePackScanCode resolvePickScanCodeUC
 	locks               SessionLockUseCases
+	listPickingQueue    listPackingQueueUC
 }
 
 func NewHandler(
@@ -154,7 +155,7 @@ func NewHandler(
 	touchPackingSession touchPackingSessionUC, resetPackingSession resetPackingSessionUC,
 	scanPackItem scanPackItemUC, deletePackScan deletePackScanUC, completePacking completePackingUC,
 	buildPickList buildPickListUC, listPackingQueue listPackingQueueUC, markOrderPicked markOrderPickedUC,
-	resolvePackScanCode resolvePickScanCodeUC, locks SessionLockUseCases,
+	resolvePackScanCode resolvePickScanCodeUC, locks SessionLockUseCases, listPickingQueue listPackingQueueUC,
 ) *Handler {
 	return &Handler{
 		listSalesOrders: listSalesOrders, getSalesOrder: getSalesOrder,
@@ -172,7 +173,7 @@ func NewHandler(
 		touchPackingSession: touchPackingSession, resetPackingSession: resetPackingSession,
 		scanPackItem: scanPackItem, deletePackScan: deletePackScan, completePacking: completePacking,
 		buildPickList: buildPickList, listPackingQueue: listPackingQueue, markOrderPicked: markOrderPicked,
-		resolvePackScanCode: resolvePackScanCode, locks: locks,
+		resolvePackScanCode: resolvePackScanCode, locks: locks, listPickingQueue: listPickingQueue,
 	}
 }
 
@@ -248,7 +249,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock),
 		appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock),
 		addLineItem,
-		appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo),
+		appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo, packScanRepo),
 		appoms.NewGetPickingSessionUseCase(db, pickingSessionRepo, lineItemRepo, pickScanRepo, skuRepo, variantRepo),
 		appoms.NewTouchPickingSessionUseCase(db, pickingSessionRepo),
 		appoms.NewResetPickingSessionUseCase(db, pickingSessionRepo, pickScanRepo),
@@ -274,8 +275,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewDeletePackScanUseCase(db, packingSessionRepo, packScanRepo),
 		appoms.NewCompletePackingUseCase(db, packingSessionRepo, salesOrderRepo, lineItemRepo, packScanRepo, orderChangeApplier),
 		appoms.NewBuildPickListUseCase(db, salesOrderRepo, lineItemRepo),
-		appoms.NewListPackingQueueUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo),
-		appoms.NewMarkOrderPickedUseCase(db, salesOrderRepo, packingSessionRepo, pickingSessionRepo, pickScanRepo, repositories.NewSalesOrderActivityRepo(db)),
+		appoms.NewListPackingQueueUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo, packScanRepo),
+		appoms.NewMarkOrderPickedUseCase(db, salesOrderRepo, packingSessionRepo, packScanRepo, pickingSessionRepo, pickScanRepo, repositories.NewSalesOrderActivityRepo(db)),
 		appoms.NewResolvePackScanCodeUseCase(db, packingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
 		SessionLockUseCases{
 			ReleasePacking:  appoms.NewReleasePackingSessionLockUseCase(db, packingSessionRepo),
@@ -283,6 +284,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 			TakeOverPacking: appoms.NewTakeOverPackingSessionUseCase(db, packingSessionRepo),
 			TakeOverPicking: appoms.NewTakeOverPickingSessionUseCase(db, pickingSessionRepo),
 		},
+		appoms.NewListPickingQueueUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo, packScanRepo),
 	)
 	genoms.RegisterHandlers(rg, h)
 }

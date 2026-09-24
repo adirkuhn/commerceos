@@ -580,6 +580,18 @@ type stubPackScanRepo struct {
 	deleted       []string
 	markReplayed  []string
 	markErr       error
+
+	sessionsWithScans []string
+	withScansErr      error
+	gotSessionIDs     []string
+}
+
+func (s *stubPackScanRepo) SessionIDsWithScans(_ context.Context, ids []string) ([]string, error) {
+	s.gotSessionIDs = ids
+	if s.withScansErr != nil {
+		return nil, s.withScansErr
+	}
+	return s.sessionsWithScans, nil
 }
 
 func (s *stubPackScanRepo) MarkReplayed(_ context.Context, id string, _ time.Time) error {

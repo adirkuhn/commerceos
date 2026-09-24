@@ -19,7 +19,7 @@ type markOrderPickedUC interface {
 }
 
 type listPackingQueueUC interface {
-	Execute(ctx context.Context, page, perPage int) (*appoms.ListPackingQueueResult, error)
+	Execute(ctx context.Context, page, perPage int) (*appoms.ListQueueResult, error)
 }
 
 // lockActorFrom maps the caller's JWT to who is asking for a session lock:
@@ -38,30 +38,38 @@ func lockActorFrom(claims *middleware.Claims) omsDomain.LockActor {
 }
 
 func (h *Handler) ListPackingQueue(c *gin.Context, params genoms.ListPackingQueueParams) {
+	h.respondWithQueue(c, h.listPackingQueue, params.Page, params.PerPage)
+}
+
+func (h *Handler) ListPickingQueue(c *gin.Context, params genoms.ListPickingQueueParams) {
+	h.respondWithQueue(c, h.listPickingQueue, params.Page, params.PerPage)
+}
+
+func (h *Handler) respondWithQueue(c *gin.Context, uc listPackingQueueUC, pageParam, perPageParam *int) {
 	page, perPage := 1, 20
-	if params.Page != nil {
-		page = *params.Page
+	if pageParam != nil {
+		page = *pageParam
 	}
-	if params.PerPage != nil {
-		perPage = *params.PerPage
+	if perPageParam != nil {
+		perPage = *perPageParam
 	}
-	result, err := h.listPackingQueue.Execute(c.Request.Context(), page, perPage)
+	result, err := uc.Execute(c.Request.Context(), page, perPage)
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	entries := make([]genoms.PackingQueueEntry, len(result.Entries))
+	entries := make([]genoms.QueueEntry, len(result.Entries))
 	for i, e := range result.Entries {
-		entries[i] = genoms.PackingQueueEntry{SalesOrder: toGenSalesOrder(e.Order), Lock: toGenQueueLock(e.Lock)}
+		entries[i] = genoms.QueueEntry{SalesOrder: toGenSalesOrder(e.Order), Lock: toGenQueueLock(e.Lock), InPacking: e.InPacking}
 	}
-	resp := genoms.PackingQueue{Entries: entries, Total: result.Total}
-	c.JSON(http.StatusOK, genoms.PackingQueueResponse{Data: &resp})
+	resp := genoms.OrderQueue{Entries: entries, Total: result.Total}
+	c.JSON(http.StatusOK, genoms.OrderQueueResponse{Data: &resp})
 }
 
-func toGenQueueLock(l *omsDomain.QueueLock) *genoms.PackingQueueLock {
+func toGenQueueLock(l *omsDomain.QueueLock) *genoms.QueueLock {
 	if l == nil {
 		return nil
 	}
-	return &genoms.PackingQueueLock{Activity: genoms.PackingQueueLockActivity(l.Activity), UserId: l.UserID, Since: l.Since}
+	return &genoms.QueueLock{Activity: genoms.QueueLockActivity(l.Activity), UserId: l.UserID, Since: l.Since}
 }
 
 // MarkOrderPicked is the picking module's list mode -- see

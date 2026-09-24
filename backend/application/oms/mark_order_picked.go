@@ -28,13 +28,14 @@ type MarkOrderPickedUseCase struct {
 	db           *gorm.DB
 	orderRepo    omsDomain.SalesOrderRepository
 	packingRepo  activeSessionFinderForMarkPicked
+	packScans    packSessionScanChecker
 	pickingRepo  pickingSessionTakeover
 	pickScanRepo pickScanLister
 	activityRepo activityCreator
 }
 
-func NewMarkOrderPickedUseCase(db *gorm.DB, orderRepo omsDomain.SalesOrderRepository, packingRepo activeSessionFinderForMarkPicked, pickingRepo pickingSessionTakeover, pickScanRepo pickScanLister, activityRepo activityCreator) *MarkOrderPickedUseCase {
-	return &MarkOrderPickedUseCase{db: db, orderRepo: orderRepo, packingRepo: packingRepo, pickingRepo: pickingRepo, pickScanRepo: pickScanRepo, activityRepo: activityRepo}
+func NewMarkOrderPickedUseCase(db *gorm.DB, orderRepo omsDomain.SalesOrderRepository, packingRepo activeSessionFinderForMarkPicked, packScans packSessionScanChecker, pickingRepo pickingSessionTakeover, pickScanRepo pickScanLister, activityRepo activityCreator) *MarkOrderPickedUseCase {
+	return &MarkOrderPickedUseCase{db: db, orderRepo: orderRepo, packingRepo: packingRepo, packScans: packScans, pickingRepo: pickingRepo, pickScanRepo: pickScanRepo, activityRepo: activityRepo}
 }
 
 func (uc *MarkOrderPickedUseCase) Execute(ctx context.Context, salesOrderID string, actor omsDomain.LockActor) error {
@@ -47,10 +48,14 @@ func (uc *MarkOrderPickedUseCase) Execute(ctx context.Context, salesOrderID stri
 		if err != nil {
 			return err
 		}
-		if err := order.CanMarkPicked(packing != nil); err != nil {
+		now := time.Now()
+		inPacking, err := packingBlocksPicking(ctx, uc.packScans, packing, now)
+		if err != nil {
 			return err
 		}
-		now := time.Now()
+		if err := order.CanMarkPicked(inPacking); err != nil {
+			return err
+		}
 		if err := abandonOpenPicking(ctx, uc.pickingRepo, uc.pickScanRepo, salesOrderID, actor, now); err != nil {
 			return err
 		}

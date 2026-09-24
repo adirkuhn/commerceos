@@ -140,6 +140,31 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /picking-queue:
+    get:
+      operationId: listPickingQueue
+      summary: >
+        Picking screens' order queue -- every order still to be picked
+        (not yet picked, pending/processing/on-hold, not a point-of-sale
+        sale). Each entry carries who is actively working it (lock) and
+        whether packing has it (in_packing: someone is packing it, or
+        packing already recorded something) -- such orders are shown as a
+        read-only item list.
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderQueueResponse'
+
   /packing-queue:
     get:
       operationId: listPackingQueue
@@ -164,7 +189,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PackingQueueResponse'
+                $ref: '#/components/schemas/OrderQueueResponse'
 
   /sales-orders/pick-list:
     get:
@@ -1173,7 +1198,7 @@ components:
         data: { $ref: '#/components/schemas/SalesOrderList' }
         error: { nullable: true }
 
-    PackingQueueLock:
+    QueueLock:
       type: object
       required: [activity, user_id, since]
       properties:
@@ -1188,29 +1213,35 @@ components:
           format: date-time
           description: When the holder acquired the lock.
 
-    PackingQueueEntry:
+    QueueEntry:
       type: object
-      required: [sales_order, lock]
+      required: [sales_order, lock, in_packing]
       properties:
         sales_order: { $ref: '#/components/schemas/SalesOrder' }
+        in_packing:
+          type: boolean
+          description: >-
+            Packing has this order -- someone is actively packing it, or
+            packing already recorded something. The picking screens show it
+            as a read-only item list.
         lock:
           allOf:
-            - $ref: '#/components/schemas/PackingQueueLock'
+            - $ref: '#/components/schemas/QueueLock'
           nullable: true
 
-    PackingQueue:
+    OrderQueue:
       type: object
       required: [entries, total]
       properties:
         entries:
           type: array
-          items: { $ref: '#/components/schemas/PackingQueueEntry' }
+          items: { $ref: '#/components/schemas/QueueEntry' }
         total: { type: integer, format: int64 }
 
-    PackingQueueResponse:
+    OrderQueueResponse:
       type: object
       properties:
-        data: { $ref: '#/components/schemas/PackingQueue' }
+        data: { $ref: '#/components/schemas/OrderQueue' }
         error: { nullable: true }
 
     PickListOrderLine:

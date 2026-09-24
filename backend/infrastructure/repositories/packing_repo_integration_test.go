@@ -346,3 +346,47 @@ func TestPackScanRepo_Integration_OrderChangesRoundTripAndMarkReplayed(t *testin
 	assert.Equal(t, int64(250), *extra.PriceMinorUnits)
 	assert.Nil(t, extra.ReplayedAt)
 }
+
+func TestPackScanRepo_Integration_SessionIDsWithScans(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	sessionRepo := repositories.NewPackingSessionRepo(db)
+	scanRepo := repositories.NewPackScanRepo(db)
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	orderID, lineItemID := seedSalesOrderWithLineItemForPackingDB(t, db, ctx, skuID, warehouseID)
+
+	var withScan, empty string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		for _, id := range []*string{&withScan, &empty} {
+			s := omsDomain.PackingSession{TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, Status: omsDomain.PackingSessionStatusCompleted, StartedAt: time.Now()}
+			if err := sessionRepo.Create(ctx, &s); err != nil {
+				return err
+			}
+			*id = s.ID
+		}
+		for i := 0; i < 2; i++ {
+			if err := scanRepo.Create(ctx, &omsDomain.PackScan{TenantID: tenant.IDFromContext(ctx), SessionID: withScan, LineItemID: &lineItemID, SKUID: skuID, Quantity: 1, ScannedAt: time.Now()}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var got []string
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		got, err = scanRepo.SessionIDsWithScans(ctx, []string{withScan, empty})
+		return err
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{withScan}, got)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		got, err = scanRepo.SessionIDsWithScans(ctx, nil)
+		return err
+	})
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}

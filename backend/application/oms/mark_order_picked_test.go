@@ -17,18 +17,19 @@ type markPickedFixture struct {
 	packing    *stubPackingSessionRepo
 	picking    *stubPickingSessionRepo
 	scans      *stubPickScanRepo
+	packScans  *stubPackScanRepo
 	activities *stubSalesOrderActivityRepo
 }
 
 func newMarkPickedFixture(order omsDomain.SalesOrder) markPickedFixture {
 	return markPickedFixture{
 		orders: &stubSalesOrderRepo{findByIDResult: &order}, packing: &stubPackingSessionRepo{},
-		picking: &stubPickingSessionRepo{}, scans: &stubPickScanRepo{}, activities: &stubSalesOrderActivityRepo{},
+		picking: &stubPickingSessionRepo{}, scans: &stubPickScanRepo{}, packScans: &stubPackScanRepo{}, activities: &stubSalesOrderActivityRepo{},
 	}
 }
 
 func (f markPickedFixture) run(t *testing.T, actor omsDomain.LockActor) error {
-	uc := appoms.NewMarkOrderPickedUseCase(newMockGormDB(t), f.orders, f.packing, f.picking, f.scans, f.activities)
+	uc := appoms.NewMarkOrderPickedUseCase(newMockGormDB(t), f.orders, f.packing, f.packScans, f.picking, f.scans, f.activities)
 	return uc.Execute(context.Background(), "order-1", actor)
 }
 
@@ -70,6 +71,7 @@ func TestMarkOrderPicked_rejectsPOSOrder(t *testing.T) {
 func TestMarkOrderPicked_rejectsWhilePacking(t *testing.T) {
 	f := newMarkPickedFixture(omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing})
 	f.packing.activeResult = &omsDomain.PackingSession{ID: "pack-1", Status: omsDomain.PackingSessionStatusInProgress}
+	f.packScans.sessionsWithScans = []string{"pack-1"}
 
 	err := f.run(t, omsDomain.LockActor{UserID: "user-1"})
 

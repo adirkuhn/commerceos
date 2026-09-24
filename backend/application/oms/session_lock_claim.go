@@ -42,3 +42,16 @@ func claimPickingLock(ctx context.Context, repo pickingLockAcquirer, s *omsDomai
 	s.ApplyLock(s.Lock().AcquiredBy(userID, now))
 	return nil
 }
+
+// packingBlocksPicking reports whether an order's open packing session (nil
+// when none) keeps picking out -- see PackingSession.BlocksPicking.
+func packingBlocksPicking(ctx context.Context, scans packSessionScanChecker, packing *omsDomain.PackingSession, now time.Time) (bool, error) {
+	if packing == nil {
+		return false, nil
+	}
+	withScans, err := scans.SessionIDsWithScans(ctx, []string{packing.ID})
+	if err != nil {
+		return false, err
+	}
+	return packing.BlocksPicking(len(withScans) > 0, now), nil
+}

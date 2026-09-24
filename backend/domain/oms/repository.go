@@ -54,7 +54,7 @@ type ListSalesOrdersFilter struct {
 	// SalesOrder.CanStartPacking: not packed, not a POS sale, and still in a
 	// pickable status (see PickableStatuses), picked or not. Orders being
 	// picked right now are included; the queue shows them locked (see
-	// PackingQueueEntry). false means "don't filter on this".
+	// QueueEntry). false means "don't filter on this".
 	AwaitingPacking bool
 	// AwaitingPicking true narrows to the picking queue -- the SQL form of
 	// SalesOrder.CanMarkPicked: not yet picked (Fulfilled false), still in a
@@ -269,4 +269,7 @@ type PackScanRepository interface {
 	// MarkReplayed records that CompletePackingUseCase applied this row's
 	// order change -- see PackScan.ReplayedAt.
 	MarkReplayed(ctx context.Context, id string, replayedAt time.Time) error
+	// SessionIDsWithScans returns which of the given sessions have at least
+	// one scan -- see PackingSession.BlocksPicking.
+	SessionIDsWithScans(ctx context.Context, sessionIDs []string) ([]string, error)
 }

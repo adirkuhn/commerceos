@@ -22,6 +22,7 @@ type StartOrResumePickingUseCase struct {
 	salesOrderRepo omsDomain.SalesOrderRepository
 	sessionRepo    omsDomain.PickingSessionRepository
 	packingRepo    activePackingSessionFinder
+	packScans      packSessionScanChecker
 }
 
 // activePackingSessionFinder is the one PackingSessionRepository method
@@ -30,8 +31,8 @@ type activePackingSessionFinder interface {
 	FindActiveBySalesOrder(ctx context.Context, salesOrderID string) (*omsDomain.PackingSession, error)
 }
 
-func NewStartOrResumePickingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, sessionRepo omsDomain.PickingSessionRepository, packingRepo activePackingSessionFinder) *StartOrResumePickingUseCase {
-	return &StartOrResumePickingUseCase{db: db, salesOrderRepo: salesOrderRepo, sessionRepo: sessionRepo, packingRepo: packingRepo}
+func NewStartOrResumePickingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, sessionRepo omsDomain.PickingSessionRepository, packingRepo activePackingSessionFinder, packScans packSessionScanChecker) *StartOrResumePickingUseCase {
+	return &StartOrResumePickingUseCase{db: db, salesOrderRepo: salesOrderRepo, sessionRepo: sessionRepo, packingRepo: packingRepo, packScans: packScans}
 }
 
 func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID string, actor omsDomain.LockActor) (*omsDomain.PickingSession, error) {
@@ -45,7 +46,11 @@ func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID
 		if err != nil {
 			return err
 		}
-		if err := order.CanStartPicking(packing != nil); err != nil {
+		inPacking, err := packingBlocksPicking(ctx, uc.packScans, packing, time.Now())
+		if err != nil {
+			return err
+		}
+		if err := order.CanStartPicking(inPacking); err != nil {
 			return err
 		}
 
