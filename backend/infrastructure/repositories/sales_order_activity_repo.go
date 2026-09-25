@@ -13,13 +13,13 @@ import (
 )
 
 type salesOrderActivityModel struct {
-	ID           string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID     string    `gorm:"not null;type:uuid"`
-	SalesOrderID string    `gorm:"column:sales_order_id;not null;type:uuid"`
-	UserID       string    `gorm:"column:user_id;not null;type:uuid"`
-	ActivityType string    `gorm:"column:activity_type;not null"`
-	Summary      string    `gorm:"not null"`
-	Metadata     []byte    `gorm:"type:jsonb;not null"`
+	ID           string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID     string `gorm:"not null;type:uuid"`
+	SalesOrderID string `gorm:"column:sales_order_id;not null;type:uuid"`
+	UserID       string `gorm:"column:user_id;not null;type:uuid"`
+	ActivityType string `gorm:"column:activity_type;not null"`
+	Summary      string `gorm:"not null"`
+	Metadata     []byte `gorm:"type:jsonb;not null"`
 	CreatedAt    time.Time
 }
 

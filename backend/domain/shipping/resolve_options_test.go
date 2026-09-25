@@ -99,7 +99,7 @@ func TestResolveOptions_notInsuredDoesNotForceSignatureOrOnlyRecipient(t *testin
 // at all, regardless of what the connection/carrier defaults say.
 func TestResolveOptions_mailboxPackage_forcesOptionsOff(t *testing.T) {
 	settings := &shipping.ShippingConnectionSettings{
-		DefaultPackageType: shipping.PackageTypeMailboxPackage,
+		DefaultPackageType:       shipping.PackageTypeMailboxPackage,
 		DefaultSignatureRequired: true, DefaultOnlyRecipient: true, InsureByDefault: true,
 	}
 

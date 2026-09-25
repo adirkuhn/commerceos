@@ -27,7 +27,9 @@ func (webhookForwardRuleModel) TableName() string { return "webhook_forward_rule
 
 type WebhookForwardRuleRepo struct{ db *gorm.DB }
 
-func NewWebhookForwardRuleRepo(db *gorm.DB) *WebhookForwardRuleRepo { return &WebhookForwardRuleRepo{db: db} }
+func NewWebhookForwardRuleRepo(db *gorm.DB) *WebhookForwardRuleRepo {
+	return &WebhookForwardRuleRepo{db: db}
+}
 
 func (r *WebhookForwardRuleRepo) tx(ctx context.Context) (*gorm.DB, error) {
 	tx, ok := txctx.FromContext(ctx)

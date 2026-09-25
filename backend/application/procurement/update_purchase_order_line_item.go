@@ -11,11 +11,11 @@ import (
 )
 
 type UpdatePurchaseOrderLineItemInput struct {
-	ID                 string
-	SKUID              *string
-	RawSKU             string
-	RawDescription     string
-	Quantity           int64
+	ID             string
+	SKUID          *string
+	RawSKU         string
+	RawDescription string
+	Quantity       int64
 	// UnitsPerPurchasedItem defaults to 1 (an ordinary line) when zero --
 	// see PurchaseOrderLineItem's doc comment for the case/box scenario
 	// that needs it set higher.

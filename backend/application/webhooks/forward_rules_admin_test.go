@@ -133,7 +133,9 @@ func (f *fakeForwardDeliveryRepoAdmin) Create(ctx context.Context, d *webhooks.F
 func (f *fakeForwardDeliveryRepoAdmin) ListDue(ctx context.Context, now time.Time, limit int) ([]webhooks.ForwardDelivery, error) {
 	return nil, nil
 }
-func (f *fakeForwardDeliveryRepoAdmin) MarkDelivered(ctx context.Context, id string) error { return nil }
+func (f *fakeForwardDeliveryRepoAdmin) MarkDelivered(ctx context.Context, id string) error {
+	return nil
+}
 func (f *fakeForwardDeliveryRepoAdmin) MarkFailed(ctx context.Context, id string, errMsg string, nextAttemptAt time.Time, maxAttempts int) error {
 	return nil
 }

@@ -39,7 +39,7 @@ func TestCompanyProfileRepo_UpsertThenGet(t *testing.T) {
 	first := &settingsDomain.CompanyProfile{
 		TenantID: tenantID, LegalName: "First B.V.", VATNumber: "NL123456789B01",
 		Address: settingsDomain.CompanyAddress{Street: "Damrak", HouseNumber: "1", PostalCode: "1012 LG", City: "Amsterdam", Country: "NL"},
-		IBAN: "NL91ABNA0417164300", UpdatedAt: now,
+		IBAN:    "NL91ABNA0417164300", UpdatedAt: now,
 	}
 	second := *first
 	second.LegalName = "Second B.V."

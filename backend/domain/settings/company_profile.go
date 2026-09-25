@@ -131,7 +131,7 @@ func isValidIBAN(iban string) bool {
 	var digits strings.Builder
 	for _, r := range rearranged {
 		if r >= 'A' && r <= 'Z' {
-			digits.WriteString(big.NewInt(int64(r-'A'+10)).String())
+			digits.WriteString(big.NewInt(int64(r - 'A' + 10)).String())
 		} else {
 			digits.WriteRune(r)
 		}

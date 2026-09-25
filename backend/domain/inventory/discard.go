@@ -24,9 +24,9 @@ type DiscardRecord struct {
 	// write-off, and the scanner Discard app), so the unified discarded/
 	// damaged/lost list can distinguish them instead of collapsing every
 	// row to one fixed reason.
-	Type       MovementType
-	Quantity   int64
-	Reason     string
+	Type     MovementType
+	Quantity int64
+	Reason   string
 	// PhotoURL is nil when no photo was attached.
 	PhotoURL    *string
 	DiscardedBy string

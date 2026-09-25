@@ -73,5 +73,5 @@ type TenantSettings struct {
 	RecommendationsLookbackDays int
 	// PickingMode is how the picking module works -- see PickingMode.
 	PickingMode PickingMode
-	UpdatedAt                   time.Time
+	UpdatedAt   time.Time
 }

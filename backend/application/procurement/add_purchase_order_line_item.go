@@ -11,11 +11,11 @@ import (
 )
 
 type AddPurchaseOrderLineItemInput struct {
-	PurchaseOrderID    string
-	SKUID              *string
-	RawSKU             string
-	RawDescription     string
-	Quantity           int64
+	PurchaseOrderID string
+	SKUID           *string
+	RawSKU          string
+	RawDescription  string
+	Quantity        int64
 	// UnitsPerPurchasedItem defaults to 1 (an ordinary line) when zero --
 	// see PurchaseOrderLineItem's doc comment for the case/box scenario
 	// that needs it set higher.
@@ -65,7 +65,7 @@ func (uc *AddPurchaseOrderLineItemUseCase) Execute(ctx context.Context, in AddPu
 		li = procurementDomain.PurchaseOrderLineItem{
 			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: in.PurchaseOrderID, SKUID: in.SKUID, RawSKU: in.RawSKU,
 			RawDescription: in.RawDescription, Position: nextPosition, Quantity: in.Quantity, UnitCostMinorUnits: in.UnitCostMinorUnits,
-				UnitsPerPurchasedItem: unitsPerPurchasedItem,
+			UnitsPerPurchasedItem: unitsPerPurchasedItem,
 			// A human is adding this line item directly -- no ambiguity to
 			// review, confirmed immediately.
 			LineType: in.LineType, LineTypeConfirmed: true,

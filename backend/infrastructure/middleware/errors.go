@@ -13,7 +13,7 @@ type APIError struct {
 }
 
 type APIResponse struct {
-	Data  any      `json:"data"`
+	Data  any       `json:"data"`
 	Error *APIError `json:"error"`
 }
 

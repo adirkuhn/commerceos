@@ -14,15 +14,15 @@ import (
 )
 
 type tenantSettingsModel struct {
-	TenantID                       string `gorm:"primaryKey;type:uuid"`
-	DefaultCurrency                string `gorm:"not null;default:''"`
-	Timezone                       string `gorm:"not null;default:''"`
-	DateFormat                     string `gorm:"column:date_format;not null;default:''"`
-	Language                       string `gorm:"not null;default:''"`
-	PricesIncludeTax               bool   `gorm:"not null;default:true"`
-	DefaultTaxCountry              string `gorm:"not null;default:''"`
-	InventorySyncRulesEnabled      bool   `gorm:"not null;default:false"`
-	BatchExpiryThresholdDays       int    `gorm:"not null;default:0"`
+	TenantID                       string  `gorm:"primaryKey;type:uuid"`
+	DefaultCurrency                string  `gorm:"not null;default:''"`
+	Timezone                       string  `gorm:"not null;default:''"`
+	DateFormat                     string  `gorm:"column:date_format;not null;default:''"`
+	Language                       string  `gorm:"not null;default:''"`
+	PricesIncludeTax               bool    `gorm:"not null;default:true"`
+	DefaultTaxCountry              string  `gorm:"not null;default:''"`
+	InventorySyncRulesEnabled      bool    `gorm:"not null;default:false"`
+	BatchExpiryThresholdDays       int     `gorm:"not null;default:0"`
 	DefaultTargetMarkupBasisPoints int     `gorm:"column:default_target_markup_basis_points;not null;default:0"`
 	BundleConfidenceThreshold      float64 `gorm:"column:bundle_confidence_threshold;not null;default:0.30"`
 	RecommendationsMinSupport      int     `gorm:"column:recommendations_min_support;not null;default:2"`
@@ -74,9 +74,9 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 		DefaultTaxCountry: s.DefaultTaxCountry, InventorySyncRulesEnabled: s.InventorySyncRulesEnabled,
 		BatchExpiryThresholdDays:       s.BatchExpiryThresholdDays,
 		DefaultTargetMarkupBasisPoints: s.DefaultTargetMarkupBasisPoints,
-		BundleConfidenceThreshold:   s.BundleConfidenceThreshold,
-		RecommendationsMinSupport:   s.RecommendationsMinSupport,
-		RecommendationsLookbackDays: s.RecommendationsLookbackDays, PickingMode: string(pickingMode), UpdatedAt: s.UpdatedAt,
+		BundleConfidenceThreshold:      s.BundleConfidenceThreshold,
+		RecommendationsMinSupport:      s.RecommendationsMinSupport,
+		RecommendationsLookbackDays:    s.RecommendationsLookbackDays, PickingMode: string(pickingMode), UpdatedAt: s.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "tenant_id"}},
