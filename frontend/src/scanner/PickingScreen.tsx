@@ -1,67 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, PackageCheck, Camera, X, Package, Gift, PackagePlus, Undo2, Lock } from 'lucide-react'
+import { ArrowLeft, Check, PackageCheck, Camera, Gift, PackagePlus, Undo2, Lock } from 'lucide-react'
 import { useSessionLock } from '../fulfillment/useSessionLock'
 import { readClaims } from '../auth/jwtClaims'
 import { useMemberNames } from '../team/hooks/useMemberNames'
 import { canTakeOverLocks, formatLockAge } from '../packing/lockDisplay'
 import * as api from './api'
 import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
-import { useProductMedia } from '../pms/hooks/useProductMedia'
-import { QuantityStepper } from './QuantityStepper'
 import { CameraScanner } from './CameraScanner'
 import { ProductCandidateRow } from './ProductCandidateRow'
 import { playErrorSound } from './errorSound'
 import { useWakeLock } from './useWakeLock'
 import { computeMissingItems, pickedQuantityByLineItem } from './pickingMissingItems'
-import type {
-  PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult,
-  StockShortfall, StockShortfallResolution,
-} from './types'
+import type { PickingSessionDetail, PickingSessionLineItem, CompletePickingResult, StockShortfall, StockShortfallResolution } from './types'
 import { StockShortfallDialog } from './StockShortfallDialog'
-import type { SalesOrder, Address } from '../oms/types'
+import type { SalesOrder } from '../oms/types'
 import { Dialog } from '../components/common/Dialog'
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString()
-}
-
-function customerName(order: SalesOrder): string {
-  const name = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ')
-  return name || order.billing?.email || 'Unknown customer'
-}
-
-function shippingAddressLine(address?: Address): string {
-  if (!address) return ''
-  const streetAndLocality = [address.address_1, address.address_2, [address.postcode, address.city].filter(Boolean).join(' ')]
-    .filter(Boolean).join(', ')
-  return [streetAndLocality, address.country].filter(Boolean).join(', ')
-}
-
-// Same field set/reasoning as SalesOrders.tsx's own addressesEqual -- not
-// phone, which legitimately differs (billing contact vs. delivery contact)
-// without the addresses actually being different.
-function addressesEqual(a?: Address, b?: Address): boolean {
-  if (!a || !b) return false
-  const fields: (keyof Address)[] = ['first_name', 'last_name', 'company', 'address_1', 'address_2', 'city', 'state', 'postcode', 'country']
-  return fields.every(f => (a[f] ?? '') === (b[f] ?? ''))
-}
-
-// Falls back to a placeholder icon when the line isn't linked to a product
-// yet, or the product has no media -- same convention as BookingScreen's
-// own LineItemThumb for procurement bookings.
-function LineItemThumb({ token, name, productId }: { token: string; name: string; productId?: string | null }) {
-  const { media } = useProductMedia(token, productId ?? null)
-  const featured = media[0]
-  return (
-    <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0 overflow-hidden" title={name}>
-      {featured ? (
-        <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
-      ) : (
-        <Package size={16} className="text-gray-400" />
-      )}
-    </div>
-  )
-}
+import { PickLineSheet } from './PickingLineSheet'
+import { LineItemThumb } from './PickingLineItemThumb'
+import { addressesEqual, customerName, formatDate, isAuthError, shippingAddressLine } from './PickingDisplay'
 
 interface PickingScreenProps {
   token: string
@@ -74,10 +30,6 @@ interface PickingScreenProps {
   // (picking already has the order/token in hand) and lets ScannerApp just
   // switch screens with the result.
   onContinueToPacking: (sessionId: string, order: SalesOrder) => void
-}
-
-function isAuthError(err: unknown): boolean {
-  return err instanceof Error && /401|unauthorized/i.test(err.message)
 }
 
 export function PickingScreen({ token, sessionId, order, onExit, onAuthError, onContinueToPacking }: PickingScreenProps) {
@@ -635,81 +587,5 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
         </Dialog>
       )}
     </div>
-  )
-}
-
-// Tap a line item row (or scan/confirm its own barcode) to confirm how many
-// were picked. Picking only picks -- substitutes, extra items and refunds
-// happen in packing.
-function PickLineSheet({ lineItem, pickedSoFar, scans, onDeleteScan, onCancel, onPick }: {
-  lineItem: PickingSessionLineItem
-  pickedSoFar: number
-  scans: PickScan[]
-  onDeleteScan: (scanId: string) => void
-  onCancel: () => void
-  onPick: (quantity: number, reason?: string) => void
-}) {
-  const remaining = Math.max(lineItem.quantity - pickedSoFar, 0)
-  const [qty, setQty] = useState(String(remaining))
-  const [reason, setReason] = useState('')
-  const n = Number(qty) || 0
-
-  return (
-    <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
-      <div className="w-full max-w-sm rounded-t-2xl bg-night-900 border-t border-night-700 max-h-[85vh] overflow-y-auto">
-        <div className="flex items-start justify-between gap-3 px-5 pt-5">
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold truncate">{lineItem.name}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Picked {pickedSoFar} of {lineItem.quantity}</p>
-          </div>
-          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
-            <X size={18} />
-          </button>
-        </div>
-
-        {scans.length > 0 && (
-          <div className="px-5 pt-3 space-y-1.5">
-            <p className="text-xs text-gray-400">Already staged for this line:</p>
-            {scans.map(s => (
-              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-night-800 border border-night-700 px-3 py-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-200">Picked × {s.quantity}</p>
-                  {s.reason && <p className="text-xs text-gray-400 truncate">{s.reason}</p>}
-                </div>
-                <button aria-label="Delete this staged scan"
-                  type="button"
-                  onClick={() => onDeleteScan(s.id)}
-                  title="Delete this staged scan"
-                  className="shrink-0 w-11 h-11 -m-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="p-5 space-y-4">
-          <QuantityStepper id="pick-quantity" label="Quantity to pick" value={qty} onChange={setQty} min={0} max={remaining} />
-          <div>
-            <label htmlFor="pick-reason" className="block text-xs text-gray-400 mb-1.5">Note (optional)</label>
-            <input
-              id="pick-reason"
-              value={reason}
-              onChange={e => setReason(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
-            />
-          </div>
-          <button
-            onClick={() => onPick(n, reason || undefined)}
-            disabled={n <= 0}
-            className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold disabled:opacity-50"
-          >
-            Confirm pick
-          </button>
-          <p className="text-xs text-gray-400">Out of stock or needs replacing? Substitutes and refunds happen in packing.</p>
-        </div>
-      </div>
-    </Dialog>
   )
 }
