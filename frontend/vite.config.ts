@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  // OpenAPI contracts (backend/api/*/openapi.yaml) are imported with ?raw by
+  // contract tests; without this, Vite's import analysis (used by
+  // `vitest related`) tries to parse the YAML as JS and aborts the run.
+  assetsInclude: ['**/*.yaml'],
   server: {
     port: 3000,
   },
