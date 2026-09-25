@@ -35,4 +35,24 @@ describe('useSkuBarcodeEdit', () => {
     expect(result.current.error).toBe('dup')
     expect(result.current.saving).toBe(false)
   })
+
+  // A variant's SKU can be removed and a new one added without the row
+  // unmounting -- the field must then show the NEW SKU's barcode (and its
+  // stale error must go), not keep the old one with a stray Save button.
+  it('re-prefills when the row gets a different SKU', () => {
+    const { result, rerender } = renderHook(({ s }: { s: SKU | undefined }) => useSkuBarcodeEdit(s, vi.fn()), { initialProps: { s: sku as SKU | undefined } })
+    act(() => result.current.setValue('typed-but-not-saved'))
+    rerender({ s: undefined })
+    rerender({ s: { ...sku, id: 'sku-2', barcode: '456' } })
+    expect(result.current.value).toBe('456')
+  })
+
+  it('keeps what was saved when the same SKU refreshes after a save', async () => {
+    const updateSKU = vi.fn(() => Promise.resolve())
+    const { result, rerender } = renderHook(({ s }: { s: SKU }) => useSkuBarcodeEdit(s, updateSKU), { initialProps: { s: sku } })
+    act(() => result.current.setValue('999'))
+    await act(() => result.current.save())
+    rerender({ s: { ...sku, barcode: '999', updated_at: 'later' } })
+    expect(result.current.value).toBe('999')
+  })
 })
