@@ -24,3 +24,7 @@ var ErrInvalidRecommendationsLookbackDays = errors.New("recommendations lookback
 
 // ErrInvalidPickingMode guards TenantSettings.PickingMode: scan or list.
 var ErrInvalidPickingMode = errors.New("picking mode must be scan or list")
+
+// ErrInvalidTimezone guards TenantSettings.Timezone: an IANA zone name
+// (e.g. "Europe/Amsterdam") or empty.
+var ErrInvalidTimezone = errors.New("timezone must be an IANA zone name such as Europe/Amsterdam")

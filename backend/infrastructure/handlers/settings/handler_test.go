@@ -259,3 +259,12 @@ func TestGetTenantSettingsHandler_returnsPickingMode(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Contains(t, w.Body.String(), `"picking_mode":"list"`)
 }
+
+func TestUpdateTenantSettingsHandler_invalidTimezoneIsUnprocessable(t *testing.T) {
+	update := &stubUpdateTenantSettings{err: settingsDomain.ErrInvalidTimezone}
+	h := newTestHandler(&stubGetTenantSettings{}, update)
+
+	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", map[string]any{"timezone": "Mars/Olympus"})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}

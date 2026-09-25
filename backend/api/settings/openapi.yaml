@@ -261,7 +261,13 @@ components:
       type: object
       properties:
         default_currency: { type: string }
-        timezone: { type: string }
+        timezone:
+          type: string
+          example: Europe/Amsterdam
+          description: >-
+            IANA time zone name, or empty for unset (reports then use UTC).
+            Reports and the dashboard bucket days, weeks, months and weekdays
+            in this zone. An unknown zone is rejected with 422.
         date_format: { type: string }
         language: { type: string }
         prices_include_tax: { type: boolean }

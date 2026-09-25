@@ -187,3 +187,13 @@ func TestUpdateTenantSettings_rejectsUnknownPickingMode(t *testing.T) {
 	require.ErrorIs(t, err, settingsDomain.ErrInvalidPickingMode)
 	require.Empty(t, repo.upserted)
 }
+
+func TestUpdateTenantSettings_rejectsUnknownTimezone(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{Timezone: "Mars/Olympus"})
+
+	require.ErrorIs(t, err, settingsDomain.ErrInvalidTimezone)
+	require.Empty(t, repo.upserted)
+}

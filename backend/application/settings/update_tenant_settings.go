@@ -50,6 +50,10 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 		return nil, fmt.Errorf("updateTenantSettings: %w", settingsDomain.ErrInvalidRecommendationsLookbackDays)
 	}
 
+	if err := settingsDomain.ValidateTimezone(in.Timezone); err != nil {
+		return nil, fmt.Errorf("updateTenantSettings: %w", err)
+	}
+
 	pickingMode, err := settingsDomain.ParsePickingMode(in.PickingMode)
 	if err != nil {
 		return nil, fmt.Errorf("updateTenantSettings: %w", err)
