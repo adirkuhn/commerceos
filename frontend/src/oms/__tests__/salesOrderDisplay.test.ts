@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { addressesEqual, customerName, shippingAddressLine } from '../salesOrderDisplay'
+import { STATUS_OPTIONS, addressesEqual, customerName, shippingAddressLine } from '../salesOrderDisplay'
 import type { SalesOrder } from '../types'
+import omsContract from '../../../../backend/api/oms/openapi.yaml?raw'
 
 const order = (billing: SalesOrder['billing']) => ({ billing }) as SalesOrder
 
@@ -33,5 +34,18 @@ describe('addressesEqual', () => {
   })
   it('is false when either side is missing', () => {
     expect(addressesEqual(undefined, { city: 'A' })).toBe(false)
+  })
+})
+
+// The status list must match the OpenAPI contract's SalesOrderStatus enum
+// exactly -- a status missing here renders unstyled and, in the detail
+// page's status <select>, silently displays as the first option instead.
+describe('STATUS_OPTIONS', () => {
+  it('matches the SalesOrderStatus enum in the oms OpenAPI contract', () => {
+    const block = omsContract.slice(omsContract.indexOf('\n    SalesOrderStatus:'))
+    const enumLine = block.match(/enum: \[([^\]]+)\]/)
+    expect(enumLine).not.toBeNull()
+    const contract = enumLine![1].split(',').map((s: string) => s.trim())
+    expect([...STATUS_OPTIONS].sort()).toEqual([...contract].sort())
   })
 })

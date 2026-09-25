@@ -33,6 +33,7 @@ const STATUS_COLORS: Record<SalesOrderStatus, string> = {
   completed: 'bg-green-500/15 text-success',
   cancelled: 'bg-gray-500/15 text-ink-4',
   refunded: 'bg-purple-500/15 text-purple-400',
+  partially_refunded: 'bg-purple-500/10 text-purple-300',
   failed: 'bg-red-500/15 text-danger',
 }
 

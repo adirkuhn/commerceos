@@ -1,6 +1,6 @@
 import type { SalesOrder, SalesOrderStatus, Address } from './types'
 
-export const STATUS_OPTIONS: SalesOrderStatus[] = ['pending', 'processing', 'on-hold', 'shipped', 'completed', 'cancelled', 'refunded', 'failed']
+export const STATUS_OPTIONS: SalesOrderStatus[] = ['pending', 'processing', 'on-hold', 'shipped', 'completed', 'cancelled', 'refunded', 'failed', 'partially_refunded']
 
 // customerName is the billing name, else the billing email, else
 // unknownLabel (admin tables use an em dash; scanner screens spell it out).
