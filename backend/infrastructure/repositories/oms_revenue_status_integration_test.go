@@ -125,7 +125,7 @@ func (f revenueFixture) reports(t *testing.T) map[string]revenueReport {
 		}
 		out["SalesSummaryBetween"] = revenueReport{revenue: sum.RevenueMinorUnits, units: sum.UnitsSold, orders: sum.OrderCount}
 
-		trend, err := r.SalesTrendBetween(ctx, from, to, "EUR", omsDomain.SalesTrendGranularityDay)
+		trend, err := r.SalesTrendBetween(ctx, from, to, "EUR", omsDomain.SalesTrendGranularityDay, "UTC")
 		if err != nil {
 			return err
 		}
@@ -137,7 +137,7 @@ func (f revenueFixture) reports(t *testing.T) map[string]revenueReport {
 		}
 		out["SalesTrendBetween"] = tr
 
-		wd, err := r.SalesByWeekdayBetween(ctx, from, to, "EUR")
+		wd, err := r.SalesByWeekdayBetween(ctx, from, to, "EUR", "UTC")
 		if err != nil {
 			return err
 		}
@@ -148,7 +148,7 @@ func (f revenueFixture) reports(t *testing.T) map[string]revenueReport {
 		}
 		out["SalesByWeekdayBetween"] = w
 
-		cht, err := r.RevenueByChannelTrendBetween(ctx, from, to, "EUR", omsDomain.SalesTrendGranularityDay)
+		cht, err := r.RevenueByChannelTrendBetween(ctx, from, to, "EUR", omsDomain.SalesTrendGranularityDay, "UTC")
 		if err != nil {
 			return err
 		}
@@ -197,7 +197,7 @@ func (f revenueFixture) reports(t *testing.T) map[string]revenueReport {
 		}
 		out["ProfitabilityBetween"] = revenueReport{revenue: prof.RevenueMinorUnits}
 
-		pt, err := r.ProfitabilityTrendBetween(ctx, from, to, "EUR", omsDomain.SalesTrendGranularityDay)
+		pt, err := r.ProfitabilityTrendBetween(ctx, from, to, "EUR", omsDomain.SalesTrendGranularityDay, "UTC")
 		if err != nil {
 			return err
 		}
@@ -230,7 +230,7 @@ func (f revenueFixture) reports(t *testing.T) map[string]revenueReport {
 		out["ListOrderSKUsBetween"] = revenueReport{orders: int64(len(osk))}
 
 		cohortFrom := time.Date(f.now.Year(), f.now.Month(), 1, 0, 0, 0, 0, f.now.Location())
-		sizes, err := r.CohortSizesBetween(ctx, cohortFrom, cohortFrom.AddDate(0, 1, 0), "EUR")
+		sizes, err := r.CohortSizesBetween(ctx, cohortFrom, cohortFrom.AddDate(0, 1, 0), "EUR", "UTC")
 		if err != nil {
 			return err
 		}
@@ -240,7 +240,7 @@ func (f revenueFixture) reports(t *testing.T) map[string]revenueReport {
 		}
 		out["CohortSizesBetween"] = cs
 
-		ret, err := r.CohortRetentionBetween(ctx, cohortFrom, cohortFrom.AddDate(0, 1, 0), "EUR")
+		ret, err := r.CohortRetentionBetween(ctx, cohortFrom, cohortFrom.AddDate(0, 1, 0), "EUR", "UTC")
 		if err != nil {
 			return err
 		}

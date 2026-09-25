@@ -19,4 +19,12 @@ func TestValidateTimezone(t *testing.T) {
 func TestTenantSettings_ReportingTimezone(t *testing.T) {
 	assert.Equal(t, "Europe/Amsterdam", settings.TenantSettings{Timezone: "Europe/Amsterdam"}.ReportingTimezone())
 	assert.Equal(t, "UTC", settings.TenantSettings{}.ReportingTimezone(), "unset falls back to UTC")
+	assert.Equal(t, "UTC", settings.TenantSettings{Timezone: "Mars/Olympus"}.ReportingTimezone(),
+		"a value saved before validation existed must not reach SQL")
+}
+
+func TestTenantSettings_ReportingLocation(t *testing.T) {
+	loc := settings.TenantSettings{Timezone: "Europe/Amsterdam"}.ReportingLocation()
+	assert.Equal(t, "Europe/Amsterdam", loc.String())
+	assert.Equal(t, "UTC", settings.TenantSettings{}.ReportingLocation().String())
 }

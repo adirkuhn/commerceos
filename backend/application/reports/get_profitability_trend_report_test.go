@@ -17,7 +17,7 @@ type stubProfitabilityTrendRepo struct {
 	gotGranularity omsDomain.SalesTrendGranularity
 }
 
-func (s *stubProfitabilityTrendRepo) ProfitabilityTrendBetween(_ context.Context, _, _ time.Time, _ string, granularity omsDomain.SalesTrendGranularity) ([]omsDomain.ProfitabilityPoint, error) {
+func (s *stubProfitabilityTrendRepo) ProfitabilityTrendBetween(_ context.Context, _, _ time.Time, _ string, granularity omsDomain.SalesTrendGranularity, timezone string) ([]omsDomain.ProfitabilityPoint, error) {
 	s.gotGranularity = granularity
 	if s.err != nil {
 		return nil, s.err

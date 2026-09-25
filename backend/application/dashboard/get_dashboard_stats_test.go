@@ -19,13 +19,14 @@ type stubStockReportRepo struct {
 	dailyFlow     []invDomain.DailyStockFlow
 	dailyFlowErr  error
 	gotDailySince time.Time
+	gotTimezone   string
 }
 
 func (s *stubStockReportRepo) TotalOnHand(_ context.Context) (int64, error) {
 	return s.totalOnHand, s.totalErr
 }
-func (s *stubStockReportRepo) DailyFlow(_ context.Context, since time.Time) ([]invDomain.DailyStockFlow, error) {
-	s.gotDailySince = since
+func (s *stubStockReportRepo) DailyFlow(_ context.Context, since time.Time, timezone string) ([]invDomain.DailyStockFlow, error) {
+	s.gotDailySince, s.gotTimezone = since, timezone
 	return s.dailyFlow, s.dailyFlowErr
 }
 
@@ -168,4 +169,24 @@ func TestGetDashboardStats_propagatesSalesRepoError(t *testing.T) {
 	_, err := uc.Execute(context.Background())
 
 	require.Error(t, err)
+}
+
+// "This month" and "last 7 days" are the tenant's local calendar: at
+// 22:30 UTC on Aug 31 it is already Sep 1 in Amsterdam (UTC+2), so the
+// month -- and today -- started at Amsterdam midnight, not UTC midnight.
+func TestGetDashboardStats_windowsFollowTheTenantTimezone(t *testing.T) {
+	ams, err := time.LoadLocation("Europe/Amsterdam")
+	require.NoError(t, err)
+	settingsRepo := &stubSettingsRepo{settings: &settingsDomain.TenantSettings{Timezone: "Europe/Amsterdam"}}
+	stockRepo := &stubStockReportRepo{}
+	salesRepo := &stubSalesReportRepo{}
+	uc := appdashboard.NewGetDashboardStatsUseCase(newMockGormDB(t), stockRepo, salesRepo, settingsRepo)
+	uc.Now = func() time.Time { return time.Date(2026, 8, 31, 22, 30, 0, 0, time.UTC) }
+
+	_, err = uc.Execute(context.Background())
+
+	require.NoError(t, err)
+	assert.True(t, time.Date(2026, 9, 1, 0, 0, 0, 0, ams).Equal(salesRepo.gotRevenueSince), salesRepo.gotRevenueSince)
+	assert.True(t, time.Date(2026, 8, 26, 0, 0, 0, 0, ams).Equal(stockRepo.gotDailySince), stockRepo.gotDailySince)
+	assert.Equal(t, "Europe/Amsterdam", stockRepo.gotTimezone)
 }

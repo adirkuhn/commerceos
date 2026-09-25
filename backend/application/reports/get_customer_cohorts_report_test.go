@@ -18,14 +18,14 @@ type stubCustomerCohortReportRepo struct {
 	retainErr error
 }
 
-func (s *stubCustomerCohortReportRepo) CohortSizesBetween(_ context.Context, _, _ time.Time, _ string) ([]omsDomain.CohortSize, error) {
+func (s *stubCustomerCohortReportRepo) CohortSizesBetween(_ context.Context, _, _ time.Time, _ string, timezone string) ([]omsDomain.CohortSize, error) {
 	if s.sizesErr != nil {
 		return nil, s.sizesErr
 	}
 	return s.sizes, nil
 }
 
-func (s *stubCustomerCohortReportRepo) CohortRetentionBetween(_ context.Context, _, _ time.Time, _ string) ([]omsDomain.CohortRetentionPoint, error) {
+func (s *stubCustomerCohortReportRepo) CohortRetentionBetween(_ context.Context, _, _ time.Time, _ string, timezone string) ([]omsDomain.CohortRetentionPoint, error) {
 	if s.retainErr != nil {
 		return nil, s.retainErr
 	}

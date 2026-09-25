@@ -45,7 +45,9 @@ type ProfitabilityPoint struct {
 
 // ProfitabilityTrendRepository backs the Profitability report's trend
 // view -- additive to ProfitabilityReportRepository so the existing
-// whole-period summary query/callers are untouched.
+// whole-period summary query/callers are untouched. timezone (an IANA zone, settings.TenantSettings.ReportingTimezone) is the
+// zone days/weeks/months/weekdays are bucketed in -- the tenant's local
+// calendar, not UTC.
 type ProfitabilityTrendRepository interface {
-	ProfitabilityTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity SalesTrendGranularity) ([]ProfitabilityPoint, error)
+	ProfitabilityTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity SalesTrendGranularity, timezone string) ([]ProfitabilityPoint, error)
 }

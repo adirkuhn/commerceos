@@ -59,7 +59,7 @@ func (uc *GetRevenueByChannelReportUseCase) Execute(ctx context.Context, from, t
 		if err != nil {
 			return err
 		}
-		report.Points, err = uc.channelRevenue.RevenueByChannelTrendBetween(ctx, from, to, currency, granularity)
+		report.Points, err = uc.channelRevenue.RevenueByChannelTrendBetween(ctx, from, to, currency, granularity, settings.ReportingTimezone())
 		return err
 	})
 	if err != nil {

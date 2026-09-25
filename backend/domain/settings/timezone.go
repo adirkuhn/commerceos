@@ -29,9 +29,22 @@ func ValidateTimezone(tz string) error {
 // ReportingTimezone is the zone reports and the dashboard use for "day",
 // "week", "month" and weekday boundaries -- the tenant's own, so an order
 // at 00:30 local time lands on that local day, not the previous UTC one.
+// A value that fails ValidateTimezone (saved before validation existed)
+// also falls back to UTC, so an invalid zone can never reach SQL.
 func (s TenantSettings) ReportingTimezone() string {
-	if s.Timezone == "" {
+	if s.Timezone == "" || ValidateTimezone(s.Timezone) != nil {
 		return defaultReportingTimezone
 	}
 	return s.Timezone
+}
+
+// ReportingLocation is ReportingTimezone as a *time.Location, for
+// computing "start of this month/day" boundaries in Go.
+func (s TenantSettings) ReportingLocation() *time.Location {
+	loc, err := time.LoadLocation(s.ReportingTimezone())
+	if err != nil {
+		// Unreachable: ReportingTimezone only returns validated zones.
+		return time.UTC
+	}
+	return loc
 }

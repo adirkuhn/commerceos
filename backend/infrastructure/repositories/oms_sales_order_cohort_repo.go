@@ -36,10 +36,13 @@ type cohortSizeRow struct {
 // CohortSizesBetween returns the number of customers newly acquired in
 // each calendar month within [from, to) -- see cohortCustomersCTE's doc
 // for what "newly acquired" means.
-func (r *SalesOrderRepo) CohortSizesBetween(ctx context.Context, from, to time.Time, currencyCode string) ([]omsDomain.CohortSize, error) {
+func (r *SalesOrderRepo) CohortSizesBetween(ctx context.Context, from, to time.Time, currencyCode string, timezone string) ([]omsDomain.CohortSize, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if err := useReportTimezone(tx, timezone); err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.CohortSizesBetween: %w", err)
 	}
 	var rows []cohortSizeRow
 	err = tx.Raw(cohortCustomersCTE+`
@@ -70,10 +73,13 @@ type cohortRetentionRow struct {
 // including orders after the acquisition month itself, which is how a
 // cohort's retention across later months is measured. months_since_cohort
 // 0 is the acquisition month.
-func (r *SalesOrderRepo) CohortRetentionBetween(ctx context.Context, from, to time.Time, currencyCode string) ([]omsDomain.CohortRetentionPoint, error) {
+func (r *SalesOrderRepo) CohortRetentionBetween(ctx context.Context, from, to time.Time, currencyCode string, timezone string) ([]omsDomain.CohortRetentionPoint, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if err := useReportTimezone(tx, timezone); err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.CohortRetentionBetween: %w", err)
 	}
 	var rows []cohortRetentionRow
 	err = tx.Raw(cohortCustomersCTE+`

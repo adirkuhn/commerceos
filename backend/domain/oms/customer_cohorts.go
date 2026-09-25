@@ -29,8 +29,11 @@ type CohortRetentionPoint struct {
 // CustomerCohortRepository backs the Phase 0 "Customer Cohorts" report.
 // Both methods define a cohort by each customer's all-time first order,
 // not their first order within [from, to) -- so a customer count only
-// changes as later reports include more calendar time.
+// changes as later reports include more calendar time. Cohort months are
+// timezone (an IANA zone, settings.TenantSettings.ReportingTimezone) is the
+// zone days/weeks/months/weekdays are bucketed in -- the tenant's local
+// calendar, not UTC.
 type CustomerCohortRepository interface {
-	CohortSizesBetween(ctx context.Context, from, to time.Time, currencyCode string) ([]CohortSize, error)
-	CohortRetentionBetween(ctx context.Context, from, to time.Time, currencyCode string) ([]CohortRetentionPoint, error)
+	CohortSizesBetween(ctx context.Context, from, to time.Time, currencyCode string, timezone string) ([]CohortSize, error)
+	CohortRetentionBetween(ctx context.Context, from, to time.Time, currencyCode string, timezone string) ([]CohortRetentionPoint, error)
 }

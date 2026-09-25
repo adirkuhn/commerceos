@@ -64,11 +64,11 @@ func (uc *GetCustomerCohortsReportUseCase) Execute(ctx context.Context, from, to
 		}
 		report.CurrencyCode = currency
 
-		sizes, err := uc.cohortRepo.CohortSizesBetween(ctx, from, to, currency)
+		sizes, err := uc.cohortRepo.CohortSizesBetween(ctx, from, to, currency, settings.ReportingTimezone())
 		if err != nil {
 			return err
 		}
-		retention, err := uc.cohortRepo.CohortRetentionBetween(ctx, from, to, currency)
+		retention, err := uc.cohortRepo.CohortRetentionBetween(ctx, from, to, currency, settings.ReportingTimezone())
 		if err != nil {
 			return err
 		}

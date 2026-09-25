@@ -9,6 +9,7 @@ import (
 
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 )
 
 type stubSalesTrendReportRepo struct {
@@ -17,17 +18,20 @@ type stubSalesTrendReportRepo struct {
 	trendErr       error
 	weekdayErr     error
 	gotGranularity omsDomain.SalesTrendGranularity
+	gotTimezones   []string
 }
 
-func (s *stubSalesTrendReportRepo) SalesTrendBetween(_ context.Context, _, _ time.Time, _ string, granularity omsDomain.SalesTrendGranularity) ([]omsDomain.SalesTrendPoint, error) {
+func (s *stubSalesTrendReportRepo) SalesTrendBetween(_ context.Context, _, _ time.Time, _ string, granularity omsDomain.SalesTrendGranularity, timezone string) ([]omsDomain.SalesTrendPoint, error) {
 	s.gotGranularity = granularity
+	s.gotTimezones = append(s.gotTimezones, timezone)
 	if s.trendErr != nil {
 		return nil, s.trendErr
 	}
 	return s.points, nil
 }
 
-func (s *stubSalesTrendReportRepo) SalesByWeekdayBetween(_ context.Context, _, _ time.Time, _ string) ([]omsDomain.WeekdaySales, error) {
+func (s *stubSalesTrendReportRepo) SalesByWeekdayBetween(_ context.Context, _, _ time.Time, _ string, timezone string) ([]omsDomain.WeekdaySales, error) {
+	s.gotTimezones = append(s.gotTimezones, timezone)
 	if s.weekdayErr != nil {
 		return nil, s.weekdayErr
 	}
@@ -83,4 +87,16 @@ func TestGetSalesTrendsReport_propagatesRepoError(t *testing.T) {
 	_, err := uc.Execute(context.Background(), time.Now().Add(-time.Hour), time.Now(), omsDomain.SalesTrendGranularityDay)
 
 	require.Error(t, err)
+}
+
+// Both halves of the report bucket by the tenant's timezone (UTC if unset).
+func TestGetSalesTrendsReport_bucketsInTheTenantTimezone(t *testing.T) {
+	repo := &stubSalesTrendReportRepo{}
+	settings := &stubSettingsRepo{settings: &settingsDomain.TenantSettings{Timezone: "Europe/Amsterdam"}}
+	uc := appreports.NewGetSalesTrendsReportUseCase(newMockGormDB(t), repo, settings)
+
+	_, err := uc.Execute(context.Background(), time.Now().Add(-time.Hour), time.Now(), omsDomain.SalesTrendGranularityDay)
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"Europe/Amsterdam", "Europe/Amsterdam"}, repo.gotTimezones)
 }

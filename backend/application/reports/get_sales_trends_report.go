@@ -61,11 +61,11 @@ func (uc *GetSalesTrendsReportUseCase) Execute(ctx context.Context, from, to tim
 		}
 		report.CurrencyCode = currency
 
-		report.Points, err = uc.salesTrends.SalesTrendBetween(ctx, from, to, currency, granularity)
+		report.Points, err = uc.salesTrends.SalesTrendBetween(ctx, from, to, currency, granularity, settings.ReportingTimezone())
 		if err != nil {
 			return err
 		}
-		report.ByWeekday, err = uc.salesTrends.SalesByWeekdayBetween(ctx, from, to, currency)
+		report.ByWeekday, err = uc.salesTrends.SalesByWeekdayBetween(ctx, from, to, currency, settings.ReportingTimezone())
 		return err
 	})
 	if err != nil {

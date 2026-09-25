@@ -43,8 +43,10 @@ type WeekdaySales struct {
 }
 
 // SalesTrendRepository is the Phase 0 "Sales Trends & Seasonality" report's
-// port.
+// port. timezone (an IANA zone, settings.TenantSettings.ReportingTimezone) is the
+// zone days/weeks/months/weekdays are bucketed in -- the tenant's local
+// calendar, not UTC.
 type SalesTrendRepository interface {
-	SalesTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity SalesTrendGranularity) ([]SalesTrendPoint, error)
-	SalesByWeekdayBetween(ctx context.Context, from, to time.Time, currencyCode string) ([]WeekdaySales, error)
+	SalesTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity SalesTrendGranularity, timezone string) ([]SalesTrendPoint, error)
+	SalesByWeekdayBetween(ctx context.Context, from, to time.Time, currencyCode string, timezone string) ([]WeekdaySales, error)
 }

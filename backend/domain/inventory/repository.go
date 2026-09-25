@@ -116,7 +116,8 @@ type DashboardStockReportRepository interface {
 	TotalOnHand(ctx context.Context) (int64, error)
 	// DailyFlow returns one row per day from `since` (inclusive) to today,
 	// oldest first, including days with no movements at all (In/Out both 0).
-	DailyFlow(ctx context.Context, since time.Time) ([]DailyStockFlow, error)
+	// Days are local days in timezone (settings.TenantSettings.ReportingTimezone).
+	DailyFlow(ctx context.Context, since time.Time, timezone string) ([]DailyStockFlow, error)
 }
 
 // StockMovementRepository is append-only by design — a ledger entry is

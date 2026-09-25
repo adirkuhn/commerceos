@@ -26,7 +26,7 @@ func (s *stubChannelRevenueReportRepo) RevenueByChannelBetween(_ context.Context
 	return s.channels, nil
 }
 
-func (s *stubChannelRevenueReportRepo) RevenueByChannelTrendBetween(_ context.Context, _, _ time.Time, _ string, granularity omsDomain.SalesTrendGranularity) ([]omsDomain.ChannelRevenuePoint, error) {
+func (s *stubChannelRevenueReportRepo) RevenueByChannelTrendBetween(_ context.Context, _, _ time.Time, _ string, granularity omsDomain.SalesTrendGranularity, timezone string) ([]omsDomain.ChannelRevenuePoint, error) {
 	s.gotGranularity = granularity
 	if s.pointsErr != nil {
 		return nil, s.pointsErr

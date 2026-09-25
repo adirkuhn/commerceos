@@ -55,7 +55,7 @@ func (uc *GetProfitabilityTrendReportUseCase) Execute(ctx context.Context, from,
 		}
 		report.CurrencyCode = currency
 
-		report.Points, err = uc.profitabilityTrend.ProfitabilityTrendBetween(ctx, from, to, currency, granularity)
+		report.Points, err = uc.profitabilityTrend.ProfitabilityTrendBetween(ctx, from, to, currency, granularity, settings.ReportingTimezone())
 		return err
 	})
 	if err != nil {

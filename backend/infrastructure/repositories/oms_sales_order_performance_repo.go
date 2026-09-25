@@ -262,10 +262,13 @@ type profitabilityTrendRow struct {
 
 // ProfitabilityTrendBetween is ProfitabilityBetween's daily/weekly/monthly
 // view -- same revenue/cost join, additionally bucketed by date_trunc.
-func (r *SalesOrderRepo) ProfitabilityTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity omsDomain.SalesTrendGranularity) ([]omsDomain.ProfitabilityPoint, error) {
+func (r *SalesOrderRepo) ProfitabilityTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity omsDomain.SalesTrendGranularity, timezone string) ([]omsDomain.ProfitabilityPoint, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if err := useReportTimezone(tx, timezone); err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.ProfitabilityTrendBetween: %w", err)
 	}
 	var rows []profitabilityTrendRow
 	err = tx.Raw(`

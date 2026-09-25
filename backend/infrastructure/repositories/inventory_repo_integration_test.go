@@ -612,7 +612,7 @@ func TestStockMovementRepo_Integration_DailyFlow_SplitsInAndOutByDayIncludingZer
 	var flow []invDomain.DailyStockFlow
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		flow, err = movementRepo.DailyFlow(ctx, twoDaysAgo)
+		flow, err = movementRepo.DailyFlow(ctx, twoDaysAgo, "UTC")
 		return err
 	})
 	require.NoError(t, err)

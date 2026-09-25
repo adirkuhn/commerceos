@@ -109,10 +109,13 @@ type salesTrendUnitsRow struct {
 // merged in Go by truncated timestamp. Granularity is validated by the
 // caller (SalesTrendGranularity.Valid()) before it ever reaches this
 // parameterized date_trunc call.
-func (r *SalesOrderRepo) SalesTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity omsDomain.SalesTrendGranularity) ([]omsDomain.SalesTrendPoint, error) {
+func (r *SalesOrderRepo) SalesTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity omsDomain.SalesTrendGranularity, timezone string) ([]omsDomain.SalesTrendPoint, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if err := useReportTimezone(tx, timezone); err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.SalesTrendBetween: %w", err)
 	}
 	var buckets []salesTrendBucketRow
 	err = tx.Raw(`
@@ -167,10 +170,13 @@ type weekdaySalesRow struct {
 // report -- sums revenue/orders across every occurrence of each weekday
 // within [from, to). Postgres's EXTRACT(DOW) numbers Sunday=0..Saturday=6,
 // same as time.Weekday, so no remapping is needed.
-func (r *SalesOrderRepo) SalesByWeekdayBetween(ctx context.Context, from, to time.Time, currencyCode string) ([]omsDomain.WeekdaySales, error) {
+func (r *SalesOrderRepo) SalesByWeekdayBetween(ctx context.Context, from, to time.Time, currencyCode string, timezone string) ([]omsDomain.WeekdaySales, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if err := useReportTimezone(tx, timezone); err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.SalesByWeekdayBetween: %w", err)
 	}
 	var rows []weekdaySalesRow
 	err = tx.Raw(`
@@ -227,10 +233,13 @@ type channelRevenueTrendRow struct {
 // RevenueByChannelTrendBetween is the daily/weekly/monthly view of the
 // Reports "Revenue by Channel" report -- same date_trunc bucketing as
 // SalesTrendBetween, additionally grouped by source.
-func (r *SalesOrderRepo) RevenueByChannelTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity omsDomain.SalesTrendGranularity) ([]omsDomain.ChannelRevenuePoint, error) {
+func (r *SalesOrderRepo) RevenueByChannelTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity omsDomain.SalesTrendGranularity, timezone string) ([]omsDomain.ChannelRevenuePoint, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if err := useReportTimezone(tx, timezone); err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.RevenueByChannelTrendBetween: %w", err)
 	}
 	var rows []channelRevenueTrendRow
 	err = tx.Raw(`

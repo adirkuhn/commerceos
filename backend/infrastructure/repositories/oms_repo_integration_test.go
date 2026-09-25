@@ -1576,7 +1576,7 @@ func TestSalesOrderRepo_Integration_RevenueByChannelTrendBetween_BucketsByDayAnd
 	var points []omsDomain.ChannelRevenuePoint
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		points, err = salesOrderRepo.RevenueByChannelTrendBetween(ctx, older.AddDate(0, 0, -1), newer.AddDate(0, 0, 1), "EUR", omsDomain.SalesTrendGranularityDay)
+		points, err = salesOrderRepo.RevenueByChannelTrendBetween(ctx, older.AddDate(0, 0, -1), newer.AddDate(0, 0, 1), "EUR", omsDomain.SalesTrendGranularityDay, "UTC")
 		return err
 	})
 	require.NoError(t, err)
@@ -2097,7 +2097,7 @@ func TestSalesOrderRepo_Integration_ProfitabilityTrendBetween_BucketsByDayComput
 	var points []omsDomain.ProfitabilityPoint
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		points, err = salesOrderRepo.ProfitabilityTrendBetween(ctx, older.AddDate(0, 0, -1), newer.AddDate(0, 0, 1), "EUR", omsDomain.SalesTrendGranularityDay)
+		points, err = salesOrderRepo.ProfitabilityTrendBetween(ctx, older.AddDate(0, 0, -1), newer.AddDate(0, 0, 1), "EUR", omsDomain.SalesTrendGranularityDay, "UTC")
 		return err
 	})
 	require.NoError(t, err)
@@ -2154,7 +2154,7 @@ func TestSalesOrderRepo_Integration_SalesTrendBetween_BucketsByDay(t *testing.T)
 	var points []omsDomain.SalesTrendPoint
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		points, err = salesOrderRepo.SalesTrendBetween(ctx, older.AddDate(0, 0, -1), newer.AddDate(0, 0, 1), "EUR", omsDomain.SalesTrendGranularityDay)
+		points, err = salesOrderRepo.SalesTrendBetween(ctx, older.AddDate(0, 0, -1), newer.AddDate(0, 0, 1), "EUR", omsDomain.SalesTrendGranularityDay, "UTC")
 		return err
 	})
 	require.NoError(t, err)
@@ -2177,7 +2177,7 @@ func TestSalesOrderRepo_Integration_SalesTrendBetween_RejectsEmptyPeriod(t *test
 	var points []omsDomain.SalesTrendPoint
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		points, err = salesOrderRepo.SalesTrendBetween(ctx, time.Now().AddDate(0, 0, -1), time.Now(), "EUR", omsDomain.SalesTrendGranularityDay)
+		points, err = salesOrderRepo.SalesTrendBetween(ctx, time.Now().AddDate(0, 0, -1), time.Now(), "EUR", omsDomain.SalesTrendGranularityDay, "UTC")
 		return err
 	})
 	require.NoError(t, err)
@@ -2214,7 +2214,7 @@ func TestSalesOrderRepo_Integration_SalesByWeekdayBetween_SumsAcrossOccurrencesO
 	var weekdays []omsDomain.WeekdaySales
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		weekdays, err = salesOrderRepo.SalesByWeekdayBetween(ctx, week1.AddDate(0, 0, -1), week2.AddDate(0, 0, 1), "EUR")
+		weekdays, err = salesOrderRepo.SalesByWeekdayBetween(ctx, week1.AddDate(0, 0, -1), week2.AddDate(0, 0, 1), "EUR", "UTC")
 		return err
 	})
 	require.NoError(t, err)
@@ -2293,7 +2293,7 @@ func TestSalesOrderRepo_Integration_CohortSizesBetween_CountsCustomersByFirstOrd
 	var sizes []omsDomain.CohortSize
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		sizes, err = salesOrderRepo.CohortSizesBetween(ctx, cohortMonth, cohortMonth.AddDate(0, 1, 0), "EUR")
+		sizes, err = salesOrderRepo.CohortSizesBetween(ctx, cohortMonth, cohortMonth.AddDate(0, 1, 0), "EUR", "UTC")
 		return err
 	})
 	require.NoError(t, err)
@@ -2339,7 +2339,7 @@ func TestSalesOrderRepo_Integration_CohortRetentionBetween_TracksRepeatOrdersAcr
 	var points []omsDomain.CohortRetentionPoint
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		points, err = salesOrderRepo.CohortRetentionBetween(ctx, cohortMonth, cohortMonth.AddDate(0, 2, 0), "EUR")
+		points, err = salesOrderRepo.CohortRetentionBetween(ctx, cohortMonth, cohortMonth.AddDate(0, 2, 0), "EUR", "UTC")
 		return err
 	})
 	require.NoError(t, err)

@@ -80,15 +80,18 @@ func (uc *GetDashboardStatsUseCase) Execute(ctx context.Context) (*DashboardStat
 		}
 		result.CurrencyCode = currency
 
-		now := uc.Now().UTC()
-		monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-		flowSince := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, -(stockFlowWindowDays - 1))
+		// Calendar boundaries are the tenant's local ones -- "this month"
+		// starts at local midnight on the 1st, not UTC midnight.
+		loc := settings.ReportingLocation()
+		now := uc.Now().In(loc)
+		monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+		flowSince := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, -(stockFlowWindowDays - 1))
 
 		result.TotalStockUnits, err = uc.stockRepo.TotalOnHand(ctx)
 		if err != nil {
 			return err
 		}
-		result.StockFlowLast7Days, err = uc.stockRepo.DailyFlow(ctx, flowSince)
+		result.StockFlowLast7Days, err = uc.stockRepo.DailyFlow(ctx, flowSince, settings.ReportingTimezone())
 		if err != nil {
 			return err
 		}

@@ -157,10 +157,13 @@ type dailyStockFlowRow struct {
 	OutQty int64 `gorm:"column:out_qty"`
 }
 
-func (r *StockMovementRepo) DailyFlow(ctx context.Context, since time.Time) ([]invDomain.DailyStockFlow, error) {
+func (r *StockMovementRepo) DailyFlow(ctx context.Context, since time.Time, timezone string) ([]invDomain.DailyStockFlow, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if err := useReportTimezone(tx, timezone); err != nil {
+		return nil, fmt.Errorf("stockMovementRepo.DailyFlow: %w", err)
 	}
 	var rows []dailyStockFlowRow
 	err = tx.Raw(`

@@ -19,8 +19,10 @@ type ChannelRevenuePoint struct {
 // report -- same status/currency filtering as SalesReportRepository (see
 // its doc), but scoped to an arbitrary [from, to) instead of the
 // dashboard's "since" window, and additionally bucketed by period for the
-// report's daily/weekly/monthly view.
+// report's daily/weekly/monthly view. timezone (an IANA zone, settings.TenantSettings.ReportingTimezone) is the
+// zone days/weeks/months/weekdays are bucketed in -- the tenant's local
+// calendar, not UTC.
 type ChannelRevenueReportRepository interface {
 	RevenueByChannelBetween(ctx context.Context, from, to time.Time, currencyCode string) ([]ChannelRevenue, error)
-	RevenueByChannelTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity SalesTrendGranularity) ([]ChannelRevenuePoint, error)
+	RevenueByChannelTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity SalesTrendGranularity, timezone string) ([]ChannelRevenuePoint, error)
 }
