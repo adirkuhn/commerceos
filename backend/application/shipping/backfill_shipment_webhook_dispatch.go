@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 
 	"gorm.io/gorm"
@@ -109,7 +110,7 @@ func (d *shipmentWebhookDispatcher) processEvent(ctx context.Context, event webh
 
 	var payload myParcelWebhookPayload
 	if err := json.Unmarshal(event.Payload, &payload); err != nil {
-		_ = d.markDispatchResult(ctx, event.ID, webhooksDomain.WebhookEventStatusFailed, fmt.Sprintf("decode payload: %v", err))
+		d.markFailedOrLog(ctx, event.ID, fmt.Sprintf("decode payload: %v", err))
 		stats.failed = true
 		return stats, nil
 	}
@@ -138,7 +139,7 @@ func (d *shipmentWebhookDispatcher) processEvent(ctx context.Context, event webh
 	}
 
 	if eventErr != "" {
-		_ = d.markDispatchResult(ctx, event.ID, webhooksDomain.WebhookEventStatusFailed, eventErr)
+		d.markFailedOrLog(ctx, event.ID, eventErr)
 		stats.failed = true
 		return stats, nil
 	}
@@ -224,6 +225,14 @@ func (d *shipmentWebhookDispatcher) markDispatchResult(ctx context.Context, even
 	return tenant.WithTenant(ctx, d.db, func(ctx context.Context) error {
 		return d.webhookEventRepo.MarkDispatchResult(ctx, eventID, status, dispatchError)
 	})
+}
+
+// markFailedOrLog records a failed dispatch; the failure itself is already
+// counted in stats, so a failure to record it is logged rather than returned.
+func (d *shipmentWebhookDispatcher) markFailedOrLog(ctx context.Context, eventID, dispatchError string) {
+	if err := d.markDispatchResult(ctx, eventID, webhooksDomain.WebhookEventStatusFailed, dispatchError); err != nil {
+		log.Printf("backfillShipmentWebhookDispatch: record failure for %s: %v", eventID, err)
+	}
 }
 
 // BackfillShipmentWebhookDispatchUseCase is a one-time reprocessing of

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	"gorm.io/gorm"
 
@@ -335,7 +336,9 @@ func (uc *CreateShipmentUseCase) recordShipmentActivity(ctx context.Context, in 
 	if uc.recordActivity == nil {
 		return
 	}
-	_, _ = uc.recordActivity.Execute(ctx, appoms.RecordSalesOrderActivityInput{
+	if _, err := uc.recordActivity.Execute(ctx, appoms.RecordSalesOrderActivityInput{
 		SalesOrderID: in.SalesOrderID, UserID: in.UserID, ActivityType: activityType, Summary: summary, Metadata: metadata,
-	})
+	}); err != nil {
+		log.Printf("createShipment: record %s activity for %s: %v", activityType, in.SalesOrderID, err)
+	}
 }

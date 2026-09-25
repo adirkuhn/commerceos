@@ -3,6 +3,7 @@ package shipping
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"gorm.io/gorm"
@@ -131,9 +132,11 @@ func (uc *CancelShipmentUseCase) recordShipmentCancelledActivity(ctx context.Con
 	if uc.recordActivity == nil {
 		return
 	}
-	_, _ = uc.recordActivity.Execute(ctx, appoms.RecordSalesOrderActivityInput{
+	if _, err := uc.recordActivity.Execute(ctx, appoms.RecordSalesOrderActivityInput{
 		SalesOrderID: salesOrderID, UserID: userID, ActivityType: "myparcel_shipment_cancelled",
 		Summary:  "Shipment cancelled",
 		Metadata: map[string]any{"deleted_on_myparcel": result.DeletedOnMyParcel, "message": result.Message},
-	})
+	}); err != nil {
+		log.Printf("cancelShipment: record activity for %s: %v", salesOrderID, err)
+	}
 }

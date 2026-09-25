@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -350,7 +351,9 @@ func (h *Handler) ListUserActivities(c *gin.Context, userId genia.UserId) {
 	out := make([]genia.UserActivity, len(activities))
 	for i, a := range activities {
 		var metadata map[string]interface{}
-		_ = json.Unmarshal(a.Metadata, &metadata)
+		if err := json.Unmarshal(a.Metadata, &metadata); err != nil && len(a.Metadata) > 0 {
+			log.Printf("iamHandler: activity %s: corrupt metadata, omitting: %v", a.ID, err)
+		}
 		out[i] = genia.UserActivity{
 			Id: a.ID, SalesOrderId: a.SalesOrderID, UserId: a.UserID,
 			ActivityType: a.ActivityType, Summary: a.Summary, Metadata: metadata, CreatedAt: a.CreatedAt,

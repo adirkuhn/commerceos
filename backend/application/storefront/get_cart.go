@@ -3,6 +3,7 @@ package storefront
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"gorm.io/gorm"
@@ -40,9 +41,14 @@ func resolveDisplayDiscount(
 		return 0
 	}
 	var discount int64
-	_ = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+	// Any failure prices the cart without the coupon rather than failing
+	// the cart read -- but it's logged, never silent.
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		coupon, err := couponRepo.FindByCode(ctx, *cart.CouponCode)
-		if err != nil || coupon == nil {
+		if err != nil {
+			return fmt.Errorf("find coupon: %w", err)
+		}
+		if coupon == nil {
 			return nil
 		}
 		subtotal := cart.SubtotalMinorUnits()
@@ -51,11 +57,15 @@ func resolveDisplayDiscount(
 		}
 		effective, err := appcoupons.EffectiveCoupon(ctx, *coupon, cart.CurrencyCode(), couponCurrencyRepo, fxRepo)
 		if err != nil {
-			return nil
+			return fmt.Errorf("effective coupon: %w", err)
 		}
 		discount = effective.DiscountForSubtotal(subtotal)
 		return nil
 	})
+	if err != nil {
+		log.Printf("getCart: coupon %q ignored: %v", *cart.CouponCode, err)
+		return 0
+	}
 	return discount
 }
 

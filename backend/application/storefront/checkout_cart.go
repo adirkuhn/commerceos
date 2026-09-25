@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -262,9 +263,11 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 	// above: the order already exists, so a failure to bump the usage
 	// counter must never fail checkout after the fact.
 	if totals.CouponID != "" {
-		_ = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		if err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 			return uc.couponRepo.IncrementTimesUsed(ctx, totals.CouponID)
-		})
+		}); err != nil {
+			log.Printf("checkoutCart: increment coupon %s usage (order already placed): %v", totals.CouponID, err)
+		}
 	}
 
 	checkoutResult := &CheckoutResult{OrderNumber: result.SalesOrder.Number, TotalMinorUnits: totals.TotalMinorUnits, CurrencyCode: totals.CurrencyCode}

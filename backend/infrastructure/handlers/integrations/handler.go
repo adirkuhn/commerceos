@@ -1071,7 +1071,9 @@ func webhookEventToResponse(e webhooksDomain.WebhookEvent) genintegrations.Webho
 	status := genintegrations.WebhookEventStatus(e.Status)
 	dispatchError := e.DispatchError
 	var payload any
-	_ = json.Unmarshal(e.Payload, &payload)
+	if err := json.Unmarshal(e.Payload, &payload); err != nil && len(e.Payload) > 0 {
+		log.Printf("integrationsHandler: webhook event %s: corrupt payload, omitting: %v", e.ID, err)
+	}
 	return genintegrations.WebhookEvent{
 		Id: &id, EventId: &eventID, Provider: &provider, Topic: &topic,
 		Payload: payload, ReceivedAt: &receivedAt, ProcessedAt: &processedAt,

@@ -3,6 +3,7 @@ package webhooks
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"gorm.io/gorm"
 
@@ -118,9 +119,11 @@ func (uc *ProcessWebhookEventUseCase) Execute(ctx context.Context, envelope webh
 		// caller to nack/retry (Save above is idempotent, so redelivery is
 		// safe) -- a failure recording that fact must not hide or replace
 		// it.
-		_ = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		if markErr := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 			return uc.eventRepo.MarkDispatchResult(ctx, event.ID, webhooks.WebhookEventStatusFailed, dispatchErr.Error())
-		})
+		}); markErr != nil {
+			log.Printf("processWebhookEvent: record dispatch failure for %s: %v", event.ID, markErr)
+		}
 		return fmt.Errorf("processWebhookEvent: shipment dispatch: %w", dispatchErr)
 	}
 

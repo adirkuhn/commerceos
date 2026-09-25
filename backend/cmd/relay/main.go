@@ -129,7 +129,11 @@ func publish(ctx context.Context, repo relayOutboxRepo, js jsPublisher, nc connC
 			}
 			continue
 		}
-		_ = repo.MarkPublished(ctx, m.ID)
+		if err := repo.MarkPublished(ctx, m.ID); err != nil {
+			// Row stays pending and is republished next tick -- harmless
+			// (consumers dedupe on EventID) but must be visible.
+			log.Printf("mark published %s: %v", m.EventID, err)
+		}
 	}
 }
 

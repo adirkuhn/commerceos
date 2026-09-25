@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -463,7 +464,9 @@ func errorsFromJSON(raw string) []string {
 	if raw == "" {
 		return out
 	}
-	_ = json.Unmarshal([]byte(raw), &out)
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		log.Printf("channelsRepo: corrupt stored JSON, treating as empty: %v", err)
+	}
 	return out
 }
 
@@ -793,7 +796,9 @@ func stringMapFromJSON(raw string) map[string]string {
 	if raw == "" {
 		return out
 	}
-	_ = json.Unmarshal([]byte(raw), &out)
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		log.Printf("channelsRepo: corrupt stored JSON, treating as empty: %v", err)
+	}
 	return out
 }
 
@@ -813,7 +818,9 @@ func changesFromJSON(raw string) map[string]channelsDomain.FieldChange {
 	if raw == "" {
 		return out
 	}
-	_ = json.Unmarshal([]byte(raw), &out)
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		log.Printf("channelsRepo: corrupt stored JSON, treating as empty: %v", err)
+	}
 	return out
 }
 

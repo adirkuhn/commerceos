@@ -823,7 +823,9 @@ func (h *Handler) ListSalesOrderActivities(c *gin.Context, id genoms.Id) {
 	out := make([]genoms.SalesOrderActivity, len(activities))
 	for i, a := range activities {
 		var metadata map[string]interface{}
-		_ = json.Unmarshal(a.Metadata, &metadata)
+		if err := json.Unmarshal(a.Metadata, &metadata); err != nil && len(a.Metadata) > 0 {
+			log.Printf("omsHandler: activity %s: corrupt metadata, omitting: %v", a.ID, err)
+		}
 		out[i] = genoms.SalesOrderActivity{
 			Id: a.ID, SalesOrderId: a.SalesOrderID, UserId: a.UserID,
 			ActivityType: a.ActivityType, Summary: a.Summary, Metadata: metadata, CreatedAt: a.CreatedAt,
