@@ -15,7 +15,7 @@ import (
 // exported-field casing, not lowerCamelCase). The old struct's explicit
 // (wrong-case) json tags meant encoding/json's case-insensitive fallback
 // never kicked in either, so every field silently zero-valued and every
-// inbound message was dropped by the phone=="" guard below -- this was
+// inbound message was dropped by the phone=="" guard in Execute -- this was
 // not a LID-specific bug, no inbound message was ever parsed correctly.
 //
 // Sender is already whatsmeow's own LID-vs-phone-JID reconciliation

@@ -43,7 +43,7 @@ func (r *SalesOrderRepo) ProductPerformanceBetween(ctx context.Context, from, to
 		FROM sales_order_line_items li
 		JOIN sales_orders so ON so.id = li.sales_order_id
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND so.status IN ('on-hold', 'processing', 'completed')
 		GROUP BY li.sku_id, li.sku_code, li.name
 		ORDER BY revenue_minor_units DESC
@@ -97,7 +97,7 @@ func (r *SalesOrderRepo) CustomerPerformanceBetween(ctx context.Context, from, t
 		LEFT JOIN customers c ON c.id = so.customer_id
 		WHERE so.customer_id IS NOT NULL
 			AND so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND so.status IN ('on-hold', 'processing', 'completed')
 		GROUP BY so.customer_id, c.first_name, c.last_name
 		ORDER BY revenue_minor_units DESC
@@ -154,7 +154,7 @@ func (r *SalesOrderRepo) CategoryPerformanceBetween(ctx context.Context, from, t
 		LEFT JOIN products p ON p.id = v.product_id
 		LEFT JOIN categories c ON c.id = p.category_id
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND so.status IN ('on-hold', 'processing', 'completed')
 		GROUP BY c.id, c.name
 		ORDER BY revenue_minor_units DESC
@@ -198,7 +198,7 @@ func (r *SalesOrderRepo) ProfitabilityBetween(ctx context.Context, from, to time
 		JOIN sales_orders so ON so.id = li.sales_order_id
 		LEFT JOIN skus sk ON sk.id = li.sku_id
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND so.status IN ('on-hold', 'processing', 'completed')
 	`, from, to, currencyCode).Scan(&row).Error
 	if err != nil {
@@ -239,7 +239,7 @@ func (r *SalesOrderRepo) TopProductsSince(ctx context.Context, since time.Time, 
 		FROM sales_order_line_items li
 		JOIN sales_orders so ON so.id = li.sales_order_id
 		WHERE so.occurred_at >= ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND so.status IN ('on-hold', 'processing', 'completed')
 		GROUP BY li.sku_id, li.sku_code, li.name
 		ORDER BY quantity_sold DESC
@@ -283,7 +283,7 @@ func (r *SalesOrderRepo) ProfitabilityTrendBetween(ctx context.Context, from, to
 		JOIN sales_orders so ON so.id = li.sales_order_id
 		LEFT JOIN skus sk ON sk.id = li.sku_id
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND so.status IN ('on-hold', 'processing', 'completed')
 		GROUP BY period_start
 		ORDER BY period_start ASC

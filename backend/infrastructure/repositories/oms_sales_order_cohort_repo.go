@@ -19,7 +19,7 @@ const cohortCustomersCTE = `
 		SELECT customer_id, date_trunc('month', MIN(occurred_at)) AS cohort_month
 		FROM sales_orders
 		WHERE customer_id IS NOT NULL AND currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND status IN ('on-hold', 'processing', 'completed')
 		GROUP BY customer_id
 	),
@@ -87,7 +87,7 @@ func (r *SalesOrderRepo) CohortRetentionBetween(ctx context.Context, from, to ti
 		FROM cohort_customers cc
 		JOIN sales_orders so ON so.customer_id = cc.customer_id
 		WHERE so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND so.status IN ('on-hold', 'processing', 'completed')
 		GROUP BY cc.cohort_month, months_since_cohort
 		ORDER BY cc.cohort_month ASC, months_since_cohort ASC
@@ -133,7 +133,7 @@ func (r *SalesOrderRepo) SKUSetSalesBetween(ctx context.Context, skuIDs []string
 		FROM sales_order_line_items li
 		JOIN sales_orders so ON so.id = li.sales_order_id
 		WHERE li.sku_id IN ? AND so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND so.status IN ('on-hold', 'processing', 'completed')
 	`, skuIDs, from, to, currencyCode).Scan(&row).Error
 	if err != nil {
@@ -167,7 +167,7 @@ func (r *SalesOrderRepo) ListOrderSKUsBetween(ctx context.Context, from, to time
 		JOIN sales_orders so ON so.id = li.sales_order_id
 		WHERE li.sku_id IS NOT NULL
 			AND so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND so.status IN ('on-hold', 'processing', 'completed')
 		ORDER BY so.id
 	`, from, to, currencyCode).Scan(&rows).Error

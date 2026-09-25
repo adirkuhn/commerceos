@@ -77,7 +77,7 @@ func (r *SalesOrderRepo) SalesSummaryBetween(ctx context.Context, from, to time.
 		FROM sales_order_line_items li
 		JOIN sales_orders so ON so.id = li.sales_order_id
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND so.status IN ('on-hold', 'processing', 'completed')
 	`, from, to, currencyCode).Scan(&unitsSold).Error
 	if err != nil {
@@ -122,7 +122,7 @@ func (r *SalesOrderRepo) SalesTrendBetween(ctx context.Context, from, to time.Ti
 			COUNT(*) AS order_count
 		FROM sales_orders
 		WHERE occurred_at >= ? AND occurred_at < ? AND currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND status IN ('on-hold', 'processing', 'completed')
 		GROUP BY period_start
 		ORDER BY period_start ASC
@@ -138,7 +138,7 @@ func (r *SalesOrderRepo) SalesTrendBetween(ctx context.Context, from, to time.Ti
 		FROM sales_order_line_items li
 		JOIN sales_orders so ON so.id = li.sales_order_id
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND so.status IN ('on-hold', 'processing', 'completed')
 		GROUP BY period_start
 	`, string(granularity), from, to, currencyCode).Scan(&unitsRows).Error
@@ -182,7 +182,7 @@ func (r *SalesOrderRepo) SalesByWeekdayBetween(ctx context.Context, from, to tim
 			COUNT(*) AS order_count
 		FROM sales_orders
 		WHERE occurred_at >= ? AND occurred_at < ? AND currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND status IN ('on-hold', 'processing', 'completed')
 		GROUP BY weekday
 		ORDER BY weekday ASC
@@ -243,7 +243,7 @@ func (r *SalesOrderRepo) RevenueByChannelTrendBetween(ctx context.Context, from,
 			COALESCE(SUM(total_minor_units), 0) AS revenue_minor_units
 		FROM sales_orders
 		WHERE occurred_at >= ? AND occurred_at < ? AND currency_code = ?
-			-- keep in sync with revenueCountingStatuses above
+			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
 			AND status IN ('on-hold', 'processing', 'completed')
 		GROUP BY period_start, source
 		ORDER BY period_start ASC
