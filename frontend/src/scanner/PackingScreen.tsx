@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, PackageCheck, Camera, X, Package, Undo2, Gift, Lock, Tag } from 'lucide-react'
+import { ArrowLeft, Check, PackageCheck, Camera, X, Undo2, Gift, Lock, Tag } from 'lucide-react'
 import { useSessionLock } from '../fulfillment/useSessionLock'
 import { readClaims } from '../auth/jwtClaims'
 import { useMemberNames } from '../team/hooks/useMemberNames'
 import { canTakeOverLocks, formatLockAge } from '../packing/lockDisplay'
 import * as api from './api'
-import { useProductMedia } from '../pms/hooks/useProductMedia'
 import { CameraScanner } from './CameraScanner'
 import { playErrorSound } from './errorSound'
 import { useWakeLock } from './useWakeLock'
@@ -25,34 +24,10 @@ import { LineChangeSheet } from './LineChangeSheet'
 import { AddItemSheet } from './AddItemSheet'
 import { StockShortfallDialog } from './StockShortfallDialog'
 import { packScanLabel } from '../packing/packScanLabel'
-import type { SalesOrder, Address } from '../oms/types'
+import type { SalesOrder } from '../oms/types'
 import { Dialog } from '../components/common/Dialog'
-
-function customerName(order: SalesOrder): string {
-  const name = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ')
-  return name || order.billing?.email || 'Unknown customer'
-}
-
-function shippingAddressLine(address?: Address): string {
-  if (!address) return ''
-  const streetAndLocality = [address.address_1, address.address_2, [address.postcode, address.city].filter(Boolean).join(' ')]
-    .filter(Boolean).join(', ')
-  return [streetAndLocality, address.country].filter(Boolean).join(', ')
-}
-
-function LineItemThumb({ token, name, productId }: { token: string; name: string; productId?: string | null }) {
-  const { media } = useProductMedia(token, productId ?? null)
-  const featured = media[0]
-  return (
-    <div className="w-9 h-9 rounded-lg bg-night-700 flex items-center justify-center shrink-0 overflow-hidden" title={name}>
-      {featured ? (
-        <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
-      ) : (
-        <Package size={16} className="text-gray-400" />
-      )}
-    </div>
-  )
-}
+import { LineItemThumb } from './PackingLineItemThumb'
+import { customerName, isAuthError, shippingAddressLine } from './PackingDisplay'
 
 interface PackingScreenProps {
   token: string
@@ -60,10 +35,6 @@ interface PackingScreenProps {
   order: SalesOrder
   onExit: () => void
   onAuthError: () => void
-}
-
-function isAuthError(err: unknown): boolean {
-  return err instanceof Error && /401|unauthorized/i.test(err.message)
 }
 
 export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: PackingScreenProps) {
