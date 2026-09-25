@@ -2190,7 +2190,10 @@ func TestSalesOrderRepo_Integration_SalesByWeekdayBetween_SumsAcrossOccurrencesO
 	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 
-	week1 := time.Now()
+	// Fixed UTC noon, not time.Now(): Postgres extracts the weekday in UTC,
+	// so a local "now" near midnight landed on a different weekday there
+	// and this test failed between 00:00 and the local UTC offset.
+	week1 := time.Date(2026, time.March, 4, 12, 0, 0, 0, time.UTC)
 	week2 := week1.AddDate(0, 0, 7) // same weekday, one week later
 	otherWeekday := week1.AddDate(0, 0, 1)
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
