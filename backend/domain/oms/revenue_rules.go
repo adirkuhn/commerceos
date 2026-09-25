@@ -11,11 +11,15 @@ func SalesOrderStatuses() []SalesOrderStatus {
 }
 
 // CountsAsRevenue reports whether an order in this status is a real sale
-// for reporting: every status that took stock (ReducesStock) -- a status
-// that never took stock (pending, cancelled, failed) was never a sale, and
-// a fully refunded order returned all its money.
+// for reporting: every status that took stock (ReducesStock), plus
+// PartiallyRefunded -- the customer kept and paid for the rest of it.
+// Revenue reports count every such order net of its refunded lines
+// (SalesOrderLineItem.RefundedQuantity/RefundedAmountMinorUnits), so a
+// partial refund subtracts what was given back rather than dropping the
+// whole order. Pending/cancelled/failed never took stock, and a fully
+// refunded order returned all its money.
 func (s SalesOrderStatus) CountsAsRevenue() bool {
-	return s.ReducesStock()
+	return s.ReducesStock() || s == SalesOrderStatusPartiallyRefunded
 }
 
 // RevenueCountingStatuses lists every status CountsAsRevenue accepts -- for

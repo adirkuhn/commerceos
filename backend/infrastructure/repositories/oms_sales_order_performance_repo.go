@@ -35,13 +35,13 @@ func (r *SalesOrderRepo) ProductPerformanceBetween(ctx context.Context, from, to
 			li.sku_id AS sku_id,
 			li.sku_code AS sku_code,
 			li.name AS name,
-			SUM(li.quantity) AS quantity_sold,
-			SUM(li.total_minor_units) AS revenue_minor_units,
+			SUM(`+netLineQuantitySQL+`) AS quantity_sold,
+			SUM(`+netLineRevenueSQL+`) AS revenue_minor_units,
 			COUNT(DISTINCT li.sales_order_id) AS order_count,
 			MIN(so.occurred_at) AS first_sale_at,
 			MAX(so.occurred_at) AS last_sale_at
 		FROM sales_order_line_items li
-		JOIN sales_orders so ON so.id = li.sales_order_id
+		JOIN sales_orders so ON so.id = li.sales_order_id AND `+lineNotFullyRefundedSQL+`
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
 			AND so.status IN ?
 		GROUP BY li.sku_id, li.sku_code, li.name
@@ -89,7 +89,7 @@ func (r *SalesOrderRepo) CustomerPerformanceBetween(ctx context.Context, from, t
 			so.customer_id AS customer_id,
 			COALESCE(NULLIF(TRIM(CONCAT(c.first_name, ' ', c.last_name)), ''), '') AS customer_name,
 			COUNT(*) AS order_count,
-			COALESCE(SUM(so.total_minor_units), 0) AS revenue_minor_units,
+			COALESCE(SUM(`+netOrderRevenueSQL("so")+`), 0) AS revenue_minor_units,
 			MIN(so.occurred_at) AS first_order_at,
 			MAX(so.occurred_at) AS last_order_at
 		FROM sales_orders so
@@ -142,11 +142,11 @@ func (r *SalesOrderRepo) CategoryPerformanceBetween(ctx context.Context, from, t
 		SELECT
 			c.id AS category_id,
 			COALESCE(c.name, 'Uncategorized') AS category_name,
-			SUM(li.quantity) AS quantity_sold,
-			SUM(li.total_minor_units) AS revenue_minor_units,
+			SUM(`+netLineQuantitySQL+`) AS quantity_sold,
+			SUM(`+netLineRevenueSQL+`) AS revenue_minor_units,
 			COUNT(DISTINCT li.sales_order_id) AS order_count
 		FROM sales_order_line_items li
-		JOIN sales_orders so ON so.id = li.sales_order_id
+		JOIN sales_orders so ON so.id = li.sales_order_id AND `+lineNotFullyRefundedSQL+`
 		LEFT JOIN skus sk ON sk.id = li.sku_id
 		LEFT JOIN variants v ON v.id = sk.variant_id
 		LEFT JOIN products p ON p.id = v.product_id
@@ -188,11 +188,11 @@ func (r *SalesOrderRepo) ProfitabilityBetween(ctx context.Context, from, to time
 	var row profitabilityRow
 	err = tx.Raw(`
 		SELECT
-			COALESCE(SUM(li.total_minor_units), 0) AS revenue_minor_units,
-			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN li.total_minor_units ELSE 0 END), 0) AS cost_known_revenue_minor_units,
-			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN li.quantity * sk.cost_price_minor_units ELSE 0 END), 0) AS cost_minor_units
+			COALESCE(SUM(`+netLineRevenueSQL+`), 0) AS revenue_minor_units,
+			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN `+netLineRevenueSQL+` ELSE 0 END), 0) AS cost_known_revenue_minor_units,
+			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN `+netLineQuantitySQL+` * sk.cost_price_minor_units ELSE 0 END), 0) AS cost_minor_units
 		FROM sales_order_line_items li
-		JOIN sales_orders so ON so.id = li.sales_order_id
+		JOIN sales_orders so ON so.id = li.sales_order_id AND `+lineNotFullyRefundedSQL+`
 		LEFT JOIN skus sk ON sk.id = li.sku_id
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
 			AND so.status IN ?
@@ -230,10 +230,10 @@ func (r *SalesOrderRepo) TopProductsSince(ctx context.Context, since time.Time, 
 			li.sku_id AS sku_id,
 			li.sku_code AS sku_code,
 			li.name AS name,
-			SUM(li.quantity) AS quantity_sold,
-			SUM(li.total_minor_units) AS revenue_minor_units
+			SUM(`+netLineQuantitySQL+`) AS quantity_sold,
+			SUM(`+netLineRevenueSQL+`) AS revenue_minor_units
 		FROM sales_order_line_items li
-		JOIN sales_orders so ON so.id = li.sales_order_id
+		JOIN sales_orders so ON so.id = li.sales_order_id AND `+lineNotFullyRefundedSQL+`
 		WHERE so.occurred_at >= ? AND so.currency_code = ?
 			AND so.status IN ?
 		GROUP BY li.sku_id, li.sku_code, li.name
@@ -271,11 +271,11 @@ func (r *SalesOrderRepo) ProfitabilityTrendBetween(ctx context.Context, from, to
 	err = tx.Raw(`
 		SELECT
 			date_trunc(?, so.occurred_at) AS period_start,
-			COALESCE(SUM(li.total_minor_units), 0) AS revenue_minor_units,
-			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN li.total_minor_units ELSE 0 END), 0) AS cost_known_revenue_minor_units,
-			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN li.quantity * sk.cost_price_minor_units ELSE 0 END), 0) AS cost_minor_units
+			COALESCE(SUM(`+netLineRevenueSQL+`), 0) AS revenue_minor_units,
+			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN `+netLineRevenueSQL+` ELSE 0 END), 0) AS cost_known_revenue_minor_units,
+			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN `+netLineQuantitySQL+` * sk.cost_price_minor_units ELSE 0 END), 0) AS cost_minor_units
 		FROM sales_order_line_items li
-		JOIN sales_orders so ON so.id = li.sales_order_id
+		JOIN sales_orders so ON so.id = li.sales_order_id AND `+lineNotFullyRefundedSQL+`
 		LEFT JOIN skus sk ON sk.id = li.sku_id
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
 			AND so.status IN ?

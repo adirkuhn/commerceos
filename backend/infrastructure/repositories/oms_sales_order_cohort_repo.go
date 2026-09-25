@@ -82,7 +82,7 @@ func (r *SalesOrderRepo) CohortRetentionBetween(ctx context.Context, from, to ti
 			(DATE_PART('year', date_trunc('month', so.occurred_at)) - DATE_PART('year', cc.cohort_month)) * 12
 				+ (DATE_PART('month', date_trunc('month', so.occurred_at)) - DATE_PART('month', cc.cohort_month)) AS months_since_cohort,
 			COUNT(DISTINCT so.customer_id) AS retained_customers,
-			COALESCE(SUM(so.total_minor_units), 0) AS revenue_minor_units
+			COALESCE(SUM(`+netOrderRevenueSQL("so")+`), 0) AS revenue_minor_units
 		FROM cohort_customers cc
 		JOIN sales_orders so ON so.customer_id = cc.customer_id
 		WHERE so.occurred_at < ? AND so.currency_code = ?
@@ -125,11 +125,11 @@ func (r *SalesOrderRepo) SKUSetSalesBetween(ctx context.Context, skuIDs []string
 	var row skuSetSalesRow
 	err = tx.Raw(`
 		SELECT
-			COALESCE(SUM(li.total_minor_units), 0) AS revenue_minor_units,
-			COALESCE(SUM(li.quantity), 0) AS units_sold,
+			COALESCE(SUM(`+netLineRevenueSQL+`), 0) AS revenue_minor_units,
+			COALESCE(SUM(`+netLineQuantitySQL+`), 0) AS units_sold,
 			COUNT(DISTINCT li.sales_order_id) AS order_count
 		FROM sales_order_line_items li
-		JOIN sales_orders so ON so.id = li.sales_order_id
+		JOIN sales_orders so ON so.id = li.sales_order_id AND `+lineNotFullyRefundedSQL+`
 		WHERE li.sku_id IN ? AND so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
 			AND so.status IN ?
 	`, skuIDs, from, to, currencyCode, revenueCountingStatuses).Scan(&row).Error
@@ -161,7 +161,7 @@ func (r *SalesOrderRepo) ListOrderSKUsBetween(ctx context.Context, from, to time
 	err = tx.Raw(`
 		SELECT DISTINCT so.id AS order_id, li.sku_id AS sku_id
 		FROM sales_order_line_items li
-		JOIN sales_orders so ON so.id = li.sales_order_id
+		JOIN sales_orders so ON so.id = li.sales_order_id AND `+lineNotFullyRefundedSQL+`
 		WHERE li.sku_id IS NOT NULL
 			AND so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
 			AND so.status IN ?

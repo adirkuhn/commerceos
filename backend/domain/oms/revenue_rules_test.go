@@ -11,6 +11,8 @@ func TestSalesOrderStatus_CountsAsRevenue(t *testing.T) {
 	for _, s := range []omsDomain.SalesOrderStatus{
 		omsDomain.SalesOrderStatusOnHold, omsDomain.SalesOrderStatusProcessing,
 		omsDomain.SalesOrderStatusShipped, omsDomain.SalesOrderStatusCompleted,
+		// Counted net of its refunded lines -- the rest was kept and paid for.
+		omsDomain.SalesOrderStatusPartiallyRefunded,
 	} {
 		assert.True(t, s.CountsAsRevenue(), s)
 	}

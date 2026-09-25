@@ -16,7 +16,7 @@ func (r *SalesOrderRepo) RevenueSince(ctx context.Context, since time.Time, curr
 	var total int64
 	err = tx.Model(&salesOrderModel{}).
 		Where("occurred_at >= ? AND currency_code = ? AND status IN ?", since, currencyCode, revenueCountingStatuses).
-		Select("COALESCE(SUM(total_minor_units), 0)").Scan(&total).Error
+		Select("COALESCE(SUM(" + netOrderRevenueSQL("sales_orders") + "), 0)").Scan(&total).Error
 	if err != nil {
 		return 0, fmt.Errorf("salesOrderRepo.RevenueSince: %w", err)
 	}
@@ -36,7 +36,7 @@ func (r *SalesOrderRepo) RevenueByChannelSince(ctx context.Context, since time.T
 	var rows []channelRevenueRow
 	err = tx.Model(&salesOrderModel{}).
 		Where("occurred_at >= ? AND currency_code = ? AND status IN ?", since, currencyCode, revenueCountingStatuses).
-		Select("source, COALESCE(SUM(total_minor_units), 0) AS total_minor_units").
+		Select("source, COALESCE(SUM(" + netOrderRevenueSQL("sales_orders") + "), 0) AS total_minor_units").
 		Group("source").Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("salesOrderRepo.RevenueByChannelSince: %w", err)
@@ -65,7 +65,7 @@ func (r *SalesOrderRepo) SalesSummaryBetween(ctx context.Context, from, to time.
 	var summary salesSummaryRow
 	err = tx.Model(&salesOrderModel{}).
 		Where("occurred_at >= ? AND occurred_at < ? AND currency_code = ? AND status IN ?", from, to, currencyCode, revenueCountingStatuses).
-		Select("COUNT(*) AS order_count, COALESCE(SUM(total_minor_units), 0) AS revenue_minor_units").
+		Select("COUNT(*) AS order_count, COALESCE(SUM(" + netOrderRevenueSQL("sales_orders") + "), 0) AS revenue_minor_units").
 		Scan(&summary).Error
 	if err != nil {
 		return omsDomain.SalesSummary{}, fmt.Errorf("salesOrderRepo.SalesSummaryBetween: %w", err)
@@ -73,9 +73,9 @@ func (r *SalesOrderRepo) SalesSummaryBetween(ctx context.Context, from, to time.
 
 	var unitsSold int64
 	err = tx.Raw(`
-		SELECT COALESCE(SUM(li.quantity), 0)
+		SELECT COALESCE(SUM(`+netLineQuantitySQL+`), 0)
 		FROM sales_order_line_items li
-		JOIN sales_orders so ON so.id = li.sales_order_id
+		JOIN sales_orders so ON so.id = li.sales_order_id AND `+lineNotFullyRefundedSQL+`
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
 			AND so.status IN ?
 	`, from, to, currencyCode, revenueCountingStatuses).Scan(&unitsSold).Error
@@ -117,7 +117,7 @@ func (r *SalesOrderRepo) SalesTrendBetween(ctx context.Context, from, to time.Ti
 	var buckets []salesTrendBucketRow
 	err = tx.Raw(`
 		SELECT date_trunc(?, occurred_at) AS period_start,
-			COALESCE(SUM(total_minor_units), 0) AS revenue_minor_units,
+			COALESCE(SUM(`+netOrderRevenueSQL("sales_orders")+`), 0) AS revenue_minor_units,
 			COUNT(*) AS order_count
 		FROM sales_orders
 		WHERE occurred_at >= ? AND occurred_at < ? AND currency_code = ?
@@ -132,9 +132,9 @@ func (r *SalesOrderRepo) SalesTrendBetween(ctx context.Context, from, to time.Ti
 	var unitsRows []salesTrendUnitsRow
 	err = tx.Raw(`
 		SELECT date_trunc(?, so.occurred_at) AS period_start,
-			COALESCE(SUM(li.quantity), 0) AS units_sold
+			COALESCE(SUM(`+netLineQuantitySQL+`), 0) AS units_sold
 		FROM sales_order_line_items li
-		JOIN sales_orders so ON so.id = li.sales_order_id
+		JOIN sales_orders so ON so.id = li.sales_order_id AND `+lineNotFullyRefundedSQL+`
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
 			AND so.status IN ?
 		GROUP BY period_start
@@ -175,7 +175,7 @@ func (r *SalesOrderRepo) SalesByWeekdayBetween(ctx context.Context, from, to tim
 	var rows []weekdaySalesRow
 	err = tx.Raw(`
 		SELECT EXTRACT(DOW FROM occurred_at)::int AS weekday,
-			COALESCE(SUM(total_minor_units), 0) AS revenue_minor_units,
+			COALESCE(SUM(`+netOrderRevenueSQL("sales_orders")+`), 0) AS revenue_minor_units,
 			COUNT(*) AS order_count
 		FROM sales_orders
 		WHERE occurred_at >= ? AND occurred_at < ? AND currency_code = ?
@@ -206,7 +206,7 @@ func (r *SalesOrderRepo) RevenueByChannelBetween(ctx context.Context, from, to t
 	var rows []channelRevenueRow
 	err = tx.Model(&salesOrderModel{}).
 		Where("occurred_at >= ? AND occurred_at < ? AND currency_code = ? AND status IN ?", from, to, currencyCode, revenueCountingStatuses).
-		Select("source, COALESCE(SUM(total_minor_units), 0) AS total_minor_units").
+		Select("source, COALESCE(SUM(" + netOrderRevenueSQL("sales_orders") + "), 0) AS total_minor_units").
 		Group("source").Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("salesOrderRepo.RevenueByChannelBetween: %w", err)
@@ -236,7 +236,7 @@ func (r *SalesOrderRepo) RevenueByChannelTrendBetween(ctx context.Context, from,
 	err = tx.Raw(`
 		SELECT date_trunc(?, occurred_at) AS period_start,
 			source,
-			COALESCE(SUM(total_minor_units), 0) AS revenue_minor_units
+			COALESCE(SUM(`+netOrderRevenueSQL("sales_orders")+`), 0) AS revenue_minor_units
 		FROM sales_orders
 		WHERE occurred_at >= ? AND occurred_at < ? AND currency_code = ?
 			AND status IN ?
