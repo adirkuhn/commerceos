@@ -45,5 +45,3 @@ export function InventoryApp({ token, onExit }: InventoryAppProps) {
     </Routes>
   )
 }
-
-export type { Resolved } from './InventoryScanScreens'

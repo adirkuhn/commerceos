@@ -9,7 +9,7 @@ import { ProductCandidateRow } from './ProductCandidateRow'
 import { SkuRoute } from './SkuRoute'
 import { scannerPaths } from './scannerRoutes'
 import { useStackNavigation } from '../routing/useStackNavigation'
-import type { Resolved } from './InventoryApp'
+import type { Resolved } from './InventoryScanScreens'
 
 interface PriceLookupAppProps {
   token: string

@@ -224,5 +224,3 @@ function InventoryHistoryView({ token, view, warehouses, onClose }: {
   }
   return <ProductMovementHistoryPage token={token} productName={data.productName} skus={data.skus} warehouses={warehouses} onClose={onClose} />
 }
-
-export type { ProductStockSummary } from '../inventory/ProductStockRow'

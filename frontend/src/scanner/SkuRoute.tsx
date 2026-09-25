@@ -4,7 +4,7 @@ import * as pmsApi from '../pms/api'
 import { useResource } from '../routing/useResource'
 import { useStackNavigation } from '../routing/useStackNavigation'
 import { ScannerLoadGate } from './ScannerLoadGate'
-import type { Resolved } from './InventoryApp'
+import type { Resolved } from './InventoryScanScreens'
 
 interface SkuRouteProps {
   token: string

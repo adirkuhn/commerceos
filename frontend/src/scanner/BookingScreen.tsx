@@ -498,5 +498,3 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
     </div>
   )
 }
-
-export type { PendingBatch } from './bookingHelpers'

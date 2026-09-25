@@ -11,7 +11,7 @@ import { QuantityStepper } from './QuantityStepper'
 import { SkuRoute } from './SkuRoute'
 import { scannerPaths } from './scannerRoutes'
 import { useStackNavigation } from '../routing/useStackNavigation'
-import type { Resolved } from './InventoryApp'
+import type { Resolved } from './InventoryScanScreens'
 import type { Batch } from '../inventory/types'
 import { Dialog } from '../components/common/Dialog'
 
