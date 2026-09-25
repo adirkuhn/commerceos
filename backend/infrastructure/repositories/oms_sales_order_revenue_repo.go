@@ -259,3 +259,14 @@ func (r *SalesOrderRepo) RevenueByChannelTrendBetween(ctx context.Context, from,
 	}
 	return points, nil
 }
+
+// revenueCountingStatuses mirrors omsDomain.SalesOrderStatus.ReducesStock's
+// set exactly -- a status that never reduced stock (pending, cancelled,
+// refunded, failed) was never real revenue either. Kept as a package-level
+// slice (rather than calling ReducesStock per-row) since these three
+// queries filter in SQL, not in Go.
+var revenueCountingStatuses = []string{
+	string(omsDomain.SalesOrderStatusOnHold),
+	string(omsDomain.SalesOrderStatusProcessing),
+	string(omsDomain.SalesOrderStatusCompleted),
+}
