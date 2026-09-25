@@ -37,7 +37,7 @@ func (c *NotificationEmailConsumer) Handle(msg *nats.Msg) {
 	var event events.NotificationEmailRequested
 	if err := json.Unmarshal(msg.Data, &event); err != nil {
 		log.Printf("notificationEmailConsumer: invalid payload, dropping (not retryable): %v", err)
-		_ = msg.Ack()
+		ackOrLog(msg, "notificationEmailConsumer")
 		return
 	}
 
@@ -49,7 +49,7 @@ func (c *NotificationEmailConsumer) Handle(msg *nats.Msg) {
 		return
 	}
 	if alreadyDone {
-		_ = msg.Ack()
+		ackOrLog(msg, "notificationEmailConsumer")
 		return
 	}
 
@@ -66,5 +66,5 @@ func (c *NotificationEmailConsumer) Handle(msg *nats.Msg) {
 		nakOrDeadLetter(c.dlq, msg, "notificationEmailConsumer: mark processed "+event.EventID, err)
 		return
 	}
-	_ = msg.Ack()
+	ackOrLog(msg, "notificationEmailConsumer")
 }

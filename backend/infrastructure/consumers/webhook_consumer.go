@@ -41,7 +41,7 @@ func (c *WebhookConsumer) Handle(msg *nats.Msg) {
 	var envelope webhooks.Envelope
 	if err := json.Unmarshal(msg.Data, &envelope); err != nil {
 		log.Printf("webhookConsumer: invalid envelope, dropping (not retryable): %v", err)
-		_ = msg.Ack()
+		ackOrLog(msg, "webhookConsumer")
 		return
 	}
 
@@ -62,7 +62,7 @@ func (c *WebhookConsumer) Handle(msg *nats.Msg) {
 		return
 	}
 	if alreadyDone {
-		_ = msg.Ack()
+		ackOrLog(msg, "webhookConsumer")
 		return
 	}
 
@@ -79,5 +79,5 @@ func (c *WebhookConsumer) Handle(msg *nats.Msg) {
 		return
 	}
 
-	_ = msg.Ack()
+	ackOrLog(msg, "webhookConsumer")
 }

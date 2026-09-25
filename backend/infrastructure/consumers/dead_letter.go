@@ -92,19 +92,19 @@ func nakOrDeadLetter(dlq dlqPublisher, msg *nats.Msg, logPrefix string, cause er
 		// Not a real JetStream message (only happens in tests) -- no
 		// delivery count to pace or dead-letter by, so just Nak.
 		log.Printf("%s: %v", logPrefix, cause)
-		_ = msg.Nak()
+		nakOrLog(msg, logPrefix)
 		return
 	}
 	if shouldDeadLetter(meta, metaErr) {
 		log.Printf("%s: giving up after %d deliveries, dead-lettering: %v", logPrefix, meta.NumDelivered, cause)
 		if _, err := dlq.Publish(deadLetterSubject(msg.Subject), msg.Data); err != nil {
 			log.Printf("%s: dead-letter publish failed, retrying instead: %v", logPrefix, err)
-			_ = msg.Nak()
+			nakOrLog(msg, logPrefix)
 			return
 		}
-		_ = msg.Ack()
+		ackOrLog(msg, logPrefix)
 		return
 	}
 	log.Printf("%s: %v", logPrefix, cause)
-	_ = msg.NakWithDelay(backoffFor(meta.NumDelivered))
+	nakWithDelayOrLog(msg, backoffFor(meta.NumDelivered), logPrefix)
 }

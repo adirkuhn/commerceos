@@ -46,7 +46,7 @@ func (c *ProductDeletedConsumer) Handle(msg *nats.Msg) {
 	var event events.ProductDeleted
 	if err := json.Unmarshal(msg.Data, &event); err != nil {
 		log.Printf("productDeletedConsumer: invalid payload, dropping (not retryable): %v", err)
-		_ = msg.Ack()
+		ackOrLog(msg, "productDeletedConsumer")
 		return
 	}
 
@@ -58,7 +58,7 @@ func (c *ProductDeletedConsumer) Handle(msg *nats.Msg) {
 		return
 	}
 	if alreadyDone {
-		_ = msg.Ack()
+		ackOrLog(msg, "productDeletedConsumer")
 		return
 	}
 
@@ -73,5 +73,5 @@ func (c *ProductDeletedConsumer) Handle(msg *nats.Msg) {
 		return
 	}
 
-	_ = msg.Ack()
+	ackOrLog(msg, "productDeletedConsumer")
 }

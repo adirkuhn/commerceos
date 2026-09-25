@@ -54,7 +54,7 @@ func (c *AutomationEngineConsumer) Handle(msg *nats.Msg) {
 	var payload map[string]any
 	if err := json.Unmarshal(msg.Data, &payload); err != nil {
 		log.Printf("automationEngineConsumer(%s): invalid payload, dropping (not retryable): %v", c.subject, err)
-		_ = msg.Ack()
+		ackOrLog(msg, "automationEngineConsumer("+c.subject+")")
 		return
 	}
 
@@ -62,7 +62,7 @@ func (c *AutomationEngineConsumer) Handle(msg *nats.Msg) {
 	tenantID, _ := payload["tenant_id"].(string)
 	if eventID == "" || tenantID == "" {
 		log.Printf("automationEngineConsumer(%s): payload missing event_id/tenant_id, dropping (not retryable)", c.subject)
-		_ = msg.Ack()
+		ackOrLog(msg, "automationEngineConsumer("+c.subject+")")
 		return
 	}
 
@@ -74,7 +74,7 @@ func (c *AutomationEngineConsumer) Handle(msg *nats.Msg) {
 		return
 	}
 	if alreadyDone {
-		_ = msg.Ack()
+		ackOrLog(msg, "automationEngineConsumer("+c.subject+")")
 		return
 	}
 
@@ -91,5 +91,5 @@ func (c *AutomationEngineConsumer) Handle(msg *nats.Msg) {
 		return
 	}
 
-	_ = msg.Ack()
+	ackOrLog(msg, "automationEngineConsumer("+c.subject+")")
 }

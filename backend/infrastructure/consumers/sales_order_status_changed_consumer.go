@@ -46,7 +46,7 @@ func (c *SalesOrderStatusChangedConsumer) Handle(msg *nats.Msg) {
 	var event events.SalesOrderStatusChanged
 	if err := json.Unmarshal(msg.Data, &event); err != nil {
 		log.Printf("salesOrderStatusChangedConsumer: invalid payload, dropping (not retryable): %v", err)
-		_ = msg.Ack()
+		ackOrLog(msg, "salesOrderStatusChangedConsumer")
 		return
 	}
 
@@ -58,7 +58,7 @@ func (c *SalesOrderStatusChangedConsumer) Handle(msg *nats.Msg) {
 		return
 	}
 	if alreadyDone {
-		_ = msg.Ack()
+		ackOrLog(msg, "salesOrderStatusChangedConsumer")
 		return
 	}
 
@@ -75,5 +75,5 @@ func (c *SalesOrderStatusChangedConsumer) Handle(msg *nats.Msg) {
 		return
 	}
 
-	_ = msg.Ack()
+	ackOrLog(msg, "salesOrderStatusChangedConsumer")
 }

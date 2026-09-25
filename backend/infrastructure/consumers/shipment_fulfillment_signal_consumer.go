@@ -47,7 +47,7 @@ func (c *ShipmentFulfillmentSignalConsumer) Handle(msg *nats.Msg) {
 	var event events.ShipmentFulfillmentSignal
 	if err := json.Unmarshal(msg.Data, &event); err != nil {
 		log.Printf("shipmentFulfillmentSignalConsumer: invalid payload, dropping (not retryable): %v", err)
-		_ = msg.Ack()
+		ackOrLog(msg, "shipmentFulfillmentSignalConsumer")
 		return
 	}
 
@@ -59,7 +59,7 @@ func (c *ShipmentFulfillmentSignalConsumer) Handle(msg *nats.Msg) {
 		return
 	}
 	if alreadyDone {
-		_ = msg.Ack()
+		ackOrLog(msg, "shipmentFulfillmentSignalConsumer")
 		return
 	}
 
@@ -75,5 +75,5 @@ func (c *ShipmentFulfillmentSignalConsumer) Handle(msg *nats.Msg) {
 		return
 	}
 
-	_ = msg.Ack()
+	ackOrLog(msg, "shipmentFulfillmentSignalConsumer")
 }
