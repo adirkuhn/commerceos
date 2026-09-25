@@ -1,0 +1,737 @@
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ScanBarcode, CheckCircle, Search, PauseCircle, X, Trash2, ArrowLeft, Undo2, PackageCheck, Lock } from 'lucide-react'
+import { useSessionLock } from '../fulfillment/useSessionLock'
+import { useMemberNames } from '../team/hooks/useMemberNames'
+import { canTakeOverLocks, formatLockAge, lockLabel } from '../packing/lockDisplay'
+import clsx from 'clsx'
+import { useAuth } from '../auth/AuthContext'
+import { usePickingQueue } from '../oms/hooks/usePackingQueue'
+import { ReadOnlyOrderItems } from './ReadOnlyOrderItems'
+import { useQueryString } from '../routing/useQueryState'
+import type { SalesOrder } from '../oms/types'
+import * as pickingApi from '../scanner/api'
+import type { PickingSessionDetail, PickingSessionLineItem, CompletePickingResult, StockShortfall, StockShortfallResolution } from '../scanner/types'
+import { pickedQuantityByLineItem, computeMissingItems } from '../scanner/pickingMissingItems'
+import { StockShortfallDialog } from '../scanner/StockShortfallDialog'
+import { playErrorSound } from '../scanner/errorSound'
+import { useRoutedSession } from '../oms/useRoutedSession'
+import { SessionErrorPanel } from '../oms/SessionErrorPanel'
+import { Dialog } from '../components/common/Dialog'
+import { ACTION_LABEL, PICKING_PATH, customerName, formatMoney, shippingAddressLine } from './pickingDisplay'
+import { LineItemThumb } from './LineItemThumb'
+
+// Each open session has its own URL (/picking/:sessionId) so a refresh or the
+// browser Back button keeps the picker on the order they were working on.
+// Session id rather than order id: reopening is a read (get session -> get
+// its order), never a startOrResume, which would fail once the order is
+// fulfilled by completing the session.
+export function ScanPicking() {
+  const { token, user } = useAuth()
+
+  // The picking queue: orders still to pick, with who is working each and
+  // whether packing has it -- those open as a read-only item list
+  // (?view=<orderId>, so refresh/Back work) instead of a picking session.
+  const queue = usePickingQueue(token ?? '')
+  const [viewId, openView] = useQueryString('view', { history: 'push' })
+  const viewEntry = queue.entries.find(e => e.sales_order.id === viewId && e.in_packing)
+  const [search, setSearch] = useState('')
+
+  const [activeOrder, setActiveOrder] = useState<SalesOrder | null>(null)
+  const [session, setSession] = useState<PickingSessionDetail | null>(null)
+  const [sessionLoading, setSessionLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [scanErrorAlert, setScanErrorAlert] = useState<string | null>(null)
+  const codeRef = useRef<HTMLInputElement>(null)
+
+  const [pickLine, setPickLine] = useState<{ lineItem: PickingSessionLineItem; pickedSoFar: number } | null>(null)
+  const [pickQty, setPickQty] = useState(1)
+
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [resetting, setResetting] = useState(false)
+
+  const [pausing, setPausing] = useState(false)
+  const [completing, setCompleting] = useState(false)
+  const [completeResult, setCompleteResult] = useState<CompletePickingResult | null>(null)
+  // Complete no longer fires the API directly -- it opens this review step
+  // first (divergences + customer/address, always shown even with none) so
+  // gaps can't silently slip through into a "fulfilled" order. Only
+  // handleConfirmComplete (below) actually calls completePicking.
+  const [confirmingFinish, setConfirmingFinish] = useState(false)
+  // Set when completePicking comes back with completed:false -- a
+  // substitute/freebie/new-item pick's SKU is short on tracked stock, see
+  // StockShortfallDialog. Resubmitting with staff's per-item resolutions
+  // either clears this (completed) or replaces it (still short -- shows
+  // the same dialog again with fresh numbers).
+  const [stockShortfalls, setStockShortfalls] = useState<StockShortfall[] | null>(null)
+
+  const navigate = useNavigate()
+
+
+  const loadSession = useCallback(async (sessionId: string) => {
+    if (!token) return
+    try {
+      setSession(await pickingApi.getPickingSession(token, sessionId))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load picking session')
+    } finally {
+      setSessionLoading(false)
+    }
+  }, [token])
+
+  useEffect(() => { codeRef.current?.focus() }, [session, pickLine])
+
+  // Opening an order only views it; the first scan takes the lock. While we
+  // hold it we heartbeat it, and leaving the order releases it.
+  const { heldByOther } = useSessionLock({
+    sessionId: session?.session.id ?? null, me: user?.user_id ?? '',
+    lockedBy: session?.session.locked_by, lockedAt: session?.session.locked_at,
+    active: !!session && session.session.status !== 'completed',
+    touch: id => pickingApi.touchPickingSession(token ?? '', id),
+    release: id => pickingApi.releasePickingSessionLock(token ?? '', id),
+    onLost: () => setError('Another user has taken over this picking session'),
+  })
+  const nameFor = useMemberNames(token ?? '')
+  const readOnly = heldByOther !== null
+
+  async function handleTakeOver() {
+    if (!session || !token) return
+    setError('')
+    try {
+      await pickingApi.takeOverPickingSession(token, session.session.id)
+      await loadSession(session.session.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to take over')
+    }
+  }
+
+  function clearSelection() {
+    setActiveOrder(null)
+    setSession(null)
+    setSessionLoading(false)
+    setCompleteResult(null)
+    setStockShortfalls(null)
+    setError('')
+    setConfirmingFinish(false)
+    setPickLine(null)
+  }
+
+  const { urlSessionId, showSession, backToList: backToOrders } = useRoutedSession({
+    basePath: PICKING_PATH,
+    token,
+    loadDetail: pickingApi.getPickingSession,
+    currentOrder: activeOrder,
+    onLoading: () => { setSessionLoading(true); setError('') },
+    onLoaded: (order, detail) => { setActiveOrder(order); setSession(detail); setSessionLoading(false) },
+    onError: message => { setError(message); setSessionLoading(false) },
+    onCleared: clearSelection,
+  })
+
+  // An order packing has: show its items read-only, no picking session.
+  function viewInPacking(orderId: string) {
+    if (activeOrder) backToOrders()
+    openView(orderId)
+  }
+
+  async function selectOrder(order: SalesOrder) {
+    if (viewId) openView(null)
+    setError('')
+    setCompleteResult(null)
+    setStockShortfalls(null)
+    setPickLine(null)
+    // Switching to a different order while one is actively in progress is
+    // just pause-then-resume -- same mechanic as the scanner app.
+    if (session && session.session.status === 'in_progress' && session.session.sales_order_id !== order.id && token) {
+      try { await pickingApi.pausePicking(token, session.session.id) } catch { /* best-effort */ }
+    }
+    setActiveOrder(order)
+    setSession(null)
+    setSessionLoading(true)
+    try {
+      const newSession = await pickingApi.startOrResumePicking(token ?? '', order.id)
+      if (showSession(newSession.id)) await loadSession(newSession.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start picking')
+      setSessionLoading(false)
+    }
+  }
+
+  // Hands off to the packing screen for this same order -- picking's job is
+  // done (see CompletePickingUseCase), packing (box + label) happens there
+  // now, whether that's the same person continuing immediately or a
+  // different person picking it up later from the packing screen's own
+  // order list.
+  function continueToPacking() {
+    if (!activeOrder) return
+    navigate(`/packing?order=${activeOrder.id}`)
+  }
+
+  // A scanned/typed code that matches one of this order's own line items
+  // marks one unit picked immediately -- no confirm sheet, just an
+  // increment (see the picking screens' shared design doc for why: the
+  // sheet is now reserved for a deliberate tap on the line itself, to pick
+  // a specific quantity or substitute). Already-fully-picked (over-scan) or
+  // resolved-but-not-on-this-order both block further scanning behind
+  // scanErrorAlert until the picker explicitly confirms the error --
+  // mis-scans must never silently fall through to the freebie/new-item
+  // flow.
+  async function handleScanSubmit() {
+    const scannedCode = code.trim()
+    if (!scannedCode || !session || !token || scanErrorAlert) return
+    setError('')
+    setBusy(true)
+    try {
+      const resolved = await pickingApi.resolvePickScanCode(token, session.session.id, scannedCode)
+      setCode('')
+      const li = session.line_items.find(l => l.sku_id === resolved.sku_id)
+      if (li) {
+        const pickedSoFar = pickedQuantityByLineItem(session.scans).get(li.id) ?? 0
+        if (pickedSoFar >= li.quantity) {
+          playErrorSound()
+          setScanErrorAlert('Already fully picked')
+          return
+        }
+      }
+      // No line item already carries this sku_id -- still worth trying the
+      // server: it may auto-link one of this order's still-unmatched Woo
+      // lines (product name matches the scanned item) rather than this
+      // always being a genuine "wrong order" scan (see
+      // ScanPickItemUseCase.autoLinkUnmatchedLine).
+      try {
+        await pickingApi.scanPickItem(token, session.session.id, {
+          sku_id: resolved.sku_id, action_type: 'pick', quantity: 1,
+        })
+        await loadSession(session.session.id)
+      } catch {
+        playErrorSound()
+        setScanErrorAlert('Item not on this order')
+      }
+    } catch {
+      // Code didn't resolve to any known SKU at all -- must block the same
+      // way as the "item not on this order" / "already fully picked" cases
+      // above, not just show inline text a picker can scan straight past
+      // (see PickingScreen.tsx's resolveAndRoute, which already blocks here).
+      playErrorSound()
+      setScanErrorAlert('Barcode not recognized')
+    } finally {
+      setBusy(false)
+      codeRef.current?.focus()
+    }
+  }
+
+  function dismissScanError() {
+    setScanErrorAlert(null)
+    codeRef.current?.focus()
+  }
+
+  function openLineForPick(li: PickingSessionLineItem, pickedSoFar: number) {
+    if (!li.sku_id) return // an unmatched Woo-import line has no SKU to pick against -- must be resolved elsewhere first
+    setPickLine({ lineItem: li, pickedSoFar })
+    setPickQty(Math.max(1, li.quantity - pickedSoFar))
+  }
+
+  async function confirmPick() {
+    if (!pickLine || !session || !token || !pickLine.lineItem.sku_id) return
+    setBusy(true)
+    setError('')
+    try {
+      await pickingApi.scanPickItem(token, session.session.id, {
+        sku_id: pickLine.lineItem.sku_id, action_type: 'pick', quantity: pickQty,
+      })
+      setPickLine(null)
+      await loadSession(session.session.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to record pick')
+    } finally {
+      setBusy(false)
+      codeRef.current?.focus()
+    }
+  }
+
+  async function handleDeleteScan(scanId: string) {
+    if (!session || !token) return
+    setError('')
+    try {
+      await pickingApi.deletePickScan(token, session.session.id, scanId)
+      await loadSession(session.session.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove scan')
+    }
+  }
+
+  async function handlePause() {
+    if (!session || !token) return
+    setPausing(true)
+    setError('')
+    try {
+      await pickingApi.pausePicking(token, session.session.id)
+      backToOrders()
+      await queue.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to pause')
+    } finally {
+      setPausing(false)
+    }
+  }
+
+  // Discards every staged scan on the session and hands it back fresh --
+  // the "start over" escape hatch for a wrong box / mis-pick spree. Only
+  // legal pre-complete (see ResetPickingSessionUseCase's doc); confirmed
+  // via resetConfirmOpen since it's destructive to in-progress work.
+  async function handleResetSession() {
+    if (!session || !token) return
+    setResetting(true)
+    setError('')
+    try {
+      await pickingApi.resetPickingSession(token, session.session.id)
+      setResetConfirmOpen(false)
+      setPickLine(null)
+        await loadSession(session.session.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset picking session')
+    } finally {
+      setResetting(false)
+    }
+  }
+
+  // handleConfirmComplete is the ONLY place that calls the completePicking
+  // API -- the header's "Complete" button just opens the review step
+  // (setConfirmingFinish(true) below), it never calls this directly.
+  // resolutions is only ever passed when resubmitting from
+  // StockShortfallDialog; the first attempt always omits it.
+  async function handleConfirmComplete(resolutions?: Record<string, StockShortfallResolution>) {
+    if (!session || !token) return
+    setCompleting(true)
+    setError('')
+    try {
+      const result = await pickingApi.completePicking(token, session.session.id, resolutions)
+      if (!result.completed) {
+        setStockShortfalls(result.stock_shortfalls ?? [])
+        return
+      }
+      setStockShortfalls(null)
+      setCompleteResult(result)
+      setConfirmingFinish(false)
+      await queue.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to complete picking')
+    } finally {
+      setCompleting(false)
+    }
+  }
+
+  const pickedByLineItem = session ? pickedQuantityByLineItem(session.scans) : new Map<string, number>()
+  const totalItems = session?.line_items.reduce((s, li) => s + li.quantity, 0) ?? 0
+  const pickedItems = session ? session.line_items.reduce((s, li) => s + Math.min(li.quantity, pickedByLineItem.get(li.id) ?? 0), 0) : 0
+  const progress = totalItems > 0 ? (pickedItems / totalItems) * 100 : 0
+  const allPicked = totalItems > 0 && pickedItems >= totalItems
+
+  const filteredEntries = queue.entries.filter(({ sales_order: o }) => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    return (o.number || o.external_order_id).toLowerCase().includes(q) || customerName(o).toLowerCase().includes(q)
+  })
+
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
+
+  return (
+    <div className="flex h-full">
+      {/* Order queue */}
+      <div className="w-64 border-r border-line bg-sunken flex flex-col overflow-hidden shrink-0">
+        <div className="px-4 py-3 border-b border-line">
+          <p className="text-xs font-semibold text-ink">Orders to pick</p>
+          <p className="text-2xs text-ink-4 mt-0.5">{queue.entries.length} to pick</p>
+        </div>
+        <div className="px-3 py-2 border-b border-line">
+          <div className="relative">
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-4" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search orders..."
+              className="w-full pl-7 pr-2 py-1.5 text-2xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
+            />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto py-2">
+          {queue.loading && <p className="px-4 py-3 text-2xs text-ink-4">Loading…</p>}
+          {queue.error && <p className="px-4 py-3 text-2xs text-danger">{queue.error}</p>}
+          {!queue.loading && filteredEntries.length === 0 && (
+            <p className="px-4 py-3 text-2xs text-ink-4">No unfulfilled orders</p>
+          )}
+          {filteredEntries.map(({ sales_order: o, lock, in_packing }) => (
+            <button aria-pressed={activeOrder?.id === o.id || viewId === o.id}
+              key={o.id}
+              onClick={() => (in_packing ? viewInPacking(o.id) : selectOrder(o))}
+              className={clsx(
+                'w-full text-left px-4 py-3 border-b border-line transition-colors',
+                activeOrder?.id === o.id
+                  ? ' bg-accent/10 border-l-2 border-l-accent'
+                  : 'hover:bg-raised',
+              )}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-ink">#{o.number || o.external_order_id}</span>
+                {activeOrder?.id === o.id && session?.session.status === 'in_progress' && (
+                  <span className="text-2xs font-medium text-accent">In progress</span>
+                )}
+              </div>
+              <p className="text-2xs text-ink-3 truncate">{customerName(o)}</p>
+              <p className="text-2xs text-ink-4 mt-0.5">{formatMoney(o.total_minor_units, o.currency_code)}</p>
+              {(lock || in_packing) && (
+                <p className="flex items-center gap-1 mt-1 text-2xs text-ink-4">
+                  <Lock size={10} className="shrink-0" />
+                  <span className="truncate">{lock ? lockLabel(lock, nameFor(lock.user_id)) : 'In packing'}</span>
+                </p>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main pick area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {viewEntry && (
+          <div className="flex-1 overflow-y-auto p-6">
+            <ReadOnlyOrderItems token={token ?? ''} orderId={viewEntry.sales_order.id} lock={viewEntry.lock} nameFor={nameFor} />
+          </div>
+        )}
+
+        {!viewEntry && !activeOrder && !(urlSessionId && (sessionLoading || error)) && (
+          <div className="flex-1 flex flex-col items-center justify-center text-ink-4">
+            <ScanBarcode size={32} className="mb-3 opacity-40" />
+            <p className="text-sm">Select an order to start picking</p>
+          </div>
+        )}
+
+        {!session && !sessionLoading && error && <SessionErrorPanel error={error} onBack={backToOrders} />}
+
+        {(activeOrder || urlSessionId) && sessionLoading && !session && (
+          <div className="flex-1 flex items-center justify-center text-ink-4 text-sm">Loading…</div>
+        )}
+
+        {activeOrder && completeResult && (
+          <div className="flex-1 flex flex-col items-center justify-center p-8">
+            <CheckCircle size={40} className="text-success mb-3" />
+            <p className="text-sm font-semibold text-ink">
+              #{activeOrder.number || activeOrder.external_order_id} marked fulfilled
+            </p>
+            {!!completeResult.missing_items?.length && (
+              <div className="mt-4 w-full max-w-sm rounded-lg border dark:border-amber-500/30 border-amber-300 dark:bg-amber-500/5 bg-amber-50/40 p-3">
+                <p className="text-2xs font-medium text-warning mb-2">Not fully picked</p>
+                {completeResult.missing_items.map(m => (
+                  <p key={m.line_item_id} className="text-2xs text-ink-2">
+                    {m.name}: {m.picked_qty}/{m.expected_qty}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button" onClick={continueToPacking}
+              className="mt-5 px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover flex items-center gap-1.5"
+            >
+              <PackageCheck size={13} /> Continue to packing
+            </button>
+
+            <button
+              type="button" onClick={backToOrders}
+              className="mt-3 px-4 py-2 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 text-xs font-medium hover:bg-hover transition-colors"
+            >
+              Back to orders
+            </button>
+          </div>
+        )}
+
+        {stockShortfalls && (
+          <StockShortfallDialog
+            shortfalls={stockShortfalls}
+            submitting={completing}
+            onCancel={() => setStockShortfalls(null)}
+            onConfirm={resolutions => handleConfirmComplete(resolutions)}
+          />
+        )}
+
+        {activeOrder && session && confirmingFinish && !completeResult && !stockShortfalls && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-line shrink-0">
+              <button aria-label="Back to picking" onClick={() => setConfirmingFinish(false)} className="p-1 -ml-1" title="Back to picking">
+                <ArrowLeft size={18} className="text-ink-3" />
+              </button>
+              <h2 className="text-sm font-semibold text-ink flex-1">Review before completing</h2>
+            </div>
+            {/* Customer/address stays visible here too, not just during
+                active picking -- staff confirming completion should never
+                have to go back just to double-check who this ships to. */}
+            <div className="px-6 py-3 border-b border-line shrink-0">
+              <p className="text-sm font-medium text-ink">
+                #{activeOrder.number || activeOrder.external_order_id} · {customerName(activeOrder)}
+              </p>
+              {shippingAddressLine(activeOrder.shipping) && (
+                <p className="text-xs text-ink-4 mt-0.5">{shippingAddressLine(activeOrder.shipping)}</p>
+              )}
+              {(activeOrder.shipping_method_title || activeOrder.shipping_method) && (
+                <p className="text-xs text-ink-4 mt-0.5">
+                  Shipping: {activeOrder.shipping_method_title || activeOrder.shipping_method}
+                </p>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+              {(() => {
+                const missing = computeMissingItems(session.line_items, session.scans)
+                return missing.length === 0 ? (
+                  <p className="text-sm text-ink-3">Every line is fully picked.</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-warning">{missing.length} line(s) aren't fully picked yet:</p>
+                    {missing.map(m => (
+                      <div key={m.line_item_id} className="rounded-lg bg-raised border border-line px-3 py-2">
+                        <p className="text-sm text-ink">{m.name}</p>
+                        <p className="text-xs text-ink-4">expected {m.expected_qty} · picked {m.picked_qty}</p>
+                      </div>
+                    ))}
+                  </>
+                )
+              })()}
+            </div>
+            <div className="p-6 border-t border-line shrink-0 space-y-2">
+              {error && <p className="text-sm text-danger">{error}</p>}
+              <button
+                onClick={() => handleConfirmComplete()} disabled={completing}
+                className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
+              >
+                {completing ? 'Completing…' : 'Confirm & complete'}
+              </button>
+              <button
+                onClick={() => setConfirmingFinish(false)}
+                className="w-full py-2.5 rounded-xl dark:bg-night-800 bg-gray-100 text-ink-2 text-sm font-medium"
+              >
+                Back to scanning
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeOrder && session && !completeResult && !confirmingFinish && (
+          <>
+            {/* Header */}
+            <div className={clsx(
+              'flex items-center gap-4 px-6 py-3 border-b border-line shrink-0',
+            )}>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <h2 className="text-sm font-semibold text-ink">#{activeOrder.number || activeOrder.external_order_id}</h2>
+                  <span className="text-xs text-ink-4">·</span>
+                  <span className="text-xs text-ink-3">{customerName(activeOrder)}</span>
+                </div>
+                <p className="text-xs text-ink-4">{formatMoney(activeOrder.total_minor_units, activeOrder.currency_code)}</p>
+                {shippingAddressLine(activeOrder.shipping) && (
+                  <p className="text-xs text-ink-4 mt-0.5">{shippingAddressLine(activeOrder.shipping)}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button" onClick={handlePause} disabled={pausing || readOnly}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50"
+                >
+                  <PauseCircle size={13} /> {pausing ? 'Pausing…' : 'Pause'}
+                </button>
+                <button
+                  type="button" onClick={() => setResetConfirmOpen(true)} disabled={readOnly}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-danger hover:bg-hover disabled:opacity-50"
+                >
+                  <Undo2 size={13} /> Start over
+                </button>
+                <button
+                  type="button" onClick={() => setConfirmingFinish(true)} disabled={readOnly}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50"
+                >
+                  <CheckCircle size={13} /> Complete
+                </button>
+              </div>
+            </div>
+
+            {heldByOther && (
+              <div role="status" className="flex items-center gap-2 px-6 py-2 border-b border-line bg-warning/10 text-xs text-ink-2">
+                <Lock size={12} className="shrink-0" />
+                <span className="flex-1">
+                  {nameFor(heldByOther)} is picking this order{session.session.locked_since ? ` · ${formatLockAge(session.session.locked_since)}` : ''} -- view only.
+                </span>
+                {canTakeOverLocks(user?.role) && (
+                  <button type="button" onClick={handleTakeOver} className="px-2 py-0.5 rounded-md border border-line bg-raised font-medium hover:bg-hover">
+                    Take over
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Scan input */}
+            <div className="px-6 py-4 border-b border-line shrink-0 dark:bg-night-900/80 bg-gray-50">
+              <div className="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border-2  border-accent bg-raised">
+                <ScanBarcode size={20} className="text-accent" />
+                <input
+                  ref={codeRef}
+                  type="text"
+                  value={code}
+                  onChange={e => setCode(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleScanSubmit()}
+                  placeholder="Scan barcode or type and press Enter..."
+                  disabled={busy || readOnly || !!pickLine || !!scanErrorAlert}
+                  className="flex-1 bg-transparent text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus/60 placeholder-ink-4 font-mono disabled:opacity-50"
+                />
+              </div>
+              {error && <p className="text-2xs text-danger mt-2">{error}</p>}
+            </div>
+
+            {/* Progress */}
+            <div className="px-6 py-3 border-b border-line shrink-0">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-ink-3">Progress</span>
+                <span className="text-xs font-medium text-ink">{pickedItems} / {totalItems} items</span>
+              </div>
+              <div className="h-2 dark:bg-night-700 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className={clsx('h-full rounded-full transition-all duration-500', allPicked ? 'bg-green-500' : 'bg-accent-solid')}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Line items */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {session.line_items.map(li => {
+                const picked = pickedByLineItem.get(li.id) ?? 0
+                const done = picked >= li.quantity
+                const partial = picked > 0 && picked < li.quantity
+                return (
+                  <div
+                    key={li.id}
+                    onClick={() => !done && !readOnly && openLineForPick(li, picked)}
+                    className={clsx(
+                      'flex items-center gap-4 p-3 rounded-xl border transition-all',
+                      li.sku_id && !done && 'cursor-pointer',
+                      done ? 'dark:bg-green-500/5 dark:border-green-500/20 border-green-200 bg-green-50' :
+                      partial ? 'dark:bg-amber-500/5 dark:border-amber-500/20 border-amber-200 bg-amber-50' :
+                      'bg-raised border-line',
+                    )}
+                  >
+                    {done ? (
+                      <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center shrink-0">
+                        <CheckCircle size={18} className="text-success" />
+                      </div>
+                    ) : (
+                      <LineItemThumb token={token ?? ''} productId={li.product_id} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className={clsx('text-sm font-medium', done ? 'dark:text-green-300 text-success' : 'text-ink')}>{li.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-2xs font-mono text-ink-4">{li.sku_code}</span>
+                        {!li.sku_id && <span className="text-2xs text-warning">unlinked — scan to resolve</span>}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className={clsx('text-lg font-bold tabular-nums', done ? 'text-success' : partial ? 'text-warning' : 'text-ink')}>
+                        {picked}/{li.quantity}
+                      </p>
+                      <p className="text-2xs text-ink-4">picked</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Staged scans log */}
+            {session.scans.length > 0 && (
+              <div className="border-t border-line px-4 py-2 max-h-32 overflow-y-auto shrink-0">
+                <p className="text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1">This session</p>
+                {session.scans.map(s => (
+                  <div key={s.id} className="flex items-center justify-between py-0.5">
+                    <span className="text-2xs text-ink-3">
+                      {ACTION_LABEL[s.action_type]} · qty {s.quantity}
+                    </span>
+                    <button type="button" onClick={() => handleDeleteScan(s.id)} aria-label="Remove scan" className="text-ink-4 hover:text-danger">
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Pick confirm panel -- picking only picks; substitutes, extra items
+          and refunds are recorded in packing. */}
+      {pickLine && (
+        <div className="w-80 border-l border-line bg-sunken flex flex-col shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+            <p className="text-xs font-semibold text-ink">{pickLine.lineItem.name}</p>
+            <button type="button" onClick={() => setPickLine(null)} aria-label="Close" className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
+              <X size={14} />
+            </button>
+          </div>
+          <div className="p-4 space-y-4">
+            <div>
+              <label htmlFor="pick-qty" className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
+              <input
+                id="pick-qty" type="number" min={1} max={pickLine.lineItem.quantity - pickLine.pickedSoFar || undefined}
+                value={pickQty} onChange={e => setPickQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                className={inputClass}
+              />
+            </div>
+            <button
+              type="button" onClick={confirmPick} disabled={busy}
+              className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
+            >
+              Confirm pick
+            </button>
+            <p className="text-2xs text-ink-4">Out of stock or needs replacing? Substitutes and refunds happen in packing.</p>
+          </div>
+        </div>
+      )}
+
+      {scanErrorAlert && (
+        <Dialog onClose={dismissScanError} label="Scan error" initialFocus="dialog" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-xs rounded-xl bg-surface border dark:border-red-500/40 border-red-300 p-5 text-center shadow-xl">
+            <p className="text-sm font-semibold text-danger mb-4">{scanErrorAlert}</p>
+            <button
+              type="button" onClick={dismissScanError}
+              className="w-full py-2 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700"
+            >
+              OK
+            </button>
+          </div>
+        </Dialog>
+      )}
+
+      {resetConfirmOpen && (
+        <Dialog onClose={() => setResetConfirmOpen(false)} label="Start over?" dismissible={!resetting} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-xs rounded-xl bg-surface border border-line p-5 text-center shadow-xl">
+            <p className="text-sm font-semibold text-ink mb-1">Start over?</p>
+            <p className="text-xs text-ink-3 mb-4">
+              This discards every item picked so far on this order and starts the session fresh. This can't be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button" onClick={() => setResetConfirmOpen(false)} disabled={resetting}
+                className="flex-1 py-2 rounded-lg border border-line text-xs font-medium text-ink-2 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button" onClick={handleResetSession} disabled={resetting}
+                className="flex-1 py-2 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 disabled:opacity-50"
+              >
+                {resetting ? 'Resetting…' : 'Start over'}
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+
+    </div>
+  )
+}
