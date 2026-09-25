@@ -31,7 +31,7 @@ const (
 // a tenant that takes orders in more than one currency has orders outside
 // that currency excluded from those three figures entirely, not blended
 // or erroring. All three also use the same "counted as revenue" status
-// filter (see domain/oms.SalesOrderStatus.ReducesStock's doc): a
+// filter (see domain/oms.SalesOrderStatus.CountsAsRevenue): a
 // pending/cancelled/refunded/failed order was never real revenue.
 type DashboardStats struct {
 	TotalStockUnits            int64

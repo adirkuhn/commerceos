@@ -144,9 +144,9 @@ type ProductSales struct {
 
 // DashboardSalesReportRepository backs the dashboard's revenue/channel/
 // top-products figures -- read-only aggregate queries over sales_orders
-// and sales_order_line_items, scoped to orders whose status actually
-// reduced stock (see SalesOrderStatus.ReducesStock; a
-// pending/cancelled/refunded/failed order was never real revenue) and to
+// and sales_order_line_items, scoped to orders whose status counts as
+// revenue (see SalesOrderStatus.CountsAsRevenue / RevenueCountingStatuses;
+// a pending/cancelled/refunded/failed order was never real revenue) and to
 // a single currency (a tenant reporting in more than one currency has
 // orders outside that currency excluded from these figures entirely --
 // see application/dashboard.GetDashboardStatsUseCase's doc).

@@ -19,8 +19,7 @@ const cohortCustomersCTE = `
 		SELECT customer_id, date_trunc('month', MIN(occurred_at)) AS cohort_month
 		FROM sales_orders
 		WHERE customer_id IS NOT NULL AND currency_code = ?
-			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
-			AND status IN ('on-hold', 'processing', 'completed')
+			AND status IN ?
 		GROUP BY customer_id
 	),
 	cohort_customers AS (
@@ -48,7 +47,7 @@ func (r *SalesOrderRepo) CohortSizesBetween(ctx context.Context, from, to time.T
 		FROM cohort_customers
 		GROUP BY cohort_month
 		ORDER BY cohort_month ASC
-	`, currencyCode, from, to).Scan(&rows).Error
+	`, currencyCode, revenueCountingStatuses, from, to).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("salesOrderRepo.CohortSizesBetween: %w", err)
 	}
@@ -87,11 +86,10 @@ func (r *SalesOrderRepo) CohortRetentionBetween(ctx context.Context, from, to ti
 		FROM cohort_customers cc
 		JOIN sales_orders so ON so.customer_id = cc.customer_id
 		WHERE so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
-			AND so.status IN ('on-hold', 'processing', 'completed')
+			AND so.status IN ?
 		GROUP BY cc.cohort_month, months_since_cohort
 		ORDER BY cc.cohort_month ASC, months_since_cohort ASC
-	`, currencyCode, from, to, to, currencyCode).Scan(&rows).Error
+	`, currencyCode, revenueCountingStatuses, from, to, to, currencyCode, revenueCountingStatuses).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("salesOrderRepo.CohortRetentionBetween: %w", err)
 	}
@@ -133,9 +131,8 @@ func (r *SalesOrderRepo) SKUSetSalesBetween(ctx context.Context, skuIDs []string
 		FROM sales_order_line_items li
 		JOIN sales_orders so ON so.id = li.sales_order_id
 		WHERE li.sku_id IN ? AND so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
-			AND so.status IN ('on-hold', 'processing', 'completed')
-	`, skuIDs, from, to, currencyCode).Scan(&row).Error
+			AND so.status IN ?
+	`, skuIDs, from, to, currencyCode, revenueCountingStatuses).Scan(&row).Error
 	if err != nil {
 		return omsDomain.SKUSetSalesSummary{}, fmt.Errorf("salesOrderRepo.SKUSetSalesBetween: %w", err)
 	}
@@ -167,10 +164,9 @@ func (r *SalesOrderRepo) ListOrderSKUsBetween(ctx context.Context, from, to time
 		JOIN sales_orders so ON so.id = li.sales_order_id
 		WHERE li.sku_id IS NOT NULL
 			AND so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
-			AND so.status IN ('on-hold', 'processing', 'completed')
+			AND so.status IN ?
 		ORDER BY so.id
-	`, from, to, currencyCode).Scan(&rows).Error
+	`, from, to, currencyCode, revenueCountingStatuses).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("salesOrderRepo.ListOrderSKUsBetween: %w", err)
 	}

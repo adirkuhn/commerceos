@@ -77,9 +77,8 @@ func (r *SalesOrderRepo) SalesSummaryBetween(ctx context.Context, from, to time.
 		FROM sales_order_line_items li
 		JOIN sales_orders so ON so.id = li.sales_order_id
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
-			AND so.status IN ('on-hold', 'processing', 'completed')
-	`, from, to, currencyCode).Scan(&unitsSold).Error
+			AND so.status IN ?
+	`, from, to, currencyCode, revenueCountingStatuses).Scan(&unitsSold).Error
 	if err != nil {
 		return omsDomain.SalesSummary{}, fmt.Errorf("salesOrderRepo.SalesSummaryBetween: %w", err)
 	}
@@ -122,11 +121,10 @@ func (r *SalesOrderRepo) SalesTrendBetween(ctx context.Context, from, to time.Ti
 			COUNT(*) AS order_count
 		FROM sales_orders
 		WHERE occurred_at >= ? AND occurred_at < ? AND currency_code = ?
-			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
-			AND status IN ('on-hold', 'processing', 'completed')
+			AND status IN ?
 		GROUP BY period_start
 		ORDER BY period_start ASC
-	`, string(granularity), from, to, currencyCode).Scan(&buckets).Error
+	`, string(granularity), from, to, currencyCode, revenueCountingStatuses).Scan(&buckets).Error
 	if err != nil {
 		return nil, fmt.Errorf("salesOrderRepo.SalesTrendBetween: %w", err)
 	}
@@ -138,10 +136,9 @@ func (r *SalesOrderRepo) SalesTrendBetween(ctx context.Context, from, to time.Ti
 		FROM sales_order_line_items li
 		JOIN sales_orders so ON so.id = li.sales_order_id
 		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
-			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
-			AND so.status IN ('on-hold', 'processing', 'completed')
+			AND so.status IN ?
 		GROUP BY period_start
-	`, string(granularity), from, to, currencyCode).Scan(&unitsRows).Error
+	`, string(granularity), from, to, currencyCode, revenueCountingStatuses).Scan(&unitsRows).Error
 	if err != nil {
 		return nil, fmt.Errorf("salesOrderRepo.SalesTrendBetween: %w", err)
 	}
@@ -182,11 +179,10 @@ func (r *SalesOrderRepo) SalesByWeekdayBetween(ctx context.Context, from, to tim
 			COUNT(*) AS order_count
 		FROM sales_orders
 		WHERE occurred_at >= ? AND occurred_at < ? AND currency_code = ?
-			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
-			AND status IN ('on-hold', 'processing', 'completed')
+			AND status IN ?
 		GROUP BY weekday
 		ORDER BY weekday ASC
-	`, from, to, currencyCode).Scan(&rows).Error
+	`, from, to, currencyCode, revenueCountingStatuses).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("salesOrderRepo.SalesByWeekdayBetween: %w", err)
 	}
@@ -243,11 +239,10 @@ func (r *SalesOrderRepo) RevenueByChannelTrendBetween(ctx context.Context, from,
 			COALESCE(SUM(total_minor_units), 0) AS revenue_minor_units
 		FROM sales_orders
 		WHERE occurred_at >= ? AND occurred_at < ? AND currency_code = ?
-			-- keep in sync with revenueCountingStatuses (oms_sales_order_revenue_repo.go)
-			AND status IN ('on-hold', 'processing', 'completed')
+			AND status IN ?
 		GROUP BY period_start, source
 		ORDER BY period_start ASC
-	`, string(granularity), from, to, currencyCode).Scan(&rows).Error
+	`, string(granularity), from, to, currencyCode, revenueCountingStatuses).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("salesOrderRepo.RevenueByChannelTrendBetween: %w", err)
 	}
@@ -260,13 +255,9 @@ func (r *SalesOrderRepo) RevenueByChannelTrendBetween(ctx context.Context, from,
 	return points, nil
 }
 
-// revenueCountingStatuses mirrors omsDomain.SalesOrderStatus.ReducesStock's
-// set exactly -- a status that never reduced stock (pending, cancelled,
-// refunded, failed) was never real revenue either. Kept as a package-level
-// slice (rather than calling ReducesStock per-row) since these three
-// queries filter in SQL, not in Go.
-var revenueCountingStatuses = []string{
-	string(omsDomain.SalesOrderStatusOnHold),
-	string(omsDomain.SalesOrderStatusProcessing),
-	string(omsDomain.SalesOrderStatusCompleted),
-}
+// revenueCountingStatuses is omsDomain.RevenueCountingStatuses as plain
+// strings for SQL `status IN ?` filters -- every revenue report query in
+// this package filters by it, never by a hand-written status list, so
+// reports can't drift from the domain rule (a copied list is how "shipped"
+// orders went missing from every report).
+var revenueCountingStatuses = salesOrderStatusStrings(omsDomain.RevenueCountingStatuses())

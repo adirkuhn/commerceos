@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	reviewsDomain "github.com/adirkuhn/commerceos/domain/reviews"
 	"github.com/adirkuhn/commerceos/internal/txctx"
 )
@@ -146,10 +147,10 @@ func (r *ReviewRepo) HasVerifiedPurchase(ctx context.Context, salesChannelID, pr
 			JOIN skus sk ON sk.id = li.sku_id
 			JOIN variants v ON v.id = sk.variant_id
 			WHERE so.sales_channel_id = ?
-			  AND so.status = 'completed'
+			  AND so.status = ?
 			  AND LOWER(so.billing_email) = LOWER(?)
 			  AND v.product_id = ?
-		)`, salesChannelID, email, productID).Scan(&exists).Error
+		)`, salesChannelID, string(omsDomain.SalesOrderStatusCompleted), email, productID).Scan(&exists).Error
 	if err != nil {
 		return false, fmt.Errorf("reviewRepo.HasVerifiedPurchase: %w", err)
 	}
