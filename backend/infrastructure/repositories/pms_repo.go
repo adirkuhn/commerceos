@@ -15,8 +15,6 @@ import (
 // testing.
 const fuzzySearchSimilarityThreshold = 0.25
 
-// ── GORM models ──────────────────────────────────────────────────────────────
-
 // stringSlice is a zero-dependency []string <-> jsonb Scanner/Valuer --
 // avoids pulling in a Postgres-array driver type for the one column that
 // needs it (products.tags).

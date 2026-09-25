@@ -14,6 +14,24 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
+// bolProductPusher is the one method this use case needs from
+// PushProductToBolUseCase (ISP), same reasoning as productPusher above.
+// Optional: nil when the caller hasn't wired Bol support (e.g. an older
+// call site not yet updated) -- syncBolConnection no-ops rather than
+// panicking, since Bol support is additive and every existing call site
+// predates it.
+type bolProductPusher interface {
+	Execute(ctx context.Context, in PushProductToBolInput) ([]channelsDomain.ProductChannelListing, error)
+}
+
+// bolOfferGater is the one method this use case needs from
+// PushProductToBolUseCase to gate/ungate a Bol listing (ISP) -- a minimal
+// on-hold toggle, never a full offer push. Optional: nil when the caller
+// hasn't wired Bol support, same convention as bolPusher.
+type bolOfferGater interface {
+	SetOnHold(ctx context.Context, connectionID, externalID string, onHold bool) error
+}
+
 // SyncProductToChannelsUseCase re-pushes a product's current state to every
 // channel it's already linked to, in response to a pms.product.changed
 // event. A product with no listings is a cheap no-op — most products
@@ -34,24 +52,6 @@ import (
 // Stock quantity is deliberately not pushed here — that's the sync
 // schedule's job (ExportWooStockLevelsUseCase); duplicating it here would
 // just mean two code paths racing to set the same field.
-// bolProductPusher is the one method this use case needs from
-// PushProductToBolUseCase (ISP), same reasoning as productPusher above.
-// Optional: nil when the caller hasn't wired Bol support (e.g. an older
-// call site not yet updated) -- syncBolConnection no-ops rather than
-// panicking, since Bol support is additive and every existing call site
-// predates it.
-type bolProductPusher interface {
-	Execute(ctx context.Context, in PushProductToBolInput) ([]channelsDomain.ProductChannelListing, error)
-}
-
-// bolOfferGater is the one method this use case needs from
-// PushProductToBolUseCase to gate/ungate a Bol listing (ISP) -- a minimal
-// on-hold toggle, never a full offer push. Optional: nil when the caller
-// hasn't wired Bol support, same convention as bolPusher.
-type bolOfferGater interface {
-	SetOnHold(ctx context.Context, connectionID, externalID string, onHold bool) error
-}
-
 type SyncProductToChannelsUseCase struct {
 	db           *gorm.DB
 	productRepo  pmsDomain.ProductRepository
