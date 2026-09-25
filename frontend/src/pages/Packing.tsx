@@ -13,7 +13,7 @@ import { useSessionLock } from '../fulfillment/useSessionLock'
 import { usePackingQueue } from '../oms/hooks/usePackingQueue'
 import { useMemberNames } from '../team/hooks/useMemberNames'
 import { useQueryString } from '../routing/useQueryState'
-import type { SalesOrder, Address } from '../oms/types'
+import type { SalesOrder } from '../oms/types'
 import * as packingApi from '../scanner/api'
 import type { PackingSessionDetail, PickingSessionLineItem, PackScan, CompletePackingResult, StockShortfall, StockShortfallResolution } from '../scanner/types'
 import { StockShortfallDialog } from '../scanner/StockShortfallDialog'
@@ -21,7 +21,6 @@ import { LineChangePanel, type SubstituteRowInput } from '../packing/LineChangeP
 import { AddItemPanel, type AddItemInput } from '../packing/AddItemPanel'
 import { packScanLabel } from '../packing/packScanLabel'
 import { packedQuantityByLineItem, computeMissingPackItems } from '../scanner/packingProgress'
-import { useProductMedia } from '../pms/hooks/useProductMedia'
 import { useConnections } from '../integrations/hooks/useConnections'
 import * as shippingApi from '../shipping/api'
 import type { RecipientAddress } from '../shipping/types'
@@ -34,29 +33,8 @@ import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLab
 import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import { playErrorSound } from '../scanner/errorSound'
 import { Dialog } from '../components/common/Dialog'
-
-// Duplicated from Picking.tsx on purpose -- same small-helper convention
-// used elsewhere in this codebase rather than a shared cross-screen import.
-function LineItemThumb({ token, productId }: { token: string; productId?: string | null }) {
-  const { media } = useProductMedia(token, productId ?? null)
-  const featured = media[0]
-  return (
-    <div className="w-10 h-10 rounded-lg bg-hover flex items-center justify-center shrink-0 overflow-hidden">
-      {featured ? (
-        <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
-      ) : (
-        <Package size={18} className="text-ink-4" />
-      )}
-    </div>
-  )
-}
-
-function shippingAddressLine(address?: Address): string {
-  if (!address) return ''
-  const streetAndLocality = [address.address_1, address.address_2, [address.postcode, address.city].filter(Boolean).join(' ')]
-    .filter(Boolean).join(', ')
-  return [streetAndLocality, address.country].filter(Boolean).join(', ')
-}
+import { LineItemThumb } from '../packing/LineItemThumb'
+import { shippingAddressLine } from '../packing/shippingAddressLine'
 
 const PACKING_PATH = '/packing'
 
@@ -139,7 +117,6 @@ export default function Packing() {
     setLabelTab(null)
     setExistingShipment(null)
   }, [activeOrder?.id])
-
 
   const loadSession = useCallback(async (sessionId: string) => {
     if (!token) return
@@ -455,8 +432,6 @@ export default function Packing() {
   const packedItems = session ? session.line_items.reduce((s, li) => s + Math.min(li.quantity, packedByLineItem.get(li.id) ?? 0), 0) : 0
   const progress = totalItems > 0 ? (packedItems / totalItems) * 100 : 0
   const allPacked = totalItems > 0 && packedItems >= totalItems
-
-
 
   if (token && pickIds.length > 0) {
     return <PickListPrintView token={token} orderIds={pickIds} onClose={() => clearPickParam(null)} />
