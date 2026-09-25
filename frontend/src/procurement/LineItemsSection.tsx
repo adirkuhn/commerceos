@@ -6,7 +6,7 @@ import { pollParsingJob } from './pollParsingJob'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import * as procurementApi from './api'
 import * as integrationsApi from '../integrations/api'
-import type { PurchaseOrderLineItem, AddLineItemInput, UpdateLineItemInput, LineItemType } from './types'
+import type { PurchaseOrderLineItem, AddLineItemInput, UpdateLineItemInput } from './types'
 import type { SKU } from '../pms/types'
 import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
 import { useConfirm } from '../components/common/useConfirm'
@@ -192,7 +192,7 @@ export function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, ini
                   <td className="px-4 py-2.5 text-ink-3">
                     {isCharge && (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-2xs">{LINE_TYPE_LABELS[li.line_type as Exclude<LineItemType, ''>]}</span>
+                        <span className="text-2xs">{LINE_TYPE_LABELS[li.line_type]}</span>
                         {!li.line_type_confirmed && (
                           <button
                             type="button"

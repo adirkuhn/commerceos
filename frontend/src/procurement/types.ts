@@ -30,10 +30,11 @@ export interface PurchaseOrder {
   updated_at: string
 }
 
-// LineItemType: 'product' (or '', treated the same) is an actual item that
-// needs a SKU match. Anything else is a charge/adjustment row that must
-// never be forced through product matching.
-export type LineItemType = '' | 'product' | 'shipping' | 'discount' | 'credit_note' | 'fee' | 'other_charge'
+// LineItemType: 'product' is an actual item that needs a SKU match.
+// Anything else is a charge/adjustment row that must never be forced
+// through product matching. (The backend stores an unclassified row as ''
+// but always sends it as 'product' -- see the procurement contract.)
+export type LineItemType = 'product' | 'shipping' | 'discount' | 'credit_note' | 'fee' | 'other_charge'
 
 export interface PurchaseOrderLineItem {
   id: string

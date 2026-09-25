@@ -13,12 +13,16 @@ import { useAuth } from '../auth/AuthContext'
 import { useExpiringBatches } from '../inventory/hooks/useExpiringBatches'
 import { useDashboardStats } from '../dashboard/hooks/useDashboardStats'
 import type { ChannelRevenue } from '../dashboard/types'
+import type { SalesOrderSource } from '../oms/types'
 import { formatMoney } from '../format/money'
 
-const CHANNEL_LABELS: Record<string, string> = { pos: 'POS', manual: 'Manual', woocommerce: 'WooCommerce' }
+// Typed over SalesOrderSource so a new source can't ship without a label.
+const CHANNEL_LABELS: Record<SalesOrderSource, string> = {
+  pos: 'POS', manual: 'Manual', woocommerce: 'WooCommerce', bol: 'Bol.com', whatsapp: 'WhatsApp',
+}
 
 function channelLabel(source: string): string {
-  return CHANNEL_LABELS[source] ?? source
+  return CHANNEL_LABELS[source as SalesOrderSource] ?? source
 }
 
 interface StatCardProps {

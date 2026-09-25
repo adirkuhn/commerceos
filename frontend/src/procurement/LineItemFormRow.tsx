@@ -75,7 +75,7 @@ export function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRow
                 aria-label="Line item type" value={lineType} onChange={e => setLineType(e.target.value as LineItemType)}
                 className={inputClass}
               >
-                {(Object.keys(LINE_TYPE_LABELS) as Exclude<LineItemType, ''>[]).map(t => (
+                {(Object.keys(LINE_TYPE_LABELS) as LineItemType[]).map(t => (
                   <option key={t} value={t}>{LINE_TYPE_LABELS[t]}</option>
                 ))}
               </select>

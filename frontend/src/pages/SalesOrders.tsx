@@ -23,6 +23,7 @@ const SOURCE_FILTER_OPTIONS: { value: SalesOrderSource; label: string }[] = [
   { value: 'woocommerce', label: 'WOO' },
   { value: 'bol', label: 'Bol' },
   { value: 'manual', label: 'Internal' },
+  { value: 'whatsapp', label: 'WhatsApp' },
 ]
 
 const STATUS_COLORS: Record<SalesOrderStatus, string> = {

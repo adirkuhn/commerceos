@@ -22,7 +22,7 @@ export const STATUS_STYLE: Record<PurchaseOrderStatus, string> = {
 
 // '' and 'product' both mean "an actual item" -- everything else is a
 // charge/adjustment row that must never be forced through SKU matching.
-export const LINE_TYPE_LABELS: Record<Exclude<LineItemType, ''>, string> = {
+export const LINE_TYPE_LABELS: Record<LineItemType, string> = {
   product: 'Product',
   shipping: 'Shipping',
   discount: 'Discount',
@@ -32,7 +32,7 @@ export const LINE_TYPE_LABELS: Record<Exclude<LineItemType, ''>, string> = {
 }
 
 export function isChargeLineType(type: LineItemType): boolean {
-  return type !== '' && type !== 'product'
+  return type !== 'product'
 }
 
 // isReductionLineType mirrors backend LineItemType.IsReduction --

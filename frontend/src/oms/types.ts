@@ -14,7 +14,7 @@ export interface Address {
 }
 
 export type SalesOrderStatus = 'pending' | 'processing' | 'on-hold' | 'shipped' | 'completed' | 'cancelled' | 'refunded' | 'failed' | 'partially_refunded'
-export type SalesOrderSource = 'pos' | 'manual' | 'woocommerce' | 'bol'
+export type SalesOrderSource = 'pos' | 'manual' | 'woocommerce' | 'bol' | 'whatsapp'
 
 export type SalesOrderSortField = 'occurred_at' | 'customer' | 'source' | 'status' | 'total'
 export type SortDirection = 'asc' | 'desc'

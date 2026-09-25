@@ -122,14 +122,15 @@ export interface SKU {
   // with a cost basis to average.
   cost_price_minor_units?: number | null
   // Read-only. Whether cost_price_minor_units came from the daily cron
-  // ('computed', the default) or a human's manual override ('manual', see
-  // pmsApi.setManualCostPrice/clearCostPriceOverride).
+  // ('computed', the default), a human's manual override ('manual', see
+  // pmsApi.setManualCostPrice/clearCostPriceOverride), or 'unknown' -- stock
+  // on hand with no cost basis yet.
   cost_price_source?: SKUCostPriceSource
   created_at: string
   updated_at: string
 }
 
-export type SKUCostPriceSource = 'computed' | 'manual'
+export type SKUCostPriceSource = 'computed' | 'manual' | 'unknown'
 
 export interface SKUMarginInsight {
   cost_price_available: boolean

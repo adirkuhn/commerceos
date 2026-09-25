@@ -1,6 +1,6 @@
 import { PackScan } from './packing'
 
-export type PickingSessionStatus = 'in_progress' | 'paused' | 'completed'
+export type PickingSessionStatus = 'in_progress' | 'paused' | 'completed' | 'abandoned'
 
 export interface PickingSession {
   id: string
