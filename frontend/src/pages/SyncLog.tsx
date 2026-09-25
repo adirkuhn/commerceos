@@ -8,6 +8,7 @@ import { useSyncLogsNeedingAttention } from '../integrations/hooks/useSyncLogsNe
 import * as api from '../integrations/api'
 import type { SyncLogStatus, SyncLogDirection } from '../integrations/types'
 import { useQueryEnum, useQueryPage } from '../routing/useQueryState'
+import { formatDateTime } from '../format/date'
 
 const PAGE_SIZE = 20
 
@@ -19,10 +20,6 @@ const STATUS_STYLES: Record<SyncLogStatus, string> = {
 const DIRECTION_LABEL: Record<SyncLogDirection, string> = {
   push: 'CommerceOS → Channel',
   import: 'Channel → CommerceOS',
-}
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString()
 }
 
 function formatValue(v: string): string {

@@ -10,8 +10,9 @@ import type { PurchaseOrderLineItem, AddLineItemInput, UpdateLineItemInput, Line
 import type { SKU } from '../pms/types'
 import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
 import { useConfirm } from '../components/common/useConfirm'
-import { LINE_TYPE_LABELS, formatMoney, friendlyParsingError, isChargeLineType, signedLineItemAmount } from './procurementHelpers'
+import { LINE_TYPE_LABELS, friendlyParsingError, isChargeLineType, signedLineItemAmount } from './procurementHelpers'
 import { LineItemFormRow } from './LineItemFormRow'
+import { formatMoney } from '../format/money'
 
 // ── Line Items ───────────────────────────────────────────────────────────────
 

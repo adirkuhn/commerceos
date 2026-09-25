@@ -2,14 +2,7 @@ import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 import { getPromotionPerformanceReport } from '../reports/api'
 import type { PromotionPerformanceReport } from '../reports/types'
-
-function formatMoney(minorUnits: number, currencyCode: string): string {
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'USD' }).format(minorUnits / 100)
-  } catch {
-    return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
-  }
-}
+import { formatMoney } from '../format/money'
 
 // PromotionPerformanceCard compares the promotion's covered SKUs' revenue/
 // units during its active window (capped at "now" if still ongoing)

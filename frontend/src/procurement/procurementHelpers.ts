@@ -20,10 +20,6 @@ export const STATUS_STYLE: Record<PurchaseOrderStatus, string> = {
   needs_review: 'bg-amber-500/20 text-warning',
 }
 
-export function formatMoney(minorUnits: number, currencyCode: string): string {
-  return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
-}
-
 // '' and 'product' both mean "an actual item" -- everything else is a
 // charge/adjustment row that must never be forced through SKU matching.
 export const LINE_TYPE_LABELS: Record<Exclude<LineItemType, ''>, string> = {

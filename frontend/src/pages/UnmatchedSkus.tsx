@@ -5,17 +5,12 @@ import Pagination from '../components/common/Pagination'
 import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import { useSalesOrderDetail } from '../oms/hooks/useSalesOrderDetail'
 import * as api from '../oms/api'
-import type { SalesOrder } from '../oms/types'
 import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
 import type { SKU } from '../pms/types'
 import { useQueryPage } from '../routing/useQueryState'
+import { customerName } from '../oms/salesOrderDisplay'
 
 const PAGE_SIZE = 20
-
-function customerName(order: SalesOrder): string {
-  const name = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ')
-  return name || order.billing?.email || '—'
-}
 
 // UnmatchedSkus lists WooCommerce sales orders with at least one line item
 // never matched to a catalog SKU (sku_id nil) -- see

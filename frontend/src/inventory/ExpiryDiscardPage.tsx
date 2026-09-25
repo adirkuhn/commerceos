@@ -8,7 +8,7 @@ import { useDiscards } from './hooks/useDiscards'
 import { useDiscardBatch } from './hooks/useDiscardBatch'
 import type { ExpiringBatch, ExpiredBatchReview } from './types'
 import { Dialog } from '../components/common/Dialog'
-import { formatDate } from './inventoryFormat'
+import { formatDate } from '../format/date'
 
 // A single discard target, whichever tab it was opened from -- carries
 // everything DiscardBatchInput needs plus enough to refresh the right

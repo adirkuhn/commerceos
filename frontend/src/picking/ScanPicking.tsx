@@ -18,8 +18,10 @@ import { playErrorSound } from '../scanner/errorSound'
 import { useRoutedSession } from '../oms/useRoutedSession'
 import { SessionErrorPanel } from '../oms/SessionErrorPanel'
 import { Dialog } from '../components/common/Dialog'
-import { ACTION_LABEL, PICKING_PATH, customerName, formatMoney, shippingAddressLine } from './pickingDisplay'
-import { LineItemThumb } from './LineItemThumb'
+import { ACTION_LABEL, PICKING_PATH } from './pickingDisplay'
+import { ProductThumb, ADMIN_THUMB } from '../pms/ProductThumb'
+import { customerName, shippingAddressLine } from '../oms/salesOrderDisplay'
+import { formatMoney } from '../format/money'
 
 // Each open session has its own URL (/picking/:sessionId) so a refresh or the
 // browser Back button keeps the picker on the order they were working on.
@@ -69,7 +71,6 @@ export function ScanPicking() {
   const [stockShortfalls, setStockShortfalls] = useState<StockShortfall[] | null>(null)
 
   const navigate = useNavigate()
-
 
   const loadSession = useCallback(async (sessionId: string) => {
     if (!token) return
@@ -623,7 +624,7 @@ export function ScanPicking() {
                         <CheckCircle size={18} className="text-success" />
                       </div>
                     ) : (
-                      <LineItemThumb token={token ?? ''} productId={li.product_id} />
+                      <ProductThumb token={token ?? ''} productId={li.product_id} appearance={ADMIN_THUMB} />
                     )}
                     <div className="flex-1 min-w-0">
                       <p className={clsx('text-sm font-medium', done ? 'dark:text-green-300 text-success' : 'text-ink')}>{li.name}</p>

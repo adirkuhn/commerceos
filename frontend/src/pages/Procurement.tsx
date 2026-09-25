@@ -10,10 +10,11 @@ import { useSuppliers } from '../suppliers/hooks/useSuppliers'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import type { PurchaseOrder, PurchaseOrderStatus } from '../procurement/types'
 import { useConfirm } from '../components/common/useConfirm'
-import { DISCREPANCIES_SEGMENT, PROCUREMENT_PATH, STATUS_STYLE, formatMoney } from '../procurement/procurementHelpers'
+import { DISCREPANCIES_SEGMENT, PROCUREMENT_PATH, STATUS_STYLE } from '../procurement/procurementHelpers'
 import { BookingDiscrepanciesPage } from '../procurement/BookingDiscrepanciesPage'
 import { CreateFromDocumentModal } from '../procurement/CreateFromDocumentModal'
 import { PurchaseOrderEditPage } from '../procurement/PurchaseOrderEditPage'
+import { formatMoney } from '../format/money'
 
 const STATUS_TABS: readonly (PurchaseOrderStatus | 'all')[] = ['all', 'draft', 'sent', 'partially_received', 'received', 'needs_review', 'cancelled']
 

@@ -9,9 +9,9 @@ import { useCompanyInvites } from '../team/hooks/useCompanyInvites'
 import { useUserActivities } from '../iam/hooks/useUserActivities'
 import type { MemberRole, CompanyMember } from '../team/types'
 import { useConfirm } from '../components/common/useConfirm'
-import { fullName } from '../iam/userFormat'
 import { GroupsPanel } from '../iam/components/GroupsPanel'
 import { InviteForm } from '../iam/components/InviteForm'
+import { fullName } from '../format/personName'
 
 const ROLE_LABELS: Record<MemberRole, string> = { customer_owner: 'Owner', customer_user: 'User' }
 const ROLE_COLORS: Record<MemberRole, string> = {

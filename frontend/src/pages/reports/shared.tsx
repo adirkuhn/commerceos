@@ -3,15 +3,6 @@ import { TrendingUp, TrendingDown } from 'lucide-react'
 import clsx from 'clsx'
 import { dateRange, REPORTS_PERIODS, type ReportsPeriod } from '../../reports/period'
 
-
-export function formatMoney(minorUnits: number, currencyCode: string): string {
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'USD' }).format(minorUnits / 100)
-  } catch {
-    return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
-  }
-}
-
 export function ChangeBadge({ percent }: { percent: number | null }) {
   if (percent === null) {
     return <span className="text-xs text-ink-4">— vs prev period</span>

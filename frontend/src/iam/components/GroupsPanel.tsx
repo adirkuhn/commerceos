@@ -6,7 +6,7 @@ import { GroupList } from './GroupList'
 import { GroupForm } from './GroupForm'
 import type { CompanyMember } from '../../team/types'
 import type { Group } from '../types'
-import { fullName } from '../userFormat'
+import { fullName } from '../../format/personName'
 
 function GroupDetail({ token, group, members }: { token: string; group: Group; members: CompanyMember[] }) {
   const groupMembers = useGroupMembers(token, group.id)

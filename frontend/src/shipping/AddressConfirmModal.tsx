@@ -5,6 +5,7 @@ import type { RecipientAddress, DeliveryPriceOption } from './types'
 import { CARRIERS, PACKAGE_TYPES } from './types'
 import * as shippingApi from './api'
 import { Dialog } from '../components/common/Dialog'
+import { formatMoney } from '../format/money'
 
 // ESTIMATE_DEBOUNCE_MS: same purpose as the address check's blur-triggered
 // timing, but this one fires on every keystroke-driven state change (no
@@ -12,14 +13,6 @@ import { Dialog } from '../components/common/Dialog'
 // to avoid a request per keystroke while staff are still typing the postal
 // code/number.
 const ESTIMATE_DEBOUNCE_MS = 300
-
-function formatMoney(minorUnits: number, currencyCode: string): string {
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'EUR' }).format(minorUnits / 100)
-  } catch {
-    return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
-  }
-}
 
 // splitStreetAndNumber is a best-effort starting point ONLY -- e.g.
 // "Damrak 1A" -> {street:"Damrak", number:"1", suffix:"A"} -- never trusted
@@ -71,7 +64,7 @@ interface AddressConfirmModalProps {
   // Threaded explicitly (not read from AuthContext) -- matches how this
   // modal's two call sites (Picking.tsx via useAuth, PickingScreen.tsx via
   // its own token prop) already have it in scope, and keeps this component
-  // usable outside an AuthProvider (see LineItemThumb's identical
+  // usable outside an AuthProvider (see ProductThumb's identical
   // convention).
   token: string
   initialAddress?: Address
@@ -352,7 +345,7 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
           )}
           {estimate.status === 'ready' && cheapestEstimate && (
             <p className="text-2xs text-ink-3">
-              Estimated cost: <strong>{formatMoney(cheapestEstimate.amount_minor_units, cheapestEstimate.currency)}</strong> ({cheapestEstimate.price_comment})
+              Estimated cost: <strong>{formatMoney(cheapestEstimate.amount_minor_units, cheapestEstimate.currency, 'EUR')}</strong> ({cheapestEstimate.price_comment})
             </p>
           )}
           <button

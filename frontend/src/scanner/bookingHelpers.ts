@@ -1,9 +1,5 @@
 import type { BookingDetail, MissingBookingItem } from './types'
 
-export function isAuthError(err: unknown): boolean {
-  return err instanceof Error && /401|unauthorized/i.test(err.message)
-}
-
 export interface PendingBatch {
   lotNumber: string
   expiryDate?: string | null

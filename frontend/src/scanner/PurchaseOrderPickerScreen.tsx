@@ -7,17 +7,13 @@ import * as api from './api'
 import type { PurchaseOrder } from '../procurement/types'
 import type { Supplier } from '../suppliers/types'
 import type { Warehouse } from '../inventory/types'
+import { formatDate } from '../format/date'
 
 interface PurchaseOrderPickerScreenProps {
   token: string
   onBookingStarted: (bookingId: string) => void
   onLogout: () => void
   onBack: () => void
-}
-
-function formatDate(iso?: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString()
 }
 
 function formatPrice(minorUnits: number, currency: string): string {

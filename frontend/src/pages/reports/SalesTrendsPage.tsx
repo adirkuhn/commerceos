@@ -6,9 +6,10 @@ import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
 import type { SalesTrendGranularity } from '../../reports/types'
-import { ReportPageShell, ReportCard, EmptyState, formatMoney } from './shared'
+import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 import { useQueryEnum } from '../../routing/useQueryState'
+import { formatMoney } from '../../format/money'
 
 const TREND_GRANULARITIES = ['day', 'week', 'month'] as const satisfies readonly SalesTrendGranularity[]
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']

@@ -2,8 +2,9 @@ import { Lock } from 'lucide-react'
 import { useSalesOrderDetail } from '../oms/hooks/useSalesOrderDetail'
 import { quantityToPick } from '../oms/pickable'
 import type { QueueLock } from '../oms/types'
-import { customerName, orderNumber } from '../packing/orderDisplay'
+import { orderNumber } from '../packing/orderDisplay'
 import { lockLabel } from '../packing/lockDisplay'
+import { customerName } from '../oms/salesOrderDisplay'
 
 interface ReadOnlyOrderItemsProps {
   token: string

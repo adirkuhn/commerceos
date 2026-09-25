@@ -10,9 +10,10 @@ import type { SKU } from '../pms/types'
 import type { Batch } from './types'
 import { PortionFromBulkModal } from './PortionFromBulkModal'
 import { AdjustStockModal, BatchFormModal, BatchScope, RecountModal } from './BatchStockModals'
-import { formatDate, formatSKUQuantity, isExpired, isExpiringSoon, parseOptionalPriceToMinorUnits, parsePriceToMinorUnits } from './inventoryFormat'
+import { formatSKUQuantity, isExpired, isExpiringSoon, parseOptionalPriceToMinorUnits, parsePriceToMinorUnits } from './inventoryFormat'
 import { BatchRowActionModal, NewBatchModal, PriceModal } from './BatchActionModals'
 import { DamagedLostModal, SplitCaseModal, TransferModal } from './TransferStockModals'
+import { formatDate } from '../format/date'
 
 export function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUpdated, onStockChanged, onViewHistory, onViewBatchHistory }: {
   token: string; productId: string; sku: SKU; variantName?: string; warehouses: { id: string; name: string }[]

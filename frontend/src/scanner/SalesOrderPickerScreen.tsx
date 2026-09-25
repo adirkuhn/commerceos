@@ -6,6 +6,9 @@ import { lockLabel } from '../packing/lockDisplay'
 import { usePickingMode } from '../picking/usePickingMode'
 import * as api from './api'
 import type { SalesOrder } from '../oms/types'
+import { formatDate } from '../format/date'
+import { customerName } from '../oms/salesOrderDisplay'
+import { UNKNOWN_CUSTOMER_LABEL } from './scannerLabels'
 
 interface SalesOrderPickerScreenProps {
   token: string
@@ -17,18 +20,8 @@ interface SalesOrderPickerScreenProps {
   onBack: () => void
 }
 
-function formatDate(iso?: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString()
-}
-
 function formatPrice(minorUnits: number, currency: string): string {
   return `${currency} ${(minorUnits / 100).toFixed(2)}`
-}
-
-function customerName(order: SalesOrder): string {
-  const name = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ')
-  return name || order.billing?.email || 'Unknown customer'
 }
 
 // Unlike PurchaseOrderPickerScreen, there's no warehouse-assignment step --
@@ -46,7 +39,7 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenF
 
   const filtered = queue.entries.filter(({ sales_order: o }) =>
     query.trim() === ''
-    || customerName(o).toLowerCase().includes(query.toLowerCase())
+    || customerName(o, UNKNOWN_CUSTOMER_LABEL).toLowerCase().includes(query.toLowerCase())
     || (o.number || o.external_order_id).toLowerCase().includes(query.toLowerCase()),
   )
 
@@ -107,7 +100,7 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenF
               <ShoppingCart size={16} className="text-gray-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{customerName(o)}</p>
+              <p className="text-sm font-medium truncate">{customerName(o, UNKNOWN_CUSTOMER_LABEL)}</p>
               <p className="text-xs text-gray-400 flex items-center gap-1.5">
                 <span>#{o.number || o.external_order_id}</span>
                 <span>·</span>

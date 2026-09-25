@@ -5,15 +5,9 @@ import { WhatsAppConversationPanel } from './WhatsAppConversationPanel'
 import type { Customer, Address } from './types'
 import * as omsApi from '../oms/api'
 import type { SalesOrder } from '../oms/types'
-import { fullName } from './customerFormat'
-
-function formatMoney(minorUnits: number, currencyCode: string): string {
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'USD' }).format(minorUnits / 100)
-  } catch {
-    return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
-  }
-}
+import { formatMoney } from '../format/money'
+import { addressesEqual } from '../oms/salesOrderDisplay'
+import { fullName } from '../format/personName'
 
 // "3 days ago" style formatting for the "Last order placed" stat -- no
 // shared relative-time utility exists elsewhere in the app to reuse.
@@ -30,14 +24,6 @@ function formatRelativeTime(date: Date): string {
   if (diffMonth < 12) return `${diffMonth} month${diffMonth === 1 ? '' : 's'} ago`
   const diffYear = Math.round(diffMonth / 12)
   return `${diffYear} year${diffYear === 1 ? '' : 's'} ago`
-}
-
-// Billing shown as "Same as shipping address" when the two addresses match
-// on every field a customer would actually check.
-function addressesEqual(a?: Address, b?: Address): boolean {
-  if (!a || !b) return false
-  const fields: (keyof Address)[] = ['first_name', 'last_name', 'company', 'address_1', 'address_2', 'city', 'state', 'postcode', 'country']
-  return fields.every(f => (a[f] ?? '') === (b[f] ?? ''))
 }
 
 function AddressLines({ address }: { address?: Address }) {

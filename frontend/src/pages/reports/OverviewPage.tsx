@@ -9,8 +9,8 @@ import { useReport } from '../../reports/hooks/useSingleReport'
 import { dateRange, customDateRange, REPORTS_PERIODS, DEFAULT_REPORTS_PERIOD, type ReportsPeriod } from '../../reports/period'
 import { useQueryEnum, useQueryString } from '../../routing/useQueryState'
 import type { ChannelRevenuePoint, ProfitabilityPoint } from '../../reports/types'
-import { ReportPageShell, ReportCard, EmptyState, DateRangeControl, ViewToggle, formatMoney, ChangeBadge, type ReportsRangeMode } from './shared'
-
+import { ReportPageShell, ReportCard, EmptyState, DateRangeControl, ViewToggle, ChangeBadge, type ReportsRangeMode } from './shared'
+import { formatMoney } from '../../format/money'
 
 function isoDateToday(): string {
   return new Date().toISOString().slice(0, 10)

@@ -6,11 +6,12 @@ import { quantityToPick } from '../oms/pickable'
 import { useSalesOrderDetail } from '../oms/hooks/useSalesOrderDetail'
 import { usePickingQueue } from '../oms/hooks/usePackingQueue'
 import type { SalesOrder } from '../oms/types'
-import { customerName, orderNumber } from '../packing/orderDisplay'
+import { orderNumber } from '../packing/orderDisplay'
 import { lockLabel } from '../packing/lockDisplay'
 import { useQueryString } from '../routing/useQueryState'
 import { useMemberNames } from '../team/hooks/useMemberNames'
 import { ReadOnlyOrderItems } from './ReadOnlyOrderItems'
+import { customerName } from '../oms/salesOrderDisplay'
 
 // The picking module's list mode (Settings > Fulfillment): no scanning, no
 // session. Pickers open an order (?order=<id>, so refresh/Back work), fetch
@@ -29,7 +30,6 @@ export function PickingListMode({ token }: { token: string }) {
   const [marking, setMarking] = useState(false)
   const [markError, setMarkError] = useState('')
   const [notice, setNotice] = useState('')
-
 
   function select(id: string) {
     setMarkError('')

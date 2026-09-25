@@ -6,11 +6,6 @@ import type { MovementType } from './types'
 // zero) until a real configurable threshold field is added.
 export const LOW_STOCK_THRESHOLD = 10
 
-export function formatDate(iso?: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString()
-}
-
 export function formatPrice(minorUnits: number, currency: string): string {
   return `${currency} ${(minorUnits / 100).toFixed(2)}`
 }
@@ -54,8 +49,4 @@ export const MOVEMENT_TYPE_LABEL: Record<MovementType, string> = {
   receipt: 'Receipt', sale: 'Sale', adjustment: 'Adjustment',
   transfer_out: 'Transfer out', transfer_in: 'Transfer in', damaged: 'Damaged', lost: 'Lost',
   split_out: 'Case split (out)', split_in: 'Case split (in)',
-}
-
-export function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString()
 }

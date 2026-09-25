@@ -10,13 +10,9 @@ import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus
 import type { Coupon } from '../coupons/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { CouponEditPage } from '../coupons/CouponEditPage'
+import { formatDate } from '../format/date'
 
 const PAGE_SIZE = 20
-
-function formatDate(value?: string | null): string {
-  if (!value) return '—'
-  return new Date(value).toLocaleDateString()
-}
 
 function formatDiscount(c: Coupon): string {
   return c.discount_type === 'percent' ? `${(c.discount_value / 100).toFixed(2)}%` : `${(c.discount_value / 100).toFixed(2)} off`

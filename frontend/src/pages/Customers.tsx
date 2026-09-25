@@ -11,9 +11,9 @@ import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { useStackNavigation } from '../routing/useStackNavigation'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 import { useConfirm } from '../components/common/useConfirm'
-import { fullName } from '../customers/customerFormat'
 import { CustomerDetailPage } from '../customers/CustomerDetailPage'
 import { CustomerEditPage } from '../customers/CustomerEditPage'
+import { fullName } from '../format/personName'
 
 const PAGE_SIZE = 20
 

@@ -3,8 +3,9 @@ import clsx from 'clsx'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
-import { ReportPageShell, ReportCard, EmptyState, formatMoney } from './shared'
+import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
+import { formatMoney } from '../../format/money'
 
 const TOP_PRODUCTS_LIMIT = 20
 

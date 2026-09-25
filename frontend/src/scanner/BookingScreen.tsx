@@ -10,8 +10,9 @@ import type { BookingDetail, CompleteBookingResult, ScanBookingItemInput, Bookin
 import type { PurchaseOrder } from '../procurement/types'
 import type { Warehouse } from '../inventory/types'
 import { BookLineSheet, WarehouseSheet } from './BookingLineSheet'
-import { computeMissingItems, effectiveUnitsPerPurchasedItem, isAuthError, pendingBatchesForSKU, scannedPurchasedItems, scannedQuantityBySKU } from './bookingHelpers'
-import { LineItemThumb } from './BookingLineItemThumb'
+import { computeMissingItems, effectiveUnitsPerPurchasedItem, pendingBatchesForSKU, scannedPurchasedItems, scannedQuantityBySKU } from './bookingHelpers'
+import { ProductThumb, SCANNER_THUMB } from '../pms/ProductThumb'
+import { isAuthError } from '../auth/isAuthError'
 
 interface BookingScreenProps {
   token: string
@@ -382,7 +383,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           const skuId = li.sku_id
           const content = (
             <>
-              <LineItemThumb token={token} productId={li.product_id} />
+              <ProductThumb token={token} productId={li.product_id} appearance={SCANNER_THUMB} />
               {done && <Check size={16} className="text-green-400 shrink-0" />}
               <div className="flex-1 min-w-0">
                 <p className="text-sm truncate">{li.raw_description}</p>

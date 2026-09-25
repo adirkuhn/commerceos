@@ -8,9 +8,10 @@ import Pagination from '../components/common/Pagination'
 import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import type { SalesOrderStatus, SalesOrderSource, SalesOrderSortField, SortDirection } from '../oms/types'
 import { useConfirm } from '../components/common/useConfirm'
-import { STATUS_OPTIONS, customerName, formatMoney } from '../oms/salesOrderDisplay'
+import { STATUS_OPTIONS, customerName } from '../oms/salesOrderDisplay'
 import { CreateSalesOrderPage } from '../oms/CreateSalesOrderPage'
 import { SalesOrderDetailPage } from '../oms/SalesOrderDetailPage'
+import { formatMoney } from '../format/money'
 
 const PAGE_SIZE = 20
 

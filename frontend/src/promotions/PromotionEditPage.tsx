@@ -6,8 +6,8 @@ import type { Promotion, PromotionInput, PromotionLine, PromotionStatus, Promoti
 import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
 import { ClearanceBatchSelect } from './components/ClearanceBatchSelect'
 import type { SKU } from '../pms/types'
-import { formatDate } from './promotionFormat'
 import { PromotionPerformanceCard } from './PromotionPerformanceCard'
+import { formatDate } from '../format/date'
 
 // ── Promotion Edit Page ──────────────────────────────────────────────────────
 

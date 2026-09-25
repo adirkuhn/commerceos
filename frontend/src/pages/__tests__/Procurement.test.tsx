@@ -92,6 +92,7 @@ import * as pmsApi from '../../pms/api'
 import * as settingsApi from '../../settings/api'
 import * as integrationsApi from '../../integrations/api'
 import { acceptConfirm, dismissConfirm } from '../../test/confirm'
+import { formatMoney } from '../../format/money'
 
 function po(overrides: Partial<PurchaseOrder> = {}): PurchaseOrder {
   return {
@@ -200,7 +201,7 @@ describe('Purchase orders list', () => {
 
     renderAt(<Procurement />, '/procurement')
 
-    expect(await screen.findByText('130.00 EUR')).toBeInTheDocument()
+    expect(await screen.findByText(formatMoney(13000, 'EUR'))).toBeInTheDocument()
   })
 
   it('filters by status tab', async () => {
@@ -504,8 +505,8 @@ describe('Purchase order edit with line items', () => {
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
-    expect(await screen.findByText('55.00 USD')).toBeInTheDocument()
-    expect(await screen.findByText('-10.00 USD')).toBeInTheDocument()
+    expect(await screen.findByText(formatMoney(5500, 'USD'))).toBeInTheDocument()
+    expect(await screen.findByText(formatMoney(-1000, 'USD'))).toBeInTheDocument()
   })
 
   it('shows product name and SKU code, not the raw sku_id, when editing an already-linked line item', async () => {

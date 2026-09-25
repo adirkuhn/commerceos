@@ -3,10 +3,7 @@ import { Clock, ShieldAlert } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import * as api from '../scheduler/api'
 import type { Job, SyncScheduleRow } from '../scheduler/types'
-
-function formatDate(d: string | null): string {
-  return d ? new Date(d).toLocaleString() : '—'
-}
+import { formatDateTime } from '../format/date'
 
 function StatusBadge({ status }: { status: string }) {
   if (status === 'success') return <span className="text-success">success</span>
@@ -171,9 +168,9 @@ export default function ScheduledJobs() {
                           className="w-20 px-2 py-1 rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                         />
                       </td>
-                      <td className="py-2 text-ink-3">{formatDate(j.last_run_at)}</td>
+                      <td className="py-2 text-ink-3">{formatDateTime(j.last_run_at)}</td>
                       <td className="py-2"><StatusBadge status={j.last_run_status} /></td>
-                      <td className="py-2 text-ink-3">{formatDate(j.next_run_at)}</td>
+                      <td className="py-2 text-ink-3">{formatDateTime(j.next_run_at)}</td>
                       <td className="py-2 text-right space-x-2 whitespace-nowrap">
                         {dirty && (
                           <button
@@ -225,7 +222,7 @@ export default function ScheduledJobs() {
                     <td className="py-2 text-ink-3">{s.entity_type}</td>
                     <td className="py-2 text-ink-3">{s.direction}</td>
                     <td className="py-2 text-ink-3">{s.interval_minutes}m</td>
-                    <td className="py-2 text-ink-3">{formatDate(s.last_run_at)}</td>
+                    <td className="py-2 text-ink-3">{formatDateTime(s.last_run_at)}</td>
                     <td className="py-2"><StatusBadge status={s.last_run_status} /></td>
                     <td className="py-2 text-right">
                       <button

@@ -16,8 +16,11 @@ import { StockShortfallDialog } from './StockShortfallDialog'
 import type { SalesOrder } from '../oms/types'
 import { Dialog } from '../components/common/Dialog'
 import { PickLineSheet } from './PickingLineSheet'
-import { LineItemThumb } from './PickingLineItemThumb'
-import { addressesEqual, customerName, formatDate, isAuthError, shippingAddressLine } from './PickingDisplay'
+import { ProductThumb, SCANNER_THUMB } from '../pms/ProductThumb'
+import { addressesEqual, customerName, shippingAddressLine } from '../oms/salesOrderDisplay'
+import { formatDate } from '../format/date'
+import { isAuthError } from '../auth/isAuthError'
+import { UNKNOWN_CUSTOMER_LABEL } from './scannerLabels'
 
 interface PickingScreenProps {
   token: string
@@ -307,7 +310,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
           <div className="flex items-baseline gap-1.5 flex-wrap">
             <span className="text-base font-semibold">#{order.number || order.external_order_id}</span>
             <span className="text-gray-400">·</span>
-            <span className="text-base text-gray-300">{customerName(order)}</span>
+            <span className="text-base text-gray-300">{customerName(order, UNKNOWN_CUSTOMER_LABEL)}</span>
           </div>
           {shippingAddressLine(order.shipping) && (
             <p className="text-sm text-gray-400 mt-0.5">{shippingAddressLine(order.shipping)}</p>
@@ -413,7 +416,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
         <div className="flex items-baseline gap-1.5 flex-wrap">
           <span className="text-base font-semibold">#{order.number || order.external_order_id}</span>
           <span className="text-gray-400">·</span>
-          <span className="text-base text-gray-300">{customerName(order)}</span>
+          <span className="text-base text-gray-300">{customerName(order, UNKNOWN_CUSTOMER_LABEL)}</span>
         </div>
         {shippingAddressLine(order.shipping) && (
           <p className="text-sm text-gray-400 mt-0.5">{shippingAddressLine(order.shipping)}</p>
@@ -462,7 +465,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
               disabled={readOnly}
               className="w-full flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3 text-left hover:border-accent transition-colors"
             >
-              <LineItemThumb token={token} name={li.name} productId={li.product_id} />
+              <ProductThumb token={token} productId={li.product_id} appearance={SCANNER_THUMB} title={li.name} />
               {done && <Check size={16} className="text-green-400 shrink-0" />}
               <div className="flex-1 min-w-0">
                 <p className="text-sm truncate">{li.name}</p>

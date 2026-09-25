@@ -2,14 +2,7 @@ import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import type { SalesOrder, SalesOrderLineItem, Address } from '../../oms/types'
 import type { CompanyProfile } from '../../settings/company/types'
-
-function formatMoney(minorUnits: number, currencyCode: string): string {
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'USD' }).format(minorUnits / 100)
-  } catch {
-    return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
-  }
-}
+import { formatMoney } from '../../format/money'
 
 function addressBlock(address?: Address): string[] {
   if (!address) return []

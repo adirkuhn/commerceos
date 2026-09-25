@@ -17,8 +17,10 @@ import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLab
 import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import type { RecipientAddress, Shipment } from '../shipping/types'
 import { useConfirm } from '../components/common/useConfirm'
-import { STATUS_OPTIONS, addressesEqual, customerName, formatDate, formatMoney } from './salesOrderDisplay'
+import { STATUS_OPTIONS, addressesEqual, customerName } from './salesOrderDisplay'
 import { ShipmentTrackingSection } from './ShipmentTrackingSection'
+import { formatDate } from '../format/date'
+import { formatMoney } from '../format/money'
 
 // ── Sales Order Detail Page ──────────────────────────────────────────────────
 

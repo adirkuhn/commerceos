@@ -6,7 +6,8 @@ import { useMemberNames } from '../team/hooks/useMemberNames'
 import { lockLabel } from '../packing/lockDisplay'
 import { quantityToPick } from '../oms/pickable'
 import type { SalesOrderDetail } from '../oms/types'
-import { customerName, orderNumber } from '../packing/orderDisplay'
+import { orderNumber } from '../packing/orderDisplay'
+import { customerName } from '../oms/salesOrderDisplay'
 
 interface PickOrderListScreenProps {
   token: string

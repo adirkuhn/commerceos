@@ -8,8 +8,8 @@ import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { usePromotions } from '../promotions/hooks/usePromotions'
 import type { Promotion, PromotionStatus } from '../promotions/types'
 import { useConfirm } from '../components/common/useConfirm'
-import { formatDate } from '../promotions/promotionFormat'
 import { PromotionEditPage } from '../promotions/PromotionEditPage'
+import { formatDate } from '../format/date'
 
 const PAGE_SIZE = 20
 

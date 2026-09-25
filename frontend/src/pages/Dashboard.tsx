@@ -13,14 +13,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useExpiringBatches } from '../inventory/hooks/useExpiringBatches'
 import { useDashboardStats } from '../dashboard/hooks/useDashboardStats'
 import type { ChannelRevenue } from '../dashboard/types'
-
-function formatMoney(minorUnits: number, currencyCode: string): string {
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'USD' }).format(minorUnits / 100)
-  } catch {
-    return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
-  }
-}
+import { formatMoney } from '../format/money'
 
 const CHANNEL_LABELS: Record<string, string> = { pos: 'POS', manual: 'Manual', woocommerce: 'WooCommerce' }
 

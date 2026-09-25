@@ -4,7 +4,8 @@ import clsx from 'clsx'
 import * as inventoryApi from './api'
 import type { SKU } from '../pms/types'
 import type { Batch, StockMovement } from './types'
-import { MOVEMENT_TYPE_LABEL, formatDateTime } from './inventoryFormat'
+import { MOVEMENT_TYPE_LABEL } from './inventoryFormat'
+import { formatDateTime } from '../format/date'
 
 type ProductMovementRow = StockMovement & { skuCode: string; balance: number }
 

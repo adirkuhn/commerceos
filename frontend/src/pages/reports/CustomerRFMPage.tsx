@@ -3,8 +3,9 @@ import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
 import type { RFMSegment } from '../../reports/types'
-import { ReportPageShell, ReportCard, EmptyState, formatMoney } from './shared'
+import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
+import { formatMoney } from '../../format/money'
 
 const RFM_SEGMENTS: { id: RFMSegment; label: string; hint: string }[] = [
   { id: 'champions', label: 'Champions', hint: 'Recent, frequent, highest spend' },

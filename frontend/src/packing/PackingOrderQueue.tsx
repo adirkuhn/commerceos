@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { ClipboardList, Lock, Search } from 'lucide-react'
 import clsx from 'clsx'
 import type { QueueEntry, SalesOrder } from '../oms/types'
-import { customerName, formatMoney, orderNumber } from './orderDisplay'
+import { orderNumber } from './orderDisplay'
 import { lockLabel } from './lockDisplay'
+import { customerName } from '../oms/salesOrderDisplay'
+import { formatMoney } from '../format/money'
 
 interface PackingOrderQueueProps {
   entries: QueueEntry[]

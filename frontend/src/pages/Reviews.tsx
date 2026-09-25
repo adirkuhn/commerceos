@@ -7,12 +7,9 @@ import { useReviews } from '../reviews/hooks/useReviews'
 import type { Review } from '../reviews/types'
 import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { useConfirm } from '../components/common/useConfirm'
+import { formatDate } from '../format/date'
 
 const PAGE_SIZE = 20
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString()
-}
 
 function Stars({ rating }: { rating: number }) {
   return (

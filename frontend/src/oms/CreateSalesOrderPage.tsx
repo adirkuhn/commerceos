@@ -9,7 +9,8 @@ import type { SKU } from '../pms/types'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
-import { STATUS_OPTIONS, formatMoney } from './salesOrderDisplay'
+import { STATUS_OPTIONS } from './salesOrderDisplay'
+import { formatMoney } from '../format/money'
 
 // ── Create Sales Order Page ──────────────────────────────────────────────────
 

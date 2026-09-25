@@ -7,7 +7,6 @@ import { useRoutedSession } from '../oms/useRoutedSession'
 import { SessionErrorPanel } from '../oms/SessionErrorPanel'
 import { PackingOrderQueue } from '../packing/PackingOrderQueue'
 import { PickListPrintView } from '../packing/PickListPrintView'
-import { customerName, formatMoney } from '../packing/orderDisplay'
 import { canTakeOverLocks, formatLockAge } from '../packing/lockDisplay'
 import { useSessionLock } from '../fulfillment/useSessionLock'
 import { usePackingQueue } from '../oms/hooks/usePackingQueue'
@@ -33,8 +32,9 @@ import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLab
 import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import { playErrorSound } from '../scanner/errorSound'
 import { Dialog } from '../components/common/Dialog'
-import { LineItemThumb } from '../packing/LineItemThumb'
-import { shippingAddressLine } from '../packing/shippingAddressLine'
+import { ProductThumb, ADMIN_THUMB } from '../pms/ProductThumb'
+import { customerName, shippingAddressLine } from '../oms/salesOrderDisplay'
+import { formatMoney } from '../format/money'
 
 const PACKING_PATH = '/packing'
 
@@ -703,7 +703,7 @@ export default function Packing() {
                         <CheckCircle size={18} className="text-success" />
                       </div>
                     ) : (
-                      <LineItemThumb token={token ?? ''} productId={li.product_id} />
+                      <ProductThumb token={token ?? ''} productId={li.product_id} appearance={ADMIN_THUMB} />
                     )}
                     <div className="flex-1 min-w-0">
                       <p className={clsx('text-sm font-medium', done ? 'dark:text-green-300 text-success' : 'text-ink')}>{li.name}</p>

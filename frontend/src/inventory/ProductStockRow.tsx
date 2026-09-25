@@ -10,8 +10,9 @@ import { useProductDetail } from '../pms/hooks/useProductDetail'
 import * as inventoryApi from './api'
 import type { SKU } from '../pms/types'
 import type { Batch } from './types'
-import { LOW_STOCK_THRESHOLD, formatDate, formatPrice } from './inventoryFormat'
+import { LOW_STOCK_THRESHOLD, formatPrice } from './inventoryFormat'
 import { SKUStockPanel } from './SKUStockPanel'
+import { formatDate } from '../format/date'
 
 // ── Product row ───────────────────────────────────────────────────────────────
 

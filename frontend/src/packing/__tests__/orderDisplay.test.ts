@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { customerName, formatMoney, orderNumber } from '../orderDisplay'
+import { orderNumber } from '../orderDisplay'
 import type { SalesOrder } from '../../oms/types'
+import { customerName } from '../../oms/salesOrderDisplay'
+import { formatMoney } from '../../format/money'
 
 const base = { id: 'so-1', number: '', external_order_id: 'ext-9' } as SalesOrder
 

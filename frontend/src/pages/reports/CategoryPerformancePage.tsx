@@ -2,8 +2,9 @@ import { useCallback } from 'react'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
-import { ReportPageShell, ReportCard, EmptyState, formatMoney } from './shared'
+import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
+import { formatMoney } from '../../format/money'
 
 export default function CategoryPerformancePage() {
   const { token } = useAuth()
