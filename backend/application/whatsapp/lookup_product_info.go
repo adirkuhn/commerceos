@@ -11,6 +11,7 @@ import (
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -50,6 +51,9 @@ type ProductInfo struct {
 	// to one specific expiring batch -- see appinventory.StockLevel.SourceBatch's
 	// doc comment for exactly when that is.
 	NearestExpiry *time.Time
+	// DateFormat is the tenant's (Settings → Localization) -- the reply is
+	// read by a person, so its dates follow it.
+	DateFormat settingsDomain.DateFormat
 }
 
 // LookupProductInfoUseCase answers a WhatsApp customer's stock/price/expiry
@@ -67,6 +71,13 @@ type LookupProductInfoUseCase struct {
 	channelRepo  channelsDomain.SalesChannelRepository
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository
 	stockLevel   stockLevelGetter
+	settings     tenantSettingsGetter
+}
+
+// tenantSettingsGetter is the one method this use case needs from
+// settings.Repository (ISP).
+type tenantSettingsGetter interface {
+	Get(ctx context.Context) (*settingsDomain.TenantSettings, error)
 }
 
 func NewLookupProductInfoUseCase(
@@ -77,10 +88,11 @@ func NewLookupProductInfoUseCase(
 	channelRepo channelsDomain.SalesChannelRepository,
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository,
 	stockLevel stockLevelGetter,
+	settings tenantSettingsGetter,
 ) *LookupProductInfoUseCase {
 	return &LookupProductInfoUseCase{
 		db: db, skuRepo: skuRepo, variantRepo: variantRepo, productRepo: productRepo,
-		channelRepo: channelRepo, overrideRepo: overrideRepo, stockLevel: stockLevel,
+		channelRepo: channelRepo, overrideRepo: overrideRepo, stockLevel: stockLevel, settings: settings,
 	}
 }
 
@@ -123,11 +135,16 @@ func (uc *LookupProductInfoUseCase) Execute(ctx context.Context, skuCode string)
 			return ErrProductNotFound
 		}
 
+		tenantSettings, err := uc.settings.Get(ctx)
+		if err != nil {
+			return err
+		}
+
 		skuID = sku.ID
 		info = ProductInfo{
 			SKUID: sku.ID, ProductName: product.Name, SKUCode: sku.SKUCode,
 			PriceMinorUnits: sku.PriceMinorUnits, SalePriceMinorUnits: sku.SalePriceMinorUnits,
-			CurrencyCode: sku.CurrencyCode,
+			CurrencyCode: sku.CurrencyCode, DateFormat: tenantSettings.DateFormat,
 		}
 		return nil
 	})

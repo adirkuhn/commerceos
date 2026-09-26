@@ -125,6 +125,7 @@ func main() {
 		db, repositories.NewSKURepo(db), repositories.NewVariantRepo(db), repositories.NewProductRepo(db),
 		repositories.NewSalesChannelRepo(db), repositories.NewSalesChannelProductOverrideRepo(db),
 		appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, repositories.NewTenantSettingsRepo(db)),
+		repositories.NewTenantSettingsRepo(db),
 	)
 	createSalesOrderUC := appoms.NewCreateSalesOrderUseCase(
 		db, salesOrderRepo, lineItemRepo, linkRepo, repositories.NewSKURepo(db), allocateStock,

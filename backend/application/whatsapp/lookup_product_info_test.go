@@ -12,6 +12,7 @@ import (
 	appwhatsapp "github.com/adirkuhn/commerceos/application/whatsapp"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 )
 
 // ── fakes ────────────────────────────────────────────────────────────────────
@@ -80,6 +81,15 @@ func (f *fakeStockLevelGetter) Execute(_ context.Context, _ string) (*appinvento
 	return f.level, f.err
 }
 
+type fakeTenantSettings struct {
+	settings settingsDomain.TenantSettings
+	err      error
+}
+
+func (f *fakeTenantSettings) Get(_ context.Context) (*settingsDomain.TenantSettings, error) {
+	return &f.settings, f.err
+}
+
 // ── test setup ───────────────────────────────────────────────────────────────
 
 const testWhatsAppChannelID = "channel-1"
@@ -97,6 +107,7 @@ func newLookupUseCase(t *testing.T, sku pmsDomain.SKU, variant pmsDomain.Variant
 		}},
 		overrideRepo,
 		&fakeStockLevelGetter{level: level},
+		&fakeTenantSettings{settings: settingsDomain.TenantSettings{DateFormat: settingsDomain.DateFormatMonthDayYear}},
 	)
 	return uc, overrideRepo
 }
@@ -119,6 +130,7 @@ func TestLookupProductInfoUseCase_enrolledProduct_returnsFullInfo(t *testing.T) 
 	assert.Equal(t, int64(1999), info.PriceMinorUnits)
 	require.NotNil(t, info.NearestExpiry)
 	assert.True(t, expiry.Equal(*info.NearestExpiry))
+	assert.Equal(t, settingsDomain.DateFormatMonthDayYear, info.DateFormat, "the reply follows the tenant's date format")
 }
 
 func TestLookupProductInfoUseCase_unknownSKUCode_returnsErrProductNotFound(t *testing.T) {
@@ -157,6 +169,7 @@ func TestLookupProductInfoUseCase_manualModeChannel_excludesUnlistedProduct(t *t
 		}},
 		overrideRepo,
 		&fakeStockLevelGetter{level: &appinventory.StockLevel{}},
+		&fakeTenantSettings{},
 	)
 
 	_, err := uc.Execute(context.Background(), "ABC123")
@@ -171,6 +184,7 @@ func TestLookupProductInfoUseCase_noWhatsAppChannel_returnsErrNoWhatsAppChannel(
 		&fakeSalesChannelRepo{channels: nil},
 		&fakeOverrideRepo{},
 		&fakeStockLevelGetter{},
+		&fakeTenantSettings{},
 	)
 
 	_, err := uc.Execute(context.Background(), "ABC123")
@@ -187,6 +201,7 @@ func TestLookupProductInfoUseCase_inactiveWhatsAppChannel_treatedAsNoChannel(t *
 		}},
 		&fakeOverrideRepo{},
 		&fakeStockLevelGetter{},
+		&fakeTenantSettings{},
 	)
 
 	_, err := uc.Execute(context.Background(), "ABC123")

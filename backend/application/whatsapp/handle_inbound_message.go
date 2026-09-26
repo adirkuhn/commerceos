@@ -345,7 +345,7 @@ func formatProductInfo(command string, info ProductInfo) string {
 	}
 	if command == "EXPIRY" || command == "INFO" {
 		if info.NearestExpiry != nil {
-			lines = append(lines, fmt.Sprintf("Nearest expiry: %s", info.NearestExpiry.Format("2006-01-02")))
+			lines = append(lines, fmt.Sprintf("Nearest expiry: %s", info.DateFormat.Format(*info.NearestExpiry)))
 		} else {
 			lines = append(lines, "No expiry-tracked batch for this product.")
 		}
