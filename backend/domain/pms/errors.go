@@ -1,6 +1,9 @@
 package pms
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	ErrProductNotFound  = errors.New("product not found")
@@ -68,14 +71,17 @@ var (
 	// that was scanned into a purchase-order booking has booking_scans
 	// rows referencing it (ON DELETE RESTRICT, deliberately -- it's the
 	// receiving audit trail), so the product can't be deleted while that
-	// history exists.
-	ErrProductHasReceivingHistory = errors.New("product has purchase-order receiving history and cannot be deleted")
-	// ErrProductHasSalesOrderHistory guards product/SKU deletion the same
-	// way as ErrProductHasReceivingHistory: a SKU that was ever sold has
+	// history exists. It and its siblings below all wrap
+	// ErrProductHasHistory.
+	ErrProductHasReceivingHistory = fmt.Errorf("product has purchase-order receiving history and cannot be deleted: %w", ErrProductHasHistory)
+	// ErrProductHasSalesOrderHistory: a SKU that was ever sold has
 	// sales_order_line_items rows referencing it (ON DELETE RESTRICT,
-	// deliberately -- it's the sales history), so the product can't be
-	// deleted while that history exists.
-	ErrProductHasSalesOrderHistory = errors.New("product has sales order history and cannot be deleted")
+	// deliberately -- it's the sales history).
+	ErrProductHasSalesOrderHistory = fmt.Errorf("product has sales order history and cannot be deleted: %w", ErrProductHasHistory)
+	// ErrProductHasPickingHistory: pick_scans rows (ON DELETE RESTRICT).
+	ErrProductHasPickingHistory = fmt.Errorf("product has picking history and cannot be deleted: %w", ErrProductHasHistory)
+	// ErrProductHasDiscardHistory: discard_records rows (ON DELETE RESTRICT).
+	ErrProductHasDiscardHistory = fmt.Errorf("product has discard history and cannot be deleted: %w", ErrProductHasHistory)
 	// ErrInvalidTargetMarkupBasisPoints guards Category.TargetMarkupBasisPoints
 	// and settings.TenantSettings.DefaultTargetMarkupBasisPoints: must be
 	// >= 0. Unlike margin, markup (profit / cost) has no upper bound.
@@ -153,3 +159,9 @@ var (
 	// nothing to divide the corrected value across.
 	ErrNoStockOnHandForCorrection = errors.New("sku has no on-hand stock to apply a cost correction to")
 )
+
+// ErrProductHasHistory is what every "can't delete, history references
+// it" error wraps -- one kind of failure for callers (the API answers 409
+// PRODUCT_HAS_HISTORY and offers archiving instead), each keeping its own
+// message.
+var ErrProductHasHistory = errors.New("product has history")

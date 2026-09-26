@@ -34,6 +34,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrDuplicateBarcodeAliasCode),
 		errors.Is(err, pmsDomain.ErrDuplicateScaleCodeAlias):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
+	case errors.Is(err, pmsDomain.ErrProductHasHistory):
+		middleware.Fail(c, http.StatusConflict, "PRODUCT_HAS_HISTORY", err.Error())
 	case errors.Is(err, pmsDomain.ErrVariantsNotEnabled),
 		errors.Is(err, pmsDomain.ErrInvalidSlug),
 		errors.Is(err, pmsDomain.ErrVirtualSKUCannotHaveDimensions),

@@ -136,6 +136,9 @@ func (r *VariantRepo) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if err := tx.Where("id = ?", id).Delete(&variantModel{}).Error; err != nil {
+		if historyErr := skuHistoryViolation(err); historyErr != nil {
+			return historyErr
+		}
 		return fmt.Errorf("variantRepo.Delete: %w", err)
 	}
 	return nil

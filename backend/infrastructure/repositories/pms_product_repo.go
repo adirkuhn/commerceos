@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -343,14 +342,8 @@ func (r *ProductRepo) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if err := tx.Where("id = ?", id).Delete(&productModel{}).Error; err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			switch pgErr.ConstraintName {
-			case "booking_scans_sku_id_fkey":
-				return pmsDomain.ErrProductHasReceivingHistory
-			case "sales_order_line_items_sku_id_fkey":
-				return pmsDomain.ErrProductHasSalesOrderHistory
-			}
+		if historyErr := skuHistoryViolation(err); historyErr != nil {
+			return historyErr
 		}
 		return fmt.Errorf("productRepo.Delete: %w", err)
 	}

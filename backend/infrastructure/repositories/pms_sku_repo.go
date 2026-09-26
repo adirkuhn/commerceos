@@ -283,6 +283,9 @@ func (r *SKURepo) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if err := tx.Where("id = ?", id).Delete(&skuModel{}).Error; err != nil {
+		if historyErr := skuHistoryViolation(err); historyErr != nil {
+			return historyErr
+		}
 		return fmt.Errorf("skuRepo.Delete: %w", err)
 	}
 	return nil

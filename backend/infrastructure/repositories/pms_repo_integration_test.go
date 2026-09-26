@@ -833,6 +833,27 @@ func TestProductRepo_Integration_DeleteBlockedBySalesOrderHistory(t *testing.T) 
 		return productRepo.Delete(ctx, productID)
 	})
 	require.ErrorIs(t, err, pmsDomain.ErrProductHasSalesOrderHistory)
+
+	// Deleting the SKU or its variant directly hits the same constraint
+	// and must surface the same typed error, not a raw Postgres one. (A
+	// failed statement aborts its transaction, so one delete per tx.)
+	var variantID string
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		sku, err := skuRepo.FindByID(ctx, skuID)
+		if err != nil {
+			return err
+		}
+		variantID = sku.VariantID
+		return nil
+	}))
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return skuRepo.Delete(ctx, skuID)
+	})
+	require.ErrorIs(t, err, pmsDomain.ErrProductHasSalesOrderHistory)
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return variantRepo.Delete(ctx, variantID)
+	})
+	require.ErrorIs(t, err, pmsDomain.ErrProductHasHistory)
 }
 
 // TestSKURepo_Integration_UpdateCostPriceIsIndependentOfUpdate proves the
