@@ -60,6 +60,11 @@ vi.mock('../../settings/company/api', async importOriginal => {
   }
 })
 
+vi.mock('../../fx/api', async importOriginal => ({
+  ...await importOriginal<typeof import('../../fx/api')>(),
+  listExchangeRates: vi.fn().mockResolvedValue([]),
+}))
+
 vi.mock('../../settings/api', () => ({
   getTenantSettings: vi.fn(),
   updateTenantSettings: vi.fn(),

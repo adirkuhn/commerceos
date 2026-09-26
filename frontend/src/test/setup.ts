@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { afterEach } from 'vitest'
+import { afterAll, afterEach } from 'vitest'
 import { cleanup, configure } from '@testing-library/react'
 
 // findBy*/waitFor default to 1s. Pages now navigate through a data router
@@ -28,4 +28,27 @@ if (typeof window !== 'undefined' && typeof globalThis.Request === 'function') {
   } as typeof Request
 }
 
-afterEach(() => cleanup())
+// Unit and component tests must never reach the network: a real request is
+// slow, flaky and depends on whatever answers at VITE_API_BASE_URL. Any fetch
+// a test did not mock (vi.mock of the api module, or vi.stubGlobal('fetch'))
+// lands here: the call rejects, and the test that made it fails afterwards
+// even if the app code swallowed the rejection. vi.stubGlobal/unstubAllGlobals
+// save and restore this guard, so tests that stub fetch keep working.
+const unmockedFetches: string[] = []
+globalThis.fetch = ((input: RequestInfo | URL) => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+  unmockedFetches.push(url)
+  return Promise.reject(new Error(`unmocked fetch: ${url}`))
+}) as typeof fetch
+
+function failOnUnmockedFetches() {
+  if (unmockedFetches.length === 0) return
+  const urls = unmockedFetches.splice(0)
+  throw new Error(`unmocked fetch: ${urls.join(', ')} -- mock the api module or stub fetch in this test`)
+}
+
+afterEach(() => {
+  cleanup()
+  failOnUnmockedFetches()
+})
+afterAll(failOnUnmockedFetches)

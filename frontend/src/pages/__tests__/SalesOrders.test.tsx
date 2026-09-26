@@ -34,6 +34,11 @@ vi.mock('../../settings/api', () => ({
   updateTenantSettings: vi.fn(),
 }))
 
+vi.mock('../../settings/company/api', async importOriginal => ({
+  ...await importOriginal<typeof import('../../settings/company/api')>(),
+  getCompanyProfile: vi.fn().mockRejectedValue(new Error('no company profile in tests')),
+}))
+
 vi.mock('../../integrations/api', () => ({
   listConnections: vi.fn(),
 }))

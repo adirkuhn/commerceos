@@ -9,6 +9,13 @@ vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: { role: 'customer_admin' }, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
 }))
 
+// DateFormatProvider loads the tenant date format on mount; without this
+// mock that is a real network request to the API base URL.
+vi.mock('../settings/api', async importOriginal => ({
+  ...await importOriginal<typeof import('../settings/api')>(),
+  getTenantSettings: vi.fn().mockRejectedValue(new Error('no settings in tests')),
+}))
+
 vi.mock('../scanner/api', () => ({
   generatePairingCode: vi.fn(),
   getPairingCodeStatus: vi.fn(),
