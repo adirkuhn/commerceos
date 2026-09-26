@@ -239,7 +239,7 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
       </div>
 
       {modal === 'choose' && rowScope && (
-        <BatchRowActionModal scope={rowScope} onChoose={route.switchAction} onClose={closeModal} />
+        <BatchRowActionModal scope={rowScope} canSplitCase={!!sku.case_of_sku_id} onChoose={route.switchAction} onClose={closeModal} />
       )}
       {modal === 'adjust' && (
         <AdjustStockModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
@@ -254,7 +254,7 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
           onSave={input => transfer(input).then(() => onStockChanged())} />
       )}
       {modal === 'split-case' && (
-        <SplitCaseModal warehouses={warehouses} batches={batches} onClose={closeModal}
+        <SplitCaseModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
           onSave={input => splitCase(input).then(() => onStockChanged())} />
       )}
       {modal === 'portion' && sku.portioned_from_sku_id && (

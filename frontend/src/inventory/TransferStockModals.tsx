@@ -114,19 +114,27 @@ export function TransferModal({
 // ── Split case into units (see pms.SKU.case_of_sku_id) ──────────────────────
 
 export function SplitCaseModal({
-  warehouses, batches, onSave, onClose,
+  warehouses, batches, scope, onSave, onClose,
 }: {
   warehouses: { id: string; name: string }[]
   batches: Batch[]
+  scope?: BatchScope
   onSave: (input: { warehouse_id: string; batch_id?: string | null; cases_to_split: number; reason?: string }) => Promise<unknown>
   onClose: () => void
 }) {
-  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
-  const [batchId, setBatchId] = useState('')
+  const [warehouseId, setWarehouseId] = useState(scope?.warehouseId ?? warehouses[0]?.id ?? '')
+  const [batchId, setBatchId] = useState(scope?.batchId ?? '')
   const [casesToSplit, setCasesToSplit] = useState('')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // A batch lives in exactly one warehouse -- only offer that warehouse's
+  // lots, and drop a picked lot when the warehouse changes under it.
+  const warehouseBatches = batches.filter(b => !b.is_general_ledger && b.warehouse_id === warehouseId)
+  const changeWarehouse = (id: string) => {
+    setWarehouseId(id)
+    setBatchId('')
+  }
 
   const submit = async () => {
     const n = parseInt(casesToSplit, 10)
@@ -150,22 +158,30 @@ export function SplitCaseModal({
     <Modal title="Split case into units" onClose={onClose}>
       <div className="space-y-3">
         <p className="text-2xs text-ink-4">
-          One-way: the cases you split leave stock, and that many times the case size arrives as units of the linked product. This can't be undone by re-assembling units back into cases.
+          One-way: the cases you split leave stock, and that many times the case size arrives as units of the linked product — in a batch with the same lot and expiry when split from a batch. This can't be undone by re-assembling units back into cases.
         </p>
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className={labelClass} htmlFor="split-warehouse">Warehouse</label>
-            <select id="split-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
-              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="split-batch">Batch</label>
-            <select id="split-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
-              <option value="">General ledger</option>
-              {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
-            </select>
-          </div>
+          {scope ? (
+            <LockedField label="Warehouse" value={warehouses.find(w => w.id === scope.warehouseId)?.name ?? scope.warehouseId} />
+          ) : (
+            <div>
+              <label className={labelClass} htmlFor="split-warehouse">Warehouse</label>
+              <select id="split-warehouse" value={warehouseId} onChange={e => changeWarehouse(e.target.value)} className={inputClass}>
+                {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+            </div>
+          )}
+          {scope ? (
+            <LockedField label="Batch" value={scope.label} />
+          ) : (
+            <div>
+              <label className={labelClass} htmlFor="split-batch">Batch</label>
+              <select id="split-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
+                <option value="">General ledger</option>
+                {warehouseBatches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
+              </select>
+            </div>
+          )}
         </div>
         <div>
           <label className={labelClass} htmlFor="split-cases">Cases to split</label>

@@ -730,6 +730,75 @@ describe('Clicking a batch row opens a scoped action window', () => {
     })
   })
 
+  it('does not offer Split case in the row chooser for an ordinary SKU', async () => {
+    const user = userEvent.setup()
+    renderAt(<Inventory />, '/inventory')
+    await user.click(await screen.findByText('Widget'))
+    await user.click(await screen.findByText('LOT-1'))
+
+    const chooserTitle = await screen.findByText('LOT-1', { selector: 'h3' })
+    const chooser = chooserTitle.closest('div')!.parentElement!
+    expect(within(chooser).queryByRole('button', { name: /Split case/ })).not.toBeInTheDocument()
+  })
+
+  it('Split case from a clicked batch row of a case SKU locks warehouse/batch and splits from that exact batch', async () => {
+    const caseSku = { ...sku, case_of_sku_id: 'sku-unit-1', units_per_case: 36 }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product, variants: [{ ...detail.variants[0], skus: [caseSku] }] })
+    vi.mocked(inventoryApi.splitCaseIntoUnits).mockResolvedValue({
+      case_out: { id: 'mv-out', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1', type: 'split_out', quantity_delta: -1, reason: '', occurred_at: '', created_at: '' },
+      unit_in: { id: 'mv-in', tenant_id: 't1', sku_id: 'sku-unit-1', warehouse_id: 'wh-1', batch_id: 'unit-batch-1', type: 'split_in', quantity_delta: 36, reason: '', occurred_at: '', created_at: '' },
+    })
+
+    const user = userEvent.setup()
+    renderAt(<Inventory />, '/inventory')
+    await user.click(await screen.findByText('Widget'))
+    await user.click(await screen.findByText('LOT-1'))
+    const chooserTitle = await screen.findByText('LOT-1', { selector: 'h3' })
+    const chooser = chooserTitle.closest('div')!.parentElement!
+    await user.click(within(chooser).getByRole('button', { name: 'Split case into units' }))
+
+    const dialog = await screen.findByText('Split case into units', { selector: 'h3' })
+    const modal = dialog.closest('div')!.parentElement!
+    expect(within(modal).queryByLabelText(/warehouse/i)).not.toBeInTheDocument()
+    expect(within(modal).queryByLabelText(/batch/i)).not.toBeInTheDocument()
+    expect(within(modal).getByText('Main DC')).toBeInTheDocument()
+    expect(within(modal).getByText('LOT-1')).toBeInTheDocument()
+
+    await user.type(within(modal).getByLabelText(/cases to split/i), '1')
+    await user.click(within(modal).getByRole('button', { name: /^Split$/ }))
+
+    await waitFor(() => {
+      expect(inventoryApi.splitCaseIntoUnits).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        warehouse_id: 'wh-1', batch_id: 'batch-1', cases_to_split: 1,
+      }))
+    })
+  })
+
+  it("the unscoped Split case modal only offers batches in the selected warehouse", async () => {
+    const caseSku = { ...sku, case_of_sku_id: 'sku-unit-1', units_per_case: 36 }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product, variants: [{ ...detail.variants[0], skus: [caseSku] }] })
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse, { ...warehouse, id: 'wh-2', name: 'Overflow' }])
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch, { ...batch, id: 'batch-2', warehouse_id: 'wh-2', lot_number: 'LOT-2' }])
+
+    const user = userEvent.setup()
+    renderAt(<Inventory />, '/inventory')
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('LOT-2')
+    await user.click(screen.getByRole('button', { name: /Split case/i }))
+
+    const dialog = await screen.findByText('Split case into units', { selector: 'h3' })
+    const modal = dialog.closest('div')!.parentElement!
+    const batchSelect = within(modal).getByLabelText(/batch/i)
+    expect(within(batchSelect).getByRole('option', { name: 'LOT-1' })).toBeInTheDocument()
+    expect(within(batchSelect).queryByRole('option', { name: 'LOT-2' })).not.toBeInTheDocument()
+
+    await user.selectOptions(batchSelect, 'batch-1')
+    await user.selectOptions(within(modal).getByLabelText(/warehouse/i), 'wh-2')
+    expect(within(batchSelect).getByRole('option', { name: 'LOT-2' })).toBeInTheDocument()
+    expect(within(batchSelect).queryByRole('option', { name: 'LOT-1' })).not.toBeInTheDocument()
+    expect((batchSelect as HTMLSelectElement).value).toBe('')
+  })
+
   it('clicking a row action icon (History/Edit/Delete) does not open the row chooser', async () => {
     const user = userEvent.setup()
     renderAt(<Inventory />, '/inventory')

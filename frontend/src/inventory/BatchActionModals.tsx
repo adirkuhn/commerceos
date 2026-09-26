@@ -1,5 +1,5 @@
 import { useState, useRef, type ReactNode } from 'react'
-import { Plus, ArrowRightLeft, PackageMinus, ClipboardList } from 'lucide-react'
+import { Plus, ArrowRightLeft, PackageMinus, ClipboardList, Boxes } from 'lucide-react'
 import clsx from 'clsx'
 import type { SKU } from '../pms/types'
 import { Modal, inputClass, labelClass } from './components/Modal'
@@ -101,18 +101,23 @@ export function NewBatchModal({ warehouses, onSave, onClose, onCreated }: {
 
 // BatchRowActionModal is what clicking a batch row opens -- a chooser
 // scoped to that one row, since a click alone can't say which of
-// Adjust/Recount/Transfer/Damaged-Lost staff actually want. Picking one
-// hands off to that same modal, pre-locked to this row (see BatchScope);
-// Cancel here just closes without picking anything.
-export function BatchRowActionModal({ scope, onChoose, onClose }: {
+// Adjust/Recount/Transfer/Split/Damaged-Lost staff actually want. Picking
+// one hands off to that same modal, pre-locked to this row (see
+// BatchScope); Cancel here just closes without picking anything. Split
+// case is only offered for a SKU configured as a case of another SKU.
+type BatchRowAction = 'adjust' | 'recount' | 'transfer' | 'split-case' | 'damaged-lost'
+
+export function BatchRowActionModal({ scope, canSplitCase = false, onChoose, onClose }: {
   scope: BatchScope
-  onChoose: (action: 'adjust' | 'recount' | 'transfer' | 'damaged-lost') => void
+  canSplitCase?: boolean
+  onChoose: (action: BatchRowAction) => void
   onClose: () => void
 }) {
-  const actions: { key: 'adjust' | 'recount' | 'transfer' | 'damaged-lost'; label: string; icon: ReactNode; danger?: boolean }[] = [
+  const actions: { key: BatchRowAction; label: string; icon: ReactNode; danger?: boolean }[] = [
     { key: 'adjust', label: 'Adjust (add/remove)', icon: <Plus size={13} /> },
     { key: 'recount', label: 'Recount', icon: <ClipboardList size={13} /> },
     { key: 'transfer', label: 'Transfer', icon: <ArrowRightLeft size={13} /> },
+    ...(canSplitCase ? [{ key: 'split-case' as const, label: 'Split case into units', icon: <Boxes size={13} /> }] : []),
     { key: 'damaged-lost', label: 'Damaged / lost', icon: <PackageMinus size={13} />, danger: true },
   ]
   return (
