@@ -12,6 +12,7 @@ import type { SKU } from '../pms/types'
 import type { Batch } from './types'
 import { LOW_STOCK_THRESHOLD, formatPrice } from './inventoryFormat'
 import { SKUStockPanel } from './SKUStockPanel'
+import { useOnStockInvalidated } from './stockInvalidation'
 import { formatDate } from '../format/date'
 
 // ── Product row ───────────────────────────────────────────────────────────────
@@ -73,6 +74,9 @@ export function ProductStockRow({ token, productId, productName, productImageUrl
   }, [token, skusKey])
 
   useEffect(() => { loadStock() }, [loadStock])
+  // Another row's action (e.g. a case split landing units on one of these
+  // SKUs) must refresh this row's total too.
+  useOnStockInvalidated(skus.map(s => s.id), loadStock)
 
   const totalStock = Object.values(stockBySKU).reduce((sum, n) => sum + n, 0)
 

@@ -610,6 +610,43 @@ describe('Variant name in the SKU header', () => {
   })
 })
 
+describe('Stock views stay fresh across SKUs', () => {
+  it("a case split refreshes the unit product's row total without a page reload", async () => {
+    const unitProduct: Product = { ...product, id: 'prod-unit', name: 'Rapadurinha', slug: 'rapadurinha' }
+    const unitSku = { ...sku, id: 'sku-unit-1', sku_code: 'RAPA-1', variant_id: 'var-unit' }
+    const caseSku = { ...sku, case_of_sku_id: 'sku-unit-1', units_per_case: 36 }
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [product, unitProduct], total: 2 })
+    vi.mocked(pmsApi.getProduct).mockImplementation(async (_token, id) => id === 'prod-unit'
+      ? { product: unitProduct, variants: [{ ...detail.variants[0], id: 'var-unit', product_id: 'prod-unit', skus: [unitSku] }] }
+      : { product, variants: [{ ...detail.variants[0], skus: [caseSku] }] })
+    let unitTotal = 0
+    vi.mocked(inventoryApi.getSKUStockLevel).mockImplementation(async (_token, id) => id === 'sku-unit-1'
+      ? { sku_id: id, total: unitTotal, syncable: unitTotal }
+      : level)
+    vi.mocked(inventoryApi.splitCaseIntoUnits).mockImplementation(async () => {
+      unitTotal = 36
+      return {
+        case_out: { id: 'mv-out', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1', type: 'split_out', quantity_delta: -1, reason: '', occurred_at: '', created_at: '' },
+        unit_in: { id: 'mv-in', tenant_id: 't1', sku_id: 'sku-unit-1', warehouse_id: 'wh-1', batch_id: 'unit-batch-1', type: 'split_in', quantity_delta: 36, reason: '', occurred_at: '', created_at: '' },
+      }
+    })
+
+    const user = userEvent.setup()
+    renderAt(<Inventory />, '/inventory')
+    const unitRow = (await screen.findByText('Rapadurinha')).closest('tr')!
+    await waitFor(() => expect(within(unitRow).getByText('0')).toBeInTheDocument())
+
+    await user.click(screen.getByText('Widget'))
+    await user.click(await screen.findByRole('button', { name: /Split case/i }))
+    const dialog = await screen.findByText('Split case into units', { selector: 'h3' })
+    const modal = dialog.closest('div')!.parentElement!
+    await user.type(within(modal).getByLabelText(/cases to split/i), '1')
+    await user.click(within(modal).getByRole('button', { name: /^Split$/ }))
+
+    await waitFor(() => expect(within(unitRow).getByText('36')).toBeInTheDocument())
+  })
+})
+
 describe('Clicking a batch row opens a scoped action window', () => {
   it('opens a chooser naming the clicked batch, offering Adjust/Recount/Transfer/Damaged-Lost, with a Cancel', async () => {
     const user = userEvent.setup()

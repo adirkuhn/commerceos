@@ -19,6 +19,7 @@ import { LOW_STOCK_THRESHOLD } from '../inventory/inventoryFormat'
 import { ProductStockRow, ProductStockSummary } from '../inventory/ProductStockRow'
 import { BatchMovementHistoryPage, ProductMovementHistoryPage, SKUMovementHistoryPage } from '../inventory/MovementHistoryPages'
 import { ExpiryDiscardPage } from '../inventory/ExpiryDiscardPage'
+import { StockInvalidationProvider } from '../inventory/stockInvalidation'
 
 const PAGE_SIZE = 20
 
@@ -27,7 +28,17 @@ type StockFilter = typeof STOCK_FILTERS[number]
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// The provider lets a stock action in one product row refresh every other
+// row showing a SKU it touched (see stockInvalidation).
 export default function Inventory() {
+  return (
+    <StockInvalidationProvider>
+      <InventoryPage />
+    </StockInvalidationProvider>
+  )
+}
+
+function InventoryPage() {
   const { token } = useAuth()
   // Search/page/stock filter (?q=&page=&stock=) and every full-screen view
   // (history, expiry review -- see inventoryRoutes) live in the URL, so a

@@ -7,6 +7,7 @@ import type {
   PortionFromBulkInput, PortionFromBulkResult,
 } from '../types'
 import * as api from '../api'
+import { useInvalidateStock, useOnStockInvalidated } from '../stockInvalidation'
 
 interface UseSKUStockState {
   level: StockLevel | null
@@ -32,7 +33,10 @@ interface UseSKUStockActions {
 // either one. Every mutation reloads both afterwards (rather than patching
 // state locally) since a single action here can affect several batches at
 // once (e.g. transfer) and the derived stock level always needs recomputing
-// server-side.
+// server-side. A mutation that also moves another SKU's stock (split,
+// portion) invalidates that SKU too, so any other view showing it reloads
+// (see stockInvalidation); this hook likewise reloads when another view
+// invalidates its own SKU.
 export function useSKUStock(token: string, skuId: string | null): UseSKUStockState & UseSKUStockActions {
   const [level, setLevel] = useState<StockLevel | null>(null)
   const [batches, setBatches] = useState<Batch[]>([])
@@ -62,6 +66,8 @@ export function useSKUStock(token: string, skuId: string | null): UseSKUStockSta
   }, [token, skuId])
 
   useEffect(() => { load() }, [load])
+  useOnStockInvalidated(skuId ? [skuId] : [], load)
+  const invalidateStock = useInvalidateStock()
 
   const addBatch = useCallback(async (input: CreateBatchInput): Promise<Batch> => {
     if (!skuId) throw new Error('no SKU selected')
@@ -112,15 +118,17 @@ export function useSKUStock(token: string, skuId: string | null): UseSKUStockSta
     if (!skuId) throw new Error('no SKU selected')
     const result = await api.splitCaseIntoUnits(token, skuId, input)
     await load()
+    invalidateStock([result.unit_in.sku_id])
     return result
-  }, [token, skuId, load])
+  }, [token, skuId, load, invalidateStock])
 
   const portionFromBulk = useCallback(async (input: PortionFromBulkInput): Promise<PortionFromBulkResult> => {
     if (!skuId) throw new Error('no SKU selected')
     const result = await api.portionFromBulk(token, skuId, input)
     await load()
+    invalidateStock([result.bulk_out.sku_id])
     return result
-  }, [token, skuId, load])
+  }, [token, skuId, load, invalidateStock])
 
   return { level, batches, loading, error, refresh: load, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, portionFromBulk, markDamagedOrLost }
 }
