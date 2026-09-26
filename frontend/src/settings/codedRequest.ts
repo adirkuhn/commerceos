@@ -1,12 +1,10 @@
+import { CodedApiError } from '../api/codedApiError'
+
+export { CodedApiError }
+
 // JSON request for settings endpoints that keeps the API's error code
 // (the shared request helpers only keep the message), so forms can place
 // an error next to the field it belongs to.
-export class CodedApiError extends Error {
-  constructor(readonly code: string, message: string) {
-    super(message)
-    this.name = 'CodedApiError'
-  }
-}
 
 interface Envelope<T> {
   data: T | null

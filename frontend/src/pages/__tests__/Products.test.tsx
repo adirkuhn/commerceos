@@ -93,6 +93,7 @@ import * as integrationsApi from '../../integrations/api'
 import * as tenantSettingsApi from '../../settings/api'
 import * as taxApi from '../../tax/api'
 import { acceptConfirm } from '../../test/confirm'
+import { CodedApiError } from '../../api/codedApiError'
 
 // inputAfterLabel finds the <input> sibling of a plain-text <label> that
 // has no htmlFor/id association (VariantRow's edit panel labels don't wrap
@@ -266,6 +267,34 @@ describe('product list', () => {
 
     await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalledWith('test-token', 'prod-1'))
     expect(screen.getByDisplayValue('T-Shirt')).toBeInTheDocument()
+  })
+
+  it('a product with history cannot be deleted: offers to archive it instead', async () => {
+    vi.mocked(pmsApi.deleteProduct).mockRejectedValue(
+      new CodedApiError('PRODUCT_HAS_HISTORY', 'product has sales order history and cannot be deleted'))
+    vi.mocked(pmsApi.updateProduct).mockResolvedValue(product({ status: 'archived' }))
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Delete'))
+    await acceptConfirm()
+
+    const offer = await screen.findByRole('alertdialog')
+    expect(within(offer).getByText(/sales order history/)).toBeInTheDocument()
+    await userEvent.click(within(offer).getByRole('button', { name: 'Archive product' }))
+
+    await waitFor(() => expect(pmsApi.updateProduct).toHaveBeenCalledWith('test-token', 'prod-1', expect.objectContaining({
+      name: 'T-Shirt', status: 'archived',
+    })))
+  })
+
+  it('a failed delete shows its error instead of failing silently', async () => {
+    vi.mocked(pmsApi.deleteProduct).mockRejectedValue(new Error('network down'))
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Delete'))
+    await acceptConfirm()
+
+    expect(await screen.findByText('network down')).toBeInTheDocument()
   })
 
   it('deleting a row does not also navigate to the edit page', async () => {

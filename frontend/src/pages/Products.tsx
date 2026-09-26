@@ -8,10 +8,24 @@ import Pagination from '../components/common/Pagination'
 import { useProducts } from '../pms/hooks/useProducts'
 import { useCategories } from '../pms/hooks/useCategories'
 import * as pmsApi from '../pms/api'
+import { CodedApiError } from '../api/codedApiError'
+import type { Product, UpdateProductPayload } from '../pms/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_STYLES, formatPrice } from '../pms/productFormat'
 import { ProductEditPage } from '../pms/ProductEditPage'
 const PAGE_SIZE = 20
+
+const PRODUCT_HAS_HISTORY = 'PRODUCT_HAS_HISTORY'
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+// UpdateProduct is a full replace -- everything but status stays as is.
+function archivedPayload(p: Product): UpdateProductPayload {
+  return {
+    name: p.name, description: p.description, category_id: p.category_id ?? null, status: 'archived',
+    has_variants: p.has_variants, sync_variants_as_woo_variations: p.sync_variants_as_woo_variations, tags: p.tags,
+  }
+}
 
 export default function Products() {
   const { confirm, confirmDialog } = useConfirm()
@@ -52,6 +66,33 @@ export default function Products() {
   const { categories, create: createCategory, update: updateCategory } = useCategories(token ?? '')
 
   const categoryName = (id?: string | null) => categories.find(c => c.id === id)?.name ?? '—'
+
+  // A product whose SKUs have receiving/sales/picking/discard history can't
+  // be deleted (409 PRODUCT_HAS_HISTORY) -- archiving keeps that history
+  // and takes it out of the active catalog, so it's offered instead.
+  const [deleteError, setDeleteError] = useState('')
+  const handleDelete = async (p: Product) => {
+    setDeleteError('')
+    try {
+      await removeProduct(p.id)
+    } catch (err) {
+      if (!(err instanceof CodedApiError && err.code === PRODUCT_HAS_HISTORY)) {
+        setDeleteError(err instanceof Error ? err.message : 'Failed to delete product')
+        return
+      }
+      const archive = await confirm({
+        title: `"${p.name}" can't be deleted`,
+        message: `${capitalize(err.message)}. Archive it instead? It keeps its history and can be made active again later.`,
+        confirmLabel: 'Archive product',
+      })
+      if (!archive) return
+      try {
+        await updateProduct(p.id, archivedPayload(p))
+      } catch (archiveErr) {
+        setDeleteError(archiveErr instanceof Error ? archiveErr.message : 'Failed to archive product')
+      }
+    }
+  }
 
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [duplicateError, setDuplicateError] = useState('')
@@ -120,7 +161,7 @@ export default function Products() {
       {/* Stats strip */}
       <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
         <span className="text-xs text-ink-4">{total} product{total === 1 ? '' : 's'}</span>
-        {(error || duplicateError) && <span className="text-xs text-danger ml-auto">{error || duplicateError}</span>}
+        {(error || duplicateError || deleteError) && <span className="text-xs text-danger ml-auto">{error || duplicateError || deleteError}</span>}
       </div>
 
       {/* Table */}
@@ -200,7 +241,7 @@ export default function Products() {
                       onClick={async e => {
                         e.stopPropagation()
                         if (await confirm({ title: `Delete "${p.name}"?`, message: 'Its variants and SKUs are deleted too.', confirmLabel: 'Delete product', destructive: true })) {
-                          removeProduct(p.id)
+                          await handleDelete(p)
                         }
                       }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"

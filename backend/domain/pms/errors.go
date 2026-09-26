@@ -1,9 +1,6 @@
 package pms
 
-import (
-	"errors"
-	"fmt"
-)
+import "errors"
 
 var (
 	ErrProductNotFound  = errors.New("product not found")
@@ -73,15 +70,15 @@ var (
 	// receiving audit trail), so the product can't be deleted while that
 	// history exists. It and its siblings below all wrap
 	// ErrProductHasHistory.
-	ErrProductHasReceivingHistory = fmt.Errorf("product has purchase-order receiving history and cannot be deleted: %w", ErrProductHasHistory)
+	ErrProductHasReceivingHistory = historyError("product has purchase-order receiving history and cannot be deleted")
 	// ErrProductHasSalesOrderHistory: a SKU that was ever sold has
 	// sales_order_line_items rows referencing it (ON DELETE RESTRICT,
 	// deliberately -- it's the sales history).
-	ErrProductHasSalesOrderHistory = fmt.Errorf("product has sales order history and cannot be deleted: %w", ErrProductHasHistory)
+	ErrProductHasSalesOrderHistory = historyError("product has sales order history and cannot be deleted")
 	// ErrProductHasPickingHistory: pick_scans rows (ON DELETE RESTRICT).
-	ErrProductHasPickingHistory = fmt.Errorf("product has picking history and cannot be deleted: %w", ErrProductHasHistory)
+	ErrProductHasPickingHistory = historyError("product has picking history and cannot be deleted")
 	// ErrProductHasDiscardHistory: discard_records rows (ON DELETE RESTRICT).
-	ErrProductHasDiscardHistory = fmt.Errorf("product has discard history and cannot be deleted: %w", ErrProductHasHistory)
+	ErrProductHasDiscardHistory = historyError("product has discard history and cannot be deleted")
 	// ErrInvalidTargetMarkupBasisPoints guards Category.TargetMarkupBasisPoints
 	// and settings.TenantSettings.DefaultTargetMarkupBasisPoints: must be
 	// >= 0. Unlike margin, markup (profit / cost) has no upper bound.
@@ -165,3 +162,9 @@ var (
 // PRODUCT_HAS_HISTORY and offers archiving instead), each keeping its own
 // message.
 var ErrProductHasHistory = errors.New("product has history")
+
+// historyError keeps its own message while matching ErrProductHasHistory.
+type historyError string
+
+func (e historyError) Error() string { return string(e) }
+func (e historyError) Unwrap() error { return ErrProductHasHistory }

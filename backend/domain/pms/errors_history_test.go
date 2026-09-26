@@ -19,5 +19,6 @@ func TestProductHistoryErrorsAreErrProductHasHistory(t *testing.T) {
 		pmsDomain.ErrProductHasDiscardHistory,
 	} {
 		assert.True(t, errors.Is(err, pmsDomain.ErrProductHasHistory), err.Error())
+		assert.NotContains(t, err.Error(), pmsDomain.ErrProductHasHistory.Error(), "message stays clean for the UI")
 	}
 }
