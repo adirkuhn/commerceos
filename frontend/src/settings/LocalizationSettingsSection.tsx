@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from './hooks/useTenantSettings'
+import { useApplyDateFormatSettings } from '../format/DateFormatProvider'
 import { CURRENCY_OPTIONS } from './currencyOptions'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { toInput } from './tenantSettingsInput'
@@ -31,6 +32,7 @@ const LANGUAGE_OPTIONS = [
 export function LocalizationSettingsSection() {
   const { token } = useAuth()
   const { settings, loading, error, save } = useTenantSettings(token ?? '')
+  const applyDateFormat = useApplyDateFormatSettings()
 
   const [defaultCurrency, setDefaultCurrency] = useState(CURRENCY_OPTIONS[0].value)
   const [timezone, setTimezone] = useState(TIMEZONE_OPTIONS[0].value)
@@ -54,7 +56,7 @@ export function LocalizationSettingsSection() {
     setSaveError('')
     setSaved(false)
     try {
-      await save({ ...toInput(settings), default_currency: defaultCurrency, timezone, date_format: dateFormat, language })
+      applyDateFormat(await save({ ...toInput(settings), default_currency: defaultCurrency, timezone, date_format: dateFormat, language }))
       setSaved(true)
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save settings')

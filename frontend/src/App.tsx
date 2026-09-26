@@ -7,6 +7,7 @@ import ScannerApp from './scanner/ScannerApp'
 import { isScannerPath, SCANNER_BASE } from './scanner/scannerRoutes'
 import { ScannerCallbackPage } from './scanner/ScannerCallbackPage'
 import { AppProvider } from './context/AppContext'
+import { DateFormatProvider } from './format/DateFormatProvider'
 import Sidebar from './components/layout/Sidebar'
 import Topbar from './components/layout/Topbar'
 import CommandPalette from './components/layout/CommandPalette'
@@ -61,7 +62,7 @@ function AppContent() {
 }
 
 export function AppShell() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, token } = useAuth()
   const location = useLocation()
   const isCallback = location.pathname === CALLBACK_PATH
   const isScanner = isScannerPath(location.pathname)
@@ -90,7 +91,9 @@ export function AppShell() {
 
   return (
     <AppProvider>
-      <AppContent />
+      <DateFormatProvider token={token ?? ''}>
+        <AppContent />
+      </DateFormatProvider>
     </AppProvider>
   )
 }

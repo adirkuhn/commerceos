@@ -11,6 +11,7 @@ import { SalesOrderPackerScreen } from './SalesOrderPackerScreen'
 import { BookingRoute, PackSessionRoute, PickOrderRoute, PickSessionRoute } from './sessionRoutes'
 import { scannerPaths } from './scannerRoutes'
 import { useStackNavigation } from '../routing/useStackNavigation'
+import { DateFormatProvider } from '../format/DateFormatProvider'
 
 const APP_PATHS: Record<ScannerAppID, string> = {
   'receive-po': scannerPaths.receive,
@@ -50,33 +51,35 @@ function ScannerAppContent() {
   const toLauncher = () => exitTo(scannerPaths.launcher)
 
   return (
-    <Routes>
-      <Route index element={<AppLauncher onSelect={app => open(APP_PATHS[app])} onLogout={clearToken} />} />
+    <DateFormatProvider token={token}>
+      <Routes>
+        <Route index element={<AppLauncher onSelect={app => open(APP_PATHS[app])} onLogout={clearToken} />} />
 
-      <Route
-        path="receive"
-        element={<PurchaseOrderPickerScreen token={token} onBookingStarted={id => open(scannerPaths.booking(id))} onLogout={clearToken} onBack={toLauncher} />}
-      />
-      <Route path="receive/:bookingId" element={<BookingRoute token={token} onAuthError={clearToken} />} />
+        <Route
+          path="receive"
+          element={<PurchaseOrderPickerScreen token={token} onBookingStarted={id => open(scannerPaths.booking(id))} onLogout={clearToken} onBack={toLauncher} />}
+        />
+        <Route path="receive/:bookingId" element={<BookingRoute token={token} onAuthError={clearToken} />} />
 
-      <Route path="inventory/*" element={<InventoryApp token={token} onExit={toLauncher} />} />
-      <Route path="price-lookup/*" element={<PriceLookupApp token={token} onExit={toLauncher} />} />
-      <Route path="discard/*" element={<DiscardApp token={token} onExit={toLauncher} />} />
+        <Route path="inventory/*" element={<InventoryApp token={token} onExit={toLauncher} />} />
+        <Route path="price-lookup/*" element={<PriceLookupApp token={token} onExit={toLauncher} />} />
+        <Route path="discard/*" element={<DiscardApp token={token} onExit={toLauncher} />} />
 
-      <Route
-        path="pick"
-        element={<SalesOrderPickerScreen token={token} onPickingStarted={id => open(scannerPaths.pickSession(id))} onOrderChosenForList={id => open(scannerPaths.pickOrder(id))} onLogout={clearToken} onBack={toLauncher} />}
-      />
-      <Route path="pick/order/:orderId" element={<PickOrderRoute token={token} />} />
-      <Route path="pick/:sessionId" element={<PickSessionRoute token={token} onAuthError={clearToken} />} />
+        <Route
+          path="pick"
+          element={<SalesOrderPickerScreen token={token} onPickingStarted={id => open(scannerPaths.pickSession(id))} onOrderChosenForList={id => open(scannerPaths.pickOrder(id))} onLogout={clearToken} onBack={toLauncher} />}
+        />
+        <Route path="pick/order/:orderId" element={<PickOrderRoute token={token} />} />
+        <Route path="pick/:sessionId" element={<PickSessionRoute token={token} onAuthError={clearToken} />} />
 
-      <Route
-        path="pack"
-        element={<SalesOrderPackerScreen token={token} onPackingStarted={id => open(scannerPaths.packSession(id))} onLogout={clearToken} onBack={toLauncher} />}
-      />
-      <Route path="pack/:sessionId" element={<PackSessionRoute token={token} onAuthError={clearToken} />} />
+        <Route
+          path="pack"
+          element={<SalesOrderPackerScreen token={token} onPackingStarted={id => open(scannerPaths.packSession(id))} onLogout={clearToken} onBack={toLauncher} />}
+        />
+        <Route path="pack/:sessionId" element={<PackSessionRoute token={token} onAuthError={clearToken} />} />
 
-      <Route path="*" element={<Navigate to={scannerPaths.launcher} replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to={scannerPaths.launcher} replace />} />
+      </Routes>
+    </DateFormatProvider>
   )
 }
