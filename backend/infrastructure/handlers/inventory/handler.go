@@ -252,7 +252,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, fileSto
 		appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo, costLedgerRecorder),
 		appinventory.NewRecordRecountUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewTransferStockUseCase(db, movementRepo, outboxRepo),
-		appinventory.NewSplitCaseIntoUnitsUseCase(db, skuRepo, movementRepo, outboxRepo),
+		appinventory.NewSplitCaseIntoUnitsUseCase(db, skuRepo, batchRepo, movementRepo, outboxRepo),
 		appinventory.NewPortionFromBulkUseCase(db, skuRepo, movementRepo, outboxRepo),
 		markDamagedOrLost,
 		appinventory.NewListExpiringBatchesUseCase(db, batchRepo),

@@ -830,6 +830,26 @@ func TestSplitCaseIntoUnitsHandler_notACaseReturns422(t *testing.T) {
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
+func TestSplitCaseIntoUnitsHandler_batchMismatchReturns422(t *testing.T) {
+	for _, err := range []error{invDomain.ErrBatchDoesNotBelongToSKU, invDomain.ErrBatchNotInWarehouse} {
+		t.Run(err.Error(), func(t *testing.T) {
+			h := newSplitCaseTestHandler(&stubSplitCaseIntoUnits{err: err})
+			w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/split-case",
+				map[string]any{"warehouse_id": "wh-1", "batch_id": "batch-1", "cases_to_split": 1})
+
+			require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+		})
+	}
+}
+
+func TestSplitCaseIntoUnitsHandler_batchNotFoundReturns404(t *testing.T) {
+	h := newSplitCaseTestHandler(&stubSplitCaseIntoUnits{err: invDomain.ErrBatchNotFound})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/split-case",
+		map[string]any{"warehouse_id": "wh-1", "batch_id": "missing", "cases_to_split": 1})
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestPortionFromBulkHandler_success(t *testing.T) {
 	portion := &stubPortionFromBulk{}
 	h := inventoryhandler.NewHandler(

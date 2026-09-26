@@ -23,7 +23,8 @@ func mapError(c *gin.Context, err error) error {
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrInvalidMovementType),
 		errors.Is(err, invDomain.ErrInsufficientStock), errors.Is(err, invDomain.ErrSKUIsNotACase),
-		errors.Is(err, invDomain.ErrSKUIsNotPortioned), errors.Is(err, invDomain.ErrUnsupportedPhotoType):
+		errors.Is(err, invDomain.ErrSKUIsNotPortioned), errors.Is(err, invDomain.ErrUnsupportedPhotoType),
+		errors.Is(err, invDomain.ErrBatchDoesNotBelongToSKU), errors.Is(err, invDomain.ErrBatchNotInWarehouse):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, pmsDomain.ErrSKUNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())

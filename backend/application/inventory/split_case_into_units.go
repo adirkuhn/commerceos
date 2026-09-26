@@ -34,25 +34,35 @@ type SplitCaseIntoUnitsResult struct {
 // this is a one-way "break the seal" operation, matching the real-world
 // action it represents.
 //
-// The resulting unit stock is deliberately not batch-tracked (UnitInMovement
-// always has BatchID nil, regardless of whether the case stock being split
-// was itself lotted) -- carrying the case's lot/expiry over to the unit side
-// would need each case to track its own sub-lot of units, which is a bigger
-// feature on its own; for now the unit side is general stock.
+// Splitting from a batch keeps the lot: the units land in a batch on the
+// unit SKU with the same warehouse, lot number and expiry date (see
+// resolveUnitBatch) -- so FEFO, expiry alerts and batch-tied promotions
+// keep seeing them. Splitting from the general ledger lands the units in
+// the unit SKU's general ledger.
 type SplitCaseIntoUnitsUseCase struct {
 	db           *gorm.DB
 	skuRepo      pmsDomain.SKURepository
+	batchRepo    splitBatchStore
 	movementRepo invDomain.StockMovementRepository
 	outboxRepo   outbox.Repository
+}
+
+// splitBatchStore is the slice of invDomain.BatchRepository a split needs
+// (ISP): read the case batch, find or create its unit-side twin.
+type splitBatchStore interface {
+	FindByID(ctx context.Context, id string) (*invDomain.Batch, error)
+	ListBySKU(ctx context.Context, skuID string) ([]invDomain.Batch, error)
+	Create(ctx context.Context, b *invDomain.Batch) error
 }
 
 func NewSplitCaseIntoUnitsUseCase(
 	db *gorm.DB,
 	skuRepo pmsDomain.SKURepository,
+	batchRepo splitBatchStore,
 	movementRepo invDomain.StockMovementRepository,
 	outboxRepo outbox.Repository,
 ) *SplitCaseIntoUnitsUseCase {
-	return &SplitCaseIntoUnitsUseCase{db: db, skuRepo: skuRepo, movementRepo: movementRepo, outboxRepo: outboxRepo}
+	return &SplitCaseIntoUnitsUseCase{db: db, skuRepo: skuRepo, batchRepo: batchRepo, movementRepo: movementRepo, outboxRepo: outboxRepo}
 }
 
 func (uc *SplitCaseIntoUnitsUseCase) Execute(ctx context.Context, in SplitCaseIntoUnitsInput) (*SplitCaseIntoUnitsResult, error) {
@@ -78,6 +88,11 @@ func (uc *SplitCaseIntoUnitsUseCase) Execute(ctx context.Context, in SplitCaseIn
 			return err
 		}
 
+		unitBatchID, err := uc.resolveUnitBatch(ctx, in, *caseSKU.CaseOfSKUID)
+		if err != nil {
+			return err
+		}
+
 		now := time.Now()
 		tenantID := tenant.IDFromContext(ctx)
 
@@ -92,7 +107,7 @@ func (uc *SplitCaseIntoUnitsUseCase) Execute(ctx context.Context, in SplitCaseIn
 		result.CaseOutMovement = caseOut
 
 		unitIn := invDomain.StockMovement{
-			TenantID: tenantID, SKUID: *caseSKU.CaseOfSKUID, WarehouseID: in.WarehouseID, BatchID: nil,
+			TenantID: tenantID, SKUID: *caseSKU.CaseOfSKUID, WarehouseID: in.WarehouseID, BatchID: unitBatchID,
 			Type: invDomain.MovementTypeSplitIn, QuantityDelta: in.CasesToSplit * *caseSKU.UnitsPerCase,
 			Reason: in.Reason, OccurredAt: in.OccurredAt, CreatedAt: now,
 		}
@@ -110,4 +125,54 @@ func (uc *SplitCaseIntoUnitsUseCase) Execute(ctx context.Context, in SplitCaseIn
 		return nil, fmt.Errorf("splitCaseIntoUnits: %w", err)
 	}
 	return &result, nil
+}
+
+// resolveUnitBatch returns the unit-side batch ID for a split: nil for a
+// general-ledger split, otherwise the unit SKU's active batch in the same
+// warehouse with the same lot number and expiry date -- created (copying
+// the case batch's lot, expiry and receipt date) when none exists yet, so
+// repeated splits of one lot top up a single unit batch.
+func (uc *SplitCaseIntoUnitsUseCase) resolveUnitBatch(ctx context.Context, in SplitCaseIntoUnitsInput, unitSKUID string) (*string, error) {
+	if in.BatchID == nil {
+		return nil, nil
+	}
+	caseBatch, err := uc.batchRepo.FindByID(ctx, *in.BatchID)
+	if err != nil {
+		return nil, err
+	}
+	if caseBatch.SKUID != in.CaseSKUID {
+		return nil, invDomain.ErrBatchDoesNotBelongToSKU
+	}
+	if caseBatch.WarehouseID != in.WarehouseID {
+		return nil, invDomain.ErrBatchNotInWarehouse
+	}
+
+	unitBatches, err := uc.batchRepo.ListBySKU(ctx, unitSKUID)
+	if err != nil {
+		return nil, err
+	}
+	for _, b := range unitBatches {
+		if b.Status == invDomain.BatchStatusActive && b.WarehouseID == caseBatch.WarehouseID &&
+			b.LotNumber == caseBatch.LotNumber && sameExpiry(b.ExpiryDate, caseBatch.ExpiryDate) {
+			return &b.ID, nil
+		}
+	}
+
+	now := time.Now()
+	unitBatch := invDomain.Batch{
+		TenantID: tenant.IDFromContext(ctx), SKUID: unitSKUID, WarehouseID: caseBatch.WarehouseID,
+		LotNumber: caseBatch.LotNumber, ExpiryDate: caseBatch.ExpiryDate, ReceivedAt: caseBatch.ReceivedAt,
+		Status: invDomain.BatchStatusActive, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := uc.batchRepo.Create(ctx, &unitBatch); err != nil {
+		return nil, err
+	}
+	return &unitBatch.ID, nil
+}
+
+func sameExpiry(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Equal(*b)
 }

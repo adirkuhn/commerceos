@@ -36,4 +36,8 @@ var (
 	// from) -- a batch ID for a different SKU is a caller/client bug, not
 	// a "not found".
 	ErrBatchDoesNotBelongToSKU = errors.New("batch does not belong to this sku")
+	// ErrBatchNotInWarehouse guards a caller naming both a warehouse and a
+	// batch (e.g. SplitCaseIntoUnitsUseCase) when the batch lives in a
+	// different warehouse than the one given.
+	ErrBatchNotInWarehouse = errors.New("batch is not in this warehouse")
 )

@@ -124,6 +124,7 @@ type stubBatchRepo struct {
 	created      *invDomain.Batch
 	deleteErr    error
 	deleted      []string
+	listedSKUIDs []string
 
 	expiringSoon    []invDomain.ExpiringBatch
 	expiringSoonErr error
@@ -154,7 +155,8 @@ func (s *stubBatchRepo) Create(_ context.Context, b *invDomain.Batch) error {
 func (s *stubBatchRepo) FindByID(_ context.Context, _ string) (*invDomain.Batch, error) {
 	return s.findResult, s.findErr
 }
-func (s *stubBatchRepo) ListBySKU(_ context.Context, _ string) ([]invDomain.Batch, error) {
+func (s *stubBatchRepo) ListBySKU(_ context.Context, skuID string) ([]invDomain.Batch, error) {
+	s.listedSKUIDs = append(s.listedSKUIDs, skuID)
 	return s.batches, nil
 }
 func (s *stubBatchRepo) ListBySKUs(_ context.Context, _ []string) ([]invDomain.Batch, error) {

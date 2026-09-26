@@ -255,6 +255,9 @@ paths:
         configured as a case of another SKU (see the pms module's
         case_of_sku_id/units_per_case). One-way: cases leave stock, that
         many times units_per_case units of the case's own SKU arrive.
+        Splitting from a batch keeps the lot — the units land in the unit
+        SKU's active batch with the same warehouse, lot number and expiry
+        date, created (copying lot, expiry and received_at) if none exists.
       parameters:
         - $ref: '#/components/parameters/skuId'
       requestBody:
@@ -270,6 +273,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SplitCaseIntoUnitsResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
         '422':
           $ref: '#/components/responses/Error'
 
@@ -856,7 +861,11 @@ components:
       required: [case_out, unit_in]
       properties:
         case_out: { $ref: '#/components/schemas/StockMovement' }
-        unit_in: { $ref: '#/components/schemas/StockMovement' }
+        unit_in:
+          allOf: [{ $ref: '#/components/schemas/StockMovement' }]
+          description: >-
+            batch_id is the unit SKU's batch inheriting the split case
+            batch's lot/expiry, or null for a general-ledger split.
 
     SplitCaseIntoUnitsResultResponse:
       type: object
