@@ -19,6 +19,14 @@ vi.mock('../../../reports/api', () => ({
 
 import * as reportsApi from '../../../reports/api'
 
+// The tenant is in Amsterdam (UTC+1 in winter, UTC+2 in summer): report
+// bounds must be Amsterdam midnights, not UTC ones.
+vi.mock('../../../format/DateFormatProvider', async () => {
+  const actual = await vi.importActual<typeof import('../../../format/DateFormatProvider')>('../../../format/DateFormatProvider')
+  const formatter = actual.bindDateFormat({ pattern: 'YYYY-MM-DD', timeZone: 'Europe/Amsterdam' })
+  return { ...actual, useDateFormat: () => formatter }
+})
+
 // jsdom doesn't implement ResizeObserver, which recharts' ResponsiveContainer requires to mount.
 class ResizeObserverStub {
   observe() {}
@@ -203,7 +211,7 @@ describe('OverviewPage', () => {
     fireEvent.change(inputs[1], { target: { value: '2026-01-31' } })
 
     await screen.findByTestId('profitability-summary')
-    expect(reportsApi.getSalesSummaryReport).toHaveBeenCalledWith('test-token', '2026-01-01T00:00:00.000Z', '2026-02-01T00:00:00.000Z')
+    expect(reportsApi.getSalesSummaryReport).toHaveBeenCalledWith('test-token', '2025-12-31T23:00:00.000Z', '2026-01-31T23:00:00.000Z')
   })
 })
 
@@ -211,8 +219,14 @@ describe('OverviewPage URL state', () => {
   it('a custom range in the URL is what gets requested', async () => {
     renderAt(<OverviewPage />, '/reports', '/reports?period=custom&from=2026-03-01&to=2026-03-31')
     await waitFor(() => expect(reportsApi.getSalesSummaryReport).toHaveBeenCalledWith(
-      'test-token', '2026-03-01T00:00:00.000Z', '2026-04-01T00:00:00.000Z',
+      'test-token', '2026-02-28T23:00:00.000Z', '2026-03-31T22:00:00.000Z',
     ))
+  })
+
+  it('the subtitle shows exactly the picked days, the last one included', async () => {
+    renderAt(<OverviewPage />, '/reports', '/reports?period=custom&from=2026-03-01&to=2026-03-31')
+    expect(await screen.findByText('2026-03-01 – 2026-03-31')).toBeInTheDocument()
+    expect(screen.queryByText(/2026-04-01/)).not.toBeInTheDocument()
   })
 
   it('an invalid custom date falls back to the default range instead of breaking', async () => {

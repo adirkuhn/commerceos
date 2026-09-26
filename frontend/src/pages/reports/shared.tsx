@@ -151,15 +151,15 @@ interface ReportPageShellProps {
 // date range (or a custom subtitle for non-period reports) + period
 // selector, loading/error banners, then the report's own content.
 export function ReportPageShell({ title, period, onPeriodChange, subtitle, loading, error, children }: ReportPageShellProps) {
-  const { formatDate } = useDateFormat()
-  const range = period ? dateRange(period, new Date()) : null
+  const { formatDate, settings } = useDateFormat()
+  const range = period ? dateRange(period, new Date(), settings.timeZone) : null
   return (
     <div className="p-5 space-y-5 overflow-auto h-full">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-ink">
           {title}
           <span className="ml-2 text-xs font-normal text-ink-4">
-            {range ? `${formatDate(range.from)} – ${formatDate(range.to)}` : subtitle}
+            {range ? `${formatDate(range.firstDay)} – ${formatDate(range.lastDay)}` : subtitle}
           </span>
         </h2>
         {period && onPeriodChange && <PeriodSelector period={period} onChange={onPeriodChange} />}

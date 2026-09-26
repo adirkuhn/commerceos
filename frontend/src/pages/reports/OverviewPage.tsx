@@ -13,14 +13,7 @@ import { ReportPageShell, ReportCard, EmptyState, DateRangeControl, ViewToggle, 
 import { formatMoney } from '../../format/money'
 import type { DateInput } from '../../format/date'
 import { useDateFormat } from '../../format/DateFormatProvider'
-
-function isoDateToday(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function isoDateDaysAgo(days: number): string {
-  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-}
+import { addDays, calendarDayInZone } from '../../format/calendarDay'
 
 const RANGE_MODES = [...REPORTS_PERIODS, 'custom'] as const satisfies readonly ReportsRangeMode[]
 const OVERVIEW_VIEWS = ['summary', 'daily'] as const
@@ -32,7 +25,7 @@ function isIsoDate(value: string | null): value is string {
 export default function OverviewPage() {
   const chart = useChartTheme()
   const { token } = useAuth()
-  const { formatDate, formatMonthDay } = useDateFormat()
+  const { formatDate, formatMonthDay, settings: { timeZone } } = useDateFormat()
   // Range (?period=, plus ?from=&to= for a custom range) and the
   // summary/daily view (?view=daily) live in the URL -- a refresh or a
   // shared link shows the same report. Malformed dates fall back to the
@@ -40,8 +33,10 @@ export default function OverviewPage() {
   const [mode, setMode] = useQueryEnum<ReportsRangeMode>('period', RANGE_MODES, DEFAULT_REPORTS_PERIOD)
   const [fromParam, setCustomFrom] = useQueryString('from')
   const [toParam, setCustomTo] = useQueryString('to')
-  const customFrom = isIsoDate(fromParam) ? fromParam : isoDateDaysAgo(7)
-  const customTo = isIsoDate(toParam) ? toParam : isoDateToday()
+  // The default custom range is the last 7 tenant days, today included.
+  const tenantToday = calendarDayInZone(new Date(), timeZone)
+  const customFrom = isIsoDate(fromParam) ? fromParam : addDays(tenantToday, -6)
+  const customTo = isIsoDate(toParam) ? toParam : tenantToday
   const [view, setView] = useQueryEnum('view', OVERVIEW_VIEWS, 'summary')
   const showDaily = view === 'daily'
   const setShowDaily = (daily: boolean) => setView(daily ? 'daily' : 'summary')
@@ -56,10 +51,13 @@ export default function OverviewPage() {
     })
   }, [])
 
-  const { from, to } = useMemo(() => {
-    if (mode === 'custom') return customDateRange(customFrom, customTo)
-    return dateRange(mode as ReportsPeriod, new Date())
-  }, [mode, customFrom, customTo])
+  // Whole days in the tenant's timezone: [from, to) is sent to the API,
+  // firstDay..lastDay (inclusive) is what the subtitle shows -- never the
+  // exclusive `to`, which is the day after the range.
+  const { from, to, firstDay, lastDay } = useMemo(() => {
+    if (mode === 'custom') return customDateRange(customFrom, customTo, timeZone)
+    return dateRange(mode as ReportsPeriod, new Date(), timeZone)
+  }, [mode, customFrom, customTo, timeZone])
 
   const getSalesSummaryReport = useCallback(reportsApi.getSalesSummaryReport, [])
   const getBusinessInsights = useCallback(reportsApi.getBusinessInsights, [])
@@ -104,7 +102,7 @@ export default function OverviewPage() {
   return (
     <ReportPageShell
       title="Overview"
-      subtitle={`${formatDate(from)} – ${formatDate(to)}`}
+      subtitle={`${formatDate(firstDay)} – ${formatDate(lastDay)}`}
       loading={summaryLoading || insightsLoading || profitLoading || channelLoading || (showDaily && profitTrendLoading)}
       error={summaryError ?? insightsError ?? profitError ?? channelError ?? (showDaily ? profitTrendError : null)}
     >

@@ -21,7 +21,7 @@ export interface DateFormatter {
   formatMonthYear: (value: DateInput, options?: { shortYear?: boolean }) => string
 }
 
-function bind(settings: DateFormatSettings): DateFormatter {
+export function bindDateFormat(settings: DateFormatSettings): DateFormatter {
   return {
     settings,
     formatDate: value => formatDate(value, settings),
@@ -36,7 +36,7 @@ export function toDateFormatSettings(s: Pick<TenantSettings, 'date_format' | 'ti
   return { pattern: parseDateFormat(s.date_format), timeZone: s.timezone || undefined }
 }
 
-const defaultFormatter = bind(DEFAULT_DATE_FORMAT)
+const defaultFormatter = bindDateFormat(DEFAULT_DATE_FORMAT)
 const DateFormatContext = createContext<DateFormatter>(defaultFormatter)
 const ApplyContext = createContext<(s: TenantSettings) => void>(() => {})
 
@@ -53,7 +53,7 @@ export function DateFormatProvider({ token, children }: { token: string; childre
   }, [token])
 
   const apply = useCallback((s: TenantSettings) => setSettings(toDateFormatSettings(s)), [])
-  const formatter = useMemo(() => bind(settings), [settings])
+  const formatter = useMemo(() => bindDateFormat(settings), [settings])
 
   return (
     <ApplyContext.Provider value={apply}>

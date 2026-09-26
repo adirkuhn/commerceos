@@ -7,6 +7,7 @@ import type { Product, VariantWithSKUs, SKU } from '../../pms/types'
 import type { ProductRecommendationsReport } from '../../reports/types'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
 import { dateRange, type ReportsPeriod } from '../../reports/period'
+import { useDateFormat } from '../../format/DateFormatProvider'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 import { useQueryString } from '../../routing/useQueryState'
@@ -72,6 +73,7 @@ export default function FrequentlyBoughtTogetherPage() {
 // recommendations endpoint, reusing the same FP-Growth mining as the
 // tenant-wide table above but scoped to one product.
 function ProductRecommendationsSearch({ token, period }: { token: string; period: ReportsPeriod }) {
+  const { timeZone } = useDateFormat().settings
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Product[]>([])
   const [searching, setSearching] = useState(false)
@@ -148,13 +150,13 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
     let cancelled = false
     setRecLoading(true)
     setRecError(null)
-    const { from, to } = dateRange(period, new Date())
+    const { from, to } = dateRange(period, new Date(), timeZone)
     reportsApi.getProductRecommendations(token, selectedSkuId, from, to)
       .then(r => { if (!cancelled) setRecommendations(r) })
       .catch(e => { if (!cancelled) setRecError(e instanceof Error ? e.message : 'Unknown error') })
       .finally(() => { if (!cancelled) setRecLoading(false) })
     return () => { cancelled = true }
-  }, [token, selectedSkuId, period])
+  }, [token, selectedSkuId, period, timeZone])
 
   return (
     <ReportCard title="Product recommendations" description="Search a product to see what's frequently bought with it" overflowVisible>

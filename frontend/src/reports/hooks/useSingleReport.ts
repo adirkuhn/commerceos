@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { dateRange, type ReportsPeriod } from '../period'
+import { useDateFormat } from '../../format/DateFormatProvider'
 
 // useReport fetches one report for an explicit [from, to) range -- the
 // building block behind useSingleReport below. Pages with their own range
@@ -43,19 +44,22 @@ export function useSingleReport<T>(
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The range is whole days in the tenant's timezone -- the same days the
+  // page's subtitle shows and the backend buckets by.
+  const { timeZone } = useDateFormat().settings
 
   useEffect(() => {
     if (!token) return
     let cancelled = false
     setLoading(true)
     setError(null)
-    const { from, to } = dateRange(period, new Date())
+    const { from, to } = dateRange(period, new Date(), timeZone)
     fetchFn(token, from, to)
       .then(result => { if (!cancelled) setData(result) })
       .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : 'Unknown error') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [token, period, fetchFn])
+  }, [token, period, timeZone, fetchFn])
 
   return { data, loading, error }
 }
