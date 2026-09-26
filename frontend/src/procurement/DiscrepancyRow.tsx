@@ -7,6 +7,7 @@ import * as inventoryApi from '../inventory/api'
 import type { PurchaseOrderLineItem, ReceivingDiscrepancy } from './types'
 import type { Warehouse } from '../inventory/types'
 import { DISCREPANCY_LABEL } from './procurementHelpers'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 interface DiscrepancyRowProps {
   discrepancy: ReceivingDiscrepancy
@@ -24,6 +25,7 @@ export function DiscrepancyRow({
   discrepancy, allDiscrepancies, lineItem, warehouseId, warehouses, onAssignWarehouse, invoiceFileName, disabled, onReload,
 }: DiscrepancyRowProps) {
   const { token } = useAuth()
+  const { formatDate } = useDateFormat()
   const [formOpen, setFormOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkTargetId, setLinkTargetId] = useState('')
@@ -86,7 +88,10 @@ export function DiscrepancyRow({
           expected {discrepancy.expected_qty} · invoice {discrepancy.received_qty}
         </span>
       </div>
-      <p className="text-2xs text-ink-2">{discrepancy.details}</p>
+      <p className="text-2xs text-ink-2">
+        {discrepancy.details}
+        {discrepancy.expiry_date && <> · Expires {formatDate(discrepancy.expiry_date)}</>}
+      </p>
       {isAcknowledged ? (
         <span className="flex items-center gap-1 text-2xs font-medium text-success">
           <Check size={10} /> Acknowledged

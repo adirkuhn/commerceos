@@ -1038,6 +1038,11 @@ components:
         expected_qty: { type: integer, format: int64 }
         received_qty: { type: integer, format: int64 }
         details: { type: string }
+        expiry_date:
+          type: string
+          format: date
+          nullable: true
+          description: The invoice line's expiry date for expiry_mismatch discrepancies (null otherwise). Structured so clients render it in the tenant's date format; details never contains the date.
         status: { $ref: '#/components/schemas/DiscrepancyStatus' }
         acknowledged_at: { type: string, format: date-time, nullable: true }
         created_at: { type: string, format: date-time }

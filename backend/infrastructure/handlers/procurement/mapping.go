@@ -131,7 +131,7 @@ func toGenReceivingDiscrepancy(d procurementDomain.ReceivingDiscrepancy) genproc
 		Id: d.ID, TenantId: d.TenantID, ReceivingRecordId: d.ReceivingRecordID, LineItemId: d.LineItemID,
 		Type: genprocurement.DiscrepancyType(d.Type), ExpectedQty: d.ExpectedQty, ReceivedQty: d.ReceivedQty,
 		Details: d.Details, Status: genprocurement.DiscrepancyStatus(d.Status), AcknowledgedAt: d.AcknowledgedAt,
-		CreatedAt: d.CreatedAt,
+		CreatedAt: d.CreatedAt, ExpiryDate: timePtrToGenDate(d.ExpiryDate),
 	}
 }
 

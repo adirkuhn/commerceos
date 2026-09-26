@@ -208,6 +208,9 @@ export interface ReceivingDiscrepancy {
   expected_qty: number
   received_qty: number
   details: string
+  // Invoice expiry date (YYYY-MM-DD) for expiry_mismatch; render with
+  // useDateFormat -- details never contains the date.
+  expiry_date?: string | null
   status: DiscrepancyStatus
   acknowledged_at?: string | null
   created_at: string

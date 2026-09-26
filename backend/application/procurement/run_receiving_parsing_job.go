@@ -179,10 +179,13 @@ func diffInvoiceAgainstPurchaseOrder(lineItems []procurementDomain.PurchaseOrder
 
 		if item.ExpiryDate != nil && item.ExpiryDate.Before(now.AddDate(0, 0, expiryMismatchWindowDays)) {
 			lineItemID := li.ID
+			expiry := *item.ExpiryDate
+			// The date itself lives in ExpiryDate, never in Details: stored
+			// text can't follow the tenant's date-format setting.
 			discrepancies = append(discrepancies, procurementDomain.ReceivingDiscrepancy{
 				LineItemID: &lineItemID, Type: procurementDomain.DiscrepancyTypeExpiryMismatch, Status: procurementDomain.DiscrepancyStatusOpen,
-				ExpectedQty: li.Quantity, ReceivedQty: item.Quantity,
-				Details: fmt.Sprintf("expiry date %s is within %d days (or already past)", item.ExpiryDate.Format("2006-01-02"), expiryMismatchWindowDays),
+				ExpectedQty: li.Quantity, ReceivedQty: item.Quantity, ExpiryDate: &expiry,
+				Details: fmt.Sprintf("expiry date is within %d days (or already past)", expiryMismatchWindowDays),
 			})
 		}
 	}

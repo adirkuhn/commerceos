@@ -113,6 +113,7 @@ func TestReceivingDiscrepancyRepo_Integration_CreateAndList(t *testing.T) {
 
 	var recordID string
 	var lineItemID string
+	expiry := time.Date(2026, 10, 3, 0, 0, 0, 0, time.UTC)
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		supplier := &suppliersDomain.Supplier{
@@ -151,7 +152,7 @@ func TestReceivingDiscrepancyRepo_Integration_CreateAndList(t *testing.T) {
 		d1 := procurementDomain.ReceivingDiscrepancy{
 			TenantID: tenant.IDFromContext(ctx), ReceivingRecordID: recordID, LineItemID: &lineItemID,
 			Type: procurementDomain.DiscrepancyTypeQuantityMismatch, ExpectedQty: 10, ReceivedQty: 8,
-			Details: "received 8, expected 10", CreatedAt: now,
+			Details: "received 8, expected 10", CreatedAt: now, ExpiryDate: &expiry,
 		}
 		if err := discRepo.Create(ctx, &d1); err != nil {
 			return err
@@ -178,6 +179,9 @@ func TestReceivingDiscrepancyRepo_Integration_CreateAndList(t *testing.T) {
 	require.Equal(t, procurementDomain.DiscrepancyStatusOpen, listed[0].Status)
 	require.Equal(t, procurementDomain.DiscrepancyTypeUnexpectedItem, listed[1].Type)
 	require.Nil(t, listed[1].LineItemID)
+	require.NotNil(t, listed[0].ExpiryDate)
+	require.Equal(t, "2026-10-03", listed[0].ExpiryDate.Format("2006-01-02"))
+	require.Nil(t, listed[1].ExpiryDate)
 
 	var found *procurementDomain.ReceivingDiscrepancy
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {

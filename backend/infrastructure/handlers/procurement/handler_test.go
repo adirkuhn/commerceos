@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -1169,6 +1170,24 @@ func TestGetReceivingRecordHandler_returnsRecordAndDiscrepancies(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "discrepancy-1")
 	assert.Contains(t, w.Body.String(), "quantity_mismatch")
+}
+
+func TestGetReceivingRecordHandler_returnsDiscrepancyExpiryDate(t *testing.T) {
+	lineItemID := "line-item-1"
+	expiry := time.Date(2026, 10, 3, 0, 0, 0, 0, time.UTC)
+	get := &stubGetReceivingRecord{out: &appprocurement.ReceivingRecordDetail{
+		ReceivingRecord: procurementDomain.ReceivingRecord{ID: "receiving-record-1", Status: procurementDomain.ReceivingRecordStatusPendingReview},
+		Discrepancies: []procurementDomain.ReceivingDiscrepancy{
+			{ID: "discrepancy-1", ReceivingRecordID: "receiving-record-1", LineItemID: &lineItemID, Type: procurementDomain.DiscrepancyTypeExpiryMismatch, ExpectedQty: 10, ReceivedQty: 10, ExpiryDate: &expiry},
+			{ID: "discrepancy-2", ReceivingRecordID: "receiving-record-1", Type: procurementDomain.DiscrepancyTypeUnexpectedItem, ReceivedQty: 3},
+		},
+	}}
+	h := newReceivingTestHandler(&stubUploadInvoice{}, &stubListReceivingRecords{}, get, &stubCompleteReceiving{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/procurement/receiving-records/receiving-record-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"expiry_date":"2026-10-03"`)
+	assert.Equal(t, 1, strings.Count(w.Body.String(), `"expiry_date"`), "only the expiry_mismatch row carries an expiry_date")
 }
 
 func TestGetReceivingRecordHandler_notFound(t *testing.T) {

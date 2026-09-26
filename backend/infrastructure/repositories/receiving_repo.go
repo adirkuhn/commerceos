@@ -53,6 +53,7 @@ type receivingDiscrepancyModel struct {
 	ExpectedQty       int64      `gorm:"column:expected_qty;not null;default:0"`
 	ReceivedQty       int64      `gorm:"column:received_qty;not null;default:0"`
 	Details           string     `gorm:"not null;default:''"`
+	ExpiryDate        *time.Time `gorm:"column:expiry_date;type:date"`
 	Status            string     `gorm:"not null;default:'open'"`
 	AcknowledgedAt    *time.Time `gorm:"column:acknowledged_at"`
 	CreatedAt         time.Time
@@ -202,7 +203,7 @@ func (r *ReceivingDiscrepancyRepo) Create(ctx context.Context, d *procurementDom
 	m := receivingDiscrepancyModel{
 		TenantID: d.TenantID, ReceivingRecordID: d.ReceivingRecordID, LineItemID: d.LineItemID,
 		Type: string(d.Type), ExpectedQty: d.ExpectedQty, ReceivedQty: d.ReceivedQty,
-		Details: d.Details, Status: status, AcknowledgedAt: d.AcknowledgedAt, CreatedAt: d.CreatedAt,
+		Details: d.Details, ExpiryDate: d.ExpiryDate, Status: status, AcknowledgedAt: d.AcknowledgedAt, CreatedAt: d.CreatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("receivingDiscrepancyRepo.Create: %w", err)
@@ -258,7 +259,7 @@ func toReceivingDiscrepancyDomain(m receivingDiscrepancyModel) *procurementDomai
 	return &procurementDomain.ReceivingDiscrepancy{
 		ID: m.ID, TenantID: m.TenantID, ReceivingRecordID: m.ReceivingRecordID, LineItemID: m.LineItemID,
 		Type: procurementDomain.DiscrepancyType(m.Type), ExpectedQty: m.ExpectedQty, ReceivedQty: m.ReceivedQty,
-		Details: m.Details, Status: procurementDomain.DiscrepancyStatus(m.Status), AcknowledgedAt: m.AcknowledgedAt,
+		Details: m.Details, ExpiryDate: m.ExpiryDate, Status: procurementDomain.DiscrepancyStatus(m.Status), AcknowledgedAt: m.AcknowledgedAt,
 		CreatedAt: m.CreatedAt,
 	}
 }

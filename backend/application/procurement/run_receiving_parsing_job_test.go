@@ -89,6 +89,27 @@ func TestRunReceivingParsingJob_expiryMismatchWhenExpiringSoon(t *testing.T) {
 	assert.Equal(t, procurementDomain.DiscrepancyTypeExpiryMismatch, discrepancyRepo.created[0].Type)
 }
 
+// The expiry date is stored as structured data so the UI can render it in the
+// tenant's date format; Details must not bake in a formatted date that can't
+// follow the Localization setting.
+func TestRunReceivingParsingJob_expiryMismatchStoresExpiryDateAndDateFreeDetails(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	recRepo, lineItemRepo, discrepancyRepo, storage := newReceivingJobFixture()
+	soon := time.Now().AddDate(0, 0, 5).Format("2006-01-02")
+	storage.getData = []byte("SKU,Description,Quantity,Expiry\nWID-001,Widget A,10," + soon + "\n")
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil)
+
+	_, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
+
+	require.NoError(t, err)
+	require.Len(t, discrepancyRepo.created, 1)
+	d := discrepancyRepo.created[0]
+	require.NotNil(t, d.ExpiryDate)
+	assert.Equal(t, soon, d.ExpiryDate.Format("2006-01-02"))
+	assert.NotContains(t, d.Details, soon)
+	assert.Equal(t, "expiry date is within 30 days (or already past)", d.Details)
+}
+
 func TestRunReceivingParsingJob_noExpiryMismatchWhenExpiryFarInFuture(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	recRepo, lineItemRepo, discrepancyRepo, storage := newReceivingJobFixture()

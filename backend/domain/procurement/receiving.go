@@ -123,6 +123,10 @@ type ReceivingDiscrepancy struct {
 	ExpectedQty int64
 	ReceivedQty int64
 	Details     string
+	// ExpiryDate is the invoice line's expiry date for expiry_mismatch
+	// discrepancies (nil for every other type). Kept structured -- not baked
+	// into Details -- so the UI renders it in the tenant's date format.
+	ExpiryDate *time.Time
 	// Status defaults to open on creation; a human flips it to acknowledged
 	// via AcknowledgeReceivingDiscrepancyUseCase (a direct "reviewed, no
 	// action needed" call) or LinkReceivingDiscrepanciesUseCase (pairing an

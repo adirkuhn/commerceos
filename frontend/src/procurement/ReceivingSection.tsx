@@ -10,6 +10,7 @@ import type { Warehouse } from '../inventory/types'
 import { Dialog } from '../components/common/Dialog'
 import { DISCREPANCY_LABEL, RECEIVING_STATUS_STYLE } from './procurementHelpers'
 import { DiscrepancyRow, FlagDamagedItemForm } from './DiscrepancyRow'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 // ── Receiving ────────────────────────────────────────────────────────────────
 
@@ -247,14 +248,18 @@ interface ReceivingReportModalProps {
 }
 
 function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: ReceivingReportModalProps) {
+  const { formatDate } = useDateFormat()
+  const describe = (d: ReceivingDiscrepancy) =>
+    d.expiry_date ? `${d.details} · Expires ${formatDate(d.expiry_date)}` : d.details
   const grouped = (Object.keys(DISCREPANCY_LABEL) as DiscrepancyType[]).map(type => ({
     type, items: discrepancies.filter(d => d.type === type),
   })).filter(g => g.items.length > 0)
 
   function handleExportCsv() {
-    const header = ['Type', 'Expected qty', 'Received qty', 'Status', 'Details']
+    const header = ['Type', 'Expected qty', 'Received qty', 'Status', 'Details', 'Expiry date']
     const rows = discrepancies.map(d => [
       DISCREPANCY_LABEL[d.type], String(d.expected_qty), String(d.received_qty), d.status, d.details,
+      d.expiry_date ? formatDate(d.expiry_date) : '',
     ])
     const csv = [header, ...rows]
       .map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
@@ -291,7 +296,7 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
                 <ul className="space-y-1">
                   {g.items.map(d => (
                     <li key={d.id} className="text-2xs text-ink-3 flex items-center justify-between gap-2">
-                      <span>{d.details}</span>
+                      <span>{describe(d)}</span>
                       <span className={clsx('shrink-0', d.status === 'acknowledged' ? 'text-green-400' : 'text-amber-400')}>
                         {d.status === 'acknowledged' ? 'Acknowledged' : 'Open'}
                       </span>
