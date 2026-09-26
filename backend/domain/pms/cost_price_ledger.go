@@ -38,6 +38,10 @@ const (
 	// going forward only; every ledger row before it, and every sale's
 	// already-frozen cost_at_sale, is left untouched.
 	SKUCostPriceLedgerSourceCorrection SKUCostPriceLedgerSourceType = "correction"
+	// SKUCostPriceLedgerSourceMerge is a duplicate product merged into
+	// this SKU (see ProductMerge): its on-hand stock joins at its own cost,
+	// blending the average (BlendMovingAverageCost).
+	SKUCostPriceLedgerSourceMerge SKUCostPriceLedgerSourceType = "merge"
 )
 
 // SKUCostPriceLedgerEntry is one immutable row in a SKU's cost/quantity
