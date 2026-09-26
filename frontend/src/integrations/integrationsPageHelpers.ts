@@ -1,11 +1,12 @@
 import { CheckCircle, XCircle } from 'lucide-react'
+import { isTenantAdmin } from '../auth/roles'
 
 // Same tier as WooCommerceSyncSettingsPage's webhook-secret tab -- this
 // table exposes raw (if opaque) third-party payloads and a manual
 // republish action, security/ops-adjacent rather than day-to-day
 // integration use, see that file's canManageWebhooks doc comment.
 export function canManageWebhooks(role: string | undefined): boolean {
-  return role === 'customer_owner' || role === 'customer_admin' || role === 'super_admin'
+  return isTenantAdmin(role)
 }
 
 export const PROVIDER_COLORS: Record<string, string> = {

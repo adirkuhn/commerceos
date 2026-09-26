@@ -408,3 +408,57 @@ export interface APIResponse<T> {
   data: T | null
   error: APIError | null
 }
+
+// ── Product merge (see backend pms MergeProductsUseCase) ───────────────────
+
+export interface SKUMergePair {
+  source_sku_id: string
+  target_sku_id: string
+}
+
+export interface ProductMergeRequest {
+  target_product_id: string
+  sku_mapping?: SKUMergePair[]
+}
+
+export interface MergePreviewSKU {
+  id: string
+  sku_code: string
+  barcode: string
+  on_hand: number
+  cost_price_minor_units?: number | null
+}
+
+export interface MergePreviewProduct {
+  id: string
+  name: string
+  skus: MergePreviewSKU[]
+}
+
+export interface MergePreviewTarget {
+  sku_id: string
+  on_hand_after: number
+  cost_before_minor_units?: number | null
+  cost_after_minor_units?: number | null
+}
+
+export interface ProductMergePreview {
+  source: MergePreviewProduct
+  target: MergePreviewProduct
+  // The given mapping, or a suggestion (1:1, or same barcode).
+  sku_mapping: SKUMergePair[]
+  // Empty until every duplicate SKU is matched.
+  targets: MergePreviewTarget[]
+}
+
+export interface MergedSKU {
+  source_sku_id: string
+  source_sku_code: string
+  source_barcode: string
+  target_sku_id: string
+}
+
+export interface ProductMergeResult {
+  target_product_id: string
+  skus: MergedSKU[]
+}

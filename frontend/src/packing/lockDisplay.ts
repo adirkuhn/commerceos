@@ -1,12 +1,11 @@
 import type { QueueLock } from '../oms/types'
+import { isTenantAdmin } from '../auth/roles'
 
-// Mirrors the backend's admin roles for lock takeover
-// (infrastructure/handlers/oms lockActorFrom) -- only decides whether to
-// offer the button; the backend enforces.
-const LOCK_ADMIN_ROLES = new Set(['super_admin', 'customer_owner', 'customer_admin'])
-
+// Lock takeover is for tenant admins (infrastructure/handlers/oms
+// lockActorFrom) -- only decides whether to offer the button; the backend
+// enforces.
 export function canTakeOverLocks(role: string | undefined): boolean {
-  return role !== undefined && LOCK_ADMIN_ROLES.has(role)
+  return isTenantAdmin(role)
 }
 
 export function formatLockAge(sinceIso: string, now: number = Date.now()): string {

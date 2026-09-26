@@ -10,6 +10,7 @@ import type {
   BarcodeAlias, CreateBarcodeAliasPayload,
   ScaleCodeAlias, CreateScaleCodeAliasPayload,
   BulkAddWeightPortionsInput, BulkAddWeightPortionsResult,
+  ProductMergeRequest, ProductMergePreview, ProductMergeResult,
   APIResponse,
 } from './types'
 import { CodedApiError } from '../api/codedApiError'
@@ -273,4 +274,14 @@ export function deleteMedia(token: string, id: string): Promise<null> {
 
 export function bulkAddWeightPortions(token: string, bulkSkuId: string, input: BulkAddWeightPortionsInput): Promise<BulkAddWeightPortionsResult> {
   return request<BulkAddWeightPortionsResult>(`${base()}/skus/${bulkSkuId}/bulk-weight-portions`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+// ── Product merge ────────────────────────────────────────────────────────────
+
+export function previewProductMerge(token: string, duplicateId: string, input: ProductMergeRequest): Promise<ProductMergePreview> {
+  return request<ProductMergePreview>(`${base()}/products/${duplicateId}/merge-preview`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function mergeProduct(token: string, duplicateId: string, input: ProductMergeRequest): Promise<ProductMergeResult> {
+  return request<ProductMergeResult>(`${base()}/products/${duplicateId}/merge`, { method: 'POST', body: JSON.stringify(input) }, token)
 }

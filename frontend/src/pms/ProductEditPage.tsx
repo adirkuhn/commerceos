@@ -1,4 +1,5 @@
-import { useQueryEnum } from '../routing/useQueryState'
+import { useNavigate } from 'react-router-dom'
+import { useQueryEnum, useQueryString } from '../routing/useQueryState'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { ProductBolTab } from './ProductBolTab'
@@ -23,6 +24,9 @@ import { FlatSkuCasePackCard } from './FlatSkuCasePackCard'
 import { FlatSkuScaleBarcodeCard } from './FlatSkuScaleBarcodeCard'
 import { FlatSkuWeightPoolCard } from './FlatSkuWeightPoolCard'
 import { FlatSkuShippingCard } from './FlatSkuShippingCard'
+import { MergeProductDialog } from './MergeProductDialog'
+import { notifyProductsChanged } from './productsBus'
+import { isTenantAdmin } from '../auth/roles'
 
 // ── Product Edit Page ────────────────────────────────────────────────────────
 //
@@ -46,8 +50,14 @@ interface ProductEditorProps {
   onClose: () => void
 }
 
+const MERGE_CHOOSING = 'choose'
+
 export function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCategory, onCreate, onUpdate, onClose }: ProductEditorProps) {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
+  const navigate = useNavigate()
+  // ?merge=choose while picking the existing product, then ?merge=<its id>.
+  const [mergeParam, setMergeParam] = useQueryString('merge', { history: 'push' })
+  const mergeTargetId = mergeParam && mergeParam !== MERGE_CHOOSING ? mergeParam : null
   const { taxClasses, defaultTaxClass, tenantSettings, rateFor } = useSkuTaxContext()
   const form = useProductEditForm({ token, productId, tenantSettings, onCreate, onUpdate })
   const { savedProductId, detail, fields, setField, sku, setSkuField, patchSku, currentSku, showFlatSKU } = form
@@ -85,7 +95,19 @@ export function ProductEditPage({ productId, categories, onCreateCategory, onUpd
       <ProductEditHeader
         token={token} savedProductId={savedProductId} name={fields.name} showResync={!!connections.woo}
         saving={form.saving} saveDisabled={activeTab !== 'general'} onClose={onClose}
+        onMerge={savedProductId && isTenantAdmin(user?.role) ? () => setMergeParam(MERGE_CHOOSING) : undefined}
       />
+
+      {mergeParam && savedProductId && (
+        <MergeProductDialog
+          token={token ?? ''} duplicate={{ id: savedProductId, name: form.existing?.name ?? fields.name }} currency={sku.currency}
+          targetId={mergeTargetId} onChooseTarget={id => setMergeParam(id ?? MERGE_CHOOSING)} onClose={() => setMergeParam(null)}
+          onMerged={result => {
+            notifyProductsChanged()
+            navigate(`/products/${encodeURIComponent(result.target_product_id)}`, { replace: true })
+          }}
+        />
+      )}
 
       <ProductEditorTabs tabs={availableTabs} active={activeTab} onSelect={setActiveTab} />
 

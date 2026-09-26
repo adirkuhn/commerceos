@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Merge, RefreshCw } from 'lucide-react'
 import * as integrationsApi from '../integrations/api'
 
 interface ProductEditHeaderProps {
@@ -10,11 +10,13 @@ interface ProductEditHeaderProps {
   saving: boolean
   saveDisabled: boolean
   onClose: () => void
+  // Offered to admins on a saved product only.
+  onMerge?: () => void
 }
 
 // Title bar of the product editor: back link, title, and the page-level
 // actions (resync, discard, save -- save submits the General tab's form).
-export function ProductEditHeader({ token, savedProductId, name, showResync, saving, saveDisabled, onClose }: ProductEditHeaderProps) {
+export function ProductEditHeader({ token, savedProductId, name, showResync, saving, saveDisabled, onClose, onMerge }: ProductEditHeaderProps) {
   const [resyncing, setResyncing] = useState(false)
   const [resyncMessage, setResyncMessage] = useState('')
 
@@ -55,6 +57,15 @@ export function ProductEditHeader({ token, savedProductId, name, showResync, sav
           >
             <RefreshCw size={12} className={resyncing ? 'animate-spin' : undefined} />
             {resyncing ? 'Resyncing…' : 'Resync to channels'}
+          </button>
+        )}
+        {onMerge && (
+          <button
+            type="button" onClick={onMerge}
+            title="This is a duplicate of a product that already exists: move everything into that one and delete this"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
+          >
+            <Merge size={12} /> Merge into…
           </button>
         )}
         <button
