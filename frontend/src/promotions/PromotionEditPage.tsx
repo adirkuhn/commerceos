@@ -7,7 +7,7 @@ import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
 import { ClearanceBatchSelect } from './components/ClearanceBatchSelect'
 import type { SKU } from '../pms/types'
 import { PromotionPerformanceCard } from './PromotionPerformanceCard'
-import { formatDate } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 // ── Promotion Edit Page ──────────────────────────────────────────────────────
 
@@ -25,6 +25,7 @@ interface PromotionEditPageProps {
 }
 
 export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: PromotionEditPageProps) {
+  const { formatDate } = useDateFormat()
   const [name, setName] = useState('')
   const [type, setType] = useState<PromotionType>('percentage')
   const [status, setStatus] = useState<PromotionStatus>('draft')

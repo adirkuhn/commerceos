@@ -9,6 +9,11 @@ import { scannerPaths } from '../scannerRoutes'
 import type { PickingSessionDetail, PackingSessionDetail } from '../types'
 import type { SalesOrder } from '../../oms/types'
 
+// DateFormatProvider (and usePickingMode) read tenant settings -- never hit the network.
+vi.mock('../../settings/api', async importOriginal => ({
+  ...await importOriginal<typeof import('../../settings/api')>(),
+  getTenantSettings: vi.fn().mockRejectedValue(new Error('no settings in tests')),
+}))
 vi.mock('../api', () => ({
   claimPairingCode: vi.fn(),
   claimPairingCodeByToken: vi.fn(),

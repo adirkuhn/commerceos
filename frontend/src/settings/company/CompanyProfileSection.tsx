@@ -5,6 +5,7 @@ import { CompanyProfileError } from './api'
 import { countryOptions } from './countries'
 import { useCompanyProfile } from './useCompanyProfile'
 import type { CompanyProfileField, CompanyProfileInput } from './types'
+import { useDateFormat } from '../../format/DateFormatProvider'
 
 const EMPTY: CompanyProfileInput = {
   legal_name: '', trading_name: '', vat_number: '', chamber_of_commerce: '', email: '', phone: '', iban: '',
@@ -29,6 +30,7 @@ const inputClass = 'w-full px-3 py-2 text-sm rounded-lg bg-surface border text-i
 // block on invoices.
 export function CompanyProfileSection() {
   const { token, user } = useAuth()
+  const { formatTime } = useDateFormat()
   const { profile, loading, error: loadError, save } = useCompanyProfile(token ?? '')
   const canEdit = EDITOR_ROLES.includes(user?.role ?? '')
 
@@ -78,7 +80,7 @@ export function CompanyProfileSection() {
     try {
       await save(draft)
       setEdits(null)
-      setSavedAt(new Date().toLocaleTimeString())
+      setSavedAt(formatTime(new Date()))
     } catch (err) {
       if (err instanceof CompanyProfileError && err.field) setFieldError({ field: err.field, message: err.message })
       else setFormError(err instanceof Error ? err.message : 'Could not save the company profile')

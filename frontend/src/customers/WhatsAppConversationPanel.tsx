@@ -1,10 +1,12 @@
 import { useAuth } from '../auth/AuthContext'
 import { useCustomerWhatsAppMessages } from './hooks/useCustomerWhatsAppMessages'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 // Every WhatsApp message (inbound and the bot's outbound reply) recorded
 // against this customer -- see backend/domain/whatsapp.Message. Read-only:
 // there's no compose-a-message flow here, this is a log, not an inbox.
 export function WhatsAppConversationPanel({ customerId }: { customerId: string }) {
+  const { formatDateTime } = useDateFormat()
   const { token } = useAuth()
   const { messages, loading, error } = useCustomerWhatsAppMessages(token ?? '', customerId)
 
@@ -29,7 +31,7 @@ export function WhatsAppConversationPanel({ customerId }: { customerId: string }
               >
                 <p className="whitespace-pre-wrap">{m.body}</p>
                 <p className={`text-2xs mt-0.5 ${m.direction === 'outbound' ? 'text-white/80' : 'text-ink-4'}`}>
-                  {new Date(m.created_at).toLocaleString()}
+                  {formatDateTime(m.created_at)}
                 </p>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import type { SalesOrder, SalesOrderLineItem, Address } from '../../oms/types'
 import type { CompanyProfile } from '../../settings/company/types'
 import { formatMoney } from '../../format/money'
+import { useDateFormat } from '../../format/DateFormatProvider'
 
 function addressBlock(address?: Address): string[] {
   if (!address) return []
@@ -44,6 +45,7 @@ interface InvoicePrintViewProps {
 // PickingListPrintView -- no PDF library, just Tailwind print: variants
 // and the browser's own print dialog.
 export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoicePrintViewProps) {
+  const { formatDate } = useDateFormat()
   useEffect(() => { window.print() }, [])
 
   const billing = addressBlock(order.billing)
@@ -74,7 +76,7 @@ export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoiceP
           </div>
           <div className="text-right text-sm">
             <p className="font-medium">#{order.number || order.external_order_id}</p>
-            <p className="text-gray-600">{new Date(order.occurred_at).toLocaleDateString()}</p>
+            <p className="text-gray-600">{formatDate(order.occurred_at)}</p>
           </div>
         </div>
 

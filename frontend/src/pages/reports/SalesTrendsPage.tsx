@@ -10,11 +10,13 @@ import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 import { useQueryEnum } from '../../routing/useQueryState'
 import { formatMoney } from '../../format/money'
+import { useDateFormat } from '../../format/DateFormatProvider'
 
 const TREND_GRANULARITIES = ['day', 'week', 'month'] as const satisfies readonly SalesTrendGranularity[]
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function SalesTrendsPage() {
+  const { formatMonthDay, formatMonthYear } = useDateFormat()
   const chart = useChartTheme()
   const { token } = useAuth()
   // In ?period= -- refresh and shared links keep the chosen range.
@@ -28,7 +30,7 @@ export default function SalesTrendsPage() {
   const currency = salesTrends?.currency_code ?? 'USD'
   const trendPoints = (salesTrends?.points ?? []).map(p => ({
     ...p,
-    label: new Date(p.period_start).toLocaleDateString(undefined, granularity === 'month' ? { month: 'short', year: '2-digit' } : { month: 'short', day: 'numeric' }),
+    label: granularity === 'month' ? formatMonthYear(p.period_start, { shortYear: true }) : formatMonthDay(p.period_start),
   }))
   const weekdaySales = [...(salesTrends?.by_weekday ?? [])].sort((a, b) => a.weekday - b.weekday)
 

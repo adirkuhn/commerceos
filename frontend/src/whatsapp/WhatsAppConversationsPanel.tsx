@@ -10,6 +10,7 @@ import { useWhatsAppConversations } from './hooks/useWhatsAppConversations'
 import { useWhatsAppConversationMessages } from './hooks/useWhatsAppConversationMessages'
 import type { WhatsAppConversation } from './types'
 import { useConfirm } from '../components/common/useConfirm'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 function conversationLabel(conv: WhatsAppConversation): string {
   return conv.customer_name || conv.phone_e164
@@ -21,6 +22,7 @@ function conversationLabel(conv: WhatsAppConversation): string {
 // Read-only -- there's no compose/reply box, replying happens through the
 // bot or the outbound notification flows, not from here.
 export default function WhatsAppConversationsPanel() {
+  const { formatDate, formatDateTime } = useDateFormat()
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { conversations, loading, error, deleteConversation } = useWhatsAppConversations(token ?? '')
@@ -82,7 +84,7 @@ export default function WhatsAppConversationsPanel() {
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-ink truncate">{conversationLabel(conv)}</span>
                   <span className="text-2xs text-ink-4 shrink-0">
-                    {new Date(conv.last_message_at).toLocaleDateString()}
+                    {formatDate(conv.last_message_at)}
                   </span>
                 </div>
                 <p className="text-2xs text-ink-4 truncate mt-0.5">
@@ -134,7 +136,7 @@ export default function WhatsAppConversationsPanel() {
                     >
                       <p className="text-xs whitespace-pre-wrap">{m.body}</p>
                       <p className={`text-2xs mt-0.5 ${m.direction === 'outbound' ? 'text-white/80' : 'text-ink-4'}`}>
-                        {new Date(m.created_at).toLocaleString()}
+                        {formatDateTime(m.created_at)}
                       </p>
                     </div>
                   </div>

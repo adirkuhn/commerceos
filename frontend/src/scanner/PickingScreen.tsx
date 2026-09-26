@@ -9,7 +9,7 @@ import type { PickingSessionDetail, PickingSessionLineItem } from './types'
 import { StockShortfallDialog } from './StockShortfallDialog'
 import type { SalesOrder } from '../oms/types'
 import { PickLineSheet } from './PickingLineSheet'
-import { formatDate } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 import { isAuthError } from '../auth/isAuthError'
 import { useScanSession, type ScanSessionApi } from './useScanSession'
 import { useSessionCompletion } from './useSessionCompletion'
@@ -52,6 +52,7 @@ const PICKING_SESSION_API: ScanSessionApi<PickingSessionDetail> = {
 }
 
 export function PickingScreen({ token, sessionId, order, onExit, onAuthError, onContinueToPacking }: PickingScreenProps) {
+  const { formatDate } = useDateFormat()
   const session = useScanSession(token, sessionId, onAuthError, PICKING_SESSION_API)
   const { detail, error, setError, readOnly, codeInputRef } = session
   const completion = useSessionCompletion(

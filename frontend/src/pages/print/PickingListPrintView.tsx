@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import type { SalesOrder, SalesOrderLineItem, Address } from '../../oms/types'
+import { useDateFormat } from '../../format/DateFormatProvider'
 
 function addressName(address?: Address): string {
   const name = [address?.first_name, address?.last_name].filter(Boolean).join(' ')
@@ -19,6 +20,7 @@ interface PickingListPrintViewProps {
 // since the print dialog itself has no "back" affordance) returns to the
 // normal detail chrome.
 export function PickingListPrintView({ order, lineItems, onClose }: PickingListPrintViewProps) {
+  const { formatDate } = useDateFormat()
   useEffect(() => { window.print() }, [])
 
   return (
@@ -33,7 +35,7 @@ export function PickingListPrintView({ order, lineItems, onClose }: PickingListP
       <div className="max-w-2xl mx-auto p-10 text-gray-900">
         <h1 className="text-2xl font-bold mb-1">Picking list</h1>
         <p className="text-sm text-gray-600 mb-6">
-          Order #{order.number || order.external_order_id} · {new Date(order.occurred_at).toLocaleDateString()}
+          Order #{order.number || order.external_order_id} · {formatDate(order.occurred_at)}
         </p>
 
         <div className="mb-6 text-sm">

@@ -3,7 +3,7 @@ import { Clock, ShieldAlert } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import * as api from '../scheduler/api'
 import type { Job, SyncScheduleRow } from '../scheduler/types'
-import { formatDateTime } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 function StatusBadge({ status }: { status: string }) {
   if (status === 'success') return <span className="text-success">success</span>
@@ -23,6 +23,7 @@ interface JobConfigEdit {
 }
 
 export default function ScheduledJobs() {
+  const { formatDateTime } = useDateFormat()
   const { token, user } = useAuth()
   const [jobs, setJobs] = useState<Job[]>([])
   const [schedules, setSchedules] = useState<SyncScheduleRow[]>([])

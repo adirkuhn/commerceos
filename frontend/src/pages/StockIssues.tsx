@@ -7,6 +7,7 @@ import * as api from '../oms/api'
 import type { SalesOrder, SalesOrderLineItem } from '../oms/types'
 import { useQueryPage } from '../routing/useQueryState'
 import { customerName } from '../oms/salesOrderDisplay'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 const PAGE_SIZE = 20
 
@@ -25,6 +26,7 @@ function pendingLineItems(items: SalesOrderLineItem[]): SalesOrderLineItem[] {
 // application/oms.ForceAcceptStockUseCase). Both deliberately manual, not
 // auto-triggered by any stock fix itself.
 export default function StockIssues() {
+  const { formatDateTime } = useDateFormat()
   const { token } = useAuth()
   // In the URL (?page=) so refresh and Back keep it.
   const [page, setPage] = useQueryPage()
@@ -135,7 +137,7 @@ export default function StockIssues() {
                   </td>
                   <td className="px-3 py-2.5">
                     <p className="font-medium text-ink">#{o.number || o.external_order_id}</p>
-                    <p className="text-2xs text-ink-4">{new Date(o.occurred_at).toLocaleString()}</p>
+                    <p className="text-2xs text-ink-4">{formatDateTime(o.occurred_at)}</p>
                   </td>
                   <td className="px-3 py-2.5 text-ink-3">{customerName(o)}</td>
                   <td className="px-3 py-2.5 text-ink-3 capitalize">{o.status}</td>

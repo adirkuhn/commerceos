@@ -75,10 +75,3 @@ export const DISCREPANCY_LABEL: Record<DiscrepancyType, string> = {
   expiry_mismatch: 'Expiry mismatch',
   damaged_item: 'Damaged',
 }
-
-// ── Booking discrepancies report ────────────────────────────────────────────
-
-export function formatDiscrepancyDate(iso?: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString()
-}

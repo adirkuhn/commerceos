@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { listBatches } from '../../inventory/api'
 import type { Batch } from '../../inventory/types'
+import type { DateInput } from '../../format/date'
+import { useDateFormat } from '../../format/DateFormatProvider'
 
 interface ClearanceBatchSelectProps {
   token: string
@@ -16,9 +18,9 @@ function isSellable(b: Batch, now: Date): boolean {
   return !b.expiry_date || new Date(b.expiry_date) > now
 }
 
-function batchLabel(b: Batch): string {
+function batchLabel(b: Batch, formatDate: (value: DateInput) => string): string {
   const lot = b.lot_number || 'No lot'
-  const expiry = b.expiry_date ? `exp ${new Date(b.expiry_date).toLocaleDateString()}` : 'no expiry'
+  const expiry = b.expiry_date ? `exp ${formatDate(b.expiry_date)}` : 'no expiry'
   return `${lot} · ${expiry} · ${b.quantity} left`
 }
 
@@ -26,6 +28,7 @@ function batchLabel(b: Batch): string {
 // of its SKU's batches. The line then ends by itself once that batch is
 // sold out, discarded, removed or expired.
 export function ClearanceBatchSelect({ token, skuId, value, onChange }: ClearanceBatchSelectProps) {
+  const { formatDate } = useDateFormat()
   const [batches, setBatches] = useState<Batch[]>([])
   const [error, setError] = useState('')
 
@@ -53,7 +56,7 @@ export function ClearanceBatchSelect({ token, skuId, value, onChange }: Clearanc
         className="w-full px-2 py-2 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
       >
         <option value="">Whole SKU (no batch)</option>
-        {options.map(b => <option key={b.id} value={b.id}>{batchLabel(b)}</option>)}
+        {options.map(b => <option key={b.id} value={b.id}>{batchLabel(b, formatDate)}</option>)}
       </select>
       {error && <p className="text-2xs text-danger mt-1">{error}</p>}
     </div>

@@ -14,6 +14,7 @@ import { WooTaxesTab } from './WooTaxesTab'
 import { WooCategoriesTab } from './WooCategoriesTab'
 import { WebhooksTab } from './WooWebhooksTab'
 import { CURRENCIES, CellState, DIRECTIONS, INTERVAL_OPTIONS, ROWS, cellKey, defaultCell, normalizeCurrency } from './wooSyncSettingsHelpers'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 const TABS = ['sync', 'taxes', 'categories', 'webhooks'] as const
 type Tab = typeof TABS[number]
@@ -32,6 +33,7 @@ function canManageWebhooks(role: string | undefined): boolean {
 }
 
 export default function WooCommerceSyncSettingsPage({ connection, onClose }: { connection: Connection; onClose: () => void }) {
+  const { formatDateTime } = useDateFormat()
   const { token, user } = useAuth()
   const { schedules, loading, error: loadError, save } = useSyncSchedules(token ?? '', connection.id)
   const { warehouses } = useWarehouses(token ?? '')
@@ -426,7 +428,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                         )}
                         {cell.lastRunAt && (
                           <p className="text-2xs text-ink-4">
-                            Last run: {new Date(cell.lastRunAt).toLocaleString()} ({cell.lastRunStatus || 'unknown'})
+                            Last run: {formatDateTime(cell.lastRunAt)} ({cell.lastRunStatus || 'unknown'})
                           </p>
                         )}
                         {cell.lastRunStatus === 'error' && cell.lastRunError && (

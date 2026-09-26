@@ -10,7 +10,7 @@ import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus
 import type { Coupon } from '../coupons/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { CouponEditPage } from '../coupons/CouponEditPage'
-import { formatDate } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 const PAGE_SIZE = 20
 
@@ -19,6 +19,7 @@ function formatDiscount(c: Coupon): string {
 }
 
 export default function Coupons() {
+  const { formatDate } = useDateFormat()
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { coupons, loading, error, create, update, remove } = useCoupons(token ?? '')

@@ -19,12 +19,13 @@ import type { RecipientAddress, Shipment } from '../shipping/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_OPTIONS, addressesEqual, customerName } from './salesOrderDisplay'
 import { ShipmentTrackingSection } from './ShipmentTrackingSection'
-import { formatDate } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 import { formatMoney } from '../format/money'
 
 // ── Sales Order Detail Page ──────────────────────────────────────────────────
 
 export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string; onClose: () => void }) {
+  const { formatDate, formatDateTime } = useDateFormat()
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { detail, loading, error, update, remove } = useSalesOrderDetail(token ?? '', salesOrderId)
@@ -372,7 +373,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                     {activities.map(a => (
                       <div key={a.id} className="flex justify-between gap-3 text-ink-3">
                         <span className="text-ink">{a.summary}</span>
-                        <span className="shrink-0">{new Date(a.created_at).toLocaleString()}</span>
+                        <span className="shrink-0">{formatDateTime(a.created_at)}</span>
                       </div>
                     ))}
                   </div>

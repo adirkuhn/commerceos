@@ -5,15 +5,11 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import { useNotifications } from '../../notifications/hooks/useNotifications'
 import type { Notification } from '../../notifications/types'
-
-function formatTime(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleString()
-}
+import { useDateFormat } from '../../format/DateFormatProvider'
 
 export default function NotificationBell() {
   const { token } = useAuth()
+  const { formatDateTime } = useDateFormat()
   const { notifications, unreadCount, loading, error, refresh, markRead, markAllRead } = useNotifications(token ?? '')
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
@@ -88,7 +84,7 @@ export default function NotificationBell() {
                     <div className={clsx('min-w-0 flex-1', n.read && 'pl-3.5')}>
                       <p className="text-xs font-medium text-ink truncate">{n.title}</p>
                       {n.message && <p className="text-2xs text-ink-4 mt-0.5 line-clamp-2">{n.message}</p>}
-                      <p className="text-2xs text-ink-4 mt-1">{formatTime(n.created_at)}</p>
+                      <p className="text-2xs text-ink-4 mt-1">{formatDateTime(n.created_at)}</p>
                     </div>
                   </div>
                 </button>

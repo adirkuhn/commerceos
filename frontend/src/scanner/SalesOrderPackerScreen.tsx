@@ -6,7 +6,7 @@ import { readClaims } from '../auth/jwtClaims'
 import { canTakeOverLocks, lockLabel } from '../packing/lockDisplay'
 import * as api from './api'
 import type { SalesOrder } from '../oms/types'
-import { formatDate } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 import { customerName } from '../oms/salesOrderDisplay'
 import { UNKNOWN_CUSTOMER_LABEL } from './scannerLabels'
 
@@ -27,6 +27,7 @@ function formatPrice(minorUnits: number, currency: string): string {
 // who and for how long -- admins may still tap it to take over (the backend
 // decides).
 export function SalesOrderPackerScreen({ token, onPackingStarted, onLogout, onBack }: SalesOrderPackerScreenProps) {
+  const { formatDate } = useDateFormat()
   const queue = usePackingQueue(token)
   const nameFor = useMemberNames(token)
   const me = readClaims(token)

@@ -15,6 +15,7 @@ import { useDashboardStats } from '../dashboard/hooks/useDashboardStats'
 import type { ChannelRevenue } from '../dashboard/types'
 import type { SalesOrderSource } from '../oms/types'
 import { formatMoney } from '../format/money'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 // Typed over SalesOrderSource so a new source can't ship without a label.
 const CHANNEL_LABELS: Record<SalesOrderSource, string> = {
@@ -82,6 +83,7 @@ function StatCard({ label, value, sub, icon: Icon, trend, trendValue, color = 'b
 }
 
 function ExpiringSoonWidget() {
+  const { formatDate } = useDateFormat()
   const { token } = useAuth()
   const { batches, loading, error } = useExpiringBatches(token ?? '', 30)
 
@@ -114,7 +116,7 @@ function ExpiringSoonWidget() {
                 <div className="text-right shrink-0">
                   <p className="text-xs font-medium text-ink">{b.quantity} units</p>
                   <p className={clsx('text-2xs font-mono', expired ? 'text-danger' : 'text-warning')}>
-                    {new Date(b.expiry_date).toLocaleDateString()}
+                    {formatDate(b.expiry_date)}
                   </p>
                 </div>
               </div>

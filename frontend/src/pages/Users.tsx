@@ -12,6 +12,7 @@ import { useConfirm } from '../components/common/useConfirm'
 import { GroupsPanel } from '../iam/components/GroupsPanel'
 import { InviteForm } from '../iam/components/InviteForm'
 import { fullName } from '../format/personName'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 const ROLE_LABELS: Record<MemberRole, string> = { customer_owner: 'Owner', customer_user: 'User' }
 const ROLE_COLORS: Record<MemberRole, string> = {
@@ -20,6 +21,7 @@ const ROLE_COLORS: Record<MemberRole, string> = {
 }
 
 function UserActivityPanel({ token, member, onClose }: { token: string; member: CompanyMember; onClose: () => void }) {
+  const { formatDateTime } = useDateFormat()
   const { activities, loading, error } = useUserActivities(token, member.user_id)
 
   return (
@@ -39,7 +41,7 @@ function UserActivityPanel({ token, member, onClose }: { token: string; member: 
         {activities.map(a => (
           <div key={a.id} className="flex justify-between gap-3 text-xs">
             <span className="text-ink">{a.summary}</span>
-            <span className="shrink-0 text-ink-4">{new Date(a.created_at).toLocaleString()}</span>
+            <span className="shrink-0 text-ink-4">{formatDateTime(a.created_at)}</span>
           </div>
         ))}
       </div>
@@ -48,6 +50,7 @@ function UserActivityPanel({ token, member, onClose }: { token: string; member: 
 }
 
 export default function Users() {
+  const { formatDate } = useDateFormat()
   const { confirm, confirmDialog } = useConfirm()
   const { token, user } = useAuth()
   // customer_owner (normal case) or super_admin (akantio staff managing
@@ -212,7 +215,7 @@ export default function Users() {
                       </div>
                     </td>
                     <td className="px-3 py-3 text-ink-4">
-                      {m.last_login_at ? new Date(m.last_login_at).toLocaleDateString() : 'Never'}
+                      {m.last_login_at ? formatDate(m.last_login_at) : 'Never'}
                     </td>
                     <td className="px-3 py-3">
                       {m.user_id !== user?.user_id && (

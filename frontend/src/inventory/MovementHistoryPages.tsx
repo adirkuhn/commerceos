@@ -5,13 +5,14 @@ import * as inventoryApi from './api'
 import type { SKU } from '../pms/types'
 import type { Batch, StockMovement } from './types'
 import { MOVEMENT_TYPE_LABEL } from './inventoryFormat'
-import { formatDateTime } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 type ProductMovementRow = StockMovement & { skuCode: string; balance: number }
 
 export function ProductMovementHistoryPage({ token, productName, skus, warehouses, onClose }: {
   token: string; productName: string; skus: SKU[]; warehouses: { id: string; name: string }[]; onClose: () => void
 }) {
+  const { formatDateTime } = useDateFormat()
   const [rows, setRows] = useState<ProductMovementRow[] | null>(null)
   const [batches, setBatches] = useState<Batch[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -106,6 +107,7 @@ export function ProductMovementHistoryPage({ token, productName, skus, warehouse
 export function SKUMovementHistoryPage({ token, sku, warehouses, onClose }: {
   token: string; sku: SKU; warehouses: { id: string; name: string }[]; onClose: () => void
 }) {
+  const { formatDateTime } = useDateFormat()
   const [movements, setMovements] = useState<StockMovement[] | null>(null)
   const [batches, setBatches] = useState<Batch[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -179,6 +181,7 @@ export function SKUMovementHistoryPage({ token, sku, warehouses, onClose }: {
 export function BatchMovementHistoryPage({ token, sku, batch, warehouses, onClose }: {
   token: string; sku: SKU; batch: Batch; warehouses: { id: string; name: string }[]; onClose: () => void
 }) {
+  const { formatDateTime } = useDateFormat()
   const [movements, setMovements] = useState<StockMovement[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 

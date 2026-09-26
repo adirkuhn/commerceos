@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import clsx from 'clsx'
 import { dateRange, REPORTS_PERIODS, type ReportsPeriod } from '../../reports/period'
+import { useDateFormat } from '../../format/DateFormatProvider'
 
 export function ChangeBadge({ percent }: { percent: number | null }) {
   if (percent === null) {
@@ -150,6 +151,7 @@ interface ReportPageShellProps {
 // date range (or a custom subtitle for non-period reports) + period
 // selector, loading/error banners, then the report's own content.
 export function ReportPageShell({ title, period, onPeriodChange, subtitle, loading, error, children }: ReportPageShellProps) {
+  const { formatDate } = useDateFormat()
   const range = period ? dateRange(period, new Date()) : null
   return (
     <div className="p-5 space-y-5 overflow-auto h-full">
@@ -157,7 +159,7 @@ export function ReportPageShell({ title, period, onPeriodChange, subtitle, loadi
         <h2 className="text-sm font-semibold text-ink">
           {title}
           <span className="ml-2 text-xs font-normal text-ink-4">
-            {range ? `${new Date(range.from).toLocaleDateString()} – ${new Date(range.to).toLocaleDateString()}` : subtitle}
+            {range ? `${formatDate(range.from)} – ${formatDate(range.to)}` : subtitle}
           </span>
         </h2>
         {period && onPeriodChange && <PeriodSelector period={period} onChange={onPeriodChange} />}

@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import * as integrationsApi from '../integrations/api'
 import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
 import type { VariantWithSKUs, SKU } from './types'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 // ── WooCommerce tab ───────────────────────────────────────────────────────────
 //
@@ -29,6 +30,7 @@ export function ProductWooCommerceTab({
   productId: string; connection: Connection; sku: SKU | null
   hasVariants: boolean; variants: VariantWithSKUs[]
 }) {
+  const { formatDateTime } = useDateFormat()
   const { token } = useAuth()
   const [listings, setListings] = useState<ProductChannelListing[]>([])
   const [loading, setLoading] = useState(true)
@@ -165,7 +167,7 @@ export function ProductWooCommerceTab({
             <input
               disabled
               readOnly
-              value={listing.last_synced_at ? new Date(listing.last_synced_at).toLocaleString() : '—'}
+              value={formatDateTime(listing.last_synced_at)}
               className={clsx(inputClass, 'text-ink-2')}
             />
           </div>

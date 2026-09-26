@@ -5,8 +5,10 @@ import { useSingleReport } from '../../reports/hooks/useSingleReport'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 import { formatMoney } from '../../format/money'
+import { useDateFormat } from '../../format/DateFormatProvider'
 
 export default function CustomerCohortsPage() {
+  const { formatMonthYear } = useDateFormat()
   const { token } = useAuth()
   // In ?period= -- refresh and shared links keep the chosen range.
   const [period, setPeriod] = useReportPeriod()
@@ -45,7 +47,7 @@ export default function CustomerCohortsPage() {
                   return (
                     <tr key={cohort.cohort_month} className="hover:bg-hover/30">
                       <td className="px-4 py-2 text-ink font-medium whitespace-nowrap">
-                        {new Date(cohort.cohort_month).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+                        {formatMonthYear(cohort.cohort_month)}
                       </td>
                       <td className="px-4 py-2 text-ink-3">{cohort.cohort_size}</td>
                       {cohortMonthColumns.map(m => {

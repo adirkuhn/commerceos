@@ -8,7 +8,7 @@ import { useDiscards } from './hooks/useDiscards'
 import { useDiscardBatch } from './hooks/useDiscardBatch'
 import type { ExpiringBatch, ExpiredBatchReview } from './types'
 import { Dialog } from '../components/common/Dialog'
-import { formatDate } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 // A single discard target, whichever tab it was opened from -- carries
 // everything DiscardBatchInput needs plus enough to refresh the right
@@ -104,6 +104,7 @@ export function ExpiryDiscardPage({
   discardsReport: ReturnType<typeof useDiscards>
   discardHook: ReturnType<typeof useDiscardBatch>
 }) {
+  const { formatDate } = useDateFormat()
   const { batches, loading, error, extend, dismiss } = expiredReview
   const [tab, setTab] = useQueryEnum<ExpiryTab>('tab', EXPIRY_TABS, 'expired')
   const [rowError, setRowError] = useState('')

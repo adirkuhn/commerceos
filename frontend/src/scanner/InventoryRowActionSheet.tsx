@@ -4,6 +4,8 @@ import { QuantityStepper } from './QuantityStepper'
 import type { Batch, Warehouse } from '../inventory/types'
 import { Dialog } from '../components/common/Dialog'
 import { SelectedRow } from './InventorySKUScreen'
+import type { DateInput } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 type RowActionMode = 'adjust' | 'move' | 'damaged-lost'
 
@@ -34,9 +36,9 @@ function BatchOption({ selected, onClick, title, subtitle }: { selected: boolean
   )
 }
 
-function formatBatchExpiry(iso?: string | null): string {
+function formatBatchExpiry(iso: string | null | undefined, formatDate: (value: DateInput) => string): string {
   if (!iso) return 'No expiry set'
-  return `Expires ${new Date(iso).toLocaleDateString()}`
+  return `Expires ${formatDate(iso)}`
 }
 
 // One sheet, three tabs -- same shape as BookingScreen's BookLineSheet
@@ -58,6 +60,7 @@ export function RowActionSheet({ row, warehouses, batches, error, onCancel, onAd
   onCreateBatchAndMove: (toWarehouseId: string, lotNumber: string, expiryDate: string, quantity: number, reason: string) => void
   onDamagedLost: (quantity: number, type: 'damaged' | 'lost', reason: string) => void
 }) {
+  const { formatDate } = useDateFormat()
   const [mode, setMode] = useState<RowActionMode>('adjust')
   const [adjustQty, setAdjustQty] = useState('')
   const [adjustReason, setAdjustReason] = useState('')
@@ -163,7 +166,7 @@ export function RowActionSheet({ row, warehouses, batches, error, onCancel, onAd
                       selected={toBatchId === b.id}
                       onClick={() => setToBatchId(b.id)}
                       title={b.lot_number || `Batch ${b.id.slice(0, 8)}`}
-                      subtitle={`${formatBatchExpiry(b.expiry_date)} · Qty ${b.quantity}`}
+                      subtitle={`${formatBatchExpiry(b.expiry_date, formatDate)} · Qty ${b.quantity}`}
                     />
                   ))}
                   <BatchOption selected={toBatchId === NEW_BATCH} onClick={() => setToBatchId(NEW_BATCH)} title="+ New batch" subtitle="Start a new lot" />

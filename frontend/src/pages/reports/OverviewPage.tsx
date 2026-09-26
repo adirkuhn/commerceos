@@ -11,6 +11,8 @@ import { useQueryEnum, useQueryString } from '../../routing/useQueryState'
 import type { ChannelRevenuePoint, ProfitabilityPoint } from '../../reports/types'
 import { ReportPageShell, ReportCard, EmptyState, DateRangeControl, ViewToggle, ChangeBadge, type ReportsRangeMode } from './shared'
 import { formatMoney } from '../../format/money'
+import type { DateInput } from '../../format/date'
+import { useDateFormat } from '../../format/DateFormatProvider'
 
 function isoDateToday(): string {
   return new Date().toISOString().slice(0, 10)
@@ -18,10 +20,6 @@ function isoDateToday(): string {
 
 function isoDateDaysAgo(days: number): string {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-}
-
-function dayLabel(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 const RANGE_MODES = [...REPORTS_PERIODS, 'custom'] as const satisfies readonly ReportsRangeMode[]
@@ -34,6 +32,7 @@ function isIsoDate(value: string | null): value is string {
 export default function OverviewPage() {
   const chart = useChartTheme()
   const { token } = useAuth()
+  const { formatDate, formatMonthDay } = useDateFormat()
   // Range (?period=, plus ?from=&to= for a custom range) and the
   // summary/daily view (?view=daily) live in the URL -- a refresh or a
   // shared link shows the same report. Malformed dates fall back to the
@@ -88,11 +87,11 @@ export default function OverviewPage() {
     { label: 'Avg order value', value: salesSummary ? formatMoney(salesSummary.current.average_order_value_minor_units, currency) : '—', change: salesSummary?.aov_change_percent ?? null },
   ]
 
-  const profitabilityTrendPoints = (profitabilityTrend?.points ?? []).map((p: ProfitabilityPoint) => ({ ...p, label: dayLabel(p.period_start) }))
+  const profitabilityTrendPoints = (profitabilityTrend?.points ?? []).map((p: ProfitabilityPoint) => ({ ...p, label: formatMonthDay(p.period_start) }))
 
   const channelSources = Array.from(new Set((revenueByChannel?.points ?? []).map(p => p.source)))
   const visibleChannelSources = channelSources.filter(s => !hiddenChannels.has(s))
-  const channelTrendRows = buildChannelTrendRows(revenueByChannel?.points ?? [], channelSources)
+  const channelTrendRows = buildChannelTrendRows(revenueByChannel?.points ?? [], channelSources, formatMonthDay)
   // dayTotal sums only the currently visible channels -- it matches the bar
   // height on screen, not necessarily every channel that exists.
   const channelTrendRowsWithTotal = channelTrendRows.map(row => ({
@@ -105,7 +104,7 @@ export default function OverviewPage() {
   return (
     <ReportPageShell
       title="Overview"
-      subtitle={`${new Date(from).toLocaleDateString()} – ${new Date(to).toLocaleDateString()}`}
+      subtitle={`${formatDate(from)} – ${formatDate(to)}`}
       loading={summaryLoading || insightsLoading || profitLoading || channelLoading || (showDaily && profitTrendLoading)}
       error={summaryError ?? insightsError ?? profitError ?? channelError ?? (showDaily ? profitTrendError : null)}
     >
@@ -301,7 +300,9 @@ export default function OverviewPage() {
 // can render one <Line> per channel against a shared X axis. A source
 // missing a bucket (no sales that day) defaults to 0, not undefined --
 // undefined would break the line rather than dip to zero.
-function buildChannelTrendRows(points: ChannelRevenuePoint[], sources: string[]): Array<Record<string, string | number>> {
+function buildChannelTrendRows(
+  points: ChannelRevenuePoint[], sources: string[], dayLabel: (value: DateInput) => string,
+): Array<Record<string, string | number>> {
   const byPeriod = new Map<string, Record<string, string | number>>()
   for (const p of points) {
     let row = byPeriod.get(p.period_start)

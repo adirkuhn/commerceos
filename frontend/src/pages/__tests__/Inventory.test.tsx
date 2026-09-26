@@ -7,6 +7,8 @@ import { renderAt } from '../../test/renderAt'
 import { act } from 'react'
 import type { Product, ProductDetail } from '../../pms/types'
 import type { Warehouse, Batch, StockLevel, StockMovement, ExpiredBatchReview } from '../../inventory/types'
+import type { TenantSettings } from '../../settings/types'
+import { DateFormatProvider } from '../../format/DateFormatProvider'
 
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
@@ -42,8 +44,16 @@ vi.mock('../../inventory/api', () => ({
   listDiscards: vi.fn(),
 }))
 
+// Only the tenant date format / timezone lookup is stubbed; the rest of
+// the settings API stays real for anything else that imports it.
+vi.mock('../../settings/api', async importOriginal => ({
+  ...await importOriginal<typeof import('../../settings/api')>(),
+  getTenantSettings: vi.fn(),
+}))
+
 import * as pmsApi from '../../pms/api'
 import * as inventoryApi from '../../inventory/api'
+import * as settingsApi from '../../settings/api'
 
 const product: Product = {
   id: 'prod-1', tenant_id: 't1', name: 'Widget', slug: 'widget',
@@ -596,6 +606,37 @@ describe('Inventory page', () => {
     await user.click(screen.getByRole('button', { name: /Inventory/ }))
     expect(await screen.findByText('Widget')).toBeInTheDocument()
     expect(screen.queryByText('Movement History')).not.toBeInTheDocument()
+  })
+})
+
+describe('Tenant date format', () => {
+  const tenantSettings = (dateFormat: string): TenantSettings => ({
+    tenant_id: 't1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: dateFormat,
+    language: 'en', prices_include_tax: true, default_tax_country: 'NL', inventory_sync_rules_enabled: false,
+    batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
+  })
+
+  async function expandWithExpiringBatch(dateFormat: string) {
+    vi.mocked(settingsApi.getTenantSettings).mockResolvedValue(tenantSettings(dateFormat))
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([{ ...batch, expiry_date: '2027-11-26' }])
+    const user = userEvent.setup()
+    renderAt(<DateFormatProvider token="test-token"><Inventory /></DateFormatProvider>, '/inventory')
+    await user.click(await screen.findByText('Widget'))
+    expect(await screen.findByText('LOT-1')).toBeInTheDocument()
+  }
+
+  it("shows a batch's expiry date in the tenant's DD/MM/YYYY format", async () => {
+    await expandWithExpiringBatch('DD/MM/YYYY')
+
+    expect(await screen.findByText('26/11/2027')).toBeInTheDocument()
+    expect(screen.queryByText('11/26/2027')).not.toBeInTheDocument()
+  })
+
+  it("follows a non-default tenant format once the settings load", async () => {
+    await expandWithExpiringBatch('YYYY-MM-DD')
+
+    expect(await screen.findByText('2027-11-26')).toBeInTheDocument()
+    expect(settingsApi.getTenantSettings).toHaveBeenCalledWith('test-token')
   })
 })
 

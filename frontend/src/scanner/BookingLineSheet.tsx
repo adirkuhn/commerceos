@@ -5,6 +5,8 @@ import type { BookingScan, BookingScanActionType } from './types'
 import type { Warehouse, Batch } from '../inventory/types'
 import { Dialog } from '../components/common/Dialog'
 import { PendingBatch } from './bookingHelpers'
+import type { DateInput } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 // Tap-to-book: the touch-only equivalent of scanning a barcode -- tapping a
 // line item row books directly against its already-known SKU (see
@@ -17,9 +19,9 @@ const LINE_SHEET_TABS: { id: LineSheetMode; label: string; icon: typeof PackageP
   { id: 'damaged-lost', label: 'Damaged/lost', icon: AlertTriangle, help: "It did arrive, but isn't sellable. Stays counted as received; written off separately." },
 ]
 
-function formatBatchExpiry(iso?: string | null): string {
+function formatBatchExpiry(iso: string | null | undefined, formatDate: (value: DateInput) => string): string {
   if (!iso) return 'No expiry set'
-  return `Expires ${new Date(iso).toLocaleDateString()}`
+  return `Expires ${formatDate(iso)}`
 }
 
 // One-line label for a staged scan in BookLineSheet's history list --
@@ -68,6 +70,7 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
   onCancel: () => void
   onBook: (fields: { action_type: BookingScanActionType; quantity: number; batch_id?: string | null; lot_number?: string; expiry_date?: string | null; reason?: string }) => void
 }) {
+  const { formatDate } = useDateFormat()
   const [mode, setMode] = useState<LineSheetMode>('receive')
   const [batches, setBatches] = useState<Batch[]>([])
   // '' = general ledger, 'new' = create new (receive only), 'pending:<lot>'
@@ -217,7 +220,7 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
                   selected={batchId === `${PENDING_PREFIX}${pb.lotNumber}`}
                   onClick={() => setBatchId(`${PENDING_PREFIX}${pb.lotNumber}`)}
                   title={pb.lotNumber}
-                  subtitle={`${formatBatchExpiry(pb.expiryDate)} · Pending -- created when the booking finishes`}
+                  subtitle={`${formatBatchExpiry(pb.expiryDate, formatDate)} · Pending -- created when the booking finishes`}
                 />
               ))}
               {batches.map(b => (
@@ -226,7 +229,7 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
                   selected={batchId === b.id}
                   onClick={() => setBatchId(b.id)}
                   title={b.lot_number || `Batch ${b.id.slice(0, 8)}`}
-                  subtitle={`${formatBatchExpiry(b.expiry_date)} · Qty ${b.quantity}`}
+                  subtitle={`${formatBatchExpiry(b.expiry_date, formatDate)} · Qty ${b.quantity}`}
                 />
               ))}
               {mode === 'receive' && (

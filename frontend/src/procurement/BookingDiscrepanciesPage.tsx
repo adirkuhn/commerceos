@@ -2,7 +2,7 @@ import { ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { useQueryEnum } from '../routing/useQueryState'
 import { useBookingDiscrepancies } from './hooks/useBookingDiscrepancies'
-import { formatDiscrepancyDate } from './procurementHelpers'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 const DISCREPANCY_TABS = ['missing', 'damaged-lost'] as const
 
@@ -12,6 +12,7 @@ type DiscrepancyTab = typeof DISCREPANCY_TABS[number]
 // booking's line items vs scans -- same "not a real table" reasoning as
 // the Inventory module's Expiry & Discards report.
 export function BookingDiscrepanciesPage({ token, onClose }: { token: string; onClose: () => void }) {
+  const { formatDate } = useDateFormat()
   const { report, loading, error } = useBookingDiscrepancies(token)
   const [tab, setTab] = useQueryEnum('tab', DISCREPANCY_TABS, 'missing')
 
@@ -78,7 +79,7 @@ export function BookingDiscrepanciesPage({ token, onClose }: { token: string; on
                       <td className="px-4 py-2.5 tabular-nums text-ink-2">{m.expected_qty}</td>
                       <td className="px-4 py-2.5 tabular-nums text-ink-2">{m.scanned_qty}</td>
                       <td className="px-4 py-2.5 tabular-nums text-danger">{m.missing_qty}</td>
-                      <td className="px-4 py-2.5 text-ink-3">{formatDiscrepancyDate(m.completed_at)}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{formatDate(m.completed_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -111,7 +112,7 @@ export function BookingDiscrepanciesPage({ token, onClose }: { token: string; on
                       <td className="px-4 py-2.5 tabular-nums text-ink-2">{d.quantity}</td>
                       <td className="px-4 py-2.5 text-ink-3">{d.reason || '—'}</td>
                       <td className="px-4 py-2.5 text-ink-3">{d.scanned_by || '—'}</td>
-                      <td className="px-4 py-2.5 text-ink-3">{formatDiscrepancyDate(d.scanned_at)}</td>
+                      <td className="px-4 py-2.5 text-ink-3">{formatDate(d.scanned_at)}</td>
                     </tr>
                   ))}
                 </tbody>

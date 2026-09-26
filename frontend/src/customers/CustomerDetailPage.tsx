@@ -8,6 +8,7 @@ import type { SalesOrder } from '../oms/types'
 import { formatMoney } from '../format/money'
 import { addressesEqual } from '../oms/salesOrderDisplay'
 import { fullName } from '../format/personName'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 // "3 days ago" style formatting for the "Last order placed" stat -- no
 // shared relative-time utility exists elsewhere in the app to reuse.
@@ -83,6 +84,7 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
   onClose: () => void
   onSaveNote: (note: string) => Promise<Customer>
 }) {
+  const { formatDateTime } = useDateFormat()
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [ordersTotal, setOrdersTotal] = useState(0)
   const [ordersError, setOrdersError] = useState('')
@@ -198,7 +200,7 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
                   ) : timeline.map(entry => (
                     <div key={entry.id} className="flex justify-between gap-3 text-ink-3">
                       <span className="text-ink">{entry.label}</span>
-                      <span className="shrink-0">{entry.date.toLocaleString()}</span>
+                      <span className="shrink-0">{formatDateTime(entry.date)}</span>
                     </div>
                   ))}
                 </div>

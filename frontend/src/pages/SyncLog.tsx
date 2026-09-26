@@ -8,7 +8,7 @@ import { useSyncLogsNeedingAttention } from '../integrations/hooks/useSyncLogsNe
 import * as api from '../integrations/api'
 import type { SyncLogStatus, SyncLogDirection } from '../integrations/types'
 import { useQueryEnum, useQueryPage } from '../routing/useQueryState'
-import { formatDateTime } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 const PAGE_SIZE = 20
 
@@ -37,6 +37,7 @@ const SYNC_LOG_VIEWS = ['all', 'needing-attention'] as const
 type SyncLogView = typeof SYNC_LOG_VIEWS[number]
 
 export default function SyncLog() {
+  const { formatDateTime } = useDateFormat()
   const { token } = useAuth()
   // View and page live in the URL (?view=, ?page=) -- refresh and Back keep them.
   const [view, setView] = useQueryEnum('view', SYNC_LOG_VIEWS, 'all', { resets: ['page'] })

@@ -7,7 +7,7 @@ import { useReviews } from '../reviews/hooks/useReviews'
 import type { Review } from '../reviews/types'
 import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { useConfirm } from '../components/common/useConfirm'
-import { formatDate } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 const PAGE_SIZE = 20
 
@@ -22,6 +22,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export default function Reviews() {
+  const { formatDate } = useDateFormat()
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { reviews, loading, error, remove } = useReviews(token ?? '')

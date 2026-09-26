@@ -6,7 +6,7 @@ import { lockLabel } from '../packing/lockDisplay'
 import { usePickingMode } from '../picking/usePickingMode'
 import * as api from './api'
 import type { SalesOrder } from '../oms/types'
-import { formatDate } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 import { customerName } from '../oms/salesOrderDisplay'
 import { UNKNOWN_CUSTOMER_LABEL } from './scannerLabels'
 
@@ -28,6 +28,7 @@ function formatPrice(minorUnits: number, currency: string): string {
 // SalesOrder.WarehouseID is always set, so selecting an order starts a
 // picking session directly -- or, in list mode, opens its item list.
 export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenForList, onLogout, onBack }: SalesOrderPickerScreenProps) {
+  const { formatDate } = useDateFormat()
   const { mode, error: modeError } = usePickingMode(token)
   const queue = usePickingQueue(token)
   const nameFor = useMemberNames(token)

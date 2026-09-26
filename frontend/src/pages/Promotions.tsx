@@ -9,7 +9,7 @@ import { usePromotions } from '../promotions/hooks/usePromotions'
 import type { Promotion, PromotionStatus } from '../promotions/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { PromotionEditPage } from '../promotions/PromotionEditPage'
-import { formatDate } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 const PAGE_SIZE = 20
 
@@ -20,6 +20,7 @@ const STATUS_STYLE: Record<PromotionStatus, string> = {
 }
 
 export default function Promotions() {
+  const { formatDate } = useDateFormat()
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { promotions, loading, error, create, update, remove } = usePromotions(token ?? '')

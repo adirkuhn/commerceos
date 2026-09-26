@@ -9,6 +9,7 @@ import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
 import type { SKU } from '../pms/types'
 import { useQueryPage } from '../routing/useQueryState'
 import { customerName } from '../oms/salesOrderDisplay'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 const PAGE_SIZE = 20
 
@@ -19,6 +20,7 @@ const PAGE_SIZE = 20
 // decrement (see application/oms.LinkLineItemSKUUseCase's doc) -- resolve
 // any resulting stock issue separately from the "Stock Issues" page.
 export default function UnmatchedSkus() {
+  const { formatDateTime } = useDateFormat()
   const { token } = useAuth()
   // In the URL (?page=) so refresh and Back keep it.
   const [page, setPage] = useQueryPage()
@@ -54,7 +56,7 @@ export default function UnmatchedSkus() {
                 {expandedId === o.id ? <ChevronDown size={12} className="text-ink-4" /> : <ChevronRight size={12} className="text-ink-4" />}
                 <div className="flex-1">
                   <p className="text-xs font-medium text-ink">#{o.number || o.external_order_id}</p>
-                  <p className="text-2xs text-ink-4">{customerName(o)} · {new Date(o.occurred_at).toLocaleString()}</p>
+                  <p className="text-2xs text-ink-4">{customerName(o)} · {formatDateTime(o.occurred_at)}</p>
                 </div>
               </button>
               {expandedId === o.id && (

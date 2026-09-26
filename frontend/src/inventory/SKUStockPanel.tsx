@@ -13,7 +13,7 @@ import { AdjustStockModal, BatchFormModal, BatchScope, RecountModal } from './Ba
 import { formatSKUQuantity, isExpired, isExpiringSoon, parseOptionalPriceToMinorUnits, parsePriceToMinorUnits } from './inventoryFormat'
 import { BatchRowActionModal, NewBatchModal, PriceModal } from './BatchActionModals'
 import { DamagedLostModal, SplitCaseModal, TransferModal } from './TransferStockModals'
-import { formatDate } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 export function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUpdated, onStockChanged, onViewHistory, onViewBatchHistory }: {
   token: string; productId: string; sku: SKU; variantName?: string; warehouses: { id: string; name: string }[]
@@ -28,6 +28,7 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
   onStockChanged: () => void
   onViewHistory: (sku: SKU) => void; onViewBatchHistory: (sku: SKU, batch: Batch) => void
 }) {
+  const { formatDate } = useDateFormat()
   const { level, batches, loading, error, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, portionFromBulk, markDamagedOrLost } =
     useSKUStock(token, sku.id)
   // The open modal, and the batch row it's locked to, come from the URL

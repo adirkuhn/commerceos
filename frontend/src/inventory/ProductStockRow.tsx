@@ -13,7 +13,7 @@ import type { Batch } from './types'
 import { LOW_STOCK_THRESHOLD, formatPrice } from './inventoryFormat'
 import { SKUStockPanel } from './SKUStockPanel'
 import { useOnStockInvalidated } from './stockInvalidation'
-import { formatDate } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 // ── Product row ───────────────────────────────────────────────────────────────
 
@@ -33,6 +33,7 @@ export function ProductStockRow({ token, productId, productName, productImageUrl
   onViewBatchHistory: (sku: SKU, batch: Batch) => void
   onViewProductHistory: (productName: string, skus: SKU[]) => void
 }) {
+  const { formatDate } = useDateFormat()
   // Expanded rows live in ?open= so a refresh, Back or a shared link keeps
   // them; a SKU action URL for this product (its modal) also expands it.
   const openRows = useQuerySet('open')

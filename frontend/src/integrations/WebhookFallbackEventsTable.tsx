@@ -2,10 +2,12 @@ import { useState } from 'react'
 import Pagination from '../components/common/Pagination'
 import { useWebhookFallbackEvents } from './hooks/useWebhookFallbackEvents'
 import { useConfirm } from '../components/common/useConfirm'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 export function WebhookFallbackEventsTable({
   events, total, page, perPage, loading, error, setPage, retry, abandon, abandonAll,
 }: ReturnType<typeof useWebhookFallbackEvents>) {
+  const { formatDateTime } = useDateFormat()
   const { confirm, confirmDialog } = useConfirm()
   const [rowError, setRowError] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -95,7 +97,7 @@ export function WebhookFallbackEventsTable({
                 <tr key={ev.id} className="border-b border-line last:border-0">
                   <td className="py-2 pr-3 pl-3 text-ink-2 capitalize">{ev.provider}</td>
                   <td className="py-2 pr-3 text-ink-3 font-mono truncate max-w-[160px]" title={ev.event_id}>{ev.event_id}</td>
-                  <td className="py-2 pr-3 text-ink-3">{new Date(ev.received_at).toLocaleString()}</td>
+                  <td className="py-2 pr-3 text-ink-3">{formatDateTime(ev.received_at)}</td>
                   <td className="py-2 pr-3 text-ink-3">{ev.status}</td>
                   <td className="py-2 pr-3">
                     <div className="flex gap-2 justify-end">

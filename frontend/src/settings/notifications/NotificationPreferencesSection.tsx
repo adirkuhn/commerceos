@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { NotificationPreferencesError } from './api'
 import { useNotificationPreferences } from './useNotificationPreferences'
 import type { NotificationCategory, NotificationCategoryPreference, NotificationPreferencesInput } from './types'
+import { useDateFormat } from '../../format/DateFormatProvider'
 
 const CATEGORY_TEXT: Record<NotificationCategory, { name: string; description: string }> = {
   imports: { name: 'Imports', description: 'Catalog, customer and order imports from your channels' },
@@ -23,6 +24,7 @@ function parseRecipients(text: string): string[] {
 // and/or is emailed, and to whom.
 export function NotificationPreferencesSection() {
   const { token, user } = useAuth()
+  const { formatTime } = useDateFormat()
   const { preferences, loading, error: loadError, save } = useNotificationPreferences(token ?? '')
   const canEdit = EDITOR_ROLES.includes(user?.role ?? '')
 
@@ -55,7 +57,7 @@ export function NotificationPreferencesSection() {
       await save(input)
       setEditedCategories(null)
       setEditedRecipients(null)
-      setSavedAt(new Date().toLocaleTimeString())
+      setSavedAt(formatTime(new Date()))
     } catch (err) {
       if (err instanceof NotificationPreferencesError && err.isRecipientError) setRecipientError(err.message)
       else setFormError(err instanceof Error ? err.message : 'Could not save notification settings')

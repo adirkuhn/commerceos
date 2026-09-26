@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { Modal, inputClass, labelClass } from './components/Modal'
 import * as inventoryApi from './api'
 import type { Batch } from './types'
+import type { DateInput } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
-function formatBatchOption(b: Batch): string {
+function formatBatchOption(b: Batch, formatDate: (value: DateInput) => string): string {
   const label = b.lot_number || b.id
   if (!b.expiry_date) return label
-  return `${label} — exp ${new Date(b.expiry_date).toLocaleDateString()}`
+  return `${label} — exp ${formatDate(b.expiry_date)}`
 }
 
 // Portion one sellable item off a bulk weight pool (see
@@ -29,6 +31,7 @@ export function PortionFromBulkModal({
   onSave: (input: { warehouse_id: string; batch_id?: string | null; weight_grams?: number; reason?: string }) => Promise<unknown>
   onClose: () => void
 }) {
+  const { formatDate } = useDateFormat()
   const [batches, setBatches] = useState<Batch[]>([])
   const [batchesError, setBatchesError] = useState<string | null>(null)
   const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
@@ -85,7 +88,7 @@ export function PortionFromBulkModal({
             <label className={labelClass} htmlFor="portion-batch">Bulk pool batch</label>
             <select id="portion-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
               <option value="">General ledger</option>
-              {batches.filter(b => !b.is_general_ledger).map(b => <option key={b.id} value={b.id}>{formatBatchOption(b)}</option>)}
+              {batches.filter(b => !b.is_general_ledger).map(b => <option key={b.id} value={b.id}>{formatBatchOption(b, formatDate)}</option>)}
             </select>
             {batchesError && <p className="mt-1 text-2xs text-danger">{batchesError}</p>}
           </div>

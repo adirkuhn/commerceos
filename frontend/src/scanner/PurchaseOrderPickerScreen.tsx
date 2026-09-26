@@ -7,7 +7,7 @@ import * as api from './api'
 import type { PurchaseOrder } from '../procurement/types'
 import type { Supplier } from '../suppliers/types'
 import type { Warehouse } from '../inventory/types'
-import { formatDate } from '../format/date'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 interface PurchaseOrderPickerScreenProps {
   token: string
@@ -21,6 +21,7 @@ function formatPrice(minorUnits: number, currency: string): string {
 }
 
 export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, onBack }: PurchaseOrderPickerScreenProps) {
+  const { formatDate } = useDateFormat()
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])

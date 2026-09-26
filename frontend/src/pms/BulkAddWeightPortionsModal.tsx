@@ -5,6 +5,7 @@ import * as inventoryApi from '../inventory/api'
 import * as pmsApi from '../pms/api'
 import type { Batch } from '../inventory/types'
 import type { CreatedPortionedSKU } from './types'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 function parseWeights(raw: string): { weights: number[]; error: string } {
   const parts = raw.split(/[,\n]/).map(s => s.trim()).filter(s => s !== '')
@@ -47,6 +48,7 @@ export function BulkAddWeightPortionsModal({
   onCreated: (created: CreatedPortionedSKU[]) => void
   onClose: () => void
 }) {
+  const { formatDate } = useDateFormat()
   const { warehouses } = useWarehouses(token)
   const [batches, setBatches] = useState<Batch[]>([])
   const [warehouseId, setWarehouseId] = useState('')
@@ -105,7 +107,7 @@ export function BulkAddWeightPortionsModal({
               <option value="">General ledger</option>
               {batches.filter(b => !b.is_general_ledger).map(b => (
                 <option key={b.id} value={b.id}>
-                  {b.lot_number || b.id}{b.expiry_date ? ` — exp ${new Date(b.expiry_date).toLocaleDateString()}` : ''}
+                  {b.lot_number || b.id}{b.expiry_date ? ` — exp ${formatDate(b.expiry_date)}` : ''}
                 </option>
               ))}
             </select>

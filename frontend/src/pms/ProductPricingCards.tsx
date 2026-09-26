@@ -5,6 +5,7 @@ import * as pmsApi from './api'
 import type { Category, SKUMarginInsight, SKUPriceHistoryEntry, SKUPriceHistoryReason, ProductHistoryEntry } from './types'
 import { formatPrice, parsePriceToMinorUnits } from './productFormat'
 import { FormCard } from './FormCard'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 // ── Shared form layout primitives ────────────────────────────────────────────
 
@@ -153,6 +154,7 @@ const PRICE_HISTORY_REASON_LABEL: Record<SKUPriceHistoryReason, string> = {
 // changes, same reasoning as MarginInsightCard.
 export function PriceHistoryCard({ skuId, currency }: { skuId: string; currency: string }) {
   const { token } = useAuth()
+  const { formatDateTime } = useDateFormat()
   const [history, setHistory] = useState<SKUPriceHistoryEntry[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -170,7 +172,6 @@ export function PriceHistoryCard({ skuId, currency }: { skuId: string; currency:
   }, [token, skuId])
 
   const money = (minorUnits: number) => formatPrice(minorUnits, currency)
-  const formatDate = (value: string) => new Date(value).toLocaleString()
 
   return (
     <FormCard title="Price history" description="An immutable record of every effective price change -- not the same as the daily-computed cost price above.">
@@ -193,9 +194,9 @@ export function PriceHistoryCard({ skuId, currency }: { skuId: string; currency:
           <tbody className="divide-y divide-line/60">
             {history.map(entry => (
               <tr key={entry.id}>
-                <td className="py-1.5 pr-3 text-ink-2">{formatDate(entry.valid_from)}</td>
+                <td className="py-1.5 pr-3 text-ink-2">{formatDateTime(entry.valid_from)}</td>
                 <td className="py-1.5 pr-3 text-ink-2">
-                  {entry.valid_until ? formatDate(entry.valid_until) : <span className="text-success font-medium">Current</span>}
+                  {entry.valid_until ? formatDateTime(entry.valid_until) : <span className="text-success font-medium">Current</span>}
                 </td>
                 <td className="py-1.5 pr-3 text-ink font-medium">{money(entry.price_minor_units)}</td>
                 <td className="py-1.5 pr-3 text-ink">
@@ -217,6 +218,7 @@ export function PriceHistoryCard({ skuId, currency }: { skuId: string; currency:
 // every field), and product-level only (not per-variant).
 export function ProductHistoryCard({ productId }: { productId: string }) {
   const { token } = useAuth()
+  const { formatDateTime } = useDateFormat()
   const [history, setHistory] = useState<ProductHistoryEntry[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -232,8 +234,6 @@ export function ProductHistoryCard({ productId }: { productId: string }) {
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token, productId])
-
-  const formatDate = (value: string) => new Date(value).toLocaleString()
 
   return (
     <FormCard title="Change history" description="Name and status changes -- an immutable audit trail.">
@@ -255,7 +255,7 @@ export function ProductHistoryCard({ productId }: { productId: string }) {
           <tbody className="divide-y divide-line/60">
             {history.map(entry => (
               <tr key={entry.id}>
-                <td className="py-1.5 pr-3 text-ink-2">{formatDate(entry.changed_at)}</td>
+                <td className="py-1.5 pr-3 text-ink-2">{formatDateTime(entry.changed_at)}</td>
                 <td className="py-1.5 pr-3 text-ink-3 capitalize">{entry.field}</td>
                 <td className="py-1.5 pr-3 text-ink-2">{entry.old_value}</td>
                 <td className="py-1.5 text-ink font-medium">{entry.new_value}</td>

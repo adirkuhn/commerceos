@@ -10,6 +10,11 @@ import type { Supplier } from '../../suppliers/types'
 import type { Warehouse, Batch } from '../../inventory/types'
 import type { SalesOrder } from '../../oms/types'
 
+// DateFormatProvider (and usePickingMode) read tenant settings -- never hit the network.
+vi.mock('../../settings/api', async importOriginal => ({
+  ...await importOriginal<typeof import('../../settings/api')>(),
+  getTenantSettings: vi.fn().mockRejectedValue(new Error('no settings in tests')),
+}))
 vi.mock('../api', () => ({
   claimPairingCode: vi.fn(),
   claimPairingCodeByToken: vi.fn(),
@@ -81,6 +86,7 @@ import * as inventoryApi from '../../inventory/api'
 import * as omsApi from '../../oms/api'
 import * as pmsApi from '../../pms/api'
 import { playErrorSound } from '../errorSound'
+import { formatDate } from '../../format/date'
 
 function makeJWT(exp: number): string {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
@@ -360,7 +366,7 @@ describe('ScannerApp purchase order picker', () => {
 
     expect(await screen.findByText('#A1B2C3D4')).toBeInTheDocument()
     expect(screen.getByText('USD 1549.99')).toBeInTheDocument()
-    expect(screen.getByText(new Date('2026-08-20').toLocaleDateString())).toBeInTheDocument()
+    expect(screen.getByText('20/08/2026')).toBeInTheDocument()
   })
 
   it('falls back to the created date when no expected date is set', async () => {
@@ -372,7 +378,7 @@ describe('ScannerApp purchase order picker', () => {
     renderAt(<ScannerApp />, '/scanner')
     await userEvent.click(await screen.findByText('Receive PO'))
 
-    expect(await screen.findByText(new Date('2026-07-01T00:00:00Z').toLocaleDateString())).toBeInTheDocument()
+    expect(await screen.findByText(formatDate('2026-07-01T00:00:00Z'))).toBeInTheDocument()
   })
 
   it('starts a booking and moves to the booking screen', async () => {

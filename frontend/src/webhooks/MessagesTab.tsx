@@ -6,6 +6,7 @@ import type { AvailableWebhookTopics } from '../integrations/api'
 import type { WebhookEvent } from '../integrations/types'
 import { useQueryEnum } from '../routing/useQueryState'
 import { providerLabel } from './providerLabel'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 const MESSAGE_VIEWS = ['all', 'needsAttention'] as const
 
@@ -30,6 +31,7 @@ function needsAttention(e: WebhookEvent): boolean {
 export function MessagesTab({
   events, loading, error, updateEvent, topics, provider, onProviderChange,
 }: ReturnType<typeof useWebhookEvents> & { topics: AvailableWebhookTopics; provider: string; onProviderChange: (provider: string) => void }) {
+  const { formatDateTime } = useDateFormat()
   const senders = Array.from(new Set([...Object.keys(topics.active_webhooks), ...Object.keys(topics.all_events)])).sort()
   const [view, setView] = useQueryEnum('view', MESSAGE_VIEWS, 'all')
   const [retryingId, setRetryingId] = useState<string | null>(null)
@@ -152,7 +154,7 @@ export function MessagesTab({
                   <tr key={e.id} className="border-b border-line last:border-0 align-top">
                     <td className="py-2 pr-3 text-ink-2">{providerLabel(e.provider)}</td>
                     <td className="py-2 pr-3 text-ink-3">{e.topic}</td>
-                    <td className="py-2 pr-3 text-ink-3 whitespace-nowrap">{new Date(e.received_at).toLocaleString()}</td>
+                    <td className="py-2 pr-3 text-ink-3 whitespace-nowrap">{formatDateTime(e.received_at)}</td>
                     <td className="py-2 pr-3"><MessageStatusBadge status={e.status} dispatchError={e.dispatch_error} /></td>
                     <td className="py-2 pr-3 text-ink-3 font-mono max-w-[360px]">
                       <PayloadPreview payload={e.payload} />

@@ -6,6 +6,7 @@ import { useSyncSchedules } from './hooks/useSyncSchedules'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import * as api from './api'
 import type { Connection, SyncSchedule, SyncEntityType, SyncDirection } from './types'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 // The scheduler polls for due schedules every 60s (see cmd/scheduler's
 // pollInterval) -- same options WooCommerceSyncSettingsPage offers.
@@ -84,6 +85,7 @@ function defaultCell(): CellState {
 export default function BolSyncSettingsPage({
   connectionId: initialConnectionId, initialConnection, onClose, onConnected,
 }: { connectionId?: string; initialConnection?: Connection; onClose: () => void; onConnected: () => void }) {
+  const { formatDateTime } = useDateFormat()
   const { token } = useAuth()
   const [connectionId, setConnectionId] = useState(initialConnectionId ?? '')
   const [clientId, setClientId] = useState('')
@@ -424,7 +426,7 @@ export default function BolSyncSettingsPage({
                           )}
                           {cell.lastRunAt && (
                             <p className="text-2xs text-ink-4">
-                              Last run: {new Date(cell.lastRunAt).toLocaleString()} ({cell.lastRunStatus || 'unknown'})
+                              Last run: {formatDateTime(cell.lastRunAt)} ({cell.lastRunStatus || 'unknown'})
                             </p>
                           )}
                           {cell.lastRunStatus === 'error' && cell.lastRunError && (

@@ -4,6 +4,7 @@ import * as shippingApi from '../shipping/api'
 import type { Shipment, ShipmentTrackingEvent } from '../shipping/types'
 import { CARRIERS } from '../shipping/types'
 import { useConfirm } from '../components/common/useConfirm'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 // One shipment's carrier/barcode header plus its full tracking timeline
 // (newest first) and a "Refresh from provider" button -- fetches the
@@ -11,6 +12,7 @@ import { useConfirm } from '../components/common/useConfirm'
 // webhook/reconciliation tick, and saves it as a new timeline entry (see
 // RefreshShipmentTrackingUseCase).
 export function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: string; shipment: Shipment; onCancelled: () => void }) {
+  const { formatDateTime } = useDateFormat()
   const { confirm, confirmDialog } = useConfirm()
   const [events, setEvents] = useState<ShipmentTrackingEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -122,7 +124,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
           {events.map(e => (
             <div key={e.id} className="flex justify-between gap-3 text-ink-3">
               <span className="text-ink">{e.status_label}</span>
-              <span className="shrink-0">{new Date(e.occurred_at).toLocaleString()} · {e.source}</span>
+              <span className="shrink-0">{formatDateTime(e.occurred_at)} · {e.source}</span>
             </div>
           ))}
         </div>

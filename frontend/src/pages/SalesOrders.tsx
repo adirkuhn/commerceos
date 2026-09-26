@@ -12,6 +12,7 @@ import { STATUS_OPTIONS, customerName } from '../oms/salesOrderDisplay'
 import { CreateSalesOrderPage } from '../oms/CreateSalesOrderPage'
 import { SalesOrderDetailPage } from '../oms/SalesOrderDetailPage'
 import { formatMoney } from '../format/money'
+import { useDateFormat } from '../format/DateFormatProvider'
 
 const PAGE_SIZE = 20
 
@@ -66,6 +67,7 @@ function SortableTh({ field, label, sortBy, sortDir, onSort, align = 'left' }: {
 }
 
 export default function SalesOrders() {
+  const { formatDateTime } = useDateFormat()
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   // Filters/sort/page are seeded from the URL on first render and kept in
@@ -405,7 +407,7 @@ export default function SalesOrders() {
                 </td>
                 <td className="px-3 py-2.5 max-w-[200px]">
                   <p className="font-medium text-ink truncate">#{o.number || o.external_order_id}</p>
-                  <p className="text-2xs text-ink-4 truncate">{new Date(o.occurred_at).toLocaleString()}</p>
+                  <p className="text-2xs text-ink-4 truncate">{formatDateTime(o.occurred_at)}</p>
                 </td>
                 <td className="px-3 py-2.5 text-ink-3 max-w-[220px] truncate">{customerName(o)}</td>
                 <td className="px-3 py-2.5 text-ink-3">{o.source}</td>
