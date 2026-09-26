@@ -989,6 +989,16 @@ components:
       properties:
         alt_text: { type: string }
 
+    SKULinkSummary:
+      type: object
+      description: Another SKU, identified for display.
+      required: [id, product_name, sku_code, barcode]
+      properties:
+        id: { type: string }
+        product_name: { type: string }
+        sku_code: { type: string }
+        barcode: { type: string }
+
     SKU:
       type: object
       required: [id, tenant_id, variant_id, sku_code, price_minor_units, currency_code, is_virtual, tracks_expiry, status, created_at, updated_at]
@@ -1025,6 +1035,11 @@ components:
         # split case-stock into unit-stock later (see the inventory
         # module's split-case endpoint).
         case_of_sku_id: { type: string, nullable: true }
+        case_of_sku:
+          allOf: [{ $ref: '#/components/schemas/SKULinkSummary' }]
+          description: >-
+            Read-only: names the SKU case_of_sku_id points at. Only in a
+            product's detail (GET /pms/products/{id}).
         units_per_case: { type: integer, format: int64, nullable: true }
         unit_type:
           allOf: [{ $ref: '#/components/schemas/SKUUnitType' }]
@@ -1039,6 +1054,11 @@ components:
         # same portioned_from_sku_id, each consuming its own actual
         # weight.
         portioned_from_sku_id: { type: string, nullable: true }
+        portioned_from_sku:
+          allOf: [{ $ref: '#/components/schemas/SKULinkSummary' }]
+          description: >-
+            Read-only: names the SKU portioned_from_sku_id points at. Only
+            in a product's detail (GET /pms/products/{id}).
         scale_code:
           type: string
           nullable: true

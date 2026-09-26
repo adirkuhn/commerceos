@@ -188,12 +188,25 @@ func toGenProductListItem(entry apppms.POSProductWithSKUs) genpms.Product {
 	return p
 }
 
+func linkedSKUSummary(linked map[string]apppms.LinkedSKU, id *string) *genpms.SKULinkSummary {
+	if id == nil {
+		return nil
+	}
+	l, ok := linked[*id]
+	if !ok {
+		return nil
+	}
+	return &genpms.SKULinkSummary{Id: l.ID, ProductName: l.ProductName, SkuCode: l.SKUCode, Barcode: l.Barcode}
+}
+
 func toGenProductDetail(d apppms.ProductDetail) genpms.ProductDetail {
 	variants := make([]genpms.VariantWithSKUs, len(d.Variants))
 	for i, vd := range d.Variants {
 		skus := make([]genpms.SKU, len(vd.SKUs))
 		for j, s := range vd.SKUs {
 			skus[j] = toGenSKU(s)
+			skus[j].CaseOfSku = linkedSKUSummary(d.LinkedSKUs, s.CaseOfSKUID)
+			skus[j].PortionedFromSku = linkedSKUSummary(d.LinkedSKUs, s.PortionedFromSKUID)
 		}
 		variants[i] = genpms.VariantWithSKUs{
 			Id:              vd.Variant.ID,

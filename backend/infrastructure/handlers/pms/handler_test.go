@@ -1129,3 +1129,28 @@ func TestDeleteProduct_blockedByHistoryIsConflictWithCode(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"code":"PRODUCT_HAS_HISTORY"`)
 	assert.Contains(t, w.Body.String(), "receiving history")
 }
+
+func TestGetProduct_namesTheLinkedCaseAndPortionSKUs(t *testing.T) {
+	unit := "s-unit"
+	detail := &apppms.ProductDetail{
+		Product: pmsDomain.Product{ID: "p1", Name: "Caixa Refresco", Status: pmsDomain.ProductStatusActive},
+		Variants: []apppms.VariantDetail{{
+			Variant: pmsDomain.Variant{ID: "v1"},
+			SKUs: []pmsDomain.SKU{
+				{ID: "s-case", SKUCode: "CX-30", CaseOfSKUID: &unit, CurrencyCode: "EUR", Status: pmsDomain.SKUStatusActive},
+				{ID: "s-portion", SKUCode: "P-1", PortionedFromSKUID: &unit, CurrencyCode: "EUR", Status: pmsDomain.SKUStatusActive},
+			},
+		}},
+		LinkedSKUs: map[string]apppms.LinkedSKU{
+			"s-unit": {ID: "s-unit", ProductName: "Refresco em pó Uva", SKUCode: "REF-UVA", Barcode: "7891132082346"},
+		},
+	}
+	s := &stubs{getProduct: stubGetProduct{out: detail}}
+
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/products/p1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	summary := `{"barcode":"7891132082346","id":"s-unit","product_name":"Refresco em pó Uva","sku_code":"REF-UVA"}`
+	assert.Contains(t, w.Body.String(), `"case_of_sku":`+summary)
+	assert.Contains(t, w.Body.String(), `"portioned_from_sku":`+summary)
+}
