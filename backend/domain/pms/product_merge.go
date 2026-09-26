@@ -34,6 +34,9 @@ var (
 	ErrMergeMappingIncomplete = fmt.Errorf("%w: every SKU of the duplicate must be matched to an existing SKU", ErrInvalidProductMerge)
 	ErrMergeSKUMappedTwice    = fmt.Errorf("%w: a duplicate SKU is matched more than once", ErrInvalidProductMerge)
 	ErrMergeSKUNotInProduct   = fmt.Errorf("%w: a matched SKU does not belong to its product", ErrInvalidProductMerge)
+	// ErrProductMergeForbidden: merging is irreversible -- tenant owners
+	// and admins only.
+	ErrProductMergeForbidden = errors.New("only an owner or admin can merge products")
 )
 
 // NewProductMerge validates a merge plan against both products' SKUs: the

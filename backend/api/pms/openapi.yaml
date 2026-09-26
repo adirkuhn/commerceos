@@ -169,6 +169,69 @@ paths:
         '409':
           $ref: '#/components/responses/Error'
 
+  /pms/products/{id}/merge-preview:
+    post:
+      operationId: previewProductMerge
+      summary: >-
+        Show what merging this (duplicate) product into target_product_id
+        would do, without changing anything: both products' SKUs with stock
+        and cost, the SKU matching (the given sku_mapping, or a suggestion:
+        1:1 when both have one SKU, else SKUs with the same barcode), and --
+        once every duplicate SKU is matched -- each existing SKU's stock and
+        cost after the merge.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductMergeRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductMergePreviewResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /pms/products/{id}/merge:
+    post:
+      operationId: mergeProduct
+      summary: >-
+        Merge this (duplicate) product into target_product_id: every
+        reference to each duplicate SKU (stock, batches, cost, orders,
+        purchase orders, receiving, aliases, promotions) moves to its
+        matched existing SKU, images and reviews join the existing product,
+        the duplicate's barcodes keep scanning as aliases, and the duplicate
+        is deleted. The existing product's name, description, category and
+        prices are unchanged. Irreversible; owners and admins only (403).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductMergeRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductMergeResultResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /pms/products/{id}/duplicate:
     post:
       operationId: duplicateProduct
@@ -1504,6 +1567,99 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/ResolveBarcodeResult' }
+        error: { nullable: true }
+
+    ProductMergeRequest:
+      type: object
+      required: [target_product_id]
+      properties:
+        target_product_id: { type: string, minLength: 1 }
+        sku_mapping:
+          type: array
+          description: >-
+            Duplicate SKU -> existing SKU. May be omitted when both products
+            have exactly one SKU; otherwise every duplicate SKU must appear
+            exactly once (422 if not).
+          items: { $ref: '#/components/schemas/SKUMergePair' }
+
+    SKUMergePair:
+      type: object
+      required: [source_sku_id, target_sku_id]
+      properties:
+        source_sku_id: { type: string, minLength: 1 }
+        target_sku_id: { type: string, minLength: 1 }
+
+    MergePreviewSKU:
+      type: object
+      required: [id, sku_code, barcode, on_hand]
+      properties:
+        id: { type: string }
+        sku_code: { type: string }
+        barcode: { type: string }
+        on_hand: { type: integer, format: int64 }
+        cost_price_minor_units: { type: integer, format: int64, nullable: true }
+
+    MergePreviewProduct:
+      type: object
+      required: [id, name, skus]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        skus:
+          type: array
+          items: { $ref: '#/components/schemas/MergePreviewSKU' }
+
+    MergePreviewTarget:
+      type: object
+      required: [sku_id, on_hand_after]
+      properties:
+        sku_id: { type: string }
+        on_hand_after: { type: integer, format: int64 }
+        cost_before_minor_units: { type: integer, format: int64, nullable: true }
+        cost_after_minor_units: { type: integer, format: int64, nullable: true }
+
+    ProductMergePreview:
+      type: object
+      required: [source, target, sku_mapping, targets]
+      properties:
+        source: { $ref: '#/components/schemas/MergePreviewProduct' }
+        target: { $ref: '#/components/schemas/MergePreviewProduct' }
+        sku_mapping:
+          type: array
+          items: { $ref: '#/components/schemas/SKUMergePair' }
+        targets:
+          type: array
+          description: Empty until every duplicate SKU is matched.
+          items: { $ref: '#/components/schemas/MergePreviewTarget' }
+
+    ProductMergePreviewResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ProductMergePreview' }
+        error: { nullable: true }
+
+    MergedSKU:
+      type: object
+      required: [source_sku_id, source_sku_code, source_barcode, target_sku_id]
+      properties:
+        source_sku_id: { type: string }
+        source_sku_code: { type: string }
+        source_barcode: { type: string }
+        target_sku_id: { type: string }
+
+    ProductMergeResult:
+      type: object
+      required: [target_product_id, skus]
+      properties:
+        target_product_id: { type: string }
+        skus:
+          type: array
+          items: { $ref: '#/components/schemas/MergedSKU' }
+
+    ProductMergeResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ProductMergeResult' }
         error: { nullable: true }
 
     EmptyResponse:

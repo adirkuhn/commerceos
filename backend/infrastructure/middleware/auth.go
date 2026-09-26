@@ -11,13 +11,13 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
-type Role string
+type Role = tenant.Role
 
 const (
-	RoleSuperAdmin    Role = "super_admin"
-	RoleCustomerOwner Role = "customer_owner"
-	RoleCustomerAdmin Role = "customer_admin"
-	RoleCustomerUser  Role = "customer_user"
+	RoleSuperAdmin    = tenant.RoleSuperAdmin
+	RoleCustomerOwner = tenant.RoleCustomerOwner
+	RoleCustomerAdmin = tenant.RoleCustomerAdmin
+	RoleCustomerUser  = tenant.RoleCustomerUser
 )
 
 type Claims struct {
@@ -63,6 +63,7 @@ func JWT(secret []byte) gin.HandlerFunc {
 		// checks first, so RLS bypass is unaffected by TenantID being present.
 		ctx := c.Request.Context()
 		ctx = tenant.WithTenantID(ctx, claims.TenantID)
+		ctx = tenant.WithRole(ctx, claims.Role)
 		if claims.Role == RoleSuperAdmin {
 			ctx = tenant.WithSuperAdmin(ctx)
 		}

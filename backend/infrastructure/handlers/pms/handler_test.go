@@ -429,6 +429,8 @@ type stubs struct {
 	createScaleCodeAlias   stubCreateScaleCodeAlias
 	deleteScaleCodeAlias   stubDeleteScaleCodeAlias
 	correctCost            stubCorrectCost
+	previewProductMerge    stubPreviewProductMerge
+	mergeProducts          stubMergeProducts
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
@@ -447,6 +449,7 @@ func newTestRouter(s *stubs) *gin.Engine {
 		&s.listBarcodeAliases, &s.createBarcodeAlias, &s.deleteBarcodeAlias,
 		&s.listScaleCodeAliases, &s.createScaleCodeAlias, &s.deleteScaleCodeAlias,
 		&s.correctCost,
+		pmshandler.ProductMergeUseCases{Preview: &s.previewProductMerge, Merge: &s.mergeProducts},
 	)
 	r := gin.New()
 	genpms.RegisterHandlers(r.Group("/api/v1"), h)

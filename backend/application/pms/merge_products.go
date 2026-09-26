@@ -125,6 +125,9 @@ func NewMergeProductsUseCase(db *gorm.DB, deps MergeProductsDeps) *MergeProducts
 }
 
 func (uc *MergeProductsUseCase) Execute(ctx context.Context, in MergeProductsInput) (*MergeProductsResult, error) {
+	if !tenant.IsTenantAdmin(ctx) {
+		return nil, fmt.Errorf("mergeProducts: %w", pmsDomain.ErrProductMergeForbidden)
+	}
 	if in.SourceProductID == in.TargetProductID {
 		return nil, fmt.Errorf("mergeProducts: %w", pmsDomain.ErrMergeIntoSelf)
 	}

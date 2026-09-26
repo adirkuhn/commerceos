@@ -170,7 +170,9 @@ func newMergeHarness(t *testing.T) *mergeHarness {
 	return h
 }
 
-func mergeCtx() context.Context { return tenant.WithTenantID(context.Background(), "tenant-1") }
+func mergeCtx() context.Context {
+	return tenant.WithRole(tenant.WithTenantID(context.Background(), "tenant-1"), tenant.RoleCustomerAdmin)
+}
 
 // ── tests ────────────────────────────────────────────────────────────────────
 
@@ -310,4 +312,14 @@ func TestMergeProducts_aReassignFailureAbortsTheMerge(t *testing.T) {
 
 	require.ErrorIs(t, err, boom)
 	assert.Empty(t, h.catalog.deleted, "nothing is deleted once any step fails (the transaction rolls back)")
+}
+
+func TestMergeProducts_onlyTenantAdminsMayMerge(t *testing.T) {
+	h := newMergeHarness(t)
+	userCtx := tenant.WithRole(tenant.WithTenantID(context.Background(), "tenant-1"), tenant.RoleCustomerUser)
+
+	_, err := h.uc.Execute(userCtx, apppms.MergeProductsInput{SourceProductID: "dup", TargetProductID: "orig"})
+
+	require.ErrorIs(t, err, pmsDomain.ErrProductMergeForbidden)
+	assert.Empty(t, h.catalog.deleted)
 }

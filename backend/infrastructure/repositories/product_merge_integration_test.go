@@ -130,7 +130,7 @@ func TestMergeProducts_Integration(t *testing.T) {
 			TenantID: tid, SalesOrderID: order.ID, SKUID: &sourceSKUID, Quantity: 1, PriceMinorUnits: 500, CreatedAt: now})
 	}))
 
-	result, err := newMergeUseCase(db).Execute(ctx, apppms.MergeProductsInput{SourceProductID: sourceProductID, TargetProductID: targetProductID, MergedBy: "user-1"})
+	result, err := newMergeUseCase(db).Execute(tenant.WithRole(ctx, tenant.RoleCustomerOwner), apppms.MergeProductsInput{SourceProductID: sourceProductID, TargetProductID: targetProductID, MergedBy: "user-1"})
 	require.NoError(t, err)
 	assert.Equal(t, targetProductID, result.TargetProductID)
 

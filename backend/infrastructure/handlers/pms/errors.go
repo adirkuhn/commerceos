@@ -34,6 +34,10 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrDuplicateBarcodeAliasCode),
 		errors.Is(err, pmsDomain.ErrDuplicateScaleCodeAlias):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
+	case errors.Is(err, pmsDomain.ErrProductMergeForbidden):
+		middleware.Fail(c, http.StatusForbidden, "FORBIDDEN", err.Error())
+	case errors.Is(err, pmsDomain.ErrInvalidProductMerge):
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, pmsDomain.ErrProductHasHistory):
 		middleware.Fail(c, http.StatusConflict, "PRODUCT_HAS_HISTORY", err.Error())
 	case errors.Is(err, pmsDomain.ErrVariantsNotEnabled),

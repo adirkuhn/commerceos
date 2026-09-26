@@ -240,3 +240,20 @@ func TestRequireRoleForWrites_allowedRoleCanWrite(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
+
+func TestJWT_propagatesRoleToRequestContext(t *testing.T) {
+	r := gin.New()
+	r.Use(middleware.JWT([]byte(testSecret)))
+	r.GET("/role", func(c *gin.Context) {
+		c.String(http.StatusOK, string(tenant.RoleFromContext(c.Request.Context())))
+	})
+	claims := validClaims()
+	claims.Role = middleware.RoleCustomerAdmin
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/role", nil)
+	req.Header.Set("Authorization", "Bearer "+makeToken(t, claims))
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, "customer_admin", w.Body.String())
+}

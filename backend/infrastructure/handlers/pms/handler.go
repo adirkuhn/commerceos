@@ -172,6 +172,7 @@ type Handler struct {
 	listScaleCodeAliases   listScaleCodeAliasesUC
 	createScaleCodeAlias   createScaleCodeAliasUC
 	deleteScaleCodeAlias   deleteScaleCodeAliasUC
+	merge                  ProductMergeUseCases
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -214,6 +215,7 @@ func NewHandler(
 	createScaleCodeAlias createScaleCodeAliasUC,
 	deleteScaleCodeAlias deleteScaleCodeAliasUC,
 	correctCost correctCostUC,
+	merge ProductMergeUseCases,
 ) *Handler {
 	return &Handler{
 		listBarcodeAliases:     listBarcodeAliases,
@@ -254,6 +256,7 @@ func NewHandler(
 		updateMedia:            updateMedia,
 		resolveBarcode:         resolveBarcode,
 		correctCost:            correctCost,
+		merge:                  merge,
 	}
 }
 
@@ -323,6 +326,22 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewCreateScaleCodeAliasUseCase(db, skuRepo, scaleCodeAliasRepo),
 		apppms.NewDeleteScaleCodeAliasUseCase(db, scaleCodeAliasRepo),
 		apppms.NewCorrectCostUseCase(db, skuRepo, repositories.NewSKUCostPriceLedgerRepo(db), batchLister),
+		ProductMergeUseCases{
+			Preview: apppms.NewPreviewProductMergeUseCase(db, productRepo, variantRepo, skuRepo, batchLister),
+			Merge: apppms.NewMergeProductsUseCase(db, apppms.MergeProductsDeps{
+				Products: productRepo, Variants: variantRepo, SKUs: skuRepo, OnHand: batchLister,
+				SKUReassigners: []apppms.SKUReferenceReassigner{
+					repositories.NewInventorySKUReferences(), repositories.NewProcurementSKUReferences(),
+					repositories.NewOrderSKUReferences(), repositories.NewPromotionSKUReferences(), repositories.NewCatalogSKUReferences(),
+				},
+				ProductReassigners: []apppms.ProductReferenceReassigner{repositories.NewCatalogProductReferences()},
+				Ledger:             repositories.NewSKUCostPriceLedgerRepo(db),
+				CodeAliases:        repositories.NewMergeCodeAliases(barcodeAliasRepo, scaleCodeAliasRepo),
+				Records:            repositories.NewProductMergeRepo(),
+				Listings:           listingRepo,
+				Outbox:             outboxRepo,
+			}),
+		},
 	)
 	genpms.RegisterHandlers(rg, h)
 }
