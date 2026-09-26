@@ -85,6 +85,8 @@ export interface SKU {
   // together or not at all. See the inventory module's split-case action
   // for converting case stock into unit stock.
   case_of_sku_id?: string | null
+  // Names the SKU case_of_sku_id points at -- only in a product's detail.
+  case_of_sku?: SKULinkSummary | null
   units_per_case?: number | null
   // unit_type defaults to 'unit'. 'kilo' marks this SKU as a weight pool:
   // its stock quantity is grams, not whole units (e.g. a 20kg bulk lot
@@ -94,6 +96,8 @@ export interface SKU {
   // off a kilo (weight-pool) SKU's pool -- see the inventory module's
   // portion-from-bulk action.
   portioned_from_sku_id?: string | null
+  // Names the SKU portioned_from_sku_id points at -- only in a product's detail.
+  portioned_from_sku?: SKULinkSummary | null
   // scale_code is null unless this SKU is sold via a weight-embedded
   // barcode (a butcher/deli scale prints a GS1 "prefix 2x" variable-weight
   // EAN-13 whose weight digits differ on every package, so it can never
@@ -461,4 +465,12 @@ export interface MergedSKU {
 export interface ProductMergeResult {
   target_product_id: string
   skus: MergedSKU[]
+}
+
+// Another product's SKU, identified for display (see linkedSkuLabel).
+export interface SKULinkSummary {
+  id: string
+  product_name: string
+  sku_code: string
+  barcode: string
 }

@@ -124,6 +124,17 @@ describe('Case pack card (flat SKU)', () => {
     })))
   })
 
+  it('names the linked product and its EAN after a reload, never the raw id', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detailWith({
+      case_of_sku_id: 'sku-unit-1', units_per_case: 30,
+      case_of_sku: { id: 'sku-unit-1', product_name: 'Refresco em pó Uva - MID - Ajinomoto', sku_code: 'REF-UVA', barcode: '7891132082346' },
+    }))
+    renderPage()
+
+    expect(await screen.findByText('Refresco em pó Uva - MID - Ajinomoto · EAN 7891132082346')).toBeInTheDocument()
+    expect(screen.queryByText('sku-unit-1')).not.toBeInTheDocument()
+  })
+
   it('Remove clears the link, sending nulls on save', async () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detailWith({ case_of_sku_id: 'sku-unit-1', units_per_case: 12 }))
     renderPage()
@@ -159,7 +170,7 @@ describe('Case pack card (flat SKU)', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Single can' }))
     await userEvent.click(await screen.findByRole('button', { name: 'CAN-1' }))
 
-    expect(screen.getByText('Single can — CAN-1')).toBeInTheDocument()
+    expect(screen.getByText('Single can · EAN 012345')).toBeInTheDocument()
     await userEvent.type(screen.getByLabelText('Units/case'), '6')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 

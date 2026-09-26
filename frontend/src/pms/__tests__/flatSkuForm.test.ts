@@ -20,9 +20,16 @@ describe('flatSkuFormFromSKU', () => {
     expect(flatSkuFormFromSKU(sku)).toEqual({
       skuCode: 'A-1', barcode: '', price: '19.99', salePrice: '', saleEndDate: '', currency: 'EUR', skuStatus: 'active',
       isVirtual: false, weightGrams: '', lengthMM: '', widthMM: '', heightMM: '',
-      caseOfSKUID: null, unitsPerCase: '', unitType: 'unit', portionedFromSKUID: null,
+      caseOfSKUID: null, caseOfSKULabel: '', unitsPerCase: '', unitType: 'unit', portionedFromSKUID: null, portionedFromLabel: '',
       scaleCode: '', pricingMode: 'fixed', pricePerKilo: '', taxClassId: null,
     })
+  })
+
+  it('names the linked case / weight-pool SKU from the product detail, not its id', () => {
+    const unit = { id: 'u', product_name: 'Refresco em pó Uva', sku_code: 'REF-UVA', barcode: '7891132082346' }
+    const f = flatSkuFormFromSKU({ ...sku, case_of_sku_id: 'u', case_of_sku: unit, portioned_from_sku_id: 'u', portioned_from_sku: unit })
+    expect(f.caseOfSKULabel).toBe('Refresco em pó Uva · EAN 7891132082346')
+    expect(f.portionedFromLabel).toBe('Refresco em pó Uva · EAN 7891132082346')
   })
 
   it('formats every set optional field as its input string', () => {

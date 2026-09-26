@@ -3,6 +3,7 @@ import { BulkAddWeightPortionsModal } from './BulkAddWeightPortionsModal'
 import { CaseOfSKUPicker } from './VariantsSection'
 import { skuPassThroughPayload } from './skuPayloads'
 import type { SKU, SKUUnitType, UpdateSKUPayload } from './types'
+import { linkedSkuLabel } from './linkedSkuLabel'
 
 interface VariantSkuWeightPoolControlsProps {
   token: string
@@ -54,7 +55,7 @@ export function VariantSkuWeightPoolControls({ token, sku, updateSKU, onPortions
           </span>
         ) : sku.portioned_from_sku_id ? (
           <span className="text-2xs text-ink-3 flex items-center gap-1.5">
-            Portioned from <span className="font-medium">{sku.portioned_from_sku_id}</span>
+            Portioned from <span className="font-medium">{sku.portioned_from_sku ? linkedSkuLabel(sku.portioned_from_sku) : sku.portioned_from_sku_id}</span>
             <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: sku.unit_type ?? 'unit', portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
               Unlink
             </button>

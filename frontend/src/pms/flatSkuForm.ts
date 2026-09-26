@@ -1,6 +1,7 @@
 import type { CreateSKUPayload, SKU, SKUPricingMode, SKUStatus, SKUUnitType, UpdateSKUPayload } from './types'
 import { formatMinorUnitsAsInput, parseIntOrUndefined, parseOptionalPriceToMinorUnits, parsePriceToMinorUnits } from './productFormat'
 import { dimensionInputsFromSKU, dimensionsPayload, type DimensionInputs } from './skuPayloads'
+import { linkedSkuLabel } from './linkedSkuLabel'
 
 // The product editor's flat single-SKU form (only relevant when the product
 // isn't in variants mode), as one value instead of ~20 separate useStates.
@@ -47,10 +48,9 @@ export const EMPTY_FLAT_SKU_FORM: FlatSkuForm = {
   scaleCode: '', pricingMode: 'fixed', pricePerKilo: '', taxClassId: null,
 }
 
-// Every field loaded from an existing SKU. The two *Label fields aren't
-// part of the SKU (they're only known after picking in this session), so
-// they're left untouched.
-export function flatSkuFormFromSKU(sku: SKU): Omit<FlatSkuForm, 'caseOfSKULabel' | 'portionedFromLabel'> {
+// Every field loaded from an existing SKU. The two *Label fields name the
+// linked SKU from the product detail's case_of_sku / portioned_from_sku.
+export function flatSkuFormFromSKU(sku: SKU): FlatSkuForm {
   return {
     skuCode: sku.sku_code,
     barcode: sku.barcode ?? '',
@@ -62,9 +62,11 @@ export function flatSkuFormFromSKU(sku: SKU): Omit<FlatSkuForm, 'caseOfSKULabel'
     isVirtual: sku.is_virtual,
     ...dimensionInputsFromSKU(sku),
     caseOfSKUID: sku.case_of_sku_id ?? null,
+    caseOfSKULabel: sku.case_of_sku ? linkedSkuLabel(sku.case_of_sku) : '',
     unitsPerCase: sku.units_per_case != null ? String(sku.units_per_case) : '',
     unitType: sku.unit_type ?? 'unit',
     portionedFromSKUID: sku.portioned_from_sku_id ?? null,
+    portionedFromLabel: sku.portioned_from_sku ? linkedSkuLabel(sku.portioned_from_sku) : '',
     scaleCode: sku.scale_code ?? '',
     pricingMode: sku.pricing_mode ?? 'fixed',
     pricePerKilo: sku.price_per_kilo_minor_units != null ? formatMinorUnitsAsInput(sku.price_per_kilo_minor_units) : '',

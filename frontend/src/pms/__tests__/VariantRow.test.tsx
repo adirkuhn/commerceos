@@ -265,7 +265,7 @@ describe('adding a SKU', () => {
     await userEvent.click(within(form).getByRole('button', { name: '+ Link to a weight pool' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Beef bulk' }))
     await userEvent.click(await screen.findByRole('button', { name: 'POOL-1' }))
-    expect(within(form).getByText('Beef bulk — POOL-1')).toBeInTheDocument()
+    expect(within(form).getByText('Beef bulk · EAN 012345')).toBeInTheDocument()
 
     await userEvent.click(within(form).getByRole('button', { name: 'Unlink' }))
     expect(within(form).getByRole('button', { name: '+ Link to a weight pool' })).toBeInTheDocument()

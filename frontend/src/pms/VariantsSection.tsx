@@ -10,6 +10,7 @@ import * as inventoryApi from '../inventory/api'
 import type { SKU } from './types'
 import type { StockLevel } from '../inventory/types'
 import { VariantRow } from './VariantRow'
+import { linkedSkuLabel } from './linkedSkuLabel'
 
 // ── Variants + SKUs section (only shown when the product has variants) ───────
 
@@ -164,7 +165,7 @@ export function CaseOfSKUPicker({ excludeSKUID, filterSku, onSelect, onClose }: 
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => onSelect(s, `${p.name} — ${s.sku_code}`)}
+                    onClick={() => onSelect(s, linkedSkuLabel({ product_name: p.name, sku_code: s.sku_code, barcode: s.barcode }))}
                     className="w-full flex items-center justify-between text-left px-2 py-1 text-2xs rounded hover:bg-hover"
                   >
                     <span className="font-mono text-ink-2">{s.sku_code}</span>
