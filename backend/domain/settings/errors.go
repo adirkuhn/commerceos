@@ -28,3 +28,7 @@ var ErrInvalidPickingMode = errors.New("picking mode must be scan or list")
 // ErrInvalidTimezone guards TenantSettings.Timezone: an IANA zone name
 // (e.g. "Europe/Amsterdam") or empty.
 var ErrInvalidTimezone = errors.New("timezone must be an IANA zone name such as Europe/Amsterdam")
+
+// ErrInvalidDateFormat guards TenantSettings.DateFormat: DD/MM/YYYY,
+// MM/DD/YYYY or YYYY-MM-DD.
+var ErrInvalidDateFormat = errors.New("date format must be DD/MM/YYYY, MM/DD/YYYY or YYYY-MM-DD")

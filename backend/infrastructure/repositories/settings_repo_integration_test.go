@@ -29,6 +29,25 @@ func TestTenantSettingsRepo_Integration_GetReturnsZeroValueWhenNoRowSaved(t *tes
 	require.False(t, found.InventorySyncRulesEnabled)
 	require.Equal(t, 0, found.BatchExpiryThresholdDays)
 	require.Equal(t, settingsDomain.PickingModeScan, found.PickingMode, "a never-saved tenant picks by scanning")
+	require.Equal(t, settingsDomain.DateFormatDayMonthYear, found.DateFormat, "a never-saved tenant reads dates as DD/MM/YYYY")
+}
+
+func TestTenantSettingsRepo_Integration_UpsertRoundTripsDateFormat(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	repo := repositories.NewTenantSettingsRepo(db)
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return repo.Upsert(ctx, &settingsDomain.TenantSettings{TenantID: tenantID, DateFormat: settingsDomain.DateFormatMonthDayYear, UpdatedAt: time.Now()})
+	}))
+
+	var found *settingsDomain.TenantSettings
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = repo.Get(ctx)
+		return err
+	}))
+	require.Equal(t, settingsDomain.DateFormatMonthDayYear, found.DateFormat)
 }
 
 func TestTenantSettingsRepo_Integration_UpsertRoundTripsPickingMode(t *testing.T) {

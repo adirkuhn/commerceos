@@ -106,7 +106,7 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 	s, err := h.updateTenantSettings.Execute(c.Request.Context(), appsettings.UpdateTenantSettingsInput{
 		DefaultCurrency:                strPtrOr(req.DefaultCurrency),
 		Timezone:                       strPtrOr(req.Timezone),
-		DateFormat:                     strPtrOr(req.DateFormat),
+		DateFormat:                     dateFormatOr(req.DateFormat),
 		Language:                       strPtrOr(req.Language),
 		PricesIncludeTax:               req.PricesIncludeTax != nil && *req.PricesIncludeTax,
 		DefaultTaxCountry:              strPtrOr(req.DefaultTaxCountry),
@@ -179,7 +179,7 @@ func toGenTenantSettings(s settingsDomain.TenantSettings) gensettings.TenantSett
 		TenantId:                       s.TenantID,
 		DefaultCurrency:                s.DefaultCurrency,
 		Timezone:                       s.Timezone,
-		DateFormat:                     s.DateFormat,
+		DateFormat:                     gensettings.DateFormat(s.DateFormat),
 		Language:                       s.Language,
 		PricesIncludeTax:               s.PricesIncludeTax,
 		DefaultTaxCountry:              s.DefaultTaxCountry,
@@ -226,7 +226,7 @@ func mapError(c *gin.Context, err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsLookbackDays) || errors.Is(err, settingsDomain.ErrInvalidPickingMode) || errors.Is(err, settingsDomain.ErrInvalidTimezone) || errors.Is(err, apikeysDomain.ErrNameRequired) {
+	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsLookbackDays) || errors.Is(err, settingsDomain.ErrInvalidPickingMode) || errors.Is(err, settingsDomain.ErrInvalidTimezone) || errors.Is(err, settingsDomain.ErrInvalidDateFormat) || errors.Is(err, apikeysDomain.ErrNameRequired) {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return err
 	}
@@ -237,4 +237,11 @@ func mapError(c *gin.Context, err error) error {
 	log.Printf("settings: unhandled error: %v", err)
 	middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
 	return err
+}
+
+func dateFormatOr(p *gensettings.DateFormat) string {
+	if p == nil {
+		return ""
+	}
+	return string(*p)
 }

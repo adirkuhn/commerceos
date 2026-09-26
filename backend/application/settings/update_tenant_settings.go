@@ -58,6 +58,10 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 	if err != nil {
 		return nil, fmt.Errorf("updateTenantSettings: %w", err)
 	}
+	dateFormat, err := settingsDomain.ParseDateFormat(in.DateFormat)
+	if err != nil {
+		return nil, fmt.Errorf("updateTenantSettings: %w", err)
+	}
 
 	var result settingsDomain.TenantSettings
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -65,7 +69,7 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 			TenantID:                       tenant.IDFromContext(ctx),
 			DefaultCurrency:                in.DefaultCurrency,
 			Timezone:                       in.Timezone,
-			DateFormat:                     in.DateFormat,
+			DateFormat:                     dateFormat,
 			Language:                       in.Language,
 			PricesIncludeTax:               in.PricesIncludeTax,
 			DefaultTaxCountry:              in.DefaultTaxCountry,

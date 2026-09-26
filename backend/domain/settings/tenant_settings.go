@@ -9,7 +9,7 @@ type TenantSettings struct {
 	TenantID        string
 	DefaultCurrency string
 	Timezone        string
-	DateFormat      string
+	DateFormat      DateFormat
 	Language        string
 	// PricesIncludeTax and DefaultTaxCountry configure how SKU prices and
 	// manually-created Sales Orders are taxed -- see domain/tax.TaxClass.

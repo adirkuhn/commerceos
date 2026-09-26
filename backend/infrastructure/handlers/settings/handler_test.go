@@ -53,7 +53,7 @@ func (s *stubUpdateTenantSettings) Execute(_ context.Context, in appsettings.Upd
 		return s.out, nil
 	}
 	return &settingsDomain.TenantSettings{
-		DefaultCurrency: in.DefaultCurrency, Timezone: in.Timezone, DateFormat: in.DateFormat, Language: in.Language,
+		DefaultCurrency: in.DefaultCurrency, Timezone: in.Timezone, DateFormat: settingsDomain.DateFormat(in.DateFormat), Language: in.Language,
 		PricesIncludeTax: in.PricesIncludeTax, DefaultTaxCountry: in.DefaultTaxCountry,
 	}, nil
 }
@@ -265,6 +265,15 @@ func TestUpdateTenantSettingsHandler_invalidTimezoneIsUnprocessable(t *testing.T
 	h := newTestHandler(&stubGetTenantSettings{}, update)
 
 	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", map[string]any{"timezone": "Mars/Olympus"})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpdateTenantSettingsHandler_invalidDateFormatIsUnprocessable(t *testing.T) {
+	update := &stubUpdateTenantSettings{err: settingsDomain.ErrInvalidDateFormat}
+	h := newTestHandler(&stubGetTenantSettings{}, update)
+
+	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", map[string]any{"date_format": "D.M.YY"})
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }

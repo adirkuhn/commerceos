@@ -70,7 +70,7 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 	}
 	m := tenantSettingsModel{
 		TenantID: s.TenantID, DefaultCurrency: s.DefaultCurrency, Timezone: s.Timezone,
-		DateFormat: s.DateFormat, Language: s.Language, PricesIncludeTax: s.PricesIncludeTax,
+		DateFormat: string(s.DateFormat), Language: s.Language, PricesIncludeTax: s.PricesIncludeTax,
 		DefaultTaxCountry: s.DefaultTaxCountry, InventorySyncRulesEnabled: s.InventorySyncRulesEnabled,
 		BatchExpiryThresholdDays:       s.BatchExpiryThresholdDays,
 		DefaultTargetMarkupBasisPoints: s.DefaultTargetMarkupBasisPoints,
@@ -95,15 +95,20 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 }
 
 // toTenantSettingsDomain maps a row -- including the zero row a never-saved
-// tenant reads as, whose empty picking_mode parses to the default.
+// tenant reads as, whose empty picking_mode and date_format parse to the
+// defaults.
 func toTenantSettingsDomain(m tenantSettingsModel) (*settingsDomain.TenantSettings, error) {
 	pickingMode, err := settingsDomain.ParsePickingMode(m.PickingMode)
 	if err != nil {
 		return nil, fmt.Errorf("tenantSettingsRepo: picking_mode %q: %w", m.PickingMode, err)
 	}
+	dateFormat, err := settingsDomain.ParseDateFormat(m.DateFormat)
+	if err != nil {
+		return nil, fmt.Errorf("tenantSettingsRepo: date_format %q: %w", m.DateFormat, err)
+	}
 	return &settingsDomain.TenantSettings{
 		TenantID: m.TenantID, DefaultCurrency: m.DefaultCurrency, Timezone: m.Timezone,
-		DateFormat: m.DateFormat, Language: m.Language, PricesIncludeTax: m.PricesIncludeTax,
+		DateFormat: dateFormat, Language: m.Language, PricesIncludeTax: m.PricesIncludeTax,
 		DefaultTaxCountry: m.DefaultTaxCountry, InventorySyncRulesEnabled: m.InventorySyncRulesEnabled,
 		BatchExpiryThresholdDays:       m.BatchExpiryThresholdDays,
 		DefaultTargetMarkupBasisPoints: m.DefaultTargetMarkupBasisPoints,

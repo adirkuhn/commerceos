@@ -33,7 +33,7 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 	require.Equal(t, 90, result.RecommendationsLookbackDays)
 	require.Equal(t, "USD", result.DefaultCurrency)
 	require.Equal(t, "Europe/Amsterdam", result.Timezone)
-	require.Equal(t, "DD/MM/YYYY", result.DateFormat)
+	require.Equal(t, settingsDomain.DateFormatDayMonthYear, result.DateFormat)
 	require.Equal(t, "en", result.Language)
 	require.True(t, result.PricesIncludeTax)
 	require.Equal(t, "NL", result.DefaultTaxCountry)
@@ -195,5 +195,15 @@ func TestUpdateTenantSettings_rejectsUnknownTimezone(t *testing.T) {
 	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{Timezone: "Mars/Olympus"})
 
 	require.ErrorIs(t, err, settingsDomain.ErrInvalidTimezone)
+	require.Empty(t, repo.upserted)
+}
+
+func TestUpdateTenantSettings_rejectsUnknownDateFormat(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{DateFormat: "D.M.YY"})
+
+	require.ErrorIs(t, err, settingsDomain.ErrInvalidDateFormat)
 	require.Empty(t, repo.upserted)
 }

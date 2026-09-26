@@ -192,6 +192,14 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
+    DateFormat:
+      type: string
+      enum: [DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD]
+      description: >-
+        How dates are shown to people (admin app, scanner, messages the
+        backend writes). A never-saved tenant reads as DD/MM/YYYY. Any
+        other value is rejected with 422.
+
     TenantSettings:
       type: object
       required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, recommendations_min_support, recommendations_lookback_days, picking_mode, updated_at]
@@ -199,7 +207,7 @@ components:
         tenant_id: { type: string }
         default_currency: { type: string }
         timezone: { type: string }
-        date_format: { type: string }
+        date_format: { $ref: '#/components/schemas/DateFormat' }
         language: { type: string }
         prices_include_tax:
           type: boolean
@@ -268,7 +276,7 @@ components:
             IANA time zone name, or empty for unset (reports then use UTC).
             Reports and the dashboard bucket days, weeks, months and weekdays
             in this zone. An unknown zone is rejected with 422.
-        date_format: { type: string }
+        date_format: { $ref: '#/components/schemas/DateFormat' }
         language: { type: string }
         prices_include_tax: { type: boolean }
         default_tax_country: { type: string }
