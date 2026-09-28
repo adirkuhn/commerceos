@@ -1,6 +1,33 @@
 {
   "components": [
     {
+      "type": "account-link",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "customer",
+      "required_in": [],
+      "props": [
+        "account_label",
+        "login_label"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "account-overview",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "customer",
+      "required_in": [
+        "account"
+      ],
+      "props": [
+        "show_orders"
+      ],
+      "required_props": []
+    },
+    {
       "type": "add-to-cart",
       "container": false,
       "allowed_children": [],
@@ -15,6 +42,22 @@
       ],
       "required_props": [
         "label"
+      ]
+    },
+    {
+      "type": "banner",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "link",
+        "link_label",
+        "text"
+      ],
+      "required_props": [
+        "text"
       ]
     },
     {
@@ -62,6 +105,19 @@
       "required_props": []
     },
     {
+      "type": "cart-link",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "cart",
+      "required_in": [],
+      "props": [
+        "label",
+        "show_count"
+      ],
+      "required_props": []
+    },
+    {
       "type": "cart-summary",
       "container": false,
       "allowed_children": [],
@@ -88,6 +144,20 @@
       ]
     },
     {
+      "type": "checkout-form",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "cart",
+      "required_in": [
+        "checkout"
+      ],
+      "props": [
+        "button_label"
+      ],
+      "required_props": []
+    },
+    {
       "type": "collection-filters",
       "container": false,
       "allowed_children": [],
@@ -111,6 +181,22 @@
         "show_image"
       ],
       "required_props": []
+    },
+    {
+      "type": "collection-list",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "collection_ids",
+        "limit",
+        "source"
+      ],
+      "required_props": [
+        "source"
+      ]
     },
     {
       "type": "collection-products",
@@ -184,6 +270,26 @@
       ]
     },
     {
+      "type": "hero",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "align",
+        "button_label",
+        "button_link",
+        "height",
+        "image",
+        "subtitle",
+        "title"
+      ],
+      "required_props": [
+        "title"
+      ]
+    },
+    {
       "type": "image",
       "container": false,
       "allowed_children": [],
@@ -199,6 +305,68 @@
       "required_props": [
         "image"
       ]
+    },
+    {
+      "type": "login-form",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "customer",
+      "required_in": [
+        "login"
+      ],
+      "props": [
+        "button_label",
+        "title"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "navigation-menu",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "items",
+        "orientation"
+      ],
+      "required_props": [
+        "items"
+      ]
+    },
+    {
+      "type": "newsletter-signup",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "button_label",
+        "consent_label",
+        "text",
+        "title"
+      ],
+      "required_props": [
+        "button_label",
+        "consent_label"
+      ]
+    },
+    {
+      "type": "order-status",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "order",
+      "required_in": [
+        "order-confirmation"
+      ],
+      "props": [
+        "title"
+      ],
+      "required_props": []
     },
     {
       "type": "pagination",
@@ -331,6 +499,18 @@
       "required_props": []
     },
     {
+      "type": "search-box",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "placeholder"
+      ],
+      "required_props": []
+    },
+    {
       "type": "section",
       "container": true,
       "allowed_children": [],
@@ -341,6 +521,18 @@
       "required_in": [],
       "props": [
         "full_width"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "site-logo",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "size"
       ],
       "required_props": []
     },
@@ -381,6 +573,33 @@
       "required_in": [],
       "props": [
         "style"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "wishlist-button",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "product",
+      "required_in": [],
+      "props": [
+        "add_label",
+        "remove_label"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "wishlist-items",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "customer",
+      "required_in": [
+        "wishlist"
+      ],
+      "props": [
+        "empty_message"
       ],
       "required_props": []
     }

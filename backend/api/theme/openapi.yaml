@@ -995,3 +995,127 @@ components:
       x-commerceos-component: { type: checkout-button, data_context: cart }
       properties:
         label: { type: string, minLength: 1, maxLength: 60 }
+    # Header and navigation
+    SiteLogoProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: site-logo }
+      properties:
+        size: { type: string, enum: [sm, md, lg] }
+    NavigationLink:
+      type: object
+      required: [label, link]
+      additionalProperties: false
+      properties:
+        label: { type: string, minLength: 1, maxLength: 40 }
+        link: { $ref: '#/components/schemas/SafeLink' }
+    NavigationMenuProps:
+      type: object
+      required: [items]
+      additionalProperties: false
+      x-commerceos-component: { type: navigation-menu }
+      properties:
+        items: { type: array, maxItems: 12, items: { $ref: '#/components/schemas/NavigationLink' } }
+        orientation: { type: string, enum: [horizontal, vertical] }
+    CartLinkProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: cart-link, data_context: cart }
+      properties:
+        label: { type: string, maxLength: 30 }
+        show_count: { type: boolean }
+    SearchBoxProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: search-box }
+      properties:
+        placeholder: { type: string, maxLength: 60 }
+    AccountLinkProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: account-link, data_context: customer }
+      properties:
+        login_label: { type: string, maxLength: 30 }
+        account_label: { type: string, maxLength: 30 }
+    # Content
+    HeroProps:
+      type: object
+      required: [title]
+      additionalProperties: false
+      x-commerceos-component: { type: hero }
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        subtitle: { type: string, maxLength: 300 }
+        image: { $ref: '#/components/schemas/AssetReference' }
+        button_label: { type: string, maxLength: 60 }
+        button_link: { $ref: '#/components/schemas/SafeLink' }
+        align: { type: string, enum: [left, center] }
+        height: { type: string, enum: [md, lg, screen] }
+    BannerProps:
+      type: object
+      required: [text]
+      additionalProperties: false
+      x-commerceos-component: { type: banner }
+      properties:
+        text: { type: string, minLength: 1, maxLength: 200 }
+        link_label: { type: string, maxLength: 60 }
+        link: { $ref: '#/components/schemas/SafeLink' }
+    CollectionListProps:
+      type: object
+      required: [source]
+      additionalProperties: false
+      x-commerceos-component: { type: collection-list }
+      properties:
+        source: { type: string, enum: [all, picked] }
+        collection_ids: { type: array, maxItems: 24, items: { type: string, maxLength: 36 } }
+        limit: { type: integer, minimum: 1, maximum: 24 }
+    NewsletterSignupProps:
+      type: object
+      required: [button_label, consent_label]
+      additionalProperties: false
+      x-commerceos-component: { type: newsletter-signup }
+      properties:
+        title: { type: string, maxLength: 120 }
+        text: { type: string, maxLength: 300 }
+        button_label: { type: string, minLength: 1, maxLength: 40 }
+        consent_label: { type: string, minLength: 1, maxLength: 200 }
+    # Customer
+    LoginFormProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: login-form, data_context: customer, required_in: [login] }
+      properties:
+        title: { type: string, maxLength: 120 }
+        button_label: { type: string, maxLength: 40 }
+    AccountOverviewProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: account-overview, data_context: customer, required_in: [account] }
+      properties:
+        show_orders: { type: boolean }
+    WishlistItemsProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: wishlist-items, data_context: customer, required_in: [wishlist] }
+      properties:
+        empty_message: { type: string, maxLength: 200 }
+    WishlistButtonProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: wishlist-button, data_context: product }
+      properties:
+        add_label: { type: string, maxLength: 40 }
+        remove_label: { type: string, maxLength: 40 }
+    # Checkout
+    CheckoutFormProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: checkout-form, data_context: cart, required_in: [checkout] }
+      properties:
+        button_label: { type: string, maxLength: 40 }
+    OrderStatusProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: order-status, data_context: order, required_in: [order-confirmation] }
+      properties:
+        title: { type: string, maxLength: 120 }
