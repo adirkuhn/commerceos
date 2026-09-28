@@ -72,8 +72,29 @@ func toGenSummaries(docs []theme.Document) []gentheme.DocumentSummary {
 func toGenDraft(v apptheme.VersionView) gentheme.Draft {
 	return gentheme.Draft{
 		Theme: toGenTheme(v.Theme), Version: toGenVersion(v.Version), Documents: toGenSummaries(v.Documents),
-		SalesChannelId: toUUID(v.Theme.SalesChannelID),
+		SalesChannelId: toUUID(v.Theme.SalesChannelID), Assets: toGenAssetRefs(v.Assets),
 	}
+}
+
+func toGenAssetRefs(assets map[string]theme.Asset) *gentheme.AssetRefs {
+	refs := gentheme.AssetRefs{}
+	for id, a := range assets {
+		refs[id] = gentheme.AssetRef{Url: a.URL, Width: a.Width, Height: a.Height, Alt: a.Alt}
+	}
+	return &refs
+}
+
+func toGenAsset(a theme.Asset) gentheme.Asset {
+	return gentheme.Asset{
+		Id: toUUID(a.ID), Url: a.URL, Filename: a.Filename, ContentType: a.ContentType, Bytes: a.Bytes,
+		Width: a.Width, Height: a.Height, Alt: a.Alt, CreatedAt: a.CreatedAt,
+	}
+}
+
+func toGenDocumentView(v apptheme.DocumentView) gentheme.Document {
+	d := toGenDocument(v.Document)
+	d.Assets = toGenAssetRefs(v.Assets)
+	return d
 }
 
 func toGenDocument(d theme.Document) gentheme.Document {

@@ -202,6 +202,56 @@ paths:
         '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/SessionTokenResponse' } } } }
         '401': { $ref: '#/components/responses/Error' }
 
+  /theme-editor/assets:
+    get:
+      operationId: listAssets
+      summary: The tenant's theme media library, newest first
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PerPage' }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/AssetListResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: uploadAsset
+      summary: Upload an image (JPEG, PNG, WebP, GIF or ICO, max 10 MB; type detected from the bytes)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                alt: { type: string, maxLength: 250 }
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/AssetResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /theme-editor/assets/{assetId}:
+    parameters:
+      - { name: assetId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      operationId: updateAsset
+      summary: Change an image's description (alt text)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateAssetRequest' } } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/AssetResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteAsset
+      summary: Remove an image from the library (published versions keep showing it)
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
   # ── Public storefront (channel storefront key) ──────────────────────────
   /storefront/v1/theme:
     get:
@@ -400,6 +450,51 @@ components:
         data: { $ref: '#/components/schemas/SessionToken' }
         error: { nullable: true }
 
+    # ── Assets ──
+    Asset:
+      type: object
+      required: [id, url, filename, content_type, bytes, width, height, alt, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string }
+        filename: { type: string }
+        content_type: { type: string }
+        bytes: { type: integer, format: int64 }
+        width: { type: integer, description: 0 when unknown (e.g. WebP, ICO). }
+        height: { type: integer }
+        alt: { type: string }
+        created_at: { type: string, format: date-time }
+    AssetRef:
+      type: object
+      description: How a referenced asset ("asset:<id>") renders.
+      required: [url, width, height, alt]
+      properties:
+        url: { type: string }
+        width: { type: integer }
+        height: { type: integer }
+        alt: { type: string }
+    AssetRefs:
+      type: object
+      description: Assets referenced by the enclosing object, keyed by asset id.
+      additionalProperties: { $ref: '#/components/schemas/AssetRef' }
+    AssetResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Asset' }
+        error: { nullable: true }
+    AssetListResponse:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Asset' } }
+        total: { type: integer }
+        error: { nullable: true }
+    UpdateAssetRequest:
+      type: object
+      required: [alt]
+      additionalProperties: false
+      properties:
+        alt: { type: string, maxLength: 250 }
+
     # ── Documents ──
     DocumentKind:
       type: string
@@ -426,6 +521,7 @@ components:
         title: { type: string }
         seo: { $ref: '#/components/schemas/SEO' }
         root: { $ref: '#/components/schemas/ThemeNode' }
+        assets: { $ref: '#/components/schemas/AssetRefs' }
     DocumentResponse:
       type: object
       properties:
@@ -538,6 +634,7 @@ components:
         theme: { $ref: '#/components/schemas/Theme' }
         version: { $ref: '#/components/schemas/Version' }
         documents: { type: array, items: { $ref: '#/components/schemas/DocumentSummary' } }
+        assets: { $ref: '#/components/schemas/AssetRefs' }
         sales_channel_id:
           type: string
           format: uuid
@@ -564,6 +661,7 @@ components:
         preview: { type: boolean, description: True when this is a draft shown through a preview session. }
         settings: { $ref: '#/components/schemas/ThemeSettings' }
         documents: { type: array, items: { $ref: '#/components/schemas/DocumentSummary' } }
+        assets: { $ref: '#/components/schemas/AssetRefs' }
     StorefrontThemeResponse:
       type: object
       properties:

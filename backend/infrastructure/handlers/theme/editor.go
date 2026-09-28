@@ -54,7 +54,7 @@ func (h *Handler) GetDraftDocument(c *gin.Context, kind gentheme.DocumentKindPar
 	if fail(c, err) {
 		return
 	}
-	middleware.OK(c, toGenDocument(*d))
+	middleware.OK(c, toGenDocumentView(*d))
 }
 
 func (h *Handler) SaveDraftDocument(c *gin.Context, kind gentheme.DocumentKindParam, key gentheme.DocumentKeyParam) {

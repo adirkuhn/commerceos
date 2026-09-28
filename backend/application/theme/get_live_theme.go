@@ -32,11 +32,11 @@ func (uc *GetLiveThemeUseCase) Execute(ctx context.Context, salesChannelID strin
 		if err != nil {
 			return err
 		}
-		docs, err := uc.deps.Docs.List(ctx, v.ID)
+		view, err := uc.deps.versionView(ctx, *th, *v)
 		if err != nil {
 			return err
 		}
-		out = VersionView{Theme: *th, Version: *v, Documents: docs}
+		out = *view
 		return nil
 	})
 	if err != nil {

@@ -527,7 +527,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("theme: load openapi spec: %v", err)
 	}
-	themeUseCases, err := themehandler.NewUseCases(db)
+	themeUseCases, err := themehandler.NewUseCases(db, fileStorage)
 	if err != nil {
 		log.Fatalf("theme: %v", err)
 	}

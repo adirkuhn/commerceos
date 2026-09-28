@@ -55,6 +55,7 @@ func (h *Handler) GetStorefrontTheme(c *gin.Context, params gentheme.GetStorefro
 	middleware.OK(c, gentheme.StorefrontTheme{
 		VersionId: toUUID(view.Version.ID), VersionNumber: view.Version.Number, Preview: caller.preview != nil,
 		Settings: toGenSettings(view.Version.Settings), Documents: toGenSummaries(view.Documents),
+		Assets: toGenAssetRefs(view.Assets),
 	})
 }
 
@@ -68,7 +69,7 @@ func (h *Handler) GetStorefrontThemeDocument(c *gin.Context, versionID uuid.UUID
 		return
 	}
 	c.Header("Cache-Control", immutableCache)
-	middleware.OK(c, toGenDocument(*d))
+	middleware.OK(c, toGenDocumentView(*d))
 }
 
 func (h *Handler) GetStorefrontPreviewDocument(c *gin.Context, kind gentheme.DocumentKindParam, key gentheme.DocumentKeyParam, params gentheme.GetStorefrontPreviewDocumentParams) {
@@ -85,5 +86,5 @@ func (h *Handler) GetStorefrontPreviewDocument(c *gin.Context, kind gentheme.Doc
 		return
 	}
 	c.Header("Cache-Control", previewCache)
-	middleware.OK(c, toGenDocument(*d))
+	middleware.OK(c, toGenDocumentView(*d))
 }

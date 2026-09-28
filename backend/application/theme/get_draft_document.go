@@ -14,8 +14,8 @@ func NewGetDraftDocumentUseCase(deps Deps) *GetDraftDocumentUseCase {
 	return &GetDraftDocumentUseCase{deps: deps}
 }
 
-func (uc *GetDraftDocumentUseCase) Execute(ctx context.Context, themeID string, kind theme.DocumentKind, key string) (*theme.Document, error) {
-	var out *theme.Document
+func (uc *GetDraftDocumentUseCase) Execute(ctx context.Context, themeID string, kind theme.DocumentKind, key string) (*DocumentView, error) {
+	var out *DocumentView
 	err := tenant.WithTenant(ctx, uc.deps.DB, func(ctx context.Context) error {
 		draft, err := uc.deps.Versions.FindDraft(ctx, themeID, false)
 		if err != nil {
@@ -24,7 +24,11 @@ func (uc *GetDraftDocumentUseCase) Execute(ctx context.Context, themeID string, 
 		if draft == nil {
 			return theme.ErrNoDraft
 		}
-		out, err = uc.deps.Docs.Find(ctx, draft.ID, kind, key)
+		doc, err := uc.deps.Docs.Find(ctx, draft.ID, kind, key)
+		if err != nil {
+			return err
+		}
+		out, err = uc.deps.documentView(ctx, doc)
 		return err
 	})
 	if err != nil {

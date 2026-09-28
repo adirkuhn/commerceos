@@ -14,6 +14,20 @@ type VersionView struct {
 	Theme     theme.Theme
 	Version   theme.Version
 	Documents []theme.Document
+	// Assets the settings refer to (logo, favicon), keyed by id.
+	Assets map[string]theme.Asset
+}
+
+func (d Deps) versionView(ctx context.Context, th theme.Theme, v theme.Version) (*VersionView, error) {
+	docs, err := d.Docs.List(ctx, v.ID)
+	if err != nil {
+		return nil, err
+	}
+	assets, err := d.resolveAssets(ctx, v.Settings.ReferencedAssetIDs())
+	if err != nil {
+		return nil, err
+	}
+	return &VersionView{Theme: th, Version: v, Documents: docs, Assets: assets}, nil
 }
 
 // OpenDraftUseCase is what the editor calls on load: it returns the
@@ -39,11 +53,11 @@ func (uc *OpenDraftUseCase) Execute(ctx context.Context, themeID, userID string)
 				return err
 			}
 		}
-		docs, err := uc.deps.Docs.List(ctx, draft.ID)
+		view, err := uc.deps.versionView(ctx, *th, *draft)
 		if err != nil {
 			return err
 		}
-		out = VersionView{Theme: *th, Version: *draft, Documents: docs}
+		out = *view
 		return nil
 	})
 	if err != nil {

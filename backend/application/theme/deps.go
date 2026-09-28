@@ -37,6 +37,8 @@ type Deps struct {
 	Sessions theme.SessionRepository
 	Outbox   outboxEnqueuer
 	Catalog  *theme.Catalog
+	Assets   theme.AssetRepository
+	Storage  theme.AssetStorage
 	// NewToken returns a fresh, unguessable bearer token.
 	NewToken func() (string, error)
 	Now      func() time.Time
@@ -120,4 +122,36 @@ func (d Deps) previewVersion(ctx context.Context, salesChannelID, themeID string
 		}
 	}
 	return th, v, nil
+}
+
+// resolveAssets looks up the referenced assets (deleted ones included --
+// a published version may still show them), keyed by id. Unknown ids are
+// left out; the storefront renders nothing for them.
+func (d Deps) resolveAssets(ctx context.Context, ids []string) (map[string]theme.Asset, error) {
+	out := map[string]theme.Asset{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	found, err := d.Assets.FindByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range found {
+		out[a.ID] = a
+	}
+	return out, nil
+}
+
+// DocumentView is a document plus the assets it refers to.
+type DocumentView struct {
+	theme.Document
+	Assets map[string]theme.Asset
+}
+
+func (d Deps) documentView(ctx context.Context, doc *theme.Document) (*DocumentView, error) {
+	assets, err := d.resolveAssets(ctx, theme.ReferencedAssetIDs(doc.Root))
+	if err != nil {
+		return nil, err
+	}
+	return &DocumentView{Document: *doc, Assets: assets}, nil
 }

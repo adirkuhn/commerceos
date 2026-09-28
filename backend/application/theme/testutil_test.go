@@ -3,6 +3,7 @@ package theme_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"sort"
 	"testing"
 	"time"
@@ -274,6 +275,74 @@ func (f *fakeSessions) FindByTokenHash(_ context.Context, h string) (*theme.Sess
 	return &s, nil
 }
 
+type fakeAssets struct {
+	byID   map[string]theme.Asset
+	nextID int
+}
+
+func (f *fakeAssets) Create(_ context.Context, a *theme.Asset) error {
+	f.nextID++
+	a.ID = fmt.Sprintf("00000000-0000-4000-8000-%012d", f.nextID)
+	f.byID[a.ID] = *a
+	return nil
+}
+
+func (f *fakeAssets) FindByID(_ context.Context, id string) (*theme.Asset, error) {
+	a, ok := f.byID[id]
+	if !ok {
+		return nil, theme.ErrAssetNotFound
+	}
+	return &a, nil
+}
+
+func (f *fakeAssets) ListActive(_ context.Context, limit, offset int) ([]theme.Asset, int64, error) {
+	var out []theme.Asset
+	for _, a := range f.byID {
+		if a.DeletedAt == nil {
+			out = append(out, a)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID > out[j].ID })
+	total := int64(len(out))
+	if offset > len(out) {
+		offset = len(out)
+	}
+	out = out[offset:]
+	if limit < len(out) {
+		out = out[:limit]
+	}
+	return out, total, nil
+}
+
+func (f *fakeAssets) FindByIDs(_ context.Context, ids []string) ([]theme.Asset, error) {
+	var out []theme.Asset
+	for _, id := range ids {
+		if a, ok := f.byID[id]; ok {
+			out = append(out, a)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeAssets) Update(_ context.Context, a *theme.Asset) error {
+	f.byID[a.ID] = *a
+	return nil
+}
+
+type fakeStorage struct {
+	saved []string
+	err   error
+}
+
+func (f *fakeStorage) Save(_ context.Context, tenantID, filename string, data io.Reader) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	b, _ := io.ReadAll(data)
+	f.saved = append(f.saved, filename)
+	return fmt.Sprintf("https://cdn.test/%s/%d-%s", tenantID, len(b), filename), nil
+}
+
 type fakeOutbox struct{ subjects []string }
 
 func (f *fakeOutbox) Enqueue(_ context.Context, subject, _ string, _ []byte, _ time.Time) error {
@@ -292,6 +361,8 @@ type world struct {
 	docs     *fakeDocs
 	sessions *fakeSessions
 	outbox   *fakeOutbox
+	assets   *fakeAssets
+	storage  *fakeStorage
 	deps     apptheme.Deps
 }
 
@@ -304,16 +375,19 @@ func newWorld(t *testing.T) *world {
 		docs:     &fakeDocs{byID: map[string]theme.Document{}},
 		sessions: &fakeSessions{byHash: map[string]theme.Session{}},
 		outbox:   &fakeOutbox{},
+		assets:   &fakeAssets{byID: map[string]theme.Asset{}},
+		storage:  &fakeStorage{},
 	}
 	catalog, err := theme.NewCatalog([]theme.ComponentRule{
 		{Type: "section", Container: true, AllowedParents: []string{theme.RootType}},
 		{Type: "heading"},
+		{Type: "image"},
 	})
 	require.NoError(t, err)
 	tokens := 0
 	w.deps = apptheme.Deps{
 		DB: newMockGormDB(t, 20), Channels: w.channels, Themes: w.themes, Versions: w.versions, Docs: w.docs,
-		Sessions: w.sessions, Outbox: w.outbox, Catalog: catalog,
+		Sessions: w.sessions, Outbox: w.outbox, Catalog: catalog, Assets: w.assets, Storage: w.storage,
 		NewToken: func() (string, error) { tokens++; return fmt.Sprintf("token-%d", tokens), nil },
 		Now:      func() time.Time { return time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC) },
 	}

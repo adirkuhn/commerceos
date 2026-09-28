@@ -80,9 +80,9 @@ func (f settingsFunc) Execute(ctx context.Context, in apptheme.SaveDraftSettings
 	return f(ctx, in)
 }
 
-type getDocFunc func(context.Context, string, theme.DocumentKind, string) (*theme.Document, error)
+type getDocFunc func(context.Context, string, theme.DocumentKind, string) (*apptheme.DocumentView, error)
 
-func (f getDocFunc) Execute(ctx context.Context, id string, k theme.DocumentKind, key string) (*theme.Document, error) {
+func (f getDocFunc) Execute(ctx context.Context, id string, k theme.DocumentKind, key string) (*apptheme.DocumentView, error) {
 	return f(ctx, id, k, key)
 }
 
@@ -110,9 +110,9 @@ func (f liveFunc) Execute(ctx context.Context, ch string) (*apptheme.VersionView
 	return f(ctx, ch)
 }
 
-type publishedDocFunc func(context.Context, string, string, theme.DocumentKind, string) (*theme.Document, error)
+type publishedDocFunc func(context.Context, string, string, theme.DocumentKind, string) (*apptheme.DocumentView, error)
 
-func (f publishedDocFunc) Execute(ctx context.Context, ch, v string, k theme.DocumentKind, key string) (*theme.Document, error) {
+func (f publishedDocFunc) Execute(ctx context.Context, ch, v string, k theme.DocumentKind, key string) (*apptheme.DocumentView, error) {
 	return f(ctx, ch, v, k, key)
 }
 
@@ -122,9 +122,9 @@ func (f previewFunc) Execute(ctx context.Context, ch, id string) (*apptheme.Vers
 	return f(ctx, ch, id)
 }
 
-type previewDocFunc func(context.Context, string, string, theme.DocumentKind, string) (*theme.Document, error)
+type previewDocFunc func(context.Context, string, string, theme.DocumentKind, string) (*apptheme.DocumentView, error)
 
-func (f previewDocFunc) Execute(ctx context.Context, ch, id string, k theme.DocumentKind, key string) (*theme.Document, error) {
+func (f previewDocFunc) Execute(ctx context.Context, ch, id string, k theme.DocumentKind, key string) (*apptheme.DocumentView, error) {
 	return f(ctx, ch, id, k, key)
 }
 
@@ -132,4 +132,22 @@ type keyFunc func(context.Context, string) (apikeysDomain.ResolvedAPIKey, error)
 
 func (f keyFunc) Execute(ctx context.Context, k string) (apikeysDomain.ResolvedAPIKey, error) {
 	return f(ctx, k)
+}
+
+type listAssetsFunc func(context.Context, int, int) ([]theme.Asset, int64, error)
+
+func (f listAssetsFunc) Execute(ctx context.Context, p, pp int) ([]theme.Asset, int64, error) {
+	return f(ctx, p, pp)
+}
+
+type uploadAssetFunc func(context.Context, apptheme.UploadAssetInput) (*theme.Asset, error)
+
+func (f uploadAssetFunc) Execute(ctx context.Context, in apptheme.UploadAssetInput) (*theme.Asset, error) {
+	return f(ctx, in)
+}
+
+type updateAssetFunc func(context.Context, string, string) (*theme.Asset, error)
+
+func (f updateAssetFunc) Execute(ctx context.Context, id, alt string) (*theme.Asset, error) {
+	return f(ctx, id, alt)
 }

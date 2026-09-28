@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -51,18 +52,28 @@ func sampleDoc() theme.Document {
 // stub is one configurable fake satisfying every use-case port the handler
 // needs; each test sets only what it exercises.
 type stub struct {
-	err          error
-	gotCtx       context.Context
-	gotSave      apptheme.SaveDraftDocumentInput
-	gotPublish   apptheme.PublishThemeInput
-	gotSession   apptheme.CreateSessionInput
-	gotRevision  int
-	gotPreviewCh string
-	session      *theme.Session
-	sessionErr   error
-	key          apikeysDomain.ResolvedAPIKey
-	keyErr       error
+	err            error
+	gotCtx         context.Context
+	gotSave        apptheme.SaveDraftDocumentInput
+	gotPublish     apptheme.PublishThemeInput
+	gotSession     apptheme.CreateSessionInput
+	gotRevision    int
+	gotPreviewCh   string
+	session        *theme.Session
+	sessionErr     error
+	key            apikeysDomain.ResolvedAPIKey
+	keyErr         error
+	gotUpload      apptheme.UploadAssetInput
+	gotUploadBytes []byte
 }
+
+const assetID = "44444444-4444-4444-8444-444444444444"
+
+func sampleAsset() theme.Asset {
+	return theme.Asset{ID: assetID, URL: "https://cdn.test/a.png", Filename: "a.png", ContentType: "image/png", Bytes: 10, Width: 4, Height: 3, Alt: "A", CreatedAt: testNow}
+}
+
+func sampleAssets() map[string]theme.Asset { return map[string]theme.Asset{assetID: sampleAsset()} }
 
 func (s *stub) list(ctx context.Context, _ string, _, _ int) ([]theme.Theme, int64, error) {
 	s.gotCtx = ctx
@@ -116,9 +127,8 @@ func newRouter(t *testing.T, s *stub) *gin.Engine {
 			v := sampleVersion(theme.VersionStateDraft)
 			return &v, s.err
 		}),
-		GetDraftDocument: getDocFunc(func(context.Context, string, theme.DocumentKind, string) (*theme.Document, error) {
-			d := sampleDoc()
-			return &d, s.err
+		GetDraftDocument: getDocFunc(func(context.Context, string, theme.DocumentKind, string) (*apptheme.DocumentView, error) {
+			return &apptheme.DocumentView{Document: sampleDoc(), Assets: sampleAssets()}, s.err
 		}),
 		SaveDraftDocument: saveDocFunc(func(_ context.Context, in apptheme.SaveDraftDocumentInput) (*apptheme.DraftWrite, error) {
 			s.gotSave = in
@@ -135,18 +145,33 @@ func newRouter(t *testing.T, s *stub) *gin.Engine {
 			s.gotCtx = ctx
 			return &apptheme.VersionView{Theme: sampleTheme(), Version: sampleVersion(theme.VersionStateSealed)}, s.err
 		}),
-		GetPublishedDocument: publishedDocFunc(func(context.Context, string, string, theme.DocumentKind, string) (*theme.Document, error) {
-			d := sampleDoc()
-			return &d, s.err
+		GetPublishedDocument: publishedDocFunc(func(context.Context, string, string, theme.DocumentKind, string) (*apptheme.DocumentView, error) {
+			return &apptheme.DocumentView{Document: sampleDoc(), Assets: sampleAssets()}, s.err
 		}),
 		GetPreviewTheme: previewFunc(func(_ context.Context, ch, _ string) (*apptheme.VersionView, error) {
 			s.gotPreviewCh = ch
 			return &apptheme.VersionView{Theme: sampleTheme(), Version: sampleVersion(theme.VersionStateDraft)}, s.err
 		}),
-		GetPreviewDocument: previewDocFunc(func(context.Context, string, string, theme.DocumentKind, string) (*theme.Document, error) {
-			d := sampleDoc()
-			return &d, s.err
+		GetPreviewDocument: previewDocFunc(func(context.Context, string, string, theme.DocumentKind, string) (*apptheme.DocumentView, error) {
+			return &apptheme.DocumentView{Document: sampleDoc()}, s.err
 		}),
+		ListAssets: listAssetsFunc(func(context.Context, int, int) ([]theme.Asset, int64, error) {
+			return []theme.Asset{sampleAsset()}, 1, s.err
+		}),
+		UploadAsset: uploadAssetFunc(func(_ context.Context, in apptheme.UploadAssetInput) (*theme.Asset, error) {
+			s.gotUpload = in
+			if in.Data != nil {
+				s.gotUploadBytes, _ = io.ReadAll(in.Data)
+			}
+			a := sampleAsset()
+			return &a, s.err
+		}),
+		UpdateAsset: updateAssetFunc(func(_ context.Context, _, alt string) (*theme.Asset, error) {
+			a := sampleAsset()
+			a.Alt = alt
+			return &a, s.err
+		}),
+		DeleteAsset: deleteFunc(func(context.Context, string) error { return s.err }),
 		ResolveStorefrontKey: keyFunc(func(_ context.Context, k string) (apikeysDomain.ResolvedAPIKey, error) {
 			if k != "shop-key" {
 				return apikeysDomain.ResolvedAPIKey{}, errors.New("bad key")

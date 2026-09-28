@@ -18,8 +18,8 @@ func NewGetPublishedDocumentUseCase(deps Deps) *GetPublishedDocumentUseCase {
 	return &GetPublishedDocumentUseCase{deps: deps}
 }
 
-func (uc *GetPublishedDocumentUseCase) Execute(ctx context.Context, salesChannelID, versionID string, kind theme.DocumentKind, key string) (*theme.Document, error) {
-	var out *theme.Document
+func (uc *GetPublishedDocumentUseCase) Execute(ctx context.Context, salesChannelID, versionID string, kind theme.DocumentKind, key string) (*DocumentView, error) {
+	var out *DocumentView
 	err := tenant.WithTenant(ctx, uc.deps.DB, func(ctx context.Context) error {
 		if _, err := uc.deps.requireThemedChannel(ctx, salesChannelID); err != nil {
 			return err
@@ -38,7 +38,11 @@ func (uc *GetPublishedDocumentUseCase) Execute(ctx context.Context, salesChannel
 		if th.SalesChannelID != salesChannelID {
 			return theme.ErrVersionNotFound
 		}
-		out, err = uc.deps.Docs.Find(ctx, v.ID, kind, key)
+		doc, err := uc.deps.Docs.Find(ctx, v.ID, kind, key)
+		if err != nil {
+			return err
+		}
+		out, err = uc.deps.documentView(ctx, doc)
 		return err
 	})
 	if err != nil {

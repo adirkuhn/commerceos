@@ -15,7 +15,7 @@ import (
 var (
 	notFound = []error{
 		theme.ErrThemeNotFound, theme.ErrVersionNotFound, theme.ErrDocumentNotFound, theme.ErrNoLiveTheme,
-		channelsDomain.ErrSalesChannelNotFound,
+		channelsDomain.ErrSalesChannelNotFound, theme.ErrAssetNotFound,
 	}
 	conflict = []error{
 		theme.ErrRevisionConflict, theme.ErrThemeIsLive, theme.ErrVersionSealed, theme.ErrDocumentExists,
@@ -25,6 +25,7 @@ var (
 		theme.ErrInvalidThemeName, theme.ErrUnknownPreset, theme.ErrInvalidDocumentKind, theme.ErrInvalidDocumentKey,
 		theme.ErrInvalidDocumentTitle, theme.ErrInvalidDocument, theme.ErrInvalidStyle, theme.ErrInvalidSettings,
 		theme.ErrInvalidSessionPurpose, theme.ErrVersionNotSealed, theme.ErrVersionNotInTheme, theme.ErrDocumentNotDeletable,
+		theme.ErrUnsupportedAssetType, theme.ErrAssetTooLarge, theme.ErrInvalidAssetAlt,
 	}
 )
 

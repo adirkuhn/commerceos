@@ -55,7 +55,7 @@ type UseCases struct {
 		Execute(ctx context.Context, in apptheme.SaveDraftSettingsInput) (*theme.Version, error)
 	}
 	GetDraftDocument interface {
-		Execute(ctx context.Context, themeID string, kind theme.DocumentKind, key string) (*theme.Document, error)
+		Execute(ctx context.Context, themeID string, kind theme.DocumentKind, key string) (*apptheme.DocumentView, error)
 	}
 	SaveDraftDocument interface {
 		Execute(ctx context.Context, in apptheme.SaveDraftDocumentInput) (*apptheme.DraftWrite, error)
@@ -70,13 +70,25 @@ type UseCases struct {
 		Execute(ctx context.Context, salesChannelID string) (*apptheme.VersionView, error)
 	}
 	GetPublishedDocument interface {
-		Execute(ctx context.Context, salesChannelID, versionID string, kind theme.DocumentKind, key string) (*theme.Document, error)
+		Execute(ctx context.Context, salesChannelID, versionID string, kind theme.DocumentKind, key string) (*apptheme.DocumentView, error)
 	}
 	GetPreviewTheme interface {
 		Execute(ctx context.Context, salesChannelID, themeID string) (*apptheme.VersionView, error)
 	}
 	GetPreviewDocument interface {
-		Execute(ctx context.Context, salesChannelID, themeID string, kind theme.DocumentKind, key string) (*theme.Document, error)
+		Execute(ctx context.Context, salesChannelID, themeID string, kind theme.DocumentKind, key string) (*apptheme.DocumentView, error)
+	}
+	ListAssets interface {
+		Execute(ctx context.Context, page, perPage int) ([]theme.Asset, int64, error)
+	}
+	UploadAsset interface {
+		Execute(ctx context.Context, in apptheme.UploadAssetInput) (*theme.Asset, error)
+	}
+	UpdateAsset interface {
+		Execute(ctx context.Context, id, alt string) (*theme.Asset, error)
+	}
+	DeleteAsset interface {
+		Execute(ctx context.Context, id string) error
 	}
 	ResolveStorefrontKey interface {
 		Execute(ctx context.Context, plaintextKey string) (apikeysDomain.ResolvedAPIKey, error)
@@ -128,6 +140,10 @@ func RegisterPublic(rg gin.IRouter, h *Handler) {
 	rg.DELETE("/theme-editor/draft/pages/:key", w.DeleteDraftPage)
 	rg.POST("/theme-editor/publish", w.PublishDraft)
 	rg.POST("/theme-editor/preview-sessions", w.CreatePreviewSession)
+	rg.GET("/theme-editor/assets", w.ListAssets)
+	rg.POST("/theme-editor/assets", w.UploadAsset)
+	rg.PATCH("/theme-editor/assets/:assetId", w.UpdateAsset)
+	rg.DELETE("/theme-editor/assets/:assetId", w.DeleteAsset)
 	rg.GET("/storefront/v1/theme", w.GetStorefrontTheme)
 	rg.GET("/storefront/v1/theme/versions/:versionId/documents/:kind/:key", w.GetStorefrontThemeDocument)
 	rg.GET("/storefront/v1/theme/preview/documents/:kind/:key", w.GetStorefrontPreviewDocument)
