@@ -1,0 +1,704 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Storefront Theme API
+  description: >
+    Versioned storefront themes. Three audiences, three credentials:
+    /theme/* is the admin theme library (merchant JWT); /theme-editor/* is
+    the storefront-hosted visual editor (theme edit-session bearer token,
+    minted by POST /theme/themes/{themeId}/sessions); /storefront/v1/theme*
+    is what the public storefront renders from (channel storefront key).
+    See docs/storefront-architecture.md.
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  # ── Admin: theme library (JWT) ──────────────────────────────────────────
+  /theme/themes:
+    get:
+      operationId: listThemes
+      summary: List a sales channel's themes, live theme first
+      parameters:
+        - { name: sales_channel_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PerPage' }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/ThemeListResponse' } } } }
+        '422': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createTheme
+      summary: Add a theme to a channel's library, with a first draft from a preset
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateThemeRequest' } } }
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/ThemeResponse' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /theme/themes/{themeId}:
+    parameters: [{ $ref: '#/components/parameters/ThemeId' }]
+    get:
+      operationId: getTheme
+      summary: A theme with its draft and published version summaries
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/ThemeDetailResponse' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: renameTheme
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RenameThemeRequest' } } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/ThemeResponse' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteTheme
+      summary: Delete a theme and all its versions (not the live theme)
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyResponse' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /theme/themes/{themeId}/versions:
+    parameters: [{ $ref: '#/components/parameters/ThemeId' }]
+    get:
+      operationId: listThemeVersions
+      summary: The theme's versions, newest first
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PerPage' }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/VersionListResponse' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /theme/themes/{themeId}/publish:
+    parameters: [{ $ref: '#/components/parameters/ThemeId' }]
+    post:
+      operationId: publishTheme
+      summary: Seal the draft and make it the channel's live storefront
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PublishRequest' } } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/VersionResponse' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /theme/themes/{themeId}/rollback:
+    parameters: [{ $ref: '#/components/parameters/ThemeId' }]
+    post:
+      operationId: rollbackTheme
+      summary: Make an older published version live again
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RollbackRequest' } } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/ThemeResponse' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /theme/themes/{themeId}/sessions:
+    parameters: [{ $ref: '#/components/parameters/ThemeId' }]
+    post:
+      operationId: createThemeSession
+      summary: Mint an edit session (for the editor) or a preview session
+      description: The raw token is returned once; only its hash is stored.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateSessionRequest' } } }
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/SessionTokenResponse' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  # ── Editor (edit-session bearer token) ──────────────────────────────────
+  /theme-editor/draft:
+    post:
+      operationId: openDraft
+      summary: The session theme's draft (started from the published version if needed)
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/DraftResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+
+  /theme-editor/draft/settings:
+    put:
+      operationId: saveDraftSettings
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SaveSettingsRequest' } } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/VersionResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /theme-editor/draft/documents/{kind}/{key}:
+    parameters:
+      - { $ref: '#/components/parameters/DocumentKindParam' }
+      - { $ref: '#/components/parameters/DocumentKeyParam' }
+    get:
+      operationId: getDraftDocument
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/DocumentResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: saveDraftDocument
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SaveDocumentRequest' } } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/DraftWriteResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /theme-editor/draft/pages:
+    post:
+      operationId: createDraftPage
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreatePageRequest' } } }
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/DraftWriteResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /theme-editor/draft/pages/{key}:
+    parameters: [{ $ref: '#/components/parameters/DocumentKeyParam' }]
+    delete:
+      operationId: deleteDraftPage
+      parameters:
+        - { name: expected_revision, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/RevisionResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /theme-editor/publish:
+    post:
+      operationId: publishDraft
+      summary: Publish the session theme's draft (same as publishTheme)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PublishRequest' } } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/VersionResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /theme-editor/preview-sessions:
+    post:
+      operationId: createPreviewSession
+      summary: Mint a preview session for the session theme
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/SessionTokenResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+
+  # ── Public storefront (channel storefront key) ──────────────────────────
+  /storefront/v1/theme:
+    get:
+      operationId: getStorefrontTheme
+      summary: The channel's live theme (or, with a preview token, the previewed draft)
+      description: >
+        Settings plus the document index. Send X-Theme-Preview with a
+        preview-session token to get the draft instead; live shoppers are
+        unaffected. Documents are then fetched per version.
+      parameters:
+        - { $ref: '#/components/parameters/PreviewHeader' }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/StorefrontThemeResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /storefront/v1/theme/versions/{versionId}/documents/{kind}/{key}:
+    parameters:
+      - { name: versionId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { $ref: '#/components/parameters/DocumentKindParam' }
+      - { $ref: '#/components/parameters/DocumentKeyParam' }
+    get:
+      operationId: getStorefrontThemeDocument
+      summary: One document of a published version (immutable -- cached for a year)
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/DocumentResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /storefront/v1/theme/preview/documents/{kind}/{key}:
+    parameters:
+      - { $ref: '#/components/parameters/DocumentKindParam' }
+      - { $ref: '#/components/parameters/DocumentKeyParam' }
+      - { name: X-Theme-Preview, in: header, required: true, schema: { type: string } }
+    get:
+      operationId: getStorefrontPreviewDocument
+      summary: One document of the previewed draft (never cached)
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/DocumentResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+components:
+  parameters:
+    ThemeId: { name: themeId, in: path, required: true, schema: { type: string, format: uuid } }
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    PerPage: { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+    DocumentKindParam: { name: kind, in: path, required: true, schema: { $ref: '#/components/schemas/DocumentKind' } }
+    DocumentKeyParam: { name: key, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 64 } }
+    PreviewHeader: { name: X-Theme-Preview, in: header, required: false, schema: { type: string } }
+
+  responses:
+    Error:
+      description: error
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            node_id: { type: string, description: For VALIDATION_ERROR on a document, the offending node. }
+
+    EmptyResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error: { nullable: true }
+
+    # ── Theme library ──
+    Theme:
+      type: object
+      required: [id, sales_channel_id, name, preset_key, is_live, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        sales_channel_id: { type: string, format: uuid }
+        name: { type: string }
+        preset_key: { type: string }
+        published_version_id: { type: string, format: uuid, nullable: true }
+        is_live: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    VersionState:
+      type: string
+      enum: [draft, sealed]
+
+    VersionSummary:
+      type: object
+      required: [id, number, state, revision, note, created_by, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer }
+        state: { $ref: '#/components/schemas/VersionState' }
+        revision: { type: integer, description: Draft optimistic-concurrency counter; send it back as expected_revision. }
+        note: { type: string }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        sealed_at: { type: string, format: date-time, nullable: true }
+
+    Version:
+      allOf:
+        - $ref: '#/components/schemas/VersionSummary'
+        - type: object
+          required: [settings]
+          properties:
+            settings: { $ref: '#/components/schemas/ThemeSettings' }
+
+    ThemeDetail:
+      type: object
+      required: [theme]
+      properties:
+        theme: { $ref: '#/components/schemas/Theme' }
+        draft: { allOf: [{ $ref: '#/components/schemas/VersionSummary' }], nullable: true }
+        published: { allOf: [{ $ref: '#/components/schemas/VersionSummary' }], nullable: true }
+
+    ThemeResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Theme' }
+        error: { nullable: true }
+    ThemeDetailResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ThemeDetail' }
+        error: { nullable: true }
+    ThemeListResponse:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Theme' } }
+        total: { type: integer }
+        error: { nullable: true }
+    VersionResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Version' }
+        error: { nullable: true }
+    VersionListResponse:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/VersionSummary' } }
+        total: { type: integer }
+        error: { nullable: true }
+
+    CreateThemeRequest:
+      type: object
+      required: [sales_channel_id, name]
+      additionalProperties: false
+      properties:
+        sales_channel_id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        preset_key: { type: string, enum: [default], default: default }
+    RenameThemeRequest:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+    PublishRequest:
+      type: object
+      required: [expected_revision]
+      additionalProperties: false
+      properties:
+        expected_revision: { type: integer, minimum: 1 }
+        note: { type: string, maxLength: 500 }
+    RollbackRequest:
+      type: object
+      required: [version_id]
+      additionalProperties: false
+      properties:
+        version_id: { type: string, format: uuid }
+
+    SessionPurpose:
+      type: string
+      enum: [edit, preview]
+    CreateSessionRequest:
+      type: object
+      required: [purpose]
+      additionalProperties: false
+      properties:
+        purpose: { $ref: '#/components/schemas/SessionPurpose' }
+    SessionToken:
+      type: object
+      required: [token, expires_at]
+      properties:
+        token: { type: string }
+        expires_at: { type: string, format: date-time }
+    SessionTokenResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SessionToken' }
+        error: { nullable: true }
+
+    # ── Documents ──
+    DocumentKind:
+      type: string
+      enum: [template, page, section_group]
+    DocumentSummary:
+      type: object
+      required: [kind, key, title]
+      properties:
+        kind: { $ref: '#/components/schemas/DocumentKind' }
+        key: { type: string }
+        title: { type: string }
+    SEO:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, maxLength: 70 }
+        description: { type: string, maxLength: 320 }
+    Document:
+      type: object
+      required: [kind, key, title, seo, root]
+      properties:
+        kind: { $ref: '#/components/schemas/DocumentKind' }
+        key: { type: string }
+        title: { type: string }
+        seo: { $ref: '#/components/schemas/SEO' }
+        root: { $ref: '#/components/schemas/ThemeNode' }
+    DocumentResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Document' }
+        error: { nullable: true }
+
+    ThemeNode:
+      type: object
+      required: [id, type]
+      additionalProperties: false
+      description: >
+        One placed component. props are validated per type against the
+        matching x-commerceos-component schema below; style values come
+        from a fixed vocabulary.
+      properties:
+        id: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
+        type: { type: string, minLength: 1, maxLength: 64 }
+        props: { type: object, additionalProperties: true }
+        style: { $ref: '#/components/schemas/NodeStyle' }
+        children: { type: array, items: { $ref: '#/components/schemas/ThemeNode' } }
+
+    NodeStyle:
+      type: object
+      additionalProperties: false
+      properties:
+        base: { $ref: '#/components/schemas/StyleValues' }
+        tablet: { $ref: '#/components/schemas/StyleValues' }
+        mobile: { $ref: '#/components/schemas/StyleValues' }
+
+    SpacingScale: { type: string, enum: [none, xs, sm, md, lg, xl, 2xl, 3xl] }
+    StyleColor:
+      type: string
+      description: A theme colour token or a hex colour.
+      pattern: '^(primary|secondary|background|surface|text|muted|accent|transparent|#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6})$'
+    StyleValues:
+      type: object
+      additionalProperties: false
+      properties:
+        padding_x: { $ref: '#/components/schemas/SpacingScale' }
+        padding_y: { $ref: '#/components/schemas/SpacingScale' }
+        margin_top: { $ref: '#/components/schemas/SpacingScale' }
+        margin_bottom: { $ref: '#/components/schemas/SpacingScale' }
+        gap: { $ref: '#/components/schemas/SpacingScale' }
+        text_align: { type: string, enum: [left, center, right] }
+        align_items: { type: string, enum: [start, center, end, stretch] }
+        justify_content: { type: string, enum: [start, center, end, between] }
+        font_family: { type: string, enum: [heading, body] }
+        font_size: { type: string, enum: [xs, sm, base, lg, xl, 2xl, 3xl, 4xl, 5xl] }
+        font_weight: { type: string, enum: [regular, medium, semibold, bold] }
+        line_height: { type: string, enum: [tight, normal, relaxed] }
+        letter_spacing: { type: string, enum: [tight, normal, wide] }
+        text_transform: { type: string, enum: [none, uppercase] }
+        color: { $ref: '#/components/schemas/StyleColor' }
+        background_color: { $ref: '#/components/schemas/StyleColor' }
+        border_color: { $ref: '#/components/schemas/StyleColor' }
+        border_width: { type: string, enum: [none, thin, medium, thick] }
+        border_radius: { type: string, enum: [none, sm, md, lg, xl, full] }
+        shadow: { type: string, enum: [none, sm, md, lg] }
+        width: { type: string, enum: [auto, full, content, narrow] }
+        min_height: { type: string, enum: [none, sm, md, lg, screen] }
+        aspect_ratio: { type: string, enum: [auto, '1:1', '4:3', '3:2', '16:9', '3:4', '2:3'] }
+        background_image: { type: string, pattern: '^asset:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
+        background_size: { type: string, enum: [cover, contain] }
+        background_position: { type: string, enum: [center, top, bottom] }
+        columns: { type: string, enum: ['1', '2', '3', '4', '5', '6'] }
+        display: { type: string, enum: [show, hide] }
+
+    SaveDocumentRequest:
+      type: object
+      required: [expected_revision, root]
+      additionalProperties: false
+      properties:
+        expected_revision: { type: integer, minimum: 1 }
+        title: { type: string, maxLength: 120, description: Pages only (required there). }
+        seo: { $ref: '#/components/schemas/SEO' }
+        root: { $ref: '#/components/schemas/ThemeNode' }
+    CreatePageRequest:
+      type: object
+      required: [expected_revision, key, title]
+      additionalProperties: false
+      properties:
+        expected_revision: { type: integer, minimum: 1 }
+        key: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', maxLength: 64 }
+        title: { type: string, minLength: 1, maxLength: 120 }
+    DraftWrite:
+      type: object
+      required: [document, revision]
+      properties:
+        document: { $ref: '#/components/schemas/Document' }
+        revision: { type: integer }
+    DraftWriteResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/DraftWrite' }
+        error: { nullable: true }
+    RevisionResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          required: [revision]
+          properties:
+            revision: { type: integer }
+        error: { nullable: true }
+
+    Draft:
+      type: object
+      required: [theme, version, documents, sales_channel_id]
+      properties:
+        theme: { $ref: '#/components/schemas/Theme' }
+        version: { $ref: '#/components/schemas/Version' }
+        documents: { type: array, items: { $ref: '#/components/schemas/DocumentSummary' } }
+        sales_channel_id:
+          type: string
+          format: uuid
+          description: Doubles as the channel's storefront key, so the editor canvas can load live catalog data.
+    DraftResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Draft' }
+        error: { nullable: true }
+    SaveSettingsRequest:
+      type: object
+      required: [expected_revision, settings]
+      additionalProperties: false
+      properties:
+        expected_revision: { type: integer, minimum: 1 }
+        settings: { $ref: '#/components/schemas/ThemeSettings' }
+
+    StorefrontTheme:
+      type: object
+      required: [version_id, version_number, preview, settings, documents]
+      properties:
+        version_id: { type: string, format: uuid }
+        version_number: { type: integer }
+        preview: { type: boolean, description: True when this is a draft shown through a preview session. }
+        settings: { $ref: '#/components/schemas/ThemeSettings' }
+        documents: { type: array, items: { $ref: '#/components/schemas/DocumentSummary' } }
+    StorefrontThemeResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/StorefrontTheme' }
+        error: { nullable: true }
+
+    # ── Settings ──
+    HexColor: { type: string, pattern: '^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$' }
+    ThemeSettings:
+      type: object
+      required: [brand, colors, typography, layout, buttons, product, header, footer]
+      additionalProperties: false
+      properties:
+        brand:
+          type: object
+          additionalProperties: false
+          properties:
+            logo_asset_id: { type: string, format: uuid, nullable: true }
+            favicon_asset_id: { type: string, format: uuid, nullable: true }
+        colors:
+          type: object
+          required: [primary, secondary, background, surface, text, muted, accent]
+          additionalProperties: false
+          properties:
+            primary: { $ref: '#/components/schemas/HexColor' }
+            secondary: { $ref: '#/components/schemas/HexColor' }
+            background: { $ref: '#/components/schemas/HexColor' }
+            surface: { $ref: '#/components/schemas/HexColor' }
+            text: { $ref: '#/components/schemas/HexColor' }
+            muted: { $ref: '#/components/schemas/HexColor' }
+            accent: { $ref: '#/components/schemas/HexColor' }
+        typography:
+          type: object
+          required: [source, heading_font, body_font, scale]
+          additionalProperties: false
+          properties:
+            source: { type: string, enum: [system, google] }
+            heading_font: { type: string, minLength: 1, maxLength: 64 }
+            body_font: { type: string, minLength: 1, maxLength: 64 }
+            scale: { type: string, enum: [sm, md, lg] }
+        layout:
+          type: object
+          required: [max_width, gutter]
+          additionalProperties: false
+          properties:
+            max_width: { type: integer, minimum: 960, maximum: 1920 }
+            gutter: { $ref: '#/components/schemas/SpacingScale' }
+        buttons:
+          type: object
+          required: [radius, size, style]
+          additionalProperties: false
+          properties:
+            radius: { type: string, enum: [none, sm, md, lg, full] }
+            size: { type: string, enum: [sm, md, lg] }
+            style: { type: string, enum: [solid, outline] }
+        product:
+          type: object
+          required: [grid_columns, image_ratio]
+          additionalProperties: false
+          properties:
+            grid_columns: { type: integer, minimum: 2, maximum: 6 }
+            image_ratio: { type: string, enum: ['1:1', '4:3', '3:4', '2:3', '16:9'] }
+        header:
+          type: object
+          required: [layout, sticky]
+          additionalProperties: false
+          properties:
+            layout: { type: string, enum: [logo-left, logo-center] }
+            sticky: { type: boolean }
+        footer:
+          type: object
+          required: [layout]
+          additionalProperties: false
+          properties:
+            layout: { type: string, enum: [columns, simple] }
+
+    # ── Component catalog ──
+    # Each schema with x-commerceos-component is one component type: the
+    # schema validates its props, the extension holds its placement rules.
+    # The storefront app's component registry is checked against these.
+    RichTextInline:
+      type: object
+      required: [text]
+      additionalProperties: false
+      properties:
+        text: { type: string, maxLength: 5000 }
+        bold: { type: boolean }
+        italic: { type: boolean }
+        href: { type: string, maxLength: 2000, pattern: '^(https://|http://|/|mailto:|tel:)' }
+    RichTextBlock:
+      type: object
+      required: [type]
+      additionalProperties: false
+      properties:
+        type: { type: string, enum: [paragraph, bulleted_list, numbered_list] }
+        children: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/RichTextInline' } }
+        items:
+          type: array
+          maxItems: 100
+          items: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/RichTextInline' } }
+    RichText:
+      type: array
+      maxItems: 100
+      items: { $ref: '#/components/schemas/RichTextBlock' }
+
+    SectionProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component:
+        type: section
+        container: true
+        allowed_parents: [root]
+      properties:
+        full_width: { type: boolean }
+    ContainerProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component:
+        type: container
+        container: true
+      properties: {}
+    HeadingProps:
+      type: object
+      required: [text, level]
+      additionalProperties: false
+      x-commerceos-component:
+        type: heading
+      properties:
+        text: { type: string, maxLength: 300 }
+        level: { type: integer, minimum: 1, maximum: 6 }
+    TextProps:
+      type: object
+      required: [content]
+      additionalProperties: false
+      x-commerceos-component:
+        type: text
+      properties:
+        content: { $ref: '#/components/schemas/RichText' }
