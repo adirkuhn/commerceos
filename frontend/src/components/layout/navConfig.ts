@@ -2,7 +2,7 @@ import type { ElementType } from 'react'
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
   ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3, Ticket, Star,
-  Webhook, MessageSquare, PackageCheck, UserCog, Layers,
+  Webhook, MessageSquare, PackageCheck, UserCog, Layers, Mail,
 } from 'lucide-react'
 import type { NavItem } from '../../types'
 
@@ -64,6 +64,7 @@ const GROUPS: NavGroup[] = [
       { id: 'coupons', label: 'Coupons', icon: Ticket },
       { id: 'reviews', label: 'Reviews', icon: Star },
       { id: 'message-center', label: 'Message Center', icon: MessageSquare },
+      { id: 'newsletter', label: 'Newsletter', icon: Mail },
     ],
   },
   {

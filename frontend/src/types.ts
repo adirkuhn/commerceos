@@ -6,6 +6,7 @@ export type NavItem =
   | 'collections'
   | 'reviews'
   | 'message-center'
+  | 'newsletter'
   | 'inventory'
   | 'warehouses'
   | 'orders'

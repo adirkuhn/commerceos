@@ -8,6 +8,7 @@ import Coupons from './pages/Coupons'
 import Collections from './pages/Collections'
 import Reviews from './pages/Reviews'
 import MessageCenter from './pages/MessageCenter'
+import Newsletter from './pages/Newsletter'
 import Inventory from './pages/Inventory'
 import Warehouses from './pages/Warehouses'
 import Orders from './pages/Orders'
@@ -63,6 +64,7 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'coupons', path: '/coupons', Component: Coupons },
   { nav: 'reviews', path: '/reviews', Component: Reviews },
   { nav: 'message-center', path: '/message-center', Component: MessageCenter },
+  { nav: 'newsletter', path: '/newsletter', Component: Newsletter },
   { nav: 'inventory', path: '/inventory', Component: Inventory },
   { nav: 'warehouses', path: '/warehouses', Component: Warehouses },
   { nav: 'orders', path: '/orders', Component: Orders },
