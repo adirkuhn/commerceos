@@ -19,10 +19,11 @@ const StreamName = "COMMERCEOS_EVENTS"
 // ">" wildcard would also capture NATS' own reserved subjects ($JS.>,
 // _INBOX.>, etc.), which JetStream refuses unless acks are disabled
 // entirely — so each domain prefix is listed explicitly instead. Add a new
-// one here whenever a new domain starts publishing events; EnsureStream
+// one here whenever a new domain starts publishing events (enforced by
+// TestSubjectsCoverEveryDomainEvent); EnsureStream
 // updates an already-existing stream's subject list too, so this doesn't
 // require dropping the stream in a live deployment.
-var subjects = []string{"integrations.>", "pms.>", "inventory.>", "oms.>", "shipping.>", "settings.>", "notifications.>"}
+var subjects = []string{"integrations.>", "pms.>", "inventory.>", "oms.>", "shipping.>", "settings.>", "notifications.>", "payments.>", "procurement.>", "storefront.>"}
 
 // EnsureStream creates the stream if it doesn't exist yet, or widens its
 // subject list if it exists but is missing one of `subjects` (e.g. a new
