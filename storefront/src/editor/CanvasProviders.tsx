@@ -6,6 +6,7 @@ import type { EditorServices } from './services'
 import { ProductProvider } from '../runtime/page/ProductContext'
 import { ListingProvider } from '../runtime/page/ListingContext'
 import { StoreInfoProvider } from '../runtime/page/StoreContext'
+import { ComponentBoundary } from '../components/ComponentBoundary'
 import { storeQuery } from '../runtime/page/queries'
 
 function CanvasStoreInfo({ services, children }: { services: EditorServices; children: ReactNode }) {
@@ -28,7 +29,9 @@ export function CanvasProviders({ services, children }: { services: EditorServic
       <ApiProvider api={services.store}>
         <RenderProvider value={{ mode: 'editor', assets, storePath: p => `/store/${services.channelId}/${p}` }}>
           <CanvasStoreInfo services={services}>
-            <Suspense fallback={<div className="cos-placeholder">Loading…</div>}>{content}</Suspense>
+            <ComponentBoundary nodeId="canvas" fallback={<div className="cos-placeholder">This component's store data couldn't be loaded.</div>}>
+              <Suspense fallback={<div className="cos-placeholder">Loading…</div>}>{content}</Suspense>
+            </ComponentBoundary>
           </CanvasStoreInfo>
         </RenderProvider>
       </ApiProvider>
