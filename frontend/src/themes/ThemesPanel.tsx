@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { ArrowLeft, ExternalLink, Paintbrush, Plus } from 'lucide-react'
+import { ArrowLeft, ExternalLink, History, Paintbrush, Plus } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useConfirm } from '../components/common/useConfirm'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { useQueryString } from '../routing/useQueryState'
 import type { SalesChannel } from '../integrations/types'
 import { createThemeSession } from './api'
 import { editorURL, storeURL } from './storefrontURL'
 import { useThemes } from './useThemes'
-import type { Theme } from './types'
+import { VersionHistory } from './VersionHistory'
+import type { Theme, VersionSummary } from './types'
 
 interface Props {
   channel: SalesChannel
@@ -19,7 +21,8 @@ interface Props {
 // what shoppers see at /store/{channel}.
 export function ThemesPanel({ channel, onClose }: Props) {
   const { token } = useAuth()
-  const { themes, loading, error, create, remove } = useThemes(token ?? '', channel.id)
+  const { themes, loading, error, create, remove, makeLive } = useThemes(token ?? '', channel.id)
+  const [historyFor, setHistoryFor] = useQueryString('history')
   const { confirm, confirmDialog } = useConfirm()
   const { formatDate } = useDateFormat()
   const [name, setName] = useState('')
@@ -74,6 +77,15 @@ export function ThemesPanel({ channel, onClose }: Props) {
     }
   }
 
+  const handleMakeLive = async (theme: Theme, version: VersionSummary) => {
+    setActionError('')
+    try {
+      await makeLive(theme.id, version.id)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to make the version live')
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden p-5 gap-4">
       <div className="flex items-center gap-3">
@@ -113,25 +125,34 @@ export function ThemesPanel({ channel, onClose }: Props) {
       ) : themes.length === 0 ? (
         <p className="text-xs text-ink-4">No themes yet. Create one to start designing this store.</p>
       ) : (
-        <ul className="flex flex-col gap-2" aria-label="Themes">
+        <ul className="flex flex-col gap-2 overflow-y-auto" aria-label="Themes">
           {themes.map(theme => (
-            <li key={theme.id} className="flex items-center gap-3 p-3 rounded-xl border border-line bg-raised">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-ink truncate">{theme.name}</p>
-                <p className="text-2xs text-ink-4">Updated {formatDate(theme.updated_at)}</p>
+            <li key={theme.id} className="rounded-xl border border-line bg-raised">
+              <div className="flex items-center gap-3 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-ink truncate">{theme.name}</p>
+                  <p className="text-2xs text-ink-4">Updated {formatDate(theme.updated_at)}</p>
+                </div>
+                {theme.is_live
+                  ? <span className="text-2xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-700 dark:text-green-400">Live</span>
+                  : <span className="text-2xs px-2 py-0.5 rounded-full bg-fill text-ink-3">{theme.published_version_id ? 'Not live' : 'Draft only'}</span>}
+                <button onClick={() => void customize(theme)} disabled={channel.storefront_mode !== 'theme'}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-fill text-2xs text-ink-2 hover:text-accent disabled:opacity-50">
+                  <Paintbrush size={11} /> Customize
+                </button>
+                <button onClick={() => void handleDelete(theme)} disabled={theme.is_live}
+                  title={theme.is_live ? 'The live theme cannot be deleted' : undefined}
+                  className="px-3 py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-danger disabled:opacity-40">
+                  Delete
+                </button>
+                {theme.published_version_id && (
+                  <button onClick={() => setHistoryFor(historyFor === theme.id ? null : theme.id)} aria-expanded={historyFor === theme.id}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-fill text-2xs text-ink-2 hover:text-accent">
+                    <History size={11} /> Versions
+                  </button>
+                )}
               </div>
-              {theme.is_live
-                ? <span className="text-2xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-700 dark:text-green-400">Live</span>
-                : <span className="text-2xs px-2 py-0.5 rounded-full bg-fill text-ink-3">{theme.published_version_id ? 'Not live' : 'Draft only'}</span>}
-              <button onClick={() => void customize(theme)} disabled={channel.storefront_mode !== 'theme'}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-fill text-2xs text-ink-2 hover:text-accent disabled:opacity-50">
-                <Paintbrush size={11} /> Customize
-              </button>
-              <button onClick={() => void handleDelete(theme)} disabled={theme.is_live}
-                title={theme.is_live ? 'The live theme cannot be deleted' : undefined}
-                className="px-3 py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-danger disabled:opacity-40">
-                Delete
-              </button>
+              {historyFor === theme.id && <VersionHistory token={token ?? ''} theme={theme} onMakeLive={handleMakeLive} />}
             </li>
           ))}
         </ul>

@@ -34,5 +34,11 @@ export function useThemes(token: string, salesChannelId: string) {
     setThemes(ts => ts.filter(t => t.id !== id))
   }
 
-  return { themes, loading, error, refresh, create, remove }
+  /** Rollback: makes this published version (and its theme) live. */
+  const makeLive = async (themeId: string, versionId: string) => {
+    await api.rollbackTheme(token, themeId, versionId)
+    await refresh()
+  }
+
+  return { themes, loading, error, refresh, create, remove, makeLive }
 }
