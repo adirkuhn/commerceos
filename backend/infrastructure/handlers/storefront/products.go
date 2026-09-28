@@ -35,7 +35,16 @@ func (h *Handler) ListStorefrontProducts(c *gin.Context, params genstorefront.Li
 		in.PerPage = *params.PerPage
 	}
 	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
-	result, err := h.listProducts.Execute(ctx, *resolved.SalesChannelID, in)
+	var result *appstorefront.ListProductsResult
+	var err error
+	if params.CollectionId != nil {
+		result, err = h.catalog.ListCollectionProducts.Execute(ctx, *resolved.SalesChannelID, params.CollectionId.String(), in)
+		if notFound(c, err) {
+			return
+		}
+	} else {
+		result, err = h.listProducts.Execute(ctx, *resolved.SalesChannelID, in)
+	}
 	if err := mapError(c, err); err != nil {
 		return
 	}

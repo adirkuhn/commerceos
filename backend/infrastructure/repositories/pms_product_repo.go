@@ -212,6 +212,11 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 	// (below) -- recency isn't a useful signal once the user has typed
 	// something specific to find.
 	orderedQuery := q.Order("created_at desc")
+	if len(filter.OrderByIDs) > 0 {
+		orderedQuery = q.Clauses(clause.OrderBy{Expression: clause.Expr{
+			SQL: "array_position(?::uuid[], products.id), products.id", Vars: []any{"{" + strings.Join(filter.OrderByIDs, ",") + "}"}, WithoutParentheses: true,
+		}})
+	}
 	if filter.Search != nil && *filter.Search != "" {
 		// Barcode is the primary key a scan or a typed code is ever really
 		// about -- a product whose SKU code/barcode/scale code actually

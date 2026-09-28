@@ -42,7 +42,10 @@ type ListProductsInput struct {
 	// comment. A merchant's Featured Products block uses this for "this
 	// category, minus these specific ones."
 	ExcludeProductIDs []string
-	Search            string
+	// OrderByIDs keeps results in this order across pages (a collection's
+	// own sort); nil keeps the default order.
+	OrderByIDs []string
+	Search     string
 	Page              int
 	PerPage           int
 }
@@ -138,7 +141,7 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, salesChannelID strin
 		active := pmsDomain.ProductStatusActive
 		pmsInput = apppms.ListProductsInput{
 			Page: in.Page, PerPage: in.PerPage, Search: in.Search,
-			AndCategoryID: in.CategoryID, ExcludeIDs: excludeIDs, Status: &active,
+			AndCategoryID: in.CategoryID, ExcludeIDs: excludeIDs, Status: &active, OrderByIDs: in.OrderByIDs,
 		}
 		if in.ProductIDs != nil {
 			pmsInput.AndIncludeIDs = &in.ProductIDs

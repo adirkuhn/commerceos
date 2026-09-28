@@ -401,8 +401,11 @@ func newTestHandler(
 	listAccountOrders := &stubListAccountOrders{}
 	logout := &stubLogout{}
 	createPaymentIntent := &stubCreatePaymentIntent{}
+	var catalog storefronthandler.CatalogUseCases
 	for _, e := range extra {
 		switch v := e.(type) {
+		case storefronthandler.CatalogUseCases:
+			catalog = v
 		case *stubGetShippingOptions:
 			getShippingOptions = v
 		case *stubApplyCoupon:
@@ -438,7 +441,7 @@ func newTestHandler(
 		getShippingOptions, applyCoupon, submitReview, listReviews,
 		createWishlist, getWishlist, toggleWishlistItem, getProductRecommendations,
 		requestMagicLink, verifySession, getAccount, listAccountOrders, logout,
-		createPaymentIntent,
+		createPaymentIntent, catalog,
 	)
 }
 

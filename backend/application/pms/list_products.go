@@ -38,6 +38,8 @@ type ListProductsInput struct {
 	// live storefront, same rule pms.Product.IsSyncableToChannels enforces
 	// for external channel pushes.
 	Status *pmsDomain.ProductStatus
+	// OrderByIDs -- see pmsDomain.ProductFilter.OrderByIDs.
+	OrderByIDs []string
 }
 
 type ListProductsResult struct {
@@ -70,7 +72,7 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, in ListProductsInput
 	filter := pmsDomain.ProductFilter{
 		Limit: perPage, Offset: (page - 1) * perPage,
 		AndCategoryID: in.AndCategoryID, AndIncludeIDs: in.AndIncludeIDs, CategoryID: in.CategoryID, Tag: in.Tag,
-		IncludeIDs: in.IncludeIDs, ExcludeIDs: in.ExcludeIDs, Status: in.Status,
+		IncludeIDs: in.IncludeIDs, ExcludeIDs: in.ExcludeIDs, Status: in.Status, OrderByIDs: in.OrderByIDs,
 	}
 	if in.Search != "" {
 		filter.Search = &in.Search

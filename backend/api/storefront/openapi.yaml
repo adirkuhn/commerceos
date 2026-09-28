@@ -464,6 +464,12 @@ paths:
         - name: search
           in: query
           schema: { type: string }
+        - name: collection_id
+          in: query
+          description: >
+            Narrows to a published collection's products, in the
+            collection's own order (on top of channel enrollment).
+          schema: { type: string, format: uuid }
         - name: page
           in: query
           schema: { type: integer, minimum: 1 }
@@ -479,6 +485,47 @@ paths:
                 $ref: '#/components/schemas/StorefrontProductListResponse'
         '401':
           $ref: '#/components/responses/Error'
+
+  /storefront/v1/products/by-slug/{slug}:
+    get:
+      operationId: getStorefrontProductBySlug
+      summary: One enrolled product by its URL slug (same rules as getStorefrontProduct)
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/StorefrontProductResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /storefront/v1/collections:
+    get:
+      operationId: listStorefrontCollections
+      summary: The tenant's published collections, by name
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/StorefrontCollectionListResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+
+  /storefront/v1/collections/by-slug/{slug}:
+    get:
+      operationId: getStorefrontCollection
+      summary: One published collection by its URL slug
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 64 } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/StorefrontCollectionResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /storefront/v1/store:
+    get:
+      operationId: getStorefrontStore
+      summary: The calling channel's store name and selling currency
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/StorefrontStoreResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
 
   /storefront/v1/products/{id}:
     get:
@@ -1112,6 +1159,40 @@ components:
         variants:
           type: array
           items: { $ref: '#/components/schemas/StorefrontVariant' }
+
+    StorefrontCollection:
+      type: object
+      required: [id, name, slug, description, seo_title, seo_description]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        image_url: { type: string, nullable: true }
+        seo_title: { type: string }
+        seo_description: { type: string }
+    StorefrontCollectionResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/StorefrontCollection' }
+        error: { nullable: true }
+    StorefrontCollectionListResponse:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/StorefrontCollection' } }
+        total: { type: integer }
+        error: { nullable: true }
+    StorefrontStore:
+      type: object
+      required: [name, currency_code]
+      properties:
+        name: { type: string }
+        currency_code: { type: string }
+    StorefrontStoreResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/StorefrontStore' }
+        error: { nullable: true }
 
     StorefrontProductResponse:
       type: object

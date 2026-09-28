@@ -83,6 +83,10 @@ type ProductFilter struct {
 	// Same nil-vs-empty convention as IncludeIDs: nil means unconstrained,
 	// a non-nil pointer to an empty slice means "constrained to nothing".
 	AndIncludeIDs *[]string
+	// OrderByIDs, when set (and there's no search term), orders results by
+	// their position in this list -- e.g. a collection's own sort order,
+	// kept intact across pages.
+	OrderByIDs []string
 	// UpdatedAfter restricts to products modified after this time --
 	// incremental-sync filter for external integrations pulling the
 	// catalog (e.g. a POS desktop), same idea as WooCommerce's own

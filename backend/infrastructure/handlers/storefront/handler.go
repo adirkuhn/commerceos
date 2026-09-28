@@ -9,12 +9,14 @@ package storefront
 
 import (
 	"context"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
 	appapikeys "github.com/adirkuhn/commerceos/application/apikeys"
+	appcollections "github.com/adirkuhn/commerceos/application/collections"
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
@@ -22,6 +24,7 @@ import (
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
+	apptheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -154,6 +157,7 @@ type Handler struct {
 	listAccountOrders         listAccountOrdersUC
 	logout                    logoutUC
 	createPaymentIntent       createPaymentIntentUC
+	catalog                   CatalogUseCases
 }
 
 func NewHandler(
@@ -181,6 +185,7 @@ func NewHandler(
 	listAccountOrders listAccountOrdersUC,
 	logout logoutUC,
 	createPaymentIntent createPaymentIntentUC,
+	catalog CatalogUseCases,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
@@ -193,6 +198,7 @@ func NewHandler(
 		requestMagicLink:          requestMagicLink, verifyMagicLink: verifyMagicLink, getAccount: getAccount,
 		listAccountOrders: listAccountOrders, logout: logout,
 		createPaymentIntent: createPaymentIntent,
+		catalog:             catalog,
 	}
 }
 
@@ -249,6 +255,18 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	)
 	createPaymentIntent := appstorefront.NewCreatePaymentIntentUseCase(db, channelRepo, connRepo, stripe.NewClientFactory(), encryptionSecret, checkoutCart)
 
+	listProducts := appstorefront.NewListProductsUseCase(db, channelRepo, overrideRepo, listPOSProductCatalog, productRepo, categoryRepo, skuCurrencyPriceRepo, fxRepo)
+	getProduct := appstorefront.NewGetProductUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, skuCurrencyPriceRepo, fxRepo, stockLevel)
+	collectionDeps := appcollections.Deps{DB: db, Repo: repositories.NewCollectionRepo(db), Outbox: outboxRepo, Now: time.Now}
+	assetURLs := apptheme.NewResolveAssetURLsUseCase(apptheme.Deps{DB: db, Assets: repositories.NewThemeAssetRepo(db)})
+	catalog := CatalogUseCases{
+		ListCollectionProducts: appstorefront.NewListCollectionProductsUseCase(appcollections.NewResolveCollectionProductsUseCase(collectionDeps), listProducts),
+		ListCollections:        appstorefront.NewListStorefrontCollectionsUseCase(appcollections.NewListCollectionsUseCase(collectionDeps), assetURLs),
+		GetCollection:          appstorefront.NewGetStorefrontCollectionUseCase(appcollections.NewGetPublishedCollectionUseCase(collectionDeps), assetURLs),
+		GetProductBySlug:       appstorefront.NewGetProductBySlugUseCase(db, productRepo, getProduct),
+		GetStoreInfo:           appstorefront.NewGetStoreInfoUseCase(db, channelRepo, settingsRepo),
+	}
+
 	h := NewHandler(
 		appapikeys.NewResolveAPIKeyUseCase(db, apiKeyRepo, channelRepo),
 		getCartRecommendations,
@@ -256,8 +274,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewGetCartUseCase(db, cartRepo, couponRepo, couponCurrencyRepo, fxRepo),
 		appstorefront.NewUpdateCartItemsUseCase(db, cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo, skuCurrencyPriceRepo, fxRepo, stockLevel, couponRepo, couponCurrencyRepo),
 		checkoutCart,
-		appstorefront.NewListProductsUseCase(db, channelRepo, overrideRepo, listPOSProductCatalog, productRepo, categoryRepo, skuCurrencyPriceRepo, fxRepo),
-		appstorefront.NewGetProductUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, skuCurrencyPriceRepo, fxRepo, stockLevel),
+		listProducts,
+		getProduct,
 		appstorefront.NewListCategoriesUseCase(db, categoryRepo),
 		appstorefront.NewLookupOrderUseCase(db, salesRepo),
 		appstorefront.NewGetShippingOptionsUseCase(db, connRepo, shippingSettingsRepo, estimateShipping),
@@ -274,6 +292,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewListAccountOrdersUseCase(db, customerSessionRepo, salesRepo),
 		appstorefront.NewLogoutUseCase(db, customerSessionRepo),
 		createPaymentIntent,
+		catalog,
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }

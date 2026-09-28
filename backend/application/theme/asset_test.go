@@ -141,3 +141,17 @@ func TestThemeReadsResolveSettingsAssets(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, live.Assets, a.ID)
 }
+
+func TestResolveAssetURLs(t *testing.T) {
+	w := newWorld(t)
+	a, err := upload(w, pngBytes(t, 1, 1), "a.png")
+	require.NoError(t, err)
+
+	urls, err := apptheme.NewResolveAssetURLsUseCase(w.deps).Execute(tenantCtx(), []string{a.ID, "missing"})
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{a.ID: a.URL}, urls)
+
+	empty, err := apptheme.NewResolveAssetURLsUseCase(w.deps).Execute(tenantCtx(), nil)
+	require.NoError(t, err)
+	assert.Empty(t, empty)
+}

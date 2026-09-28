@@ -37,6 +37,7 @@ import (
 	genshipping "github.com/adirkuhn/commerceos/api/shipping"
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
+	gencollections "github.com/adirkuhn/commerceos/api/collections"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	genweightportions "github.com/adirkuhn/commerceos/api/weightportions"
@@ -68,6 +69,7 @@ import (
 	shippinghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/shipping"
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
 	themehandler "github.com/adirkuhn/commerceos/infrastructure/handlers/theme"
+	collectionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/collections"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
 	webhookshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/webhooks"
@@ -240,6 +242,14 @@ func main() {
 	// them (customer_user is read-only -- see CLAUDE.md Auth & RBAC).
 	settingsGroup.Use(middleware.RequireRoleForWrites(middleware.RoleCustomerOwner, middleware.RoleCustomerAdmin, middleware.RoleSuperAdmin))
 	settingshandler.Register(settingsGroup, db, outboxRepo)
+
+	collectionsSpec, err := gencollections.GetSpec()
+	if err != nil {
+		log.Fatalf("collections: load openapi spec: %v", err)
+	}
+	collectionsGroup := v1.Group("")
+	collectionsGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(collectionsSpec, &ginmiddleware.Options{SilenceServersWarning: true}))
+	collectionshandler.Register(collectionsGroup, collectionshandler.NewHandler(collectionshandler.NewUseCases(db)))
 
 	taxSpec, err := gentax.GetSpec()
 	if err != nil {
