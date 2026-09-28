@@ -255,3 +255,33 @@ func TestSalesChannelRepo_Integration_SignInURLRoundTripsAndIsInternalOnly(t *te
 	})
 	assert.ErrorContains(t, err, "sales_channels_sign_in_url_requires_internal_check")
 }
+
+// '' means "the tenant's default currency". The column used to be CHAR(3),
+// which Postgres pads: '' came back as "   ", looked like a currency, and
+// every product listing on the channel failed its price lookup.
+func TestSalesChannelRepo_Integration_BlankCurrencyReadsBackBlank(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewSalesChannelRepo(db)
+
+	var ch channelsDomain.SalesChannel
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		ch = channelsDomain.SalesChannel{
+			TenantID: tenant.IDFromContext(ctx), Name: "No currency", Type: channelsDomain.ChannelTypeInternal,
+			EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true, CreatedAt: now, UpdatedAt: now,
+		}
+		return repo.Create(ctx, &ch)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		found, err := repo.FindByID(ctx, ch.ID)
+		if err != nil {
+			return err
+		}
+		assert.Equal(t, "", found.CurrencyCode)
+		return nil
+	})
+	require.NoError(t, err)
+}
