@@ -18,8 +18,9 @@ const TEMPLATE_PATHS: Record<string, string> = {
   cart: 'cart', search: 'search', checkout: 'checkout', login: 'login', account: 'account', wishlist: 'wishlist',
 }
 
-export function storePathFor(doc: DocRef): string {
+export function storePathFor(doc: DocRef, productSlug?: string): string {
   if (doc.kind === 'page') return `pages/${doc.key}`
+  if (doc.kind === 'template' && doc.key === 'product' && productSlug) return `products/${encodeURIComponent(productSlug)}`
   return doc.kind === 'template' ? (TEMPLATE_PATHS[doc.key] ?? '') : ''
 }
 
@@ -117,11 +118,11 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
     }
   }
 
-  const preview = async () => {
+  const preview = async (productSlug?: string) => {
     if (!draft || (await saveIfDirty()) === undefined) return
     try {
       const { token } = await api.createPreviewSession()
-      window.open(`/store/${draft.sales_channel_id}/${storePathFor(doc)}?preview=${encodeURIComponent(token)}`, '_blank', 'noopener')
+      window.open(`/store/${draft.sales_channel_id}/${storePathFor(doc, productSlug)}?preview=${encodeURIComponent(token)}`, '_blank', 'noopener')
     } catch (err) {
       fail(err)
     }

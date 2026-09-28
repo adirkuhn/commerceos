@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import type { StorefrontAPI } from '../api/storefront'
 import type { EditorAPI } from './api'
 import type { AssetStore } from './assetStore'
+import type { PreviewStore } from './previewStore'
 
 // Everything the editor UI and canvas talk to, injected once at the top.
 export interface EditorServices {
@@ -10,6 +11,8 @@ export interface EditorServices {
   /** The channel's public storefront API (catalog data for pickers/canvas). */
   store: StorefrontAPI
   assets: AssetStore
+  /** Product/listing the canvas previews templates with. */
+  preview: PreviewStore
   queryClient: QueryClient
   channelId: string
 }

@@ -36,4 +36,8 @@ describe('editor preview paths', () => {
   ] as const)('%o -> %s', (doc, path) => {
     expect(storePathFor(doc)).toBe(path)
   })
+
+  it('previews the product template on the product being previewed', () => {
+    expect(storePathFor({ kind: 'template', key: 'product' }, 'red shoes')).toBe('products/red%20shoes')
+  })
 })

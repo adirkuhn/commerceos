@@ -10,6 +10,7 @@ import { defaultSettings } from '../../../core/settings'
 import { StorefrontAPI } from '../../../api/storefront'
 import { EditorAPI, type Asset } from '../../api'
 import { AssetStore } from '../../assetStore'
+import { PreviewStore } from '../../previewStore'
 import { EditorServicesProvider, type EditorServices } from '../../services'
 import { PropsForm } from '../PropsForm'
 import { StyleForm } from '../StyleForm'
@@ -22,7 +23,7 @@ function services(overrides: Partial<EditorServices> = {}): EditorServices {
   const store = new StorefrontAPI({ baseURL: 'x', storeKey: 'k' })
   store.listCategories = vi.fn(async () => [{ id: 'c1', parent_id: null, name: 'Shoes', slug: 'shoes', position: 0 }])
   store.listProducts = vi.fn(async () => ({ items: [], total: 0 }))
-  return { api: new EditorAPI({ baseURL: 'x', token: 't' }), store, assets: new AssetStore(), queryClient: new QueryClient(), channelId: 'chan', ...overrides }
+  return { api: new EditorAPI({ baseURL: 'x', token: 't' }), store, assets: new AssetStore(), preview: new PreviewStore(), queryClient: new QueryClient(), channelId: 'chan', ...overrides }
 }
 
 const wrap = (s: EditorServices) => ({ children }: { children: ReactNode }) => <EditorServicesProvider value={s}>{children}</EditorServicesProvider>

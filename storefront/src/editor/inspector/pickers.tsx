@@ -78,7 +78,7 @@ function useProductsByIds(ids: string[]) {
   return byId
 }
 
-function ProductSearch({ onPick, exclude }: { onPick: (p: ProductSummary) => void; exclude: string[] }) {
+export function ProductSearch({ onPick, exclude }: { onPick: (p: ProductSummary) => void; exclude: string[] }) {
   const [term, setTerm] = useState('')
   const results = useProductSearch(term).filter(p => !exclude.includes(p.id))
   return (

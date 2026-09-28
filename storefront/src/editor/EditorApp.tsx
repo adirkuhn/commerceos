@@ -6,6 +6,9 @@ import { StorefrontAPI } from '../api/storefront'
 import { defaultSettings } from '../core/settings'
 import type { EditorAPI } from './api'
 import { AssetStore } from './assetStore'
+import { PreviewStore } from './previewStore'
+import { PreviewBar } from './PreviewBar'
+import { usePreviewData } from './usePreviewData'
 import { CanvasProviders } from './CanvasProviders'
 import { syncCanvasStyles } from './grapes/canvasStyles'
 import { Inspector } from './inspector/Inspector'
@@ -21,18 +24,20 @@ export function EditorApp({ api, apiBase }: { api: EditorAPI; apiBase: string })
   const blocksRef = useRef<HTMLDivElement>(null)
   const layersRef = useRef<HTMLDivElement>(null)
   const [assets] = useState(() => new AssetStore())
+  const [preview] = useState(() => new PreviewStore())
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 60_000 } } }))
   const [channelId, setChannelId] = useState('')
 
   const services: EditorServices | undefined = useMemo(() => channelId
-    ? { api, assets, queryClient, channelId, store: new StorefrontAPI({ baseURL: apiBase, storeKey: channelId }) }
-    : undefined, [api, apiBase, assets, queryClient, channelId])
+    ? { api, assets, preview, queryClient, channelId, store: new StorefrontAPI({ baseURL: apiBase, storeKey: channelId }) }
+    : undefined, [api, apiBase, assets, preview, queryClient, channelId])
 
   const wrap = useCallback((el: ReactElement) => (services ? <CanvasProviders services={services}>{el}</CanvasProviders> : el), [services])
   const mounts = useCallback(() => ({ canvas: canvasRef.current, blocks: blocksRef.current, layers: layersRef.current }), [])
   const editor = useGrapesEditor(mounts, wrap)
-  const { draft, doc, setDoc, dirty, status, save, publish, preview, saveSettings, savingSettings } = useDraft(api, editor, assets)
+  const { draft, doc, setDoc, dirty, status, save, publish, preview: openPreview, saveSettings, savingSettings } = useDraft(api, editor, assets)
   const [device, setDevice] = useState<DeviceId>('desktop')
+  const previewData = usePreviewData(services?.store, preview, doc)
   const settings = draft?.version.settings ?? defaultSettings()
 
   useEffect(() => {
@@ -60,8 +65,9 @@ export function EditorApp({ api, apiBase }: { api: EditorAPI; apiBase: string })
       <Toolbar
         themeName={draft?.theme.name ?? 'Theme'} documents={draft?.documents ?? []} doc={doc} onDoc={setDoc}
         editor={editor} device={device} onDevice={setDevice} dirty={dirty} status={status}
-        onSave={() => void save()} onPreview={() => void preview()} onPublish={() => void publish()}
+        onSave={() => void save()} onPreview={() => void openPreview(preview.snapshot().product?.slug)} onPublish={() => void publish()}
       />
+      {services && <PreviewBar kind={previewData.kind} error={previewData.error} onProduct={previewData.chooseProduct} onCollection={previewData.chooseCollection} />}
       <div className="flex min-h-0 flex-1">
         <aside className="w-64 shrink-0 overflow-y-auto border-r border-neutral-200 bg-white" aria-label="Components and layers">
           <h2 className="px-3 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">Components</h2>
