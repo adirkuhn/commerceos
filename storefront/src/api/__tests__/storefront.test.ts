@@ -35,6 +35,15 @@ describe('StorefrontAPI', () => {
     expect(new Headers(f.mock.calls[0][1]?.headers).get('X-Theme-Preview')).toBe('pv')
   })
 
+  it('lists products by category or explicit ids', async () => {
+    const f = fakeFetch({ data: { items: [], total: 0 }, error: null })
+    const api = new StorefrontAPI({ baseURL: 'https://api.test/api/v1', storeKey: 'k', fetch: f })
+    await api.listProducts({ categoryId: 'c1', perPage: 8 })
+    await api.listProducts({ productIds: ['a', 'b'] })
+    expect(f.mock.calls[0][0]).toBe('https://api.test/api/v1/storefront/v1/products?category_id=c1&per_page=8')
+    expect(f.mock.calls[1][0]).toBe('https://api.test/api/v1/storefront/v1/products?product_ids=a%2Cb&per_page=12')
+  })
+
   it('turns error envelopes into ApiError with status and code', async () => {
     const f = fakeFetch({ data: null, error: { code: 'NOT_FOUND', message: 'no live theme' } }, 404)
     const err = await new StorefrontAPI({ baseURL: 'https://api.test/api/v1', storeKey: 'k', fetch: f }).getTheme().catch(e => e)

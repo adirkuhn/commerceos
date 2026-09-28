@@ -19,8 +19,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean
 }
 
 function StoreRoute() {
-  const path = useParams()['*'] ?? ''
-  return <StorePage path={`/${path}`} />
+  const params = useParams()
+  return <StorePage path={`/${params['*'] ?? ''}`} storeKey={params.storeKey ?? ''} />
 }
 
 /** Routes below the router basename (/store): /{channelKey}/... */

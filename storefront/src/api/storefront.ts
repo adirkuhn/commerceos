@@ -21,6 +21,29 @@ export interface StorefrontAPIConfig {
   fetch?: typeof fetch
 }
 
+export interface ProductSummary {
+  id: string
+  name: string
+  slug: string
+  category_id: string | null
+  tags: string[]
+  image_url: string | null
+  price_minor_units?: number | null
+  sale_price_minor_units?: number | null
+  currency_code?: string | null
+}
+
+export interface ProductList {
+  items: ProductSummary[]
+  total: number
+}
+
+export interface ProductQuery {
+  categoryId?: string
+  productIds?: string[]
+  perPage?: number
+}
+
 interface Envelope<T> {
   data: T | null
   error: { code?: string; message?: string } | null
@@ -47,6 +70,15 @@ export class StorefrontAPI {
     return theme.preview
       ? this.get(`/storefront/v1/theme/preview/documents/${tail}`)
       : this.get(`/storefront/v1/theme/versions/${encodeURIComponent(theme.version_id)}/documents/${tail}`)
+  }
+
+  /** Products enrolled on the channel. `productIds` keeps exactly those. */
+  listProducts(q: ProductQuery): Promise<ProductList> {
+    const params = new URLSearchParams()
+    if (q.categoryId) params.set('category_id', q.categoryId)
+    if (q.productIds) params.set('product_ids', q.productIds.join(','))
+    params.set('per_page', String(q.perPage ?? 12))
+    return this.get(`/storefront/v1/products?${params}`)
   }
 
   private async get<T>(path: string): Promise<T> {

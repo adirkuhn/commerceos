@@ -35,12 +35,21 @@ export interface SEO {
   description?: string
 }
 
+export interface AssetRef {
+  url: string
+  width: number
+  height: number
+  alt: string
+}
+
 export interface ThemeDocument {
   kind: DocumentKind
   key: string
   title: string
   seo: SEO
   root: ThemeNode
+  /** Images the document refers to ("asset:<id>"), keyed by id. */
+  assets?: Record<string, AssetRef>
 }
 
 export interface DocumentSummary {
@@ -68,6 +77,7 @@ export interface StorefrontTheme {
   preview: boolean
   settings: ThemeSettings
   documents: DocumentSummary[]
+  assets?: Record<string, AssetRef>
 }
 
 export const ROOT_TYPE = 'root'

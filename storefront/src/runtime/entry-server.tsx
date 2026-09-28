@@ -4,9 +4,10 @@ import { StaticRouter } from 'react-router-dom'
 import { ApiError, StorefrontAPI } from '../api/storefront'
 import type { StorefrontTheme, ThemeDocument } from '../core/document'
 import { fontStylesheetURL, settingsToCSS } from '../core/settings'
-import { ApiProvider } from './ApiContext'
+import { ApiProvider } from '../api/ApiContext'
 import { App } from './App'
 import { documentQuery, hasDocument, themeQuery } from './queries'
+import { dataQueriesFor } from '../components/data'
 import { serializeState } from './state'
 import { documentFor, StoreUnavailable } from './StorePage'
 
@@ -76,10 +77,13 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
 
   const route = documentFor(theme, parsed.path)
   const regions = [['section_group', 'header'], ['section_group', 'footer']] as const
-  const [main] = await Promise.all([
+  const [main, ...rest] = await Promise.all([
     qc.fetchQuery(documentQuery(api, theme, route.kind, route.key)),
     ...regions.filter(([k, key]) => hasDocument(theme, k, key)).map(([k, key]) => qc.fetchQuery(documentQuery(api, theme, k, key))),
   ])
+  // Catalog data the components show. A failed fetch is left out of the
+  // cache; that component renders nothing rather than failing the page.
+  await Promise.all([main, ...rest].flatMap(d => dataQueriesFor(d.root, api)).map(q => qc.prefetchQuery(q)))
 
   const html = renderToString(
     <QueryClientProvider client={qc}>

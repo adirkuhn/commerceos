@@ -80,3 +80,26 @@ func TestStyleVocabularyMatchesContract(t *testing.T) {
 	sort.Strings(domain)
 	assert.Equal(t, domain, contract)
 }
+
+func TestFromSpec_newComponentsGuardLinksAndImages(t *testing.T) {
+	c := load(t)
+	button, _ := c.Rule("button")
+	image, _ := c.Rule("image")
+	grid, _ := c.Rule("product-grid")
+	column, _ := c.Rule("column")
+	columns, _ := c.Rule("columns")
+
+	assert.NoError(t, button.ValidateProps(map[string]any{"label": "Shop", "link": "/collections/summer"}))
+	assert.Error(t, button.ValidateProps(map[string]any{"label": "x", "link": "javascript:alert(1)"}))
+	assert.Error(t, button.ValidateProps(map[string]any{"label": "", "link": "/"}))
+
+	assert.NoError(t, image.ValidateProps(map[string]any{"image": "asset:0b0c7d1e-6f7a-4b8c-9d0e-1f2a3b4c5d6e"}))
+	assert.NoError(t, image.ValidateProps(map[string]any{"image": ""}))
+	assert.Error(t, image.ValidateProps(map[string]any{"image": "https://evil.example/x.png"}), "images come from the media library only")
+
+	assert.NoError(t, grid.ValidateProps(map[string]any{"source": "category", "category_id": "c1", "limit": float64(8)}))
+	assert.Error(t, grid.ValidateProps(map[string]any{"source": "category", "limit": float64(100)}))
+
+	assert.Equal(t, []string{"columns"}, column.AllowedParents)
+	assert.Equal(t, []string{"column"}, columns.AllowedChildren)
+}

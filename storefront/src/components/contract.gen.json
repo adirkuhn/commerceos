@@ -1,6 +1,52 @@
 {
   "components": [
     {
+      "type": "button",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "label",
+        "link",
+        "new_tab",
+        "variant"
+      ],
+      "required_props": [
+        "label",
+        "link"
+      ]
+    },
+    {
+      "type": "column",
+      "container": true,
+      "allowed_children": [],
+      "allowed_parents": [
+        "columns"
+      ],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "span"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "columns",
+      "container": true,
+      "allowed_children": [
+        "column"
+      ],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "stack_on"
+      ],
+      "required_props": []
+    },
+    {
       "type": "container",
       "container": true,
       "allowed_children": [],
@@ -27,6 +73,58 @@
       ]
     },
     {
+      "type": "image",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "alt",
+        "fit",
+        "image",
+        "link"
+      ],
+      "required_props": [
+        "image"
+      ]
+    },
+    {
+      "type": "product-card",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "product_id",
+        "show_price"
+      ],
+      "required_props": [
+        "product_id"
+      ]
+    },
+    {
+      "type": "product-grid",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "category_id",
+        "columns",
+        "limit",
+        "product_ids",
+        "show_price",
+        "source"
+      ],
+      "required_props": [
+        "limit",
+        "source"
+      ]
+    },
+    {
       "type": "section",
       "container": true,
       "allowed_children": [],
@@ -39,6 +137,20 @@
         "full_width"
       ],
       "required_props": []
+    },
+    {
+      "type": "spacer",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "size"
+      ],
+      "required_props": [
+        "size"
+      ]
     },
     {
       "type": "text",

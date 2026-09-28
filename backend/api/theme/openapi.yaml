@@ -800,3 +800,86 @@ components:
         type: text
       properties:
         content: { $ref: '#/components/schemas/RichText' }
+    AssetReference:
+      type: string
+      description: '"asset:<uuid>" of a theme media library image, or empty for none.'
+      pattern: '^(|asset:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$'
+    SafeLink:
+      type: string
+      maxLength: 2000
+      description: A storefront path, a web link, mailto or tel -- never javascript or data URLs.
+      pattern: '^$|^(https://|http://|/|mailto:|tel:)'
+    ColumnsProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component:
+        type: columns
+        container: true
+        allowed_children: [column]
+      properties:
+        stack_on: { type: string, enum: [tablet, mobile, never] }
+    ColumnProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component:
+        type: column
+        container: true
+        allowed_parents: [columns]
+      properties:
+        span: { type: integer, minimum: 1, maximum: 4 }
+    SpacerProps:
+      type: object
+      required: [size]
+      additionalProperties: false
+      x-commerceos-component:
+        type: spacer
+      properties:
+        size: { type: string, enum: [xs, sm, md, lg, xl, 2xl, 3xl] }
+    ImageProps:
+      type: object
+      required: [image]
+      additionalProperties: false
+      x-commerceos-component:
+        type: image
+      properties:
+        image: { $ref: '#/components/schemas/AssetReference' }
+        alt: { type: string, maxLength: 250, description: Overrides the image's own description. }
+        link: { $ref: '#/components/schemas/SafeLink' }
+        fit: { type: string, enum: [cover, contain] }
+    ButtonProps:
+      type: object
+      required: [label, link]
+      additionalProperties: false
+      x-commerceos-component:
+        type: button
+      properties:
+        label: { type: string, minLength: 1, maxLength: 80 }
+        link: { $ref: '#/components/schemas/SafeLink' }
+        variant: { type: string, enum: [primary, secondary, outline] }
+        new_tab: { type: boolean }
+    ProductGridProps:
+      type: object
+      required: [source, limit]
+      additionalProperties: false
+      x-commerceos-component:
+        type: product-grid
+      properties:
+        source: { type: string, enum: [all, category, products] }
+        category_id: { type: string, maxLength: 36, description: Used when source is category. }
+        product_ids:
+          type: array
+          maxItems: 48
+          description: Used when source is products, shown in this order.
+          items: { type: string, format: uuid }
+        limit: { type: integer, minimum: 1, maximum: 48 }
+        columns: { type: integer, minimum: 0, maximum: 6, description: 0 uses the theme setting. }
+        show_price: { type: boolean }
+    ProductCardProps:
+      type: object
+      required: [product_id]
+      additionalProperties: false
+      x-commerceos-component:
+        type: product-card
+      properties:
+        product_id: { type: string, maxLength: 36, description: Empty until a product is chosen. }
+        show_price: { type: boolean }

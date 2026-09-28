@@ -4,6 +4,11 @@ import { registry } from './registry'
 import type { HeadingProps } from './content/heading'
 import type { TextProps } from './content/text'
 import { RichTextView } from './content/RichTextView'
+import type { SpacerProps } from './content/spacer'
+import { ImageView } from './content/ImageView'
+import { ButtonView } from './content/ButtonView'
+import { ProductGridView } from './commerce/ProductGridView'
+import { ProductCardView } from './commerce/ProductCardView'
 
 // Containers share one renderer: their definition's element() gives the
 // markup, which is exactly what the editor canvas builds too.
@@ -26,6 +31,13 @@ function TextRenderer({ node, props, className }: RendererProps<TextProps>) {
   )
 }
 
+const SPACER_SIZES = new Set(['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'])
+
+function SpacerRenderer({ node, props, className }: RendererProps<SpacerProps>) {
+  const size = SPACER_SIZES.has(props.size) ? props.size : 'lg'
+  return <div className={`cos-spacer cos-spacer-${size} ${className}`} data-node={node.id} aria-hidden="true" />
+}
+
 // A node's props were validated against its component's contract schema
 // before the document was saved, so each renderer can rely on its own
 // props shape.
@@ -34,8 +46,15 @@ const typed = <P extends object>(r: Renderer<P>) => r as unknown as Renderer
 const renderers: Record<string, Renderer> = {
   section: ContainerRenderer,
   container: ContainerRenderer,
+  columns: ContainerRenderer,
+  column: ContainerRenderer,
   heading: typed(HeadingRenderer),
   text: typed(TextRenderer),
+  spacer: typed(SpacerRenderer),
+  image: typed(ImageView),
+  button: typed(ButtonView),
+  'product-grid': typed(ProductGridView),
+  'product-card': typed(ProductCardView),
 }
 
 export function rendererFor(type: string): Renderer | undefined {

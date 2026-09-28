@@ -3,11 +3,20 @@ import { section } from './layout/section'
 import { container } from './layout/container'
 import { heading } from './content/heading'
 import { text } from './content/text'
+import { columns } from './layout/columns'
+import { column } from './layout/column'
+import { spacer } from './content/spacer'
+import { image } from './content/image'
+import { button } from './content/button'
+import { productGrid } from './commerce/productGrid'
+import { productCard } from './commerce/productCard'
 
 // Every component the editor offers and the runtime renders. Adding one
 // here (plus its renderer in renderers.tsx and its props schema in the
 // backend contract) is all it takes.
-const definitions = [section, container, heading, text] as unknown as ComponentDefinition[]
+const definitions = [
+  section, container, columns, column, heading, text, image, button, spacer, productGrid, productCard,
+] as unknown as ComponentDefinition[]
 
 export class ComponentRegistry {
   private readonly byType: Map<string, ComponentDefinition>

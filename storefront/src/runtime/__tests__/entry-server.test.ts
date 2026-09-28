@@ -11,7 +11,13 @@ const theme = {
   ],
 }
 
-const doc = (kind: string, key: string, text: string) => ({
+const withGrid = (d: ReturnType<typeof baseDoc>) => d.key === 'home'
+  ? { ...d, root: { ...d.root, children: [...d.root.children, { id: 'g', type: 'product-grid', props: { source: 'all', limit: 4, show_price: true } }] } }
+  : d
+
+const doc = (kind: string, key: string, text: string) => withGrid(baseDoc(kind, key, text))
+
+const baseDoc = (kind: string, key: string, text: string) => ({
   kind, key, title: key === 'about' ? 'About us' : '', seo: key === 'home' ? { title: 'Shop home', description: 'Best <shop>' } : {},
   root: { id: 'root', type: 'root', children: [{ id: `h-${key}`, type: 'heading', props: { text, level: 1 } }] },
 })
@@ -21,6 +27,9 @@ function backend(opts: { themeStatus?: number } = {}) {
     const url = String(input)
     const json = (data: unknown, status = 200) => new Response(JSON.stringify(status === 200 ? { data, error: null } : { data: null, error: { code: 'NOT_FOUND', message: 'x' } }), { status })
     if (url.endsWith('/storefront/v1/theme')) return json(theme, opts.themeStatus ?? 200)
+    if (url.includes('/storefront/v1/products?')) {
+      return json({ items: [{ id: 'p1', name: 'Red shoes', slug: 'red-shoes', category_id: null, tags: [], image_url: null, price_minor_units: 2999, currency_code: 'EUR' }], total: 1 })
+    }
     const m = /documents\/([^/]+)\/([^/]+)$/.exec(url)
     if (m) return json(doc(m[1], decodeURIComponent(m[2]), `${m[2]} text`))
     return json(null, 404)
@@ -42,6 +51,14 @@ describe('entry-server render', () => {
     expect(out.head).toContain('--color-primary:#1f3fbf')
     expect(out.state).toContain('"storeKey":"key-1"')
     expect(out.state).not.toContain('<')
+  })
+
+  it('prefetches catalog data so product grids are server-rendered and hydrate from cache', async () => {
+    const f = backend()
+    const out = await render({ ...base, url: '/store/key-1/', fetch: f })
+    expect(out.html).toContain('Red shoes')
+    expect(out.html).toContain('href="/store/key-1/products/red-shoes"')
+    expect(out.state).toContain('Red shoes')
   })
 
   it('renders merchant pages', async () => {

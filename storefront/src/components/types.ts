@@ -23,6 +23,12 @@ export type PropField =
   | { kind: 'select'; label: string; options: SelectOption[] }
   | { kind: 'toggle'; label: string }
   | { kind: 'richtext'; label: string }
+  | { kind: 'asset'; label: string }
+  | { kind: 'link'; label: string }
+  | { kind: 'category'; label: string }
+  | { kind: 'product'; label: string }
+  | { kind: 'products'; label: string; max: number }
+  | { kind: 'hidden' }
 
 /** Markup for a container: one element whose children the editor manages. */
 export interface ContainerElement {
@@ -47,6 +53,8 @@ export interface ComponentDefinition<P extends object = Record<string, unknown>>
   requiredIn: string[]
   styleGroups: StyleGroup[]
   editor: { removable: boolean; copyable: boolean; draggable: boolean }
+  /** Hides a prop field unless the current props satisfy it (e.g. category only for source=category). */
+  showField?: Partial<Record<keyof P, (props: P) => boolean>>
 }
 
 export interface RendererProps<P extends object = Record<string, unknown>> {
