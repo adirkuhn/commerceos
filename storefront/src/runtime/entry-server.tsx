@@ -44,6 +44,8 @@ function buildHead(theme: StorefrontTheme, doc: ThemeDocument, preview: boolean)
   const parts = [`<title>${escapeHTML(title)}</title>`]
   if (doc.seo?.description) parts.push(`<meta name="description" content="${escapeHTML(doc.seo.description)}">`)
   if (preview) parts.push('<meta name="robots" content="noindex">')
+  const favicon = theme.settings.brand.favicon_asset_id && theme.assets?.[theme.settings.brand.favicon_asset_id]
+  if (favicon) parts.push(`<link rel="icon" href="${escapeHTML(favicon.url)}">`)
   const fonts = fontStylesheetURL(theme.settings)
   if (fonts) parts.push('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>', `<link rel="stylesheet" href="${escapeHTML(fonts)}">`)
   parts.push(`<style>${settingsToCSS(theme.settings)}</style>`)

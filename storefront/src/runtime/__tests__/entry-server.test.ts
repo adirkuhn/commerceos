@@ -61,6 +61,19 @@ describe('entry-server render', () => {
     expect(out.state).toContain('Red shoes')
   })
 
+  it('links the favicon chosen in theme settings', async () => {
+    const fav = '0b0c7d1e-6f7a-4b8c-9d0e-1f2a3b4c5d6e'
+    theme.settings = { ...theme.settings, brand: { favicon_asset_id: fav } }
+    ;(theme as Record<string, unknown>).assets = { [fav]: { url: 'https://cdn.test/fav.png', width: 32, height: 32, alt: '' } }
+    try {
+      const out = await render({ ...base, url: '/store/key-1/', fetch: backend() })
+      expect(out.head).toContain('<link rel="icon" href="https://cdn.test/fav.png">')
+    } finally {
+      theme.settings = defaultSettings()
+      delete (theme as Record<string, unknown>).assets
+    }
+  })
+
   it('renders merchant pages', async () => {
     const out = await render({ ...base, url: '/store/key-1/pages/about', fetch: backend() })
     expect(out.status).toBe(200)
