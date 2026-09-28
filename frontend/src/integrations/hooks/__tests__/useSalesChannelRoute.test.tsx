@@ -23,6 +23,7 @@ describe('useSalesChannelRoute', () => {
     ['/sales-channels/c1', { kind: 'manage', channelId: 'c1' }],
     ['/sales-channels/c1/edit', { kind: 'edit', channelId: 'c1' }],
     ['/sales-channels/c1/api', { kind: 'api', channelId: 'c1' }],
+    ['/sales-channels/c1/themes', { kind: 'themes', channelId: 'c1' }],
     ['/sales-channels/c1/bogus', { kind: 'manage', channelId: 'c1' }],
   ])('%s -> %o', (url, view) => {
     expect(setup(url).hook.result.current.r.view).toEqual(view)
@@ -34,6 +35,8 @@ describe('useSalesChannelRoute', () => {
     expect(hook.result.current.loc.pathname).toBe('/sales-channels/c1/edit')
     act(() => hook.result.current.r.openApiDocs('c1'))
     expect(hook.result.current.loc.pathname).toBe('/sales-channels/c1/api')
+    act(() => hook.result.current.r.openThemes('c1'))
+    expect(hook.result.current.loc.pathname).toBe('/sales-channels/c1/themes')
     act(() => hook.result.current.r.openManage('c1'))
     expect(hook.result.current.loc.pathname).toBe('/sales-channels/c1')
     act(() => hook.result.current.r.openCreate())

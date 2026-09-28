@@ -1,0 +1,142 @@
+import { useState } from 'react'
+import { ArrowLeft, ExternalLink, Paintbrush, Plus } from 'lucide-react'
+import { useAuth } from '../auth/AuthContext'
+import { useConfirm } from '../components/common/useConfirm'
+import { useDateFormat } from '../format/DateFormatProvider'
+import type { SalesChannel } from '../integrations/types'
+import { createThemeSession } from './api'
+import { editorURL, storeURL } from './storefrontURL'
+import { useThemes } from './useThemes'
+import type { Theme } from './types'
+
+interface Props {
+  channel: SalesChannel
+  onClose: () => void
+}
+
+// A channel's theme library: create themes, open one in the visual editor
+// (hosted by the storefront app), delete unused ones. The live theme is
+// what shoppers see at /store/{channel}.
+export function ThemesPanel({ channel, onClose }: Props) {
+  const { token } = useAuth()
+  const { themes, loading, error, create, remove } = useThemes(token ?? '', channel.id)
+  const { confirm, confirmDialog } = useConfirm()
+  const { formatDate } = useDateFormat()
+  const [name, setName] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const hasLive = themes.some(t => t.is_live)
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) return
+    setCreating(true)
+    setActionError('')
+    try {
+      await create(name.trim())
+      setName('')
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create theme')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const customize = async (theme: Theme) => {
+    setActionError('')
+    // Open the tab now, inside the click, or the browser blocks the popup.
+    const win = window.open('', '_blank')
+    try {
+      const session = await createThemeSession(token ?? '', theme.id, 'edit')
+      if (win) {
+        win.opener = null
+        win.location.href = editorURL(session.token)
+      }
+    } catch (err) {
+      win?.close()
+      setActionError(err instanceof Error ? err.message : 'Could not open the editor')
+    }
+  }
+
+  const handleDelete = async (theme: Theme) => {
+    const ok = await confirm({
+      title: `Delete theme "${theme.name}"?`,
+      message: 'Its design and every saved version are deleted. This cannot be undone.',
+      confirmLabel: 'Delete theme',
+      destructive: true,
+    })
+    if (!ok) return
+    setActionError('')
+    try {
+      await remove(theme.id)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete theme')
+    }
+  }
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden p-5 gap-4">
+      <div className="flex items-center gap-3">
+        <button onClick={onClose} aria-label="Back to sales channels" className="p-1.5 rounded-lg bg-fill text-ink-3 hover:text-accent">
+          <ArrowLeft size={14} />
+        </button>
+        <h2 className="text-sm font-semibold text-ink">Themes · {channel.name}</h2>
+        {hasLive && (
+          <a href={storeURL(channel.id)} target="_blank" rel="noopener noreferrer"
+            className="ml-auto flex items-center gap-1 text-2xs text-accent">
+            View store <ExternalLink size={11} />
+          </a>
+        )}
+      </div>
+
+      {channel.storefront_mode !== 'theme' && (
+        <p className="text-xs text-warning bg-amber-500/10 rounded-lg px-3 py-2">
+          This channel is headless. Switch its Storefront setting to "Hosted storefront" to design and publish a theme.
+        </p>
+      )}
+
+      <form onSubmit={handleCreate} className="flex gap-2 max-w-md">
+        <label htmlFor="new-theme-name" className="sr-only">New theme name</label>
+        <input id="new-theme-name" value={name} onChange={e => setName(e.target.value)} maxLength={120}
+          placeholder="New theme name"
+          className="flex-1 px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus" />
+        <button type="submit" disabled={creating || !name.trim() || channel.storefront_mode !== 'theme'}
+          className="flex items-center gap-1 px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium disabled:opacity-50">
+          <Plus size={12} /> {creating ? 'Creating…' : 'Create theme'}
+        </button>
+      </form>
+
+      {(error || actionError) && <p className="text-xs text-danger" role="alert">{actionError || error}</p>}
+
+      {loading ? (
+        <p className="text-xs text-ink-4">Loading themes…</p>
+      ) : themes.length === 0 ? (
+        <p className="text-xs text-ink-4">No themes yet. Create one to start designing this store.</p>
+      ) : (
+        <ul className="flex flex-col gap-2" aria-label="Themes">
+          {themes.map(theme => (
+            <li key={theme.id} className="flex items-center gap-3 p-3 rounded-xl border border-line bg-raised">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-ink truncate">{theme.name}</p>
+                <p className="text-2xs text-ink-4">Updated {formatDate(theme.updated_at)}</p>
+              </div>
+              {theme.is_live
+                ? <span className="text-2xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-700 dark:text-green-400">Live</span>
+                : <span className="text-2xs px-2 py-0.5 rounded-full bg-fill text-ink-3">{theme.published_version_id ? 'Not live' : 'Draft only'}</span>}
+              <button onClick={() => void customize(theme)} disabled={channel.storefront_mode !== 'theme'}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-fill text-2xs text-ink-2 hover:text-accent disabled:opacity-50">
+                <Paintbrush size={11} /> Customize
+              </button>
+              <button onClick={() => void handleDelete(theme)} disabled={theme.is_live}
+                title={theme.is_live ? 'The live theme cannot be deleted' : undefined}
+                className="px-3 py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-danger disabled:opacity-40">
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {confirmDialog}
+    </div>
+  )
+}

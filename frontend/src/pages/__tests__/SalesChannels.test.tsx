@@ -28,6 +28,10 @@ vi.mock('../../integrations/api', () => ({
   setSalesChannelPaymentMethod: vi.fn(),
 }))
 
+vi.mock('../../themes/api', () => ({
+  listThemes: vi.fn(async () => ({ items: [], total: 0 })), createTheme: vi.fn(), deleteTheme: vi.fn(), createThemeSession: vi.fn(),
+}))
+
 vi.mock('../../pms/api', () => ({
   listCategories: vi.fn(),
 }))
@@ -840,5 +844,21 @@ describe('Storefront mode', () => {
         storefrontMode: 'headless',
       }))
     })
+  })
+})
+
+describe('Themes', () => {
+  it('offers Themes only for Internal channels and opens the theme library', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
+      sampleChannel(),
+      sampleChannel({ id: 'chan-int', name: 'Shop', type: 'internal', connection_id: null, storefront_mode: 'theme' }),
+    ])
+    renderPage()
+    await screen.findByText('Shop')
+
+    expect(screen.getAllByRole('button', { name: /Themes/ })).toHaveLength(1)
+    await userEvent.click(screen.getByRole('button', { name: /Themes/ }))
+
+    expect(await screen.findByRole('heading', { name: 'Themes · Shop' })).toBeInTheDocument()
   })
 })

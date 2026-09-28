@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Radio, X, Code2 } from 'lucide-react'
+import { Radio, X, Code2, Paintbrush } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useSalesChannelRoute } from '../integrations/hooks/useSalesChannelRoute'
@@ -18,6 +18,7 @@ import { Dialog } from '../components/common/Dialog'
 import { CONNECTION_REQUIRED_TYPES, ENROLLMENT_LABELS, HEADLESS_API_ENDPOINTS, INTERNAL_TYPE, PAYMENT_CAPABLE_TYPES, TYPE_LABELS, WAREHOUSE_REQUIRED_TYPES, apiBaseURL, capitalize } from '../integrations/salesChannels/salesChannelConstants'
 import { ChannelFormState, emptyForm, toForm } from '../integrations/salesChannels/channelForm'
 import StorefrontModeField from '../integrations/salesChannels/StorefrontModeField'
+import { ThemesPanel } from '../themes/ThemesPanel'
 import { ChannelProductsPanel } from '../integrations/salesChannels/ChannelProductsPanel'
 
 export default function SalesChannels() {
@@ -35,6 +36,7 @@ export default function SalesChannels() {
   const routeChannelId = 'channelId' in view ? view.channelId : null
   const routeChannel = routeChannelId ? channels.find(c => c.id === routeChannelId) ?? null : null
   const managingChannel = view.kind === 'manage' ? routeChannel : null
+  const themesChannel = view.kind === 'themes' ? routeChannel : null
   const editingChannel = view.kind === 'edit' ? routeChannel : null
   const creating = view.kind === 'create'
   const apiDocsChannel = view.kind === 'api' ? routeChannel : null
@@ -148,6 +150,10 @@ export default function SalesChannels() {
     return loading ? <RecordLoading /> : <RecordNotFound label="Sales channel" onBack={route.close} />
   }
 
+  if (themesChannel) {
+    return <ThemesPanel channel={themesChannel} onClose={route.close} />
+  }
+
   if (managingChannel) {
     return (
       <ChannelProductsPanel
@@ -209,12 +215,20 @@ export default function SalesChannels() {
                   )}
                 </div>
                 {channel.type === INTERNAL_TYPE && (
-                  <button
-                    onClick={() => route.openApiDocs(channel.id)}
-                    className="mt-2 flex items-center gap-1 text-2xs text-accent hover:text-accent transition-colors"
-                  >
-                    <Code2 size={11} /> API docs
-                  </button>
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      onClick={() => route.openApiDocs(channel.id)}
+                      className="flex items-center gap-1 text-2xs text-accent hover:text-accent transition-colors"
+                    >
+                      <Code2 size={11} /> API docs
+                    </button>
+                    <button
+                      onClick={() => route.openThemes(channel.id)}
+                      className="flex items-center gap-1 text-2xs text-accent hover:text-accent transition-colors"
+                    >
+                      <Paintbrush size={11} /> Themes
+                    </button>
+                  </div>
                 )}
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <button

@@ -12,6 +12,7 @@ export type SalesChannelView =
   | { kind: 'manage'; channelId: string }
   | { kind: 'edit'; channelId: string }
   | { kind: 'api'; channelId: string }
+  | { kind: 'themes'; channelId: string }
 
 // Which Sales Channels view is showing, derived from the URL:
 //   /sales-channels              list
@@ -19,6 +20,7 @@ export type SalesChannelView =
 //   /sales-channels/:id          products & pricing manager
 //   /sales-channels/:id/edit     edit form (modal over the list)
 //   /sales-channels/:id/api      headless API docs (modal over the list)
+//   /sales-channels/:id/themes   theme library (internal channels)
 // so each survives a refresh and Back closes it.
 export function useSalesChannelRoute() {
   const location = useLocation()
@@ -30,6 +32,7 @@ export function useSalesChannelRoute() {
   else if (first === NEW_RECORD) view = { kind: 'create' }
   else if (second === 'edit') view = { kind: 'edit', channelId: first }
   else if (second === 'api') view = { kind: 'api', channelId: first }
+  else if (second === 'themes') view = { kind: 'themes', channelId: first }
   else view = { kind: 'manage', channelId: first }
 
   const channelPath = (id: string) => `${SALES_CHANNELS_PATH}/${encodeURIComponent(id)}`
@@ -40,6 +43,7 @@ export function useSalesChannelRoute() {
     openManage: useCallback((id: string) => open(channelPath(id)), [open]),
     openEdit: useCallback((id: string) => open(`${channelPath(id)}/edit`), [open]),
     openApiDocs: useCallback((id: string) => open(`${channelPath(id)}/api`), [open]),
+    openThemes: useCallback((id: string) => open(`${channelPath(id)}/themes`), [open]),
     close: useCallback(() => exitToOpener(SALES_CHANNELS_PATH), [exitToOpener]),
   }
 }
