@@ -41,7 +41,16 @@ export interface ProductList {
 export interface ProductQuery {
   categoryId?: string
   productIds?: string[]
+  search?: string
   perPage?: number
+}
+
+export interface Category {
+  id: string
+  parent_id: string | null
+  name: string
+  slug: string
+  position: number
 }
 
 interface Envelope<T> {
@@ -77,8 +86,13 @@ export class StorefrontAPI {
     const params = new URLSearchParams()
     if (q.categoryId) params.set('category_id', q.categoryId)
     if (q.productIds) params.set('product_ids', q.productIds.join(','))
+    if (q.search) params.set('search', q.search)
     params.set('per_page', String(q.perPage ?? 12))
     return this.get(`/storefront/v1/products?${params}`)
+  }
+
+  listCategories(): Promise<Category[]> {
+    return this.get('/storefront/v1/categories')
   }
 
   private async get<T>(path: string): Promise<T> {

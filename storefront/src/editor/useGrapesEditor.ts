@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import grapesjs, { type Editor } from 'grapesjs'
 import { registry } from '../components/registry'
 import { installRegistry } from './grapes/plugin'
@@ -20,9 +20,13 @@ interface Mounts {
 /** Creates the GrapesJS editor once its mount points exist. Everything
  *  generic GrapesJS ships with (HTML import, code view, default blocks,
  *  style manager, storage) is off: merchants only get CommerceOS components. */
-export function useGrapesEditor(mounts: () => Mounts): Editor | undefined {
+export function useGrapesEditor(mounts: () => Mounts, wrap: (el: ReactElement) => ReactElement): Editor | undefined {
   const [editor, setEditor] = useState<Editor>()
   const created = useRef(false)
+  // The wrapper changes once the draft (and so the channel) is known; the
+  // canvas components always use the latest one.
+  const wrapRef = useRef(wrap)
+  wrapRef.current = wrap
 
   useEffect(() => {
     const m = mounts()
@@ -43,7 +47,7 @@ export function useGrapesEditor(mounts: () => Mounts): Editor | undefined {
       undoManager: { trackSelection: false },
       canvas: { styles: [], scripts: [] },
     })
-    installRegistry(e, registry)
+    installRegistry(e, registry, { wrap: el => wrapRef.current(el) })
     setEditor(e)
     return () => {
       e.destroy()

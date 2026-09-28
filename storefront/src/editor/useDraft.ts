@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Editor } from 'grapesjs'
-import type { DocumentKind } from '../core/document'
+import type { DocumentKind, ThemeSettings } from '../core/document'
 import { registry } from '../components/registry'
 import { EditorApiError, type Draft, type EditorAPI } from './api'
 import { fromGrapes, toGrapes } from './grapes/serializer'
+import type { AssetStore } from './assetStore'
 
 export interface DocRef {
   kind: DocumentKind
@@ -30,7 +31,7 @@ export type Status =
 
 /** Draft state for the editor: which document is open, the draft revision
  *  every write must quote, and load/save/publish/preview actions. */
-export function useDraft(api: EditorAPI, editor: Editor | undefined) {
+export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: AssetStore) {
   const [draft, setDraft] = useState<Draft>()
   const [revision, setRevision] = useState(0)
   const [doc, setDoc] = useState<DocRef>({ kind: 'template', key: 'home' })
@@ -49,12 +50,15 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined) {
     }
   }
 
+  const [savingSettings, setSavingSettings] = useState(false)
+
   const open = useCallback(async () => {
     const d = await api.openDraft()
+    assets.merge(d.assets)
     setDraft(d)
     setRevision(d.version.revision)
     return d
-  }, [api])
+  }, [api, assets])
 
   useEffect(() => {
     open().then(() => setStatus({ kind: 'idle' }), fail)
@@ -67,6 +71,7 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined) {
     setStatus({ kind: 'busy', label: 'Loading page…' })
     api.getDocument(doc.kind, doc.key).then(d => {
       if (cancelled) return
+      assets.merge(d.assets)
       editor.setComponents(toGrapes(d.root, registry) as never)
       editor.UndoManager.clear()
       setDirty(false)
@@ -122,5 +127,20 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined) {
     }
   }
 
-  return { draft, doc, setDoc, dirty, status, save, publish, preview }
+  const saveSettings = async (settings: ThemeSettings) => {
+    if (!draft) return
+    setSavingSettings(true)
+    try {
+      const v = await api.saveSettings(revision, settings)
+      setRevision(v.revision)
+      setDraft(d => (d ? { ...d, version: { ...d.version, settings: v.settings, revision: v.revision } } : d))
+      setStatus({ kind: 'ok', message: 'Theme settings saved' })
+    } catch (err) {
+      fail(err)
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
+  return { draft, doc, setDoc, dirty, status, save, publish, preview, saveSettings, savingSettings }
 }

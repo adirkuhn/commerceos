@@ -1,5 +1,5 @@
 import { ApiError } from '../api/storefront'
-import type { DocumentKind, SEO, ThemeDocument, ThemeNode, ThemeSettings, DocumentSummary } from '../core/document'
+import type { AssetRef, DocumentKind, SEO, ThemeDocument, ThemeNode, ThemeSettings, DocumentSummary } from '../core/document'
 
 export interface DraftVersion {
   id: string
@@ -14,6 +14,19 @@ export interface Draft {
   version: DraftVersion
   documents: DocumentSummary[]
   sales_channel_id: string
+  assets?: Record<string, AssetRef>
+}
+
+export interface Asset {
+  id: string
+  url: string
+  filename: string
+  content_type: string
+  bytes: number
+  width: number
+  height: number
+  alt: string
+  created_at: string
 }
 
 export interface DraftWrite {
@@ -69,21 +82,46 @@ export class EditorAPI {
     return this.call('POST', '/theme-editor/preview-sessions')
   }
 
-  private async call<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async listAssets(page = 1, perPage = 60): Promise<{ items: Asset[]; total: number }> {
+    const items = await this.call<Asset[]>('GET', `/theme-editor/assets?page=${page}&per_page=${perPage}`)
+    return { items, total: this.lastTotal }
+  }
+
+  uploadAsset(file: File, alt = ''): Promise<Asset> {
+    const form = new FormData()
+    form.append('file', file)
+    if (alt) form.append('alt', alt)
+    return this.call('POST', '/theme-editor/assets', form)
+  }
+
+  updateAsset(id: string, alt: string): Promise<Asset> {
+    return this.call('PATCH', `/theme-editor/assets/${id}`, { alt })
+  }
+
+  async deleteAsset(id: string): Promise<void> {
+    await this.call<unknown>('DELETE', `/theme-editor/assets/${id}`, undefined, true)
+  }
+
+  private lastTotal = 0
+
+  private async call<T>(method: string, path: string, body?: unknown, allowNullData = false): Promise<T> {
     const headers = new Headers({ Accept: 'application/json', Authorization: `Bearer ${this.cfg.token}` })
-    if (body !== undefined) headers.set('Content-Type', 'application/json')
+    const isForm = typeof FormData !== 'undefined' && body instanceof FormData
+    if (body !== undefined && !isForm) headers.set('Content-Type', 'application/json')
     const res = await (this.cfg.fetch ?? fetch)(`${this.cfg.baseURL}${path}`, {
-      method, headers, body: body === undefined ? undefined : JSON.stringify(body),
+      method, headers, body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     })
-    let env: { data: T | null; error: { code?: string; message?: string; node_id?: string } | null } | undefined
+    let env: { data: T | null; total?: number; error: { code?: string; message?: string; node_id?: string } | null } | undefined
     try {
       env = await res.json()
     } catch {
       env = undefined
     }
+    if (res.ok && env && env.data === null && allowNullData) return env.data as T
     if (!res.ok || !env || env.data === null) {
       throw new EditorApiError(res.status, env?.error?.code ?? 'HTTP_ERROR', env?.error?.message ?? `request failed (${res.status})`, env?.error?.node_id)
     }
+    this.lastTotal = env.total ?? 0
     return env.data
   }
 }

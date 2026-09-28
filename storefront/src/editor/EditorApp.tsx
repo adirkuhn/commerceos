@@ -1,23 +1,43 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { QueryClient } from '@tanstack/react-query'
 import 'grapesjs/dist/css/grapes.min.css'
 import baseCSS from '../theme/base.css?inline'
+import { StorefrontAPI } from '../api/storefront'
 import { defaultSettings } from '../core/settings'
 import type { EditorAPI } from './api'
+import { AssetStore } from './assetStore'
+import { CanvasProviders } from './CanvasProviders'
 import { syncCanvasStyles } from './grapes/canvasStyles'
+import { Inspector } from './inspector/Inspector'
+import { EditorServicesProvider, type EditorServices } from './services'
 import { Toolbar } from './Toolbar'
 import { useDraft } from './useDraft'
 import { DEVICES, useGrapesEditor, type DeviceId } from './useGrapesEditor'
 
-/** The CommerceOS theme editor: toolbar, component library + layers on the
- *  left, the GrapesJS canvas in the middle. (Inspector: Phase 3.) */
-export function EditorApp({ api }: { api: EditorAPI }) {
+/** The CommerceOS theme editor: toolbar; components + layers; the GrapesJS
+ *  canvas; and the inspector (component settings/styles or theme settings). */
+export function EditorApp({ api, apiBase }: { api: EditorAPI; apiBase: string }) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const blocksRef = useRef<HTMLDivElement>(null)
   const layersRef = useRef<HTMLDivElement>(null)
+  const [assets] = useState(() => new AssetStore())
+  const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 60_000 } } }))
+  const [channelId, setChannelId] = useState('')
+
+  const services: EditorServices | undefined = useMemo(() => channelId
+    ? { api, assets, queryClient, channelId, store: new StorefrontAPI({ baseURL: apiBase, storeKey: channelId }) }
+    : undefined, [api, apiBase, assets, queryClient, channelId])
+
+  const wrap = useCallback((el: ReactElement) => (services ? <CanvasProviders services={services}>{el}</CanvasProviders> : el), [services])
   const mounts = useCallback(() => ({ canvas: canvasRef.current, blocks: blocksRef.current, layers: layersRef.current }), [])
-  const editor = useGrapesEditor(mounts)
-  const { draft, doc, setDoc, dirty, status, save, publish, preview } = useDraft(api, editor)
+  const editor = useGrapesEditor(mounts, wrap)
+  const { draft, doc, setDoc, dirty, status, save, publish, preview, saveSettings, savingSettings } = useDraft(api, editor, assets)
   const [device, setDevice] = useState<DeviceId>('desktop')
+  const settings = draft?.version.settings ?? defaultSettings()
+
+  useEffect(() => {
+    if (draft) setChannelId(draft.sales_channel_id)
+  }, [draft])
 
   useEffect(() => {
     editor?.setDevice(DEVICES.find(d => d.id === device)!.name)
@@ -25,16 +45,17 @@ export function EditorApp({ api }: { api: EditorAPI }) {
 
   useEffect(() => {
     if (!editor) return
-    const settings = draft?.version.settings ?? defaultSettings()
-    const sync = () => syncCanvasStyles(editor, baseCSS, settings)
+    const sync = () => syncCanvasStyles(editor, baseCSS, settings, assets.snapshot())
     editor.on('load update component:update', sync)
+    const unsubscribe = assets.subscribe(sync)
     sync()
     return () => {
       editor.off('load update component:update', sync)
+      unsubscribe()
     }
-  }, [editor, draft?.version.settings])
+  }, [editor, settings, assets])
 
-  return (
+  const body = (
     <div className="flex h-screen flex-col bg-neutral-100 text-neutral-900">
       <Toolbar
         themeName={draft?.theme.name ?? 'Theme'} documents={draft?.documents ?? []} doc={doc} onDoc={setDoc}
@@ -49,7 +70,13 @@ export function EditorApp({ api }: { api: EditorAPI }) {
           <div ref={layersRef} />
         </aside>
         <main className="min-w-0 flex-1" aria-label="Canvas"><div ref={canvasRef} className="h-full" /></main>
+        <aside className="w-80 shrink-0 overflow-y-auto border-l border-neutral-200 bg-white p-4" aria-label="Inspector">
+          {editor && services && (
+            <Inspector editor={editor} device={device} settings={settings} onSaveSettings={s => void saveSettings(s)} savingSettings={savingSettings} />
+          )}
+        </aside>
       </div>
     </div>
   )
+  return services ? <EditorServicesProvider value={services}>{body}</EditorServicesProvider> : body
 }

@@ -34,4 +34,20 @@ describe('EditorAPI', () => {
     expect(err).toBeInstanceOf(ApiError)
     expect(err).toMatchObject({ status: 422, nodeId: 'h1' })
   })
+  it('uploads assets as multipart and reads list totals', async () => {
+    const f = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'a1' }, error: null }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ id: 'a1' }], total: 7, error: null })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: null, error: null })))
+    const api = new EditorAPI({ baseURL: 'https://api.test/api/v1', token: 't', fetch: f })
+
+    await api.uploadAsset(new File(['x'], 'a.png', { type: 'image/png' }), 'Logo')
+    const init = f.mock.calls[0][1]!
+    expect(init.body).toBeInstanceOf(FormData)
+    expect((init.body as FormData).get('alt')).toBe('Logo')
+    expect(new Headers(init.headers).has('Content-Type')).toBe(false)
+
+    await expect(api.listAssets()).resolves.toEqual({ items: [{ id: 'a1' }], total: 7 })
+    await expect(api.deleteAsset('a1')).resolves.toBeUndefined()
+  })
 })

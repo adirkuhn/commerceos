@@ -16,5 +16,5 @@ if (!token || !apiBase) {
     </main>,
   )
 } else {
-  root.render(<EditorApp api={new EditorAPI({ baseURL: apiBase, token })} />)
+  root.render(<EditorApp api={new EditorAPI({ baseURL: apiBase, token })} apiBase={apiBase} />)
 }

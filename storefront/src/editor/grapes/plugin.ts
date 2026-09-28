@@ -1,5 +1,5 @@
 import type { Component, Editor } from 'grapesjs'
-import { createElement } from 'react'
+import { createElement, type ReactElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { ComponentRegistry } from '../../components/registry'
 import type { ComponentDefinition } from '../../components/types'
@@ -19,7 +19,12 @@ export const CATEGORY_LABELS: Record<ComponentDefinition['category'], string> = 
   layout: 'Layout', content: 'Content', commerce: 'Commerce', navigation: 'Navigation', customer: 'Customer', cart: 'Cart',
 }
 
-function registerType(editor: Editor, registry: ComponentRegistry, def: ComponentDefinition) {
+export interface PluginOptions {
+  /** Wraps each canvas-rendered component in the providers it needs. */
+  wrap: (el: ReactElement) => ReactElement
+}
+
+function registerType(editor: Editor, registry: ComponentRegistry, def: ComponentDefinition, opts: PluginOptions) {
   const el = def.element?.(def.defaults)
   const roots = new WeakMap<object, Root>()
 
@@ -43,7 +48,13 @@ function registerType(editor: Editor, registry: ComponentRegistry, def: Componen
       },
       init(this: Component) {
         if (!this.get('cosId')) this.set('cosId', newNodeId())
-        if (el) this.setClass([...el.className.split(' '), nodeClass(String(this.get('cosId')))])
+        if (!def.element) return
+        const applyClasses = () => {
+          const current = def.element!({ ...def.defaults, ...(this.get('cosProps') ?? {}) } as never)
+          this.setClass([...current.className.split(' '), nodeClass(String(this.get('cosId')))])
+        }
+        applyClasses()
+        this.on('change:cosProps change:cosId', applyClasses)
       },
     },
     view: def.container ? {} : {
@@ -57,7 +68,7 @@ function registerType(editor: Editor, registry: ComponentRegistry, def: Componen
         const root = createRoot(host)
         roots.set(model, root)
         const id = String(model.get('cosId'))
-        root.render(createElement(Renderer, { node: { id, type: def.type }, props: model.get('cosProps') ?? {}, className: nodeClass(id) }))
+        root.render(opts.wrap(createElement(Renderer, { node: { id, type: def.type }, props: model.get('cosProps') ?? {}, className: nodeClass(id) })))
       },
       removed({ model }: { model: Component }) {
         roots.get(model)?.unmount()
@@ -74,15 +85,12 @@ function registerType(editor: Editor, registry: ComponentRegistry, def: Componen
   })
 }
 
-export function installRegistry(editor: Editor, registry: ComponentRegistry) {
-  for (const def of registry.all()) registerType(editor, registry, def)
+export function installRegistry(editor: Editor, registry: ComponentRegistry, opts: PluginOptions) {
+  for (const def of registry.all()) registerType(editor, registry, def, opts)
 
   // A copied component keeps its source's id; give it its own.
   editor.on('component:clone', (c: Component) => {
     const id = newNodeId()
     c.set('cosId', id)
-    const def = registry.get(String(c.get('type')))
-    const el = def?.element?.(c.get('cosProps') ?? def.defaults)
-    if (el) c.setClass([...el.className.split(' '), nodeClass(id)])
   })
 }
