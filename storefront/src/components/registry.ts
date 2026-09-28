@@ -1,0 +1,43 @@
+import type { ComponentDefinition } from './types'
+import { section } from './layout/section'
+import { container } from './layout/container'
+import { heading } from './content/heading'
+import { text } from './content/text'
+
+// Every component the editor offers and the runtime renders. Adding one
+// here (plus its renderer in renderers.tsx and its props schema in the
+// backend contract) is all it takes.
+const definitions = [section, container, heading, text] as unknown as ComponentDefinition[]
+
+export class ComponentRegistry {
+  private readonly byType: Map<string, ComponentDefinition>
+
+  constructor(defs: ComponentDefinition[]) {
+    this.byType = new Map()
+    for (const d of defs) {
+      if (this.byType.has(d.type)) throw new Error(`duplicate component type ${d.type}`)
+      this.byType.set(d.type, d)
+    }
+  }
+
+  get(type: string): ComponentDefinition | undefined {
+    return this.byType.get(type)
+  }
+
+  all(): ComponentDefinition[] {
+    return [...this.byType.values()]
+  }
+
+  /** Whether `child` may be placed directly inside `parentType`. */
+  canPlace(child: string, parentType: string): boolean {
+    const def = this.get(child)
+    const parent = parentType === 'root' ? undefined : this.get(parentType)
+    if (!def) return false
+    if (parentType !== 'root' && !parent?.container) return false
+    if (def.allowedParents.length && !def.allowedParents.includes(parentType)) return false
+    if (parent?.allowedChildren.length && !parent.allowedChildren.includes(child)) return false
+    return true
+  }
+}
+
+export const registry = new ComponentRegistry(definitions)

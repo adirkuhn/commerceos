@@ -1,0 +1,88 @@
+{
+  "components": [
+    {
+      "type": "container",
+      "container": true,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [],
+      "required_props": []
+    },
+    {
+      "type": "heading",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "level",
+        "text"
+      ],
+      "required_props": [
+        "level",
+        "text"
+      ]
+    },
+    {
+      "type": "section",
+      "container": true,
+      "allowed_children": [],
+      "allowed_parents": [
+        "root"
+      ],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "full_width"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "text",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "content"
+      ],
+      "required_props": [
+        "content"
+      ]
+    }
+  ],
+  "style_properties": [
+    "align_items",
+    "aspect_ratio",
+    "background_color",
+    "background_image",
+    "background_position",
+    "background_size",
+    "border_color",
+    "border_radius",
+    "border_width",
+    "color",
+    "columns",
+    "display",
+    "font_family",
+    "font_size",
+    "font_weight",
+    "gap",
+    "justify_content",
+    "letter_spacing",
+    "line_height",
+    "margin_bottom",
+    "margin_top",
+    "min_height",
+    "padding_x",
+    "padding_y",
+    "shadow",
+    "text_align",
+    "text_transform",
+    "width"
+  ]
+}
