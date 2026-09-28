@@ -143,9 +143,12 @@ type SalesChannel struct {
 	DefaultWarehouseID *string
 	// StorefrontMode -- see StorefrontMode's own doc comment.
 	StorefrontMode StorefrontMode
-	Active         bool
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	// SignInURL is a headless storefront's page that completes shopper
+	// sign-in (see ResolveSignInURL); nil when not configured.
+	SignInURL *string
+	Active    bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // QuantityBreak is one "at this quantity or more, this bigger discount"

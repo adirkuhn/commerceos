@@ -6,8 +6,8 @@ export interface CustomerState {
   /** undefined until checked in the browser; null when signed out. */
   account: Account | null | undefined
   sessionToken: string | null
-  /** Emails a sign-in link that returns to `returnURL`. */
-  requestLink: (email: string, returnURL: string) => Promise<void>
+  /** Emails a sign-in link to this store's login page. */
+  requestLink: (email: string) => Promise<void>
   completeSignIn: (linkToken: string) => Promise<void>
   signOut: () => Promise<void>
 }
@@ -42,7 +42,7 @@ export function CustomerProvider({ api, storeKey, children }: { api: StorefrontA
 
   const value = useMemo<CustomerState>(() => ({
     account, sessionToken, completeSignIn,
-    requestLink: async (email, returnURL) => { await api.requestMagicLink(email, returnURL) },
+    requestLink: async email => { await api.requestMagicLink(email) },
     signOut: async () => {
       if (sessionToken) await api.logout(sessionToken).catch(() => undefined)
       writeToken('session', storeKey, null)

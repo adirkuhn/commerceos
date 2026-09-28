@@ -209,3 +209,49 @@ func TestSalesChannelRepo_Integration_StorefrontModeRoundTripsAndDefaultsToHeadl
 	require.NoError(t, err)
 	assert.Equal(t, channelsDomain.StorefrontModeHeadless, legacy.StorefrontMode)
 }
+
+func TestSalesChannelRepo_Integration_SignInURLRoundTripsAndIsInternalOnly(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewSalesChannelRepo(db)
+	page := "https://shop.example.com/verify"
+
+	var ch channelsDomain.SalesChannel
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		ch = channelsDomain.SalesChannel{
+			TenantID: tenant.IDFromContext(ctx), Name: "Headless", Type: channelsDomain.ChannelTypeInternal,
+			EnrollmentMode: channelsDomain.EnrollmentModeAll, SignInURL: &page, Active: true, CreatedAt: now, UpdatedAt: now,
+		}
+		return repo.Create(ctx, &ch)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		found, err := repo.FindByID(ctx, ch.ID)
+		if err != nil {
+			return err
+		}
+		require.NotNil(t, found.SignInURL)
+		assert.Equal(t, page, *found.SignInURL)
+
+		found.SignInURL = nil
+		if err := repo.Update(ctx, found); err != nil {
+			return err
+		}
+		again, err := repo.FindByID(ctx, ch.ID)
+		if err != nil {
+			return err
+		}
+		assert.Nil(t, again.SignInURL)
+		return nil
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		tx, _ := txctx.FromContext(ctx)
+		return tx.Exec(`INSERT INTO sales_channels (tenant_id, name, type, enrollment_mode, sign_in_url) VALUES (?, 'Woo', 'woocommerce', 'all', 'https://x.example')`,
+			tenant.IDFromContext(ctx)).Error
+	})
+	assert.ErrorContains(t, err, "sales_channels_sign_in_url_requires_internal_check")
+}

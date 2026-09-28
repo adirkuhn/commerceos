@@ -35,6 +35,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, storefrontDomain.ErrCardPaymentNotSupported),
 		errors.Is(err, storefrontDomain.ErrCardPaymentMismatch):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+	case errors.Is(err, channelsDomain.ErrSignInNotConfigured):
+		middleware.Fail(c, http.StatusUnprocessableEntity, "SIGN_IN_NOT_CONFIGURED", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartNotFound), errors.Is(err, storefrontDomain.ErrOrderNotFound),
 		errors.Is(err, storefrontDomain.ErrWishlistNotFound), errors.Is(err, storefrontDomain.ErrSessionNotFound),
 		errors.Is(err, couponsDomain.ErrCouponNotFound),

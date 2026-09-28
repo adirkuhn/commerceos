@@ -3,6 +3,7 @@ package storefront
 import (
 	"context"
 	"fmt"
+	"html"
 	"strings"
 	"time"
 
@@ -19,16 +20,13 @@ import (
 
 const magicLinkTokenTTL = 15 * time.Minute
 
+// RequestMagicLinkInput deliberately has no return URL: where the emailed
+// link points is the channel's configuration (channels.SalesChannel.
+// SignInLink), never the request's -- a caller-chosen URL would let anyone
+// send a victim a genuine sign-in link that delivers the token to them.
 type RequestMagicLinkInput struct {
 	SalesChannelID string
 	Email          string
-	// RedirectURL is the storefront-frontend's own page that completes
-	// sign-in -- the backend has no per-channel frontend URL configured
-	// (a tenant's storefronts can live on arbitrary custom domains), so
-	// the frontend tells it where to send the shopper back to, same as
-	// any third-party magic-link provider's redirectTo parameter. The
-	// emailed link is exactly RedirectURL with "?token=..." appended.
-	RedirectURL string
 }
 
 type RequestMagicLinkUseCase struct {
@@ -38,6 +36,8 @@ type RequestMagicLinkUseCase struct {
 	createCustomer customerCreator
 	tokenRepo      storefrontDomain.MagicLinkTokenRepository
 	emailClient    messaging.Client
+	// hostedStorefrontURL is where CommerceOS serves themed storefronts.
+	hostedStorefrontURL string
 }
 
 func NewRequestMagicLinkUseCase(
@@ -47,10 +47,12 @@ func NewRequestMagicLinkUseCase(
 	createCustomer customerCreator,
 	tokenRepo storefrontDomain.MagicLinkTokenRepository,
 	emailClient messaging.Client,
+	hostedStorefrontURL string,
 ) *RequestMagicLinkUseCase {
 	return &RequestMagicLinkUseCase{
 		db: db, channelRepo: channelRepo, customerRepo: customerRepo,
 		createCustomer: createCustomer, tokenRepo: tokenRepo, emailClient: emailClient,
+		hostedStorefrontURL: hostedStorefrontURL,
 	}
 }
 
@@ -63,10 +65,18 @@ func (uc *RequestMagicLinkUseCase) Execute(ctx context.Context, in RequestMagicL
 	email := strings.ToLower(strings.TrimSpace(in.Email))
 
 	var existing *customersDomain.Customer
+	var channel *channelsDomain.SalesChannel
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		if _, err := findInternalChannel(ctx, uc.channelRepo, in.SalesChannelID); err != nil {
+		ch, err := findInternalChannel(ctx, uc.channelRepo, in.SalesChannelID)
+		if err != nil {
 			return err
 		}
+		// Fail before creating a customer or token when there is no page
+		// to send the shopper to.
+		if _, err := ch.SignInLink(uc.hostedStorefrontURL, ""); err != nil {
+			return err
+		}
+		channel = ch
 		found, err := uc.customerRepo.FindByEmail(ctx, email)
 		if err != nil {
 			return err
@@ -99,8 +109,9 @@ func (uc *RequestMagicLinkUseCase) Execute(ctx context.Context, in RequestMagicL
 		if err := uc.tokenRepo.Create(ctx, token); err != nil {
 			return err
 		}
-		link = fmt.Sprintf("%s?token=%s", in.RedirectURL, token.Token)
-		return nil
+		signIn, err := channel.SignInLink(uc.hostedStorefrontURL, token.Token)
+		link = signIn
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("requestMagicLink: %w", err)
@@ -115,7 +126,7 @@ func (uc *RequestMagicLinkUseCase) Execute(ctx context.Context, in RequestMagicL
 		Subject: "Your sign-in link",
 		HTMLBody: fmt.Sprintf(
 			`<p>Click the link below to sign in. It expires in 15 minutes and can only be used once.</p><p><a href="%s">Sign in</a></p>`,
-			link,
+			html.EscapeString(link),
 		),
 	}
 	if err := uc.emailClient.Send(ctx, msg); err != nil {

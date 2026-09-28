@@ -33,7 +33,10 @@ type UpdateSalesChannelInput struct {
 	// StorefrontMode, "" meaning "keep the current mode" -- see
 	// channels.StorefrontMode.
 	StorefrontMode channelsDomain.StorefrontMode
-	Active         bool
+	// SignInURL: nil keeps the current page, blank clears it -- see
+	// channels.ResolveSignInURL.
+	SignInURL *string
+	Active    bool
 }
 
 type UpdateSalesChannelUseCase struct {
@@ -66,6 +69,12 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 				return err
 			}
 		}
+		signInURL := existing.SignInURL
+		if in.SignInURL != nil {
+			if signInURL, err = channelsDomain.ResolveSignInURL(existing.Type, *in.SignInURL); err != nil {
+				return err
+			}
+		}
 		if in.ConnectionID != nil {
 			conn, err := uc.connRepo.FindByID(ctx, *in.ConnectionID)
 			if err != nil {
@@ -89,6 +98,7 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 		existing.QuantityBreaks = in.QuantityBreaks
 		existing.DefaultWarehouseID = in.DefaultWarehouseID
 		existing.StorefrontMode = storefrontMode
+		existing.SignInURL = signInURL
 		existing.Active = in.Active
 		existing.UpdatedAt = time.Now()
 		if err := uc.repo.Update(ctx, existing); err != nil {

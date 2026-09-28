@@ -23,7 +23,7 @@ func (h *Handler) RequestMagicLink(c *gin.Context) {
 	}
 	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
 	err := h.requestMagicLink.Execute(ctx, appstorefront.RequestMagicLinkInput{
-		SalesChannelID: *resolved.SalesChannelID, Email: string(req.Email), RedirectURL: req.RedirectUrl,
+		SalesChannelID: *resolved.SalesChannelID, Email: string(req.Email),
 	})
 	if err := mapError(c, err); err != nil {
 		return

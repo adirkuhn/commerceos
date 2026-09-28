@@ -151,13 +151,13 @@ describe('newsletter signup', () => {
 })
 
 describe('sign in', () => {
-  it('emails a link back to the login page', async () => {
+  it('asks for a sign-in link without choosing where it points', async () => {
     const Login = R('login-form')
     const { api } = setup(<Login node={node('login-form')} props={{ title: 'Sign in', button_label: 'Send link' }} className="" />)
     await userEvent.type(screen.getByLabelText('Email'), 'ann@x.test')
     await userEvent.click(screen.getByRole('button', { name: 'Send link' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Check your inbox')
-    expect(api.requestMagicLink).toHaveBeenCalledWith('ann@x.test', `${window.location.origin}/store/k/login`)
+    expect(api.requestMagicLink).toHaveBeenCalledWith('ann@x.test')
   })
 
   it('completes sign-in from the emailed link and goes to the account', async () => {

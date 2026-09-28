@@ -15,6 +15,7 @@ import (
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
+	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -974,7 +975,29 @@ func TestRequestMagicLinkHandler_success(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "channel-1", request.gotIn.SalesChannelID)
 	assert.Equal(t, "shopper@example.com", request.gotIn.Email)
-	assert.Equal(t, "https://shop.example.com/verify", request.gotIn.RedirectURL)
+}
+
+// Old clients may still send redirect_url; it's accepted and ignored.
+func TestRequestMagicLinkHandler_worksWithoutRedirectURL(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	request := &stubRequestMagicLink{}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, request)
+
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/auth/magic-link", `{"email":"shopper@example.com"}`, "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "shopper@example.com", request.gotIn.Email)
+}
+
+func TestRequestMagicLinkHandler_signInNotConfigured(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	request := &stubRequestMagicLink{err: channelsDomain.ErrSignInNotConfigured}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, request)
+
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/auth/magic-link", `{"email":"shopper@example.com"}`, "test-key")
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), "SIGN_IN_NOT_CONFIGURED")
 }
 
 func TestVerifySessionHandler_success(t *testing.T) {

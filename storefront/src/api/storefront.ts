@@ -271,8 +271,10 @@ export class StorefrontAPI {
     return this.send('PUT', `/storefront/v1/carts/${encodeURIComponent(token)}/coupon`, { code })
   }
 
-  requestMagicLink(email: string, redirectURL: string): Promise<unknown> {
-    return this.send('POST', '/storefront/v1/auth/magic-link', { email, redirect_url: redirectURL }, true)
+  /** Emails a sign-in link to the store's own login page (the server
+   *  decides where it points, never the caller). */
+  requestMagicLink(email: string): Promise<unknown> {
+    return this.send('POST', '/storefront/v1/auth/magic-link', { email }, true)
   }
 
   verifySession(token: string): Promise<{ session_token: string; account: Account }> {

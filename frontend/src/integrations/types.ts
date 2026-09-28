@@ -273,6 +273,8 @@ export interface SalesChannel {
   // a WooCommerce/Bol *import*'s stock sync instead.
   default_warehouse_id?: string | null
   storefront_mode?: StorefrontMode
+  // Headless internal channels: page that completes shopper sign-in.
+  sign_in_url?: string | null
   active: boolean
   created_at: string
   updated_at: string

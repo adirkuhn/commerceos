@@ -24,6 +24,8 @@ export interface SalesChannelPayload {
   defaultWarehouseId?: string | null
   // Omitted means headless. Only 'internal' channels may use 'theme'.
   storefrontMode?: StorefrontMode
+  // Headless 'internal' channels only; omitted or "" means none.
+  signInUrl?: string
 }
 
 export function createSalesChannel(token: string, payload: SalesChannelPayload): Promise<SalesChannel> {
@@ -43,6 +45,7 @@ export function createSalesChannel(token: string, payload: SalesChannelPayload):
         currency_code: payload.currencyCode || undefined,
         default_warehouse_id: payload.defaultWarehouseId || undefined,
         storefront_mode: payload.storefrontMode,
+        sign_in_url: payload.signInUrl || undefined,
       }),
     },
     token,
@@ -61,6 +64,8 @@ export interface UpdateSalesChannelPayload {
   defaultWarehouseId?: string | null
   // Omitted keeps the channel's current mode.
   storefrontMode?: StorefrontMode
+  // Omitted keeps the current page; "" clears it.
+  signInUrl?: string
 }
 
 export function updateSalesChannel(token: string, id: string, payload: UpdateSalesChannelPayload): Promise<SalesChannel> {
@@ -79,6 +84,7 @@ export function updateSalesChannel(token: string, id: string, payload: UpdateSal
         active: payload.active,
         default_warehouse_id: payload.defaultWarehouseId || undefined,
         storefront_mode: payload.storefrontMode,
+        sign_in_url: payload.signInUrl,
       }),
     },
     token,

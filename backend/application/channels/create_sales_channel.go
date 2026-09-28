@@ -41,6 +41,8 @@ type CreateSalesChannelInput struct {
 	DefaultWarehouseID *string
 	// StorefrontMode, "" meaning headless -- see channels.StorefrontMode.
 	StorefrontMode channelsDomain.StorefrontMode
+	// SignInURL, nil or blank meaning none -- see channels.ResolveSignInURL.
+	SignInURL *string
 }
 
 // validateSalesChannelInput is shared by Create and Update -- same field
@@ -100,6 +102,12 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 	if err != nil {
 		return nil, fmt.Errorf("createSalesChannel: %w", err)
 	}
+	var signInURL *string
+	if in.SignInURL != nil {
+		if signInURL, err = channelsDomain.ResolveSignInURL(in.Type, *in.SignInURL); err != nil {
+			return nil, fmt.Errorf("createSalesChannel: %w", err)
+		}
+	}
 
 	var channel channelsDomain.SalesChannel
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -135,6 +143,7 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 			CurrencyCode:               in.CurrencyCode,
 			DefaultWarehouseID:         in.DefaultWarehouseID,
 			StorefrontMode:             storefrontMode,
+			SignInURL:                  signInURL,
 			Active:                     true, CreatedAt: now, UpdatedAt: now,
 		}
 		return uc.repo.Create(ctx, &channel)

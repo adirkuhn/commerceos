@@ -21,6 +21,13 @@ describe('StorefrontAPI', () => {
     expect(new Headers(init?.headers).has('X-Theme-Preview')).toBe(false)
   })
 
+  it('requests a sign-in link with only the email: the server decides where it points', async () => {
+    const f = fakeFetch({ data: null, error: null })
+    const api = new StorefrontAPI({ baseURL: 'https://api.test/api/v1', storeKey: 'k', fetch: f })
+    await api.requestMagicLink('ann@x.test')
+    expect(JSON.parse(String(f.mock.calls[0][1]?.body))).toEqual({ email: 'ann@x.test' })
+  })
+
   it('reads published documents by version', async () => {
     const f = fakeFetch({ data: { kind: 'template', key: 'home' }, error: null })
     await new StorefrontAPI({ baseURL: 'https://api.test/api/v1', storeKey: 'k', fetch: f }).getDocument(theme, 'template', 'home')

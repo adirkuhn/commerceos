@@ -291,7 +291,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL, stor
 		appstorefront.NewGetWishlistUseCase(db, wishlistRepo),
 		appstorefront.NewToggleWishlistItemUseCase(db, wishlistRepo, channelRepo, overrideRepo, productRepo),
 		appstorefront.NewGetProductRecommendationsUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, skuCurrencyPriceRepo, fxRepo, getCartRecommendations),
-		appstorefront.NewRequestMagicLinkUseCase(db, channelRepo, customerRepo, createCustomer, magicLinkTokenRepo, emailClient),
+		appstorefront.NewRequestMagicLinkUseCase(db, channelRepo, customerRepo, createCustomer, magicLinkTokenRepo, emailClient, storefrontURL),
 		appstorefront.NewVerifyMagicLinkUseCase(db, magicLinkTokenRepo, customerSessionRepo),
 		appstorefront.NewGetAccountUseCase(db, customerSessionRepo, customerRepo),
 		appstorefront.NewListAccountOrdersUseCase(db, customerSessionRepo, salesRepo),

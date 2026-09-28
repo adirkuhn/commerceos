@@ -105,6 +105,7 @@ export default function SalesChannels() {
         // every other type, since it has no meaning there.
         defaultWarehouseId: WAREHOUSE_REQUIRED_TYPES.includes(channelType) ? (form.channelWarehouseId || null) : undefined,
         storefrontMode: channelType === INTERNAL_TYPE ? form.storefrontMode : undefined,
+        signInUrl: channelType === INTERNAL_TYPE ? form.signInUrl.trim() : undefined,
       }
       if (editingChannel) {
         await update(editingChannel.id, { ...shared, active: form.active } satisfies UpdateSalesChannelPayload)
@@ -390,7 +391,10 @@ export default function SalesChannels() {
                 </div>
               )}
               {(editingChannel ? editingChannel.type : form.channelType) === INTERNAL_TYPE && (
-                <StorefrontModeField value={form.storefrontMode} onChange={storefrontMode => setForm(f => ({ ...f, storefrontMode }))} />
+                <StorefrontModeField
+                  value={form.storefrontMode} onChange={storefrontMode => setForm(f => ({ ...f, storefrontMode }))}
+                  signInUrl={form.signInUrl} onSignInUrlChange={signInUrl => setForm(f => ({ ...f, signInUrl }))}
+                />
               )}
               <div>
                 <label htmlFor="channel-enrollment-mode" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">

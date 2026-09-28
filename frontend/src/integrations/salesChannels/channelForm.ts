@@ -20,13 +20,16 @@ export interface ChannelFormState {
   currencyCode: string
   // Only meaningful (and only sent) for 'internal' channels.
   storefrontMode: StorefrontMode
+  // Headless 'internal' channels: the merchant's page that completes
+  // shopper sign-in ("" = none). Themed stores use their hosted /login.
+  signInUrl: string
 }
 
 export function emptyForm(): ChannelFormState {
   return {
     name: '', channelType: 'woocommerce', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '',
     enrollmentTag: '', active: true, defaultWarehouseId: '', channelWarehouseId: '', paymentConnectionId: '',
-    currencyCode: '', storefrontMode: 'headless',
+    currencyCode: '', storefrontMode: 'headless', signInUrl: '',
   }
 }
 
@@ -49,5 +52,6 @@ export function toForm(channel: SalesChannel, connections: Connection[]): Channe
     paymentConnectionId: channel.payment_connection_id ?? '',
     currencyCode: channel.currency_code ?? '',
     storefrontMode: channel.storefront_mode ?? 'headless',
+    signInUrl: channel.sign_in_url ?? '',
   }
 }

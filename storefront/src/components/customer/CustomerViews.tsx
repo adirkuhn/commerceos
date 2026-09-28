@@ -38,7 +38,7 @@ export function LoginFormView({ node, props, className }: RendererProps<LoginFor
     if (env.mode === 'editor' || !customer) return
     setState('busy')
     try {
-      await customer.requestLink(email, window.location.origin + env.storePath('login'))
+      await customer.requestLink(email)
       setState('sent')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')

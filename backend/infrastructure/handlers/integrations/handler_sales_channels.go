@@ -45,6 +45,7 @@ func (h *Handler) CreateSalesChannel(c *gin.Context) {
 		QuantityBreaks: toDomainQuantityBreaks(req.QuantityBreaks),
 		CurrencyCode:   currencyCode, DefaultWarehouseID: req.DefaultWarehouseId,
 		StorefrontMode: toDomainStorefrontMode(req.StorefrontMode),
+		SignInURL:      req.SignInUrl,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -69,6 +70,7 @@ func (h *Handler) UpdateSalesChannel(c *gin.Context, id genintegrations.Id) {
 		QuantityBreaks:     toDomainQuantityBreaks(req.QuantityBreaks),
 		DefaultWarehouseID: req.DefaultWarehouseId,
 		StorefrontMode:     toDomainStorefrontMode(req.StorefrontMode),
+		SignInURL:          req.SignInUrl,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -149,6 +151,7 @@ func toGenSalesChannel(c channelsDomain.SalesChannel) genintegrations.SalesChann
 		QuantityBreaks:             toGenQuantityBreaks(c.QuantityBreaks),
 		DefaultWarehouseId:         c.DefaultWarehouseID,
 		StorefrontMode:             genintegrations.StorefrontMode(c.StorefrontMode),
+		SignInUrl:                  c.SignInURL,
 		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if c.EnrollmentTag != "" {

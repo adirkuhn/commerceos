@@ -181,7 +181,7 @@ describe('Create sales channel', () => {
       expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', {
         name: 'B2C Store', type: 'internal', connectionId: null, enrollmentMode: 'all',
         enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, quantityBreaks: [],
-        defaultWarehouseId: 'wh-1', storefrontMode: 'headless',
+        defaultWarehouseId: 'wh-1', storefrontMode: 'headless', signInUrl: '',
       })
     })
   })
@@ -844,6 +844,40 @@ describe('Storefront mode', () => {
         storefrontMode: 'headless',
       }))
     })
+  })
+})
+
+describe('Customer sign-in page', () => {
+  it('saves the sign-in page of a headless Internal channel and hides it for hosted ones', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
+      sampleChannel({ id: 'chan-int', name: 'Shop', type: 'internal', connection_id: null, default_warehouse_id: 'wh-1', storefront_mode: 'headless', sign_in_url: 'https://old.example/verify' }),
+    ])
+    vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', type: 'internal' }))
+    renderPage()
+    await screen.findByText('Shop')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    const field = await screen.findByLabelText('Customer sign-in page')
+    expect(field).toHaveValue('https://old.example/verify')
+    await userEvent.clear(field)
+    await userEvent.type(field, 'https://shop.example.com/verify')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-int', expect.objectContaining({
+        signInUrl: 'https://shop.example.com/verify',
+      }))
+    })
+  })
+
+  it('is not asked for on a hosted storefront', async () => {
+    renderPage()
+    await screen.findByText('My Woo Store')
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(await screen.findByLabelText('Type'), 'internal')
+    expect(screen.getByLabelText('Customer sign-in page')).toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Storefront'), 'theme')
+    expect(screen.queryByLabelText('Customer sign-in page')).not.toBeInTheDocument()
   })
 })
 

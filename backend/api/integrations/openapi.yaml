@@ -1661,6 +1661,14 @@ components:
             price_adjustment_basis_points -- "buy N+ of one SKU, get this
             bigger discount instead of the channel's flat rate."
         storefront_mode: { $ref: '#/components/schemas/StorefrontMode' }
+        sign_in_url:
+          type: string
+          nullable: true
+          description: >
+            Headless internal channels only: the page on the merchant's own
+            frontend that completes shopper sign-in. Emailed sign-in links
+            point here with "?token=..." added. Themed storefronts use their
+            hosted /login page instead.
         active: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -1706,6 +1714,13 @@ components:
         storefront_mode:
           allOf: [{ $ref: '#/components/schemas/StorefrontMode' }]
           description: Omitted means headless.
+        sign_in_url:
+          type: string
+          maxLength: 2000
+          description: >
+            Absolute https URL (plain http only for localhost) of the page
+            that completes shopper sign-in on a headless internal channel.
+            Omitted or blank means none.
 
     UpdateSalesChannelRequest:
       type: object
@@ -1726,6 +1741,13 @@ components:
         storefront_mode:
           allOf: [{ $ref: '#/components/schemas/StorefrontMode' }]
           description: Omitted keeps the channel's current mode.
+        sign_in_url:
+          type: string
+          maxLength: 2000
+          description: >
+            Absolute https URL (plain http only for localhost) of the page
+            that completes shopper sign-in on a headless internal channel.
+            Omitted keeps the current page; blank clears it.
         active: { type: boolean }
 
     SalesChannelResponse:

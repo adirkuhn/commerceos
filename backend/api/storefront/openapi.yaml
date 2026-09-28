@@ -336,7 +336,9 @@ paths:
         Always responds 200 and always sends an email, whether or not the
         address is already a known customer (one is created if not) --
         this can never be used to check whether an email has an account
-        here. The link expires in 15 minutes and works once.
+        here. The link expires in 15 minutes and works once. It points at
+        the channel's own sign-in page; a headless channel without a
+        configured sign-in page gets 422 SIGN_IN_NOT_CONFIGURED.
       requestBody:
         required: true
         content:
@@ -854,12 +856,19 @@ components:
 
     RequestMagicLinkRequest:
       type: object
-      required: [email, redirect_url]
+      required: [email]
       properties:
         email: { type: string, format: email }
         redirect_url:
           type: string
-          description: The storefront-frontend page that completes sign-in -- the emailed link is this URL with "?token=..." appended.
+          deprecated: true
+          description: >
+            Ignored. The emailed link always goes to the channel's own
+            sign-in page -- the hosted store's /login for a themed
+            storefront, or the sign-in page URL configured on a headless
+            channel -- with "?token=..." added. Accepting a caller-chosen
+            URL let anyone send a shopper a genuine link that delivered the
+            token to them.
 
     VerifySessionRequest:
       type: object

@@ -466,9 +466,11 @@ describe('updateSalesChannel', () => {
 
   it('sends the storefront mode through', async () => {
     mockFetch(sampleChannel)
-    await api.updateSalesChannel(TOKEN, 'chan-1', { name: 'Shop', enrollmentMode: 'all', active: true, storefrontMode: 'headless' })
+    await api.updateSalesChannel(TOKEN, 'chan-1', { name: 'Shop', enrollmentMode: 'all', active: true, storefrontMode: 'headless', signInUrl: '' })
     const [, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
     expect(JSON.parse(opts.body as string).storefront_mode).toBe('headless')
+    // "" clears the sign-in page; omitting it keeps the current one.
+    expect(JSON.parse(opts.body as string).sign_in_url).toBe('')
   })
 
   it('throws on not found', async () => {
