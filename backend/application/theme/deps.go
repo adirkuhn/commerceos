@@ -98,10 +98,14 @@ func pageWindow(page, perPage int) (limit, offset int) {
 
 // previewVersion is the version a preview shows: the draft when there is
 // one, otherwise the theme's published version.
-func (d Deps) previewVersion(ctx context.Context, themeID string) (*theme.Theme, *theme.Version, error) {
+func (d Deps) previewVersion(ctx context.Context, salesChannelID, themeID string) (*theme.Theme, *theme.Version, error) {
 	th, err := d.Themes.FindByID(ctx, themeID)
 	if err != nil {
 		return nil, nil, err
+	}
+	// A preview token is only honoured on its own theme's storefront.
+	if th.SalesChannelID != salesChannelID {
+		return nil, nil, theme.ErrThemeNotFound
 	}
 	v, err := d.Versions.FindDraft(ctx, themeID, false)
 	if err != nil {

@@ -14,10 +14,10 @@ func NewGetPreviewDocumentUseCase(deps Deps) *GetPreviewDocumentUseCase {
 	return &GetPreviewDocumentUseCase{deps: deps}
 }
 
-func (uc *GetPreviewDocumentUseCase) Execute(ctx context.Context, themeID string, kind theme.DocumentKind, key string) (*theme.Document, error) {
+func (uc *GetPreviewDocumentUseCase) Execute(ctx context.Context, salesChannelID, themeID string, kind theme.DocumentKind, key string) (*theme.Document, error) {
 	var out *theme.Document
 	err := tenant.WithTenant(ctx, uc.deps.DB, func(ctx context.Context) error {
-		_, v, err := uc.deps.previewVersion(ctx, themeID)
+		_, v, err := uc.deps.previewVersion(ctx, salesChannelID, themeID)
 		if err != nil {
 			return err
 		}

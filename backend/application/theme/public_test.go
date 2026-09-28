@@ -68,10 +68,10 @@ func TestPreview_readsDraftWithoutTouchingLive(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pv, err := apptheme.NewGetPreviewThemeUseCase(w.deps).Execute(tenantCtx(), th.ID)
+	pv, err := apptheme.NewGetPreviewThemeUseCase(w.deps).Execute(tenantCtx(), "chan-1", th.ID)
 	require.NoError(t, err)
 	assert.Equal(t, view.Version.ID, pv.Version.ID)
-	doc, err := apptheme.NewGetPreviewDocumentUseCase(w.deps).Execute(tenantCtx(), th.ID, theme.KindTemplate, "home")
+	doc, err := apptheme.NewGetPreviewDocumentUseCase(w.deps).Execute(tenantCtx(), "chan-1", th.ID, theme.KindTemplate, "home")
 	require.NoError(t, err)
 	assert.Equal(t, headingTree("Draft"), doc.Root)
 
@@ -85,8 +85,19 @@ func TestPreview_fallsBackToPublishedWhenNoDraft(t *testing.T) {
 	th := w.createTheme(t)
 	v := w.publish(t, th.ID)
 
-	pv, err := apptheme.NewGetPreviewThemeUseCase(w.deps).Execute(tenantCtx(), th.ID)
+	pv, err := apptheme.NewGetPreviewThemeUseCase(w.deps).Execute(tenantCtx(), "chan-1", th.ID)
 
 	require.NoError(t, err)
 	assert.Equal(t, v.ID, pv.Version.ID)
+}
+
+func TestPreview_themeMustBelongToTheCallingChannel(t *testing.T) {
+	w := newWorld(t)
+	th := w.createTheme(t)
+	w.channels.byID["chan-2"] = themedChannel("chan-2")
+
+	_, err := apptheme.NewGetPreviewThemeUseCase(w.deps).Execute(tenantCtx(), "chan-2", th.ID)
+	assert.ErrorIs(t, err, theme.ErrThemeNotFound)
+	_, err = apptheme.NewGetPreviewDocumentUseCase(w.deps).Execute(tenantCtx(), "chan-2", th.ID, theme.KindTemplate, "home")
+	assert.ErrorIs(t, err, theme.ErrThemeNotFound)
 }

@@ -36,6 +36,7 @@ import (
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
 	genshipping "github.com/adirkuhn/commerceos/api/shipping"
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
+	gentheme "github.com/adirkuhn/commerceos/api/theme"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	genweightportions "github.com/adirkuhn/commerceos/api/weightportions"
@@ -66,6 +67,7 @@ import (
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 	shippinghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/shipping"
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
+	themehandler "github.com/adirkuhn/commerceos/infrastructure/handlers/theme"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
 	webhookshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/webhooks"
@@ -516,6 +518,27 @@ func main() {
 		})
 	}
 	storefronthandler.Register(storefrontGroup, db, cfg.IntegrationsEncryptionSecret, cfg.FrontendBaseURL, emailClient)
+
+	// Storefront themes (api/theme): the admin library sits behind the JWT
+	// like every other admin route; the storefront-hosted editor and the
+	// public storefront reads authenticate their own bearer credential
+	// (edit session / channel storefront key), so they get a JWT-free group.
+	themeSpec, err := gentheme.GetSpec()
+	if err != nil {
+		log.Fatalf("theme: load openapi spec: %v", err)
+	}
+	themeUseCases, err := themehandler.NewUseCases(db)
+	if err != nil {
+		log.Fatalf("theme: %v", err)
+	}
+	themeHandler := themehandler.NewHandler(themeUseCases)
+	themeValidator := ginmiddleware.OapiRequestValidatorWithOptions(themeSpec, &ginmiddleware.Options{SilenceServersWarning: true})
+	themeAdminGroup := v1.Group("")
+	themeAdminGroup.Use(themeValidator)
+	themehandler.RegisterAdmin(themeAdminGroup, themeHandler)
+	themePublicGroup := r.Group("/api/v1")
+	themePublicGroup.Use(themeValidator)
+	themehandler.RegisterPublic(themePublicGroup, themeHandler)
 
 	// POS desktop integration -- authenticated by the caller's lm2 license
 	// directly (middleware.POSLicense), never the human JWT, so it's its

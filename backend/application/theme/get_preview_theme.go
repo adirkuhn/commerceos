@@ -15,10 +15,10 @@ func NewGetPreviewThemeUseCase(deps Deps) *GetPreviewThemeUseCase {
 	return &GetPreviewThemeUseCase{deps: deps}
 }
 
-func (uc *GetPreviewThemeUseCase) Execute(ctx context.Context, themeID string) (*VersionView, error) {
+func (uc *GetPreviewThemeUseCase) Execute(ctx context.Context, salesChannelID, themeID string) (*VersionView, error) {
 	var out VersionView
 	err := tenant.WithTenant(ctx, uc.deps.DB, func(ctx context.Context) error {
-		th, v, err := uc.deps.previewVersion(ctx, themeID)
+		th, v, err := uc.deps.previewVersion(ctx, salesChannelID, themeID)
 		if err != nil {
 			return err
 		}

@@ -101,20 +101,25 @@ Sealed versions/documents are immutable (domain `ErrVersionSealed` + DB trigger)
 - **Rollback** (one tx): point live version at an older sealed version, outbox `storefront.theme.rolled_back`.
 - **Draft**: created lazily from the live version on first edit; every write carries `revision` (409 on conflict).
 
-## 6. API (all OpenAPI-first, validated, `{data, error}` envelope, paginated lists)
+## 6. API (contract: `backend/api/theme/openapi.yaml`)
 
-Admin (JWT; writes `owner|admin`):
-`GET/POST /api/v1/themes?sales_channel_id=` · `GET/PATCH/DELETE /api/v1/themes/{id}` ·
-`GET /api/v1/themes/{id}/versions` · `POST /api/v1/themes/{id}/publish` · `POST /api/v1/themes/{id}/rollback` ·
-`POST /api/v1/themes/{id}/edit-sessions` · `/api/v1/theme-assets` CRUD (multipart upload).
+All OpenAPI-first, validated at runtime, `{data, error}` envelope, paginated lists.
 
-Editor (edit-session bearer, token hashed at rest, bound to user + theme + role):
-`GET /api/v1/theme-editor/draft` · `PUT …/draft/settings` · `GET/PUT/DELETE …/draft/documents/{kind}/{key}` ·
-`POST …/draft/documents` · `POST /api/v1/theme-editor/publish` · `POST …/preview-sessions` · assets.
+Admin (JWT; writes need owner/admin):
+`GET/POST /api/v1/theme/themes?sales_channel_id=` · `GET/PATCH/DELETE /api/v1/theme/themes/{id}` ·
+`GET …/{id}/versions` · `POST …/{id}/publish` · `POST …/{id}/rollback` · `POST …/{id}/sessions` (edit | preview).
 
-Public (storefront key; `?preview=<token>` reads the draft, never touches live):
-`GET /storefront/v1/theme` (live index + settings, ETag) ·
-`GET /storefront/v1/theme/versions/{vid}/documents/{kind}/{key}` (immutable, long cache).
+Editor (edit-session bearer, token hashed at rest, bound to user + theme; routes act only on the session's theme):
+`POST /api/v1/theme-editor/draft` (open) · `PUT …/draft/settings` · `GET/PUT …/draft/documents/{kind}/{key}` ·
+`POST …/draft/pages` · `DELETE …/draft/pages/{key}?expected_revision=` · `POST …/publish` · `POST …/preview-sessions`.
+
+Public (channel storefront key):
+`GET /api/v1/storefront/v1/theme` (live index + settings, ETag = version id; with `X-Theme-Preview: <token>` the draft, `no-store`) ·
+`GET …/theme/versions/{vid}/documents/{kind}/{key}` (published only, immutable, 1-year cache) ·
+`GET …/theme/preview/documents/{kind}/{key}` (preview token required).
+
+Component catalog: every contract schema tagged `x-commerceos-component` is one component type — the
+extension holds placement rules, the schema validates props (`infrastructure/themecatalog`).
 
 Missing shopper APIs to add: product by slug, category by slug, store info, collections (D4),
 newsletter subscription (D8), richer facets (later).
