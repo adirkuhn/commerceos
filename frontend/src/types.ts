@@ -3,6 +3,7 @@ export type NavItem =
   | 'products'
   | 'promotions'
   | 'coupons'
+  | 'collections'
   | 'reviews'
   | 'message-center'
   | 'inventory'

@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import Products from './pages/Products'
 import Promotions from './pages/Promotions'
 import Coupons from './pages/Coupons'
+import Collections from './pages/Collections'
 import Reviews from './pages/Reviews'
 import MessageCenter from './pages/MessageCenter'
 import Inventory from './pages/Inventory'
@@ -57,6 +58,7 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'unmatched-skus', path: '/unmatched-skus', Component: UnmatchedSkus },
   { nav: 'customers', path: '/customers', Component: Customers },
   { nav: 'products', path: '/products', Component: Products },
+  { nav: 'collections', path: '/collections', Component: Collections },
   { nav: 'promotions', path: '/promotions', Component: Promotions },
   { nav: 'coupons', path: '/coupons', Component: Coupons },
   { nav: 'reviews', path: '/reviews', Component: Reviews },
