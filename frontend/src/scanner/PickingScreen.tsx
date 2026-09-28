@@ -9,7 +9,7 @@ import type { PickingSessionDetail, PickingSessionLineItem } from './types'
 import { StockShortfallDialog } from './StockShortfallDialog'
 import type { SalesOrder } from '../oms/types'
 import { PickLineSheet } from './PickingLineSheet'
-import { useDateFormat } from '../format/DateFormatProvider'
+import { SoldExpiryNote } from '../oms/SoldExpiryNote'
 import { isAuthError } from '../auth/isAuthError'
 import { useScanSession, type ScanSessionApi } from './useScanSession'
 import { useSessionCompletion } from './useSessionCompletion'
@@ -21,7 +21,7 @@ import { PickingBillingLine } from './PickingOrderDetails'
 import { ScanSessionOrderBand, StartOverButton } from './ScanSessionOrderBand'
 import { ScanSessionLockBanner } from './ScanSessionLockBanner'
 import { ScanSessionScanForm } from './ScanSessionScanForm'
-import { ScanSessionLineRow } from './ScanSessionLines'
+import { SCANNER_SOLD_EXPIRY_CLASS, ScanSessionLineRow } from './ScanSessionLines'
 import { ScanErrorDialog, StartOverDialog } from './ScanSessionDialogs'
 
 interface PickingScreenProps {
@@ -52,7 +52,6 @@ const PICKING_SESSION_API: ScanSessionApi<PickingSessionDetail> = {
 }
 
 export function PickingScreen({ token, sessionId, order, onExit, onAuthError, onContinueToPacking }: PickingScreenProps) {
-  const { formatDate } = useDateFormat()
   const session = useScanSession(token, sessionId, onAuthError, PICKING_SESSION_API)
   const { detail, error, setError, readOnly, codeInputRef } = session
   const completion = useSessionCompletion(
@@ -169,11 +168,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
               key={li.id} token={token} lineItem={li} doneQty={pickedQty} disabled={readOnly}
               onClick={() => setPickLine({ lineItem: li, pickedSoFar: pickedQty })}
             >
-              {li.sold_expiry_date && (
-                <p className="text-xs text-gray-400 truncate" title="Reported by WooCommerce at checkout -- may not match the batch actually allocated">
-                  Sold exp. {formatDate(li.sold_expiry_date)}
-                </p>
-              )}
+              <SoldExpiryNote date={li.sold_expiry_date} className={SCANNER_SOLD_EXPIRY_CLASS} />
               {!li.sku_id && <p className="text-xs text-amber-400">Not linked to a product yet</p>}
             </ScanSessionLineRow>
           )

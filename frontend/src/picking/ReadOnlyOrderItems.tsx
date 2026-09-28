@@ -5,6 +5,7 @@ import type { QueueLock } from '../oms/types'
 import { orderNumber } from '../packing/orderDisplay'
 import { lockLabel } from '../packing/lockDisplay'
 import { customerName } from '../oms/salesOrderDisplay'
+import { PickItemRow } from './PickItemRow'
 
 interface ReadOnlyOrderItemsProps {
   token: string
@@ -35,15 +36,7 @@ export function ReadOnlyOrderItems({ token, orderId, lock, nameFor }: ReadOnlyOr
             <p className="text-xs text-ink-3">{customerName(detail.sales_order)}</p>
           </div>
           <ul aria-label="Items to pick" className="bg-raised rounded-xl border border-line divide-y divide-line">
-            {items.map(li => (
-              <li key={li.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-ink truncate">{li.name}</p>
-                  <p className="text-2xs text-ink-4 font-mono">{[li.sku_code, li.barcode].filter(Boolean).join(' · ') || 'No SKU'}</p>
-                </div>
-                <span className="text-sm font-semibold text-ink shrink-0">× {quantityToPick(li)}</span>
-              </li>
-            ))}
+            {items.map(li => <PickItemRow key={li.id} lineItem={li} />)}
           </ul>
         </>
       )}

@@ -27,7 +27,7 @@ function queue(...orders: SalesOrder[]) {
 const detail: SalesOrderDetail = {
   sales_order: order(),
   line_items: [
-    { id: 'li-1', name: 'Apple', sku_code: 'A-1', barcode: '871', quantity: 3, refunded_quantity: 1, price_minor_units: 100 } as SalesOrderDetail['line_items'][number],
+    { id: 'li-1', name: 'Apple', sku_code: 'A-1', barcode: '871', quantity: 3, refunded_quantity: 1, price_minor_units: 100, sold_expiry_date: '2027-03-09' } as SalesOrderDetail['line_items'][number],
     { id: 'li-2', name: 'Gift wrap', sku_code: '', barcode: '', quantity: 1, price_minor_units: 0 } as SalesOrderDetail['line_items'][number],
     { id: 'li-3', name: 'Refunded thing', sku_code: 'R', barcode: '', quantity: 1, refunded_quantity: 1, price_minor_units: 0 } as SalesOrderDetail['line_items'][number],
   ],
@@ -58,6 +58,8 @@ describe('PickingListMode', () => {
     expect(within(items).getByText('× 2')).toBeInTheDocument()
     expect(within(items).getByText('Gift wrap')).toBeInTheDocument()
     expect(within(items).queryByText('Refunded thing')).not.toBeInTheDocument()
+    expect(within(items).getByText('Sold exp. 09/03/2027')).toBeInTheDocument()
+    expect(within(items).getAllByText(/Sold exp\./)).toHaveLength(1)
     expect(router.state.location.search).toBe('?order=so-1')
   })
 
@@ -107,7 +109,8 @@ describe('PickingListMode', () => {
     expect(row).toHaveTextContent('Packing')
     await user.click(row)
 
-    expect(await screen.findByRole('list', { name: 'Items to pick' })).toBeInTheDocument()
+    const items = await screen.findByRole('list', { name: 'Items to pick' })
+    expect(within(items).getByText('Sold exp. 09/03/2027')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('view only')
     expect(screen.queryByRole('button', { name: 'Mark as picked' })).not.toBeInTheDocument()
   })

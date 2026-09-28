@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import type { SalesOrder, SalesOrderLineItem, Address } from '../../oms/types'
 import { useDateFormat } from '../../format/DateFormatProvider'
+import { SoldExpiryNote } from '../../oms/SoldExpiryNote'
 
 function addressName(address?: Address): string {
   const name = [address?.first_name, address?.last_name].filter(Boolean).join(' ')
@@ -58,7 +59,10 @@ export function PickingListPrintView({ order, lineItems, onClose }: PickingListP
           <tbody>
             {lineItems.map(li => (
               <tr key={li.id} className="border-b border-gray-300">
-                <td className="py-2.5">{li.name}</td>
+                <td className="py-2.5">
+                  {li.name}
+                  <SoldExpiryNote date={li.sold_expiry_date} className="text-xs text-gray-600" />
+                </td>
                 <td className="py-2.5 font-mono text-xs">{li.sku_code || '—'}</td>
                 <td className="py-2.5 text-right">{li.quantity}</td>
                 <td className="py-2.5 pl-4">

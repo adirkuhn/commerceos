@@ -146,6 +146,22 @@ describe('PackingScreen order changes', () => {
 })
 
 describe('PackingScreen locks and labels', () => {
+  it('shows the sold expiry date WooCommerce reported for a line', async () => {
+    vi.mocked(api.getPackingSession).mockResolvedValue(detail({
+      line_items: [{ ...detail().line_items[0], sold_expiry_date: '2027-03-09' }],
+    }))
+    renderScreen()
+
+    expect(await screen.findByText('Sold exp. 09/03/2027')).toBeInTheDocument()
+  })
+
+  it('shows no sold expiry for a line without one', async () => {
+    renderScreen()
+
+    await screen.findByText('Widget')
+    expect(screen.queryByText(/Sold exp\./)).not.toBeInTheDocument()
+  })
+
   it('another user\'s session is view only', async () => {
     vi.mocked(api.getPackingSession).mockResolvedValue(detail({ session: { ...detail().session, locked_by: 'u-9', locked_at: new Date().toISOString() } }))
     renderScreen()

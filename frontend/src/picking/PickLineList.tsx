@@ -2,6 +2,7 @@ import { CheckCircle, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import type { PickScan, PickingSessionLineItem } from '../scanner/types'
 import { ProductThumb, ADMIN_THUMB } from '../pms/ProductThumb'
+import { SoldExpiryNote } from '../oms/SoldExpiryNote'
 import { ACTION_LABEL } from './pickingDisplay'
 import type { PickProgress } from './pickingProgress'
 
@@ -68,6 +69,7 @@ export function PickLineList({ token, lineItems, pickedByLineItem, readOnly, onO
                 <span className="text-2xs font-mono text-ink-4">{li.sku_code}</span>
                 {!li.sku_id && <span className="text-2xs text-warning">unlinked — scan to resolve</span>}
               </div>
+              <SoldExpiryNote date={li.sold_expiry_date} />
             </div>
             <div className="text-right shrink-0">
               <p className={clsx('text-lg font-bold tabular-nums', done ? 'text-success' : partial ? 'text-warning' : 'text-ink')}>

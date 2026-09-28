@@ -4,6 +4,9 @@ import { ProductThumb, SCANNER_THUMB } from '../pms/ProductThumb'
 import type { PickingSessionLineItem } from './types'
 import { SCAN_ACTIVITY_WORDS, type ScanActivity } from './scanSessionActivity'
 
+// SoldExpiryNote styling on the scanner's always-dark line rows.
+export const SCANNER_SOLD_EXPIRY_CLASS = 'text-xs text-gray-400 truncate'
+
 interface ScanSessionLineRowProps {
   token: string
   lineItem: PickingSessionLineItem

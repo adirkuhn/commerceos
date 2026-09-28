@@ -20,7 +20,8 @@ import { PackingExtraItems } from './PackingExtraItems'
 import { ScanSessionOrderBand, StartOverButton } from './ScanSessionOrderBand'
 import { ScanSessionLockBanner } from './ScanSessionLockBanner'
 import { ScanSessionScanForm } from './ScanSessionScanForm'
-import { ScanSessionLineRow } from './ScanSessionLines'
+import { SCANNER_SOLD_EXPIRY_CLASS, ScanSessionLineRow } from './ScanSessionLines'
+import { SoldExpiryNote } from '../oms/SoldExpiryNote'
 import { ScanErrorDialog, StartOverDialog } from './ScanSessionDialogs'
 
 interface PackingScreenProps {
@@ -164,7 +165,9 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
             <ScanSessionLineRow
               key={li.id} token={token} lineItem={li} doneQty={packedQty} disabled={readOnly}
               onClick={() => setPackLine({ lineItem: li, packedSoFar: packedQty })}
-            />
+            >
+              <SoldExpiryNote date={li.sold_expiry_date} className={SCANNER_SOLD_EXPIRY_CLASS} />
+            </ScanSessionLineRow>
           )
         })}
 

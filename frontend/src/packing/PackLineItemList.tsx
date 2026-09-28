@@ -2,6 +2,7 @@ import { CheckCircle } from 'lucide-react'
 import clsx from 'clsx'
 import type { PickingSessionLineItem } from '../scanner/types'
 import { ProductThumb, ADMIN_THUMB } from '../pms/ProductThumb'
+import { SoldExpiryNote } from '../oms/SoldExpiryNote'
 
 interface PackLineItemListProps {
   token: string
@@ -42,6 +43,7 @@ export function PackLineItemList({ token, lineItems, packedByLineItem, readOnly,
             <div className="flex-1 min-w-0">
               <p className={clsx('text-sm font-medium', done ? 'dark:text-green-300 text-success' : 'text-ink')}>{li.name}</p>
               <span className="text-2xs font-mono text-ink-4">{li.sku_code}</span>
+              <SoldExpiryNote date={li.sold_expiry_date} />
             </div>
             <div className="text-right shrink-0">
               <p className={clsx('text-lg font-bold tabular-nums', done ? 'text-success' : partial ? 'text-warning' : 'text-ink')}>

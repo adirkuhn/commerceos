@@ -19,13 +19,14 @@ import type { RecipientAddress, Shipment } from '../shipping/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_OPTIONS, addressesEqual, customerName } from './salesOrderDisplay'
 import { ShipmentTrackingSection } from './ShipmentTrackingSection'
+import { SoldExpiryNote } from './SoldExpiryNote'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { formatMoney } from '../format/money'
 
 // ── Sales Order Detail Page ──────────────────────────────────────────────────
 
 export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string; onClose: () => void }) {
-  const { formatDate, formatDateTime } = useDateFormat()
+  const { formatDateTime } = useDateFormat()
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { detail, loading, error, update, remove } = useSalesOrderDetail(token ?? '', salesOrderId)
@@ -308,11 +309,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                             {li.barcode && (
                               <p className="text-2xs text-ink-4">{li.barcode}</p>
                             )}
-                            {li.sold_expiry_date && (
-                              <p className="text-2xs text-ink-4" title="Reported by WooCommerce at checkout -- may not match the batch actually allocated">
-                                Sold exp. {formatDate(li.sold_expiry_date)}
-                              </p>
-                            )}
+                            <SoldExpiryNote date={li.sold_expiry_date} />
                             {!li.sku_id && (
                               <p className="text-2xs text-warning">Not linked to a product yet</p>
                             )}

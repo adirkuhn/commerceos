@@ -12,6 +12,7 @@ import { useQueryString } from '../routing/useQueryState'
 import { useMemberNames } from '../team/hooks/useMemberNames'
 import { ReadOnlyOrderItems } from './ReadOnlyOrderItems'
 import { customerName } from '../oms/salesOrderDisplay'
+import { PickItemRow } from './PickItemRow'
 
 // The picking module's list mode (Settings > Fulfillment): no scanning, no
 // session. Pickers open an order (?order=<id>, so refresh/Back work), fetch
@@ -112,15 +113,7 @@ export function PickingListMode({ token }: { token: string }) {
               <p className="text-xs text-ink-3">{customerName(detail.sales_order)}</p>
             </div>
             <ul aria-label="Items to pick" className="bg-raised rounded-xl border border-line divide-y divide-line">
-              {items.map(li => (
-                <li key={li.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-ink truncate">{li.name}</p>
-                    <p className="text-2xs text-ink-4 font-mono">{[li.sku_code, li.barcode].filter(Boolean).join(' · ') || 'No SKU'}</p>
-                  </div>
-                  <span className="text-sm font-semibold text-ink shrink-0">× {quantityToPick(li)}</span>
-                </li>
-              ))}
+              {items.map(li => <PickItemRow key={li.id} lineItem={li} />)}
             </ul>
             {markError && <p role="alert" className="text-xs text-danger">{markError}</p>}
             <button
