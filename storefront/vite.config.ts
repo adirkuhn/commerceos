@@ -9,6 +9,13 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   base: '/store/',
   plugins: [react()],
+  ssr: {
+    // Resolve external packages the way Node 24 does in production: its
+    // "module-sync" condition picks react-router's ESM build. Without it
+    // dev SSR loads the CJS build, whose re-exports (StaticRouter) Vite
+    // can't see as named exports and every page fails to render.
+    resolve: { externalConditions: ['module-sync'] },
+  },
   build: {
     rollupOptions: {
       input: {
