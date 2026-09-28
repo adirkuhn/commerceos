@@ -276,3 +276,62 @@ func TestThemeRepos_Integration_rlsIsolatesTenants(t *testing.T) {
 		return nil
 	}))
 }
+
+func TestThemeRepos_Integration_pruneSealedKeepsNewestAndProtected(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	r := newThemeRepos(db)
+	th, v1, _ := seedTheme(t, ctx, db, r, createInternalChannel(t, ctx, db))
+
+	// Seal v1 (it has a document), then add sealed v2..v4 and a v5 draft.
+	var ids []string
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		if err := theme.Publish(&th, &v1, v1.Revision, "", now); err != nil {
+			return err
+		}
+		if err := r.versions.Update(ctx, &v1); err != nil {
+			return err
+		}
+		ids = append(ids, v1.ID)
+		for n := 2; n <= 5; n++ {
+			v := theme.NewDraftVersion(th, n, theme.DefaultSettings(), "user-1", now)
+			if err := r.versions.Create(ctx, &v); err != nil {
+				return err
+			}
+			if n < 5 {
+				if err := theme.Publish(&th, &v, v.Revision, "", now); err != nil {
+					return err
+				}
+				if err := r.versions.Update(ctx, &v); err != nil {
+					return err
+				}
+			}
+			ids = append(ids, v.ID)
+		}
+		return nil
+	}))
+
+	var pruned int64
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		// Keep the newest 2 sealed (v4, v3) and protect v1.
+		pruned, err = r.versions.PruneSealed(ctx, th.ID, 2, ids[0])
+		return err
+	}))
+	assert.Equal(t, int64(1), pruned, "only v2 goes")
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		list, _, err := r.versions.ListByTheme(ctx, th.ID, 10, 0)
+		require.NoError(t, err)
+		var numbers []int
+		for _, v := range list {
+			numbers = append(numbers, v.Number)
+		}
+		assert.Equal(t, []int{5, 4, 3, 1}, numbers, "draft, newest sealed and the protected one stay")
+		docs, err := r.docs.List(ctx, ids[0])
+		require.NoError(t, err)
+		assert.Len(t, docs, 1, "the protected version keeps its documents")
+		return nil
+	}))
+}

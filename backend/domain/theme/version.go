@@ -47,6 +47,10 @@ func NextDraftFrom(published Version, number int, createdBy string, now time.Tim
 	}
 }
 
+// KeepPublishedVersions is how many published versions of a theme are
+// kept for rollback; older ones are pruned on publish.
+const KeepPublishedVersions = 20
+
 func (v Version) IsDraft() bool { return v.State == VersionStateDraft }
 
 // BeginEdit guards every draft write: the draft must still be a draft and

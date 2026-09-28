@@ -143,3 +143,24 @@ func (r *ThemeVersionRepo) ListByTheme(ctx context.Context, themeID string, limi
 	}
 	return out, total, nil
 }
+
+// PruneSealed: see theme.VersionRepository. Documents go with their
+// version (ON DELETE CASCADE); the sealed-immutability triggers only
+// guard UPDATE, so dropping a whole old version is allowed.
+func (r *ThemeVersionRepo) PruneSealed(ctx context.Context, themeID string, keep int, protectID string) (int64, error) {
+	tx, err := themeTx(ctx)
+	if err != nil {
+		return 0, err
+	}
+	res := tx.Exec(`
+		DELETE FROM theme_versions
+		WHERE theme_id = ? AND state = ? AND id <> ?
+		  AND id NOT IN (
+		    SELECT id FROM theme_versions WHERE theme_id = ? AND state = ? ORDER BY number DESC LIMIT ?
+		  )`,
+		themeID, string(theme.VersionStateSealed), protectID, themeID, string(theme.VersionStateSealed), keep)
+	if res.Error != nil {
+		return 0, fmt.Errorf("themeVersionRepo.PruneSealed: %w", res.Error)
+	}
+	return res.RowsAffected, nil
+}

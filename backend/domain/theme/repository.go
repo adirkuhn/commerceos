@@ -36,6 +36,9 @@ type VersionRepository interface {
 	// database refuses to change a sealed version.
 	Update(ctx context.Context, v *Version) error
 	ListByTheme(ctx context.Context, themeID string, limit, offset int) ([]Version, int64, error)
+	// PruneSealed deletes the theme's sealed versions (and their documents)
+	// beyond the newest `keep`, never protectID; returns how many.
+	PruneSealed(ctx context.Context, themeID string, keep int, protectID string) (int64, error)
 }
 
 type DocumentRepository interface {

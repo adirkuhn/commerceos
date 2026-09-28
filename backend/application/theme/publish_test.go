@@ -1,6 +1,7 @@
 package theme_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -120,4 +121,28 @@ func TestListVersions_newestFirst(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), total)
 	assert.Equal(t, []int{2, 1}, []int{list[0].Number, list[1].Number})
+}
+
+// Publishing keeps the newest theme.KeepPublishedVersions sealed versions
+// and drops older ones (with their documents) in the same transaction.
+func TestPublishTheme_prunesOldPublishedVersions(t *testing.T) {
+	w := newWorld(t)
+	th := w.createTheme(t)
+	draft := w.draft(t, th.ID)
+	for n := 1; n <= theme.KeepPublishedVersions; n++ {
+		old := theme.Version{ID: fmt.Sprintf("old-%d", n), ThemeID: th.ID, Number: n, State: theme.VersionStateSealed}
+		w.versions.byID[old.ID] = old
+	}
+	draft.Number = theme.KeepPublishedVersions + 1
+	w.versions.byID[draft.ID] = draft
+
+	_, err := apptheme.NewPublishThemeUseCase(w.deps).Execute(tenantCtx(), apptheme.PublishThemeInput{ThemeID: th.ID, ExpectedRevision: draft.Revision})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{th.ID}, w.versions.prunedThemes)
+	_, stillThere := w.versions.byID["old-1"]
+	assert.False(t, stillThere, "oldest published version is dropped")
+	_, kept := w.versions.byID["old-2"]
+	assert.True(t, kept)
+	assert.Contains(t, w.versions.byID, draft.ID)
 }

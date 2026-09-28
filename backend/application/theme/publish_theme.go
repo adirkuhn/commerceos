@@ -51,6 +51,9 @@ func (uc *PublishThemeUseCase) Execute(ctx context.Context, in PublishThemeInput
 		if err := uc.deps.Versions.Update(ctx, draft); err != nil {
 			return err
 		}
+		if _, err := uc.deps.Versions.PruneSealed(ctx, th.ID, theme.KeepPublishedVersions, draft.ID); err != nil {
+			return err
+		}
 		if err := uc.deps.Themes.ClearLive(ctx, th.SalesChannelID, th.ID); err != nil {
 			return err
 		}

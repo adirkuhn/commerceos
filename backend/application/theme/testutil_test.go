@@ -132,8 +132,30 @@ func (f *fakeThemes) Delete(_ context.Context, id string) error {
 }
 
 type fakeVersions struct {
-	byID   map[string]theme.Version
-	nextID int
+	byID         map[string]theme.Version
+	nextID       int
+	prunedThemes []string
+}
+
+// PruneSealed mirrors the SQL: keep the newest `keep` sealed versions of
+// the theme, and always the protected one.
+func (f *fakeVersions) PruneSealed(_ context.Context, themeID string, keep int, protectID string) (int64, error) {
+	f.prunedThemes = append(f.prunedThemes, themeID)
+	var sealed []theme.Version
+	for _, v := range f.byID {
+		if v.ThemeID == themeID && !v.IsDraft() {
+			sealed = append(sealed, v)
+		}
+	}
+	sort.Slice(sealed, func(i, j int) bool { return sealed[i].Number > sealed[j].Number })
+	var n int64
+	for i, v := range sealed {
+		if i >= keep && v.ID != protectID {
+			delete(f.byID, v.ID)
+			n++
+		}
+	}
+	return n, nil
 }
 
 func (f *fakeVersions) Create(_ context.Context, v *theme.Version) error {
