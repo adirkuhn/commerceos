@@ -1,6 +1,35 @@
 {
   "components": [
     {
+      "type": "add-to-cart",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "product",
+      "required_in": [
+        "product"
+      ],
+      "props": [
+        "label",
+        "sold_out_label"
+      ],
+      "required_props": [
+        "label"
+      ]
+    },
+    {
+      "type": "breadcrumbs",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "home_label"
+      ],
+      "required_props": []
+    },
+    {
       "type": "button",
       "container": false,
       "allowed_children": [],
@@ -17,6 +46,88 @@
         "label",
         "link"
       ]
+    },
+    {
+      "type": "cart-items",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "cart",
+      "required_in": [
+        "cart"
+      ],
+      "props": [
+        "empty_message"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "cart-summary",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "cart",
+      "required_in": [],
+      "props": [
+        "show_coupon"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "checkout-button",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "cart",
+      "required_in": [],
+      "props": [
+        "label"
+      ],
+      "required_props": [
+        "label"
+      ]
+    },
+    {
+      "type": "collection-filters",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "collection",
+      "required_in": [],
+      "props": [
+        "title"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "collection-header",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "collection",
+      "required_in": [],
+      "props": [
+        "show_description",
+        "show_image"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "collection-products",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "collection",
+      "required_in": [
+        "collection",
+        "search"
+      ],
+      "props": [
+        "columns",
+        "per_page",
+        "show_price"
+      ],
+      "required_props": []
     },
     {
       "type": "column",
@@ -90,6 +201,16 @@
       ]
     },
     {
+      "type": "pagination",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "collection",
+      "required_in": [],
+      "props": [],
+      "required_props": []
+    },
+    {
       "type": "product-card",
       "container": false,
       "allowed_children": [],
@@ -105,6 +226,28 @@
       ]
     },
     {
+      "type": "product-description",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "product",
+      "required_in": [],
+      "props": [],
+      "required_props": []
+    },
+    {
+      "type": "product-gallery",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "product",
+      "required_in": [],
+      "props": [
+        "layout"
+      ],
+      "required_props": []
+    },
+    {
       "type": "product-grid",
       "container": false,
       "allowed_children": [],
@@ -113,6 +256,7 @@
       "required_in": [],
       "props": [
         "category_id",
+        "collection_id",
         "columns",
         "limit",
         "product_ids",
@@ -123,6 +267,68 @@
         "limit",
         "source"
       ]
+    },
+    {
+      "type": "product-price",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "product",
+      "required_in": [],
+      "props": [
+        "show_compare_at"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "product-recommendations",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "product",
+      "required_in": [],
+      "props": [
+        "limit",
+        "title"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "product-reviews",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "product",
+      "required_in": [],
+      "props": [
+        "limit",
+        "title"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "product-title",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "product",
+      "required_in": [],
+      "props": [
+        "level"
+      ],
+      "required_props": []
+    },
+    {
+      "type": "quantity-selector",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "product",
+      "required_in": [],
+      "props": [
+        "max"
+      ],
+      "required_props": []
     },
     {
       "type": "section",
@@ -165,6 +371,18 @@
       "required_props": [
         "content"
       ]
+    },
+    {
+      "type": "variant-selector",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "product",
+      "required_in": [],
+      "props": [
+        "style"
+      ],
+      "required_props": []
     }
   ],
   "style_properties": [

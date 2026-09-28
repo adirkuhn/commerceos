@@ -103,3 +103,14 @@ func TestFromSpec_newComponentsGuardLinksAndImages(t *testing.T) {
 	assert.Equal(t, []string{"columns"}, column.AllowedParents)
 	assert.Equal(t, []string{"column"}, columns.AllowedChildren)
 }
+
+// A new theme must be publishable as created: every preset document has
+// to satisfy the contract (incl. required components like Add to cart).
+func TestDefaultPresetValidatesAgainstTheContract(t *testing.T) {
+	c := load(t)
+	docs, err := theme.PresetDocuments(theme.PresetDefault)
+	require.NoError(t, err)
+	for _, d := range docs {
+		assert.NoError(t, theme.ValidateTree(d, c), "%s %s", d.Kind, d.Key)
+	}
+}

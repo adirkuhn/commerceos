@@ -77,7 +77,13 @@ func TestPreview_readsDraftWithoutTouchingLive(t *testing.T) {
 
 	live, err := apptheme.NewGetPublishedDocumentUseCase(w.deps).Execute(tenantCtx(), "chan-1", published.ID, theme.KindTemplate, "home")
 	require.NoError(t, err)
-	assert.Empty(t, live.Root.Children, "live storefront unchanged")
+	assert.NotEqual(t, headingTree("Draft"), live.Root, "live storefront unchanged")
+	preset, _ := theme.PresetDocuments(theme.PresetDefault)
+	for _, d := range preset {
+		if d.Kind == theme.KindTemplate && d.Key == "home" {
+			assert.Equal(t, d.Root, live.Root)
+		}
+	}
 }
 
 func TestPreview_fallsBackToPublishedWhenNoDraft(t *testing.T) {

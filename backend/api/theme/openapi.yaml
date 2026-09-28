@@ -864,8 +864,9 @@ components:
       x-commerceos-component:
         type: product-grid
       properties:
-        source: { type: string, enum: [all, category, products] }
+        source: { type: string, enum: [all, category, products, collection] }
         category_id: { type: string, maxLength: 36, description: Used when source is category. }
+        collection_id: { type: string, maxLength: 36, description: Used when source is collection. }
         product_ids:
           type: array
           maxItems: 48
@@ -883,3 +884,114 @@ components:
       properties:
         product_id: { type: string, maxLength: 36, description: Empty until a product is chosen. }
         show_price: { type: boolean }
+    # Product page (the current product; product template only)
+    ProductGalleryProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: product-gallery, data_context: product }
+      properties:
+        layout: { type: string, enum: [thumbs_below, stacked] }
+    ProductTitleProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: product-title, data_context: product }
+      properties:
+        level: { type: integer, minimum: 1, maximum: 3 }
+    ProductPriceProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: product-price, data_context: product }
+      properties:
+        show_compare_at: { type: boolean }
+    VariantSelectorProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: variant-selector, data_context: product }
+      properties:
+        style: { type: string, enum: [dropdown, buttons] }
+    QuantitySelectorProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: quantity-selector, data_context: product }
+      properties:
+        max: { type: integer, minimum: 1, maximum: 99 }
+    AddToCartProps:
+      type: object
+      required: [label]
+      additionalProperties: false
+      x-commerceos-component: { type: add-to-cart, data_context: product, required_in: [product] }
+      properties:
+        label: { type: string, minLength: 1, maxLength: 60 }
+        sold_out_label: { type: string, maxLength: 60 }
+    ProductDescriptionProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: product-description, data_context: product }
+      properties: {}
+    ProductReviewsProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: product-reviews, data_context: product }
+      properties:
+        title: { type: string, maxLength: 120 }
+        limit: { type: integer, minimum: 1, maximum: 50 }
+    ProductRecommendationsProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: product-recommendations, data_context: product }
+      properties:
+        title: { type: string, maxLength: 120 }
+        limit: { type: integer, minimum: 1, maximum: 12 }
+    # Collection and search pages (the current listing)
+    CollectionHeaderProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: collection-header, data_context: collection }
+      properties:
+        show_image: { type: boolean }
+        show_description: { type: boolean }
+    CollectionProductsProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: collection-products, data_context: collection, required_in: [collection, search] }
+      properties:
+        per_page: { type: integer, minimum: 4, maximum: 48 }
+        columns: { type: integer, minimum: 0, maximum: 6 }
+        show_price: { type: boolean }
+    CollectionFiltersProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: collection-filters, data_context: collection }
+      properties:
+        title: { type: string, maxLength: 60 }
+    PaginationProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: pagination, data_context: collection }
+      properties: {}
+    BreadcrumbsProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: breadcrumbs }
+      properties:
+        home_label: { type: string, maxLength: 40 }
+    # Cart (per-shopper; available everywhere)
+    CartItemsProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: cart-items, data_context: cart, required_in: [cart] }
+      properties:
+        empty_message: { type: string, maxLength: 200 }
+    CartSummaryProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: cart-summary, data_context: cart }
+      properties:
+        show_coupon: { type: boolean }
+    CheckoutButtonProps:
+      type: object
+      required: [label]
+      additionalProperties: false
+      x-commerceos-component: { type: checkout-button, data_context: cart }
+      properties:
+        label: { type: string, minLength: 1, maxLength: 60 }

@@ -378,11 +378,7 @@ func newWorld(t *testing.T) *world {
 		assets:   &fakeAssets{byID: map[string]theme.Asset{}},
 		storage:  &fakeStorage{},
 	}
-	catalog, err := theme.NewCatalog([]theme.ComponentRule{
-		{Type: "section", Container: true, AllowedParents: []string{theme.RootType}},
-		{Type: "heading"},
-		{Type: "image"},
-	})
+	catalog, err := theme.NewCatalog(testCatalogRules(t))
 	require.NoError(t, err)
 	tokens := 0
 	w.deps = apptheme.Deps{
@@ -409,4 +405,33 @@ func (w *world) draft(t *testing.T, themeID string) theme.Version {
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	return *v
+}
+
+// testCatalogRules: strict rules for the types these tests build trees
+// from, plus a permissive rule for every other type the default preset
+// uses (so preset themes stay publishable in these tests).
+func testCatalogRules(t *testing.T) []theme.ComponentRule {
+	t.Helper()
+	rules := []theme.ComponentRule{
+		{Type: "section", Container: true, AllowedParents: []string{theme.RootType}},
+		{Type: "heading"},
+		{Type: "image"},
+	}
+	known := map[string]bool{"section": true, "heading": true, "image": true}
+	docs, err := theme.PresetDocuments(theme.PresetDefault)
+	require.NoError(t, err)
+	var visit func(n theme.Node)
+	visit = func(n theme.Node) {
+		if n.Type != theme.RootType && !known[n.Type] {
+			known[n.Type] = true
+			rules = append(rules, theme.ComponentRule{Type: n.Type, Container: true})
+		}
+		for _, c := range n.Children {
+			visit(c)
+		}
+	}
+	for _, d := range docs {
+		visit(d.Root)
+	}
+	return rules
 }
