@@ -285,6 +285,33 @@ services:
       - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.tls.certresolver=le"
 
+  # commerceos-storefront -- server-rendered shops (/store/{channelKey}/...)
+  # and the GrapesJS theme editor (/store/editor), see storefront/ and
+  # docs/storefront-architecture.md. One deployment serves every tenant's
+  # internal channels in "theme" mode. SSR calls the backend over the
+  # internal network; browsers use the public API URL.
+  storefront:
+    build:
+      context: ./storefront
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      - backend
+    environment:
+      STOREFRONT_API_INTERNAL_URL: http://backend:${HTTP_PORT:-8080}/api/v1
+      STOREFRONT_API_PUBLIC_URL: ${STOREFRONT_API_PUBLIC_URL:-${VITE_API_BASE_URL}}
+    networks:
+      - traefik-public
+      - commerceos
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.storefront.rule=Host(`${API_DOMAIN}`) && PathPrefix(`/store`)"
+      - "traefik.http.services.storefront.loadbalancer.server.port=3100"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.storefront.entrypoints=https"
+      - "traefik.http.routers.storefront.tls=true"
+      - "traefik.http.routers.storefront.tls.certresolver=le"
+
 volumes:
   postgres_data:
   nats_data:
