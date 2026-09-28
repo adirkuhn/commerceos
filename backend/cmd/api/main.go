@@ -12,6 +12,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
+	gencollections "github.com/adirkuhn/commerceos/api/collections"
 	gencoupons "github.com/adirkuhn/commerceos/api/coupons"
 	gencustomers "github.com/adirkuhn/commerceos/api/customers"
 	gendashboard "github.com/adirkuhn/commerceos/api/dashboard"
@@ -21,6 +22,7 @@ import (
 	genintegrations "github.com/adirkuhn/commerceos/api/integrations"
 	geninventory "github.com/adirkuhn/commerceos/api/inventory"
 	genmessagecenter "github.com/adirkuhn/commerceos/api/messagecenter"
+	gennewsletter "github.com/adirkuhn/commerceos/api/newsletter"
 	gennotifications "github.com/adirkuhn/commerceos/api/notifications"
 	genoms "github.com/adirkuhn/commerceos/api/oms"
 	genpms "github.com/adirkuhn/commerceos/api/pms"
@@ -36,14 +38,14 @@ import (
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
 	genshipping "github.com/adirkuhn/commerceos/api/shipping"
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
-	gentheme "github.com/adirkuhn/commerceos/api/theme"
-	gencollections "github.com/adirkuhn/commerceos/api/collections"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
+	gentheme "github.com/adirkuhn/commerceos/api/theme"
 	genweightportions "github.com/adirkuhn/commerceos/api/weightportions"
 	genwhatsapp "github.com/adirkuhn/commerceos/api/whatsapp"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	collectionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/collections"
 	couponshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/coupons"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
 	dashboardhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/dashboard"
@@ -53,6 +55,7 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/integrations"
 	inventoryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/inventory"
 	messagecenterhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/messagecenter"
+	newsletterhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/newsletter"
 	notificationshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/notifications"
 	omshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/oms"
 	pmshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pms"
@@ -68,10 +71,9 @@ import (
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 	shippinghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/shipping"
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
-	themehandler "github.com/adirkuhn/commerceos/infrastructure/handlers/theme"
-	collectionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/collections"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
+	themehandler "github.com/adirkuhn/commerceos/infrastructure/handlers/theme"
 	webhookshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/webhooks"
 	weightportionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/weightportions"
 	whatsapphandler "github.com/adirkuhn/commerceos/infrastructure/handlers/whatsapp"
@@ -527,12 +529,21 @@ func main() {
 			Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, From: cfg.SMTPFrom,
 		})
 	}
-	storefronthandler.Register(storefrontGroup, db, cfg.IntegrationsEncryptionSecret, cfg.FrontendBaseURL, emailClient)
+	storefronthandler.Register(storefrontGroup, db, cfg.IntegrationsEncryptionSecret, cfg.FrontendBaseURL, cfg.StorefrontPublicURL, emailClient)
 
 	// Storefront themes (api/theme): the admin library sits behind the JWT
 	// like every other admin route; the storefront-hosted editor and the
 	// public storefront reads authenticate their own bearer credential
 	// (edit session / channel storefront key), so they get a JWT-free group.
+	newsletterSpec, err := gennewsletter.GetSpec()
+	if err != nil {
+		log.Fatalf("newsletter: load openapi spec: %v", err)
+	}
+	newsletterGroup := v1.Group("")
+	newsletterGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(newsletterSpec, &ginmiddleware.Options{SilenceServersWarning: true}))
+	newsletterhandler.Register(newsletterGroup, newsletterhandler.NewHandler(newsletterhandler.NewUseCases(
+		newsletterhandler.NewDeps(db, cfg.IntegrationsEncryptionSecret, emailClient, cfg.StorefrontPublicURL))))
+
 	themeSpec, err := gentheme.GetSpec()
 	if err != nil {
 		log.Fatalf("theme: load openapi spec: %v", err)

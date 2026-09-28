@@ -19,6 +19,7 @@ import (
 	appcollections "github.com/adirkuhn/commerceos/application/collections"
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
+	appnewsletter "github.com/adirkuhn/commerceos/application/newsletter"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
@@ -30,6 +31,7 @@ import (
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	reviewsDomain "github.com/adirkuhn/commerceos/domain/reviews"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
+	newsletterhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/newsletter"
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/revolut"
@@ -158,6 +160,7 @@ type Handler struct {
 	logout                    logoutUC
 	createPaymentIntent       createPaymentIntentUC
 	catalog                   CatalogUseCases
+	newsletter                NewsletterUseCases
 }
 
 func NewHandler(
@@ -186,6 +189,7 @@ func NewHandler(
 	logout logoutUC,
 	createPaymentIntent createPaymentIntentUC,
 	catalog CatalogUseCases,
+	newsletter NewsletterUseCases,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
@@ -199,12 +203,13 @@ func NewHandler(
 		listAccountOrders: listAccountOrders, logout: logout,
 		createPaymentIntent: createPaymentIntent,
 		catalog:             catalog,
+		newsletter:          newsletter,
 	}
 }
 
 var _ genstorefront.ServerInterface = (*Handler)(nil)
 
-func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL string, emailClient messaging.Client) {
+func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL, storefrontURL string, emailClient messaging.Client) {
 	salesRepo := repositories.NewSalesOrderRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	apiKeyRepo := repositories.NewAPIKeyRepo(db)
@@ -293,6 +298,14 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewLogoutUseCase(db, customerSessionRepo),
 		createPaymentIntent,
 		catalog,
+		newsletterUseCases(db, encryptionSecret, emailClient, storefrontURL),
 	)
 	genstorefront.RegisterHandlers(rg, h)
+}
+
+func newsletterUseCases(db *gorm.DB, encryptionSecret string, emailClient messaging.Client, storefrontURL string) NewsletterUseCases {
+	d := newsletterhandler.NewDeps(db, encryptionSecret, emailClient, storefrontURL)
+	return NewsletterUseCases{
+		Subscribe: appnewsletter.NewSubscribeUseCase(d), Confirm: appnewsletter.NewConfirmUseCase(d), Unsubscribe: appnewsletter.NewUnsubscribeUseCase(d),
+	}
 }

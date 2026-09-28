@@ -527,6 +527,47 @@ paths:
         '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/StorefrontStoreResponse' } } } }
         '401': { $ref: '#/components/responses/Error' }
 
+  /storefront/v1/newsletter/subscriptions:
+    post:
+      operationId: subscribeToNewsletter
+      summary: Sign up for the store's newsletter (double opt-in)
+      description: >
+        Always answers the same way for a valid address, whether or not it
+        is already subscribed; a confirmation email is sent when needed
+        (throttled per address). The subscription only starts once the
+        link in that email is used.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/NewsletterSubscribeRequest' } } }
+      responses:
+        '202': { description: accepted, content: { application/json: { schema: { $ref: '#/components/schemas/NewsletterStatusResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /storefront/v1/newsletter/confirmations:
+    post:
+      operationId: confirmNewsletter
+      summary: Confirm a signup with the emailed token
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/NewsletterTokenRequest' } } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/NewsletterStatusResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /storefront/v1/newsletter/unsubscriptions:
+    post:
+      operationId: unsubscribeFromNewsletter
+      summary: Unsubscribe with the token from any newsletter email
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/NewsletterTokenRequest' } } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/NewsletterStatusResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
   /storefront/v1/products/{id}:
     get:
       operationId: getStorefrontProduct
@@ -1192,6 +1233,30 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/StorefrontStore' }
+        error: { nullable: true }
+
+    NewsletterSubscribeRequest:
+      type: object
+      required: [email, consent]
+      additionalProperties: false
+      properties:
+        email: { type: string, maxLength: 254 }
+        consent: { type: boolean, description: The shopper ticked "I want to receive emails". Must be true. }
+    NewsletterTokenRequest:
+      type: object
+      required: [token]
+      additionalProperties: false
+      properties:
+        token: { type: string, minLength: 1, maxLength: 200 }
+    NewsletterStatus:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [check_your_email, subscribed, unsubscribed] }
+    NewsletterStatusResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/NewsletterStatus' }
         error: { nullable: true }
 
     StorefrontProductResponse:

@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"net/url"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -22,6 +23,10 @@ type Config struct {
 	// FrontendBaseURL is the CommerceOS frontend's base URL, used to build
 	// the return_url the merchant's browser lands back on after approving.
 	FrontendBaseURL string
+	// StorefrontPublicURL is where the storefront app is served (links in
+	// shopper emails, e.g. newsletter confirmation). Defaults to
+	// API_PUBLIC_BASE_URL's origin, where docker-compose mounts /store.
+	StorefrontPublicURL string
 	// MediaUploadDir is the local filesystem directory product images are
 	// saved to (see infrastructure/storage) — served back out at
 	// PublicAPIBaseURL + "/uploads/...". Only used when StorageDriver is
@@ -73,6 +78,7 @@ func Load() Config {
 		IntegrationsEncryptionSecret: mustEnv("INTEGRATIONS_ENCRYPTION_SECRET"),
 		PublicAPIBaseURL:             mustEnv("API_PUBLIC_BASE_URL"),
 		FrontendBaseURL:              mustEnv("FRONTEND_BASE_URL"),
+		StorefrontPublicURL:          envOr("STOREFRONT_PUBLIC_URL", originOf(os.Getenv("API_PUBLIC_BASE_URL"))),
 		MediaUploadDir:               envOr("MEDIA_UPLOAD_DIR", "./uploads"),
 		StorageDriver:                envOr("STORAGE_DRIVER", "local"),
 		S3Endpoint:                   os.Getenv("S3_ENDPOINT"),
@@ -88,6 +94,15 @@ func Load() Config {
 		SMTPPassword:                 os.Getenv("SMTP_PASSWORD"),
 		SMTPFrom:                     os.Getenv("SMTP_FROM"),
 	}
+}
+
+// originOf returns scheme://host of a URL, or "" when it can't be parsed.
+func originOf(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
 }
 
 func mustEnv(key string) string {

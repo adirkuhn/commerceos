@@ -1,0 +1,74 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Newsletter API
+  description: >
+    The tenant's newsletter subscribers (signed up from its storefronts
+    with double opt-in). Export gives only confirmed addresses; delete
+    erases a subscriber entirely (right to erasure).
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /newsletter/subscribers:
+    get:
+      operationId: listNewsletterSubscribers
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/NewsletterSubscriberStatus' } }
+        - { name: search, in: query, schema: { type: string, maxLength: 254 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/SubscriberListResponse' } } } }
+  /newsletter/subscribers/export:
+    get:
+      operationId: exportNewsletterSubscribers
+      summary: Confirmed subscribers as CSV (email, confirmed_at)
+      responses:
+        '200': { description: ok, content: { text/csv: { schema: { type: string } } } }
+  /newsletter/subscribers/{subscriberId}:
+    parameters:
+      - { name: subscriberId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      operationId: eraseNewsletterSubscriber
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyResponse' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+components:
+  responses:
+    Error:
+      description: error
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+    EmptyResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error: { nullable: true }
+    NewsletterSubscriberStatus: { type: string, enum: [pending, confirmed, unsubscribed] }
+    NewsletterSubscriber:
+      type: object
+      required: [id, email, status, consent_at, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        status: { $ref: '#/components/schemas/NewsletterSubscriberStatus' }
+        sales_channel_id: { type: string, format: uuid, nullable: true }
+        consent_at: { type: string, format: date-time }
+        confirmed_at: { type: string, format: date-time, nullable: true }
+        unsubscribed_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    SubscriberListResponse:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/NewsletterSubscriber' } }
+        total: { type: integer }
+        error: { nullable: true }

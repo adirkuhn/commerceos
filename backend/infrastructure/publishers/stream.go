@@ -23,7 +23,7 @@ const StreamName = "COMMERCEOS_EVENTS"
 // TestSubjectsCoverEveryDomainEvent); EnsureStream
 // updates an already-existing stream's subject list too, so this doesn't
 // require dropping the stream in a live deployment.
-var subjects = []string{"integrations.>", "pms.>", "inventory.>", "oms.>", "shipping.>", "settings.>", "notifications.>", "payments.>", "procurement.>", "storefront.>", "collections.>"}
+var subjects = []string{"integrations.>", "pms.>", "inventory.>", "oms.>", "shipping.>", "settings.>", "notifications.>", "payments.>", "procurement.>", "storefront.>", "collections.>", "newsletter.>"}
 
 // EnsureStream creates the stream if it doesn't exist yet, or widens its
 // subject list if it exists but is missing one of `subjects` (e.g. a new
