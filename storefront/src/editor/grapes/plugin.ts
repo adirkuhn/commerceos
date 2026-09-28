@@ -1,11 +1,11 @@
 import type { Component, Editor } from 'grapesjs'
 import { createElement, type ReactElement } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
 import type { ComponentRegistry } from '../../components/registry'
 import type { ComponentDefinition } from '../../components/types'
 import { rendererFor } from '../../components/renderers'
 import { nodeClass } from '../../core/style'
 import { newNodeId } from './ids'
+import { ReactMounts } from './reactMount'
 
 // Teaches GrapesJS the CommerceOS components: one component type and one
 // block per registry definition, placement rules from the registry, and
@@ -26,7 +26,15 @@ export interface PluginOptions {
 
 function registerType(editor: Editor, registry: ComponentRegistry, def: ComponentDefinition, opts: PluginOptions) {
   const el = def.element?.(def.defaults)
-  const roots = new WeakMap<object, Root>()
+  const mounts = new ReactMounts<Component>()
+  const renderReact = (host: HTMLElement, model: Component) => {
+    const Renderer = rendererFor(String(model.get('type')))
+    if (!Renderer) return
+    const id = String(model.get('cosId'))
+    mounts.render(model, host, opts.wrap(createElement(Renderer, {
+      node: { id, type: String(model.get('type')) }, props: model.get('cosProps') ?? {}, className: nodeClass(id),
+    })))
+  }
 
   editor.Components.addType(def.type, {
     // Never let GrapesJS claim pasted/imported HTML as one of ours.
@@ -58,21 +66,15 @@ function registerType(editor: Editor, registry: ComponentRegistry, def: Componen
       },
     },
     view: def.container ? {} : {
-      init(this: { listenTo: (o: unknown, e: string, f: () => void) => void; model: Component; render: () => void }) {
-        this.listenTo(this.model, 'change:cosProps change:cosId', () => this.render())
+      init(this: { listenTo: (o: unknown, e: string, f: () => void) => void; model: Component; el: HTMLElement }) {
+        // Prop edits re-render the React tree in place, not the whole view.
+        this.listenTo(this.model, 'change:cosProps change:cosId', () => renderReact(this.el, this.model))
       },
-      onRender({ el: host, model }: { el: HTMLElement; model: Component }) {
-        const Renderer = rendererFor(def.type)
-        if (!Renderer) return
-        roots.get(model)?.unmount()
-        const root = createRoot(host)
-        roots.set(model, root)
-        const id = String(model.get('cosId'))
-        root.render(opts.wrap(createElement(Renderer, { node: { id, type: def.type }, props: model.get('cosProps') ?? {}, className: nodeClass(id) })))
+      onRender({ el, model }: { el: HTMLElement; model: Component }) {
+        renderReact(el, model)
       },
       removed({ model }: { model: Component }) {
-        roots.get(model)?.unmount()
-        roots.delete(model)
+        mounts.unmount(model)
       },
     },
   })

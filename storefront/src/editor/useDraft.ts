@@ -41,6 +41,9 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
   // from it -- GrapesJS's own "update" also fires for loading itself, and
   // undoing back to the saved state should read as clean again.
   const baseline = useRef('')
+  // A message to show once the page (re)loads -- publishing reloads the
+  // next draft, and that load must not wipe "Published version N".
+  const afterLoad = useRef<Status>()
   const snapshot = () => (editor ? JSON.stringify(fromGrapes(editor.getWrapper()!)) : '')
   const [status, setStatus] = useState<Status>({ kind: 'busy', label: 'Loading theme…' })
 
@@ -83,7 +86,8 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
       editor.UndoManager.clear()
       baseline.current = snapshot()
       setDirty(false)
-      setStatus({ kind: 'idle' })
+      setStatus(afterLoad.current ?? { kind: 'idle' })
+      afterLoad.current = undefined
     }, fail)
     const markDirty = () => setDirty(baseline.current !== '' && snapshot() !== baseline.current)
     editor.on('update', markDirty)
@@ -120,8 +124,8 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
     setStatus({ kind: 'busy', label: 'Publishing…' })
     try {
       const v = await api.publish(rev)
+      afterLoad.current = { kind: 'ok', message: `Published version ${v.number}. It's live now.` }
       await open() // publishing sealed this draft; continue on the next one
-      setStatus({ kind: 'ok', message: `Published version ${v.number}. It's live now.` })
     } catch (err) {
       fail(err)
     }
