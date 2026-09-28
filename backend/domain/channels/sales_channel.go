@@ -109,8 +109,8 @@ type SalesChannel struct {
 	// of PriceAdjustmentBasisPoints -- "buy N+ of one SKU, get this bigger
 	// discount instead of the channel's flat rate." A short list wholly
 	// owned by the channel (no independent existence, no ordering that
-	// matters), same JSONB whole-document convention as domain/theme.Block
-	// or domain/storefront.CartItem. Meaningful only for ChannelTypeInternal
+	// matters), same JSONB whole-document convention as
+	// domain/storefront.CartItem. Meaningful only for ChannelTypeInternal
 	// today, same as PriceAdjustmentBasisPoints -- this is the other half
 	// of "B2B/wholesale pricing" alongside the flat per-channel discount:
 	// a bulk buyer gets a bigger cut the more of one SKU they add to a

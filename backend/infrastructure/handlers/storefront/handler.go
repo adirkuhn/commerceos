@@ -22,13 +22,11 @@ import (
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
-	appTheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	reviewsDomain "github.com/adirkuhn/commerceos/domain/reviews"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
-	themeDomain "github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/revolut"
@@ -87,32 +85,6 @@ type lookupOrderUC interface {
 	Execute(ctx context.Context, salesChannelID, orderNumber, email string) (*appstorefront.OrderStatus, error)
 }
 
-type getStorefrontThemeUC interface {
-	Execute(ctx context.Context, salesChannelID, slug string) (*themeDomain.ThemePage, error)
-}
-
-// resolveEditSessionUC turns a theme-edit-session bearer token into the
-// tenant/channel it authorizes -- a distinct, higher-privilege credential
-// from resolveAPIKeyUC's storefront key (see
-// application/theme.ResolveEditSessionUseCase's own doc comment).
-type resolveEditSessionUC interface {
-	Execute(ctx context.Context, token string) (themeDomain.EditSession, error)
-}
-
-// getThemeDraftUC/saveThemeDraftUC are the admin Theme Builder's own
-// GetThemePageUseCase/SaveThemePageUseCase, redeclared here (interface at
-// point of use, per this codebase's ISP convention) -- unlike
-// getStorefrontThemeUC's read-only, editor-fields-stripped view, the
-// embedded Puck editor needs the full document (editor_mode, puck_data)
-// and the ability to write it back.
-type getThemeDraftUC interface {
-	Execute(ctx context.Context, salesChannelID string, slug themeDomain.PageSlug) (*themeDomain.ThemePage, error)
-}
-
-type saveThemeDraftUC interface {
-	Execute(ctx context.Context, in appTheme.SaveThemePageInput) (*themeDomain.ThemePage, error)
-}
-
 type submitReviewUC interface {
 	Execute(ctx context.Context, in appstorefront.SubmitReviewInput) (*reviewsDomain.Review, error)
 }
@@ -168,7 +140,6 @@ type Handler struct {
 	getProduct                getProductUC
 	listCategories            listCategoriesUC
 	lookupOrder               lookupOrderUC
-	getStorefrontTheme        getStorefrontThemeUC
 	getShippingOptions        getShippingOptionsUC
 	applyCoupon               applyCouponUC
 	submitReview              submitReviewUC
@@ -183,9 +154,6 @@ type Handler struct {
 	listAccountOrders         listAccountOrdersUC
 	logout                    logoutUC
 	createPaymentIntent       createPaymentIntentUC
-	resolveEditSession        resolveEditSessionUC
-	getThemeDraft             getThemeDraftUC
-	saveThemeDraft            saveThemeDraftUC
 }
 
 func NewHandler(
@@ -199,7 +167,6 @@ func NewHandler(
 	getProduct getProductUC,
 	listCategories listCategoriesUC,
 	lookupOrder lookupOrderUC,
-	getStorefrontTheme getStorefrontThemeUC,
 	getShippingOptions getShippingOptionsUC,
 	applyCoupon applyCouponUC,
 	submitReview submitReviewUC,
@@ -214,22 +181,18 @@ func NewHandler(
 	listAccountOrders listAccountOrdersUC,
 	logout logoutUC,
 	createPaymentIntent createPaymentIntentUC,
-	resolveEditSession resolveEditSessionUC,
-	getThemeDraft getThemeDraftUC,
-	saveThemeDraft saveThemeDraftUC,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
 		createCart: createCart, getCart: getCart, updateCartItems: updateCartItems, checkoutCart: checkoutCart,
 		listProducts: listProducts, getProduct: getProduct, listCategories: listCategories, lookupOrder: lookupOrder,
-		getStorefrontTheme: getStorefrontTheme, getShippingOptions: getShippingOptions, applyCoupon: applyCoupon,
+		getShippingOptions: getShippingOptions, applyCoupon: applyCoupon,
 		submitReview: submitReview, listReviews: listReviews,
 		createWishlist: createWishlist, getWishlist: getWishlist, toggleWishlistItem: toggleWishlistItem,
 		getProductRecommendations: getProductRecommendations,
 		requestMagicLink:          requestMagicLink, verifyMagicLink: verifyMagicLink, getAccount: getAccount,
 		listAccountOrders: listAccountOrders, logout: logout,
 		createPaymentIntent: createPaymentIntent,
-		resolveEditSession:  resolveEditSession, getThemeDraft: getThemeDraft, saveThemeDraft: saveThemeDraft,
 	}
 }
 
@@ -258,7 +221,6 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	batchRepo := repositories.NewBatchRepo(db)
 	categoryRepo := repositories.NewCategoryRepo(db)
 	mediaRepo := repositories.NewMediaRepo(db)
-	themeRepo := repositories.NewThemePageRepo(db)
 	shippingSettingsRepo := repositories.NewShippingConnectionSettingsRepo(db)
 	couponRepo := repositories.NewCouponRepo(db)
 	reviewRepo := repositories.NewReviewRepo(db)
@@ -298,7 +260,6 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewGetProductUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, skuCurrencyPriceRepo, fxRepo, stockLevel),
 		appstorefront.NewListCategoriesUseCase(db, categoryRepo),
 		appstorefront.NewLookupOrderUseCase(db, salesRepo),
-		appstorefront.NewGetStorefrontThemeUseCase(appTheme.NewGetThemePageUseCase(db, themeRepo)),
 		appstorefront.NewGetShippingOptionsUseCase(db, connRepo, shippingSettingsRepo, estimateShipping),
 		appstorefront.NewApplyCouponUseCase(db, cartRepo, couponRepo, couponCurrencyRepo, fxRepo),
 		appstorefront.NewSubmitReviewUseCase(db, channelRepo, overrideRepo, productRepo, reviewRepo),
@@ -313,9 +274,6 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewListAccountOrdersUseCase(db, customerSessionRepo, salesRepo),
 		appstorefront.NewLogoutUseCase(db, customerSessionRepo),
 		createPaymentIntent,
-		appTheme.NewResolveEditSessionUseCase(db, repositories.NewThemeEditSessionRepo(db)),
-		appTheme.NewGetThemePageUseCase(db, themeRepo),
-		appTheme.NewSaveThemePageUseCase(db, themeRepo, channelRepo),
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }

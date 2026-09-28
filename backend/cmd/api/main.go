@@ -38,7 +38,6 @@ import (
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
-	gentheme "github.com/adirkuhn/commerceos/api/theme"
 	genweightportions "github.com/adirkuhn/commerceos/api/weightportions"
 	genwhatsapp "github.com/adirkuhn/commerceos/api/whatsapp"
 	"github.com/adirkuhn/commerceos/domain/messaging"
@@ -69,7 +68,6 @@ import (
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
-	themehandler "github.com/adirkuhn/commerceos/infrastructure/handlers/theme"
 	webhookshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/webhooks"
 	weightportionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/weightportions"
 	whatsapphandler "github.com/adirkuhn/commerceos/infrastructure/handlers/whatsapp"
@@ -240,18 +238,6 @@ func main() {
 	// them (customer_user is read-only -- see CLAUDE.md Auth & RBAC).
 	settingsGroup.Use(middleware.RequireRoleForWrites(middleware.RoleCustomerOwner, middleware.RoleCustomerAdmin, middleware.RoleSuperAdmin))
 	settingshandler.Register(settingsGroup, db, outboxRepo)
-
-	themeSpec, err := gentheme.GetSpec()
-	if err != nil {
-		log.Fatalf("theme: load openapi spec: %v", err)
-	}
-	// Own sub-group so the theme-only spec validator never applies to the
-	// other modules' routes — same reasoning as pmsGroup above.
-	themeGroup := v1.Group("")
-	themeGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(themeSpec, &ginmiddleware.Options{
-		SilenceServersWarning: true,
-	}))
-	themehandler.Register(themeGroup, db)
 
 	taxSpec, err := gentax.GetSpec()
 	if err != nil {

@@ -12,7 +12,6 @@ import (
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	reviewsDomain "github.com/adirkuhn/commerceos/domain/reviews"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
-	themeDomain "github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 )
 
@@ -34,10 +33,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, reviewsDomain.ErrReviewBodyRequired),
 		errors.Is(err, storefrontDomain.ErrInvalidOrExpiredMagicLink),
 		errors.Is(err, storefrontDomain.ErrCardPaymentNotSupported),
-		errors.Is(err, storefrontDomain.ErrCardPaymentMismatch),
-		errors.Is(err, themeDomain.ErrInvalidPageSlug),
-		errors.Is(err, themeDomain.ErrInvalidBlockType),
-		errors.Is(err, themeDomain.ErrInvalidEditorMode):
+		errors.Is(err, storefrontDomain.ErrCardPaymentMismatch):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartNotFound), errors.Is(err, storefrontDomain.ErrOrderNotFound),
 		errors.Is(err, storefrontDomain.ErrWishlistNotFound), errors.Is(err, storefrontDomain.ErrSessionNotFound),

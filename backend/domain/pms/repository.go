@@ -78,7 +78,7 @@ type ProductFilter struct {
 	// list -- a plain, independent "AND id IN (...)" filter, unlike
 	// IncludeIDs (part of the enrollment OR-group above). Lets
 	// application/storefront support a merchant's manually-curated
-	// "Featured Products" block (see domain/theme.BlockTypeFeaturedProducts)
+	// hand-picked product list (e.g. a storefront Product Grid block)
 	// on top of "products enrolled on this channel" as one exact query.
 	// Same nil-vs-empty convention as IncludeIDs: nil means unconstrained,
 	// a non-nil pointer to an empty slice means "constrained to nothing".

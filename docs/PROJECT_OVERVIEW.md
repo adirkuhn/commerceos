@@ -23,8 +23,7 @@ backend/               Go (Gin, GORM, goose, NATS JetStream)
   internal/            config, tenant (WithTenant/RLS), txctx, crypto, idgen, db
   cmd/                 processes (see §4)
 frontend/              admin SPA + mobile scanner app (React 18, TS, Vite, Tailwind, React Router 7)
-storefront-frontend/   public shop + Puck visual page editor (served under /store/)
-ecommerce-template/    "Aurora" standalone headless template, mock backend ONLY — not wired to Go
+storefront/            (being rebuilt) SSR shop + GrapesJS theme editor — see docs/storefront-architecture.md
 docs/intelligence-roadmap.md   BI/forecasting roadmap with per-item status
 docker-compose.yml     local stack (Postgres + MinIO are external networks, not defined here)
 ```
@@ -109,7 +108,7 @@ Cron jobs (`domain/scheduler`): `expired_sale_prices`, `expired_batches`, `cost_
 
 ### Internal storefront (`storefront`, `theme`, `reviews`)
 - Headless API `/storefront/v1` authed by a channel-scoped publishable **API key**. Products (enrollment-scoped, paginated, category facets), categories, recommendations (FP-Growth), reviews (verified-buyer flag), persisted token carts, coupons, shipping options, Stripe PaymentIntent or hosted payment link, checkout (server re-prices), order lookup, wishlists, passwordless magic-link customer accounts.
-- **Theme builder:** one page document per (channel, slug) — home, products, product, cart, checkout, confirmation, lookup, wishlist, login, account, header, footer. Edited in Puck (`storefront-frontend /edit/:slug`) via short-lived edit-session token; drafts + custom CSS + mobile breakpoint.
+- **Theme system:** being rebuilt from scratch (versioned themes, GrapesJS editor, SSR runtime) — see `docs/storefront-architecture.md`. The old Puck/freeform builder and its `theme_pages` tables were removed 2026-09-28.
 - Event: `storefront.order.placed`.
 
 ### WhatsApp (`whatsapp`)
@@ -156,11 +155,8 @@ Pluggable per tenant (OpenAI, Anthropic, Gemini, Ollama) for two jobs only: proc
 - **Scanner app** at `/scanner/*`: full-screen dark kiosk UI for Receive PO, Inventory lookup/actions, Price lookup, Discard, Pick, Pack; camera (zxing) or hardware scanner; separate paired token.
 - Tests: Vitest + Testing Library (~210 files); Playwright e2e against real docker stack (needs `E2E_JWT_SECRET`, `E2E_TENANT_ID`).
 
-### Storefront (`storefront-frontend/`)
-Shopper routes (home, catalog, product, cart, checkout, confirmation, lookup, wishlist, login, account) rendered from Puck theme pages; `/enter/:storeKey` sets the API key so one deployment serves many channels; Stripe Elements checkout.
-
-### Aurora template (`ecommerce-template/`)
-Separate shadcn-style template (TanStack Query, Zustand, Zod, i18n, B2B, plugins) with mock repositories only.
+### Storefront (`storefront/`)
+Being rebuilt (2026-09-28): SSR runtime + GrapesJS editor. Architecture and phase plan in `docs/storefront-architecture.md`. Internal channels stay usable headless (REST only) meanwhile.
 
 ## 7. Dev environment notes
 

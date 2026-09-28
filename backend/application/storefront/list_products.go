@@ -30,7 +30,7 @@ type ListProductsInput struct {
 	CategoryID *string
 	// ProductIDs narrows to exactly this list of product ids, on top of
 	// "enrolled on this channel" -- a merchant's manually-curated
-	// "Featured Products" block (see domain/theme.BlockTypeFeaturedProducts)
+	// hand-picked product list (e.g. a storefront Product Grid block)
 	// uses this instead of CategoryID. nil means unconstrained; a non-nil
 	// empty slice means "match nothing" (see pms.ProductFilter.AndIncludeIDs'
 	// own doc comment) -- callers that never set it (every other listing

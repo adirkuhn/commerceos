@@ -285,46 +285,6 @@ services:
       - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.tls.certresolver=le"
 
-  # commerceos-storefront -- the shopper-facing storefront SPA
-  # (storefront-frontend/). One deployment serves every tenant's every
-  # internal sales channel: a shopper's key is resolved at runtime from the
-  # /store/enter/:channelId URL the admin app shows for each channel (see
-  # storefront-frontend/src/App.tsx's StoreEntry, api/client.ts's
-  # setStorefrontKey), not baked into this build -- no build-time secret,
-  # no per-tenant image.
-  #
-  # Path-mounted at /store on the SAME host as `backend` (API_DOMAIN),
-  # rather than needing its own domain -- API_DOMAIN's DNS/TLS already
-  # exists, so this works with zero extra setup (see VITE_STOREFRONT_URL's
-  # own doc comment in .env.example for how the admin app derives the
-  # link automatically). The stripprefix middleware makes the container
-  # see every request as if mounted at "/" (matching its own build's
-  # `base: '/store/'`, see storefront-frontend/vite.config.ts) -- Traefik
-  # forwards the full original path otherwise. A dedicated customer domain
-  # for one specific channel is a later step (its own Traefik router +
-  # cert, same shape `backend`'s already has), not this router.
-  storefront:
-    build:
-      context: ./storefront-frontend
-      args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL}
-    restart: unless-stopped
-    logging: *default-logging
-    depends_on:
-      - backend
-    networks:
-      - traefik-public
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.storefront.rule=Host(`${API_DOMAIN}`) && PathPrefix(`/store`)"
-      - "traefik.http.routers.storefront.middlewares=storefront-stripprefix"
-      - "traefik.http.middlewares.storefront-stripprefix.stripprefix.prefixes=/store"
-      - "traefik.http.services.storefront.loadbalancer.server.port=80"
-      - "traefik.docker.network=traefik-public"
-      - "traefik.http.routers.storefront.entrypoints=https"
-      - "traefik.http.routers.storefront.tls=true"
-      - "traefik.http.routers.storefront.tls.certresolver=le"
-
 volumes:
   postgres_data:
   nats_data:
