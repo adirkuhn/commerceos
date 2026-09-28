@@ -42,3 +42,10 @@ export const reviewsQuery = (api: StorefrontAPI, productId: string, limit: numbe
 
 export const recommendationsQuery = (api: StorefrontAPI, productId: string) =>
   queryOptions({ queryKey: ['recommendations', productId], queryFn: () => api.getRecommendations(productId), staleTime: STALE })
+
+/** The store's name etc.; null when unavailable -- no page fails over it. */
+export const storeQuery = (api: StorefrontAPI) =>
+  queryOptions({ queryKey: ['store'], queryFn: () => api.getStore().catch(() => null), staleTime: STALE })
+
+export const collectionsQuery = (api: StorefrontAPI) =>
+  queryOptions({ queryKey: ['collections'], queryFn: () => api.listCollections(), staleTime: STALE })

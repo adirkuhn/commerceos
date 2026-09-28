@@ -1,7 +1,9 @@
 import type { ComponentDefinition, PropField } from '../../components/types'
 import type { RichText } from '../../core/richText'
 import { LinkField, NumberField, SelectField, TextField, ToggleField } from './fields'
-import { AssetPicker, CategorySelect, CollectionSelect, ProductPicker, ProductsPicker } from './pickers'
+import type { NavLink } from '../../components/site/site'
+import { LinksField } from './LinksField'
+import { AssetPicker, CategorySelect, CollectionSelect, CollectionsPicker, ProductPicker, ProductsPicker } from './pickers'
 import { RichTextField } from './RichTextField'
 
 type Props = Record<string, unknown>
@@ -19,6 +21,8 @@ function FieldFor({ name, field, value, onChange }: { name: string; field: PropF
     case 'collection': return <CollectionSelect label={field.label} value={String(value ?? '')} onChange={onChange} />
     case 'product': return <ProductPicker label={field.label} value={String(value ?? '')} onChange={onChange} />
     case 'products': return <ProductsPicker label={field.label} value={(value as string[]) ?? []} max={field.max} onChange={onChange} />
+    case 'collections': return <CollectionsPicker label={field.label} value={(value as string[]) ?? []} max={field.max} onChange={onChange} />
+    case 'links': return <LinksField label={field.label} value={(value as NavLink[]) ?? []} max={field.max} onChange={onChange} />
     case 'hidden': return null
     default: {
       const unknownKind: never = field

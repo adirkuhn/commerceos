@@ -3,7 +3,7 @@ import type { ProductDetail, ProductList, StorefrontAPI } from '../api/storefron
 import type { ThemeNode } from '../core/document'
 import type { ProductGridProps } from './commerce/productGrid'
 import type { ProductCardProps } from './commerce/productCard'
-import { recommendationsQuery, reviewsQuery } from '../runtime/page/queries'
+import { collectionsQuery, recommendationsQuery, reviewsQuery } from '../runtime/page/queries'
 
 // Catalog data a component shows. The same query options are prefetched
 // during SSR (dataQueriesFor) and read by the renderer, so the page is
@@ -60,6 +60,7 @@ const loaders: Record<string, Loader> = {
   'product-card': productCardQuery as unknown as Loader,
   'product-reviews': ((api, props: { limit?: number }, ctx) =>
     ctx.product ? reviewsQuery(api, ctx.product.id, reviewLimit(props)) : undefined) as Loader,
+  'collection-list': (api => collectionsQuery(api)) as Loader,
   'product-recommendations': ((api, _props, ctx) =>
     ctx.product ? recommendationsQuery(api, ctx.product.id) : undefined) as Loader,
 }

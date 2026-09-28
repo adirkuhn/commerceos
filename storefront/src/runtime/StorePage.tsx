@@ -8,9 +8,14 @@ import { RenderProvider } from './RenderContext'
 import { documentQuery, documentFor, hasDocument, themeQuery } from './queries'
 import type { ResolvedRoute } from './route'
 import { CartProvider } from './page/CartContext'
+import { CustomerProvider } from './page/CustomerContext'
 import { ListingProvider } from './page/ListingContext'
+import { OrderProvider } from './page/OrderContext'
 import { ProductProvider } from './page/ProductContext'
-import { collectionPageQuery, listingQuery, productPageQuery } from './page/queries'
+import { StoreInfoProvider } from './page/StoreContext'
+import { WishlistProvider } from './page/WishlistContext'
+import { collectionPageQuery, listingQuery, productPageQuery, storeQuery } from './page/queries'
+import { NewsletterPage } from './builtin/NewsletterPage'
 import { listingParamsFor } from './page/routeData'
 
 export { documentFor }
@@ -23,13 +28,21 @@ function Region({ theme, kind, docKey }: { theme: StorefrontTheme; kind: Resolve
   return <DocumentRenderer root={data.root} assets={data.assets ?? {}} />
 }
 
+function Main({ theme, route }: { theme: StorefrontTheme; route: ResolvedRoute }) {
+  switch (route.builtin) {
+    case 'newsletter-confirm': return <NewsletterPage action="confirm" />
+    case 'newsletter-unsubscribe': return <NewsletterPage action="unsubscribe" />
+    default: return <Region theme={theme} kind={route.kind} docKey={route.key} />
+  }
+}
+
 /** Header, the route's document, footer. */
 function Layout({ theme, route }: { theme: StorefrontTheme; route: ResolvedRoute }) {
   const has = (key: string) => hasDocument(theme, 'section_group', key)
   return (
     <>
       {has('header') && <header className="cos-header"><Region theme={theme} kind="section_group" docKey="header" /></header>}
-      <main className="cos-main"><Region theme={theme} kind={route.kind} docKey={route.key} /></main>
+      <main className="cos-main"><Main theme={theme} route={route} /></main>
       {has('footer') && <footer className="cos-footer"><Region theme={theme} kind="section_group" docKey="footer" /></footer>}
     </>
   )
@@ -91,19 +104,27 @@ function Routed({ theme, route, query, storePath }: { theme: StorefrontTheme; ro
   if (route.key === 'product' && !route.notFound) return <ProductRoute theme={theme} route={route} />
   if (route.key === 'collection' && !route.notFound) return <CollectionRoute theme={theme} route={route} query={query} storePath={storePath} />
   if (route.key === 'search' && !route.notFound) return <ListingBody theme={theme} route={route} query={query} storePath={storePath} collection={null} />
+  if (route.key === 'order-confirmation' && route.param) return <OrderProvider orderNumber={route.param}><Layout theme={theme} route={route} /></OrderProvider>
   return <Layout theme={theme} route={route} />
 }
 
 export function StorePage({ path, storeKey, query = new URLSearchParams() }: { path: string; storeKey: string; query?: URLSearchParams }) {
   const api = useStorefrontAPI()
   const { data: theme } = useSuspenseQuery(themeQuery(api))
+  const { data: store } = useSuspenseQuery(storeQuery(api))
   const route = documentFor(theme, path)
   const storePath = (p: string) => `/store/${encodeURIComponent(storeKey)}/${p}`
   return (
     <RenderProvider value={{ mode: 'live', storePath }}>
-      <CartProvider api={api} storeKey={storeKey}>
-        <Routed theme={theme} route={route} query={query} storePath={storePath} />
-      </CartProvider>
+      <StoreInfoProvider value={{ name: store?.name ?? '', settings: theme.settings, assets: theme.assets ?? {} }}>
+        <CustomerProvider api={api} storeKey={storeKey}>
+          <WishlistProvider api={api} storeKey={storeKey}>
+            <CartProvider api={api} storeKey={storeKey}>
+              <Routed theme={theme} route={route} query={query} storePath={storePath} />
+            </CartProvider>
+          </WishlistProvider>
+        </CustomerProvider>
+      </StoreInfoProvider>
     </RenderProvider>
   )
 }

@@ -1,10 +1,19 @@
 import { Suspense, useSyncExternalStore, type ReactNode } from 'react'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { ApiProvider } from '../api/ApiContext'
 import { RenderProvider } from '../runtime/RenderContext'
 import type { EditorServices } from './services'
 import { ProductProvider } from '../runtime/page/ProductContext'
 import { ListingProvider } from '../runtime/page/ListingContext'
+import { StoreInfoProvider } from '../runtime/page/StoreContext'
+import { storeQuery } from '../runtime/page/queries'
+
+function CanvasStoreInfo({ services, children }: { services: EditorServices; children: ReactNode }) {
+  const settings = useSyncExternalStore(services.settings.subscribe, services.settings.snapshot)
+  const assets = useSyncExternalStore(services.assets.subscribe, services.assets.snapshot)
+  const { data: store } = useQuery(storeQuery(services.store))
+  return <StoreInfoProvider value={{ name: store?.name ?? '', settings, assets }}>{children}</StoreInfoProvider>
+}
 
 /** What a component rendered inside the canvas needs: catalog data, the
  *  editor's known assets, and editor mode (inert links, empty-state hints). */
@@ -18,7 +27,9 @@ export function CanvasProviders({ services, children }: { services: EditorServic
     <QueryClientProvider client={services.queryClient}>
       <ApiProvider api={services.store}>
         <RenderProvider value={{ mode: 'editor', assets, storePath: p => `/store/${services.channelId}/${p}` }}>
-          <Suspense fallback={<div className="cos-placeholder">Loading…</div>}>{content}</Suspense>
+          <CanvasStoreInfo services={services}>
+            <Suspense fallback={<div className="cos-placeholder">Loading…</div>}>{content}</Suspense>
+          </CanvasStoreInfo>
         </RenderProvider>
       </ApiProvider>
     </QueryClientProvider>

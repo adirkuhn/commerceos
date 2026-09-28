@@ -11,6 +11,7 @@ import { dataQueriesFor } from '../components/data'
 import { serializeState } from './state'
 import { StoreUnavailable } from './StorePage'
 import { resolvePageData, type PageData } from './page/routeData'
+import { storeQuery } from './page/queries'
 
 export const BASENAME = '/store'
 
@@ -40,12 +41,16 @@ function parseStoreURL(url: string): { storeKey: string; path: string } | undefi
   return m ? { storeKey: decodeURIComponent(m[1]), path: m[2] ?? '/' } : undefined
 }
 
-function buildHead(theme: StorefrontTheme, doc: ThemeDocument, page: PageData, preview: boolean): string {
-  const title = page.seoTitle || doc.seo?.title || doc.title || 'Store'
-  const description = page.seoDescription || doc.seo?.description
+function buildHead(theme: StorefrontTheme, doc: ThemeDocument | undefined, page: PageData, preview: boolean): string {
+  // Built-in pages carry one-time tokens in their URL: keep them out of
+  // search results and out of Referer headers.
+  const noindex = preview || Boolean(page.route.builtin)
+  const title = page.seoTitle || doc?.seo?.title || doc?.title || 'Store'
+  const description = page.seoDescription || doc?.seo?.description
   const parts = [`<title>${escapeHTML(title)}</title>`]
   if (description) parts.push(`<meta name="description" content="${escapeHTML(description)}">`)
-  if (preview) parts.push('<meta name="robots" content="noindex">')
+  if (noindex) parts.push('<meta name="robots" content="noindex">')
+  if (page.route.builtin) parts.push('<meta name="referrer" content="no-referrer">')
   const favicon = theme.settings.brand.favicon_asset_id && theme.assets?.[theme.settings.brand.favicon_asset_id]
   if (favicon) parts.push(`<link rel="icon" href="${escapeHTML(favicon.url)}">`)
   const fonts = fontStylesheetURL(theme.settings)
@@ -82,13 +87,15 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
   const page = await resolvePageData(qc, api, theme, parsed.path, new URL(opts.url, 'http://x').searchParams)
   const route = page.route
   const regions = [['section_group', 'header'], ['section_group', 'footer']] as const
-  const [main, ...rest] = await Promise.all([
-    qc.fetchQuery(documentQuery(api, theme, route.kind, route.key)),
-    ...regions.filter(([k, key]) => hasDocument(theme, k, key)).map(([k, key]) => qc.fetchQuery(documentQuery(api, theme, k, key))),
+  const [main, regionDocs] = await Promise.all([
+    route.builtin ? undefined : qc.fetchQuery(documentQuery(api, theme, route.kind, route.key)),
+    Promise.all(regions.filter(([k, key]) => hasDocument(theme, k, key)).map(([k, key]) => qc.fetchQuery(documentQuery(api, theme, k, key)))),
+    qc.fetchQuery(storeQuery(api)),
   ])
+  const docs = main ? [main, ...regionDocs] : regionDocs
   // Catalog data the components show. A failed fetch is left out of the
   // cache; that component renders nothing rather than failing the page.
-  await Promise.all([main, ...rest].flatMap(d => dataQueriesFor(d.root, api, { product: page.product })).map(q => qc.prefetchQuery(q)))
+  await Promise.all(docs.flatMap(d => dataQueriesFor(d.root, api, { product: page.product })).map(q => qc.prefetchQuery(q)))
 
   const html = renderToString(
     <QueryClientProvider client={qc}>

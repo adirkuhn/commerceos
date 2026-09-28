@@ -9,6 +9,16 @@ export interface ResolvedRoute {
   /** The dynamic segment (product slug, collection slug, order number). */
   param?: string
   notFound: boolean
+  /** A page the storefront itself provides (inside the theme's header
+   *  and footer) rather than a theme document. */
+  builtin?: BuiltinPage
+}
+
+export type BuiltinPage = 'newsletter-confirm' | 'newsletter-unsubscribe'
+
+const BUILTIN_PAGES: Record<string, BuiltinPage> = {
+  'newsletter/confirm': 'newsletter-confirm',
+  'newsletter/unsubscribe': 'newsletter-unsubscribe',
 }
 
 const PAGE_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -30,6 +40,8 @@ export function resolveRoute(path: string): ResolvedRoute {
     return { kind: 'template', key: STATIC_TEMPLATES[parts[0] ?? ''], notFound: false }
   }
   if (parts.length === 2) {
+    const builtin = BUILTIN_PAGES[parts.join('/')]
+    if (builtin) return { kind: 'template', key: builtin, builtin, notFound: false }
     const [section, param] = parts
     if (section === 'pages') return PAGE_SLUG.test(param) ? { kind: 'page', key: param, notFound: false } : NOT_FOUND
     const template = DYNAMIC_TEMPLATES[section]

@@ -14,9 +14,16 @@ export interface RenderEnv {
   assets: AssetMap
   /** Absolute path of a store page, e.g. storePath('products/red-shoes'). */
   storePath: (path: string) => string
+  /** Full page load of another URL (store page or payment provider). */
+  navigate: (url: string, opts?: { replace?: boolean }) => void
 }
 
-const defaultEnv: RenderEnv = { mode: 'live', assets: {}, storePath: p => `/${p}` }
+function navigate(url: string, opts?: { replace?: boolean }) {
+  if (opts?.replace) window.location.replace(url)
+  else window.location.assign(url)
+}
+
+const defaultEnv: RenderEnv = { mode: 'live', assets: {}, storePath: p => `/${p}`, navigate }
 
 const RenderContext = createContext<RenderEnv>(defaultEnv)
 

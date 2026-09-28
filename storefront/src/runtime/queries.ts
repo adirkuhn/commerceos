@@ -25,6 +25,6 @@ export function hasDocument(theme: StorefrontTheme, kind: DocumentKind, key: str
 /** The document a path renders, falling back to not-found when the theme lacks it. */
 export function documentFor(theme: StorefrontTheme, path: string): ResolvedRoute {
   const route = resolveRoute(path)
-  if (route.notFound || hasDocument(theme, route.kind, route.key)) return route
+  if (route.notFound || route.builtin || hasDocument(theme, route.kind, route.key)) return route
   return { kind: 'template', key: 'not-found', notFound: true }
 }

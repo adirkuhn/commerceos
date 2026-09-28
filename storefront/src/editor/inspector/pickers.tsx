@@ -3,6 +3,7 @@ import type { Category, Collection, ProductSummary } from '../../api/storefront'
 import { useEditorServices } from '../services'
 import { AssetLibrary } from './AssetLibrary'
 import { Field, SelectField } from './fields'
+import { moveItem } from './listOps'
 
 const ASSET_REF = /^asset:(.+)$/
 
@@ -42,12 +43,49 @@ export function CategorySelect({ label, value, onChange }: { label: string; valu
   )
 }
 
-export function CollectionSelect({ label, value, onChange }: { label: string; value: string; onChange: (id: string) => void }) {
+function useCollections() {
   const { store } = useEditorServices()
   const [collections, setCollections] = useState<Collection[]>([])
   useEffect(() => {
     store.listCollections().then(setCollections, () => setCollections([]))
   }, [store])
+  return collections
+}
+
+/** An ordered choice of published collections. */
+export function CollectionsPicker({ label, value, max, onChange }: { label: string; value: string[]; max: number; onChange: (ids: string[]) => void }) {
+  const collections = useCollections()
+  const name = (id: string) => collections.find(c => c.id === id)?.name ?? 'Unpublished collection'
+  const available = collections.filter(c => !value.includes(c.id))
+  return (
+    <Field label={label} hint={`${value.length} of ${max}`}>
+      {id => (
+        <div className="flex flex-col gap-2">
+          <ol className="flex flex-col gap-1" aria-label="Chosen collections">
+            {value.map((cid, i) => (
+              <li key={cid} className="flex items-center gap-1 rounded bg-neutral-100 px-2 py-1 text-sm">
+                <span className="flex-1 truncate">{name(cid)}</span>
+                <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => onChange(moveItem(value, i, -1))}>↑</button>
+                <button type="button" aria-label="Move down" disabled={i === value.length - 1} onClick={() => onChange(moveItem(value, i, 1))}>↓</button>
+                <button type="button" aria-label="Remove" onClick={() => onChange(value.filter(v => v !== cid))}>✕</button>
+              </li>
+            ))}
+          </ol>
+          {value.length < max && (
+            <select id={id} className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm" value=""
+              onChange={e => e.target.value && onChange([...value, e.target.value])}>
+              <option value="">{available.length ? 'Add a collection…' : collections.length ? 'All collections added' : 'No published collections yet'}</option>
+              {available.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
+        </div>
+      )}
+    </Field>
+  )
+}
+
+export function CollectionSelect({ label, value, onChange }: { label: string; value: string; onChange: (id: string) => void }) {
+  const collections = useCollections()
   return (
     <SelectField label={label} value={value} allowEmpty={collections.length ? 'Choose a collection…' : 'No published collections yet'}
       options={collections.map(c => ({ value: c.id, label: c.name }))} onChange={v => onChange(String(v))} />
@@ -116,11 +154,7 @@ export function ProductPicker({ label, value, onChange }: { label: string; value
 
 export function ProductsPicker({ label, value, max, onChange }: { label: string; value: string[]; max: number; onChange: (ids: string[]) => void }) {
   const byId = useProductsByIds(value)
-  const move = (i: number, d: number) => {
-    const next = [...value]
-    ;[next[i], next[i + d]] = [next[i + d], next[i]]
-    onChange(next)
-  }
+  const move = (i: number, d: number) => onChange(moveItem(value, i, d))
   return (
     <Field label={label} hint={`${value.length} of ${max}`}>
       {() => (

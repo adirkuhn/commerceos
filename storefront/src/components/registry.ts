@@ -16,6 +16,10 @@ import {
 } from './commerce/productPage'
 import { breadcrumbs, collectionFilters, collectionHeader, collectionProducts, pagination } from './commerce/listing'
 import { cartItems, cartSummary, checkoutButton } from './cart/cart'
+import { accountLink, cartLink, navigationMenu, searchBox, siteLogo } from './site/site'
+import { banner, collectionList, hero, newsletterSignup } from './marketing/marketing'
+import { accountOverview, loginForm, wishlistButton, wishlistItems } from './customer/customer'
+import { checkoutForm, orderStatus } from './checkout/checkout'
 
 // Every component the editor offers and the runtime renders. Adding one
 // here (plus its renderer in renderers.tsx and its props schema in the
@@ -26,6 +30,10 @@ const definitions = [
   productReviews, productRecommendations,
   collectionHeader, collectionProducts, collectionFilters, pagination, breadcrumbs,
   cartItems, cartSummary, checkoutButton,
+  siteLogo, navigationMenu, cartLink, searchBox, accountLink,
+  hero, banner, collectionList, newsletterSignup,
+  loginForm, accountOverview, wishlistItems, wishlistButton,
+  checkoutForm, orderStatus,
 ] as unknown as ComponentDefinition[]
 
 export class ComponentRegistry {

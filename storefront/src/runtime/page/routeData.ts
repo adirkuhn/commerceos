@@ -44,6 +44,7 @@ export interface PageData {
  *  collection doesn't exist. */
 export async function resolvePageData(qc: QueryClient, api: StorefrontAPI, theme: StorefrontTheme, path: string, query: URLSearchParams): Promise<PageData> {
   let route = documentFor(theme, path)
+  if (route.builtin) return { route, seoTitle: 'Newsletter' }
   if (route.key === 'product' && route.param) {
     const product = await qc.fetchQuery(productPageQuery(api, route.param))
     if (!product) return { route: NOT_FOUND }

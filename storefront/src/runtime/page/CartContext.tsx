@@ -9,28 +9,16 @@ export interface CartState {
   add: (skuCode: string, quantity: number) => Promise<void>
   setQuantity: (skuCode: string, quantity: number) => Promise<void>
   applyCoupon: (code: string) => Promise<void>
+  /** Forgets the cart after checkout; the next add starts a new one. */
+  clear: () => void
 }
 
 const Ctx = createContext<CartState | null>(null)
 
-const storageKey = (storeKey: string) => `cos-cart:${storeKey}`
+import { readToken as read, writeToken as write } from './storage'
 
-function readToken(storeKey: string): string | null {
-  try {
-    return window.localStorage.getItem(storageKey(storeKey))
-  } catch {
-    return null
-  }
-}
-
-function writeToken(storeKey: string, token: string | null) {
-  try {
-    if (token) window.localStorage.setItem(storageKey(storeKey), token)
-    else window.localStorage.removeItem(storageKey(storeKey))
-  } catch {
-    // Private mode / blocked storage: the cart lives for this page only.
-  }
-}
+const readToken = (storeKey: string) => read('cart', storeKey)
+const writeToken = (storeKey: string, token: string | null) => write('cart', storeKey, token)
 
 /** The shopper's cart, kept by token in this browser. Loads after mount,
  *  so server and first client render agree (both: no cart yet). */
@@ -80,7 +68,11 @@ export function CartProvider({ api, storeKey, children }: { api: StorefrontAPI; 
     }),
     setQuantity: (sku, qty) => run(token => api.setCartItems(token, lines().map(l => (l.sku_code === sku ? { ...l, quantity: qty } : l)).filter(l => l.quantity > 0))),
     applyCoupon: code => run(token => api.applyCoupon(token, code)),
-  }), [api, busy, cart, error, lines, run])
+    clear: () => {
+      writeToken(storeKey, null)
+      setCart({ token: '', items: [], subtotal_minor_units: 0, discount_minor_units: 0 })
+    },
+  }), [api, busy, cart, error, lines, run, storeKey])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

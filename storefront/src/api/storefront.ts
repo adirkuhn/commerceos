@@ -118,6 +118,62 @@ export interface CartItem {
   currency_code: string
 }
 
+export interface Account {
+  email: string
+  first_name: string
+  last_name: string
+}
+
+export interface AccountOrder {
+  order_number: string
+  status: string
+  fulfilled: boolean
+  total_minor_units: number
+  currency_code: string
+  placed_at: string
+}
+
+export interface OrderStatus {
+  order_number: string
+  status: string
+  fulfilled: boolean
+  total_minor_units: number
+  currency_code: string
+}
+
+export interface Wishlist {
+  token: string
+  product_ids: string[]
+}
+
+export interface Address {
+  first_name: string
+  last_name: string
+  company?: string
+  address1: string
+  address2?: string
+  city: string
+  state?: string
+  postcode: string
+  country: string
+  phone?: string
+}
+
+export interface ShippingOption {
+  title: string
+  amount_minor_units: number
+  currency_code: string
+}
+
+export interface CheckoutResult {
+  order_number: string
+  total_minor_units: number
+  currency_code: string
+  payment_url?: string | null
+}
+
+export type NewsletterStatus = 'check_your_email' | 'subscribed' | 'unsubscribed'
+
 export interface Cart {
   token: string
   items: CartItem[]
@@ -215,6 +271,63 @@ export class StorefrontAPI {
     return this.send('PUT', `/storefront/v1/carts/${encodeURIComponent(token)}/coupon`, { code })
   }
 
+  requestMagicLink(email: string, redirectURL: string): Promise<unknown> {
+    return this.send('POST', '/storefront/v1/auth/magic-link', { email, redirect_url: redirectURL }, true)
+  }
+
+  verifySession(token: string): Promise<{ session_token: string; account: Account }> {
+    return this.send('POST', '/storefront/v1/auth/session', { token })
+  }
+
+  getAccount(sessionToken: string): Promise<Account> {
+    return this.get(`/storefront/v1/account/${encodeURIComponent(sessionToken)}`)
+  }
+
+  listAccountOrders(sessionToken: string): Promise<AccountOrder[]> {
+    return this.get(`/storefront/v1/account/${encodeURIComponent(sessionToken)}/orders`)
+  }
+
+  logout(sessionToken: string): Promise<unknown> {
+    return this.send('DELETE', `/storefront/v1/account/${encodeURIComponent(sessionToken)}`, undefined, true)
+  }
+
+  createWishlist(): Promise<Wishlist> {
+    return this.send('POST', '/storefront/v1/wishlists')
+  }
+
+  getWishlist(token: string): Promise<Wishlist> {
+    return this.get(`/storefront/v1/wishlists/${encodeURIComponent(token)}`)
+  }
+
+  toggleWishlistItem(token: string, productId: string): Promise<Wishlist> {
+    return this.send('PUT', `/storefront/v1/wishlists/${encodeURIComponent(token)}/items`, { product_id: productId })
+  }
+
+  subscribeNewsletter(email: string, consent: boolean): Promise<{ status: NewsletterStatus }> {
+    return this.send('POST', '/storefront/v1/newsletter/subscriptions', { email, consent })
+  }
+
+  confirmNewsletter(token: string): Promise<{ status: NewsletterStatus }> {
+    return this.send('POST', '/storefront/v1/newsletter/confirmations', { token })
+  }
+
+  unsubscribeNewsletter(token: string): Promise<{ status: NewsletterStatus }> {
+    return this.send('POST', '/storefront/v1/newsletter/unsubscriptions', { token })
+  }
+
+  shippingOptions(cartToken: string, address: Address): Promise<ShippingOption[]> {
+    return this.send('POST', `/storefront/v1/carts/${encodeURIComponent(cartToken)}/shipping-options`, address)
+  }
+
+  checkout(cartToken: string, body: { email: string; billing: Address; shipping: Address; shipping_method_title?: string }): Promise<CheckoutResult> {
+    return this.send('POST', `/storefront/v1/carts/${encodeURIComponent(cartToken)}/checkout`, body)
+  }
+
+  lookupOrder(orderNumber: string, email: string): Promise<OrderStatus> {
+    const q = new URLSearchParams({ order_number: orderNumber, email })
+    return this.get(`/storefront/v1/orders/lookup?${q}`)
+  }
+
   listCategories(): Promise<Category[]> {
     return this.get('/storefront/v1/categories')
   }
@@ -223,7 +336,7 @@ export class StorefrontAPI {
     return this.send('GET', path)
   }
 
-  private async send<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async send<T>(method: string, path: string, body?: unknown, allowEmpty = false): Promise<T> {
     const headers = new Headers({ Accept: 'application/json', Authorization: `Bearer ${this.cfg.storeKey}` })
     if (this.cfg.previewToken) headers.set('X-Theme-Preview', this.cfg.previewToken)
     if (body !== undefined) headers.set('Content-Type', 'application/json')
@@ -236,6 +349,7 @@ export class StorefrontAPI {
     } catch {
       env = undefined
     }
+    if (res.ok && allowEmpty && (!env || env.data === null || env.data === undefined)) return undefined as T
     if (!res.ok || !env || env.data === null) {
       throw new ApiError(res.status, env?.error?.code ?? 'HTTP_ERROR', env?.error?.message ?? `request failed (${res.status})`)
     }

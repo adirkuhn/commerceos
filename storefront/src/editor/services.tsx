@@ -4,6 +4,8 @@ import type { StorefrontAPI } from '../api/storefront'
 import type { EditorAPI } from './api'
 import type { AssetStore } from './assetStore'
 import type { PreviewStore } from './previewStore'
+import type { ThemeSettings } from '../core/document'
+import type { ValueStore } from './valueStore'
 
 // Everything the editor UI and canvas talk to, injected once at the top.
 export interface EditorServices {
@@ -13,6 +15,8 @@ export interface EditorServices {
   assets: AssetStore
   /** Product/listing the canvas previews templates with. */
   preview: PreviewStore
+  /** The draft's theme settings, for components that show them (logo). */
+  settings: ValueStore<ThemeSettings>
   queryClient: QueryClient
   channelId: string
 }

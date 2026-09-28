@@ -15,6 +15,11 @@ import {
 import { ProductRecommendationsView, ProductReviewsView } from './commerce/ProductExtrasViews'
 import { BreadcrumbsView, CollectionFiltersView, CollectionHeaderView, CollectionProductsView, PaginationView } from './commerce/ListingViews'
 import { CartItemsView, CartSummaryView, CheckoutButtonView } from './cart/CartViews'
+import { AccountLinkView, CartLinkView, NavigationMenuView, SearchBoxView, SiteLogoView } from './site/SiteViews'
+import { BannerView, CollectionListView, HeroView, NewsletterSignupView } from './marketing/MarketingViews'
+import { AccountOverviewView, LoginFormView, WishlistButtonView, WishlistItemsView } from './customer/CustomerViews'
+import { CheckoutFormView } from './checkout/CheckoutFormView'
+import { OrderStatusView } from './checkout/OrderStatusView'
 
 // Containers share one renderer: their definition's element() gives the
 // markup, which is exactly what the editor canvas builds too.
@@ -78,6 +83,21 @@ const renderers: Record<string, Renderer> = {
   'cart-items': typed(CartItemsView),
   'cart-summary': typed(CartSummaryView),
   'checkout-button': typed(CheckoutButtonView),
+  'site-logo': typed(SiteLogoView),
+  'navigation-menu': typed(NavigationMenuView),
+  'cart-link': typed(CartLinkView),
+  'search-box': typed(SearchBoxView),
+  'account-link': typed(AccountLinkView),
+  hero: typed(HeroView),
+  banner: typed(BannerView),
+  'collection-list': typed(CollectionListView),
+  'newsletter-signup': typed(NewsletterSignupView),
+  'login-form': typed(LoginFormView),
+  'account-overview': typed(AccountOverviewView),
+  'wishlist-items': typed(WishlistItemsView),
+  'wishlist-button': typed(WishlistButtonView),
+  'checkout-form': typed(CheckoutFormView),
+  'order-status': typed(OrderStatusView),
 }
 
 export function rendererFor(type: string): Renderer | undefined {

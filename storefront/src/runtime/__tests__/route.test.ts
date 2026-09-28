@@ -19,6 +19,12 @@ describe('resolveRoute', () => {
     expect(resolveRoute(path)).toMatchObject({ kind, key, notFound: false })
   })
 
+  it('knows the storefront\'s own pages', () => {
+    expect(resolveRoute('/newsletter/confirm')).toEqual({ kind: 'template', key: 'newsletter-confirm', builtin: 'newsletter-confirm', notFound: false })
+    expect(resolveRoute('/newsletter/unsubscribe').builtin).toBe('newsletter-unsubscribe')
+    expect(resolveRoute('/newsletter/other').notFound).toBe(true)
+  })
+
   it('passes the dynamic segment through', () => {
     expect(resolveRoute('/products/red-shoes').param).toBe('red-shoes')
   })

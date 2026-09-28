@@ -4,7 +4,7 @@ import { defaultSettings } from '../../core/settings'
 
 const theme = {
   version_id: 'v1', version_number: 1, preview: false, settings: defaultSettings(),
-  documents: ['home', 'product', 'collection', 'search', 'not-found'].map(key => ({ kind: 'template', key, title: '' })),
+  documents: ['home', 'product', 'collection', 'search', 'not-found', 'order-confirmation'].map(key => ({ kind: 'template', key, title: '' })),
 }
 
 const tree = (children: unknown[]) => ({ id: 'root', type: 'root', children: [{ id: 's', type: 'section', children }] })
@@ -14,7 +14,8 @@ const docs: Record<string, unknown> = {
   collection: tree([{ id: 'h', type: 'collection-header', props: {} }, { id: 'p', type: 'collection-products', props: { per_page: 12 } }, { id: 'pg', type: 'pagination', props: {} }]),
   search: tree([{ id: 'h', type: 'collection-header', props: {} }, { id: 'p', type: 'collection-products', props: {} }]),
   'not-found': tree([{ id: 'nf', type: 'heading', props: { text: 'Not here', level: 1 } }]),
-  home: tree([]),
+  home: tree([{ id: 'logo', type: 'site-logo', props: { size: 'md' } }]),
+  'order-confirmation': tree([{ id: 'os', type: 'order-status', props: { title: 'Thanks!' } }]),
 }
 
 const productDetail = {
@@ -29,6 +30,7 @@ function backend() {
     const url = new URL(String(input))
     const p = url.pathname.replace('/api/v1/storefront/v1', '')
     if (p === '/theme') return ok(theme)
+    if (p === '/store') return ok({ name: 'Acme Goods', currency_code: 'EUR' })
     const doc = /^\/theme\/versions\/v1\/documents\/template\/(.+)$/.exec(p)
     if (doc) return ok({ kind: 'template', key: doc[1], title: '', seo: {}, root: docs[doc[1]] })
     if (p === '/products/by-slug/red-shoes') return ok(productDetail)
@@ -86,5 +88,38 @@ describe('SSR routes', () => {
     expect(out.status).toBe(200)
     expect(out.html).toContain('Search results for “red”')
     expect(f.mock.calls.map(c => String(c[0])).some(u => u.includes('search=red'))).toBe(true)
+  })
+
+  it('shows the store name from the store info', async () => {
+    const out = await render({ ...base, url: '/store/k/', fetch: backend() })
+    expect(out.html).toContain('Acme Goods')
+  })
+
+  it('still renders when the store info is unavailable', async () => {
+    const f = backend()
+    const inner = f.getMockImplementation()!
+    f.mockImplementation(async (input, init) => String(input).endsWith('/storefront/v1/store')
+      ? new Response('{}', { status: 500 }) : inner(input, init))
+    const out = await render({ ...base, url: '/store/k/', fetch: f })
+    expect(out.status).toBe(200)
+    expect(out.html).toContain('Store')
+  })
+
+  it('renders the order confirmation for the order in the URL', async () => {
+    const out = await render({ ...base, url: '/store/k/orders/CO-1001', fetch: backend() })
+    expect(out.status).toBe(200)
+    expect(out.html).toContain('CO-1001')
+    expect(out.html).toContain('Thanks!')
+  })
+
+  it('serves the newsletter pages itself, private and without acting on the token server-side', async () => {
+    const f = backend()
+    const out = await render({ ...base, url: '/store/k/newsletter/confirm?token=abc', fetch: f })
+    expect(out.status).toBe(200)
+    expect(out.html).toContain('Confirming your subscription')
+    expect(out.head).toContain('<title>Newsletter</title>')
+    expect(out.head).toContain('name="robots" content="noindex"')
+    expect(out.head).toContain('name="referrer" content="no-referrer"')
+    expect(f.mock.calls.some(c => String(c[0]).includes('/newsletter/'))).toBe(false)
   })
 })

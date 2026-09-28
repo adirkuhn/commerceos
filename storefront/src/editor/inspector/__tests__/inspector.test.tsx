@@ -11,6 +11,7 @@ import { StorefrontAPI } from '../../../api/storefront'
 import { EditorAPI, type Asset } from '../../api'
 import { AssetStore } from '../../assetStore'
 import { PreviewStore } from '../../previewStore'
+import { ValueStore } from '../../valueStore'
 import { EditorServicesProvider, type EditorServices } from '../../services'
 import { PropsForm } from '../PropsForm'
 import { StyleForm } from '../StyleForm'
@@ -23,7 +24,7 @@ function services(overrides: Partial<EditorServices> = {}): EditorServices {
   const store = new StorefrontAPI({ baseURL: 'x', storeKey: 'k' })
   store.listCategories = vi.fn(async () => [{ id: 'c1', parent_id: null, name: 'Shoes', slug: 'shoes', position: 0 }])
   store.listProducts = vi.fn(async () => ({ items: [], total: 0 }))
-  return { api: new EditorAPI({ baseURL: 'x', token: 't' }), store, assets: new AssetStore(), preview: new PreviewStore(), queryClient: new QueryClient(), channelId: 'chan', ...overrides }
+  return { api: new EditorAPI({ baseURL: 'x', token: 't' }), store, assets: new AssetStore(), preview: new PreviewStore(), settings: new ValueStore(defaultSettings()), queryClient: new QueryClient(), channelId: 'chan', ...overrides }
 }
 
 const wrap = (s: EditorServices) => ({ children }: { children: ReactNode }) => <EditorServicesProvider value={s}>{children}</EditorServicesProvider>
@@ -54,6 +55,40 @@ describe('PropsForm', () => {
     expect(JSON.parse(screen.getByTestId('props').textContent!).content).toEqual([
       { type: 'bulleted_list', items: [[{ text: 'one' }], [{ text: 'two' }]] },
     ])
+  })
+})
+
+describe('PropsForm list fields', () => {
+  it('edits a menu: add, rename, reorder and remove links', async () => {
+    render(<Stateful type="navigation-menu" />, { wrapper: wrap(services()) })
+    const items = () => JSON.parse(screen.getByTestId('props').textContent!).items
+    await userEvent.click(screen.getByRole('button', { name: 'Add link' }))
+    const text = screen.getByLabelText('Link 2 text')
+    await userEvent.clear(text)
+    expect(items()[1].label).toBe('Link')
+    await userEvent.type(text, 'Sale')
+    await userEvent.clear(screen.getByLabelText('Link 2 goes to'))
+    await userEvent.type(screen.getByLabelText('Link 2 goes to'), '/collections/sale')
+    await userEvent.click(screen.getByRole('button', { name: 'Move link 2 up' }))
+    expect(items()).toEqual([{ label: 'Sale', link: '/collections/sale' }, { label: 'Home', link: '/' }])
+    await userEvent.click(screen.getByRole('button', { name: 'Remove link 1' }))
+    expect(items()).toEqual([{ label: 'Home', link: '/' }])
+  })
+
+  it('picks collections in order', async () => {
+    const s = services()
+    s.store.listCollections = vi.fn(async () => [
+      { id: 'k1', name: 'Summer', slug: 'summer', description: '', seo_title: '', seo_description: '' },
+      { id: 'k2', name: 'Winter', slug: 'winter', description: '', seo_title: '', seo_description: '' },
+    ])
+    render(<Stateful type="collection-list" />, { wrapper: wrap(s) })
+    await userEvent.selectOptions(screen.getByLabelText('Show'), 'picked')
+    const add = screen.getByLabelText('Collections')
+    await screen.findByRole('option', { name: 'Winter' })
+    await userEvent.selectOptions(add, 'k2')
+    await userEvent.selectOptions(screen.getByLabelText('Collections'), 'k1')
+    expect(JSON.parse(screen.getByTestId('props').textContent!).collection_ids).toEqual(['k2', 'k1'])
+    expect(within(screen.getByRole('list', { name: 'Chosen collections' })).getByText('Winter')).toBeInTheDocument()
   })
 })
 

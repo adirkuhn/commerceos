@@ -7,6 +7,7 @@ import { defaultSettings } from '../core/settings'
 import type { EditorAPI } from './api'
 import { AssetStore } from './assetStore'
 import { PreviewStore } from './previewStore'
+import { ValueStore } from './valueStore'
 import { PreviewBar } from './PreviewBar'
 import { usePreviewData } from './usePreviewData'
 import { CanvasProviders } from './CanvasProviders'
@@ -25,12 +26,13 @@ export function EditorApp({ api, apiBase }: { api: EditorAPI; apiBase: string })
   const layersRef = useRef<HTMLDivElement>(null)
   const [assets] = useState(() => new AssetStore())
   const [preview] = useState(() => new PreviewStore())
+  const [settingsStore] = useState(() => new ValueStore(defaultSettings()))
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 60_000 } } }))
   const [channelId, setChannelId] = useState('')
 
   const services: EditorServices | undefined = useMemo(() => channelId
-    ? { api, assets, preview, queryClient, channelId, store: new StorefrontAPI({ baseURL: apiBase, storeKey: channelId }) }
-    : undefined, [api, apiBase, assets, preview, queryClient, channelId])
+    ? { api, assets, preview, settings: settingsStore, queryClient, channelId, store: new StorefrontAPI({ baseURL: apiBase, storeKey: channelId }) }
+    : undefined, [api, apiBase, assets, preview, settingsStore, queryClient, channelId])
 
   const wrap = useCallback((el: ReactElement) => (services ? <CanvasProviders services={services}>{el}</CanvasProviders> : el), [services])
   const mounts = useCallback(() => ({ canvas: canvasRef.current, blocks: blocksRef.current, layers: layersRef.current }), [])
@@ -38,7 +40,9 @@ export function EditorApp({ api, apiBase }: { api: EditorAPI; apiBase: string })
   const { draft, doc, setDoc, dirty, status, save, publish, preview: openPreview, saveSettings, savingSettings } = useDraft(api, editor, assets)
   const [device, setDevice] = useState<DeviceId>('desktop')
   const previewData = usePreviewData(services?.store, preview, doc)
-  const settings = draft?.version.settings ?? defaultSettings()
+  const settings = useMemo(() => draft?.version.settings ?? defaultSettings(), [draft?.version.settings])
+
+  useEffect(() => settingsStore.set(settings), [settingsStore, settings])
 
   useEffect(() => {
     if (draft) setChannelId(draft.sales_channel_id)
