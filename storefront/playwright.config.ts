@@ -27,6 +27,8 @@ export default defineConfig({
       PORT: String(PORT),
       STOREFRONT_API_INTERNAL_URL: API_BASE_URL,
       STOREFRONT_API_PUBLIC_URL: API_BASE_URL,
+      // Canonical URLs and the sitemap point at this server.
+      STOREFRONT_PUBLIC_URL: BASE_URL,
       // The local stack's Traefik certificate is self-signed.
       NODE_TLS_REJECT_UNAUTHORIZED: '0',
     },
