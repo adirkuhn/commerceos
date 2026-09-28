@@ -17,6 +17,7 @@ import { CURRENCY_OPTIONS } from '../settings/currencyOptions'
 import { Dialog } from '../components/common/Dialog'
 import { CONNECTION_REQUIRED_TYPES, ENROLLMENT_LABELS, HEADLESS_API_ENDPOINTS, INTERNAL_TYPE, PAYMENT_CAPABLE_TYPES, TYPE_LABELS, WAREHOUSE_REQUIRED_TYPES, apiBaseURL, capitalize } from '../integrations/salesChannels/salesChannelConstants'
 import { ChannelFormState, emptyForm, toForm } from '../integrations/salesChannels/channelForm'
+import StorefrontModeField from '../integrations/salesChannels/StorefrontModeField'
 import { ChannelProductsPanel } from '../integrations/salesChannels/ChannelProductsPanel'
 
 export default function SalesChannels() {
@@ -101,6 +102,7 @@ export default function SalesChannels() {
         // WAREHOUSE_REQUIRED_TYPES's doc comment) -- omitted (not null) for
         // every other type, since it has no meaning there.
         defaultWarehouseId: WAREHOUSE_REQUIRED_TYPES.includes(channelType) ? (form.channelWarehouseId || null) : undefined,
+        storefrontMode: channelType === INTERNAL_TYPE ? form.storefrontMode : undefined,
       }
       if (editingChannel) {
         await update(editingChannel.id, { ...shared, active: form.active } satisfies UpdateSalesChannelPayload)
@@ -372,6 +374,9 @@ export default function SalesChannels() {
                     Required -- every order placed through this channel decrements stock from and ships from this warehouse.
                   </p>
                 </div>
+              )}
+              {(editingChannel ? editingChannel.type : form.channelType) === INTERNAL_TYPE && (
+                <StorefrontModeField value={form.storefrontMode} onChange={storefrontMode => setForm(f => ({ ...f, storefrontMode }))} />
               )}
               <div>
                 <label htmlFor="channel-enrollment-mode" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">

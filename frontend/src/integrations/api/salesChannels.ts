@@ -1,4 +1,4 @@
-import type { APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, QuantityBreak } from '../types'
+import type { APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, QuantityBreak, StorefrontMode } from '../types'
 import { base, request } from './client'
 
 export function listSalesChannels(token: string): Promise<SalesChannel[]> {
@@ -22,6 +22,8 @@ export interface SalesChannelPayload {
   // can process an order (see SalesChannel.default_warehouse_id's doc
   // comment) -- unlike currencyCode, changeable after creation too.
   defaultWarehouseId?: string | null
+  // Omitted means headless. Only 'internal' channels may use 'theme'.
+  storefrontMode?: StorefrontMode
 }
 
 export function createSalesChannel(token: string, payload: SalesChannelPayload): Promise<SalesChannel> {
@@ -40,6 +42,7 @@ export function createSalesChannel(token: string, payload: SalesChannelPayload):
         quantity_breaks: payload.quantityBreaks ?? [],
         currency_code: payload.currencyCode || undefined,
         default_warehouse_id: payload.defaultWarehouseId || undefined,
+        storefront_mode: payload.storefrontMode,
       }),
     },
     token,
@@ -56,6 +59,8 @@ export interface UpdateSalesChannelPayload {
   quantityBreaks?: QuantityBreak[]
   active: boolean
   defaultWarehouseId?: string | null
+  // Omitted keeps the channel's current mode.
+  storefrontMode?: StorefrontMode
 }
 
 export function updateSalesChannel(token: string, id: string, payload: UpdateSalesChannelPayload): Promise<SalesChannel> {
@@ -73,6 +78,7 @@ export function updateSalesChannel(token: string, id: string, payload: UpdateSal
         enrollment_tag: payload.enrollmentTag || undefined,
         active: payload.active,
         default_warehouse_id: payload.defaultWarehouseId || undefined,
+        storefront_mode: payload.storefrontMode,
       }),
     },
     token,

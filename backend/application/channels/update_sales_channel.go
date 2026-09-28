@@ -30,7 +30,10 @@ type UpdateSalesChannelInput struct {
 	// DefaultWarehouseID, unlike CurrencyCode, is changeable after
 	// creation -- see SalesChannel.DefaultWarehouseID's own doc comment.
 	DefaultWarehouseID *string
-	Active             bool
+	// StorefrontMode, "" meaning "keep the current mode" -- see
+	// channels.StorefrontMode.
+	StorefrontMode channelsDomain.StorefrontMode
+	Active         bool
 }
 
 type UpdateSalesChannelUseCase struct {
@@ -57,6 +60,12 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 		if err := validateSalesChannelInput(existing.Type, in.ConnectionID, in.EnrollmentMode, in.EnrollmentCategoryID, in.EnrollmentTag, in.PriceAdjustmentBasisPoints, in.QuantityBreaks); err != nil {
 			return err
 		}
+		storefrontMode := existing.StorefrontMode
+		if in.StorefrontMode != "" {
+			if storefrontMode, err = channelsDomain.ResolveStorefrontMode(existing.Type, in.StorefrontMode); err != nil {
+				return err
+			}
+		}
 		if in.ConnectionID != nil {
 			conn, err := uc.connRepo.FindByID(ctx, *in.ConnectionID)
 			if err != nil {
@@ -79,6 +88,7 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 		existing.PriceAdjustmentBasisPoints = in.PriceAdjustmentBasisPoints
 		existing.QuantityBreaks = in.QuantityBreaks
 		existing.DefaultWarehouseID = in.DefaultWarehouseID
+		existing.StorefrontMode = storefrontMode
 		existing.Active = in.Active
 		existing.UpdatedAt = time.Now()
 		if err := uc.repo.Update(ctx, existing); err != nil {

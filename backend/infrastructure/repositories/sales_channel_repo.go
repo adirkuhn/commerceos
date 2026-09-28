@@ -61,6 +61,7 @@ type salesChannelModel struct {
 	QuantityBreaks             salesChannelQuantityBreaks `gorm:"column:quantity_breaks;type:jsonb;not null;default:'[]'"`
 	CurrencyCode               string                     `gorm:"column:currency_code;not null;default:''"`
 	DefaultWarehouseID         *string                    `gorm:"column:default_warehouse_id;type:uuid"`
+	StorefrontMode             string                     `gorm:"column:storefront_mode;not null;default:'headless'"`
 	Active                     bool                       `gorm:"not null;default:true"`
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
@@ -93,6 +94,7 @@ func (r *SalesChannelRepo) Create(ctx context.Context, c *channelsDomain.SalesCh
 		QuantityBreaks:             salesChannelQuantityBreaks(c.QuantityBreaks),
 		CurrencyCode:               c.CurrencyCode,
 		DefaultWarehouseID:         c.DefaultWarehouseID,
+		StorefrontMode:             storefrontModeOrHeadless(c.StorefrontMode),
 		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -146,6 +148,7 @@ func (r *SalesChannelRepo) Update(ctx context.Context, c *channelsDomain.SalesCh
 			"price_adjustment_basis_points": c.PriceAdjustmentBasisPoints,
 			"quantity_breaks":               salesChannelQuantityBreaks(c.QuantityBreaks),
 			"default_warehouse_id":          c.DefaultWarehouseID,
+			"storefront_mode":               storefrontModeOrHeadless(c.StorefrontMode),
 			"active":                        c.Active, "updated_at": c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("salesChannelRepo.Update: %w", err)
@@ -173,8 +176,16 @@ func toSalesChannelDomain(m salesChannelModel) *channelsDomain.SalesChannel {
 		QuantityBreaks:             []channelsDomain.QuantityBreak(m.QuantityBreaks),
 		CurrencyCode:               m.CurrencyCode,
 		DefaultWarehouseID:         m.DefaultWarehouseID,
+		StorefrontMode:             channelsDomain.StorefrontMode(m.StorefrontMode),
 		Active:                     m.Active, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
+}
+
+func storefrontModeOrHeadless(m channelsDomain.StorefrontMode) string {
+	if m == "" {
+		return string(channelsDomain.StorefrontModeHeadless)
+	}
+	return string(m)
 }
 
 // ── Sales channel product override repo ─────────────────────────────────────

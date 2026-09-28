@@ -9,9 +9,9 @@ const (
 	// ChannelTypeBol is the Bol.com marketplace adapter (Offer API v11 +
 	// Product Content API v10) -- see application/channels.PushProductToBolUseCase.
 	ChannelTypeBol ChannelType = "bol"
-	// ChannelTypeInternal is reserved for a future built-in CommerceOS
-	// storefront -- no push adapter exists for it yet, but the type is
-	// defined now so adding it later doesn't need a SalesChannel redesign.
+	// ChannelTypeInternal is CommerceOS' own storefront channel -- served
+	// headless over /storefront/v1, or additionally as a hosted themed
+	// storefront (see StorefrontMode).
 	ChannelTypeInternal ChannelType = "internal"
 	// ChannelTypeWhatsApp gates which products a customer can query
 	// (stock/price/expiry) or order over the WhatsApp integration --
@@ -141,9 +141,11 @@ type SalesChannel struct {
 	// application/whatsapp.OrderFlowUseCase, the two callers that resolve
 	// it and fail clearly (not a raw DB error) when it's nil.
 	DefaultWarehouseID *string
-	Active             bool
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	// StorefrontMode -- see StorefrontMode's own doc comment.
+	StorefrontMode StorefrontMode
+	Active         bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // QuantityBreak is one "at this quantity or more, this bigger discount"

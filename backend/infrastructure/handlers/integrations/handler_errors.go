@@ -57,6 +57,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, channelsDomain.ErrDefaultWarehouseRequired),
 		errors.Is(err, channelsDomain.ErrInvalidChannelType),
 		errors.Is(err, channelsDomain.ErrInvalidEnrollmentMode),
+		errors.Is(err, channelsDomain.ErrInvalidStorefrontMode),
+		errors.Is(err, channelsDomain.ErrThemedStorefrontRequiresInternal),
 		errors.Is(err, channelsDomain.ErrConnectionRequired),
 		errors.Is(err, channelsDomain.ErrEnrollmentCategoryRequired),
 		errors.Is(err, channelsDomain.ErrEnrollmentTagRequired),

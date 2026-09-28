@@ -13,6 +13,7 @@ import (
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/tenant"
+	"github.com/adirkuhn/commerceos/internal/txctx"
 )
 
 // TestSalesChannelRepo_Integration_CreateAcceptsBolType is a regression
@@ -149,4 +150,62 @@ func TestSalesChannelRepo_Integration_QuantityBreaksRoundTripThroughRealJSONB(t 
 	require.NoError(t, err)
 	require.Len(t, found.QuantityBreaks, 1)
 	assert.Equal(t, int64(20), found.QuantityBreaks[0].MinQuantity)
+}
+
+// TestSalesChannelRepo_Integration_StorefrontModeRoundTripsAndDefaultsToHeadless
+// proves storefront_mode (migration 187) persists on create and update, and
+// that pre-existing rows -- created before the column existed -- read back
+// as headless via the column default.
+func TestSalesChannelRepo_Integration_StorefrontModeRoundTripsAndDefaultsToHeadless(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewSalesChannelRepo(db)
+
+	var themed, legacy channelsDomain.SalesChannel
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		themed = channelsDomain.SalesChannel{
+			TenantID: tenant.IDFromContext(ctx), Name: "Shop", Type: channelsDomain.ChannelTypeInternal,
+			EnrollmentMode: channelsDomain.EnrollmentModeAll, StorefrontMode: channelsDomain.StorefrontModeTheme,
+			Active: true, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := repo.Create(ctx, &themed); err != nil {
+			return err
+		}
+		tx, _ := txctx.FromContext(ctx)
+		return tx.Exec(`INSERT INTO sales_channels (tenant_id, name, type, enrollment_mode) VALUES (?, 'Legacy', 'internal', 'all')`,
+			tenant.IDFromContext(ctx)).Error
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		found, err := repo.FindByID(ctx, themed.ID)
+		if err != nil {
+			return err
+		}
+		assert.Equal(t, channelsDomain.StorefrontModeTheme, found.StorefrontMode)
+
+		found.StorefrontMode = channelsDomain.StorefrontModeHeadless
+		if err := repo.Update(ctx, found); err != nil {
+			return err
+		}
+		again, err := repo.FindByID(ctx, themed.ID)
+		if err != nil {
+			return err
+		}
+		assert.Equal(t, channelsDomain.StorefrontModeHeadless, again.StorefrontMode)
+
+		all, err := repo.ListByTenant(ctx)
+		if err != nil {
+			return err
+		}
+		for _, c := range all {
+			if c.Name == "Legacy" {
+				legacy = c
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, channelsDomain.StorefrontModeHeadless, legacy.StorefrontMode)
 }

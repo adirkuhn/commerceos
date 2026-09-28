@@ -235,6 +235,10 @@ export interface AIConnection {
 
 export type ChannelType = 'woocommerce' | 'bol' | 'internal' | 'whatsapp'
 export type EnrollmentMode = 'all' | 'category' | 'tag' | 'manual'
+// headless: REST-only shopper API, the merchant brings their own frontend.
+// theme: CommerceOS also hosts a storefront from the channel's live theme.
+// Only 'internal' channels may use 'theme'.
+export type StorefrontMode = 'headless' | 'theme'
 
 export interface SalesChannel {
   id: string
@@ -268,6 +272,7 @@ export interface SalesChannel {
   // creation. Distinct from Connection.default_warehouse_id, which routes
   // a WooCommerce/Bol *import*'s stock sync instead.
   default_warehouse_id?: string | null
+  storefront_mode?: StorefrontMode
   active: boolean
   created_at: string
   updated_at: string

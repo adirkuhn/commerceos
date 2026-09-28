@@ -44,6 +44,7 @@ func (h *Handler) CreateSalesChannel(c *gin.Context) {
 		EnrollmentTag: tag, PriceAdjustmentBasisPoints: req.PriceAdjustmentBasisPoints,
 		QuantityBreaks: toDomainQuantityBreaks(req.QuantityBreaks),
 		CurrencyCode:   currencyCode, DefaultWarehouseID: req.DefaultWarehouseId,
+		StorefrontMode: toDomainStorefrontMode(req.StorefrontMode),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -67,6 +68,7 @@ func (h *Handler) UpdateSalesChannel(c *gin.Context, id genintegrations.Id) {
 		EnrollmentTag: tag, PriceAdjustmentBasisPoints: req.PriceAdjustmentBasisPoints, Active: req.Active,
 		QuantityBreaks:     toDomainQuantityBreaks(req.QuantityBreaks),
 		DefaultWarehouseID: req.DefaultWarehouseId,
+		StorefrontMode:     toDomainStorefrontMode(req.StorefrontMode),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -146,6 +148,7 @@ func toGenSalesChannel(c channelsDomain.SalesChannel) genintegrations.SalesChann
 		PriceAdjustmentBasisPoints: c.PriceAdjustmentBasisPoints,
 		QuantityBreaks:             toGenQuantityBreaks(c.QuantityBreaks),
 		DefaultWarehouseId:         c.DefaultWarehouseID,
+		StorefrontMode:             genintegrations.StorefrontMode(c.StorefrontMode),
 		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if c.EnrollmentTag != "" {
@@ -155,6 +158,15 @@ func toGenSalesChannel(c channelsDomain.SalesChannel) genintegrations.SalesChann
 		resp.CurrencyCode = &c.CurrencyCode
 	}
 	return resp
+}
+
+// toDomainStorefrontMode maps an omitted mode to "" -- the use cases read
+// that as headless on create and "keep current" on update.
+func toDomainStorefrontMode(m *genintegrations.StorefrontMode) channelsDomain.StorefrontMode {
+	if m == nil {
+		return ""
+	}
+	return channelsDomain.StorefrontMode(*m)
 }
 
 func toDomainQuantityBreaks(breaks *[]genintegrations.QuantityBreak) []channelsDomain.QuantityBreak {

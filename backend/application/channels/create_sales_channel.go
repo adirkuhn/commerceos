@@ -39,6 +39,8 @@ type CreateSalesChannelInput struct {
 	// see SalesChannel.DefaultWarehouseID's own doc comment. Unlike
 	// CurrencyCode, changeable later via UpdateSalesChannelUseCase.
 	DefaultWarehouseID *string
+	// StorefrontMode, "" meaning headless -- see channels.StorefrontMode.
+	StorefrontMode channelsDomain.StorefrontMode
 }
 
 // validateSalesChannelInput is shared by Create and Update -- same field
@@ -94,9 +96,13 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 	if in.CurrencyCode != "" && !fxDomain.ValidCurrencyCode(in.CurrencyCode) {
 		return nil, fmt.Errorf("createSalesChannel: %w", channelsDomain.ErrInvalidCurrencyCode)
 	}
+	storefrontMode, err := channelsDomain.ResolveStorefrontMode(in.Type, in.StorefrontMode)
+	if err != nil {
+		return nil, fmt.Errorf("createSalesChannel: %w", err)
+	}
 
 	var channel channelsDomain.SalesChannel
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		if in.ConnectionID != nil {
 			conn, err := uc.connRepo.FindByID(ctx, *in.ConnectionID)
 			if err != nil {
@@ -128,6 +134,7 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 			QuantityBreaks:             in.QuantityBreaks,
 			CurrencyCode:               in.CurrencyCode,
 			DefaultWarehouseID:         in.DefaultWarehouseID,
+			StorefrontMode:             storefrontMode,
 			Active:                     true, CreatedAt: now, UpdatedAt: now,
 		}
 		return uc.repo.Create(ctx, &channel)

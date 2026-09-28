@@ -1606,9 +1606,18 @@ components:
       type: string
       enum: [all, category, tag, manual]
 
+    StorefrontMode:
+      type: string
+      enum: [headless, theme]
+      description: >
+        headless: REST-only shopper API (/storefront/v1), the merchant
+        brings their own frontend. theme: CommerceOS additionally hosts a
+        storefront rendered from the channel's live theme. Only internal
+        channels may use theme.
+
     SalesChannel:
       type: object
-      required: [id, name, type, enrollment_mode, active, created_at, updated_at]
+      required: [id, name, type, enrollment_mode, storefront_mode, active, created_at, updated_at]
       properties:
         id: { type: string }
         name: { type: string }
@@ -1651,6 +1660,7 @@ components:
             Additional per-line-quantity discount tiers on top of
             price_adjustment_basis_points -- "buy N+ of one SKU, get this
             bigger discount instead of the channel's flat rate."
+        storefront_mode: { $ref: '#/components/schemas/StorefrontMode' }
         active: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -1693,6 +1703,9 @@ components:
         default_warehouse_id:
           type: string
           nullable: true
+        storefront_mode:
+          allOf: [{ $ref: '#/components/schemas/StorefrontMode' }]
+          description: Omitted means headless.
 
     UpdateSalesChannelRequest:
       type: object
@@ -1710,6 +1723,9 @@ components:
         default_warehouse_id:
           type: string
           nullable: true
+        storefront_mode:
+          allOf: [{ $ref: '#/components/schemas/StorefrontMode' }]
+          description: Omitted keeps the channel's current mode.
         active: { type: boolean }
 
     SalesChannelResponse:

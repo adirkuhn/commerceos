@@ -441,6 +441,13 @@ describe('createSalesChannel', () => {
     const [, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
     expect(JSON.parse(opts.body as string).quantity_breaks).toEqual([{ min_quantity: 10, discount_basis_points: 1500 }])
   })
+
+  it('sends the storefront mode through', async () => {
+    mockFetch(sampleChannel)
+    await api.createSalesChannel(TOKEN, { name: 'Shop', type: 'internal', enrollmentMode: 'all', storefrontMode: 'theme' })
+    const [, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string).storefront_mode).toBe('theme')
+  })
 })
 
 describe('updateSalesChannel', () => {
@@ -455,6 +462,13 @@ describe('updateSalesChannel', () => {
     expect(JSON.parse(opts.body as string)).toEqual({
       name: 'Renamed', connection_id: 'conn-1', enrollment_mode: 'tag', enrollment_tag: 'summer', active: true, quantity_breaks: [],
     })
+  })
+
+  it('sends the storefront mode through', async () => {
+    mockFetch(sampleChannel)
+    await api.updateSalesChannel(TOKEN, 'chan-1', { name: 'Shop', enrollmentMode: 'all', active: true, storefrontMode: 'headless' })
+    const [, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string).storefront_mode).toBe('headless')
   })
 
   it('throws on not found', async () => {

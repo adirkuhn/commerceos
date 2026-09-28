@@ -177,7 +177,7 @@ describe('Create sales channel', () => {
       expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', {
         name: 'B2C Store', type: 'internal', connectionId: null, enrollmentMode: 'all',
         enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, quantityBreaks: [],
-        defaultWarehouseId: 'wh-1',
+        defaultWarehouseId: 'wh-1', storefrontMode: 'headless',
       })
     })
   })
@@ -788,5 +788,57 @@ describe('Sales channels URLs (refresh + Back)', () => {
     renderPage('/sales-channels/chan-1?page=2&q=shirt')
     await screen.findByText('T-Shirt')
     expect(integrationsApi.listSalesChannelProducts).toHaveBeenCalledWith('test-token', 'chan-1', expect.objectContaining({ page: 2, search: 'shirt' }))
+  })
+})
+
+describe('Storefront mode', () => {
+  it('does not offer a storefront mode for a WooCommerce channel', async () => {
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+
+    expect(screen.queryByLabelText('Storefront')).not.toBeInTheDocument()
+  })
+
+  it('defaults a new Internal channel to headless and can create it with a hosted storefront', async () => {
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'Shop', type: 'internal', connection_id: null, storefront_mode: 'theme' }))
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(await screen.findByLabelText('Type'), 'internal')
+    expect(screen.getByLabelText('Storefront')).toHaveValue('headless')
+
+    await userEvent.type(screen.getByLabelText('Name'), 'Shop')
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
+    await userEvent.selectOptions(screen.getByLabelText('Storefront'), 'theme')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', expect.objectContaining({
+        type: 'internal', storefrontMode: 'theme',
+      }))
+    })
+  })
+
+  it('prefills and saves the storefront mode when editing an Internal channel', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
+      sampleChannel({ id: 'chan-int', name: 'Shop', type: 'internal', connection_id: null, default_warehouse_id: 'wh-1', storefront_mode: 'theme' }),
+    ])
+    vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', type: 'internal', storefront_mode: 'headless' }))
+    renderPage()
+    await screen.findByText('Shop')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(await screen.findByLabelText('Storefront')).toHaveValue('theme')
+    await userEvent.selectOptions(screen.getByLabelText('Storefront'), 'headless')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-int', expect.objectContaining({
+        storefrontMode: 'headless',
+      }))
+    })
   })
 })

@@ -1,4 +1,4 @@
-import type { Connection, SalesChannel, EnrollmentMode, ChannelType } from '../types'
+import type { Connection, SalesChannel, EnrollmentMode, ChannelType, StorefrontMode } from '../types'
 
 export interface ChannelFormState {
   name: string
@@ -18,13 +18,15 @@ export interface ChannelFormState {
   // "" means "use the tenant's default currency" -- only settable at
   // creation, see SalesChannelPayload.currencyCode's own doc comment.
   currencyCode: string
+  // Only meaningful (and only sent) for 'internal' channels.
+  storefrontMode: StorefrontMode
 }
 
 export function emptyForm(): ChannelFormState {
   return {
     name: '', channelType: 'woocommerce', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '',
     enrollmentTag: '', active: true, defaultWarehouseId: '', channelWarehouseId: '', paymentConnectionId: '',
-    currencyCode: '',
+    currencyCode: '', storefrontMode: 'headless',
   }
 }
 
@@ -46,5 +48,6 @@ export function toForm(channel: SalesChannel, connections: Connection[]): Channe
     channelWarehouseId: channel.default_warehouse_id ?? '',
     paymentConnectionId: channel.payment_connection_id ?? '',
     currencyCode: channel.currency_code ?? '',
+    storefrontMode: channel.storefront_mode ?? 'headless',
   }
 }
