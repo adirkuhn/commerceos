@@ -145,9 +145,17 @@ pickers (asset, product, collection, page/link), preview-context picker for prod
 
 ## 9. Phases
 
-1. Discovery — done.
-2. Foundation — remove obsolete code, channel mode, theme domain + persistence + API, storefront app skeleton (SSR + editor entry), registry, GrapesJS shell.
-3. Editor MVP — canvas, library, layers, inspector, devices, undo/redo, save, preview, publish; Section, Container, Columns, Heading, Text, Image, Button, Spacer, Product Grid, Product Card.
-4. Ecommerce — collections domain (proposal first), product/collection/cart components on real APIs.
-5. Default theme — plus header/footer/navigation, newsletter (proposal first), customer components.
-6. Publishing/runtime hardening — rollback UI, caching, SEO, performance budget, version retention.
+1. Discovery — done (2026-09-28).
+2. Foundation — done: channel storefront mode, theme domain/persistence/API, storefront app (SSR server, runtime, GrapesJS editor shell), registry, admin theme library.
+3. Editor MVP — done: inspector (props + styles per breakpoint), theme settings, media library (migration 189), layout/content/product-grid/product-card components, undo/redo, save/preview/publish, E2E spec.
+4. Ecommerce — done: collections domain (migration 190, manual + smart, admin UI), product by slug, store info; product/collection/search/cart pages and components; editor previews templates with real products/collections.
+5. Default theme — header/footer/navigation (logo, menu, cart icon, search), hero, banner, featured categories, newsletter (proposal first), login/account/wishlist, checkout form.
+6. Publishing/runtime hardening — rollback UI, caching, SEO (sitemap, structured data), performance budget, version retention.
+
+## 10. Collections (approved 2026-09-28)
+
+Tenant-wide; each storefront shows only products enrolled on its channel. Manual (ordered product list) or
+smart (match all/any of: category incl. subcategories, tag, price range, on sale, added within N days —
+evaluated in SQL on read, no membership to sync). Sorts: manual (manual only), name, price asc/desc, newest.
+Admin `/api/v1/collections`; storefront `GET /storefront/v1/collections`, `…/collections/by-slug/{slug}`,
+`collection_id` on the product listing (order kept across pages). Event `collections.collection.changed`.
