@@ -7,6 +7,7 @@ export interface RenderInput {
   apiBaseURL: string
   publicApiBaseURL: string
   previewToken?: string
+  fetch?: typeof fetch
 }
 
 export interface RenderOutput {
@@ -22,6 +23,8 @@ export interface HandlerDeps {
   pageTemplate: (url: string) => Promise<string>
   editorTemplate: (url: string) => Promise<string>
   render: (input: RenderInput) => Promise<RenderOutput>
+  /** How the renderer reaches the backend (cached, see httpCache.ts). */
+  fetch?: typeof fetch
   /** Serves built/dev assets; resolves true when it handled the request. */
   serveStatic: (req: IncomingMessage, res: ServerResponse) => Promise<boolean>
 }
@@ -60,7 +63,7 @@ export function createHandler(deps: HandlerDeps) {
       if (pathname.startsWith('/store/')) {
         const previewToken = previewTokenFrom(req.headers.cookie)
         const page = await deps.render({
-          url, apiBaseURL: deps.config.apiInternalURL, publicApiBaseURL: deps.config.apiPublicURL, previewToken,
+          url, apiBaseURL: deps.config.apiInternalURL, publicApiBaseURL: deps.config.apiPublicURL, previewToken, fetch: deps.fetch,
         })
         const html = injectPage(await deps.pageTemplate(url), page)
         return send(res, page.status, html, {

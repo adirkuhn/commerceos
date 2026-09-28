@@ -36,6 +36,13 @@ describe('storefront server', () => {
     }))
   })
 
+  it('renders through the cached backend fetch', async () => {
+    const backend = vi.fn<typeof fetch>()
+    const { deps, get } = await start({ fetch: backend })
+    await get('/store/key-1/')
+    expect(deps.render).toHaveBeenCalledWith(expect.objectContaining({ fetch: backend }))
+  })
+
   it('passes the status through and never caches previews', async () => {
     const render = vi.fn(async () => ({ status: 404, head: '', html: '', state: '' }))
     const { deps, get } = await start({ render })
