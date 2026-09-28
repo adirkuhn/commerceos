@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node server/main.ts",
-    "build": "tsc && vite build --outDir dist/client && vite build --ssr src/runtime/entry-server.tsx --outDir dist/server",
+    "build": "tsc && vite build --outDir dist/client && vite build --ssr src/runtime/entry-server.tsx --outDir dist/server && node scripts/check-budget.ts",
     "start": "NODE_ENV=production node server/main.ts",
     "test": "vitest",
     "test:e2e": "playwright test"
