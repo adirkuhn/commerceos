@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor } from 'grapesjs'
 import type { DocumentKind, ThemeSettings } from '../core/document'
 import { registry } from '../components/registry'
@@ -37,6 +37,11 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
   const [revision, setRevision] = useState(0)
   const [doc, setDoc] = useState<DocRef>({ kind: 'template', key: 'home' })
   const [dirty, setDirty] = useState(false)
+  // The document as last loaded or saved. Dirty means the canvas differs
+  // from it -- GrapesJS's own "update" also fires for loading itself, and
+  // undoing back to the saved state should read as clean again.
+  const baseline = useRef('')
+  const snapshot = () => (editor ? JSON.stringify(fromGrapes(editor.getWrapper()!)) : '')
   const [status, setStatus] = useState<Status>({ kind: 'busy', label: 'Loading theme…' })
 
   const fail = (err: unknown) => {
@@ -69,16 +74,18 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
   useEffect(() => {
     if (!editor || !draft) return
     let cancelled = false
+    baseline.current = '' // nothing to compare against until this page loads
     setStatus({ kind: 'busy', label: 'Loading page…' })
     api.getDocument(doc.kind, doc.key).then(d => {
       if (cancelled) return
       assets.merge(d.assets)
       editor.setComponents(toGrapes(d.root, registry) as never)
       editor.UndoManager.clear()
+      baseline.current = snapshot()
       setDirty(false)
       setStatus({ kind: 'idle' })
     }, fail)
-    const markDirty = () => setDirty(true)
+    const markDirty = () => setDirty(baseline.current !== '' && snapshot() !== baseline.current)
     editor.on('update', markDirty)
     return () => {
       cancelled = true
@@ -91,8 +98,10 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
     if (!editor) return undefined
     setStatus({ kind: 'busy', label: 'Saving…' })
     try {
-      const res = await api.saveDocument(doc.kind, doc.key, { expected_revision: revision, root: fromGrapes(editor.getWrapper()!) })
+      const root = fromGrapes(editor.getWrapper()!)
+      const res = await api.saveDocument(doc.kind, doc.key, { expected_revision: revision, root })
       setRevision(res.revision)
+      baseline.current = JSON.stringify(root)
       setDirty(false)
       setStatus({ kind: 'ok', message: 'Saved' })
       return res.revision

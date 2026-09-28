@@ -36,6 +36,8 @@ test('a merchant designs a home page in the editor, publishes it, and shoppers s
   await page.goto(`/store/editor#session=${editToken}`)
   await expect(page.getByText('E2E theme')).toBeVisible()
   expect(page.url()).not.toContain('session=') // token moved out of the address bar
+  // Opening a page is not an edit.
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled()
 
   const canvas = page.frameLocator('.gjs-frame')
   await page.getByText('Section', { exact: true }).dragTo(canvas.locator('body'))
