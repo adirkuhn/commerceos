@@ -15,6 +15,7 @@ const port = Number(process.env.PORT ?? 3100)
 const config = {
   apiInternalURL: process.env.STOREFRONT_API_INTERNAL_URL ?? 'http://localhost:8080/api/v1',
   apiPublicURL: process.env.STOREFRONT_API_PUBLIC_URL ?? 'http://localhost:8080/api/v1',
+  publicOrigin: process.env.STOREFRONT_PUBLIC_URL || undefined,
 }
 
 type RenderFn = (input: RenderInput) => Promise<RenderOutput>

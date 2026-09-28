@@ -10,3 +10,9 @@ export function formatPrice(minorUnits: number | null | undefined, currency: str
   const digits = fmt.resolvedOptions().maximumFractionDigits ?? 2
   return fmt.format(minorUnits / 10 ** digits).replace(/ /g, ' ')
 }
+
+/** Minor units as a plain decimal amount ("40.00"), e.g. for schema.org. */
+export function decimalAmount(minorUnits: number, currency: string): string {
+  const digits = new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
+  return (minorUnits / 10 ** digits).toFixed(digits)
+}

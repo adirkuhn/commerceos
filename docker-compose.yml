@@ -300,6 +300,8 @@ services:
     environment:
       STOREFRONT_API_INTERNAL_URL: http://backend:${HTTP_PORT:-8080}/api/v1
       STOREFRONT_API_PUBLIC_URL: ${STOREFRONT_API_PUBLIC_URL:-${VITE_API_BASE_URL}}
+      # Origin shoppers reach /store on: canonical URLs, sitemaps, structured data.
+      STOREFRONT_PUBLIC_URL: ${STOREFRONT_PUBLIC_URL:-https://${API_DOMAIN}}
     networks:
       - traefik-public
       - commerceos

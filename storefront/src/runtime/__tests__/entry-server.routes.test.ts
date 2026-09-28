@@ -122,4 +122,36 @@ describe('SSR routes', () => {
     expect(out.head).toContain('name="referrer" content="no-referrer"')
     expect(f.mock.calls.some(c => String(c[0]).includes('/newsletter/'))).toBe(false)
   })
+
+  it('marks up a product page for search engines and sharing', async () => {
+    const out = await render({ ...base, publicOrigin: 'https://shop.test', url: '/store/k/products/red-shoes?utm_source=x', fetch: backend() })
+    expect(out.head).toContain('<link rel="canonical" href="https://shop.test/store/k/products/red-shoes">')
+    expect(out.head).toContain('<meta property="og:type" content="product">')
+    expect(out.head).toContain('<meta property="og:site_name" content="Acme Goods">')
+    const ld = [...out.head.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map(m => JSON.parse(m[1]))
+    expect(ld.map(d => d['@type'])).toEqual(['Product', 'BreadcrumbList'])
+    expect(ld[0].offers).toMatchObject({ '@type': 'Offer', price: '50.00', priceCurrency: 'EUR', availability: 'https://schema.org/InStock' })
+    expect(ld[0]).not.toHaveProperty('aggregateRating')
+    expect(out.head).not.toContain('noindex')
+  })
+
+  it('describes the store on its home page', async () => {
+    const out = await render({ ...base, publicOrigin: 'https://shop.test', url: '/store/k/', fetch: backend() })
+    expect(out.head).toContain('"@type":"Organization","name":"Acme Goods","url":"https://shop.test/store/k/"')
+  })
+
+  it('keeps shopper pages and search results out of search engines', async () => {
+    for (const url of ['/store/k/search?q=red', '/store/k/orders/CO-1001']) {
+      const out = await render({ ...base, publicOrigin: 'https://shop.test', url, fetch: backend() })
+      expect(out.head, url).toContain('<meta name="robots" content="noindex">')
+      expect(out.head, url).not.toContain('rel="canonical"')
+      expect(out.head, url).not.toContain('ld+json')
+    }
+  })
+
+  it('leaves canonical URLs out when no public origin is configured', async () => {
+    const out = await render({ ...base, url: '/store/k/products/red-shoes', fetch: backend() })
+    expect(out.head).not.toContain('rel="canonical"')
+    expect(out.head).toContain('"@type":"Product"')
+  })
 })

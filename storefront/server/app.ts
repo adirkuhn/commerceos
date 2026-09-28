@@ -8,6 +8,7 @@ export interface RenderInput {
   publicApiBaseURL: string
   previewToken?: string
   fetch?: typeof fetch
+  publicOrigin?: string
 }
 
 export interface RenderOutput {
@@ -18,7 +19,8 @@ export interface RenderOutput {
 }
 
 export interface HandlerDeps {
-  config: { apiInternalURL: string; apiPublicURL: string }
+  /** publicOrigin: where shoppers reach /store (canonical URLs); optional. */
+  config: { apiInternalURL: string; apiPublicURL: string; publicOrigin?: string }
   /** index.html (dev: transformed by Vite for the request URL). */
   pageTemplate: (url: string) => Promise<string>
   editorTemplate: (url: string) => Promise<string>
@@ -64,6 +66,7 @@ export function createHandler(deps: HandlerDeps) {
         const previewToken = previewTokenFrom(req.headers.cookie)
         const page = await deps.render({
           url, apiBaseURL: deps.config.apiInternalURL, publicApiBaseURL: deps.config.apiPublicURL, previewToken, fetch: deps.fetch,
+          publicOrigin: deps.config.publicOrigin,
         })
         const html = injectPage(await deps.pageTemplate(url), page)
         return send(res, page.status, html, {

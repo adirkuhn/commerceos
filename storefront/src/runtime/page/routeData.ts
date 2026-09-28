@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import type { Collection, ProductDetail, StorefrontAPI } from '../../api/storefront'
 import type { StorefrontTheme, ThemeDocument, ThemeNode } from '../../core/document'
 import { documentFor, documentQuery } from '../queries'
+import { plainDescription } from '../seo'
 import type { ResolvedRoute } from '../route'
 import { collectionPageQuery, listingQuery, productPageQuery, type ListingParams } from './queries'
 
@@ -48,8 +49,7 @@ export async function resolvePageData(qc: QueryClient, api: StorefrontAPI, theme
   if (route.key === 'product' && route.param) {
     const product = await qc.fetchQuery(productPageQuery(api, route.param))
     if (!product) return { route: NOT_FOUND }
-    const text = product.description.replace(/\s+/g, ' ').trim()
-    return { route, product, seoTitle: product.name, seoDescription: text.slice(0, 160) || undefined }
+    return { route, product, seoTitle: product.name, seoDescription: plainDescription(product.description) || undefined }
   }
   if (route.key === 'collection' || route.key === 'search') {
     let collection: Collection | null = null
