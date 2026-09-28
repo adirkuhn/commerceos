@@ -82,14 +82,15 @@ func NewPage(key, title string) (Document, error) {
 	if err := ValidateDocumentKey(KindPage, key); err != nil {
 		return Document{}, err
 	}
-	title, err := validTitle(title)
+	title, err := ValidPageTitle(title)
 	if err != nil {
 		return Document{}, err
 	}
 	return Document{Kind: KindPage, Key: key, Title: title, Root: EmptyRoot()}, nil
 }
 
-func validTitle(title string) (string, error) {
+// ValidPageTitle trims a page title and checks it's 1-120 characters.
+func ValidPageTitle(title string) (string, error) {
 	title = strings.TrimSpace(title)
 	if title == "" || utf8.RuneCountInString(title) > maxNameLength {
 		return "", ErrInvalidDocumentTitle

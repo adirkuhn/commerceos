@@ -44,6 +44,9 @@ type ComponentRule struct {
 	// RequiredIn lists template keys that must contain this component
 	// (e.g. checkout needs the checkout form).
 	RequiredIn []string
+	// ValidateProps checks the component's props; nil accepts any. The
+	// backend plugs in the OpenAPI contract's per-component props schema.
+	ValidateProps func(props map[string]any) error
 }
 
 type Catalog struct {
@@ -127,6 +130,11 @@ func (w *walker) walk(n Node, parent *ComponentRule, depth int) error {
 		return err
 	}
 	w.types[n.Type] = true
+	if rule.ValidateProps != nil {
+		if err := rule.ValidateProps(n.Props); err != nil {
+			return &DocumentError{NodeID: n.ID, Reason: err.Error()}
+		}
+	}
 	if !rule.Container && len(n.Children) > 0 {
 		return &DocumentError{NodeID: n.ID, Reason: fmt.Sprintf("%q cannot contain components", n.Type)}
 	}

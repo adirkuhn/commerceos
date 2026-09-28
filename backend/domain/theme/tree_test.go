@@ -111,3 +111,26 @@ func TestNewCatalog_rejectsBadRules(t *testing.T) {
 	_, err = theme.NewCatalog([]theme.ComponentRule{{Type: "a", AllowedChildren: []string{"b"}}})
 	assert.ErrorIs(t, err, theme.ErrInvalidCatalog, "leaf may not declare children")
 }
+
+func TestValidateTree_runsComponentPropsValidation(t *testing.T) {
+	c, err := theme.NewCatalog([]theme.ComponentRule{{
+		Type: "heading",
+		ValidateProps: func(p map[string]any) error {
+			if _, ok := p["text"].(string); !ok {
+				return fmt.Errorf("text is required")
+			}
+			return nil
+		},
+	}})
+	require.NoError(t, err)
+
+	bad := doc(theme.KindPage, "about", theme.Node{ID: "h", Type: "heading", Props: map[string]any{"text": 3}})
+	err = theme.ValidateTree(bad, c)
+	var docErr *theme.DocumentError
+	require.ErrorAs(t, err, &docErr)
+	assert.Equal(t, "h", docErr.NodeID)
+	assert.Contains(t, docErr.Reason, "text is required")
+
+	good := doc(theme.KindPage, "about", theme.Node{ID: "h", Type: "heading", Props: map[string]any{"text": "Hi"}})
+	assert.NoError(t, theme.ValidateTree(good, c))
+}
