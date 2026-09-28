@@ -9,6 +9,12 @@ import { ImageView } from './content/ImageView'
 import { ButtonView } from './content/ButtonView'
 import { ProductGridView } from './commerce/ProductGridView'
 import { ProductCardView } from './commerce/ProductCardView'
+import {
+  AddToCartView, ProductDescriptionView, ProductGalleryView, ProductPriceView, ProductTitleView, QuantitySelectorView, VariantSelectorView,
+} from './commerce/ProductPageViews'
+import { ProductRecommendationsView, ProductReviewsView } from './commerce/ProductExtrasViews'
+import { BreadcrumbsView, CollectionFiltersView, CollectionHeaderView, CollectionProductsView, PaginationView } from './commerce/ListingViews'
+import { CartItemsView, CartSummaryView, CheckoutButtonView } from './cart/CartViews'
 
 // Containers share one renderer: their definition's element() gives the
 // markup, which is exactly what the editor canvas builds too.
@@ -55,6 +61,23 @@ const renderers: Record<string, Renderer> = {
   button: typed(ButtonView),
   'product-grid': typed(ProductGridView),
   'product-card': typed(ProductCardView),
+  'product-gallery': typed(ProductGalleryView),
+  'product-title': typed(ProductTitleView),
+  'product-price': typed(ProductPriceView),
+  'variant-selector': typed(VariantSelectorView),
+  'quantity-selector': typed(QuantitySelectorView),
+  'add-to-cart': typed(AddToCartView),
+  'product-description': ProductDescriptionView,
+  'product-reviews': typed(ProductReviewsView),
+  'product-recommendations': typed(ProductRecommendationsView),
+  'collection-header': typed(CollectionHeaderView),
+  'collection-products': typed(CollectionProductsView),
+  'collection-filters': typed(CollectionFiltersView),
+  pagination: PaginationView,
+  breadcrumbs: typed(BreadcrumbsView),
+  'cart-items': typed(CartItemsView),
+  'cart-summary': typed(CartSummaryView),
+  'checkout-button': typed(CheckoutButtonView),
 }
 
 export function rendererFor(type: string): Renderer | undefined {

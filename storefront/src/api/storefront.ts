@@ -33,16 +33,97 @@ export interface ProductSummary {
   currency_code?: string | null
 }
 
+export interface CategoryFacet {
+  category_id: string
+  category_name: string
+  count: number
+}
+
 export interface ProductList {
   items: ProductSummary[]
   total: number
+  category_facets?: CategoryFacet[]
 }
 
 export interface ProductQuery {
   categoryId?: string
   productIds?: string[]
+  collectionId?: string
   search?: string
+  page?: number
   perPage?: number
+}
+
+export interface ProductSKU {
+  id: string
+  sku_code: string
+  price_minor_units: number
+  sale_price_minor_units?: number | null
+  currency_code: string
+  stock_quantity: number
+}
+
+export interface ProductVariant {
+  id: string
+  name: string
+  skus: ProductSKU[]
+}
+
+export interface ProductDetail {
+  id: string
+  name: string
+  slug: string
+  description: string
+  category_id: string | null
+  tags: string[]
+  images: string[]
+  variants: ProductVariant[]
+}
+
+export interface Review {
+  id: string
+  customer_name: string
+  rating: number
+  title: string
+  body: string
+  verified: boolean
+  created_at: string
+}
+
+export interface ReviewList {
+  reviews: Review[]
+  summary: { average: number; count: number }
+}
+
+export interface Collection {
+  id: string
+  name: string
+  slug: string
+  description: string
+  image_url?: string | null
+  seo_title: string
+  seo_description: string
+}
+
+export interface StoreInfo {
+  name: string
+  currency_code: string
+}
+
+export interface CartItem {
+  sku_code: string
+  product_name: string
+  quantity: number
+  price_minor_units: number
+  currency_code: string
+}
+
+export interface Cart {
+  token: string
+  items: CartItem[]
+  subtotal_minor_units: number
+  coupon_code?: string | null
+  discount_minor_units: number
 }
 
 export interface Category {
@@ -86,29 +167,78 @@ export class StorefrontAPI {
     const params = new URLSearchParams()
     if (q.categoryId) params.set('category_id', q.categoryId)
     if (q.productIds) params.set('product_ids', q.productIds.join(','))
+    if (q.collectionId) params.set('collection_id', q.collectionId)
     if (q.search) params.set('search', q.search)
+    if (q.page && q.page > 1) params.set('page', String(q.page))
     params.set('per_page', String(q.perPage ?? 12))
     return this.get(`/storefront/v1/products?${params}`)
+  }
+
+  getProductBySlug(slug: string): Promise<ProductDetail> {
+    return this.get(`/storefront/v1/products/by-slug/${encodeURIComponent(slug)}`)
+  }
+
+  getRecommendations(productId: string): Promise<ProductSummary[]> {
+    return this.get(`/storefront/v1/products/${encodeURIComponent(productId)}/recommendations`)
+  }
+
+  listReviews(productId: string, perPage = 10): Promise<ReviewList> {
+    return this.get(`/storefront/v1/products/${encodeURIComponent(productId)}/reviews?per_page=${perPage}`)
+  }
+
+  listCollections(): Promise<Collection[]> {
+    return this.get('/storefront/v1/collections?per_page=100')
+  }
+
+  getCollection(slug: string): Promise<Collection> {
+    return this.get(`/storefront/v1/collections/by-slug/${encodeURIComponent(slug)}`)
+  }
+
+  getStore(): Promise<StoreInfo> {
+    return this.get('/storefront/v1/store')
+  }
+
+  createCart(): Promise<Cart> {
+    return this.send('POST', '/storefront/v1/carts')
+  }
+
+  getCart(token: string): Promise<Cart> {
+    return this.get(`/storefront/v1/carts/${encodeURIComponent(token)}`)
+  }
+
+  /** Replaces the cart's whole line set (the API has no incremental add). */
+  setCartItems(token: string, items: { sku_code: string; quantity: number }[]): Promise<Cart> {
+    return this.send('PUT', `/storefront/v1/carts/${encodeURIComponent(token)}/items`, { items })
+  }
+
+  applyCoupon(token: string, code: string): Promise<Cart> {
+    return this.send('PUT', `/storefront/v1/carts/${encodeURIComponent(token)}/coupon`, { code })
   }
 
   listCategories(): Promise<Category[]> {
     return this.get('/storefront/v1/categories')
   }
 
-  private async get<T>(path: string): Promise<T> {
+  private get<T>(path: string): Promise<T> {
+    return this.send('GET', path)
+  }
+
+  private async send<T>(method: string, path: string, body?: unknown): Promise<T> {
     const headers = new Headers({ Accept: 'application/json', Authorization: `Bearer ${this.cfg.storeKey}` })
     if (this.cfg.previewToken) headers.set('X-Theme-Preview', this.cfg.previewToken)
+    if (body !== undefined) headers.set('Content-Type', 'application/json')
     const doFetch = this.cfg.fetch ?? fetch
-    const res = await doFetch(`${this.cfg.baseURL}${path}`, { headers })
-    let body: Envelope<T> | undefined
+    const init: RequestInit = method === 'GET' ? { headers } : { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }
+    const res = await doFetch(`${this.cfg.baseURL}${path}`, init)
+    let env: Envelope<T> | undefined
     try {
-      body = (await res.json()) as Envelope<T>
+      env = (await res.json()) as Envelope<T>
     } catch {
-      body = undefined
+      env = undefined
     }
-    if (!res.ok || !body || body.data === null) {
-      throw new ApiError(res.status, body?.error?.code ?? 'HTTP_ERROR', body?.error?.message ?? `request failed (${res.status})`)
+    if (!res.ok || !env || env.data === null) {
+      throw new ApiError(res.status, env?.error?.code ?? 'HTTP_ERROR', env?.error?.message ?? `request failed (${res.status})`)
     }
-    return body.data
+    return env.data
   }
 }

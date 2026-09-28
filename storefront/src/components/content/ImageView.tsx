@@ -1,4 +1,4 @@
-import { safeHref } from '../../core/richText'
+import { storeHref } from '../../runtime/page/links'
 import { resolveAssetRef, useRenderEnv } from '../../runtime/RenderContext'
 import type { RendererProps } from '../types'
 import type { ImageProps } from './image'
@@ -16,7 +16,7 @@ export function ImageView({ node, props, className }: RendererProps<ImageProps>)
       width={asset.width || undefined} height={asset.height || undefined}
       className={props.fit === 'contain' ? 'cos-fit-contain' : 'cos-fit-cover'} />
   )
-  const href = env.mode === 'live' ? safeHref(props.link) : undefined
+  const href = env.mode === 'live' ? storeHref(props.link, env.storePath) : undefined
   return (
     <figure className={`cos-image ${className}`} data-node={node.id}>
       {href ? <a href={href}>{img}</a> : img}

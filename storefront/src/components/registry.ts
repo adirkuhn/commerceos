@@ -10,12 +10,22 @@ import { image } from './content/image'
 import { button } from './content/button'
 import { productGrid } from './commerce/productGrid'
 import { productCard } from './commerce/productCard'
+import {
+  addToCart, productDescription, productGallery, productPrice, productRecommendations, productReviews, productTitle,
+  quantitySelector, variantSelector,
+} from './commerce/productPage'
+import { breadcrumbs, collectionFilters, collectionHeader, collectionProducts, pagination } from './commerce/listing'
+import { cartItems, cartSummary, checkoutButton } from './cart/cart'
 
 // Every component the editor offers and the runtime renders. Adding one
 // here (plus its renderer in renderers.tsx and its props schema in the
 // backend contract) is all it takes.
 const definitions = [
   section, container, columns, column, heading, text, image, button, spacer, productGrid, productCard,
+  productGallery, productTitle, productPrice, variantSelector, quantitySelector, addToCart, productDescription,
+  productReviews, productRecommendations,
+  collectionHeader, collectionProducts, collectionFilters, pagination, breadcrumbs,
+  cartItems, cartSummary, checkoutButton,
 ] as unknown as ComponentDefinition[]
 
 export class ComponentRegistry {

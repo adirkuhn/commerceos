@@ -1,35 +1,109 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { useStorefrontAPI } from '../api/ApiContext'
-import { documentQuery, hasDocument, themeQuery } from './queries'
+import type { StorefrontTheme } from '../core/document'
+import type { Collection } from '../api/storefront'
 import { DocumentRenderer } from './DocumentRenderer'
 import { RenderProvider } from './RenderContext'
-import { resolveRoute, type ResolvedRoute } from './route'
-import type { StorefrontTheme } from '../core/document'
+import { documentQuery, documentFor, hasDocument, themeQuery } from './queries'
+import type { ResolvedRoute } from './route'
+import { CartProvider } from './page/CartContext'
+import { ListingProvider } from './page/ListingContext'
+import { ProductProvider } from './page/ProductContext'
+import { collectionPageQuery, listingQuery, productPageQuery } from './page/queries'
+import { listingParamsFor } from './page/routeData'
 
-/** The document a path renders, falling back to not-found when the theme lacks it. */
-export function documentFor(theme: StorefrontTheme, path: string): ResolvedRoute {
-  const route = resolveRoute(path)
-  if (route.notFound || hasDocument(theme, route.kind, route.key)) return route
-  return { kind: 'template', key: 'not-found', notFound: true }
-}
+export { documentFor }
 
-function Region({ theme, kind, docKey }: { theme: StorefrontTheme; kind: 'template' | 'page' | 'section_group'; docKey: string }) {
+const NOT_FOUND: ResolvedRoute = { kind: 'template', key: 'not-found', notFound: true }
+
+function Region({ theme, kind, docKey }: { theme: StorefrontTheme; kind: ResolvedRoute['kind']; docKey: string }) {
   const api = useStorefrontAPI()
   const { data } = useSuspenseQuery(documentQuery(api, theme, kind, docKey))
   return <DocumentRenderer root={data.root} assets={data.assets ?? {}} />
 }
 
-export function StorePage({ path, storeKey }: { path: string; storeKey: string }) {
-  const api = useStorefrontAPI()
-  const { data: theme } = useSuspenseQuery(themeQuery(api))
-  const route = documentFor(theme, path)
+/** Header, the route's document, footer. */
+function Layout({ theme, route }: { theme: StorefrontTheme; route: ResolvedRoute }) {
   const has = (key: string) => hasDocument(theme, 'section_group', key)
-  const storePath = (p: string) => `/store/${encodeURIComponent(storeKey)}/${p}`
   return (
-    <RenderProvider value={{ mode: 'live', storePath }}>
+    <>
       {has('header') && <header className="cos-header"><Region theme={theme} kind="section_group" docKey="header" /></header>}
       <main className="cos-main"><Region theme={theme} kind={route.kind} docKey={route.key} /></main>
       {has('footer') && <footer className="cos-footer"><Region theme={theme} kind="section_group" docKey="footer" /></footer>}
+    </>
+  )
+}
+
+function ProductRoute({ theme, route }: { theme: StorefrontTheme; route: ResolvedRoute }) {
+  const api = useStorefrontAPI()
+  const { data: product } = useSuspenseQuery(productPageQuery(api, route.param ?? ''))
+  if (!product) return <Layout theme={theme} route={NOT_FOUND} />
+  return <ProductProvider product={product}><Layout theme={theme} route={route} /></ProductProvider>
+}
+
+interface ListingRouteProps {
+  theme: StorefrontTheme
+  route: ResolvedRoute
+  query: URLSearchParams
+  storePath: (p: string) => string
+}
+
+function ListingBody({ theme, route, query, storePath, collection }: ListingRouteProps & { collection: Collection | null }) {
+  const api = useStorefrontAPI()
+  const { data: doc } = useSuspenseQuery(documentQuery(api, theme, route.kind, route.key))
+  const params = listingParamsFor(route, query, doc, collection)
+  const { data: listing } = useSuspenseQuery(listingQuery(api, params))
+  const base = collection ? `collections/${encodeURIComponent(route.param ?? '')}` : 'search'
+  const href = (changes: Record<string, string | null>) => {
+    const next = new URLSearchParams(query)
+    for (const [k, v] of Object.entries(changes)) {
+      if (v === null) next.delete(k)
+      else next.set(k, v)
+    }
+    const qs = next.toString()
+    return storePath(qs ? `${base}?${qs}` : base)
+  }
+  return (
+    <ListingProvider value={{
+      title: collection ? collection.name : `Search results for “${params.search ?? ''}”`,
+      description: collection?.description ?? '',
+      imageUrl: collection?.image_url,
+      listing, page: params.page,
+      pageCount: Math.max(1, Math.ceil(listing.total / params.perPage)),
+      activeCategoryId: params.categoryId,
+      hrefForPage: p => href({ page: p > 1 ? String(p) : null }),
+      hrefForCategory: id => href({ category: id, page: null }),
+    }}>
+      <Layout theme={theme} route={route} />
+    </ListingProvider>
+  )
+}
+
+function CollectionRoute(props: ListingRouteProps) {
+  const api = useStorefrontAPI()
+  const { data: collection } = useSuspenseQuery(collectionPageQuery(api, props.route.param ?? ''))
+  if (!collection) return <Layout theme={props.theme} route={NOT_FOUND} />
+  return <ListingBody {...props} collection={collection} />
+}
+
+function Routed({ theme, route, query, storePath }: { theme: StorefrontTheme; route: ResolvedRoute; query: URLSearchParams; storePath: (p: string) => string }): ReactNode {
+  if (route.key === 'product' && !route.notFound) return <ProductRoute theme={theme} route={route} />
+  if (route.key === 'collection' && !route.notFound) return <CollectionRoute theme={theme} route={route} query={query} storePath={storePath} />
+  if (route.key === 'search' && !route.notFound) return <ListingBody theme={theme} route={route} query={query} storePath={storePath} collection={null} />
+  return <Layout theme={theme} route={route} />
+}
+
+export function StorePage({ path, storeKey, query = new URLSearchParams() }: { path: string; storeKey: string; query?: URLSearchParams }) {
+  const api = useStorefrontAPI()
+  const { data: theme } = useSuspenseQuery(themeQuery(api))
+  const route = documentFor(theme, path)
+  const storePath = (p: string) => `/store/${encodeURIComponent(storeKey)}/${p}`
+  return (
+    <RenderProvider value={{ mode: 'live', storePath }}>
+      <CartProvider api={api} storeKey={storeKey}>
+        <Routed theme={theme} route={route} query={query} storePath={storePath} />
+      </CartProvider>
     </RenderProvider>
   )
 }

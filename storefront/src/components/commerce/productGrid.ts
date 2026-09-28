@@ -1,8 +1,9 @@
 import type { ComponentDefinition } from '../types'
 
 export interface ProductGridProps {
-  source: 'all' | 'category' | 'products'
+  source: 'all' | 'category' | 'products' | 'collection'
   category_id: string
+  collection_id: string
   product_ids: string[]
   limit: number
   columns: number
@@ -18,17 +19,22 @@ export const productGrid: ComponentDefinition<ProductGridProps> = {
   props: {
     source: {
       kind: 'select', label: 'Show',
-      options: [{ value: 'all', label: 'All products' }, { value: 'category', label: 'A category' }, { value: 'products', label: 'Products I choose' }],
+      options: [
+        { value: 'all', label: 'All products' }, { value: 'collection', label: 'A collection' },
+        { value: 'category', label: 'A category' }, { value: 'products', label: 'Products I choose' },
+      ],
     },
     category_id: { kind: 'category', label: 'Category' },
+    collection_id: { kind: 'collection', label: 'Collection' },
     product_ids: { kind: 'products', label: 'Products', max: 48 },
     limit: { kind: 'number', label: 'How many', min: 1, max: 48 },
     columns: { kind: 'select', label: 'Columns', options: [{ value: 0, label: 'Theme default' }, ...[2, 3, 4, 5, 6].map(n => ({ value: n, label: String(n) }))] },
     show_price: { kind: 'toggle', label: 'Show prices' },
   },
-  defaults: { source: 'all', category_id: '', product_ids: [], limit: 8, columns: 0, show_price: true },
+  defaults: { source: 'all', category_id: '', collection_id: '', product_ids: [], limit: 8, columns: 0, show_price: true },
   showField: {
     category_id: p => p.source === 'category',
+    collection_id: p => p.source === 'collection',
     product_ids: p => p.source === 'products',
     limit: p => p.source !== 'products',
   },

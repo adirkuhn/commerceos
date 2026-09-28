@@ -34,7 +34,7 @@ describe('image', () => {
     expect(img).toHaveAttribute('src', 'https://cdn.test/hero.jpg')
     expect(img).toHaveAttribute('alt', 'Hero')
     expect(img).toHaveAttribute('width', '1200')
-    expect(container.querySelector('a')).toHaveAttribute('href', '/pages/about')
+    expect(container.querySelector('a')).toHaveAttribute('href', '/store/k/pages/about')
   })
 
   it('renders nothing live and a placeholder in the editor when no image is chosen', () => {

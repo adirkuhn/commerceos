@@ -1,7 +1,7 @@
 import type { ComponentDefinition, PropField } from '../../components/types'
 import type { RichText } from '../../core/richText'
 import { LinkField, NumberField, SelectField, TextField, ToggleField } from './fields'
-import { AssetPicker, CategorySelect, ProductPicker, ProductsPicker } from './pickers'
+import { AssetPicker, CategorySelect, CollectionSelect, ProductPicker, ProductsPicker } from './pickers'
 import { RichTextField } from './RichTextField'
 
 type Props = Record<string, unknown>
@@ -16,6 +16,7 @@ function FieldFor({ name, field, value, onChange }: { name: string; field: PropF
     case 'asset': return <AssetPicker label={field.label} value={String(value ?? '')} onChange={onChange} />
     case 'link': return <LinkField label={field.label} value={String(value ?? '')} onChange={onChange} />
     case 'category': return <CategorySelect label={field.label} value={String(value ?? '')} onChange={onChange} />
+    case 'collection': return <CollectionSelect label={field.label} value={String(value ?? '')} onChange={onChange} />
     case 'product': return <ProductPicker label={field.label} value={String(value ?? '')} onChange={onChange} />
     case 'products': return <ProductsPicker label={field.label} value={(value as string[]) ?? []} max={field.max} onChange={onChange} />
     case 'hidden': return null

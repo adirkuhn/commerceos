@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import type { Category, ProductSummary } from '../../api/storefront'
+import type { Category, Collection, ProductSummary } from '../../api/storefront'
 import { useEditorServices } from '../services'
 import { AssetLibrary } from './AssetLibrary'
 import { Field, SelectField } from './fields'
@@ -39,6 +39,18 @@ export function CategorySelect({ label, value, onChange }: { label: string; valu
   return (
     <SelectField label={label} value={value} allowEmpty="Choose a category…"
       options={categories.map(c => ({ value: c.id, label: c.name }))} onChange={v => onChange(String(v))} />
+  )
+}
+
+export function CollectionSelect({ label, value, onChange }: { label: string; value: string; onChange: (id: string) => void }) {
+  const { store } = useEditorServices()
+  const [collections, setCollections] = useState<Collection[]>([])
+  useEffect(() => {
+    store.listCollections().then(setCollections, () => setCollections([]))
+  }, [store])
+  return (
+    <SelectField label={label} value={value} allowEmpty={collections.length ? 'Choose a collection…' : 'No published collections yet'}
+      options={collections.map(c => ({ value: c.id, label: c.name }))} onChange={v => onChange(String(v))} />
   )
 }
 

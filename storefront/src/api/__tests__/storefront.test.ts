@@ -50,4 +50,29 @@ describe('StorefrontAPI', () => {
     expect(err).toBeInstanceOf(ApiError)
     expect(err).toMatchObject({ status: 404, code: 'NOT_FOUND', message: 'no live theme' })
   })
+  it('reads products by slug, collections and store info', async () => {
+    const f = fakeFetch({ data: {}, error: null })
+    const api = new StorefrontAPI({ baseURL: 'https://api.test/api/v1', storeKey: 'k', fetch: f })
+    await api.getProductBySlug('red shoes')
+    await api.getCollection('summer')
+    await api.getStore()
+    await api.listProducts({ collectionId: 'c1', page: 2, perPage: 24 })
+    expect(f.mock.calls.map(c => c[0])).toEqual([
+      'https://api.test/api/v1/storefront/v1/products/by-slug/red%20shoes',
+      'https://api.test/api/v1/storefront/v1/collections/by-slug/summer',
+      'https://api.test/api/v1/storefront/v1/store',
+      'https://api.test/api/v1/storefront/v1/products?collection_id=c1&page=2&per_page=24',
+    ])
+  })
+
+  it('manages carts with whole-line-set updates', async () => {
+    const f = fakeFetch({ data: { token: 't', items: [] }, error: null })
+    const api = new StorefrontAPI({ baseURL: 'https://api.test/api/v1', storeKey: 'k', fetch: f })
+    await api.createCart()
+    await api.setCartItems('t', [{ sku_code: 'A', quantity: 2 }])
+    expect(f.mock.calls[0][1]?.method).toBe('POST')
+    expect(f.mock.calls[1][0]).toBe('https://api.test/api/v1/storefront/v1/carts/t/items')
+    expect(f.mock.calls[1][1]?.method).toBe('PUT')
+    expect(JSON.parse(String(f.mock.calls[1][1]?.body))).toEqual({ items: [{ sku_code: 'A', quantity: 2 }] })
+  })
 })

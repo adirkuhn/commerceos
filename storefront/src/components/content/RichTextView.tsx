@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react'
-import { safeHref, type RichText, type RichTextInline } from '../../core/richText'
+import type { RichText, RichTextInline } from '../../core/richText'
+import { useRenderEnv } from '../../runtime/RenderContext'
+import { storeHref } from '../../runtime/page/links'
 
 function Inline({ span }: { span: RichTextInline }) {
   let out: ReactNode = span.text
   if (span.italic) out = <em>{out}</em>
   if (span.bold) out = <strong>{out}</strong>
-  const href = safeHref(span.href)
+  const env = useRenderEnv()
+  const href = storeHref(span.href, env.storePath)
   if (href) {
     const external = /^https?:\/\//.test(href)
     out = <a href={href} {...(external ? { rel: 'noopener noreferrer', target: '_blank' } : {})}>{out}</a>

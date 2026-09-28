@@ -9,7 +9,8 @@ import { App } from './App'
 import { documentQuery, hasDocument, themeQuery } from './queries'
 import { dataQueriesFor } from '../components/data'
 import { serializeState } from './state'
-import { documentFor, StoreUnavailable } from './StorePage'
+import { StoreUnavailable } from './StorePage'
+import { resolvePageData, type PageData } from './page/routeData'
 
 export const BASENAME = '/store'
 
@@ -39,10 +40,11 @@ function parseStoreURL(url: string): { storeKey: string; path: string } | undefi
   return m ? { storeKey: decodeURIComponent(m[1]), path: m[2] ?? '/' } : undefined
 }
 
-function buildHead(theme: StorefrontTheme, doc: ThemeDocument, preview: boolean): string {
-  const title = doc.seo?.title || doc.title || 'Store'
+function buildHead(theme: StorefrontTheme, doc: ThemeDocument, page: PageData, preview: boolean): string {
+  const title = page.seoTitle || doc.seo?.title || doc.title || 'Store'
+  const description = page.seoDescription || doc.seo?.description
   const parts = [`<title>${escapeHTML(title)}</title>`]
-  if (doc.seo?.description) parts.push(`<meta name="description" content="${escapeHTML(doc.seo.description)}">`)
+  if (description) parts.push(`<meta name="description" content="${escapeHTML(description)}">`)
   if (preview) parts.push('<meta name="robots" content="noindex">')
   const favicon = theme.settings.brand.favicon_asset_id && theme.assets?.[theme.settings.brand.favicon_asset_id]
   if (favicon) parts.push(`<link rel="icon" href="${escapeHTML(favicon.url)}">`)
@@ -77,7 +79,8 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
     return unavailable(status)
   }
 
-  const route = documentFor(theme, parsed.path)
+  const page = await resolvePageData(qc, api, theme, parsed.path, new URL(opts.url, 'http://x').searchParams)
+  const route = page.route
   const regions = [['section_group', 'header'], ['section_group', 'footer']] as const
   const [main, ...rest] = await Promise.all([
     qc.fetchQuery(documentQuery(api, theme, route.kind, route.key)),
@@ -85,12 +88,12 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
   ])
   // Catalog data the components show. A failed fetch is left out of the
   // cache; that component renders nothing rather than failing the page.
-  await Promise.all([main, ...rest].flatMap(d => dataQueriesFor(d.root, api)).map(q => qc.prefetchQuery(q)))
+  await Promise.all([main, ...rest].flatMap(d => dataQueriesFor(d.root, api, { product: page.product })).map(q => qc.prefetchQuery(q)))
 
   const html = renderToString(
     <QueryClientProvider client={qc}>
       <ApiProvider api={api}>
-        <StaticRouter location={new URL(opts.url, 'http://x').pathname} basename={BASENAME}>
+        <StaticRouter location={((u: URL) => u.pathname + u.search)(new URL(opts.url, 'http://x'))} basename={BASENAME}>
           <App />
         </StaticRouter>
       </ApiProvider>
@@ -99,7 +102,7 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
 
   return {
     status: route.notFound ? 404 : 200,
-    head: buildHead(theme, main, theme.preview || Boolean(opts.previewToken)),
+    head: buildHead(theme, main, page, theme.preview || Boolean(opts.previewToken)),
     html,
     state: serializeState({
       dehydrated: dehydrate(qc),

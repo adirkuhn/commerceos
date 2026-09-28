@@ -1,8 +1,9 @@
 import { queryOptions, type FetchQueryOptions } from '@tanstack/react-query'
-import type { ProductList, StorefrontAPI } from '../api/storefront'
+import type { ProductDetail, ProductList, StorefrontAPI } from '../api/storefront'
 import type { ThemeNode } from '../core/document'
 import type { ProductGridProps } from './commerce/productGrid'
 import type { ProductCardProps } from './commerce/productCard'
+import { recommendationsQuery, reviewsQuery } from '../runtime/page/queries'
 
 // Catalog data a component shows. The same query options are prefetched
 // during SSR (dataQueriesFor) and read by the renderer, so the page is
@@ -18,8 +19,10 @@ export function productGridQuery(api: StorefrontAPI, p: ProductGridProps) {
   const q =
     p.source === 'products' ? { productIds: ids, perPage: Math.max(ids.length, 1) }
     : p.source === 'category' ? { categoryId: p.category_id, perPage: limit }
+    : p.source === 'collection' ? { collectionId: p.collection_id, perPage: limit }
     : { perPage: limit }
   const empty = (p.source === 'products' && ids.length === 0) || (p.source === 'category' && !p.category_id)
+    || (p.source === 'collection' && !p.collection_id)
   return queryOptions({
     queryKey: ['products', q],
     queryFn: async () => {
@@ -42,19 +45,33 @@ export function productCardQuery(api: StorefrontAPI, p: ProductCardProps) {
   })
 }
 
-type Loader = (api: StorefrontAPI, props: never) => FetchQueryOptions<unknown, Error, unknown, readonly unknown[]>
+/** What a page is about, for components whose data depends on it. */
+export interface LoaderContext {
+  product?: ProductDetail
+}
+
+type AnyQuery = FetchQueryOptions<unknown, Error, unknown, readonly unknown[]>
+type Loader = (api: StorefrontAPI, props: never, ctx: LoaderContext) => AnyQuery | undefined
+
+const reviewLimit = (props: { limit?: number }) => Math.min(Math.max(Number(props.limit) || 10, 1), 50)
 
 const loaders: Record<string, Loader> = {
   'product-grid': productGridQuery as unknown as Loader,
   'product-card': productCardQuery as unknown as Loader,
+  'product-reviews': ((api, props: { limit?: number }, ctx) =>
+    ctx.product ? reviewsQuery(api, ctx.product.id, reviewLimit(props)) : undefined) as Loader,
+  'product-recommendations': ((api, _props, ctx) =>
+    ctx.product ? recommendationsQuery(api, ctx.product.id) : undefined) as Loader,
 }
 
+export { reviewLimit }
+
 /** Every catalog query a document's components need, for SSR prefetching. */
-export function dataQueriesFor(root: ThemeNode, api: StorefrontAPI) {
-  const out: FetchQueryOptions<unknown, Error, unknown, readonly unknown[]>[] = []
+export function dataQueriesFor(root: ThemeNode, api: StorefrontAPI, ctx: LoaderContext = {}) {
+  const out: AnyQuery[] = []
   const visit = (n: ThemeNode) => {
-    const load = loaders[n.type]
-    if (load) out.push(load(api, (n.props ?? {}) as never))
+    const q = loaders[n.type]?.(api, (n.props ?? {}) as never, ctx)
+    if (q) out.push(q)
     n.children?.forEach(visit)
   }
   visit(root)

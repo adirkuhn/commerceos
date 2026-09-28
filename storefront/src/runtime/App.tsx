@@ -1,5 +1,5 @@
 import { Component, type ReactNode } from 'react'
-import { Route, Routes, useParams } from 'react-router-dom'
+import { Route, Routes, useParams, useSearchParams } from 'react-router-dom'
 import { StorePage, StoreUnavailable } from './StorePage'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -20,7 +20,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean
 
 function StoreRoute() {
   const params = useParams()
-  return <StorePage path={`/${params['*'] ?? ''}`} storeKey={params.storeKey ?? ''} />
+  const [query] = useSearchParams()
+  return <StorePage path={`/${params['*'] ?? ''}`} storeKey={params.storeKey ?? ''} query={query} />
 }
 
 /** Routes below the router basename (/store): /{channelKey}/... */
