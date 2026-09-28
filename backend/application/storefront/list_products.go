@@ -46,8 +46,8 @@ type ListProductsInput struct {
 	// own sort); nil keeps the default order.
 	OrderByIDs []string
 	Search     string
-	Page              int
-	PerPage           int
+	Page       int
+	PerPage    int
 }
 
 // CategoryFacet is one category a shopper could switch to from the
@@ -127,37 +127,17 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, salesChannelID strin
 		if err != nil {
 			return err
 		}
-		var includeIDs, excludeIDs []string
-		for _, o := range overrides {
-			if o.Included {
-				includeIDs = append(includeIDs, o.ProductID)
-			} else {
-				excludeIDs = append(excludeIDs, o.ProductID)
-			}
-		}
-
-		excludeIDs = append(excludeIDs, in.ExcludeProductIDs...)
+		scope := channelEnrollment(channel, overrides)
+		excludeIDs := append(scope.excludeIDs, in.ExcludeProductIDs...)
 
 		active := pmsDomain.ProductStatusActive
 		pmsInput = apppms.ListProductsInput{
 			Page: in.Page, PerPage: in.PerPage, Search: in.Search,
 			AndCategoryID: in.CategoryID, ExcludeIDs: excludeIDs, Status: &active, OrderByIDs: in.OrderByIDs,
+			CategoryID: scope.categoryID, Tag: scope.tag, IncludeIDs: scope.includeIDs,
 		}
 		if in.ProductIDs != nil {
 			pmsInput.AndIncludeIDs = &in.ProductIDs
-		}
-		switch channel.EnrollmentMode {
-		case channelsDomain.EnrollmentModeAll:
-			// No OR-group constraint needed -- everything active is
-			// enrolled by default, ExcludeIDs above still applies.
-		case channelsDomain.EnrollmentModeCategory:
-			pmsInput.CategoryID = channel.EnrollmentCategoryID
-			pmsInput.IncludeIDs = &includeIDs
-		case channelsDomain.EnrollmentModeTag:
-			pmsInput.Tag = &channel.EnrollmentTag
-			pmsInput.IncludeIDs = &includeIDs
-		case channelsDomain.EnrollmentModeManual:
-			pmsInput.IncludeIDs = &includeIDs
 		}
 
 		var searchPtr *string

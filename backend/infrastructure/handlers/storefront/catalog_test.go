@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -11,6 +12,7 @@ import (
 
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
 	"github.com/adirkuhn/commerceos/domain/collections"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
 )
@@ -57,6 +59,12 @@ func (f bySlugF) Execute(ctx context.Context, ch, slug string) (*appstorefront.P
 	return f(ctx, ch, slug)
 }
 
+type sitemapF func(context.Context, string) (*appstorefront.Sitemap, error)
+
+func (f sitemapF) Execute(ctx context.Context, ch string) (*appstorefront.Sitemap, error) {
+	return f(ctx, ch)
+}
+
 type storeF func(context.Context, string) (*appstorefront.StoreInfo, error)
 
 func (f storeF) Execute(ctx context.Context, ch string) (*appstorefront.StoreInfo, error) {
@@ -88,6 +96,13 @@ func catalogRouter(s *catalogStub) *gin.Engine {
 		}),
 		GetStoreInfo: storeF(func(context.Context, string) (*appstorefront.StoreInfo, error) {
 			return &appstorefront.StoreInfo{Name: "My Shop", CurrencyCode: "EUR"}, s.err
+		}),
+		GetSitemap: sitemapF(func(context.Context, string) (*appstorefront.Sitemap, error) {
+			at := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+			return &appstorefront.Sitemap{
+				Products:    []pmsDomain.ProductLink{{Slug: "red-shoes", UpdatedAt: at}},
+				Collections: []appstorefront.CollectionLink{{Slug: "summer", UpdatedAt: at}},
+			}, s.err
 		}),
 	}
 	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{},
@@ -134,3 +149,15 @@ func TestCatalog_productBySlugAndStore(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"currency_code":"EUR"`)
 }
+
+func TestCatalog_sitemap(t *testing.T) {
+	w := doRequest(catalogRouter(&catalogStub{}), http.MethodGet, "/api/v1/storefront/v1/sitemap", "", "key")
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.JSONEq(t, `{"data":{"products":[{"slug":"red-shoes","updated_at":"2026-09-01T12:00:00Z"}],"collections":[{"slug":"summer","updated_at":"2026-09-01T12:00:00Z"}]},"error":null}`, w.Body.String())
+	assert.Equal(t, "public, max-age=3600", w.Header().Get("Cache-Control"))
+
+	w = doRequest(catalogRouter(&catalogStub{err: storefrontDomain.ErrNoInternalChannel}), http.MethodGet, "/api/v1/storefront/v1/sitemap", "", "key")
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Equal(t, http.StatusUnauthorized, doRequest(catalogRouter(&catalogStub{}), http.MethodGet, "/api/v1/storefront/v1/sitemap", "", "").Code)
+}
+

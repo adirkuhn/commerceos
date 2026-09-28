@@ -246,3 +246,17 @@ type AttributeRepository interface {
 	List(ctx context.Context) ([]AttributeDefinition, error)
 	Delete(ctx context.Context, id string) error
 }
+
+// ProductLink is the least needed to link to a product page: a sitemap
+// entry.
+type ProductLink struct {
+	Slug      string
+	UpdatedAt time.Time
+}
+
+// ProductLinkLister lists links for every product matching filter (its
+// Limit caps the result), newest change first -- without loading whole
+// products, so a sitemap of tens of thousands stays cheap.
+type ProductLinkLister interface {
+	ListLinks(ctx context.Context, filter ProductFilter) ([]ProductLink, error)
+}

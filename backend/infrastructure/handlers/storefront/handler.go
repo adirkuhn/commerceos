@@ -270,6 +270,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL, stor
 		GetCollection:          appstorefront.NewGetStorefrontCollectionUseCase(appcollections.NewGetPublishedCollectionUseCase(collectionDeps), assetURLs),
 		GetProductBySlug:       appstorefront.NewGetProductBySlugUseCase(db, productRepo, getProduct),
 		GetStoreInfo:           appstorefront.NewGetStoreInfoUseCase(db, channelRepo, settingsRepo),
+		GetSitemap:             appstorefront.NewGetSitemapUseCase(db, channelRepo, overrideRepo, productRepo, appcollections.NewListCollectionsUseCase(collectionDeps)),
 	}
 
 	h := NewHandler(

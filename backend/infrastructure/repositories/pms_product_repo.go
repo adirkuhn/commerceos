@@ -261,6 +261,34 @@ type productCategoryCountRow struct {
 // comment) so the counts reflect every category a shopper could switch to,
 // not just the one currently selected. A nil CategoryID (uncategorized)
 // comes back under the empty-string key.
+// ListLinks: see pmsDomain.ProductLinkLister.
+func (r *ProductRepo) ListLinks(ctx context.Context, filter pmsDomain.ProductFilter) ([]pmsDomain.ProductLink, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q, _, err := applyProductFilter(tx.Model(&productModel{}), filter, true)
+	if err != nil {
+		return nil, fmt.Errorf("productRepo.ListLinks: %w", err)
+	}
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 200
+	}
+	var rows []struct {
+		Slug      string
+		UpdatedAt time.Time
+	}
+	if err := q.Select("slug", "updated_at").Order("updated_at desc, id").Limit(limit).Scan(&rows).Error; err != nil {
+		return nil, fmt.Errorf("productRepo.ListLinks: %w", err)
+	}
+	links := make([]pmsDomain.ProductLink, len(rows))
+	for i, row := range rows {
+		links[i] = pmsDomain.ProductLink{Slug: row.Slug, UpdatedAt: row.UpdatedAt}
+	}
+	return links, nil
+}
+
 func (r *ProductRepo) CountByCategory(ctx context.Context, filter pmsDomain.ProductFilter) (map[string]int64, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {

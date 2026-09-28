@@ -529,6 +529,20 @@ paths:
         '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/StorefrontStoreResponse' } } } }
         '401': { $ref: '#/components/responses/Error' }
 
+  /storefront/v1/sitemap:
+    get:
+      operationId: getStorefrontSitemap
+      summary: Links for the store's sitemap
+      description: >
+        The calling channel's active, enrolled products (newest change
+        first, at most 45,000) and the published collections, each with
+        when it last changed. Pages come from the live theme. Cacheable
+        for an hour.
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/StorefrontSitemapResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
   /storefront/v1/newsletter/subscriptions:
     post:
       operationId: subscribeToNewsletter
@@ -1238,6 +1252,26 @@ components:
       properties:
         name: { type: string }
         currency_code: { type: string }
+    SitemapLink:
+      type: object
+      required: [slug, updated_at]
+      properties:
+        slug: { type: string }
+        updated_at: { type: string, format: date-time }
+
+    StorefrontSitemap:
+      type: object
+      required: [products, collections]
+      properties:
+        products: { type: array, items: { $ref: '#/components/schemas/SitemapLink' } }
+        collections: { type: array, items: { $ref: '#/components/schemas/SitemapLink' } }
+
+    StorefrontSitemapResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/StorefrontSitemap' }
+        error: { nullable: true }
+
     StorefrontStoreResponse:
       type: object
       properties:

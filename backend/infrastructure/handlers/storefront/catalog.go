@@ -34,7 +34,14 @@ type CatalogUseCases struct {
 	GetStoreInfo interface {
 		Execute(ctx context.Context, salesChannelID string) (*appstorefront.StoreInfo, error)
 	}
+	GetSitemap interface {
+		Execute(ctx context.Context, salesChannelID string) (*appstorefront.Sitemap, error)
+	}
 }
+
+// sitemapCache: sitemaps change slowly and crawlers fetch them rarely.
+const sitemapCache = "public, max-age=3600"
+
 
 func toGenCollection(c appstorefront.StorefrontCollection) genstorefront.StorefrontCollection {
 	id, _ := uuid.Parse(c.ID)
@@ -117,4 +124,27 @@ func (h *Handler) GetStorefrontStore(c *gin.Context) {
 		return
 	}
 	middleware.OK(c, genstorefront.StorefrontStore{Name: info.Name, CurrencyCode: info.CurrencyCode})
+}
+
+func (h *Handler) GetStorefrontSitemap(c *gin.Context) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	sm, err := h.catalog.GetSitemap.Execute(tenant.WithTenantID(c.Request.Context(), resolved.TenantID), *resolved.SalesChannelID)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := genstorefront.StorefrontSitemap{
+		Products:    make([]genstorefront.SitemapLink, len(sm.Products)),
+		Collections: make([]genstorefront.SitemapLink, len(sm.Collections)),
+	}
+	for i, p := range sm.Products {
+		out.Products[i] = genstorefront.SitemapLink{Slug: p.Slug, UpdatedAt: p.UpdatedAt}
+	}
+	for i, col := range sm.Collections {
+		out.Collections[i] = genstorefront.SitemapLink{Slug: col.Slug, UpdatedAt: col.UpdatedAt}
+	}
+	c.Header("Cache-Control", sitemapCache)
+	middleware.OK(c, out)
 }
