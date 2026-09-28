@@ -42,7 +42,6 @@ type CatalogUseCases struct {
 // sitemapCache: sitemaps change slowly and crawlers fetch them rarely.
 const sitemapCache = "public, max-age=3600"
 
-
 func toGenCollection(c appstorefront.StorefrontCollection) genstorefront.StorefrontCollection {
 	id, _ := uuid.Parse(c.ID)
 	return genstorefront.StorefrontCollection{

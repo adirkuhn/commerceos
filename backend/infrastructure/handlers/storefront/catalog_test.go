@@ -160,4 +160,3 @@ func TestCatalog_sitemap(t *testing.T) {
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	assert.Equal(t, http.StatusUnauthorized, doRequest(catalogRouter(&catalogStub{}), http.MethodGet, "/api/v1/storefront/v1/sitemap", "", "").Code)
 }
-
