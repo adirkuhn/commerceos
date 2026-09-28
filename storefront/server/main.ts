@@ -5,7 +5,7 @@ import { createServer } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import { createReadStream } from 'node:fs'
 import { join } from 'node:path'
-import { createHandler, type HandlerDeps, type RenderInput, type RenderOutput } from './app.ts'
+import { createHandler, type HandlerDeps, type RenderInput, type RenderOutput, type SitemapInput } from './app.ts'
 import { staticFileFor } from './static.ts'
 import { cachingFetch } from './httpCache.ts'
 
@@ -19,6 +19,8 @@ const config = {
 }
 
 type RenderFn = (input: RenderInput) => Promise<RenderOutput>
+type SitemapFn = (input: SitemapInput) => Promise<{ status: number; body: string }>
+interface EntryModule { render: RenderFn; renderSitemap: SitemapFn }
 
 // Theme documents are immutable once published; bound memory, not time.
 const backendFetch = cachingFetch(fetch, { maxEntries: 5000, maxBytes: 64 * 1024 * 1024 })
@@ -27,9 +29,9 @@ async function productionDeps(): Promise<HandlerDeps> {
   const client = join(root, 'dist', 'client')
   const [page, editor] = await Promise.all([readFile(join(client, 'index.html'), 'utf8'), readFile(join(client, 'editor.html'), 'utf8')])
   const entry = join(root, 'dist', 'server', 'entry-server.js')
-  const { render } = (await import(entry)) as { render: RenderFn }
+  const { render, renderSitemap } = (await import(entry)) as EntryModule
   return {
-    config, render, fetch: backendFetch, pageTemplate: async () => page, editorTemplate: async () => editor,
+    config, render, renderSitemap, fetch: backendFetch, pageTemplate: async () => page, editorTemplate: async () => editor,
     serveStatic: async (req, res) => {
       const file = staticFileFor(client, new URL(req.url ?? '/', 'http://x').pathname)
       if (!file || file.path.endsWith('editor.html')) return false
@@ -54,7 +56,8 @@ async function developmentDeps(): Promise<HandlerDeps> {
     fetch: backendFetch,
     pageTemplate: template('index.html'),
     editorTemplate: template('editor.html'),
-    render: async input => ((await vite.ssrLoadModule('/src/runtime/entry-server.tsx')) as { render: RenderFn }).render(input),
+    render: async input => ((await vite.ssrLoadModule('/src/runtime/entry-server.tsx')) as EntryModule).render(input),
+    renderSitemap: async input => ((await vite.ssrLoadModule('/src/runtime/entry-server.tsx')) as EntryModule).renderSitemap(input),
     serveStatic: (req, res) =>
       new Promise(resolve => {
         const { pathname } = new URL(req.url ?? '/', 'http://x')

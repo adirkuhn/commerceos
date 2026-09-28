@@ -14,6 +14,7 @@ import { resolvePageData } from './page/routeData'
 import { storeQuery } from './page/queries'
 import { buildHead } from './head'
 import { canonicalURL } from './seo'
+import { sitemapXML } from './sitemap'
 
 export const BASENAME = '/store'
 
@@ -114,3 +115,25 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
     }),
   }
 }
+
+export interface SitemapOptions {
+  storeKey: string
+  apiBaseURL: string
+  publicOrigin?: string
+  fetch?: typeof fetch
+}
+
+/** The live store's sitemap.xml; 404 without a public origin (sitemaps
+ *  need absolute URLs) or when the store isn't available. */
+export async function renderSitemap(opts: SitemapOptions): Promise<{ status: number; body: string }> {
+  if (!opts.publicOrigin) return { status: 404, body: '' }
+  const api = new StorefrontAPI({ baseURL: opts.apiBaseURL, storeKey: opts.storeKey, fetch: opts.fetch })
+  try {
+    const [theme, data] = await Promise.all([api.getTheme(), api.getSitemap()])
+    return { status: 200, body: sitemapXML(opts.publicOrigin, opts.storeKey, theme, data) }
+  } catch (err) {
+    if (err instanceof ApiError && [401, 404, 422].includes(err.status)) return { status: 404, body: '' }
+    throw err
+  }
+}
+

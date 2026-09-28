@@ -18,6 +18,13 @@ export interface RenderOutput {
   state: string
 }
 
+export interface SitemapInput {
+  storeKey: string
+  apiBaseURL: string
+  publicOrigin?: string
+  fetch?: typeof fetch
+}
+
 export interface HandlerDeps {
   /** publicOrigin: where shoppers reach /store (canonical URLs); optional. */
   config: { apiInternalURL: string; apiPublicURL: string; publicOrigin?: string }
@@ -25,6 +32,7 @@ export interface HandlerDeps {
   pageTemplate: (url: string) => Promise<string>
   editorTemplate: (url: string) => Promise<string>
   render: (input: RenderInput) => Promise<RenderOutput>
+  renderSitemap: (input: SitemapInput) => Promise<{ status: number; body: string }>
   /** How the renderer reaches the backend (cached, see httpCache.ts). */
   fetch?: typeof fetch
   /** Serves built/dev assets; resolves true when it handled the request. */
@@ -60,6 +68,16 @@ export function createHandler(deps: HandlerDeps) {
         const html = (await deps.editorTemplate(url)).replace('<!--app-config-->', () =>
           `<meta name="cos-api-base" content="${escapeAttr(deps.config.apiPublicURL)}">`)
         return send(res, 200, html, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
+      }
+
+      const sitemap = /^\/store\/([^/]+)\/sitemap\.xml$/.exec(pathname)
+      if (sitemap) {
+        const out = await deps.renderSitemap({
+          storeKey: decodeURIComponent(sitemap[1]), apiBaseURL: deps.config.apiInternalURL, publicOrigin: deps.config.publicOrigin, fetch: deps.fetch,
+        })
+        return out.status === 200
+          ? send(res, 200, out.body, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' })
+          : send(res, out.status, 'Not found', { 'Content-Type': 'text/plain' })
       }
 
       if (pathname.startsWith('/store/')) {

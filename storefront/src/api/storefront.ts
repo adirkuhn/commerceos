@@ -172,6 +172,16 @@ export interface CheckoutResult {
   payment_url?: string | null
 }
 
+export interface SitemapLink {
+  slug: string
+  updated_at: string
+}
+
+export interface SitemapData {
+  products: SitemapLink[]
+  collections: SitemapLink[]
+}
+
 export type NewsletterStatus = 'check_your_email' | 'subscribed' | 'unsubscribed'
 
 export interface Cart {
@@ -248,6 +258,10 @@ export class StorefrontAPI {
 
   getCollection(slug: string): Promise<Collection> {
     return this.get(`/storefront/v1/collections/by-slug/${encodeURIComponent(slug)}`)
+  }
+
+  getSitemap(): Promise<SitemapData> {
+    return this.get('/storefront/v1/sitemap')
   }
 
   getStore(): Promise<StoreInfo> {

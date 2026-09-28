@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render } from '../entry-server'
+import { render, renderSitemap } from '../entry-server'
 import { defaultSettings } from '../../core/settings'
 
 const theme = {
@@ -153,5 +153,26 @@ describe('SSR routes', () => {
     const out = await render({ ...base, url: '/store/k/products/red-shoes', fetch: backend() })
     expect(out.head).not.toContain('rel="canonical"')
     expect(out.head).toContain('"@type":"Product"')
+  })
+})
+
+describe('renderSitemap', () => {
+  it('builds the live store sitemap from the theme and the backend', async () => {
+    const f = vi.fn<typeof fetch>(async input => {
+      const p = new URL(String(input)).pathname.replace('/api/v1/storefront/v1', '')
+      if (p === '/theme') return new Response(JSON.stringify({ data: { ...theme, documents: [...theme.documents, { kind: 'page', key: 'about', title: '' }] }, error: null }))
+      if (p === '/sitemap') return new Response(JSON.stringify({ data: { products: [{ slug: 'red-shoes', updated_at: '2026-09-01T00:00:00Z' }], collections: [] }, error: null }))
+      return new Response('{}', { status: 404 })
+    })
+    const out = await renderSitemap({ storeKey: 'k', apiBaseURL: 'http://backend/api/v1', publicOrigin: 'https://shop.test', fetch: f })
+    expect(out.status).toBe(200)
+    expect(out.body).toContain('<loc>https://shop.test/store/k/pages/about</loc>')
+    expect(out.body).toContain('<loc>https://shop.test/store/k/products/red-shoes</loc>')
+  })
+
+  it('has no sitemap without a public origin or a store', async () => {
+    expect((await renderSitemap({ storeKey: 'k', apiBaseURL: 'http://b', fetch: vi.fn() })).status).toBe(404)
+    const gone = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ data: null, error: { code: 'UNAUTHORIZED' } }), { status: 401 }))
+    expect((await renderSitemap({ storeKey: 'k', apiBaseURL: 'http://b', publicOrigin: 'https://s', fetch: gone })).status).toBe(404)
   })
 })

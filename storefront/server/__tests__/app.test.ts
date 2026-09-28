@@ -12,6 +12,7 @@ async function start(overrides: Partial<HandlerDeps> = {}) {
     pageTemplate: async () => '<head><!--app-head--></head><body><!--app-html--><script><!--app-state--></script></body>',
     editorTemplate: async () => '<head><!--app-config--></head><body>editor</body>',
     render: vi.fn(async () => ({ status: 200, head: '<title>t</title>', html: '<p>page</p>', state: '{}' })),
+    renderSitemap: vi.fn(async () => ({ status: 200, body: '<urlset/>' })),
     serveStatic: async () => false,
     ...overrides,
   }
@@ -34,6 +35,22 @@ describe('storefront server', () => {
     expect(deps.render).toHaveBeenCalledWith(expect.objectContaining({
       url: '/store/key-1/pages/about', apiBaseURL: 'http://backend/api/v1', publicApiBaseURL: 'https://api.test/api/v1', previewToken: undefined,
     }))
+  })
+
+  it('serves the store sitemap as cacheable XML', async () => {
+    const { deps, get } = await start({ config: { apiInternalURL: 'http://backend/api/v1', apiPublicURL: 'https://api.test/api/v1', publicOrigin: 'https://shop.test' } })
+    const res = await get('/store/key%201/sitemap.xml')
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('<urlset/>')
+    expect(res.headers.get('content-type')).toContain('application/xml')
+    expect(res.headers.get('cache-control')).toBe('public, max-age=3600')
+    expect(deps.render).not.toHaveBeenCalled()
+    expect(deps.renderSitemap).toHaveBeenCalledWith(expect.objectContaining({ storeKey: 'key 1', publicOrigin: 'https://shop.test' }))
+  })
+
+  it('404s a sitemap the store cannot have', async () => {
+    const { get } = await start({ renderSitemap: async () => ({ status: 404, body: '' }) })
+    expect((await get('/store/k/sitemap.xml')).status).toBe(404)
   })
 
   it('renders through the cached backend fetch', async () => {
