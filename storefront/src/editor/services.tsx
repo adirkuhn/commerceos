@@ -23,7 +23,10 @@ export interface EditorServices {
 
 const Ctx = createContext<EditorServices | null>(null)
 
-export function EditorServicesProvider({ value, children }: { value: EditorServices; children: ReactNode }) {
+/** value is null until the draft (and so the store) is known. The provider
+ *  is always rendered so the layout -- and the DOM GrapesJS mounted into --
+ *  never remounts when it arrives. */
+export function EditorServicesProvider({ value, children }: { value: EditorServices | null; children: ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 

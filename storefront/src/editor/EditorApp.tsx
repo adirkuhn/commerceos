@@ -64,29 +64,30 @@ export function EditorApp({ api, apiBase }: { api: EditorAPI; apiBase: string })
     }
   }, [editor, settings, assets])
 
-  const body = (
-    <div className="flex h-screen flex-col bg-neutral-100 text-neutral-900">
-      <Toolbar
-        themeName={draft?.theme.name ?? 'Theme'} documents={draft?.documents ?? []} doc={doc} onDoc={setDoc}
-        editor={editor} device={device} onDevice={setDevice} dirty={dirty} status={status}
-        onSave={() => void save()} onPreview={() => void openPreview(preview.snapshot().product?.slug)} onPublish={() => void publish()}
-      />
-      {services && <PreviewBar kind={previewData.kind} error={previewData.error} onProduct={previewData.chooseProduct} onCollection={previewData.chooseCollection} />}
-      <div className="flex min-h-0 flex-1">
-        <aside className="w-64 shrink-0 overflow-y-auto border-r border-neutral-200 bg-white" aria-label="Components and layers">
-          <h2 className="px-3 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">Components</h2>
-          <div ref={blocksRef} />
-          <h2 className="px-3 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">Layers</h2>
-          <div ref={layersRef} />
-        </aside>
-        <main className="min-w-0 flex-1" aria-label="Canvas"><div ref={canvasRef} className="h-full" /></main>
-        <aside className="w-80 shrink-0 overflow-y-auto border-l border-neutral-200 bg-white p-4" aria-label="Inspector">
-          {editor && services && (
-            <Inspector editor={editor} device={device} settings={settings} onSaveSettings={s => void saveSettings(s)} savingSettings={savingSettings} />
-          )}
-        </aside>
+  return (
+    <EditorServicesProvider value={services ?? null}>
+      <div className="flex h-screen flex-col bg-neutral-100 text-neutral-900">
+        <Toolbar
+          themeName={draft?.theme.name ?? 'Theme'} documents={draft?.documents ?? []} doc={doc} onDoc={setDoc}
+          editor={editor} device={device} onDevice={setDevice} dirty={dirty} status={status}
+          onSave={() => void save()} onPreview={() => void openPreview(preview.snapshot().product?.slug)} onPublish={() => void publish()}
+        />
+        {services && <PreviewBar kind={previewData.kind} error={previewData.error} onProduct={previewData.chooseProduct} onCollection={previewData.chooseCollection} />}
+        <div className="flex min-h-0 flex-1">
+          <aside className="w-64 shrink-0 overflow-y-auto border-r border-neutral-200 bg-white" aria-label="Components and layers">
+            <h2 className="px-3 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">Components</h2>
+            <div ref={blocksRef} />
+            <h2 className="px-3 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">Layers</h2>
+            <div ref={layersRef} />
+          </aside>
+          <main className="min-w-0 flex-1" aria-label="Canvas"><div ref={canvasRef} className="h-full" /></main>
+          <aside className="w-80 shrink-0 overflow-y-auto border-l border-neutral-200 bg-white p-4" aria-label="Inspector">
+            {editor && services && (
+              <Inspector editor={editor} device={device} settings={settings} onSaveSettings={s => void saveSettings(s)} savingSettings={savingSettings} />
+            )}
+          </aside>
+        </div>
       </div>
-    </div>
+    </EditorServicesProvider>
   )
-  return services ? <EditorServicesProvider value={services}>{body}</EditorServicesProvider> : body
 }
