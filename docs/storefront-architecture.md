@@ -127,12 +127,20 @@ newsletter subscription (D8), richer facets (later).
 ## 7. SSR runtime
 
 - `server/` is a small `node:http` server: resolves `/store/:channelKey/...`, loads the live theme
-  index, fetches the template document (in-memory cache keyed by immutable version id), prefetches
+  index, fetches the template document (in-memory LRU honouring the backend's `Cache-Control`:
+  published documents immutable, live index 30s, previews never cached — `server/httpCache.ts`), prefetches
   template data with TanStack Query, renders React, embeds dehydrated state, serves hashed static
   assets with long cache. Dev uses Vite in middleware mode.
 - Backend is called over an internal URL (`STOREFRONT_API_INTERNAL_URL`).
 - Cart, checkout, account render their shell server-side and load per-shopper data client-side
   (no shopper tokens in SSR cache).
+- SEO: canonical URL + Open Graph + schema.org JSON-LD (Product, BreadcrumbList, Organization) on
+  indexable pages; cart/checkout/account/login/wishlist/order/search/built-in pages are `noindex`.
+  `/store/{key}/sitemap.xml` from the live theme's pages + `GET /storefront/v1/sitemap`. Both need
+  `STOREFRONT_PUBLIC_URL`. (No per-store robots.txt: `/store` shares its host with the API.)
+- Performance budget: `npm run build` fails if the JS loaded up front exceeds 120 KB gz or contains GrapesJS.
+- Shopper sign-in links are built from the channel (hosted `/login`, or a headless channel's configured
+  `sign_in_url`), never from the request.
 
 ## 8. GrapesJS integration
 
@@ -149,8 +157,8 @@ pickers (asset, product, collection, page/link), preview-context picker for prod
 2. Foundation — done: channel storefront mode, theme domain/persistence/API, storefront app (SSR server, runtime, GrapesJS editor shell), registry, admin theme library.
 3. Editor MVP — done: inspector (props + styles per breakpoint), theme settings, media library (migration 189), layout/content/product-grid/product-card components, undo/redo, save/preview/publish, E2E spec.
 4. Ecommerce — done: collections domain (migration 190, manual + smart, admin UI), product by slug, store info; product/collection/search/cart pages and components; editor previews templates with real products/collections.
-5. Default theme — header/footer/navigation (logo, menu, cart icon, search), hero, banner, featured categories, newsletter (proposal first), login/account/wishlist, checkout form.
-6. Publishing/runtime hardening — rollback UI, caching, SEO (sitemap, structured data), performance budget, version retention.
+5. Default theme — done: header/footer/navigation (logo, menu, cart, search, account), hero, banner, collection list, newsletter (double opt-in, migration 191, admin list/export/erase), login/account/wishlist, hosted-payment checkout form, order status.
+6. Publishing/runtime hardening — done: rollback UI (version history), SSR cache, SEO (canonical, OG, JSON-LD, sitemap), performance budget, version retention (newest 20 published kept, pruned on publish). Security fix: sign-in link target (migration 192).
 
 ## 10. Collections (approved 2026-09-28)
 
