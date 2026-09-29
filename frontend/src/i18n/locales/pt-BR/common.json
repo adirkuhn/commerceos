@@ -1,0 +1,68 @@
+{
+  "actions": {
+    "add": "Adicionar",
+    "apply": "Aplicar",
+    "back": "Voltar",
+    "cancel": "Cancelar",
+    "clear": "Limpar",
+    "close": "Fechar",
+    "confirm": "Confirmar",
+    "create": "Criar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "export": "Exportar",
+    "import": "Importar",
+    "next": "Próximo",
+    "no": "Não",
+    "open": "Abrir",
+    "previous": "Anterior",
+    "refresh": "Atualizar",
+    "remove": "Remover",
+    "retry": "Tentar novamente",
+    "save": "Salvar",
+    "saveChanges": "Salvar alterações",
+    "saving": "Salvando…",
+    "search": "Buscar",
+    "view": "Ver",
+    "yes": "Sim"
+  },
+  "fields": {
+    "actions": "Ações",
+    "created": "Criado em",
+    "currency": "Moeda",
+    "customer": "Cliente",
+    "date": "Data",
+    "description": "Descrição",
+    "email": "E-mail",
+    "name": "Nome",
+    "notes": "Observações",
+    "price": "Preço",
+    "product": "Produto",
+    "quantity": "Quantidade",
+    "sku": "SKU",
+    "status": "Status",
+    "supplier": "Fornecedor",
+    "total": "Total",
+    "type": "Tipo",
+    "updated": "Atualizado em",
+    "warehouse": "Depósito"
+  },
+  "language": {
+    "label": "Idioma"
+  },
+  "pagination": {
+    "nextPage": "Próxima página",
+    "previousPage": "Página anterior",
+    "range": "{{from}}–{{to}} de {{total}}"
+  },
+  "status": {
+    "active": "Ativo",
+    "disabled": "Desativado",
+    "enabled": "Ativado",
+    "error": "Algo deu errado",
+    "inactive": "Inativo",
+    "loading": "Carregando…",
+    "noResults": "Nenhum resultado",
+    "saved": "Salvo"
+  }
+}

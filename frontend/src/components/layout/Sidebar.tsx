@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, LogOut } from 'lucide-react'
 import { BrandMark } from '../brand/BrandMark'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
 import { useProducts } from '../../pms/hooks/useProducts'
@@ -16,6 +17,8 @@ function initiallyOpen(groups: NavGroup[], active: NavItem): Set<string> {
 
 export default function Sidebar() {
   const { activeNav, setActiveNav } = useApp()
+  // Re-renders the menu when the language changes (labels come from i18next).
+  const { t } = useTranslation('layout')
   const { user, token } = useAuth()
   // Only page 1 is fetched here — the badge needs the server-side total,
   // not the current page's item count, now that products are paginated.
@@ -72,7 +75,7 @@ export default function Sidebar() {
         <span className="font-semibold text-sm text-ink tracking-tight">CommerceOS</span>
       </div>
 
-      <nav aria-label="Main" className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+      <nav aria-label={t('ui.mainNav')} className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         {renderLink(HOME_LINK)}
         {groups.map(group => {
           const expanded = open.has(group.id)
@@ -106,6 +109,7 @@ export default function Sidebar() {
 
 function AccountMenu({ role }: { role?: string }) {
   const { logout } = useAuth()
+  const { t } = useTranslation('layout')
   const [open, setOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const itemRef = useRef<HTMLButtonElement>(null)
@@ -127,11 +131,11 @@ function AccountMenu({ role }: { role?: string }) {
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
             role="menu"
-            aria-label="Account"
+            aria-label={t('ui.account')}
             onKeyDown={e => { if (e.key === 'Escape') close() }}
             className="absolute bottom-full left-3 right-3 mb-2 z-50 rounded-xl bg-raised border border-line shadow-2xl p-1"
           >
-            <p className="px-2.5 pt-1.5 pb-1 text-2xs text-ink-4">Signed in as</p>
+            <p className="px-2.5 pt-1.5 pb-1 text-2xs text-ink-4">{t('ui.signedInAs')}</p>
             <p className="px-2.5 pb-2 text-xs font-medium text-ink">{label}</p>
             <div className="border-t border-line my-1" />
             <button
@@ -141,7 +145,7 @@ function AccountMenu({ role }: { role?: string }) {
               className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs text-ink-2 hover:bg-hover"
             >
               <LogOut size={14} aria-hidden />
-              Sign out
+              {t('ui.signOut')}
             </button>
           </div>
         </>
@@ -151,7 +155,7 @@ function AccountMenu({ role }: { role?: string }) {
         onClick={() => setOpen(o => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Account: ${label}`}
+        aria-label={t('ui.accountOf', { name: label })}
         className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-hover text-left"
       >
         <span className="w-7 h-7 rounded-full bg-fill border border-line flex items-center justify-center text-2xs font-semibold text-ink-2 shrink-0" aria-hidden>

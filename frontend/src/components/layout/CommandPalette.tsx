@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Search, Package, ShoppingCart, Factory, Users, Loader2 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
@@ -34,6 +35,7 @@ interface PaletteEntry {
 export default function CommandPalette() {
   const { commandOpen, setCommandOpen, setActiveNav } = useApp()
   const { token, user } = useAuth()
+  const { t } = useTranslation(['layout', 'common'])
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxId = useId()
@@ -80,7 +82,7 @@ export default function CommandPalette() {
     const timer = setTimeout(() => {
       globalSearch(token, trimmed)
         .then(setResults)
-        .catch(err => setSearchError(err instanceof Error ? err.message : 'Search failed'))
+        .catch(err => setSearchError(err instanceof Error ? err.message : t('ui.searchFailed')))
         .finally(() => setSearching(false))
     }, SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(timer)
@@ -106,38 +108,38 @@ export default function CommandPalette() {
 
   // Same pages, names and role gating as the sidebar.
   const navEntries: PaletteEntry[] = [HOME_LINK, ...navGroupsForRole(user?.role).flatMap(g => g.items)]
-    .map(link => ({ link, label: `Go to ${navTitle(link.id)}` }))
+    .map(link => ({ link, label: t('ui.goTo', { page: navTitle(link.id) }) }))
     .filter(({ label }) => query.trim() === '' || label.toLowerCase().includes(query.trim().toLowerCase()))
     .map(({ link, label }) => ({
-      key: `nav-${link.id}`, section: 'Navigation', icon: link.icon, label,
+      key: `nav-${link.id}`, section: t('ui.sectionNavigation'), icon: link.icon, label,
       shortcut: shortcutFor(link.id), onSelect: () => openNav(link.id),
     }))
 
   const productEntries: PaletteEntry[] = (results?.products ?? []).map(p => ({
-    key: `product-${p.id}`, section: 'Products', icon: Package, label: p.name,
+    key: `product-${p.id}`, section: t('ui.sectionProducts'), icon: Package, label: p.name,
     onSelect: () => openRecord('products', p.id),
   }))
   const supplierEntries: PaletteEntry[] = (results?.suppliers ?? []).map(s => ({
-    key: `supplier-${s.id}`, section: 'Suppliers', icon: Factory, label: s.name, sublabel: s.email,
+    key: `supplier-${s.id}`, section: t('ui.sectionSuppliers'), icon: Factory, label: s.name, sublabel: s.email,
     onSelect: () => openRecord('suppliers', s.id),
   }))
   const customerEntries: PaletteEntry[] = (results?.customers ?? []).map(c => ({
-    key: `customer-${c.id}`, section: 'Customers', icon: Users,
-    label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || 'Customer',
+    key: `customer-${c.id}`, section: t('ui.sectionCustomers'), icon: Users,
+    label: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || t('ui.customerFallback'),
     sublabel: c.email, onSelect: () => openRecord('customers', c.id),
   }))
   const salesOrderEntries: PaletteEntry[] = (results?.sales_orders ?? []).map(o => ({
-    key: `order-${o.id}`, section: 'Sales Orders', icon: ShoppingCart, label: `#${o.number}`,
+    key: `order-${o.id}`, section: t('ui.sectionSalesOrders'), icon: ShoppingCart, label: `#${o.number}`,
     sublabel: [o.billing_first_name, o.billing_last_name].filter(Boolean).join(' ') || o.status,
     onSelect: () => openRecord('sales-orders', o.id),
   }))
 
   const sections: { title: string; entries: PaletteEntry[] }[] = [
-    { title: 'Navigation', entries: navEntries },
-    { title: 'Products', entries: productEntries },
-    { title: 'Suppliers', entries: supplierEntries },
-    { title: 'Customers', entries: customerEntries },
-    { title: 'Sales Orders', entries: salesOrderEntries },
+    { title: t('ui.sectionNavigation'), entries: navEntries },
+    { title: t('ui.sectionProducts'), entries: productEntries },
+    { title: t('ui.sectionSuppliers'), entries: supplierEntries },
+    { title: t('ui.sectionCustomers'), entries: customerEntries },
+    { title: t('ui.sectionSalesOrders'), entries: salesOrderEntries },
   ].filter(s => s.entries.length > 0)
 
   const flatEntries = sections.flatMap(s => s.entries)
@@ -161,7 +163,7 @@ export default function CommandPalette() {
   const activeEntryExists = activeIndex < flatEntries.length
 
   return (
-    <Dialog onClose={() => setCommandOpen(false)} label="Search" className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]">
+    <Dialog onClose={() => setCommandOpen(false)} label={t('common:actions.search')} className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]">
       <div
         className="absolute inset-0 dark:bg-black/60 bg-black/30 backdrop-blur-sm"
         onClick={() => setCommandOpen(false)}
@@ -177,7 +179,7 @@ export default function CommandPalette() {
             ref={inputRef}
             type="text"
             role="combobox"
-            aria-label="Search"
+            aria-label={t('common:actions.search')}
             aria-expanded={flatEntries.length > 0}
             aria-controls={listboxId}
             aria-autocomplete="list"
@@ -185,18 +187,18 @@ export default function CommandPalette() {
             value={query}
             onChange={e => { setQuery(e.target.value); setActiveIndex(0) }}
             onKeyDown={handleKeyDown}
-            placeholder="Search everything..."
+            placeholder={t('ui.searchEverything')}
             className="flex-1 bg-transparent text-sm text-ink placeholder-ink-4 outline-none"
           />
           <kbd className="text-2xs bg-fill text-ink-4 px-1.5 py-1 rounded font-mono">ESC</kbd>
         </div>
-        <div id={listboxId} role="listbox" aria-label="Results" className="py-2 max-h-96 overflow-y-auto">
+        <div id={listboxId} role="listbox" aria-label={t('ui.results')} className="py-2 max-h-96 overflow-y-auto">
           {searchError && (
             <p role="alert" className="px-4 py-2 text-xs text-danger">{searchError}</p>
           )}
           {flatEntries.length === 0 && !searching && (
             <p className="px-4 py-4 text-sm text-ink-4 text-center">
-              {hasBackendSearch ? 'No results' : 'No matching commands'}
+              {hasBackendSearch ? t('common:status.noResults') : t('ui.noMatchingCommands')}
             </p>
           )}
           {sections.map(section => (

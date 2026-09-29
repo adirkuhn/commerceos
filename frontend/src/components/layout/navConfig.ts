@@ -1,4 +1,5 @@
 import type { ElementType } from 'react'
+import i18next from 'i18next'
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
   ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3, Ticket, Star,
@@ -26,83 +27,83 @@ export interface NavGroup {
 // Single source for navigation: the Sidebar renders it, the Topbar takes
 // page titles from it and the command palette lists it -- so a page's name
 // is the same everywhere.
-export const HOME_LINK: NavLink = { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }
+export const HOME_LINK: NavLink = { id: 'dashboard', get label() { return i18next.t('layout:nav.dashboard') }, icon: LayoutDashboard }
 
 const GROUPS: NavGroup[] = [
   {
-    id: 'sell', label: 'Sell', items: [
-      { id: 'sales-orders', label: 'Sales Orders', icon: ShoppingCart },
-      { id: 'customers', label: 'Customers', icon: Users },
-      { id: 'sales-channels', label: 'Sales Channels', icon: Radio },
+    id: 'sell', get label() { return i18next.t('layout:group.sell') }, items: [
+      { id: 'sales-orders', get label() { return i18next.t('layout:nav.salesOrders') }, icon: ShoppingCart },
+      { id: 'customers', get label() { return i18next.t('layout:nav.customers') }, icon: Users },
+      { id: 'sales-channels', get label() { return i18next.t('layout:nav.salesChannels') }, icon: Radio },
     ],
   },
   {
-    id: 'fulfill', label: 'Fulfill', items: [
-      { id: 'picking', label: 'Picking', icon: ScanBarcode },
-      { id: 'packing', label: 'Packing', icon: PackageCheck },
-      { id: 'stock-issues', label: 'Stock Issues', icon: AlertTriangle },
+    id: 'fulfill', get label() { return i18next.t('layout:group.fulfill') }, items: [
+      { id: 'picking', get label() { return i18next.t('layout:nav.picking') }, icon: ScanBarcode },
+      { id: 'packing', get label() { return i18next.t('layout:nav.packing') }, icon: PackageCheck },
+      { id: 'stock-issues', get label() { return i18next.t('layout:nav.stockIssues') }, icon: AlertTriangle },
     ],
   },
   {
-    id: 'catalog', label: 'Catalog', items: [
-      { id: 'products', label: 'Products', icon: Package },
-      { id: 'collections', label: 'Collections', icon: Layers },
-      { id: 'inventory', label: 'Inventory', icon: Boxes },
-      { id: 'warehouses', label: 'Warehouses', icon: Warehouse },
-      { id: 'unmatched-skus', label: 'Unmatched SKUs', icon: PackageSearch },
+    id: 'catalog', get label() { return i18next.t('layout:group.catalog') }, items: [
+      { id: 'products', get label() { return i18next.t('layout:nav.products') }, icon: Package },
+      { id: 'collections', get label() { return i18next.t('layout:nav.collections') }, icon: Layers },
+      { id: 'inventory', get label() { return i18next.t('layout:nav.inventory') }, icon: Boxes },
+      { id: 'warehouses', get label() { return i18next.t('layout:nav.warehouses') }, icon: Warehouse },
+      { id: 'unmatched-skus', get label() { return i18next.t('layout:nav.unmatchedSkus') }, icon: PackageSearch },
     ],
   },
   {
-    id: 'buy', label: 'Buy', items: [
-      { id: 'suppliers', label: 'Suppliers', icon: Truck },
-      { id: 'procurement', label: 'Procurement', icon: ShoppingBag },
+    id: 'buy', get label() { return i18next.t('layout:group.buy') }, items: [
+      { id: 'suppliers', get label() { return i18next.t('layout:nav.suppliers') }, icon: Truck },
+      { id: 'procurement', get label() { return i18next.t('layout:nav.procurement') }, icon: ShoppingBag },
     ],
   },
   {
-    id: 'marketing', label: 'Marketing', items: [
-      { id: 'promotions', label: 'Promotions', icon: Tag },
-      { id: 'coupons', label: 'Coupons', icon: Ticket },
-      { id: 'reviews', label: 'Reviews', icon: Star },
-      { id: 'message-center', label: 'Message Center', icon: MessageSquare },
-      { id: 'newsletter', label: 'Newsletter', icon: Mail },
+    id: 'marketing', get label() { return i18next.t('layout:group.marketing') }, items: [
+      { id: 'promotions', get label() { return i18next.t('layout:nav.promotions') }, icon: Tag },
+      { id: 'coupons', get label() { return i18next.t('layout:nav.coupons') }, icon: Ticket },
+      { id: 'reviews', get label() { return i18next.t('layout:nav.reviews') }, icon: Star },
+      { id: 'message-center', get label() { return i18next.t('layout:nav.messageCenter') }, icon: MessageSquare },
+      { id: 'newsletter', get label() { return i18next.t('layout:nav.newsletter') }, icon: Mail },
     ],
   },
   {
-    id: 'reports', label: 'Reports', collapsedByDefault: true, qualifyTitles: true, items: [
-      { id: 'reports-overview', label: 'Overview', icon: BarChart3 },
-      { id: 'reports-sales-trends', label: 'Sales Trends', icon: BarChart3 },
-      { id: 'reports-product-performance', label: 'Product Performance', icon: BarChart3 },
-      { id: 'reports-product-performance-matrix', label: 'Performance Matrix', icon: BarChart3 },
-      { id: 'reports-product-lifecycle', label: 'Product Lifecycle', icon: BarChart3 },
-      { id: 'reports-category-performance', label: 'Category Performance', icon: BarChart3 },
-      { id: 'reports-slow-moving-products', label: 'Slow-Moving Products', icon: BarChart3 },
-      { id: 'reports-stockout-risk', label: 'Stockout Risk', icon: BarChart3 },
-      { id: 'reports-inventory-sales', label: 'Inventory + Sales', icon: BarChart3 },
-      { id: 'reports-customer-performance', label: 'Customer Performance', icon: BarChart3 },
-      { id: 'reports-customer-cohorts', label: 'Customer Cohorts', icon: BarChart3 },
-      { id: 'reports-customer-rfm', label: 'Customer Segments (RFM)', icon: BarChart3 },
-      { id: 'reports-frequently-bought-together', label: 'Frequently Bought Together', icon: BarChart3 },
+    id: 'reports', get label() { return i18next.t('layout:group.reports') }, collapsedByDefault: true, qualifyTitles: true, items: [
+      { id: 'reports-overview', get label() { return i18next.t('layout:nav.reportsOverview') }, icon: BarChart3 },
+      { id: 'reports-sales-trends', get label() { return i18next.t('layout:nav.reportsSalesTrends') }, icon: BarChart3 },
+      { id: 'reports-product-performance', get label() { return i18next.t('layout:nav.reportsProductPerformance') }, icon: BarChart3 },
+      { id: 'reports-product-performance-matrix', get label() { return i18next.t('layout:nav.reportsPerformanceMatrix') }, icon: BarChart3 },
+      { id: 'reports-product-lifecycle', get label() { return i18next.t('layout:nav.reportsProductLifecycle') }, icon: BarChart3 },
+      { id: 'reports-category-performance', get label() { return i18next.t('layout:nav.reportsCategoryPerformance') }, icon: BarChart3 },
+      { id: 'reports-slow-moving-products', get label() { return i18next.t('layout:nav.reportsSlowMoving') }, icon: BarChart3 },
+      { id: 'reports-stockout-risk', get label() { return i18next.t('layout:nav.reportsStockoutRisk') }, icon: BarChart3 },
+      { id: 'reports-inventory-sales', get label() { return i18next.t('layout:nav.reportsInventorySales') }, icon: BarChart3 },
+      { id: 'reports-customer-performance', get label() { return i18next.t('layout:nav.reportsCustomerPerformance') }, icon: BarChart3 },
+      { id: 'reports-customer-cohorts', get label() { return i18next.t('layout:nav.reportsCustomerCohorts') }, icon: BarChart3 },
+      { id: 'reports-customer-rfm', get label() { return i18next.t('layout:nav.reportsCustomerRfm') }, icon: BarChart3 },
+      { id: 'reports-frequently-bought-together', get label() { return i18next.t('layout:nav.reportsFrequentlyBoughtTogether') }, icon: BarChart3 },
     ],
   },
   {
-    id: 'connect', label: 'Connect', items: [
-      { id: 'integrations', label: 'Integrations', icon: Plug },
-      { id: 'webhooks', label: 'Webhooks', icon: Webhook },
-      { id: 'sync-log', label: 'Sync History', icon: History },
+    id: 'connect', get label() { return i18next.t('layout:group.connect') }, items: [
+      { id: 'integrations', get label() { return i18next.t('layout:nav.integrations') }, icon: Plug },
+      { id: 'webhooks', get label() { return i18next.t('layout:nav.webhooks') }, icon: Webhook },
+      { id: 'sync-log', get label() { return i18next.t('layout:nav.syncLog') }, icon: History },
     ],
   },
 ]
 
 // Team management calls lm2's company-owner endpoints (team/api.ts);
 // platform operations match the backend's RequireRole(RoleSuperAdmin).
-const USERS_LINK: NavLink = { id: 'users', label: 'Users & Roles', icon: UserCog }
-const SCHEDULED_JOBS_LINK: NavLink = { id: 'scheduled-jobs', label: 'Scheduled Jobs', icon: Clock }
-const SETTINGS_LINK: NavLink = { id: 'settings', label: 'Settings', icon: Settings }
+const USERS_LINK: NavLink = { id: 'users', get label() { return i18next.t('layout:nav.users') }, icon: UserCog }
+const SCHEDULED_JOBS_LINK: NavLink = { id: 'scheduled-jobs', get label() { return i18next.t('layout:nav.scheduledJobs') }, icon: Clock }
+const SETTINGS_LINK: NavLink = { id: 'settings', get label() { return i18next.t('layout:nav.settings') }, icon: Settings }
 
 // Pages reachable by URL but not listed in the sidebar (demo screens).
-const UNLISTED_TITLES: Partial<Record<NavItem, string>> = {
-  orders: 'Orders',
-  shipping: 'Shipping',
+const UNLISTED_TITLES: Partial<Record<NavItem, () => string>> = {
+  orders: () => i18next.t('layout:nav.orders'),
+  shipping: () => i18next.t('layout:nav.shipping'),
 }
 
 export function navGroupsForRole(role?: string): NavGroup[] {
@@ -111,7 +112,7 @@ export function navGroupsForRole(role?: string): NavGroup[] {
     ...(role === 'super_admin' ? [SCHEDULED_JOBS_LINK] : []),
     SETTINGS_LINK,
   ]
-  return [...GROUPS, { id: 'admin', label: 'Admin', items: admin }]
+  return [...GROUPS, { id: 'admin', get label() { return i18next.t('layout:group.admin') }, items: admin }]
 }
 
 const ALL_GROUPS = navGroupsForRole('super_admin')
@@ -120,9 +121,9 @@ export function navTitle(nav: NavItem): string {
   if (nav === HOME_LINK.id) return HOME_LINK.label
   for (const group of ALL_GROUPS) {
     const link = group.items.find(i => i.id === nav)
-    if (link) return group.qualifyTitles ? `${group.label}: ${link.label}` : link.label
+    if (link) return group.qualifyTitles ? i18next.t('layout:ui.qualifiedTitle', { group: group.label, page: link.label }) : link.label
   }
-  return UNLISTED_TITLES[nav] ?? nav
+  return UNLISTED_TITLES[nav]?.() ?? nav
 }
 
 // "g then <letter>" jumps (see shortcuts/useGoToShortcuts). Kept to the
@@ -140,13 +141,12 @@ export function shortcutFor(nav: NavItem): string | undefined {
   return letter ? `G ${letter.toUpperCase()}` : undefined
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  customer_owner: 'Owner',
-  customer_admin: 'Admin',
-  customer_user: 'User',
-  super_admin: 'Platform admin',
-}
-
 export function roleLabel(role: string | undefined): string {
-  return (role && ROLE_LABELS[role]) || 'Signed in'
+  switch (role) {
+    case 'customer_owner': return i18next.t('layout:role.customer_owner')
+    case 'customer_admin': return i18next.t('layout:role.customer_admin')
+    case 'customer_user': return i18next.t('layout:role.customer_user')
+    case 'super_admin': return i18next.t('layout:role.super_admin')
+    default: return i18next.t('layout:role.signedIn')
+  }
 }

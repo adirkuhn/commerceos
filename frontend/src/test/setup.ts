@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom/vitest'
 import { afterAll, afterEach } from 'vitest'
 import { cleanup, configure } from '@testing-library/react'
+import { initI18n } from '../i18n/i18n'
+
+// Tests render the admin in English unless they switch language.
+initI18n('en')
 
 // findBy*/waitFor default to 1s. Pages now navigate through a data router
 // (view state lives in the URL), whose updates commit in a React

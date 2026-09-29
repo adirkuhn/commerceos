@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Bell } from 'lucide-react'
 import clsx from 'clsx'
 import { useNavigate } from 'react-router-dom'
@@ -9,6 +10,7 @@ import { useDateFormat } from '../../format/DateFormatProvider'
 
 export default function NotificationBell() {
   const { token } = useAuth()
+  const { t } = useTranslation(['layout', 'common'])
   const { formatDateTime } = useDateFormat()
   const { notifications, unreadCount, loading, error, refresh, markRead, markAllRead } = useNotifications(token ?? '')
   const [open, setOpen] = useState(false)
@@ -32,7 +34,7 @@ export default function NotificationBell() {
     <div className="relative">
       <button
         onClick={toggleOpen}
-        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+        aria-label={unreadCount > 0 ? t('ui.notificationsUnread', { count: unreadCount }) : t('ui.notifications')}
         aria-haspopup="true"
         aria-expanded={open}
         className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-hover transition-colors"
@@ -53,22 +55,22 @@ export default function NotificationBell() {
             className="absolute right-0 top-10 z-50 w-80 max-h-96 flex flex-col bg-raised rounded-xl shadow-2xl border border-line overflow-hidden"
           >
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-line shrink-0">
-              <p className="text-xs font-semibold text-ink">Notifications</p>
+              <p className="text-xs font-semibold text-ink">{t('ui.notifications')}</p>
               {unreadCount > 0 && (
                 <button
                   onClick={() => markAllRead()}
                   className="text-2xs font-medium text-accent hover:text-accent/80 transition-colors"
                 >
-                  Mark all read
+                  {t('ui.markAllRead')}
                 </button>
               )}
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {loading && <p className="p-4 text-xs text-center text-ink-4">Loading…</p>}
+              {loading && <p className="p-4 text-xs text-center text-ink-4">{t('common:status.loading')}</p>}
               {error && <p className="p-4 text-xs text-center text-danger">{error}</p>}
               {!loading && !error && notifications.length === 0 && (
-                <p className="p-4 text-xs text-center text-ink-4">No notifications yet.</p>
+                <p className="p-4 text-xs text-center text-ink-4">{t('ui.noNotifications')}</p>
               )}
               {notifications.map(n => (
                 <button

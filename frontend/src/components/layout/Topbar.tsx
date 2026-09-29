@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, Sun, Moon, Monitor, Command, QrCode } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
@@ -6,17 +7,15 @@ import { PairScannerModal } from '../../scanner/PairScannerModal'
 import NotificationBell from './NotificationBell'
 import type { ThemePreference } from '../../theme/themePreference'
 import { navTitle } from './navConfig'
+import { LanguageSelect } from './LanguageSelect'
 
-const APPEARANCE: Record<ThemePreference, { label: string; icon: React.ElementType }> = {
-  system: { label: 'System', icon: Monitor },
-  light: { label: 'Light', icon: Sun },
-  dark: { label: 'Dark', icon: Moon },
-}
+const APPEARANCE_ICON: Record<ThemePreference, React.ElementType> = { system: Monitor, light: Sun, dark: Moon }
 
 export default function Topbar() {
   const { activeNav, themePreference, cycleThemePreference, setCommandOpen } = useApp()
-  const appearance = APPEARANCE[themePreference]
-  const AppearanceIcon = appearance.icon
+  const { t } = useTranslation('layout')
+  const appearanceLabel = { system: t('ui.appearanceSystem'), light: t('ui.appearanceLight'), dark: t('ui.appearanceDark') }[themePreference]
+  const AppearanceIcon = APPEARANCE_ICON[themePreference]
   const { token } = useAuth()
   const [pairScannerOpen, setPairScannerOpen] = useState(false)
 
@@ -32,7 +31,7 @@ export default function Topbar() {
         className="flex-1 max-w-sm flex items-center gap-2 px-3 py-1.5 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-4 text-xs hover:bg-hover transition-colors"
       >
         <Search size={13} />
-        <span className="flex-1 text-left">Search everything...</span>
+        <span className="flex-1 text-left">{t('ui.searchEverything')}</span>
         <span className="flex items-center gap-0.5 bg-surface px-1.5 py-0.5 rounded text-2xs text-ink-4 font-mono">
           <Command size={10} />K
         </span>
@@ -42,12 +41,14 @@ export default function Topbar() {
         {/* Pair a handheld scanner -- global, not tied to any one page */}
         <button
           onClick={() => setPairScannerOpen(true)}
-          title="Pair scanner"
-          aria-label="Pair scanner"
+          title={t('ui.pairScanner')}
+          aria-label={t('ui.pairScanner')}
           className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-hover transition-colors"
         >
           <QrCode size={16} className="text-ink-3" />
         </button>
+
+        <LanguageSelect />
 
         {/* Notifications */}
         <NotificationBell />
@@ -55,8 +56,8 @@ export default function Topbar() {
         {/* Appearance: follows the OS by default, click to override */}
         <button
           onClick={cycleThemePreference}
-          aria-label={`Appearance: ${appearance.label}`}
-          title={`Appearance: ${appearance.label}`}
+          aria-label={t('ui.appearance', { mode: appearanceLabel })}
+          title={t('ui.appearance', { mode: appearanceLabel })}
           className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-hover transition-colors"
         >
           <AppearanceIcon size={16} className="text-ink-3" />

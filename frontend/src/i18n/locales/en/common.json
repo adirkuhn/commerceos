@@ -1,0 +1,68 @@
+{
+  "actions": {
+    "add": "Add",
+    "apply": "Apply",
+    "back": "Back",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "close": "Close",
+    "confirm": "Confirm",
+    "create": "Create",
+    "delete": "Delete",
+    "edit": "Edit",
+    "export": "Export",
+    "import": "Import",
+    "next": "Next",
+    "no": "No",
+    "open": "Open",
+    "previous": "Previous",
+    "refresh": "Refresh",
+    "remove": "Remove",
+    "retry": "Try again",
+    "save": "Save",
+    "saveChanges": "Save changes",
+    "saving": "Saving…",
+    "search": "Search",
+    "view": "View",
+    "yes": "Yes"
+  },
+  "fields": {
+    "actions": "Actions",
+    "created": "Created",
+    "currency": "Currency",
+    "customer": "Customer",
+    "date": "Date",
+    "description": "Description",
+    "email": "Email",
+    "name": "Name",
+    "notes": "Notes",
+    "price": "Price",
+    "product": "Product",
+    "quantity": "Quantity",
+    "sku": "SKU",
+    "status": "Status",
+    "supplier": "Supplier",
+    "total": "Total",
+    "type": "Type",
+    "updated": "Updated",
+    "warehouse": "Warehouse"
+  },
+  "language": {
+    "label": "Language"
+  },
+  "pagination": {
+    "nextPage": "Next page",
+    "previousPage": "Previous page",
+    "range": "{{from}}–{{to}} of {{total}}"
+  },
+  "status": {
+    "active": "Active",
+    "disabled": "Disabled",
+    "enabled": "Enabled",
+    "error": "Something went wrong",
+    "inactive": "Inactive",
+    "loading": "Loading…",
+    "noResults": "No results",
+    "saved": "Saved"
+  }
+}

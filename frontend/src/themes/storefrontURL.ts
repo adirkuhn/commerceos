@@ -12,6 +12,7 @@ export function storefrontOrigin(env: { VITE_STOREFRONT_URL?: string; VITE_API_B
 
 export const storeURL = (channelId: string, origin = storefrontOrigin()) => `${origin}/store/${encodeURIComponent(channelId)}/`
 
-/** The token rides in the fragment: it never reaches a server or its logs. */
-export const editorURL = (sessionToken: string, origin = storefrontOrigin()) =>
-  `${origin}/store/editor#session=${encodeURIComponent(sessionToken)}`
+/** The token rides in the fragment: it never reaches a server or its logs.
+ *  lang is the admin user's language, so the editor speaks it too. */
+export const editorURL = (sessionToken: string, lang: string, origin = storefrontOrigin()) =>
+  `${origin}/store/editor#session=${encodeURIComponent(sessionToken)}&lang=${encodeURIComponent(lang)}`

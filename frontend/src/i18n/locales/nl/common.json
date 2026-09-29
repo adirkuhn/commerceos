@@ -1,0 +1,68 @@
+{
+  "actions": {
+    "add": "Toevoegen",
+    "apply": "Toepassen",
+    "back": "Terug",
+    "cancel": "Annuleren",
+    "clear": "Wissen",
+    "close": "Sluiten",
+    "confirm": "Bevestigen",
+    "create": "Aanmaken",
+    "delete": "Verwijderen",
+    "edit": "Bewerken",
+    "export": "Exporteren",
+    "import": "Importeren",
+    "next": "Volgende",
+    "no": "Nee",
+    "open": "Openen",
+    "previous": "Vorige",
+    "refresh": "Vernieuwen",
+    "remove": "Verwijderen",
+    "retry": "Opnieuw proberen",
+    "save": "Opslaan",
+    "saveChanges": "Wijzigingen opslaan",
+    "saving": "Opslaan…",
+    "search": "Zoeken",
+    "view": "Bekijken",
+    "yes": "Ja"
+  },
+  "fields": {
+    "actions": "Acties",
+    "created": "Aangemaakt",
+    "currency": "Valuta",
+    "customer": "Klant",
+    "date": "Datum",
+    "description": "Omschrijving",
+    "email": "E-mail",
+    "name": "Naam",
+    "notes": "Notities",
+    "price": "Prijs",
+    "product": "Product",
+    "quantity": "Aantal",
+    "sku": "SKU",
+    "status": "Status",
+    "supplier": "Leverancier",
+    "total": "Totaal",
+    "type": "Type",
+    "updated": "Bijgewerkt",
+    "warehouse": "Magazijn"
+  },
+  "language": {
+    "label": "Taal"
+  },
+  "pagination": {
+    "nextPage": "Volgende pagina",
+    "previousPage": "Vorige pagina",
+    "range": "{{from}}–{{to}} van {{total}}"
+  },
+  "status": {
+    "active": "Actief",
+    "disabled": "Uitgeschakeld",
+    "enabled": "Ingeschakeld",
+    "error": "Er ging iets mis",
+    "inactive": "Inactief",
+    "loading": "Laden…",
+    "noResults": "Geen resultaten",
+    "saved": "Opgeslagen"
+  }
+}

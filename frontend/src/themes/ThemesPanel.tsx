@@ -7,6 +7,7 @@ import { useQueryString } from '../routing/useQueryState'
 import type { SalesChannel } from '../integrations/types'
 import { createThemeSession } from './api'
 import { editorURL, storeURL } from './storefrontURL'
+import { currentLocale } from '../i18n/i18n'
 import { useThemes } from './useThemes'
 import { VersionHistory } from './VersionHistory'
 import type { Theme, VersionSummary } from './types'
@@ -53,7 +54,7 @@ export function ThemesPanel({ channel, onClose }: Props) {
       const session = await createThemeSession(token ?? '', theme.id, 'edit')
       if (win) {
         win.opener = null
-        win.location.href = editorURL(session.token)
+        win.location.href = editorURL(session.token, currentLocale())
       }
     } catch (err) {
       win?.close()
