@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { compareCatalog, type Catalog } from '../catalog'
 import { LOCALES } from '../locale'
-import { NAMESPACES, resources } from '../resources'
+import { NAMESPACES } from '../resources'
+import { editorResources as resources } from '../../editor/i18n/editorResources'
 
 // Every shipped language must be complete: no missing, blank or extra keys,
 // and the same {{placeholders}} as English.

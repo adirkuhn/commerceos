@@ -15,6 +15,9 @@ export interface Draft {
   documents: DocumentSummary[]
   sales_channel_id: string
   assets?: Record<string, AssetRef>
+  /** The editing admin user's language (set when the edit session was
+   *  created); the editor's own texts use it. */
+  locale?: string
 }
 
 export interface Asset {

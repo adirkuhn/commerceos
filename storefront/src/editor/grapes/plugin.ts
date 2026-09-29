@@ -6,6 +6,7 @@ import { rendererFor } from '../../components/renderers'
 import { nodeClass } from '../../core/style'
 import { newNodeId } from './ids'
 import { ReactMounts } from './reactMount'
+import type { EditorLabels } from '../i18n/labels'
 
 // Teaches GrapesJS the CommerceOS components: one component type and one
 // block per registry definition, placement rules from the registry, and
@@ -15,13 +16,11 @@ import { ReactMounts } from './reactMount'
 const WRAPPER = 'wrapper'
 const typeOf = (c: Component) => (c.get('type') === WRAPPER ? 'root' : String(c.get('type')))
 
-export const CATEGORY_LABELS: Record<ComponentDefinition['category'], string> = {
-  layout: 'Layout', content: 'Content', commerce: 'Commerce', navigation: 'Navigation', customer: 'Customer', cart: 'Cart',
-}
-
 export interface PluginOptions {
   /** Wraps each canvas-rendered component in the providers it needs. */
   wrap: (el: ReactElement) => ReactElement
+  /** Component and category names in the editor's language. */
+  labels: EditorLabels
 }
 
 function registerType(editor: Editor, registry: ComponentRegistry, def: ComponentDefinition, opts: PluginOptions) {
@@ -41,7 +40,7 @@ function registerType(editor: Editor, registry: ComponentRegistry, def: Componen
     isComponent: () => false,
     model: {
       defaults: {
-        name: def.name,
+        name: opts.labels.componentName(def),
         tagName: el?.tag ?? 'div',
         droppable: def.container
           ? (source: Component) => registry.canPlace(typeOf(source), def.type)
@@ -80,10 +79,10 @@ function registerType(editor: Editor, registry: ComponentRegistry, def: Componen
   })
 
   editor.Blocks.add(def.type, {
-    label: def.name,
-    category: CATEGORY_LABELS[def.category],
+    label: opts.labels.componentName(def),
+    category: opts.labels.category(def.category),
     content: { type: def.type },
-    attributes: { title: def.description },
+    attributes: { title: opts.labels.componentDescription(def) },
   })
 }
 

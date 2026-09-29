@@ -1,4 +1,5 @@
 import { useEffect, useReducer, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Component, Editor } from 'grapesjs'
 import { registry } from '../../components/registry'
 import type { NodeStyle, ThemeSettings } from '../../core/document'
@@ -7,6 +8,7 @@ import { PropsForm } from './PropsForm'
 import { StyleForm } from './StyleForm'
 import { SettingsPanel } from './SettingsPanel'
 import { breakpointFor } from './styleControls'
+import { useEditorLabels } from '../i18n/useEditorLabels'
 
 interface Props {
   editor: Editor
@@ -23,6 +25,8 @@ export function Inspector({ editor, device, settings, onSaveSettings, savingSett
   const [selected, setSelected] = useState<Component | undefined>(editor.getSelected())
   const [, rerender] = useReducer((n: number) => n + 1, 0)
   const [tab, setTab] = useState<'content' | 'style'>('content')
+  const { t } = useTranslation('editor')
+  const labels = useEditorLabels()
 
   useEffect(() => {
     const onSelect = () => setSelected(editor.getSelected())
@@ -51,19 +55,19 @@ export function Inspector({ editor, device, settings, onSaveSettings, savingSett
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <h2 className="font-semibold">{def.name}</h2>
+        <h2 className="font-semibold">{labels.componentName(def)}</h2>
         <div className="ml-auto flex gap-1 text-xs">
-          {parent && parent.get('type') !== 'wrapper' && <button type="button" onClick={() => editor.select(parent)}>Select parent</button>}
-          {def.editor.copyable && <button type="button" onClick={duplicate}>Duplicate</button>}
-          {def.editor.removable && <button type="button" className="text-red-700" onClick={() => { selected.remove(); editor.select(undefined) }}>Delete</button>}
+          {parent && parent.get('type') !== 'wrapper' && <button type="button" onClick={() => editor.select(parent)}>{t('inspector.selectParent')}</button>}
+          {def.editor.copyable && <button type="button" onClick={duplicate}>{t('inspector.duplicate')}</button>}
+          {def.editor.removable && <button type="button" className="text-red-700" onClick={() => { selected.remove(); editor.select(undefined) }}>{t('inspector.delete')}</button>}
         </div>
       </div>
-      <p className="text-xs text-neutral-500">{def.description}</p>
+      <p className="text-xs text-neutral-500">{labels.componentDescription(def)}</p>
       <div role="tablist" className="flex gap-1 border-b">
-        {(['content', 'style'] as const).map(t => (
-          <button key={t} role="tab" aria-selected={tab === t} type="button" onClick={() => setTab(t)}
-            className={`px-3 py-1.5 text-sm ${tab === t ? 'border-b-2 border-blue-700 font-medium' : 'text-neutral-600'}`}>
-            {t === 'content' ? 'Content' : 'Style'}
+        {(['content', 'style'] as const).map(name => (
+          <button key={name} role="tab" aria-selected={tab === name} type="button" onClick={() => setTab(name)}
+            className={`px-3 py-1.5 text-sm ${tab === name ? 'border-b-2 border-blue-700 font-medium' : 'text-neutral-600'}`}>
+            {name === 'content' ? t('inspector.content') : t('inspector.style')}
           </button>
         ))}
       </div>

@@ -1,0 +1,750 @@
+{
+  "categories": {
+    "cart": "Carrinho",
+    "commerce": "Comércio",
+    "content": "Conteúdo",
+    "customer": "Cliente",
+    "layout": "Layout",
+    "navigation": "Navegação"
+  },
+  "components": {
+    "account-link": {
+      "description": "Entrar ou, com o cliente conectado, ir para a conta.",
+      "name": "Link da conta",
+      "props": {
+        "account_label": "Texto com o cliente conectado",
+        "login_label": "Texto sem o cliente conectado"
+      }
+    },
+    "account-overview": {
+      "description": "Os dados e pedidos do cliente conectado.",
+      "name": "Minha conta",
+      "props": {
+        "show_orders": "Mostrar pedidos"
+      }
+    },
+    "add-to-cart": {
+      "description": "Adiciona a variante e a quantidade escolhidas ao carrinho. Toda página de produto precisa de um.",
+      "name": "Adicionar ao carrinho",
+      "props": {
+        "label": "Texto",
+        "sold_out_label": "Texto quando esgotado"
+      }
+    },
+    "banner": {
+      "description": "Uma faixa para um aviso ou promoção.",
+      "name": "Faixa",
+      "props": {
+        "link": "Link",
+        "link_label": "Texto do link",
+        "text": "Texto"
+      }
+    },
+    "breadcrumbs": {
+      "description": "Mostra onde o cliente está: Início › Coleção › Produto.",
+      "name": "Trilha de navegação",
+      "props": {
+        "home_label": "Texto do início"
+      }
+    },
+    "button": {
+      "description": "Um link de chamada para ação com cara de botão.",
+      "name": "Botão",
+      "options": {
+        "variant": {
+          "outline": "Contorno",
+          "primary": "Principal",
+          "secondary": "Secundário"
+        }
+      },
+      "props": {
+        "label": "Texto",
+        "link": "Link",
+        "new_tab": "Abrir em nova aba",
+        "variant": "Estilo"
+      }
+    },
+    "cart-items": {
+      "description": "Os produtos do carrinho, com quantidades que o cliente pode alterar.",
+      "name": "Itens do carrinho",
+      "props": {
+        "empty_message": "Mensagem quando vazio"
+      }
+    },
+    "cart-link": {
+      "description": "Link para o carrinho, com a quantidade de itens.",
+      "name": "Link do carrinho",
+      "props": {
+        "label": "Texto",
+        "show_count": "Mostrar quantidade de itens"
+      }
+    },
+    "cart-summary": {
+      "description": "Subtotal, desconto e campo de cupom.",
+      "name": "Totais do carrinho",
+      "props": {
+        "show_coupon": "Mostrar campo de cupom"
+      }
+    },
+    "checkout-button": {
+      "description": "Leva o cliente ao checkout. Fica desativado com o carrinho vazio.",
+      "name": "Botão de checkout",
+      "props": {
+        "label": "Texto"
+      }
+    },
+    "checkout-form": {
+      "description": "Contato, endereço, entrega e pagamento. Toda página de checkout precisa de um.",
+      "name": "Formulário de checkout",
+      "props": {
+        "button_label": "Texto do botão"
+      }
+    },
+    "collection-filters": {
+      "description": "Permite ao cliente filtrar os produtos por categoria.",
+      "name": "Filtros",
+      "props": {
+        "title": "Título"
+      }
+    },
+    "collection-header": {
+      "description": "Nome, imagem e descrição da coleção (ou o termo buscado).",
+      "name": "Título da coleção",
+      "props": {
+        "show_description": "Mostrar descrição",
+        "show_image": "Mostrar imagem"
+      }
+    },
+    "collection-list": {
+      "description": "Blocos com links para as suas coleções.",
+      "name": "Lista de coleções",
+      "options": {
+        "source": {
+          "all": "Todas as coleções",
+          "picked": "Coleções que eu escolher"
+        }
+      },
+      "props": {
+        "collection_ids": "Coleções",
+        "limit": "Quantidade",
+        "source": "Mostrar"
+      }
+    },
+    "collection-products": {
+      "description": "Os produtos desta coleção ou busca, uma página por vez.",
+      "name": "Produtos da coleção",
+      "options": {
+        "columns": {
+          "0": "Padrão do tema"
+        }
+      },
+      "props": {
+        "columns": "Colunas",
+        "per_page": "Produtos por página",
+        "show_price": "Mostrar preços"
+      }
+    },
+    "column": {
+      "description": "Uma coluna. Aumente a largura para deixá-la maior que as vizinhas.",
+      "name": "Coluna",
+      "props": {
+        "span": "Largura"
+      }
+    },
+    "columns": {
+      "description": "Colunas lado a lado que se empilham em telas menores.",
+      "name": "Colunas",
+      "options": {
+        "stack_on": {
+          "mobile": "Só no celular",
+          "never": "Nunca",
+          "tablet": "Tablet e celular"
+        }
+      },
+      "props": {
+        "stack_on": "Empilhar colunas em"
+      }
+    },
+    "container": {
+      "description": "Agrupa componentes e os empilha com espaçamento uniforme.",
+      "name": "Contêiner"
+    },
+    "heading": {
+      "description": "Um título. Nível 1 uma vez por página; use 2-3 para seções.",
+      "name": "Título",
+      "props": {
+        "level": "Nível",
+        "text": "Texto"
+      }
+    },
+    "hero": {
+      "description": "Uma grande boas-vindas: imagem, título, texto e botão.",
+      "name": "Destaque",
+      "options": {
+        "align": {
+          "center": "Centralizado",
+          "left": "À esquerda"
+        },
+        "height": {
+          "lg": "Alto",
+          "md": "Médio",
+          "screen": "Tela inteira"
+        }
+      },
+      "props": {
+        "align": "Alinhamento",
+        "button_label": "Texto do botão",
+        "button_link": "Link do botão",
+        "height": "Altura",
+        "image": "Imagem de fundo",
+        "subtitle": "Texto",
+        "title": "Título"
+      }
+    },
+    "image": {
+      "description": "Uma imagem da sua biblioteca de mídia, com link opcional.",
+      "name": "Imagem",
+      "options": {
+        "fit": {
+          "contain": "Mostrar a imagem inteira",
+          "cover": "Preencher o quadro"
+        }
+      },
+      "props": {
+        "alt": "Descrição (para leitores de tela)",
+        "fit": "Ajuste",
+        "image": "Imagem",
+        "link": "Link"
+      }
+    },
+    "login-form": {
+      "description": "Acesso sem senha: o cliente recebe um link de acesso por e-mail.",
+      "name": "Formulário de acesso",
+      "props": {
+        "button_label": "Texto do botão",
+        "title": "Título"
+      }
+    },
+    "navigation-menu": {
+      "description": "Links para suas páginas, coleções ou qualquer outro lugar.",
+      "name": "Menu",
+      "options": {
+        "orientation": {
+          "horizontal": "Lado a lado",
+          "vertical": "Empilhado"
+        }
+      },
+      "props": {
+        "items": "Links",
+        "orientation": "Direção"
+      }
+    },
+    "newsletter-signup": {
+      "description": "Inscrição por e-mail com consentimento. O cliente confirma por e-mail antes de ser inscrito.",
+      "name": "Inscrição na newsletter",
+      "props": {
+        "button_label": "Texto do botão",
+        "consent_label": "Texto de consentimento",
+        "text": "Texto",
+        "title": "Título"
+      }
+    },
+    "order-status": {
+      "description": "O pedido recém-feito: número, total e status.",
+      "name": "Status do pedido",
+      "props": {
+        "title": "Título"
+      }
+    },
+    "pagination": {
+      "description": "Links para as páginas seguinte e anterior de produtos.",
+      "name": "Paginação"
+    },
+    "product-card": {
+      "description": "Um produto que você escolhe, com imagem e preço.",
+      "name": "Cartão de produto",
+      "props": {
+        "product_id": "Produto",
+        "show_price": "Mostrar preço"
+      }
+    },
+    "product-description": {
+      "description": "A descrição do produto do seu catálogo.",
+      "name": "Descrição"
+    },
+    "product-gallery": {
+      "description": "As imagens do produto, com miniaturas para alternar entre elas.",
+      "name": "Imagens do produto",
+      "options": {
+        "layout": {
+          "stacked": "Todas as imagens empilhadas",
+          "thumbs_below": "Miniaturas abaixo"
+        }
+      },
+      "props": {
+        "layout": "Layout"
+      }
+    },
+    "product-grid": {
+      "description": "Produtos do seu catálogo: todos, uma categoria ou os que você escolher.",
+      "name": "Grade de produtos",
+      "options": {
+        "columns": {
+          "0": "Padrão do tema"
+        },
+        "source": {
+          "all": "Todos os produtos",
+          "category": "Uma categoria",
+          "collection": "Uma coleção",
+          "products": "Produtos que eu escolher"
+        }
+      },
+      "props": {
+        "category_id": "Categoria",
+        "collection_id": "Coleção",
+        "columns": "Colunas",
+        "limit": "Quantidade",
+        "product_ids": "Produtos",
+        "show_price": "Mostrar preços",
+        "source": "Mostrar"
+      }
+    },
+    "product-price": {
+      "description": "O preço da variante escolhida, com o preço antigo riscado durante uma promoção.",
+      "name": "Preço",
+      "props": {
+        "show_compare_at": "Mostrar o preço antigo durante uma promoção"
+      }
+    },
+    "product-recommendations": {
+      "description": "Produtos que costumam ser comprados junto com este.",
+      "name": "Recomendados",
+      "props": {
+        "limit": "Quantidade",
+        "title": "Título"
+      }
+    },
+    "product-reviews": {
+      "description": "A nota média e as avaliações mais recentes.",
+      "name": "Avaliações",
+      "props": {
+        "limit": "Quantidade de avaliações",
+        "title": "Título"
+      }
+    },
+    "product-title": {
+      "description": "O nome do produto como título da página.",
+      "name": "Nome do produto",
+      "props": {
+        "level": "Nível"
+      }
+    },
+    "quantity-selector": {
+      "description": "Quantos adicionar ao carrinho.",
+      "name": "Quantidade",
+      "props": {
+        "max": "Máximo por pedido"
+      }
+    },
+    "search-box": {
+      "description": "Permite ao cliente buscar seus produtos.",
+      "name": "Caixa de busca",
+      "props": {
+        "placeholder": "Texto de exemplo"
+      }
+    },
+    "section": {
+      "description": "Uma faixa da página de ponta a ponta. Tudo numa página fica dentro de uma seção.",
+      "name": "Seção",
+      "props": {
+        "full_width": "De ponta a ponta"
+      }
+    },
+    "site-logo": {
+      "description": "Seu logo das configurações do tema (ou o nome da loja), com link para o início.",
+      "name": "Logo",
+      "options": {
+        "size": {
+          "lg": "Grande",
+          "md": "Médio",
+          "sm": "Pequeno"
+        }
+      },
+      "props": {
+        "size": "Tamanho"
+      }
+    },
+    "spacer": {
+      "description": "Espaço vertical vazio entre componentes.",
+      "name": "Espaçador",
+      "props": {
+        "size": "Altura"
+      }
+    },
+    "text": {
+      "description": "Parágrafos e listas, com negrito, itálico e links.",
+      "name": "Texto",
+      "props": {
+        "content": "Texto"
+      }
+    },
+    "variant-selector": {
+      "description": "Permite escolher tamanho, cor ou outra variante. Fica oculto em produtos sem variantes.",
+      "name": "Seletor de variante",
+      "options": {
+        "style": {
+          "buttons": "Botões",
+          "dropdown": "Lista suspensa"
+        }
+      },
+      "props": {
+        "style": "Estilo"
+      }
+    },
+    "wishlist-button": {
+      "description": "Salva o produto nos favoritos do cliente.",
+      "name": "Botão de favoritos",
+      "props": {
+        "add_label": "Texto",
+        "remove_label": "Texto quando salvo"
+      }
+    },
+    "wishlist-items": {
+      "description": "Produtos que o cliente salvou.",
+      "name": "Favoritos",
+      "props": {
+        "empty_message": "Mensagem quando vazio"
+      }
+    }
+  },
+  "documents": {
+    "section_group": {
+      "footer": "Rodapé",
+      "header": "Cabeçalho"
+    },
+    "template": {
+      "account": "Minha conta",
+      "cart": "Carrinho",
+      "checkout": "Checkout",
+      "collection": "Coleção",
+      "home": "Página inicial",
+      "login": "Entrar",
+      "not-found": "Página não encontrada",
+      "order-confirmation": "Confirmação do pedido",
+      "product": "Produto",
+      "search": "Busca",
+      "wishlist": "Favoritos"
+    }
+  },
+  "fields": {
+    "linkHint": "Use um caminho da loja, como /pages/sobre, ou um link completo https://.",
+    "linkPlaceholder": "/pages/sobre ou https://…"
+  },
+  "inspector": {
+    "content": "Conteúdo",
+    "delete": "Excluir",
+    "duplicate": "Duplicar",
+    "noSettings": "Este componente não tem configurações.",
+    "selectParent": "Selecionar o pai",
+    "style": "Estilo"
+  },
+  "layout": {
+    "canvas": "Tela",
+    "components": "Componentes",
+    "componentsAndLayers": "Componentes e camadas",
+    "inspector": "Inspetor",
+    "layers": "Camadas",
+    "themeFallback": "Tema"
+  },
+  "links": {
+    "add": "Adicionar link",
+    "chosenOf": "{{chosen}} de {{max}}",
+    "linkTarget": "Destino do link {{number}}",
+    "linkText": "Texto do link {{number}}",
+    "moveDown": "Mover o link {{number}} para baixo",
+    "moveUp": "Mover o link {{number}} para cima",
+    "newLink": "Link",
+    "remove": "Remover o link {{number}}"
+  },
+  "media": {
+    "close": "Fechar",
+    "empty": "Ainda não há imagens. Envie uma para começar.",
+    "loading": "Carregando…",
+    "remove": "Remover",
+    "removeFailed": "Não foi possível remover a imagem",
+    "removeNamed": "Remover {{name}}",
+    "title": "Biblioteca de mídia",
+    "upload": "Enviar imagem",
+    "uploadFailed": "Falha no envio",
+    "uploading": "Enviando…",
+    "use": "Usar {{name}}"
+  },
+  "open": {
+    "text": "Vá em Canais de venda → sua loja → Temas e escolha Personalizar.",
+    "title": "Abra o editor pelo CommerceOS"
+  },
+  "pickers": {
+    "addCollection": "Adicionar uma coleção…",
+    "allCollectionsAdded": "Todas as coleções já foram adicionadas",
+    "change": "Trocar",
+    "chooseCategory": "Escolha uma categoria…",
+    "chooseCollection": "Escolha uma coleção…",
+    "chooseImage": "Escolher imagem",
+    "chosenCollections": "Coleções escolhidas",
+    "chosenOf": "{{chosen}} de {{max}}",
+    "chosenProducts": "Produtos escolhidos",
+    "clear": "Limpar",
+    "moveDown": "Mover para baixo",
+    "moveUp": "Mover para cima",
+    "noCollections": "Ainda não há coleções publicadas",
+    "noProducts": "Nenhum produto encontrado",
+    "remove": "Remover",
+    "searchProducts": "Buscar produtos…",
+    "searchResults": "Resultados da busca",
+    "selectedProduct": "Produto selecionado",
+    "unpublishedCollection": "Coleção não publicada"
+  },
+  "previewBar": {
+    "addProduct": "Cadastre um produto no catálogo para visualizar esta página.",
+    "changeProduct": "Trocar produto",
+    "done": "Pronto",
+    "loadFailed": "Não foi possível carregar os dados de visualização",
+    "noCollections": "Ainda não há coleções publicadas",
+    "previewCollection": "Coleção de visualização",
+    "previewingCollection": "Visualizando a coleção",
+    "previewingWith": "Visualizando com <strong>{{name}}</strong>",
+    "region": "Dados de visualização",
+    "searchResults": "Resultados para “{{query}}”"
+  },
+  "settings": {
+    "bodyFont": "Fonte do texto",
+    "bodyFontGoogle": "Fonte do texto (nome no Google Fonts)",
+    "brand": "Marca",
+    "buttonCorners": "Cantos dos botões",
+    "colors": {
+      "accent": "Destaque",
+      "background": "Fundo",
+      "muted": "Suave",
+      "primary": "Primária",
+      "secondary": "Secundária",
+      "surface": "Superfície",
+      "text": "Texto"
+    },
+    "colourLabel": "Cor {{name}}",
+    "colours": "Cores",
+    "corners": {
+      "full": "Pílula",
+      "lg": "Bem arredondados",
+      "md": "Arredondados",
+      "none": "Retos",
+      "sm": "Levemente arredondados"
+    },
+    "favicon": "Favicon",
+    "fonts": {
+      "mono": "Monoespaçada",
+      "rounded": "Arredondada",
+      "sans": "Sem serifa",
+      "serif": "Com serifa"
+    },
+    "headingFont": "Fonte dos títulos",
+    "headingFontGoogle": "Fonte dos títulos (nome no Google Fonts)",
+    "imageShape": "Formato da imagem do produto",
+    "layout": "Layout",
+    "logo": "Logo",
+    "pageWidth": "Largura da página (px)",
+    "productsPerRow": "Produtos por linha",
+    "save": "Salvar configurações",
+    "saving": "Salvando…",
+    "sizes": {
+      "lg": "Grande",
+      "md": "Médio",
+      "sm": "Pequeno"
+    },
+    "textSize": "Tamanho do texto",
+    "title": "Configurações do tema",
+    "typography": "Tipografia",
+    "useGoogle": "Usar Google Fonts (carrega as fontes do Google)"
+  },
+  "status": {
+    "cantSave": "Não foi possível salvar: {{message}}",
+    "conflict": "Este rascunho foi alterado em outro lugar. Recarregue o editor para ver a versão mais recente.",
+    "loadingPage": "Carregando página…",
+    "loadingTheme": "Carregando tema…",
+    "published": "Versão {{number}} publicada. Já está no ar.",
+    "publishing": "Publicando…",
+    "saved": "Salvo",
+    "saving": "Salvando…",
+    "settingsSaved": "Configurações do tema salvas",
+    "somethingWrong": "Algo deu errado"
+  },
+  "style": {
+    "groups": {
+      "background": "Fundo",
+      "border": "Borda",
+      "colors": "Cores",
+      "layout": "Layout",
+      "spacing": "Espaçamento",
+      "typography": "Tipografia",
+      "visibility": "Visibilidade"
+    },
+    "options": {
+      "align_items": {
+        "center": "centro",
+        "end": "fim",
+        "start": "início",
+        "stretch": "esticar"
+      },
+      "aspect_ratio": {
+        "auto": "automático"
+      },
+      "background_position": {
+        "bottom": "embaixo",
+        "center": "centro",
+        "top": "em cima"
+      },
+      "background_size": {
+        "contain": "caber",
+        "cover": "cobrir"
+      },
+      "border_radius": {
+        "full": "total",
+        "none": "Nenhum"
+      },
+      "border_width": {
+        "medium": "média",
+        "none": "Nenhuma",
+        "thick": "grossa",
+        "thin": "fina"
+      },
+      "display": {
+        "hide": "Ocultar",
+        "show": "Mostrar"
+      },
+      "font_family": {
+        "body": "Fonte do texto",
+        "heading": "Fonte dos títulos"
+      },
+      "font_weight": {
+        "bold": "negrito",
+        "medium": "médio",
+        "regular": "normal",
+        "semibold": "seminegrito"
+      },
+      "gap": {
+        "none": "Nenhum"
+      },
+      "justify_content": {
+        "between": "espaçado",
+        "center": "centro",
+        "end": "fim",
+        "start": "início"
+      },
+      "letter_spacing": {
+        "normal": "normal",
+        "tight": "justo",
+        "wide": "largo"
+      },
+      "line_height": {
+        "normal": "normal",
+        "relaxed": "espaçada",
+        "tight": "justa"
+      },
+      "margin_bottom": {
+        "none": "Nenhum"
+      },
+      "margin_top": {
+        "none": "Nenhum"
+      },
+      "min_height": {
+        "none": "Nenhuma",
+        "screen": "tela inteira"
+      },
+      "padding_x": {
+        "none": "Nenhum"
+      },
+      "padding_y": {
+        "none": "Nenhum"
+      },
+      "shadow": {
+        "none": "Nenhuma"
+      },
+      "text_align": {
+        "center": "centro",
+        "left": "esquerda",
+        "right": "direita"
+      },
+      "text_transform": {
+        "none": "Como digitado",
+        "uppercase": "MAIÚSCULAS"
+      },
+      "width": {
+        "auto": "Automática",
+        "content": "Largura da página",
+        "full": "Total",
+        "narrow": "Estreita"
+      }
+    },
+    "properties": {
+      "align_items": "Alinhar itens",
+      "aspect_ratio": "Formato",
+      "background_color": "Cor de fundo",
+      "background_image": "Imagem de fundo",
+      "background_position": "Posição da imagem",
+      "background_size": "Ajuste da imagem",
+      "border_color": "Cor da borda",
+      "border_radius": "Arredondamento dos cantos",
+      "border_width": "Borda",
+      "color": "Cor do texto",
+      "columns": "Colunas da grade",
+      "display": "Visível",
+      "font_family": "Fonte",
+      "font_size": "Tamanho",
+      "font_weight": "Peso",
+      "gap": "Espaço entre itens",
+      "justify_content": "Distribuir itens",
+      "letter_spacing": "Espaçamento entre letras",
+      "line_height": "Altura da linha",
+      "margin_bottom": "Espaço abaixo",
+      "margin_top": "Espaço acima",
+      "min_height": "Altura mínima",
+      "padding_x": "Espaçamento interno esquerda/direita",
+      "padding_y": "Espaçamento interno topo/base",
+      "shadow": "Sombra",
+      "text_align": "Alinhamento",
+      "text_transform": "Maiúsculas",
+      "width": "Largura"
+    }
+  },
+  "styleForm": {
+    "colorNone": "Nenhuma",
+    "colorTheme": "Tema: {{name}}",
+    "custom": "Personalizada…",
+    "customColour": "{{label}}: cor personalizada",
+    "default": "Padrão",
+    "editingFor": "Editando o estilo para {{screens}}. Mude o tamanho da visualização para ajustar outras telas.",
+    "sameAsLarger": "Igual às telas maiores ({{value}})",
+    "screens": {
+      "base": "todas as telas",
+      "mobile": "celular",
+      "tablet": "tablet e celular"
+    }
+  },
+  "toolbar": {
+    "devices": {
+      "desktop": "Computador",
+      "mobile": "Celular",
+      "tablet": "Tablet"
+    },
+    "page": "Página",
+    "pages": "Páginas",
+    "preview": "Visualizar",
+    "previewSize": "Tamanho da visualização",
+    "publish": "Publicar",
+    "redo": "Refazer",
+    "save": "Salvar",
+    "sectionGroups": "Cabeçalho e rodapé",
+    "templates": "Modelos",
+    "undo": "Desfazer",
+    "unsavedChanges": "Alterações não salvas"
+  }
+}

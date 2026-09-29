@@ -1,0 +1,750 @@
+{
+  "categories": {
+    "cart": "Winkelwagen",
+    "commerce": "Winkel",
+    "content": "Inhoud",
+    "customer": "Klant",
+    "layout": "Opmaak",
+    "navigation": "Navigatie"
+  },
+  "components": {
+    "account-link": {
+      "description": "Inloggen, of naar het account als de klant is ingelogd.",
+      "name": "Accountlink",
+      "props": {
+        "account_label": "Tekst als ingelogd",
+        "login_label": "Tekst als uitgelogd"
+      }
+    },
+    "account-overview": {
+      "description": "De gegevens en bestellingen van de ingelogde klant.",
+      "name": "Account",
+      "props": {
+        "show_orders": "Bestellingen tonen"
+      }
+    },
+    "add-to-cart": {
+      "description": "Voegt de gekozen variant en het aantal toe aan de winkelwagen. Elke productpagina heeft er een nodig.",
+      "name": "In winkelwagen",
+      "props": {
+        "label": "Tekst",
+        "sold_out_label": "Tekst als uitverkocht"
+      }
+    },
+    "banner": {
+      "description": "Een balk voor een mededeling of actie.",
+      "name": "Banner",
+      "props": {
+        "link": "Link",
+        "link_label": "Linktekst",
+        "text": "Tekst"
+      }
+    },
+    "breadcrumbs": {
+      "description": "Laat zien waar de klant is: Home › Collectie › Product.",
+      "name": "Kruimelpad",
+      "props": {
+        "home_label": "Tekst voor home"
+      }
+    },
+    "button": {
+      "description": "Een call-to-actionlink in de vorm van een knop.",
+      "name": "Knop",
+      "options": {
+        "variant": {
+          "outline": "Omlijnd",
+          "primary": "Primair",
+          "secondary": "Secundair"
+        }
+      },
+      "props": {
+        "label": "Tekst",
+        "link": "Link",
+        "new_tab": "In nieuw tabblad openen",
+        "variant": "Stijl"
+      }
+    },
+    "cart-items": {
+      "description": "De producten in de winkelwagen, met aantallen die de klant kan wijzigen.",
+      "name": "Winkelwagenartikelen",
+      "props": {
+        "empty_message": "Melding als leeg"
+      }
+    },
+    "cart-link": {
+      "description": "Link naar de winkelwagen, met het aantal artikelen.",
+      "name": "Winkelwagenlink",
+      "props": {
+        "label": "Tekst",
+        "show_count": "Aantal artikelen tonen"
+      }
+    },
+    "cart-summary": {
+      "description": "Subtotaal, korting en een veld voor een kortingscode.",
+      "name": "Winkelwagentotalen",
+      "props": {
+        "show_coupon": "Veld voor kortingscode tonen"
+      }
+    },
+    "checkout-button": {
+      "description": "Brengt de klant naar het afrekenen. Uitgeschakeld zolang de winkelwagen leeg is.",
+      "name": "Afrekenknop",
+      "props": {
+        "label": "Tekst"
+      }
+    },
+    "checkout-form": {
+      "description": "Contact, adres, bezorging en betaling. Elke afrekenpagina heeft er een nodig.",
+      "name": "Afrekenformulier",
+      "props": {
+        "button_label": "Knoptekst"
+      }
+    },
+    "collection-filters": {
+      "description": "Laat klanten producten filteren op categorie.",
+      "name": "Filters",
+      "props": {
+        "title": "Titel"
+      }
+    },
+    "collection-header": {
+      "description": "Naam, afbeelding en beschrijving van de collectie (of de zoekterm).",
+      "name": "Collectietitel",
+      "props": {
+        "show_description": "Beschrijving tonen",
+        "show_image": "Afbeelding tonen"
+      }
+    },
+    "collection-list": {
+      "description": "Tegels die naar je collecties linken.",
+      "name": "Collectielijst",
+      "options": {
+        "source": {
+          "all": "Alle collecties",
+          "picked": "Collecties die ik kies"
+        }
+      },
+      "props": {
+        "collection_ids": "Collecties",
+        "limit": "Hoeveel",
+        "source": "Tonen"
+      }
+    },
+    "collection-products": {
+      "description": "De producten in deze collectie of zoekopdracht, per pagina.",
+      "name": "Collectieproducten",
+      "options": {
+        "columns": {
+          "0": "Standaard van het thema"
+        }
+      },
+      "props": {
+        "columns": "Kolommen",
+        "per_page": "Producten per pagina",
+        "show_price": "Prijzen tonen"
+      }
+    },
+    "column": {
+      "description": "Eén kolom. Geef hem een grotere breedte om hem breder te maken dan de rest.",
+      "name": "Kolom",
+      "props": {
+        "span": "Breedte"
+      }
+    },
+    "columns": {
+      "description": "Kolommen naast elkaar die op kleinere schermen onder elkaar komen.",
+      "name": "Kolommen",
+      "options": {
+        "stack_on": {
+          "mobile": "Alleen mobiel",
+          "never": "Nooit",
+          "tablet": "Tablet en mobiel"
+        }
+      },
+      "props": {
+        "stack_on": "Onder elkaar op"
+      }
+    },
+    "container": {
+      "description": "Groepeert onderdelen en zet ze met gelijke tussenruimte onder elkaar.",
+      "name": "Container"
+    },
+    "heading": {
+      "description": "Een kop. Niveau 1 één keer per pagina; gebruik 2-3 voor secties.",
+      "name": "Kop",
+      "props": {
+        "level": "Niveau",
+        "text": "Tekst"
+      }
+    },
+    "hero": {
+      "description": "Een groot welkom: afbeelding, titel, tekst en een knop.",
+      "name": "Hero",
+      "options": {
+        "align": {
+          "center": "Gecentreerd",
+          "left": "Links"
+        },
+        "height": {
+          "lg": "Hoog",
+          "md": "Normaal",
+          "screen": "Volledig scherm"
+        }
+      },
+      "props": {
+        "align": "Uitlijning",
+        "button_label": "Knoptekst",
+        "button_link": "Knoplink",
+        "height": "Hoogte",
+        "image": "Achtergrondafbeelding",
+        "subtitle": "Tekst",
+        "title": "Titel"
+      }
+    },
+    "image": {
+      "description": "Een afbeelding uit je mediabibliotheek, eventueel met een link.",
+      "name": "Afbeelding",
+      "options": {
+        "fit": {
+          "contain": "Hele afbeelding tonen",
+          "cover": "Kader vullen"
+        }
+      },
+      "props": {
+        "alt": "Beschrijving (voor schermlezers)",
+        "fit": "Passend maken",
+        "image": "Afbeelding",
+        "link": "Link"
+      }
+    },
+    "login-form": {
+      "description": "Inloggen zonder wachtwoord: klanten krijgen een inloglink per e-mail.",
+      "name": "Inlogformulier",
+      "props": {
+        "button_label": "Knoptekst",
+        "title": "Titel"
+      }
+    },
+    "navigation-menu": {
+      "description": "Links naar je pagina’s, collecties of elders.",
+      "name": "Menu",
+      "options": {
+        "orientation": {
+          "horizontal": "Naast elkaar",
+          "vertical": "Onder elkaar"
+        }
+      },
+      "props": {
+        "items": "Links",
+        "orientation": "Richting"
+      }
+    },
+    "newsletter-signup": {
+      "description": "Aanmelden per e-mail met toestemming. Klanten bevestigen per e-mail voordat ze zijn ingeschreven.",
+      "name": "Nieuwsbriefaanmelding",
+      "props": {
+        "button_label": "Knoptekst",
+        "consent_label": "Toestemmingstekst",
+        "text": "Tekst",
+        "title": "Titel"
+      }
+    },
+    "order-status": {
+      "description": "De zojuist geplaatste bestelling: nummer, totaal en status.",
+      "name": "Bestelstatus",
+      "props": {
+        "title": "Titel"
+      }
+    },
+    "pagination": {
+      "description": "Links naar de volgende en vorige pagina met producten.",
+      "name": "Paginering"
+    },
+    "product-card": {
+      "description": "Eén product naar keuze, met afbeelding en prijs.",
+      "name": "Productkaart",
+      "props": {
+        "product_id": "Product",
+        "show_price": "Prijs tonen"
+      }
+    },
+    "product-description": {
+      "description": "De productbeschrijving uit je catalogus.",
+      "name": "Beschrijving"
+    },
+    "product-gallery": {
+      "description": "De afbeeldingen van het product, met miniaturen om te wisselen.",
+      "name": "Productafbeeldingen",
+      "options": {
+        "layout": {
+          "stacked": "Alle afbeeldingen onder elkaar",
+          "thumbs_below": "Miniaturen eronder"
+        }
+      },
+      "props": {
+        "layout": "Opmaak"
+      }
+    },
+    "product-grid": {
+      "description": "Producten uit je catalogus: alle, één categorie of een eigen selectie.",
+      "name": "Productraster",
+      "options": {
+        "columns": {
+          "0": "Standaard van het thema"
+        },
+        "source": {
+          "all": "Alle producten",
+          "category": "Een categorie",
+          "collection": "Een collectie",
+          "products": "Producten die ik kies"
+        }
+      },
+      "props": {
+        "category_id": "Categorie",
+        "collection_id": "Collectie",
+        "columns": "Kolommen",
+        "limit": "Hoeveel",
+        "product_ids": "Producten",
+        "show_price": "Prijzen tonen",
+        "source": "Tonen"
+      }
+    },
+    "product-price": {
+      "description": "De prijs van de gekozen variant, met de oude prijs doorgestreept tijdens een actie.",
+      "name": "Prijs",
+      "props": {
+        "show_compare_at": "Oude prijs tonen tijdens een actie"
+      }
+    },
+    "product-recommendations": {
+      "description": "Producten die vaak samen met dit product worden gekocht.",
+      "name": "Aanbevelingen",
+      "props": {
+        "limit": "Hoeveel",
+        "title": "Titel"
+      }
+    },
+    "product-reviews": {
+      "description": "De gemiddelde beoordeling en de nieuwste reviews.",
+      "name": "Reviews",
+      "props": {
+        "limit": "Hoeveel reviews",
+        "title": "Titel"
+      }
+    },
+    "product-title": {
+      "description": "De productnaam als paginatitel.",
+      "name": "Productnaam",
+      "props": {
+        "level": "Niveau"
+      }
+    },
+    "quantity-selector": {
+      "description": "Hoeveel er in de winkelwagen gaan.",
+      "name": "Aantal",
+      "props": {
+        "max": "Maximaal per bestelling"
+      }
+    },
+    "search-box": {
+      "description": "Laat klanten je producten doorzoeken.",
+      "name": "Zoekvak",
+      "props": {
+        "placeholder": "Voorbeeldtekst"
+      }
+    },
+    "section": {
+      "description": "Een band over de volle breedte van de pagina. Alles op een pagina staat in een sectie.",
+      "name": "Sectie",
+      "props": {
+        "full_width": "Van rand tot rand"
+      }
+    },
+    "site-logo": {
+      "description": "Je logo uit de thema-instellingen (of de winkelnaam), met een link naar home.",
+      "name": "Logo",
+      "options": {
+        "size": {
+          "lg": "Groot",
+          "md": "Normaal",
+          "sm": "Klein"
+        }
+      },
+      "props": {
+        "size": "Grootte"
+      }
+    },
+    "spacer": {
+      "description": "Lege verticale ruimte tussen onderdelen.",
+      "name": "Witruimte",
+      "props": {
+        "size": "Hoogte"
+      }
+    },
+    "text": {
+      "description": "Alinea’s en lijsten, met vet, cursief en links.",
+      "name": "Tekst",
+      "props": {
+        "content": "Tekst"
+      }
+    },
+    "variant-selector": {
+      "description": "Laat klanten een maat, kleur of andere variant kiezen. Verborgen bij producten zonder varianten.",
+      "name": "Variantkiezer",
+      "options": {
+        "style": {
+          "buttons": "Knoppen",
+          "dropdown": "Keuzelijst"
+        }
+      },
+      "props": {
+        "style": "Stijl"
+      }
+    },
+    "wishlist-button": {
+      "description": "Bewaart het product in de verlanglijst van de klant.",
+      "name": "Verlanglijstknop",
+      "props": {
+        "add_label": "Tekst",
+        "remove_label": "Tekst als bewaard"
+      }
+    },
+    "wishlist-items": {
+      "description": "Producten die de klant heeft bewaard.",
+      "name": "Verlanglijst",
+      "props": {
+        "empty_message": "Melding als leeg"
+      }
+    }
+  },
+  "documents": {
+    "section_group": {
+      "footer": "Footer",
+      "header": "Header"
+    },
+    "template": {
+      "account": "Account",
+      "cart": "Winkelwagen",
+      "checkout": "Afrekenen",
+      "collection": "Collectie",
+      "home": "Homepage",
+      "login": "Inloggen",
+      "not-found": "Niet gevonden",
+      "order-confirmation": "Orderbevestiging",
+      "product": "Product",
+      "search": "Zoeken",
+      "wishlist": "Verlanglijst"
+    }
+  },
+  "fields": {
+    "linkHint": "Gebruik een winkelpad zoals /pages/over-ons, of een volledige https://-link.",
+    "linkPlaceholder": "/pages/over-ons of https://…"
+  },
+  "inspector": {
+    "content": "Inhoud",
+    "delete": "Verwijderen",
+    "duplicate": "Dupliceren",
+    "noSettings": "Dit onderdeel heeft geen instellingen.",
+    "selectParent": "Bovenliggend selecteren",
+    "style": "Stijl"
+  },
+  "layout": {
+    "canvas": "Canvas",
+    "components": "Onderdelen",
+    "componentsAndLayers": "Onderdelen en lagen",
+    "inspector": "Inspector",
+    "layers": "Lagen",
+    "themeFallback": "Thema"
+  },
+  "links": {
+    "add": "Link toevoegen",
+    "chosenOf": "{{chosen}} van {{max}}",
+    "linkTarget": "Link {{number}} gaat naar",
+    "linkText": "Tekst van link {{number}}",
+    "moveDown": "Link {{number}} omlaag",
+    "moveUp": "Link {{number}} omhoog",
+    "newLink": "Link",
+    "remove": "Link {{number}} verwijderen"
+  },
+  "media": {
+    "close": "Sluiten",
+    "empty": "Nog geen afbeeldingen. Upload er een om te beginnen.",
+    "loading": "Laden…",
+    "remove": "Verwijderen",
+    "removeFailed": "De afbeelding kon niet worden verwijderd",
+    "removeNamed": "{{name}} verwijderen",
+    "title": "Mediabibliotheek",
+    "upload": "Afbeelding uploaden",
+    "uploadFailed": "Uploaden mislukt",
+    "uploading": "Uploaden…",
+    "use": "{{name}} gebruiken"
+  },
+  "open": {
+    "text": "Ga naar Verkoopkanalen → je winkel → Thema’s en kies Aanpassen.",
+    "title": "Open de editor vanuit CommerceOS"
+  },
+  "pickers": {
+    "addCollection": "Collectie toevoegen…",
+    "allCollectionsAdded": "Alle collecties zijn toegevoegd",
+    "change": "Wijzigen",
+    "chooseCategory": "Kies een categorie…",
+    "chooseCollection": "Kies een collectie…",
+    "chooseImage": "Afbeelding kiezen",
+    "chosenCollections": "Gekozen collecties",
+    "chosenOf": "{{chosen}} van {{max}}",
+    "chosenProducts": "Gekozen producten",
+    "clear": "Wissen",
+    "moveDown": "Omlaag",
+    "moveUp": "Omhoog",
+    "noCollections": "Nog geen gepubliceerde collecties",
+    "noProducts": "Geen producten gevonden",
+    "remove": "Verwijderen",
+    "searchProducts": "Producten zoeken…",
+    "searchResults": "Zoekresultaten",
+    "selectedProduct": "Gekozen product",
+    "unpublishedCollection": "Niet-gepubliceerde collectie"
+  },
+  "previewBar": {
+    "addProduct": "Voeg een product toe aan je catalogus om deze pagina te bekijken.",
+    "changeProduct": "Ander product",
+    "done": "Klaar",
+    "loadFailed": "Voorbeeldgegevens konden niet worden geladen",
+    "noCollections": "Nog geen gepubliceerde collecties",
+    "previewCollection": "Voorbeeldcollectie",
+    "previewingCollection": "Voorbeeld met collectie",
+    "previewingWith": "Voorbeeld met <strong>{{name}}</strong>",
+    "region": "Voorbeeldgegevens",
+    "searchResults": "Zoekresultaten voor “{{query}}”"
+  },
+  "settings": {
+    "bodyFont": "Lettertype tekst",
+    "bodyFontGoogle": "Lettertype tekst (naam in Google Fonts)",
+    "brand": "Merk",
+    "buttonCorners": "Hoeken van knoppen",
+    "colors": {
+      "accent": "Accent",
+      "background": "Achtergrond",
+      "muted": "Gedempt",
+      "primary": "Primair",
+      "secondary": "Secundair",
+      "surface": "Vlak",
+      "text": "Tekst"
+    },
+    "colourLabel": "Kleur {{name}}",
+    "colours": "Kleuren",
+    "corners": {
+      "full": "Pil",
+      "lg": "Erg rond",
+      "md": "Rond",
+      "none": "Recht",
+      "sm": "Licht afgerond"
+    },
+    "favicon": "Favicon",
+    "fonts": {
+      "mono": "Monospace",
+      "rounded": "Afgerond",
+      "sans": "Schreefloos",
+      "serif": "Schreef"
+    },
+    "headingFont": "Lettertype koppen",
+    "headingFontGoogle": "Lettertype koppen (naam in Google Fonts)",
+    "imageShape": "Vorm productafbeelding",
+    "layout": "Opmaak",
+    "logo": "Logo",
+    "pageWidth": "Paginabreedte (px)",
+    "productsPerRow": "Producten per rij",
+    "save": "Instellingen opslaan",
+    "saving": "Opslaan…",
+    "sizes": {
+      "lg": "Groot",
+      "md": "Normaal",
+      "sm": "Klein"
+    },
+    "textSize": "Tekstgrootte",
+    "title": "Thema-instellingen",
+    "typography": "Typografie",
+    "useGoogle": "Google Fonts gebruiken (laadt lettertypen van Google)"
+  },
+  "status": {
+    "cantSave": "Kan niet opslaan: {{message}}",
+    "conflict": "Dit concept is ergens anders gewijzigd. Laad de editor opnieuw voor de nieuwste versie.",
+    "loadingPage": "Pagina laden…",
+    "loadingTheme": "Thema laden…",
+    "published": "Versie {{number}} gepubliceerd. Hij staat nu live.",
+    "publishing": "Publiceren…",
+    "saved": "Opgeslagen",
+    "saving": "Opslaan…",
+    "settingsSaved": "Thema-instellingen opgeslagen",
+    "somethingWrong": "Er ging iets mis"
+  },
+  "style": {
+    "groups": {
+      "background": "Achtergrond",
+      "border": "Rand",
+      "colors": "Kleuren",
+      "layout": "Opmaak",
+      "spacing": "Ruimte",
+      "typography": "Typografie",
+      "visibility": "Zichtbaarheid"
+    },
+    "options": {
+      "align_items": {
+        "center": "midden",
+        "end": "eind",
+        "start": "begin",
+        "stretch": "uitrekken"
+      },
+      "aspect_ratio": {
+        "auto": "automatisch"
+      },
+      "background_position": {
+        "bottom": "onder",
+        "center": "midden",
+        "top": "boven"
+      },
+      "background_size": {
+        "contain": "passend",
+        "cover": "vullend"
+      },
+      "border_radius": {
+        "full": "volledig",
+        "none": "Geen"
+      },
+      "border_width": {
+        "medium": "normaal",
+        "none": "Geen",
+        "thick": "dik",
+        "thin": "dun"
+      },
+      "display": {
+        "hide": "Verbergen",
+        "show": "Tonen"
+      },
+      "font_family": {
+        "body": "Lettertype tekst",
+        "heading": "Lettertype koppen"
+      },
+      "font_weight": {
+        "bold": "vet",
+        "medium": "medium",
+        "regular": "normaal",
+        "semibold": "halfvet"
+      },
+      "gap": {
+        "none": "Geen"
+      },
+      "justify_content": {
+        "between": "verspreid",
+        "center": "midden",
+        "end": "eind",
+        "start": "begin"
+      },
+      "letter_spacing": {
+        "normal": "normaal",
+        "tight": "krap",
+        "wide": "ruim"
+      },
+      "line_height": {
+        "normal": "normaal",
+        "relaxed": "ruim",
+        "tight": "krap"
+      },
+      "margin_bottom": {
+        "none": "Geen"
+      },
+      "margin_top": {
+        "none": "Geen"
+      },
+      "min_height": {
+        "none": "Geen",
+        "screen": "volledig scherm"
+      },
+      "padding_x": {
+        "none": "Geen"
+      },
+      "padding_y": {
+        "none": "Geen"
+      },
+      "shadow": {
+        "none": "Geen"
+      },
+      "text_align": {
+        "center": "midden",
+        "left": "links",
+        "right": "rechts"
+      },
+      "text_transform": {
+        "none": "Zoals getypt",
+        "uppercase": "HOOFDLETTERS"
+      },
+      "width": {
+        "auto": "Automatisch",
+        "content": "Paginabreedte",
+        "full": "Volledig",
+        "narrow": "Smal"
+      }
+    },
+    "properties": {
+      "align_items": "Items uitlijnen",
+      "aspect_ratio": "Vorm",
+      "background_color": "Achtergrondkleur",
+      "background_image": "Achtergrondafbeelding",
+      "background_position": "Positie afbeelding",
+      "background_size": "Passing afbeelding",
+      "border_color": "Randkleur",
+      "border_radius": "Afronding hoeken",
+      "border_width": "Rand",
+      "color": "Tekstkleur",
+      "columns": "Rasterkolommen",
+      "display": "Zichtbaar",
+      "font_family": "Lettertype",
+      "font_size": "Grootte",
+      "font_weight": "Dikte",
+      "gap": "Ruimte tussen items",
+      "justify_content": "Items verdelen",
+      "letter_spacing": "Letterafstand",
+      "line_height": "Regelhoogte",
+      "margin_bottom": "Ruimte eronder",
+      "margin_top": "Ruimte erboven",
+      "min_height": "Minimale hoogte",
+      "padding_x": "Binnenruimte links/rechts",
+      "padding_y": "Binnenruimte boven/onder",
+      "shadow": "Schaduw",
+      "text_align": "Uitlijning",
+      "text_transform": "Hoofdletters",
+      "width": "Breedte"
+    }
+  },
+  "styleForm": {
+    "colorNone": "Geen",
+    "colorTheme": "Thema: {{name}}",
+    "custom": "Aangepast…",
+    "customColour": "{{label}}: aangepaste kleur",
+    "default": "Standaard",
+    "editingFor": "Je bewerkt de stijl voor {{screens}}. Wissel van voorbeeldformaat om andere schermen te stylen.",
+    "sameAsLarger": "Zelfde als grotere schermen ({{value}})",
+    "screens": {
+      "base": "alle schermen",
+      "mobile": "mobiel",
+      "tablet": "tablet en mobiel"
+    }
+  },
+  "toolbar": {
+    "devices": {
+      "desktop": "Desktop",
+      "mobile": "Mobiel",
+      "tablet": "Tablet"
+    },
+    "page": "Pagina",
+    "pages": "Pagina’s",
+    "preview": "Voorbeeld",
+    "previewSize": "Voorbeeldformaat",
+    "publish": "Publiceren",
+    "redo": "Opnieuw",
+    "save": "Opslaan",
+    "sectionGroups": "Header en footer",
+    "templates": "Sjablonen",
+    "undo": "Ongedaan maken",
+    "unsavedChanges": "Niet-opgeslagen wijzigingen"
+  }
+}

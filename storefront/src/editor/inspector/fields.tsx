@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { safeHref } from '../../core/richText'
 
 const input = 'w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600'
@@ -76,9 +77,10 @@ export function LinkField({ label, value, onChange }: { label: string; value: st
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
   const invalid = draft !== '' && !safeHref(draft)
+  const { t } = useTranslation('editor')
   return (
-    <Field label={label} hint={invalid ? 'Use a store path like /pages/about, or a full https:// link.' : undefined}>
-      {id => <input id={id} className={input} value={draft} aria-invalid={invalid} placeholder="/pages/about or https://…" maxLength={2000}
+    <Field label={label} hint={invalid ? t('fields.linkHint') : undefined}>
+      {id => <input id={id} className={input} value={draft} aria-invalid={invalid} placeholder={t('fields.linkPlaceholder')} maxLength={2000}
         onChange={e => {
           setDraft(e.target.value)
           if (e.target.value === '' || safeHref(e.target.value)) onChange(e.target.value)

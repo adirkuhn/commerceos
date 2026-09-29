@@ -11,7 +11,12 @@ export default {
   createOldCatalogs: false,
   sort: true,
   indentation: 2,
-  // Keys only reached through a variable, e.g. t(`hint.${name}`).
-  keepRemoved: [/^shop:hint\./, /^shop:product\.(inStock|percentOff|chooseOptions)$/],
+  // Keys only reached through a variable, e.g. t(`hint.${name}`), or written
+  // from code by `npm run i18n:registry` (component and style texts).
+  keepRemoved: [
+    // Patterns see the whole key, or just "ns:group" when a group is gone.
+    /^shop:hint(\.|$)/, /^shop:product\.(inStock|percentOff|chooseOptions)$/,
+    /^editor:(components|categories|style|documents)(\.|$)/,
+  ],
   defaultValue: (locale, _ns, key, value) => (locale === 'en' ? value || key : ''),
 }

@@ -16,6 +16,7 @@ import { buildHead } from './head'
 import { canonicalURL } from './seo'
 import { sitemapXML } from './sitemap'
 import { createI18n } from '../i18n/createI18n'
+import { loadShopLocale } from '../i18n/resources'
 import { resolveLocale } from '../i18n/locale'
 
 export const BASENAME = '/store'
@@ -57,8 +58,9 @@ function cachedRating(qc: QueryClient, productId: string): ReviewList['summary']
   return reviews?.summary
 }
 
-function unavailable(status: number, acceptLanguage?: string): RenderResult {
+async function unavailable(status: number, acceptLanguage?: string): Promise<RenderResult> {
   const locale = resolveLocale(acceptLanguage?.split(',')[0]?.split(';')[0]?.trim())
+  await loadShopLocale(locale)
   const title = createI18n(locale).t('store.unavailableTitle')
   return {
     status, lang: locale, head: `<title>${title}</title><meta name="robots" content="noindex">`,
@@ -96,6 +98,8 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
     qc.fetchQuery(storeQuery(api)),
   ])
   const docs = main ? [main, ...regionDocs] : regionDocs
+  // The page renders synchronously: its language's texts must be loaded first.
+  await loadShopLocale(resolveLocale(store?.locale))
   // Catalog data the components show. A failed fetch is left out of the
   // cache; that component renders nothing rather than failing the page.
   await Promise.all(docs.flatMap(d => dataQueriesFor(d.root, api, { product: page.product })).map(q => qc.prefetchQuery(q)))

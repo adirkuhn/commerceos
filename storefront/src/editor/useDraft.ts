@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Editor } from 'grapesjs'
 import type { DocumentKind, ThemeSettings } from '../core/document'
 import { registry } from '../components/registry'
 import { EditorApiError, type Draft, type EditorAPI } from './api'
 import { fromGrapes, toGrapes } from './grapes/serializer'
 import type { AssetStore } from './assetStore'
+import { editorLocale } from './editorLocale'
 
 export interface DocRef {
   kind: DocumentKind
@@ -45,17 +47,18 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
   // next draft, and that load must not wipe "Published version N".
   const afterLoad = useRef<Status>()
   const snapshot = () => (editor ? JSON.stringify(fromGrapes(editor.getWrapper()!)) : '')
-  const [status, setStatus] = useState<Status>({ kind: 'busy', label: 'Loading theme…' })
+  const { t, i18n } = useTranslation('editor')
+  const [status, setStatus] = useState<Status>({ kind: 'busy', label: t('status.loadingTheme') })
 
   const fail = (err: unknown) => {
     if (err instanceof EditorApiError && err.status === 409) {
-      setStatus({ kind: 'error', message: 'This draft was changed somewhere else. Reload the editor to get the latest version.' })
+      setStatus({ kind: 'error', message: t('status.conflict') })
     } else if (err instanceof EditorApiError && err.nodeId && editor) {
       const target = editor.getWrapper()?.find('*').find(c => c.get('cosId') === err.nodeId)
       if (target) editor.select(target)
-      setStatus({ kind: 'error', message: `Can't save: ${err.message}` })
+      setStatus({ kind: 'error', message: t('status.cantSave', { message: err.message }) })
     } else {
-      setStatus({ kind: 'error', message: err instanceof Error ? err.message : 'Something went wrong' })
+      setStatus({ kind: 'error', message: err instanceof Error ? err.message : t('status.somethingWrong') })
     }
   }
 
@@ -63,11 +66,15 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
 
   const open = useCallback(async () => {
     const d = await api.openDraft()
+    // The editor speaks the language of the admin who opened it.
+    const locale = editorLocale(d.locale)
+    if (i18n.language !== locale) await i18n.changeLanguage(locale)
+    document.documentElement.lang = locale
     assets.merge(d.assets)
     setDraft(d)
     setRevision(d.version.revision)
     return d
-  }, [api, assets])
+  }, [api, assets, i18n])
 
   useEffect(() => {
     open().then(() => setStatus({ kind: 'idle' }), fail)
@@ -78,7 +85,7 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
     if (!editor || !draft) return
     let cancelled = false
     baseline.current = '' // nothing to compare against until this page loads
-    setStatus({ kind: 'busy', label: 'Loading page…' })
+    setStatus({ kind: 'busy', label: t('status.loadingPage') })
     api.getDocument(doc.kind, doc.key).then(d => {
       if (cancelled) return
       assets.merge(d.assets)
@@ -100,14 +107,14 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
 
   const save = useCallback(async (): Promise<number | undefined> => {
     if (!editor) return undefined
-    setStatus({ kind: 'busy', label: 'Saving…' })
+    setStatus({ kind: 'busy', label: t('status.saving') })
     try {
       const root = fromGrapes(editor.getWrapper()!)
       const res = await api.saveDocument(doc.kind, doc.key, { expected_revision: revision, root })
       setRevision(res.revision)
       baseline.current = JSON.stringify(root)
       setDirty(false)
-      setStatus({ kind: 'ok', message: 'Saved' })
+      setStatus({ kind: 'ok', message: t('status.saved') })
       return res.revision
     } catch (err) {
       fail(err)
@@ -121,10 +128,10 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
   const publish = async () => {
     const rev = await saveIfDirty()
     if (rev === undefined) return
-    setStatus({ kind: 'busy', label: 'Publishing…' })
+    setStatus({ kind: 'busy', label: t('status.publishing') })
     try {
       const v = await api.publish(rev)
-      afterLoad.current = { kind: 'ok', message: `Published version ${v.number}. It's live now.` }
+      afterLoad.current = { kind: 'ok', message: t('status.published', { number: v.number }) }
       await open() // publishing sealed this draft; continue on the next one
     } catch (err) {
       fail(err)
@@ -148,7 +155,7 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
       const v = await api.saveSettings(revision, settings)
       setRevision(v.revision)
       setDraft(d => (d ? { ...d, version: { ...d.version, settings: v.settings, revision: v.revision } } : d))
-      setStatus({ kind: 'ok', message: 'Theme settings saved' })
+      setStatus({ kind: 'ok', message: t('status.settingsSaved') })
     } catch (err) {
       fail(err)
     } finally {

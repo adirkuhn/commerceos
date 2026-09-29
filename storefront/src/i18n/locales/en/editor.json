@@ -1,0 +1,750 @@
+{
+  "categories": {
+    "cart": "Cart",
+    "commerce": "Commerce",
+    "content": "Content",
+    "customer": "Customer",
+    "layout": "Layout",
+    "navigation": "Navigation"
+  },
+  "components": {
+    "account-link": {
+      "description": "Sign in, or go to the account when signed in.",
+      "name": "Account link",
+      "props": {
+        "account_label": "Signed-in label",
+        "login_label": "Signed-out label"
+      }
+    },
+    "account-overview": {
+      "description": "The signed-in shopper's details and orders.",
+      "name": "Account",
+      "props": {
+        "show_orders": "Show orders"
+      }
+    },
+    "add-to-cart": {
+      "description": "Adds the chosen variant and quantity to the cart. Every product page needs one.",
+      "name": "Add to cart",
+      "props": {
+        "label": "Label",
+        "sold_out_label": "Label when sold out"
+      }
+    },
+    "banner": {
+      "description": "A strip for an announcement or promotion.",
+      "name": "Banner",
+      "props": {
+        "link": "Link",
+        "link_label": "Link label",
+        "text": "Text"
+      }
+    },
+    "breadcrumbs": {
+      "description": "Shows where the shopper is: Home › Collection › Product.",
+      "name": "Breadcrumbs",
+      "props": {
+        "home_label": "Home label"
+      }
+    },
+    "button": {
+      "description": "A call-to-action link styled as a button.",
+      "name": "Button",
+      "options": {
+        "variant": {
+          "outline": "Outline",
+          "primary": "Primary",
+          "secondary": "Secondary"
+        }
+      },
+      "props": {
+        "label": "Label",
+        "link": "Link",
+        "new_tab": "Open in a new tab",
+        "variant": "Style"
+      }
+    },
+    "cart-items": {
+      "description": "The products in the cart, with quantities the shopper can change.",
+      "name": "Cart items",
+      "props": {
+        "empty_message": "Message when empty"
+      }
+    },
+    "cart-link": {
+      "description": "Link to the cart, with how many items are in it.",
+      "name": "Cart link",
+      "props": {
+        "label": "Label",
+        "show_count": "Show item count"
+      }
+    },
+    "cart-summary": {
+      "description": "Subtotal, discount and a coupon field.",
+      "name": "Cart totals",
+      "props": {
+        "show_coupon": "Show coupon field"
+      }
+    },
+    "checkout-button": {
+      "description": "Takes the shopper to checkout. Disabled while the cart is empty.",
+      "name": "Checkout button",
+      "props": {
+        "label": "Label"
+      }
+    },
+    "checkout-form": {
+      "description": "Contact, address, delivery choice and payment. Every checkout page needs one.",
+      "name": "Checkout form",
+      "props": {
+        "button_label": "Button label"
+      }
+    },
+    "collection-filters": {
+      "description": "Lets shoppers narrow the products by category.",
+      "name": "Filters",
+      "props": {
+        "title": "Title"
+      }
+    },
+    "collection-header": {
+      "description": "The collection's name, picture and description (or the search term).",
+      "name": "Collection title",
+      "props": {
+        "show_description": "Show description",
+        "show_image": "Show picture"
+      }
+    },
+    "collection-list": {
+      "description": "Tiles linking to your collections.",
+      "name": "Collection list",
+      "options": {
+        "source": {
+          "all": "All collections",
+          "picked": "Collections I choose"
+        }
+      },
+      "props": {
+        "collection_ids": "Collections",
+        "limit": "How many",
+        "source": "Show"
+      }
+    },
+    "collection-products": {
+      "description": "The products in this collection or search, one page at a time.",
+      "name": "Collection products",
+      "options": {
+        "columns": {
+          "0": "Theme default"
+        }
+      },
+      "props": {
+        "columns": "Columns",
+        "per_page": "Products per page",
+        "show_price": "Show prices"
+      }
+    },
+    "column": {
+      "description": "One column. Give it a bigger span to make it wider than its neighbours.",
+      "name": "Column",
+      "props": {
+        "span": "Width"
+      }
+    },
+    "columns": {
+      "description": "Side-by-side columns that stack on smaller screens.",
+      "name": "Columns",
+      "options": {
+        "stack_on": {
+          "mobile": "Mobile only",
+          "never": "Never",
+          "tablet": "Tablet and mobile"
+        }
+      },
+      "props": {
+        "stack_on": "Stack columns on"
+      }
+    },
+    "container": {
+      "description": "Groups components and stacks them with even spacing.",
+      "name": "Container"
+    },
+    "heading": {
+      "description": "A title. Level 1 once per page; use 2-3 for sections.",
+      "name": "Heading",
+      "props": {
+        "level": "Level",
+        "text": "Text"
+      }
+    },
+    "hero": {
+      "description": "A big welcome: picture, title, text and a button.",
+      "name": "Hero",
+      "options": {
+        "align": {
+          "center": "Centred",
+          "left": "Left"
+        },
+        "height": {
+          "lg": "Tall",
+          "md": "Medium",
+          "screen": "Full screen"
+        }
+      },
+      "props": {
+        "align": "Alignment",
+        "button_label": "Button label",
+        "button_link": "Button link",
+        "height": "Height",
+        "image": "Background picture",
+        "subtitle": "Text",
+        "title": "Title"
+      }
+    },
+    "image": {
+      "description": "A picture from your media library, optionally linked.",
+      "name": "Image",
+      "options": {
+        "fit": {
+          "contain": "Show whole image",
+          "cover": "Fill the frame"
+        }
+      },
+      "props": {
+        "alt": "Description (for screen readers)",
+        "fit": "Fit",
+        "image": "Image",
+        "link": "Link"
+      }
+    },
+    "login-form": {
+      "description": "Passwordless sign-in: shoppers get a sign-in link by email.",
+      "name": "Sign-in form",
+      "props": {
+        "button_label": "Button label",
+        "title": "Title"
+      }
+    },
+    "navigation-menu": {
+      "description": "Links to your pages, collections or anywhere else.",
+      "name": "Menu",
+      "options": {
+        "orientation": {
+          "horizontal": "Side by side",
+          "vertical": "Stacked"
+        }
+      },
+      "props": {
+        "items": "Links",
+        "orientation": "Direction"
+      }
+    },
+    "newsletter-signup": {
+      "description": "Email signup with consent. Shoppers confirm by email before they are subscribed.",
+      "name": "Newsletter signup",
+      "props": {
+        "button_label": "Button label",
+        "consent_label": "Consent text",
+        "text": "Text",
+        "title": "Title"
+      }
+    },
+    "order-status": {
+      "description": "The order just placed: number, total and status.",
+      "name": "Order status",
+      "props": {
+        "title": "Title"
+      }
+    },
+    "pagination": {
+      "description": "Links to the next and previous pages of products.",
+      "name": "Pagination"
+    },
+    "product-card": {
+      "description": "One product you pick, with its picture and price.",
+      "name": "Product card",
+      "props": {
+        "product_id": "Product",
+        "show_price": "Show price"
+      }
+    },
+    "product-description": {
+      "description": "The product description from your catalog.",
+      "name": "Description"
+    },
+    "product-gallery": {
+      "description": "The product's pictures, with thumbnails to switch between them.",
+      "name": "Product images",
+      "options": {
+        "layout": {
+          "stacked": "All images stacked",
+          "thumbs_below": "Thumbnails below"
+        }
+      },
+      "props": {
+        "layout": "Layout"
+      }
+    },
+    "product-grid": {
+      "description": "Products from your catalog: all, one category, or ones you pick.",
+      "name": "Product grid",
+      "options": {
+        "columns": {
+          "0": "Theme default"
+        },
+        "source": {
+          "all": "All products",
+          "category": "A category",
+          "collection": "A collection",
+          "products": "Products I choose"
+        }
+      },
+      "props": {
+        "category_id": "Category",
+        "collection_id": "Collection",
+        "columns": "Columns",
+        "limit": "How many",
+        "product_ids": "Products",
+        "show_price": "Show prices",
+        "source": "Show"
+      }
+    },
+    "product-price": {
+      "description": "The chosen variant's price, with the old price crossed out during a sale.",
+      "name": "Price",
+      "props": {
+        "show_compare_at": "Show the old price during a sale"
+      }
+    },
+    "product-recommendations": {
+      "description": "Products often bought together with this one.",
+      "name": "Recommendations",
+      "props": {
+        "limit": "How many",
+        "title": "Title"
+      }
+    },
+    "product-reviews": {
+      "description": "The average rating and the latest reviews.",
+      "name": "Reviews",
+      "props": {
+        "limit": "How many reviews",
+        "title": "Title"
+      }
+    },
+    "product-title": {
+      "description": "The product's name as the page title.",
+      "name": "Product name",
+      "props": {
+        "level": "Level"
+      }
+    },
+    "quantity-selector": {
+      "description": "How many to add to the cart.",
+      "name": "Quantity",
+      "props": {
+        "max": "Most per order"
+      }
+    },
+    "search-box": {
+      "description": "Lets shoppers search your products.",
+      "name": "Search box",
+      "props": {
+        "placeholder": "Placeholder"
+      }
+    },
+    "section": {
+      "description": "A full-width band of the page. Everything on a page lives inside a section.",
+      "name": "Section",
+      "props": {
+        "full_width": "Edge to edge"
+      }
+    },
+    "site-logo": {
+      "description": "Your logo from the theme settings (or the store name), linking home.",
+      "name": "Logo",
+      "options": {
+        "size": {
+          "lg": "Large",
+          "md": "Medium",
+          "sm": "Small"
+        }
+      },
+      "props": {
+        "size": "Size"
+      }
+    },
+    "spacer": {
+      "description": "Empty vertical space between components.",
+      "name": "Spacer",
+      "props": {
+        "size": "Height"
+      }
+    },
+    "text": {
+      "description": "Paragraphs and lists, with bold, italic and links.",
+      "name": "Text",
+      "props": {
+        "content": "Text"
+      }
+    },
+    "variant-selector": {
+      "description": "Lets shoppers choose a size, colour or other variant. Hidden for products without variants.",
+      "name": "Variant picker",
+      "options": {
+        "style": {
+          "buttons": "Buttons",
+          "dropdown": "Dropdown"
+        }
+      },
+      "props": {
+        "style": "Style"
+      }
+    },
+    "wishlist-button": {
+      "description": "Saves the product to the shopper's wishlist.",
+      "name": "Wishlist button",
+      "props": {
+        "add_label": "Label",
+        "remove_label": "Label when saved"
+      }
+    },
+    "wishlist-items": {
+      "description": "Products the shopper saved.",
+      "name": "Wishlist",
+      "props": {
+        "empty_message": "Message when empty"
+      }
+    }
+  },
+  "documents": {
+    "section_group": {
+      "footer": "Footer",
+      "header": "Header"
+    },
+    "template": {
+      "account": "Account",
+      "cart": "Cart",
+      "checkout": "Checkout",
+      "collection": "Collection",
+      "home": "Home",
+      "login": "Login",
+      "not-found": "Not found",
+      "order-confirmation": "Order confirmation",
+      "product": "Product",
+      "search": "Search",
+      "wishlist": "Wishlist"
+    }
+  },
+  "fields": {
+    "linkHint": "Use a store path like /pages/about, or a full https:// link.",
+    "linkPlaceholder": "/pages/about or https://…"
+  },
+  "inspector": {
+    "content": "Content",
+    "delete": "Delete",
+    "duplicate": "Duplicate",
+    "noSettings": "This component has no settings.",
+    "selectParent": "Select parent",
+    "style": "Style"
+  },
+  "layout": {
+    "canvas": "Canvas",
+    "components": "Components",
+    "componentsAndLayers": "Components and layers",
+    "inspector": "Inspector",
+    "layers": "Layers",
+    "themeFallback": "Theme"
+  },
+  "links": {
+    "add": "Add link",
+    "chosenOf": "{{chosen}} of {{max}}",
+    "linkTarget": "Link {{number}} goes to",
+    "linkText": "Link {{number}} text",
+    "moveDown": "Move link {{number}} down",
+    "moveUp": "Move link {{number}} up",
+    "newLink": "Link",
+    "remove": "Remove link {{number}}"
+  },
+  "media": {
+    "close": "Close",
+    "empty": "No images yet. Upload one to get started.",
+    "loading": "Loading…",
+    "remove": "Remove",
+    "removeFailed": "Could not remove the image",
+    "removeNamed": "Remove {{name}}",
+    "title": "Media library",
+    "upload": "Upload image",
+    "uploadFailed": "Upload failed",
+    "uploading": "Uploading…",
+    "use": "Use {{name}}"
+  },
+  "open": {
+    "text": "Go to Sales channels → your store → Themes, and choose Customize.",
+    "title": "Open the editor from CommerceOS"
+  },
+  "pickers": {
+    "addCollection": "Add a collection…",
+    "allCollectionsAdded": "All collections added",
+    "change": "Change",
+    "chooseCategory": "Choose a category…",
+    "chooseCollection": "Choose a collection…",
+    "chooseImage": "Choose image",
+    "chosenCollections": "Chosen collections",
+    "chosenOf": "{{chosen}} of {{max}}",
+    "chosenProducts": "Chosen products",
+    "clear": "Clear",
+    "moveDown": "Move down",
+    "moveUp": "Move up",
+    "noCollections": "No published collections yet",
+    "noProducts": "No products found",
+    "remove": "Remove",
+    "searchProducts": "Search products…",
+    "searchResults": "Search results",
+    "selectedProduct": "Selected product",
+    "unpublishedCollection": "Unpublished collection"
+  },
+  "previewBar": {
+    "addProduct": "Add a product to your catalog to preview this page.",
+    "changeProduct": "Change product",
+    "done": "Done",
+    "loadFailed": "Could not load preview data",
+    "noCollections": "No published collections yet",
+    "previewCollection": "Preview collection",
+    "previewingCollection": "Previewing collection",
+    "previewingWith": "Previewing with <strong>{{name}}</strong>",
+    "region": "Preview data",
+    "searchResults": "Search results for “{{query}}”"
+  },
+  "settings": {
+    "bodyFont": "Body font",
+    "bodyFontGoogle": "Body font (Google Fonts name)",
+    "brand": "Brand",
+    "buttonCorners": "Button corners",
+    "colors": {
+      "accent": "Accent",
+      "background": "Background",
+      "muted": "Muted",
+      "primary": "Primary",
+      "secondary": "Secondary",
+      "surface": "Surface",
+      "text": "Text"
+    },
+    "colourLabel": "{{name}} colour",
+    "colours": "Colours",
+    "corners": {
+      "full": "Pill",
+      "lg": "Very rounded",
+      "md": "Rounded",
+      "none": "Square",
+      "sm": "Slightly rounded"
+    },
+    "favicon": "Favicon",
+    "fonts": {
+      "mono": "Monospace",
+      "rounded": "Rounded",
+      "sans": "Sans-serif",
+      "serif": "Serif"
+    },
+    "headingFont": "Heading font",
+    "headingFontGoogle": "Heading font (Google Fonts name)",
+    "imageShape": "Product image shape",
+    "layout": "Layout",
+    "logo": "Logo",
+    "pageWidth": "Page width (px)",
+    "productsPerRow": "Products per row",
+    "save": "Save settings",
+    "saving": "Saving…",
+    "sizes": {
+      "lg": "Large",
+      "md": "Medium",
+      "sm": "Small"
+    },
+    "textSize": "Text size",
+    "title": "Theme settings",
+    "typography": "Typography",
+    "useGoogle": "Use Google Fonts (loads fonts from Google)"
+  },
+  "status": {
+    "cantSave": "Can’t save: {{message}}",
+    "conflict": "This draft was changed somewhere else. Reload the editor to get the latest version.",
+    "loadingPage": "Loading page…",
+    "loadingTheme": "Loading theme…",
+    "published": "Published version {{number}}. It’s live now.",
+    "publishing": "Publishing…",
+    "saved": "Saved",
+    "saving": "Saving…",
+    "settingsSaved": "Theme settings saved",
+    "somethingWrong": "Something went wrong"
+  },
+  "style": {
+    "groups": {
+      "background": "Background",
+      "border": "Border",
+      "colors": "Colours",
+      "layout": "Layout",
+      "spacing": "Spacing",
+      "typography": "Typography",
+      "visibility": "Visibility"
+    },
+    "options": {
+      "align_items": {
+        "center": "center",
+        "end": "end",
+        "start": "start",
+        "stretch": "stretch"
+      },
+      "aspect_ratio": {
+        "auto": "auto"
+      },
+      "background_position": {
+        "bottom": "bottom",
+        "center": "center",
+        "top": "top"
+      },
+      "background_size": {
+        "contain": "contain",
+        "cover": "cover"
+      },
+      "border_radius": {
+        "full": "full",
+        "none": "None"
+      },
+      "border_width": {
+        "medium": "medium",
+        "none": "None",
+        "thick": "thick",
+        "thin": "thin"
+      },
+      "display": {
+        "hide": "Hide",
+        "show": "Show"
+      },
+      "font_family": {
+        "body": "Body font",
+        "heading": "Heading font"
+      },
+      "font_weight": {
+        "bold": "bold",
+        "medium": "medium",
+        "regular": "regular",
+        "semibold": "semibold"
+      },
+      "gap": {
+        "none": "None"
+      },
+      "justify_content": {
+        "between": "between",
+        "center": "center",
+        "end": "end",
+        "start": "start"
+      },
+      "letter_spacing": {
+        "normal": "normal",
+        "tight": "tight",
+        "wide": "wide"
+      },
+      "line_height": {
+        "normal": "normal",
+        "relaxed": "relaxed",
+        "tight": "tight"
+      },
+      "margin_bottom": {
+        "none": "None"
+      },
+      "margin_top": {
+        "none": "None"
+      },
+      "min_height": {
+        "none": "None",
+        "screen": "screen"
+      },
+      "padding_x": {
+        "none": "None"
+      },
+      "padding_y": {
+        "none": "None"
+      },
+      "shadow": {
+        "none": "None"
+      },
+      "text_align": {
+        "center": "center",
+        "left": "left",
+        "right": "right"
+      },
+      "text_transform": {
+        "none": "As typed",
+        "uppercase": "UPPERCASE"
+      },
+      "width": {
+        "auto": "Auto",
+        "content": "Page width",
+        "full": "Full",
+        "narrow": "Narrow"
+      }
+    },
+    "properties": {
+      "align_items": "Align items",
+      "aspect_ratio": "Shape",
+      "background_color": "Background colour",
+      "background_image": "Background image",
+      "background_position": "Image position",
+      "background_size": "Image fit",
+      "border_color": "Border colour",
+      "border_radius": "Corner rounding",
+      "border_width": "Border",
+      "color": "Text colour",
+      "columns": "Grid columns",
+      "display": "Visible",
+      "font_family": "Font",
+      "font_size": "Size",
+      "font_weight": "Weight",
+      "gap": "Gap between items",
+      "justify_content": "Distribute items",
+      "letter_spacing": "Letter spacing",
+      "line_height": "Line height",
+      "margin_bottom": "Space below",
+      "margin_top": "Space above",
+      "min_height": "Minimum height",
+      "padding_x": "Padding left/right",
+      "padding_y": "Padding top/bottom",
+      "shadow": "Shadow",
+      "text_align": "Alignment",
+      "text_transform": "Capitals",
+      "width": "Width"
+    }
+  },
+  "styleForm": {
+    "colorNone": "None",
+    "colorTheme": "Theme {{name}}",
+    "custom": "Custom…",
+    "customColour": "{{label}} custom colour",
+    "default": "Default",
+    "editingFor": "Editing styles for {{screens}}. Switch the preview size to style other screens.",
+    "sameAsLarger": "Same as larger screens ({{value}})",
+    "screens": {
+      "base": "all screens",
+      "mobile": "mobile",
+      "tablet": "tablet and mobile"
+    }
+  },
+  "toolbar": {
+    "devices": {
+      "desktop": "Desktop",
+      "mobile": "Mobile",
+      "tablet": "Tablet"
+    },
+    "page": "Page",
+    "pages": "Pages",
+    "preview": "Preview",
+    "previewSize": "Preview size",
+    "publish": "Publish",
+    "redo": "Redo",
+    "save": "Save",
+    "sectionGroups": "Header & footer",
+    "templates": "Templates",
+    "undo": "Undo",
+    "unsavedChanges": "Unsaved changes"
+  }
+}

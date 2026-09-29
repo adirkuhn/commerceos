@@ -57,6 +57,7 @@
     "chooseProduct": "Escolha um produto nas configurações.",
     "dataFailed": "Não foi possível carregar os dados da loja deste componente.",
     "listing": "Mostra a coleção ou a busca desta página.",
+    "loading": "Carregando…",
     "noProductsYet": "Ainda não há produtos. Escolha uma categoria ou produtos nas configurações.",
     "order": "O pedido recém-feito: número, total e status.",
     "pagination": "Links de páginas para coleções longas.",

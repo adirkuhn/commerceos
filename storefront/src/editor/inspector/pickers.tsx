@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Category, Collection, ProductSummary } from '../../api/storefront'
 import { useEditorServices } from '../services'
 import { AssetLibrary } from './AssetLibrary'
@@ -10,6 +11,7 @@ const ASSET_REF = /^asset:(.+)$/
 /** Picks a media-library image; the value is an "asset:<id>" reference. */
 export function AssetPicker({ label, value, onChange }: { label: string; value: string; onChange: (ref: string) => void }) {
   const { assets } = useEditorServices()
+  const { t } = useTranslation('editor')
   const refs = useSyncExternalStore(assets.subscribe, assets.snapshot)
   const [open, setOpen] = useState(false)
   const current = refs[ASSET_REF.exec(value)?.[1] ?? '']
@@ -21,9 +23,9 @@ export function AssetPicker({ label, value, onChange }: { label: string; value: 
             {current && <img src={current.url} alt="" className="h-full w-full object-cover" />}
           </div>
           <button id={id} type="button" className="rounded-md border px-2 py-1 text-sm" onClick={() => setOpen(true)}>
-            {value ? 'Change' : 'Choose image'}
+            {value ? t('pickers.change') : t('pickers.chooseImage')}
           </button>
-          {value && <button type="button" className="text-sm text-neutral-600" onClick={() => onChange('')}>Remove</button>}
+          {value && <button type="button" className="text-sm text-neutral-600" onClick={() => onChange('')}>{t('pickers.remove')}</button>}
           {open && <AssetLibrary onClose={() => setOpen(false)} onPick={a => { onChange(`asset:${a.id}`); setOpen(false) }} />}
         </div>
       )}
@@ -34,11 +36,12 @@ export function AssetPicker({ label, value, onChange }: { label: string; value: 
 export function CategorySelect({ label, value, onChange }: { label: string; value: string; onChange: (id: string) => void }) {
   const { store } = useEditorServices()
   const [categories, setCategories] = useState<Category[]>([])
+  const { t } = useTranslation('editor')
   useEffect(() => {
     store.listCategories().then(setCategories, () => setCategories([]))
   }, [store])
   return (
-    <SelectField label={label} value={value} allowEmpty="Choose a category…"
+    <SelectField label={label} value={value} allowEmpty={t('pickers.chooseCategory')}
       options={categories.map(c => ({ value: c.id, label: c.name }))} onChange={v => onChange(String(v))} />
   )
 }
@@ -55,26 +58,27 @@ function useCollections() {
 /** An ordered choice of published collections. */
 export function CollectionsPicker({ label, value, max, onChange }: { label: string; value: string[]; max: number; onChange: (ids: string[]) => void }) {
   const collections = useCollections()
-  const name = (id: string) => collections.find(c => c.id === id)?.name ?? 'Unpublished collection'
+  const { t } = useTranslation('editor')
+  const name = (id: string) => collections.find(c => c.id === id)?.name ?? t('pickers.unpublishedCollection')
   const available = collections.filter(c => !value.includes(c.id))
   return (
-    <Field label={label} hint={`${value.length} of ${max}`}>
+    <Field label={label} hint={t('pickers.chosenOf', { chosen: value.length, max })}>
       {id => (
         <div className="flex flex-col gap-2">
-          <ol className="flex flex-col gap-1" aria-label="Chosen collections">
+          <ol className="flex flex-col gap-1" aria-label={t('pickers.chosenCollections')}>
             {value.map((cid, i) => (
               <li key={cid} className="flex items-center gap-1 rounded bg-neutral-100 px-2 py-1 text-sm">
                 <span className="flex-1 truncate">{name(cid)}</span>
-                <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => onChange(moveItem(value, i, -1))}>↑</button>
-                <button type="button" aria-label="Move down" disabled={i === value.length - 1} onClick={() => onChange(moveItem(value, i, 1))}>↓</button>
-                <button type="button" aria-label="Remove" onClick={() => onChange(value.filter(v => v !== cid))}>✕</button>
+                <button type="button" aria-label={t('pickers.moveUp')} disabled={i === 0} onClick={() => onChange(moveItem(value, i, -1))}>↑</button>
+                <button type="button" aria-label={t('pickers.moveDown')} disabled={i === value.length - 1} onClick={() => onChange(moveItem(value, i, 1))}>↓</button>
+                <button type="button" aria-label={t('pickers.remove')} onClick={() => onChange(value.filter(v => v !== cid))}>✕</button>
               </li>
             ))}
           </ol>
           {value.length < max && (
             <select id={id} className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm" value=""
               onChange={e => e.target.value && onChange([...value, e.target.value])}>
-              <option value="">{available.length ? 'Add a collection…' : collections.length ? 'All collections added' : 'No published collections yet'}</option>
+              <option value="">{available.length ? t('pickers.addCollection') : collections.length ? t('pickers.allCollectionsAdded') : t('pickers.noCollections')}</option>
               {available.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
@@ -86,8 +90,9 @@ export function CollectionsPicker({ label, value, max, onChange }: { label: stri
 
 export function CollectionSelect({ label, value, onChange }: { label: string; value: string; onChange: (id: string) => void }) {
   const collections = useCollections()
+  const { t } = useTranslation('editor')
   return (
-    <SelectField label={label} value={value} allowEmpty={collections.length ? 'Choose a collection…' : 'No published collections yet'}
+    <SelectField label={label} value={value} allowEmpty={collections.length ? t('pickers.chooseCollection') : t('pickers.noCollections')}
       options={collections.map(c => ({ value: c.id, label: c.name }))} onChange={v => onChange(String(v))} />
   )
 }
@@ -118,16 +123,17 @@ function useProductsByIds(ids: string[]) {
 
 export function ProductSearch({ onPick, exclude }: { onPick: (p: ProductSummary) => void; exclude: string[] }) {
   const [term, setTerm] = useState('')
+  const { t } = useTranslation('editor')
   const results = useProductSearch(term).filter(p => !exclude.includes(p.id))
   return (
     <div className="flex flex-col gap-1">
-      <input className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm" placeholder="Search products…" aria-label="Search products"
+      <input className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm" placeholder={t('pickers.searchProducts')} aria-label={t('pickers.searchProducts')}
         value={term} onChange={e => setTerm(e.target.value)} />
-      <ul className="max-h-40 overflow-y-auto rounded border" aria-label="Search results">
+      <ul className="max-h-40 overflow-y-auto rounded border" aria-label={t('pickers.searchResults')}>
         {results.map(p => (
           <li key={p.id}><button type="button" className="w-full px-2 py-1 text-left text-sm hover:bg-neutral-100" onClick={() => onPick(p)}>{p.name}</button></li>
         ))}
-        {!results.length && <li className="px-2 py-1 text-xs text-neutral-500">No products found</li>}
+        {!results.length && <li className="px-2 py-1 text-xs text-neutral-500">{t('pickers.noProducts')}</li>}
       </ul>
     </div>
   )
@@ -135,14 +141,15 @@ export function ProductSearch({ onPick, exclude }: { onPick: (p: ProductSummary)
 
 export function ProductPicker({ label, value, onChange }: { label: string; value: string; onChange: (id: string) => void }) {
   const byId = useProductsByIds(value ? [value] : [])
+  const { t } = useTranslation('editor')
   return (
     <Field label={label}>
       {() => (
         <div className="flex flex-col gap-2">
           {value && (
             <div className="flex items-center justify-between rounded bg-neutral-100 px-2 py-1 text-sm">
-              <span>{byId[value]?.name ?? 'Selected product'}</span>
-              <button type="button" className="text-xs text-neutral-600" onClick={() => onChange('')}>Clear</button>
+              <span>{byId[value]?.name ?? t('pickers.selectedProduct')}</span>
+              <button type="button" className="text-xs text-neutral-600" onClick={() => onChange('')}>{t('pickers.clear')}</button>
             </div>
           )}
           <ProductSearch exclude={value ? [value] : []} onPick={p => onChange(p.id)} />
@@ -154,18 +161,19 @@ export function ProductPicker({ label, value, onChange }: { label: string; value
 
 export function ProductsPicker({ label, value, max, onChange }: { label: string; value: string[]; max: number; onChange: (ids: string[]) => void }) {
   const byId = useProductsByIds(value)
+  const { t } = useTranslation('editor')
   const move = (i: number, d: number) => onChange(moveItem(value, i, d))
   return (
-    <Field label={label} hint={`${value.length} of ${max}`}>
+    <Field label={label} hint={t('pickers.chosenOf', { chosen: value.length, max })}>
       {() => (
         <div className="flex flex-col gap-2">
-          <ol className="flex flex-col gap-1" aria-label="Chosen products">
+          <ol className="flex flex-col gap-1" aria-label={t('pickers.chosenProducts')}>
             {value.map((id, i) => (
               <li key={id} className="flex items-center gap-1 rounded bg-neutral-100 px-2 py-1 text-sm">
                 <span className="flex-1 truncate">{byId[id]?.name ?? id}</span>
-                <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
-                <button type="button" aria-label="Move down" disabled={i === value.length - 1} onClick={() => move(i, 1)}>↓</button>
-                <button type="button" aria-label="Remove" onClick={() => onChange(value.filter(v => v !== id))}>✕</button>
+                <button type="button" aria-label={t('pickers.moveUp')} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
+                <button type="button" aria-label={t('pickers.moveDown')} disabled={i === value.length - 1} onClick={() => move(i, 1)}>↓</button>
+                <button type="button" aria-label={t('pickers.remove')} onClick={() => onChange(value.filter(v => v !== id))}>✕</button>
               </li>
             ))}
           </ol>

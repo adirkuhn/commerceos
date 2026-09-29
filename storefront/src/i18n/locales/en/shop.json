@@ -57,6 +57,7 @@
     "chooseProduct": "Choose a product in the settings.",
     "dataFailed": "This component’s store data couldn’t be loaded.",
     "listing": "Shows the collection or search this page is about.",
+    "loading": "Loading…",
     "noProductsYet": "No products to show yet. Pick a category or products in the settings.",
     "order": "The order just placed: number, total and status.",
     "pagination": "Page links for long collections.",

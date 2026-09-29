@@ -13,6 +13,11 @@ import { StoreInfoProvider } from '../runtime/page/StoreContext'
 import { ComponentBoundary } from '../components/ComponentBoundary'
 import { storeQuery } from '../runtime/page/queries'
 
+function Loading() {
+  const { t } = useTranslation()
+  return <div className="cos-placeholder">{t('hint.loading')}</div>
+}
+
 function DataFailed() {
   const { t } = useTranslation()
   return <div className="cos-placeholder">{t('hint.dataFailed')}</div>
@@ -46,7 +51,7 @@ export function CanvasProviders({ services, children }: { services: EditorServic
         <RenderProvider value={{ mode: 'editor', assets, storePath: p => `/store/${services.channelId}/${p}` }}>
           <CanvasStoreInfo services={services}>
             <ComponentBoundary nodeId="canvas" fallback={<DataFailed />}>
-              <Suspense fallback={<div className="cos-placeholder">Loading…</div>}>{content}</Suspense>
+              <Suspense fallback={<Loading />}>{content}</Suspense>
             </ComponentBoundary>
           </CanvasStoreInfo>
         </RenderProvider>
