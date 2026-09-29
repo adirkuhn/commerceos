@@ -124,7 +124,7 @@ func toGenProductSummary(p appstorefront.ProductSummary) genstorefront.Storefron
 	return genstorefront.StorefrontProductSummary{
 		Id: p.ID, Name: p.Name, Slug: p.Slug, CategoryId: p.CategoryID, Tags: p.Tags,
 		ImageUrl: p.ImageURL, PriceMinorUnits: p.PriceMinorUnits, SalePriceMinorUnits: p.SalePriceMinorUnits,
-		CurrencyCode: p.CurrencyCode,
+		CurrencyCode: p.CurrencyCode, SkuCode: p.SKUCode, SkuCount: &p.SKUCount, InStock: &p.InStock,
 	}
 }
 

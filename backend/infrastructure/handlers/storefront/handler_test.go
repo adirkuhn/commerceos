@@ -713,10 +713,12 @@ func TestCheckoutCartHandler_alreadyCheckedOut(t *testing.T) {
 func TestListStorefrontProductsHandler_success(t *testing.T) {
 	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
 	price := int64(500)
+	skuCode := "W-1"
 	list := &stubListProducts{out: &appstorefront.ListProductsResult{
 		Total: 1,
 		Products: []appstorefront.ProductSummary{{
 			Product: pmsDomain.Product{ID: "product-1", Name: "Widget", Slug: "widget"}, PriceMinorUnits: &price,
+			SKUCode: &skuCode, SKUCount: 1, InStock: true,
 		}},
 	}}
 	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, list, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
@@ -726,6 +728,8 @@ func TestListStorefrontProductsHandler_success(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"name":"Widget"`)
 	assert.Contains(t, w.Body.String(), `"total":1`)
+	assert.Contains(t, w.Body.String(), `"sku_code":"W-1","sku_count":1`)
+	assert.Contains(t, w.Body.String(), `"in_stock":true`)
 }
 
 func TestListStorefrontProductsHandler_includesCategoryFacets(t *testing.T) {

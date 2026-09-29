@@ -260,7 +260,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL, stor
 	)
 	createPaymentIntent := appstorefront.NewCreatePaymentIntentUseCase(db, channelRepo, connRepo, stripe.NewClientFactory(), encryptionSecret, checkoutCart)
 
-	listProducts := appstorefront.NewListProductsUseCase(db, channelRepo, overrideRepo, listPOSProductCatalog, productRepo, categoryRepo, skuCurrencyPriceRepo, fxRepo)
+	listProducts := appstorefront.NewListProductsUseCase(db, channelRepo, overrideRepo, listPOSProductCatalog, productRepo, categoryRepo, skuCurrencyPriceRepo, fxRepo,
+		appinventory.NewGetStockLevelsUseCase(db, stockMovementRepo, batchRepo, settingsRepo))
 	getProduct := appstorefront.NewGetProductUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, skuCurrencyPriceRepo, fxRepo, stockLevel)
 	collectionDeps := appcollections.Deps{DB: db, Repo: repositories.NewCollectionRepo(db), Outbox: outboxRepo, Now: time.Now}
 	assetURLs := apptheme.NewResolveAssetURLsUseCase(apptheme.Deps{DB: db, Assets: repositories.NewThemeAssetRepo(db)})

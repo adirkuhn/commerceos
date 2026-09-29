@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
@@ -24,6 +25,17 @@ type ProductSummary struct {
 	PriceMinorUnits     *int64
 	SalePriceMinorUnits *int64
 	CurrencyCode        *string
+	// SKUCode is set when the product has exactly one SKU, so a listing
+	// can add it to the cart directly; SKUCount tells the rest.
+	SKUCode  *string
+	SKUCount int
+	// InStock: any of its SKUs has sellable stock.
+	InStock bool
+}
+
+// stockLevelsGetter is appinventory.GetStockLevelsUseCase at point of use.
+type stockLevelsGetter interface {
+	Execute(ctx context.Context, skuIDs []string) (map[string]appinventory.StockLevel, error)
 }
 
 type ListProductsInput struct {
@@ -94,6 +106,7 @@ type ListProductsUseCase struct {
 	categoryRepo         pmsDomain.CategoryRepository
 	skuCurrencyPriceRepo pmsDomain.SKUCurrencyPriceRepository
 	fxRepo               fxDomain.ExchangeRateRepository
+	stockLevels          stockLevelsGetter
 }
 
 func NewListProductsUseCase(
@@ -105,11 +118,12 @@ func NewListProductsUseCase(
 	categoryRepo pmsDomain.CategoryRepository,
 	skuCurrencyPriceRepo pmsDomain.SKUCurrencyPriceRepository,
 	fxRepo fxDomain.ExchangeRateRepository,
+	stockLevels stockLevelsGetter,
 ) *ListProductsUseCase {
 	return &ListProductsUseCase{
 		db: db, channelRepo: channelRepo, overrideRepo: overrideRepo, listCatalog: listCatalog,
 		productRepo: productRepo, categoryRepo: categoryRepo,
-		skuCurrencyPriceRepo: skuCurrencyPriceRepo, fxRepo: fxRepo,
+		skuCurrencyPriceRepo: skuCurrencyPriceRepo, fxRepo: fxRepo, stockLevels: stockLevels,
 	}
 }
 
@@ -171,13 +185,27 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, salesChannelID strin
 		return nil, fmt.Errorf("listProducts: %w", err)
 	}
 
+	stock, err := uc.stockFor(ctx, catalog.Products)
+	if err != nil {
+		return nil, fmt.Errorf("listProducts: %w", err)
+	}
+
 	result := &ListProductsResult{Total: catalog.Total, Products: make([]ProductSummary, len(catalog.Products)), CategoryFacets: categoryFacets}
 	// A separate transaction from the one above -- listCatalog.Execute (a
 	// full use case) already opened and closed its own in between, and this
 	// codebase never nests tenant.WithTenant calls.
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		for i, p := range catalog.Products {
-			summary := ProductSummary{Product: p.Product, ImageURL: p.ImageURL}
+			summary := ProductSummary{Product: p.Product, ImageURL: p.ImageURL, SKUCount: len(p.SKUs)}
+			for _, s := range p.SKUs {
+				if stock[s.ID].Syncable > 0 {
+					summary.InStock = true
+				}
+			}
+			if len(p.SKUs) == 1 {
+				code := p.SKUs[0].SKUCode
+				summary.SKUCode = &code
+			}
 			if len(p.SKUs) > 0 {
 				sku := p.SKUs[0]
 				resolved, err := apppms.ResolveSKUPrice(ctx, sku.SKU, channel.CurrencyCode, uc.skuCurrencyPriceRepo, uc.fxRepo)
@@ -199,4 +227,19 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, salesChannelID strin
 		return nil, fmt.Errorf("listProducts: %w", err)
 	}
 	return result, nil
+}
+
+// stockFor loads every listed SKU's stock in one pass (none without a
+// stock source, e.g. in tests that don't care).
+func (uc *ListProductsUseCase) stockFor(ctx context.Context, products []apppms.POSProductWithSKUs) (map[string]appinventory.StockLevel, error) {
+	if uc.stockLevels == nil {
+		return nil, nil
+	}
+	var ids []string
+	for _, p := range products {
+		for _, s := range p.SKUs {
+			ids = append(ids, s.ID)
+		}
+	}
+	return uc.stockLevels.Execute(ctx, ids)
 }

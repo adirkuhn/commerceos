@@ -16,7 +16,7 @@ import (
 func TestListProducts_orderByIDsPassesThrough(t *testing.T) {
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
 	catalog := &fakeListPOSProductCatalog{}
-	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{})
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), "channel-1", appstorefront.ListProductsInput{OrderByIDs: []string{"b", "a"}, Page: 1, PerPage: 20})
 

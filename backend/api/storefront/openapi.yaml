@@ -1152,6 +1152,12 @@ components:
           description: Null when the product has no SKU yet.
         sale_price_minor_units: { type: integer, format: int64, nullable: true }
         currency_code: { type: string, nullable: true }
+        sku_code:
+          type: string
+          nullable: true
+          description: Set when the product has exactly one SKU, so a listing can add it to the cart directly.
+        sku_count: { type: integer, description: How many SKUs (variants/sizes) the product has. }
+        in_stock: { type: boolean, description: Whether any of its SKUs has sellable stock. }
 
     StorefrontCategoryFacet:
       type: object
