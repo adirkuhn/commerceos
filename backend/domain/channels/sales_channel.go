@@ -154,9 +154,9 @@ type SalesChannel struct {
 	// OfferedStorefrontLocales, which also covers channels saved before
 	// this list existed.
 	StorefrontLocales []StorefrontLocale
-	Active           bool
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	Active            bool
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // QuantityBreak is one "at this quantity or more, this bigger discount"

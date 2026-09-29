@@ -73,7 +73,7 @@ func seedTheme(t *testing.T, ctx context.Context, db *gorm.DB, r themeRepos, cha
 func sampleTree() theme.Node {
 	return theme.Node{ID: "root", Type: theme.RootType, Children: []theme.Node{{
 		ID: "s1", Type: "section",
-		Style:    theme.NodeStyle{Base: map[string]string{"padding_y": "xl"}, Mobile: map[string]string{"padding_y": "md"}},
+		Style: theme.NodeStyle{Base: map[string]string{"padding_y": "xl"}, Mobile: map[string]string{"padding_y": "md"}},
 		Children: []theme.Node{{ID: "h1", Type: "heading", Props: map[string]any{"text": "Hello", "level": float64(1)},
 			Translations: map[locale.Locale]map[string]any{locale.Dutch: {"text": "Hallo"}}}},
 	}}}
