@@ -31,6 +31,10 @@ export interface ProductSummary {
   price_minor_units?: number | null
   sale_price_minor_units?: number | null
   currency_code?: string | null
+  /** Set when the product has exactly one SKU (a tile can add it). */
+  sku_code?: string | null
+  sku_count?: number
+  in_stock?: boolean
 }
 
 export interface CategoryFacet {

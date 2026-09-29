@@ -3,6 +3,9 @@ import type { ComponentDefinition } from '../types'
 export interface ProductCardProps {
   product_id: string
   show_price: boolean
+  show_add_to_cart: boolean
+  show_stock: boolean
+  show_discount: boolean
 }
 
 export const productCard: ComponentDefinition<ProductCardProps> = {
@@ -14,8 +17,11 @@ export const productCard: ComponentDefinition<ProductCardProps> = {
   props: {
     product_id: { kind: 'product', label: 'Product' },
     show_price: { kind: 'toggle', label: 'Show price' },
+    show_discount: { kind: 'toggle', label: 'Show discount badge' },
+    show_stock: { kind: 'toggle', label: 'Show stock status' },
+    show_add_to_cart: { kind: 'toggle', label: 'Show add to cart' },
   },
-  defaults: { product_id: '', show_price: true },
+  defaults: { product_id: '', show_price: true, show_add_to_cart: false, show_stock: false, show_discount: true },
   container: false,
   allowedChildren: [],
   allowedParents: [],

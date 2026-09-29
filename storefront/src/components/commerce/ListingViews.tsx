@@ -29,7 +29,7 @@ export function CollectionProductsView({ node, props, className }: RendererProps
   }
   return (
     <div className={`cos-product-grid ${className}`} data-node={node.id} style={cols ? ({ '--cos-grid-cols': cols } as React.CSSProperties) : undefined}>
-      {page.listing.items.map(p => <ProductTile key={p.id} product={p} showPrice={props.show_price !== false} />)}
+      {page.listing.items.map(p => <ProductTile key={p.id} product={p} showPrice={props.show_price !== false} showDiscount={props.show_discount !== false} showStock={props.show_stock === true} showAddToCart={props.show_add_to_cart === true} />)}
     </div>
   )
 }

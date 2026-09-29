@@ -884,6 +884,9 @@ components:
         limit: { type: integer, minimum: 1, maximum: 48 }
         columns: { type: integer, minimum: 0, maximum: 6, description: 0 uses the theme setting. }
         show_price: { type: boolean }
+        show_add_to_cart: { type: boolean, description: Add-to-cart button on tiles (single-SKU products; others link to their page). }
+        show_stock: { type: boolean, description: In stock / sold out on tiles. }
+        show_discount: { type: boolean, description: Percentage-off badge on products on sale. }
     ProductCardProps:
       type: object
       required: [product_id]
@@ -893,6 +896,9 @@ components:
       properties:
         product_id: { type: string, maxLength: 36, description: Empty until a product is chosen. }
         show_price: { type: boolean }
+        show_add_to_cart: { type: boolean, description: Add-to-cart button on tiles (single-SKU products; others link to their page). }
+        show_stock: { type: boolean, description: In stock / sold out on tiles. }
+        show_discount: { type: boolean, description: Percentage-off badge on products on sale. }
     # Product page (the current product; product template only)
     ProductGalleryProps:
       type: object
@@ -967,6 +973,9 @@ components:
         per_page: { type: integer, minimum: 4, maximum: 48 }
         columns: { type: integer, minimum: 0, maximum: 6 }
         show_price: { type: boolean }
+        show_add_to_cart: { type: boolean, description: Add-to-cart button on tiles (single-SKU products; others link to their page). }
+        show_stock: { type: boolean, description: In stock / sold out on tiles. }
+        show_discount: { type: boolean, description: Percentage-off badge on products on sale. }
     CollectionFiltersProps:
       type: object
       additionalProperties: false

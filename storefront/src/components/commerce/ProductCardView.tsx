@@ -19,7 +19,7 @@ export function ProductCardView({ node, props, className }: RendererProps<Produc
   }
   return (
     <div className={`cos-product-card ${className}`} data-node={node.id}>
-      <ProductTile product={data} showPrice={props.show_price !== false} />
+      <ProductTile product={data} showPrice={props.show_price !== false} showDiscount={props.show_discount !== false} showStock={props.show_stock === true} showAddToCart={props.show_add_to_cart === true} />
     </div>
   )
 }

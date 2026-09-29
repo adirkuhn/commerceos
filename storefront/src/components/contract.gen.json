@@ -211,7 +211,10 @@
       "props": [
         "columns",
         "per_page",
-        "show_price"
+        "show_add_to_cart",
+        "show_discount",
+        "show_price",
+        "show_stock"
       ],
       "required_props": []
     },
@@ -387,7 +390,10 @@
       "required_in": [],
       "props": [
         "product_id",
-        "show_price"
+        "show_add_to_cart",
+        "show_discount",
+        "show_price",
+        "show_stock"
       ],
       "required_props": [
         "product_id"
@@ -428,7 +434,10 @@
         "columns",
         "limit",
         "product_ids",
+        "show_add_to_cart",
+        "show_discount",
         "show_price",
+        "show_stock",
         "source"
       ],
       "required_props": [

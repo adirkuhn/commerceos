@@ -188,3 +188,31 @@ describe('site components', () => {
     expect(api.toggleWishlistItem).toHaveBeenCalledWith('wl', 'p1')
   })
 })
+
+describe('product tile', () => {
+  const base = { id: 'p1', name: 'Feijão Preto', slug: 'feijao', category_id: null, tags: [], image_url: null, currency_code: 'EUR' }
+
+  it('shows the discount, stock and adds a single-SKU product to the cart', async () => {
+    const { ProductTile, percentOff } = await import('../commerce/ProductTile')
+    expect(percentOff(500, 310)).toBe(38)
+    expect(percentOff(500, 500)).toBeUndefined()
+    const api = fakeAPI()
+    api.createCart = vi.fn(async () => ({ token: 'c', items: [], subtotal_minor_units: 0, discount_minor_units: 0 }))
+    api.setCartItems = vi.fn(async (_t: string, items: { sku_code: string; quantity: number }[]) => ({ ...cartWithItem, items: [] , token: 'c', subtotal_minor_units: items.length }))
+    const { api: used } = setup(<ProductTile product={{ ...base, price_minor_units: 500, sale_price_minor_units: 310, sku_code: 'FEIJAO-1KG', sku_count: 1, in_stock: true }} showPrice showDiscount showStock showAddToCart />, { api })
+    expect(screen.getByText('-38%')).toBeInTheDocument()
+    expect(screen.getByText('In stock')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Add to cart' }))
+    await waitFor(() => expect(used.setCartItems).toHaveBeenCalledWith('c', [{ sku_code: 'FEIJAO-1KG', quantity: 1 }]))
+  })
+
+  it('sends products with options to their page and disables sold-out ones', async () => {
+    const { ProductTile } = await import('../commerce/ProductTile')
+    setup(<>
+      <ProductTile product={{ ...base, id: 'a', slug: 'tee', name: 'Tee', price_minor_units: 900, sku_code: null, sku_count: 3, in_stock: true }} showPrice showAddToCart />
+      <ProductTile product={{ ...base, id: 'b', slug: 'gone', name: 'Gone', price_minor_units: 900, sku_code: 'G', sku_count: 1, in_stock: false }} showPrice showAddToCart />
+    </>)
+    expect(screen.getByRole('link', { name: 'Choose options' })).toHaveAttribute('href', '/store/k/products/tee')
+    expect(screen.getByRole('button', { name: 'Sold out' })).toBeDisabled()
+  })
+})

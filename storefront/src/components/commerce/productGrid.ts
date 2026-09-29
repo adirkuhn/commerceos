@@ -8,6 +8,9 @@ export interface ProductGridProps {
   limit: number
   columns: number
   show_price: boolean
+  show_add_to_cart: boolean
+  show_stock: boolean
+  show_discount: boolean
 }
 
 export const productGrid: ComponentDefinition<ProductGridProps> = {
@@ -30,8 +33,11 @@ export const productGrid: ComponentDefinition<ProductGridProps> = {
     limit: { kind: 'number', label: 'How many', min: 1, max: 48 },
     columns: { kind: 'select', label: 'Columns', options: [{ value: 0, label: 'Theme default' }, ...[2, 3, 4, 5, 6].map(n => ({ value: n, label: String(n) }))] },
     show_price: { kind: 'toggle', label: 'Show prices' },
+    show_discount: { kind: 'toggle', label: 'Show discount badges' },
+    show_stock: { kind: 'toggle', label: 'Show stock status' },
+    show_add_to_cart: { kind: 'toggle', label: 'Show add to cart' },
   },
-  defaults: { source: 'all', category_id: '', collection_id: '', product_ids: [], limit: 8, columns: 0, show_price: true },
+  defaults: { source: 'all', category_id: '', collection_id: '', product_ids: [], limit: 8, columns: 0, show_price: true, show_add_to_cart: false, show_stock: false, show_discount: true },
   showField: {
     category_id: p => p.source === 'category',
     collection_id: p => p.source === 'collection',

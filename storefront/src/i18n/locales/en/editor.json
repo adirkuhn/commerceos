@@ -141,7 +141,10 @@
       "props": {
         "columns": "Columns",
         "per_page": "Products per page",
-        "show_price": "Show prices"
+        "show_add_to_cart": "Show add to cart",
+        "show_discount": "Show discount badges",
+        "show_price": "Show prices",
+        "show_stock": "Show stock status"
       }
     },
     "column": {
@@ -265,7 +268,10 @@
       "name": "Product card",
       "props": {
         "product_id": "Product",
-        "show_price": "Show price"
+        "show_add_to_cart": "Show add to cart",
+        "show_discount": "Show discount badge",
+        "show_price": "Show price",
+        "show_stock": "Show stock status"
       }
     },
     "product-description": {
@@ -305,7 +311,10 @@
         "columns": "Columns",
         "limit": "How many",
         "product_ids": "Products",
+        "show_add_to_cart": "Show add to cart",
+        "show_discount": "Show discount badges",
         "show_price": "Show prices",
+        "show_stock": "Show stock status",
         "source": "Show"
       }
     },

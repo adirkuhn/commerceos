@@ -141,7 +141,10 @@
       "props": {
         "columns": "Kolommen",
         "per_page": "Producten per pagina",
-        "show_price": "Prijzen tonen"
+        "show_add_to_cart": "Knop \"In winkelwagen\" tonen",
+        "show_discount": "Kortingslabels tonen",
+        "show_price": "Prijzen tonen",
+        "show_stock": "Voorraadstatus tonen"
       }
     },
     "column": {
@@ -265,7 +268,10 @@
       "name": "Productkaart",
       "props": {
         "product_id": "Product",
-        "show_price": "Prijs tonen"
+        "show_add_to_cart": "Knop \"In winkelwagen\" tonen",
+        "show_discount": "Kortingslabel tonen",
+        "show_price": "Prijs tonen",
+        "show_stock": "Voorraadstatus tonen"
       }
     },
     "product-description": {
@@ -305,7 +311,10 @@
         "columns": "Kolommen",
         "limit": "Hoeveel",
         "product_ids": "Producten",
+        "show_add_to_cart": "Knop \"In winkelwagen\" tonen",
+        "show_discount": "Kortingslabels tonen",
         "show_price": "Prijzen tonen",
+        "show_stock": "Voorraadstatus tonen",
         "source": "Tonen"
       }
     },

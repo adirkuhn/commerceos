@@ -141,7 +141,10 @@
       "props": {
         "columns": "Colunas",
         "per_page": "Produtos por página",
-        "show_price": "Mostrar preços"
+        "show_add_to_cart": "Mostrar botão de adicionar ao carrinho",
+        "show_discount": "Mostrar selos de desconto",
+        "show_price": "Mostrar preços",
+        "show_stock": "Mostrar disponibilidade"
       }
     },
     "column": {
@@ -265,7 +268,10 @@
       "name": "Cartão de produto",
       "props": {
         "product_id": "Produto",
-        "show_price": "Mostrar preço"
+        "show_add_to_cart": "Mostrar botão de adicionar ao carrinho",
+        "show_discount": "Mostrar selo de desconto",
+        "show_price": "Mostrar preço",
+        "show_stock": "Mostrar disponibilidade"
       }
     },
     "product-description": {
@@ -305,7 +311,10 @@
         "columns": "Colunas",
         "limit": "Quantidade",
         "product_ids": "Produtos",
+        "show_add_to_cart": "Mostrar botão de adicionar ao carrinho",
+        "show_discount": "Mostrar selos de desconto",
         "show_price": "Mostrar preços",
+        "show_stock": "Mostrar disponibilidade",
         "source": "Mostrar"
       }
     },

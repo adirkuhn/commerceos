@@ -21,7 +21,7 @@ export function ProductGridView({ node, props, className }: RendererProps<Produc
   return (
     <div className={`cos-product-grid ${className}`} data-node={node.id}
       style={cols ? ({ '--cos-grid-cols': cols } as React.CSSProperties) : undefined}>
-      {data.items.map(p => <ProductTile key={p.id} product={p} showPrice={props.show_price !== false} />)}
+      {data.items.map(p => <ProductTile key={p.id} product={p} showPrice={props.show_price !== false} showDiscount={props.show_discount !== false} showStock={props.show_stock === true} showAddToCart={props.show_add_to_cart === true} />)}
     </div>
   )
 }

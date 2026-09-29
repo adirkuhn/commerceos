@@ -17,7 +17,7 @@ export const collectionHeader: ComponentDefinition<CollectionHeaderProps> = {
   styleGroups: ['typography', 'colors', 'spacing', 'visibility'],
 }
 
-export interface CollectionProductsProps { per_page: number; columns: number; show_price: boolean }
+export interface CollectionProductsProps { per_page: number; columns: number; show_price: boolean; show_add_to_cart: boolean; show_stock: boolean; show_discount: boolean }
 export const collectionProducts: ComponentDefinition<CollectionProductsProps> = {
   ...base, type: 'collection-products', name: 'Collection products', category: 'commerce', icon: 'grid',
   description: 'The products in this collection or search, one page at a time.',
@@ -25,8 +25,11 @@ export const collectionProducts: ComponentDefinition<CollectionProductsProps> = 
     per_page: { kind: 'number', label: 'Products per page', min: 4, max: 48 },
     columns: { kind: 'select', label: 'Columns', options: [{ value: 0, label: 'Theme default' }, ...[2, 3, 4, 5, 6].map(n => ({ value: n, label: String(n) }))] },
     show_price: { kind: 'toggle', label: 'Show prices' },
+    show_discount: { kind: 'toggle', label: 'Show discount badges' },
+    show_stock: { kind: 'toggle', label: 'Show stock status' },
+    show_add_to_cart: { kind: 'toggle', label: 'Show add to cart' },
   },
-  defaults: { per_page: 24, columns: 0, show_price: true },
+  defaults: { per_page: 24, columns: 0, show_price: true, show_add_to_cart: false, show_stock: false, show_discount: true },
   requiredIn: ['collection', 'search'],
   editor: { removable: false, copyable: false, draggable: true },
   styleGroups: ['spacing', 'visibility'],
