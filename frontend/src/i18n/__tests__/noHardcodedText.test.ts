@@ -1,12 +1,73 @@
 import { describe, it, expect } from 'vitest'
 import ts from 'typescript'
 
-// Modules already translated. Their UI text must come from t(): this test
-// flags text written straight into JSX and literal user-facing attributes.
-// Add a module here once it's translated.
-export const TRANSLATED = [
-  'components/layout',
+// Every component must take its UI text from t(); this test flags text
+// written straight into JSX and literal user-facing attributes. PENDING
+// lists what hasn't been translated yet -- remove an entry (one per line)
+// once that module is done. EXEMPT is never user-facing.
+export const PENDING: string[] = [
+  // group A: fulfillment
+  'scanner/',
+  'picking/',
+  'packing/',
+  'pages/Picking.tsx',
+  'pages/Packing.tsx',
+  // group B: catalog & marketing
+  'pms/',
+  'collections/',
+  'promotions/',
+  'coupons/',
+  'messagecenter/',
+  'whatsapp/',
+  'pages/Products.tsx',
+  'pages/UnmatchedSkus.tsx',
+  'pages/Reviews.tsx',
+  'pages/Collections.tsx',
+  'pages/Promotions.tsx',
+  'pages/Coupons.tsx',
+  'pages/MessageCenter.tsx',
+  'pages/Newsletter.tsx',
+  // group C: connect & admin
+  'integrations/',
+  'webhooks/',
+  'themes/',
+  'settings/',
+  'iam/',
+  'auth/',
+  'pages/SalesChannels.tsx',
+  'pages/Integrations.tsx',
+  'pages/Webhooks.tsx',
+  'pages/SyncLog.tsx',
+  'pages/Settings.tsx',
+  'pages/Users.tsx',
+  'pages/ScheduledJobs.tsx',
+  // group D: operations
+  'inventory/',
+  'procurement/',
+  'shipping/',
+  'pages/Inventory.tsx',
+  'pages/Warehouses.tsx',
+  'pages/Procurement.tsx',
+  'pages/Suppliers.tsx',
+  'pages/Shipping.tsx',
+  'pages/StockIssues.tsx',
+  // group E: sales & shell
+  'oms/',
+  'customers/',
+  'components/common/',
+  'components/brand/',
+  'format/',
+  'context/',
+  'App.tsx',
+  'pages/SalesOrders.tsx',
+  'pages/Orders.tsx',
+  'pages/Customers.tsx',
+  'pages/Dashboard.tsx',
+  'pages/print/',
+  'pages/reports/',
 ]
+
+const EXEMPT = ['test/', 'main.tsx']
 
 // Every component source file, as text, keyed by path relative to src/.
 const SOURCES = Object.fromEntries(
@@ -38,12 +99,18 @@ export function hardcodedTexts(source: string): string[] {
   return found
 }
 
-describe('translated modules have no hard-coded UI text', () => {
-  it.each(TRANSLATED)('%s', mod => {
-    const inModule = Object.entries(SOURCES).filter(([path]) => path.startsWith(`${mod}/`))
-    expect(inModule.length, `no .tsx files under ${mod}`).toBeGreaterThan(0)
-    const offenders = inModule.flatMap(([path, text]) => hardcodedTexts(text).map(t => `${path}: ${t}`))
+const skipped = (path: string) => [...PENDING, ...EXEMPT].some(prefix => path === prefix || path.startsWith(prefix))
+
+describe('components have no hard-coded UI text', () => {
+  it('outside the modules still pending translation', () => {
+    const offenders = Object.entries(SOURCES)
+      .filter(([path]) => !skipped(path))
+      .flatMap(([path, text]) => hardcodedTexts(text).map(t => `${path}: ${t}`))
     expect(offenders).toEqual([])
+  })
+
+  it('PENDING only lists paths that exist', () => {
+    for (const prefix of PENDING) expect(Object.keys(SOURCES).some(p => p === prefix || p.startsWith(prefix)), prefix).toBe(true)
   })
 })
 
