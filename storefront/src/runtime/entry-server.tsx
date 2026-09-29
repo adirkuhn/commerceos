@@ -15,6 +15,8 @@ import { storeQuery } from './page/queries'
 import { buildHead } from './head'
 import { canonicalURL } from './seo'
 import { sitemapXML } from './sitemap'
+import { createI18n } from '../i18n/createI18n'
+import { resolveLocale } from '../i18n/locale'
 
 export const BASENAME = '/store'
 
@@ -27,6 +29,8 @@ export interface RenderOptions {
   publicApiBaseURL: string
   previewToken?: string
   fetch?: typeof fetch
+  /** The browser's Accept-Language, for pages without a store (not found). */
+  acceptLanguage?: string
   /** Origin shoppers reach the store on (canonical URLs, structured data). */
   publicOrigin?: string
 }
@@ -36,6 +40,8 @@ export interface RenderResult {
   head: string
   html: string
   state: string
+  /** The page language, for <html lang>. */
+  lang: string
 }
 
 
@@ -51,10 +57,14 @@ function cachedRating(qc: QueryClient, productId: string): ReviewList['summary']
   return reviews?.summary
 }
 
-const unavailable = (status: number): RenderResult => ({
-  status, head: '<title>Store not available</title><meta name="robots" content="noindex">',
-  html: renderToString(<StoreUnavailable />), state: '',
-})
+function unavailable(status: number, acceptLanguage?: string): RenderResult {
+  const locale = resolveLocale(acceptLanguage?.split(',')[0]?.split(';')[0]?.trim())
+  const title = createI18n(locale).t('store.unavailableTitle')
+  return {
+    status, lang: locale, head: `<title>${title}</title><meta name="robots" content="noindex">`,
+    html: renderToString(<StoreUnavailable locale={locale} />), state: '',
+  }
+}
 
 /**
  * Server-renders one storefront page: loads the theme and the documents
@@ -63,7 +73,7 @@ const unavailable = (status: number): RenderResult => ({
  */
 export async function render(opts: RenderOptions): Promise<RenderResult> {
   const parsed = parseStoreURL(opts.url)
-  if (!parsed) return unavailable(404)
+  if (!parsed) return unavailable(404, opts.acceptLanguage)
 
   const api = new StorefrontAPI({ baseURL: opts.apiBaseURL, storeKey: parsed.storeKey, previewToken: opts.previewToken, fetch: opts.fetch })
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -73,7 +83,7 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
     theme = await qc.fetchQuery(themeQuery(api))
   } catch (err) {
     const status = err instanceof ApiError && [401, 404].includes(err.status) ? 404 : 502
-    return unavailable(status)
+    return unavailable(status, opts.acceptLanguage)
   }
 
   const query = new URL(opts.url, 'http://x').searchParams
@@ -102,6 +112,7 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
 
   return {
     status: route.notFound ? 404 : 200,
+    lang: resolveLocale(store?.locale),
     head: buildHead({
       theme, doc: main, page, preview: theme.preview || Boolean(opts.previewToken), storeName: store?.name ?? '',
       canonical: canonicalURL(opts.publicOrigin, parsed.storeKey, parsed.path, query, route),

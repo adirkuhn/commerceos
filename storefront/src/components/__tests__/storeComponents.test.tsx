@@ -87,8 +87,8 @@ describe('checkout form', () => {
     const Form = R('checkout-form')
     const { api, navigate } = setup(<Form node={node('checkout-form')} props={{ button_label: 'Pay now' }} className="" />)
     await fillAddress()
-    expect(await screen.findByRole('radio', { name: /PostNL — € 4,95/ })).toBeChecked()
-    expect(screen.getByText('€ 54,95')).toBeInTheDocument()
+    expect(await screen.findByRole('radio', { name: /PostNL — €4.95/ })).toBeChecked()
+    expect(screen.getByText('€54.95')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Pay now' }))
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('https://pay.test/s/1'))
@@ -133,7 +133,7 @@ describe('order status', () => {
     expect(api.lookupOrder).not.toHaveBeenCalled()
     await userEvent.type(screen.getByLabelText(/email you ordered with/), 'ann@x.test')
     await userEvent.click(screen.getByRole('button', { name: 'Show order' }))
-    expect(await screen.findByText('€ 54,95')).toBeInTheDocument()
+    expect(await screen.findByText('€54.95')).toBeInTheDocument()
   })
 })
 

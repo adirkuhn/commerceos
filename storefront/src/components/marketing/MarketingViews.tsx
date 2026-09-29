@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useStorefrontAPI } from '../../api/ApiContext'
 import { resolveAssetRef, useRenderEnv } from '../../runtime/RenderContext'
@@ -41,11 +42,12 @@ export function CollectionListView({ node, props, className }: RendererProps<Col
   const api = useStorefrontAPI()
   const env = useRenderEnv()
   const { data } = useSuspenseQuery(collectionsQuery(api))
+  const { t } = useTranslation()
   const picked = props.source === 'picked'
     ? (props.collection_ids ?? []).map(id => data.find(c => c.id === id)).filter(c => c !== undefined)
     : data.slice(0, Math.min(Math.max(Number(props.limit) || 6, 1), 24))
   if (!picked.length) {
-    return env.mode === 'editor' ? <div className={`cos-placeholder ${className}`} data-node={node.id}>Publish a collection to show it here.</div> : null
+    return env.mode === 'editor' ? <div className={`cos-placeholder ${className}`} data-node={node.id}>{t('hint.publishCollection')}</div> : null
   }
   return (
     <ul className={`cos-collection-list ${className}`} data-node={node.id}>
@@ -66,6 +68,7 @@ export function NewsletterSignupView({ node, props, className }: RendererProps<N
   const env = useRenderEnv()
   const [email, setEmail] = useState('')
   const [consent, setConsent] = useState(false)
+  const { t } = useTranslation()
   const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
   const [error, setError] = useState('')
   const id = `${node.id}-newsletter`
@@ -78,7 +81,7 @@ export function NewsletterSignupView({ node, props, className }: RendererProps<N
       await api.subscribeNewsletter(email, consent)
       setState('done')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(err instanceof Error ? err.message : t('common.somethingWrong'))
       setState('error')
     }
   }
@@ -88,13 +91,13 @@ export function NewsletterSignupView({ node, props, className }: RendererProps<N
       {props.title && <h2 id={`${id}-title`} className="cos-heading">{props.title}</h2>}
       {props.text && <p>{props.text}</p>}
       {state === 'done' ? (
-        <p role="status">Almost done: check your inbox and confirm your subscription.</p>
+        <p role="status">{t('newsletter.checkInbox')}</p>
       ) : (
         <form onSubmit={e => void submit(e)}>
-          <label htmlFor={`${id}-email`} className="cos-label">Email</label>
+          <label htmlFor={`${id}-email`} className="cos-label">{t('common.email')}</label>
           <div className="cos-newsletter-row">
             <input id={`${id}-email`} type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} />
-            <button type="submit" className="cos-button cos-button-primary" disabled={state === 'busy' || !consent}>{props.button_label || 'Subscribe'}</button>
+            <button type="submit" className="cos-button cos-button-primary" disabled={state === 'busy' || !consent}>{props.button_label || t('newsletter.subscribe')}</button>
           </div>
           <label className="cos-consent">
             <input type="checkbox" required checked={consent} onChange={e => setConsent(e.target.checked)} /> {props.consent_label}

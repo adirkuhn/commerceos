@@ -14,3 +14,11 @@ describe('injectPage', () => {
     expect(out).toBe("<p>$& $' $1</p>")
   })
 })
+
+describe('injectPage lang', () => {
+  it('sets <html lang> from the page, sanitised', () => {
+    const tpl = '<html lang="en"><head><!--app-head--></head><body><!--app-html--><!--app-state--></body></html>'
+    expect(injectPage(tpl, { lang: 'pt-BR', head: '', html: '', state: '' })).toContain('<html lang="pt-BR">')
+    expect(injectPage(tpl, { lang: 'x"><script>', head: '', html: '', state: '' })).toContain('<html lang="xscript">')
+  })
+})

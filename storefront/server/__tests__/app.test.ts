@@ -11,7 +11,7 @@ async function start(overrides: Partial<HandlerDeps> = {}) {
     config: { apiInternalURL: 'http://backend/api/v1', apiPublicURL: 'https://api.test/api/v1' },
     pageTemplate: async () => '<head><!--app-head--></head><body><!--app-html--><script><!--app-state--></script></body>',
     editorTemplate: async () => '<head><!--app-config--></head><body>editor</body>',
-    render: vi.fn(async () => ({ status: 200, head: '<title>t</title>', html: '<p>page</p>', state: '{}' })),
+    render: vi.fn(async () => ({ status: 200, head: '<title>t</title>', html: '<p>page</p>', state: '{}', lang: 'en' })),
     renderSitemap: vi.fn(async () => ({ status: 200, body: '<urlset/>' })),
     serveStatic: async () => false,
     ...overrides,
@@ -61,7 +61,7 @@ describe('storefront server', () => {
   })
 
   it('passes the status through and never caches previews', async () => {
-    const render = vi.fn(async () => ({ status: 404, head: '', html: '', state: '' }))
+    const render = vi.fn(async () => ({ status: 404, head: '', html: '', state: '', lang: 'en' }))
     const { deps, get } = await start({ render })
     const res = await get('/store/key-1/nope', { headers: { Cookie: 'cos_preview=pv' } })
 

@@ -52,7 +52,7 @@ describe('SSR routes', () => {
     const out = await render({ ...base, url: '/store/k/products/red-shoes', fetch: backend() })
     expect(out.status).toBe(200)
     expect(out.html).toContain('Red shoes')
-    expect(out.html).toContain('€ 50,00')
+    expect(out.html).toContain('€50.00')
     expect(out.html).toContain('No reviews yet.')
     expect(out.head).toContain('<title>Red shoes</title>')
     expect(out.head).toContain('content="Comfy shoes for walking"')
@@ -174,5 +174,25 @@ describe('renderSitemap', () => {
     expect((await renderSitemap({ storeKey: 'k', apiBaseURL: 'http://b', fetch: vi.fn() })).status).toBe(404)
     const gone = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ data: null, error: { code: 'UNAUTHORIZED' } }), { status: 401 }))
     expect((await renderSitemap({ storeKey: 'k', apiBaseURL: 'http://b', publicOrigin: 'https://s', fetch: gone })).status).toBe(404)
+  })
+})
+
+describe('store language', () => {
+  it('renders in the store language: texts, prices and <html lang>', async () => {
+    const f = backend()
+    const inner = f.getMockImplementation()!
+    f.mockImplementation(async (input, init) => String(input).endsWith('/storefront/v1/store')
+      ? new Response(JSON.stringify({ data: { name: 'Loja', currency_code: 'EUR', locale: 'pt-BR' }, error: null }))
+      : inner(input, init))
+    const out = await render({ ...base, url: '/store/k/products/red-shoes', fetch: f })
+    expect(out.lang).toBe('pt-BR')
+    expect(out.html).toContain('€ 50,00')
+    expect(out.html).toContain('Ainda não há avaliações.')
+  })
+
+  it('answers a missing store in the browser language', async () => {
+    const out = await render({ ...base, url: '/nope', acceptLanguage: 'nl-NL,nl;q=0.9,en;q=0.8', fetch: backend() })
+    expect(out.lang).toBe('nl')
+    expect(out.head).toContain('Deze winkel is niet beschikbaar')
   })
 })

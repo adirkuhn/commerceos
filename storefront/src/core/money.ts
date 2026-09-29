@@ -1,12 +1,12 @@
-// Store-wide display locale until stores get a locale setting (CommerceOS
-// is Netherlands-first). Server and browser must format identically, or
-// hydration mismatches.
-export const STORE_LOCALE = 'nl-NL'
+// Server and browser must format identically (same Intl locale), or
+// hydration mismatches. Components format through the store's i18n
+// (useShopI18n().price); the default is the Netherlands-first fallback.
+const DEFAULT_INTL_LOCALE = 'nl-NL'
 
 /** Formats integer minor units (e.g. cents) as a price. */
-export function formatPrice(minorUnits: number | null | undefined, currency: string | null | undefined): string {
+export function formatPrice(minorUnits: number | null | undefined, currency: string | null | undefined, intlLocale = DEFAULT_INTL_LOCALE): string {
   if (minorUnits == null || !currency) return ''
-  const fmt = new Intl.NumberFormat(STORE_LOCALE, { style: 'currency', currency })
+  const fmt = new Intl.NumberFormat(intlLocale, { style: 'currency', currency })
   const digits = fmt.resolvedOptions().maximumFractionDigits ?? 2
   return fmt.format(minorUnits / 10 ** digits).replace(/ /g, ' ')
 }

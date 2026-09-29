@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useRenderEnv } from '../../runtime/RenderContext'
 import { useCart } from '../../runtime/page/CartContext'
 import { useCustomer } from '../../runtime/page/CustomerContext'
@@ -12,9 +13,10 @@ const inert = (mode: string) => (mode === 'editor' ? { tabIndex: -1, onClick: (e
 export function SiteLogoView({ node, props, className }: RendererProps<SiteLogoProps>) {
   const env = useRenderEnv()
   const store = useStoreInfo()
+  const { t } = useTranslation()
   const logoID = store?.settings.brand.logo_asset_id
   const logo = logoID ? (store?.assets[logoID] ?? env.assets[logoID]) : undefined
-  const name = store?.name || 'Store'
+  const name = store?.name || t('common.store')
   const size = ['sm', 'md', 'lg'].includes(props.size) ? props.size : 'md'
   return (
     <a href={env.storePath('')} className={`cos-logo cos-logo-${size} ${className}`} data-node={node.id} {...inert(env.mode)}>
@@ -25,9 +27,10 @@ export function SiteLogoView({ node, props, className }: RendererProps<SiteLogoP
 
 export function NavigationMenuView({ node, props, className }: RendererProps<NavigationMenuProps>) {
   const env = useRenderEnv()
+  const { t } = useTranslation()
   const items = (props.items ?? []).slice(0, 12)
   return (
-    <nav className={`cos-nav cos-nav-${props.orientation === 'vertical' ? 'vertical' : 'horizontal'} ${className}`} data-node={node.id} aria-label="Menu">
+    <nav className={`cos-nav cos-nav-${props.orientation === 'vertical' ? 'vertical' : 'horizontal'} ${className}`} data-node={node.id} aria-label={t('nav.menu')}>
       <ul>
         {items.map((item, i) => {
           const href = storeHref(item.link, env.storePath)
@@ -41,22 +44,24 @@ export function NavigationMenuView({ node, props, className }: RendererProps<Nav
 export function CartLinkView({ node, props, className }: RendererProps<CartLinkProps>) {
   const env = useRenderEnv()
   const cart = useCart()
+  const { t } = useTranslation()
   const count = cart?.cart?.items.reduce((n, i) => n + i.quantity, 0) ?? 0
   return (
     <a href={env.storePath('cart')} className={`cos-cart-link ${className}`} data-node={node.id} {...inert(env.mode)}>
-      {props.label || 'Cart'}
-      {props.show_count !== false && count > 0 && <span className="cos-count" aria-label={`${count} items`}>{count}</span>}
+      {props.label || t('nav.cart')}
+      {props.show_count !== false && count > 0 && <span className="cos-count" aria-label={t('nav.cartItems', { count })}>{count}</span>}
     </a>
   )
 }
 
 export function SearchBoxView({ node, props, className }: RendererProps<SearchBoxProps>) {
   const env = useRenderEnv()
+  const { t } = useTranslation()
   return (
     <form role="search" action={env.storePath('search')} method="get" className={`cos-search ${className}`} data-node={node.id}
       onSubmit={e => { if (env.mode === 'editor') e.preventDefault() }}>
-      <input type="search" name="q" aria-label="Search" placeholder={props.placeholder || 'Search'} />
-      <button type="submit">Search</button>
+      <input type="search" name="q" aria-label={t('nav.search')} placeholder={props.placeholder || t('nav.search')} />
+      <button type="submit">{t('nav.search')}</button>
     </form>
   )
 }
@@ -64,10 +69,11 @@ export function SearchBoxView({ node, props, className }: RendererProps<SearchBo
 export function AccountLinkView({ node, props, className }: RendererProps<AccountLinkProps>) {
   const env = useRenderEnv()
   const customer = useCustomer()
+  const { t } = useTranslation()
   const signedIn = !!customer?.account
   return (
     <a href={env.storePath(signedIn ? 'account' : 'login')} className={`cos-account-link ${className}`} data-node={node.id} {...inert(env.mode)}>
-      {signedIn ? props.account_label || 'Account' : props.login_label || 'Sign in'}
+      {signedIn ? props.account_label || t('nav.account') : props.login_label || t('nav.signIn')}
     </a>
   )
 }

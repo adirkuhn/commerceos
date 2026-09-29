@@ -65,14 +65,14 @@ describe('product page', () => {
     const [Price, Variants] = [R('product-price'), R('variant-selector')]
     setup(<><Price node={node('product-price')} props={{ show_compare_at: true }} className="" /><Variants node={node('variant-selector')} props={{ style: 'buttons' }} className="" /></>, { product: true })
     expect(screen.getByRole('button', { name: 'Size 41' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByText('€ 50,00')).toBeInTheDocument()
+    expect(screen.getByText('€50.00')).toBeInTheDocument()
   })
 
   it('shows a sale price and a sold-out add to cart for a sold-out variant', async () => {
     const [Price, Variants, Add] = [R('product-price'), R('variant-selector'), R('add-to-cart')]
     setup(<><Price node={node('product-price')} props={{ show_compare_at: true }} className="" /><Variants node={node('variant-selector')} props={{ style: 'buttons' }} className="" /><Add node={node('add-to-cart')} props={{ label: 'Add', sold_out_label: 'Gone' }} className="" /></>, { product: true })
     await userEvent.click(screen.getByRole('button', { name: 'Size 40' }))
-    expect(screen.getByText('€ 40,00')).toBeInTheDocument()
+    expect(screen.getByText('€40.00')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Gone' })).toBeDisabled()
   })
 
@@ -163,7 +163,7 @@ describe('cart', () => {
     expect(screen.getByRole('link', { name: 'Pay' })).toHaveAttribute('href', '/store/k/checkout')
     await userEvent.click(screen.getByRole('button', { name: 'More' }))
     await waitFor(() => expect(api.setCartItems).toHaveBeenLastCalledWith('tok', [{ sku_code: 'RS-41', quantity: 2 }]))
-    expect(await screen.findAllByText('€ 100,00')).not.toHaveLength(0)
+    expect(await screen.findAllByText('€100.00')).not.toHaveLength(0)
   })
 
   it('shows the empty message and disables checkout for an empty cart', async () => {

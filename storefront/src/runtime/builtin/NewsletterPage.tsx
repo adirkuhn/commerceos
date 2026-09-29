@@ -1,21 +1,17 @@
 import { useEffect, useState } from 'react'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { useStorefrontAPI } from '../../api/ApiContext'
 import { useRenderEnv } from '../RenderContext'
 
 type Action = 'confirm' | 'unsubscribe'
 type State = 'working' | 'done' | 'failed'
 
-const COPY: Record<Action, Record<State, string>> = {
-  confirm: {
-    working: 'Confirming your subscription…',
-    done: 'You’re subscribed. Thanks for joining our newsletter!',
-    failed: 'This confirmation link has expired or was already used. Sign up again to get a new one.',
-  },
-  unsubscribe: {
-    working: 'Unsubscribing…',
-    done: 'You’ve been unsubscribed. You won’t get our newsletter anymore.',
-    failed: 'This unsubscribe link is not valid. If you still get our emails, use the link in the latest one.',
-  },
+function copy(t: TFunction): Record<Action, Record<State, string>> {
+  return {
+    confirm: { working: t('newsletter.confirming'), done: t('newsletter.confirmed'), failed: t('newsletter.confirmFailed') },
+    unsubscribe: { working: t('newsletter.unsubscribing'), done: t('newsletter.unsubscribed'), failed: t('newsletter.unsubscribeFailed') },
+  }
 }
 
 /** Where the newsletter emails' links land. The token only runs in the
@@ -23,6 +19,7 @@ const COPY: Record<Action, Record<State, string>> = {
 export function NewsletterPage({ action }: { action: Action }) {
   const api = useStorefrontAPI()
   const env = useRenderEnv()
+  const { t } = useTranslation()
   const [state, setState] = useState<State>('working')
 
   useEffect(() => {
@@ -37,9 +34,9 @@ export function NewsletterPage({ action }: { action: Action }) {
 
   return (
     <section className="cos-newsletter-page" aria-live="polite">
-      <h1 className="cos-heading">Newsletter</h1>
-      <p role={state === 'failed' ? 'alert' : undefined}>{COPY[action][state]}</p>
-      {state !== 'working' && <a className="cos-button cos-button-outline" href={env.storePath('')}>Continue shopping</a>}
+      <h1 className="cos-heading">{t('newsletter.title')}</h1>
+      <p role={state === 'failed' ? 'alert' : undefined}>{copy(t)[action][state]}</p>
+      {state !== 'working' && <a className="cos-button cos-button-outline" href={env.storePath('')}>{t('common.continueShopping')}</a>}
     </section>
   )
 }

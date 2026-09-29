@@ -9,6 +9,7 @@ export interface RenderInput {
   previewToken?: string
   fetch?: typeof fetch
   publicOrigin?: string
+  acceptLanguage?: string
 }
 
 export interface RenderOutput {
@@ -16,6 +17,7 @@ export interface RenderOutput {
   head: string
   html: string
   state: string
+  lang: string
 }
 
 export interface SitemapInput {
@@ -84,7 +86,7 @@ export function createHandler(deps: HandlerDeps) {
         const previewToken = previewTokenFrom(req.headers.cookie)
         const page = await deps.render({
           url, apiBaseURL: deps.config.apiInternalURL, publicApiBaseURL: deps.config.apiPublicURL, previewToken, fetch: deps.fetch,
-          publicOrigin: deps.config.publicOrigin,
+          publicOrigin: deps.config.publicOrigin, acceptLanguage: req.headers['accept-language'],
         })
         const html = injectPage(await deps.pageTemplate(url), page)
         return send(res, page.status, html, {

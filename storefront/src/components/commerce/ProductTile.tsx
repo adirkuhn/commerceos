@@ -1,10 +1,13 @@
 import type { ProductSummary } from '../../api/storefront'
-import { formatPrice } from '../../core/money'
+import { useTranslation } from 'react-i18next'
+import { useShopFormat } from '../../i18n/format'
 import { useRenderEnv } from '../../runtime/RenderContext'
 
 /** One product in a grid or card: picture, name, price, linking to its page. */
 export function ProductTile({ product, showPrice }: { product: ProductSummary; showPrice: boolean }) {
   const env = useRenderEnv()
+  const { t } = useTranslation()
+  const { price } = useShopFormat()
   const onSale = product.sale_price_minor_units != null && product.sale_price_minor_units < (product.price_minor_units ?? Infinity)
   const editorLink = env.mode === 'editor' ? { tabIndex: -1, onClick: (e: { preventDefault(): void }) => e.preventDefault() } : {}
   return (
@@ -17,10 +20,10 @@ export function ProductTile({ product, showPrice }: { product: ProductSummary; s
         <span className="cos-product-price">
           {onSale ? (
             <>
-              <s aria-label="Was">{formatPrice(product.price_minor_units, product.currency_code)}</s>{' '}
-              <span className="cos-sale">{formatPrice(product.sale_price_minor_units, product.currency_code)}</span>
+              <s aria-label={t('product.was')}>{price(product.price_minor_units, product.currency_code)}</s>{' '}
+              <span className="cos-sale">{price(product.sale_price_minor_units, product.currency_code)}</span>
             </>
-          ) : formatPrice(product.price_minor_units, product.currency_code)}
+          ) : price(product.price_minor_units, product.currency_code)}
         </span>
       )}
     </a>

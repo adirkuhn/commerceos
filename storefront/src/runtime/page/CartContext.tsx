@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Cart, StorefrontAPI } from '../../api/storefront'
 
 export interface CartState {
@@ -23,6 +24,7 @@ const writeToken = (storeKey: string, token: string | null) => write('cart', sto
 /** The shopper's cart, kept by token in this browser. Loads after mount,
  *  so server and first client render agree (both: no cart yet). */
 export function CartProvider({ api, storeKey, children }: { api: StorefrontAPI; storeKey: string; children: ReactNode }) {
+  const { i18n } = useTranslation()
   const [cart, setCart] = useState<Cart | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -50,7 +52,7 @@ export function CartProvider({ api, storeKey, children }: { api: StorefrontAPI; 
       }
       setCart(await fn(token))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(err instanceof Error ? err.message : i18n.t('common.somethingWrong'))
     } finally {
       setBusy(false)
     }

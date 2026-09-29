@@ -1,5 +1,8 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
+import { I18nextProvider, useTranslation } from 'react-i18next'
+import { createI18n } from '../i18n/createI18n'
+import { resolveLocale, type Locale } from '../i18n/locale'
 import { useStorefrontAPI } from '../api/ApiContext'
 import type { StorefrontTheme } from '../core/document'
 import type { Collection } from '../api/storefront'
@@ -64,6 +67,7 @@ interface ListingRouteProps {
 
 function ListingBody({ theme, route, query, storePath, collection }: ListingRouteProps & { collection: Collection | null }) {
   const api = useStorefrontAPI()
+  const { t } = useTranslation()
   const { data: doc } = useSuspenseQuery(documentQuery(api, theme, route.kind, route.key))
   const params = listingParamsFor(route, query, doc, collection)
   const { data: listing } = useSuspenseQuery(listingQuery(api, params))
@@ -79,7 +83,7 @@ function ListingBody({ theme, route, query, storePath, collection }: ListingRout
   }
   return (
     <ListingProvider value={{
-      title: collection ? collection.name : `Search results for “${params.search ?? ''}”`,
+      title: collection ? collection.name : t('listing.searchResults', { query: params.search ?? '' }),
       description: collection?.description ?? '',
       imageUrl: collection?.image_url,
       listing, page: params.page,
@@ -114,7 +118,10 @@ export function StorePage({ path, storeKey, query = new URLSearchParams() }: { p
   const { data: store } = useSuspenseQuery(storeQuery(api))
   const route = documentFor(theme, path)
   const storePath = (p: string) => `/store/${encodeURIComponent(storeKey)}/${p}`
+  const locale = resolveLocale(store?.locale)
+  const i18n = useMemo(() => createI18n(locale), [locale])
   return (
+    <I18nextProvider i18n={i18n}>
     <RenderProvider value={{ mode: 'live', storePath }}>
       <StoreInfoProvider value={{ name: store?.name ?? '', settings: theme.settings, assets: theme.assets ?? {} }}>
         <CustomerProvider api={api} storeKey={storeKey}>
@@ -126,14 +133,24 @@ export function StorePage({ path, storeKey, query = new URLSearchParams() }: { p
         </CustomerProvider>
       </StoreInfoProvider>
     </RenderProvider>
+    </I18nextProvider>
   )
 }
 
-export function StoreUnavailable() {
+/** The page language when there's no store to ask: the server picks it from
+ *  the browser's Accept-Language and writes it to <html lang>, which the
+ *  browser then reads back, so both render the same. */
+function pageLocale(): Locale {
+  return resolveLocale(typeof document === 'undefined' ? undefined : document.documentElement.lang)
+}
+
+export function StoreUnavailable({ locale = pageLocale() }: { locale?: Locale }) {
+  const i18n = useMemo(() => createI18n(locale), [locale])
+  const t = i18n.t
   return (
     <main className="cos-unavailable">
-      <h1>This store is not available</h1>
-      <p>Please check the address or come back later.</p>
+      <h1>{t('store.unavailableTitle')}</h1>
+      <p>{t('store.unavailableText')}</p>
     </main>
   )
 }

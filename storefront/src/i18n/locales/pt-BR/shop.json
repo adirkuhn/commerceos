@@ -1,0 +1,148 @@
+{
+  "account": {
+    "emailMeLink": "Enviar link de acesso",
+    "linkExpired": "Este link de acesso expirou ou já foi usado. Peça um novo abaixo.",
+    "linkSent": "Confira seu e-mail: enviamos um link de acesso. Ele vale por 15 minutos.",
+    "loadingOrders": "Carregando pedidos…",
+    "noOrders": "Você ainda não tem pedidos.",
+    "ordersFailed": "Não foi possível carregar seus pedidos.",
+    "signInFirst": "Por favor, <link>entre</link> para ver sua conta.",
+    "signingIn": "Entrando…",
+    "signOut": "Sair"
+  },
+  "cart": {
+    "apply": "Aplicar",
+    "checkout": "Finalizar compra",
+    "couponCode": "Cupom de desconto",
+    "discount": "Desconto",
+    "empty": "Seu carrinho está vazio.",
+    "items": "Itens do carrinho",
+    "quantityOf": "Quantidade de {{name}}",
+    "subtotal": "Subtotal"
+  },
+  "checkout": {
+    "apartment": "Complemento (opcional)",
+    "city": "Cidade",
+    "contact": "Contato",
+    "country": "País",
+    "delivery": "Entrega",
+    "deliveryAddress": "Endereço de entrega",
+    "failed": "Não foi possível fazer o seu pedido",
+    "firstName": "Nome",
+    "lastName": "Sobrenome",
+    "paymentNote": "Você será levado ao nosso provedor de pagamento para pagar com segurança.",
+    "phone": "Telefone (opcional)",
+    "placeOrder": "Fazer pedido",
+    "placing": "Enviando pedido…",
+    "postcode": "CEP / código postal",
+    "street": "Rua e número"
+  },
+  "common": {
+    "continueShopping": "Continuar comprando",
+    "date": "Data",
+    "email": "E-mail",
+    "order": "Pedido",
+    "remove": "Remover",
+    "somethingWrong": "Algo deu errado",
+    "status": "Status",
+    "store": "Loja",
+    "total": "Total"
+  },
+  "hint": {
+    "account": "Os dados e pedidos do cliente conectado.",
+    "breadcrumbs": "Início › onde o cliente está",
+    "cart": "Os itens do carrinho do cliente aparecem aqui.",
+    "checkout": "Checkout: contato, endereço, entrega e pagamento.",
+    "chooseImage": "Escolha uma imagem",
+    "chooseProduct": "Escolha um produto nas configurações.",
+    "dataFailed": "Não foi possível carregar os dados da loja deste componente.",
+    "listing": "Mostra a coleção ou a busca desta página.",
+    "noProductsYet": "Ainda não há produtos. Escolha uma categoria ou produtos nas configurações.",
+    "order": "O pedido recém-feito: número, total e status.",
+    "pagination": "Links de páginas para coleções longas.",
+    "product": "Mostra o produto desta página.",
+    "publishCollection": "Publique uma coleção para mostrá-la aqui.",
+    "recommendations": "Mostra produtos comprados junto com este.",
+    "reviews": "Mostra as avaliações do produto desta página.",
+    "wishlist": "Produtos que o cliente salvou.",
+    "wishlistButton": "Salva o produto desta página."
+  },
+  "listing": {
+    "all": "Todos",
+    "filter": "Filtrar",
+    "next": "Próxima",
+    "noProducts": "Nenhum produto encontrado.",
+    "pageOf": "Página {{page}} de {{total}}",
+    "pages": "Páginas",
+    "previous": "Anterior",
+    "searchResults": "Resultados para “{{query}}”"
+  },
+  "nav": {
+    "account": "Minha conta",
+    "breadcrumb": "Navegação",
+    "cart": "Carrinho",
+    "cartItems_one": "{{count}} item",
+    "cartItems_many": "{{count}} itens",
+    "cartItems_other": "{{count}} itens",
+    "home": "Início",
+    "menu": "Menu",
+    "search": "Buscar",
+    "signIn": "Entrar"
+  },
+  "newsletter": {
+    "checkInbox": "Quase lá: confira seu e-mail e confirme sua inscrição.",
+    "confirmed": "Inscrição confirmada. Obrigado por assinar nossa newsletter!",
+    "confirmFailed": "Este link de confirmação expirou ou já foi usado. Inscreva-se de novo para receber outro.",
+    "confirming": "Confirmando sua inscrição…",
+    "subscribe": "Inscrever-se",
+    "title": "Newsletter",
+    "unsubscribed": "Sua inscrição foi cancelada. Você não receberá mais nossa newsletter.",
+    "unsubscribeFailed": "Este link de cancelamento não é válido. Se ainda receber nossos e-mails, use o link do mais recente.",
+    "unsubscribing": "Cancelando inscrição…"
+  },
+  "order": {
+    "lookupPrompt": "Informe o e-mail usado no pedido para vê-lo",
+    "notFound": "Não encontramos um pedido com esse número e e-mail.",
+    "number": "Pedido <strong>{{number}}</strong>",
+    "show": "Ver pedido"
+  },
+  "orderStatus": {
+    "cancelled": "Cancelado",
+    "completed": "Concluído",
+    "failed": "Falhou",
+    "on-hold": "Em espera",
+    "partially_refunded": "Parcialmente reembolsado",
+    "pending": "Pendente",
+    "processing": "Em processamento",
+    "refunded": "Reembolsado",
+    "shipped": "Enviado"
+  },
+  "product": {
+    "added": "Adicionado ao carrinho.",
+    "addToCart": "Adicionar ao carrinho",
+    "chooseOptions": "Escolher opções",
+    "fewer": "Menos",
+    "inStock": "Em estoque",
+    "more": "Mais",
+    "noReviews": "Ainda não há avaliações.",
+    "option": "Opção",
+    "percentOff": "-{{percent}}%",
+    "quantity": "Quantidade",
+    "rating": "{{rating}} de 5 estrelas",
+    "recommendations": "Recomendados",
+    "reviews": "Avaliações",
+    "saved": "Salvo",
+    "saveToWishlist": "Salvar nos favoritos",
+    "showImage": "Mostrar imagem {{number}}",
+    "soldOut": "Esgotado",
+    "was": "De"
+  },
+  "store": {
+    "unavailableText": "Confira o endereço ou volte mais tarde.",
+    "unavailableTitle": "Esta loja não está disponível"
+  },
+  "wishlist": {
+    "empty": "Nada salvo ainda.",
+    "title": "Produtos salvos"
+  }
+}

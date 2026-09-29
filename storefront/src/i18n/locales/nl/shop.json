@@ -1,0 +1,147 @@
+{
+  "account": {
+    "emailMeLink": "Stuur me een inloglink",
+    "linkExpired": "Deze inloglink is verlopen of al gebruikt. Vraag hieronder een nieuwe aan.",
+    "linkSent": "Kijk in je inbox: we hebben je een inloglink gestuurd. Deze werkt 15 minuten.",
+    "loadingOrders": "Bestellingen laden…",
+    "noOrders": "Nog geen bestellingen.",
+    "ordersFailed": "Je bestellingen konden niet worden geladen.",
+    "signInFirst": "<link>Log in</link> om je account te zien.",
+    "signingIn": "Bezig met inloggen…",
+    "signOut": "Uitloggen"
+  },
+  "cart": {
+    "apply": "Toepassen",
+    "checkout": "Afrekenen",
+    "couponCode": "Kortingscode",
+    "discount": "Korting",
+    "empty": "Je winkelwagen is leeg.",
+    "items": "Artikelen in winkelwagen",
+    "quantityOf": "Aantal van {{name}}",
+    "subtotal": "Subtotaal"
+  },
+  "checkout": {
+    "apartment": "Toevoeging (optioneel)",
+    "city": "Plaats",
+    "contact": "Contact",
+    "country": "Land",
+    "delivery": "Bezorging",
+    "deliveryAddress": "Afleveradres",
+    "failed": "Je bestelling kon niet worden geplaatst",
+    "firstName": "Voornaam",
+    "lastName": "Achternaam",
+    "paymentNote": "Je gaat naar onze betaalprovider om veilig te betalen.",
+    "phone": "Telefoon (optioneel)",
+    "placeOrder": "Bestelling plaatsen",
+    "placing": "Bestelling plaatsen…",
+    "postcode": "Postcode",
+    "street": "Straat en huisnummer"
+  },
+  "common": {
+    "continueShopping": "Verder winkelen",
+    "date": "Datum",
+    "email": "E-mail",
+    "order": "Bestelling",
+    "remove": "Verwijderen",
+    "somethingWrong": "Er ging iets mis",
+    "status": "Status",
+    "store": "Winkel",
+    "total": "Totaal"
+  },
+  "hint": {
+    "account": "De gegevens en bestellingen van de ingelogde klant.",
+    "breadcrumbs": "Home › waar de klant is",
+    "cart": "Hier verschijnen de artikelen in de winkelwagen.",
+    "checkout": "Afrekenen: contact, adres, bezorging en betaling.",
+    "chooseImage": "Kies een afbeelding",
+    "chooseProduct": "Kies een product in de instellingen.",
+    "dataFailed": "De winkelgegevens van dit onderdeel konden niet worden geladen.",
+    "listing": "Toont de collectie of zoekopdracht van deze pagina.",
+    "noProductsYet": "Nog geen producten. Kies een categorie of producten in de instellingen.",
+    "order": "De zojuist geplaatste bestelling: nummer, totaal en status.",
+    "pagination": "Paginalinks voor lange collecties.",
+    "product": "Toont het product van deze pagina.",
+    "publishCollection": "Publiceer een collectie om die hier te tonen.",
+    "recommendations": "Toont producten die vaak samen met dit product worden gekocht.",
+    "reviews": "Toont reviews van het product van deze pagina.",
+    "wishlist": "Producten die de klant heeft bewaard.",
+    "wishlistButton": "Bewaart het product van deze pagina."
+  },
+  "listing": {
+    "all": "Alle",
+    "filter": "Filter",
+    "next": "Volgende",
+    "noProducts": "Geen producten gevonden.",
+    "pageOf": "Pagina {{page}} van {{total}}",
+    "pages": "Pagina’s",
+    "previous": "Vorige",
+    "searchResults": "Zoekresultaten voor “{{query}}”"
+  },
+  "nav": {
+    "account": "Account",
+    "breadcrumb": "Kruimelpad",
+    "cart": "Winkelwagen",
+    "cartItems_one": "{{count}} artikel",
+    "cartItems_other": "{{count}} artikelen",
+    "home": "Home",
+    "menu": "Menu",
+    "search": "Zoeken",
+    "signIn": "Inloggen"
+  },
+  "newsletter": {
+    "checkInbox": "Bijna klaar: kijk in je inbox en bevestig je inschrijving.",
+    "confirmed": "Je bent ingeschreven. Bedankt voor je aanmelding!",
+    "confirmFailed": "Deze bevestigingslink is verlopen of al gebruikt. Schrijf je opnieuw in voor een nieuwe.",
+    "confirming": "Je inschrijving wordt bevestigd…",
+    "subscribe": "Inschrijven",
+    "title": "Nieuwsbrief",
+    "unsubscribed": "Je bent uitgeschreven. Je ontvangt onze nieuwsbrief niet meer.",
+    "unsubscribeFailed": "Deze uitschrijflink is niet geldig. Krijg je nog e-mails, gebruik dan de link in de meest recente.",
+    "unsubscribing": "Uitschrijven…"
+  },
+  "order": {
+    "lookupPrompt": "Vul het e-mailadres van je bestelling in om deze te bekijken",
+    "notFound": "We konden geen bestelling vinden met dat nummer en e-mailadres.",
+    "number": "Bestelling <strong>{{number}}</strong>",
+    "show": "Bestelling tonen"
+  },
+  "orderStatus": {
+    "cancelled": "Geannuleerd",
+    "completed": "Afgerond",
+    "failed": "Mislukt",
+    "on-hold": "In de wacht",
+    "partially_refunded": "Gedeeltelijk terugbetaald",
+    "pending": "In afwachting",
+    "processing": "In behandeling",
+    "refunded": "Terugbetaald",
+    "shipped": "Verzonden"
+  },
+  "product": {
+    "added": "Toegevoegd aan je winkelwagen.",
+    "addToCart": "In winkelwagen",
+    "chooseOptions": "Kies opties",
+    "fewer": "Minder",
+    "inStock": "Op voorraad",
+    "more": "Meer",
+    "noReviews": "Nog geen reviews.",
+    "option": "Optie",
+    "percentOff": "-{{percent}}%",
+    "quantity": "Aantal",
+    "rating": "{{rating}} van 5 sterren",
+    "recommendations": "Aanbevolen",
+    "reviews": "Reviews",
+    "saved": "Bewaard",
+    "saveToWishlist": "Bewaar in verlanglijst",
+    "showImage": "Toon afbeelding {{number}}",
+    "soldOut": "Uitverkocht",
+    "was": "Was"
+  },
+  "store": {
+    "unavailableText": "Controleer het adres of kom later terug.",
+    "unavailableTitle": "Deze winkel is niet beschikbaar"
+  },
+  "wishlist": {
+    "empty": "Nog niets bewaard.",
+    "title": "Bewaarde producten"
+  }
+}

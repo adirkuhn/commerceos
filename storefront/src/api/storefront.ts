@@ -108,6 +108,8 @@ export interface Collection {
 export interface StoreInfo {
   name: string
   currency_code: string
+  /** The storefront's language (en | pt-BR | nl). */
+  locale?: string
 }
 
 export interface CartItem {

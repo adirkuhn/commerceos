@@ -101,7 +101,7 @@ describe('product grid', () => {
     const links = await screen.findAllByRole('link')
     expect(links.map(l => l.textContent)).toEqual([expect.stringContaining('Blue hat'), expect.stringContaining('Red shoes')])
     expect(links[0]).toHaveAttribute('href', '/store/k/products/blue-hat')
-    expect(links[0].textContent).toContain('€ 15,00')
+    expect(links[0].textContent).toContain('€15.00')
     expect(listProducts).toHaveBeenCalledWith({ productIds: ['p2', 'p1'], perPage: 2 })
   })
 

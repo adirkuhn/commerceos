@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useRenderEnv } from '../../runtime/RenderContext'
 import { useListingPage } from '../../runtime/page/ListingContext'
 import { useProductPage } from '../../runtime/page/ProductContext'
@@ -6,11 +7,9 @@ import type { RendererProps } from '../types'
 import type { BreadcrumbsProps, CollectionFiltersProps, CollectionHeaderProps, CollectionProductsProps } from './listing'
 import { ProductTile } from './ProductTile'
 
-const NO_LISTING = 'Shows the collection or search this page is about.'
-
 export function CollectionHeaderView({ node, props, className }: RendererProps<CollectionHeaderProps>) {
   const page = useListingPage()
-  if (!page) return <EditorHint nodeId={node.id} className={className}>{NO_LISTING}</EditorHint>
+  if (!page) return <EditorHint nodeId={node.id} className={className} hint="listing" />
   return (
     <header className={`cos-collection-header ${className}`} data-node={node.id}>
       {props.show_image !== false && page.imageUrl && <img src={page.imageUrl} alt="" className="cos-collection-image" />}
@@ -22,10 +21,11 @@ export function CollectionHeaderView({ node, props, className }: RendererProps<C
 
 export function CollectionProductsView({ node, props, className }: RendererProps<CollectionProductsProps>) {
   const page = useListingPage()
-  if (!page) return <EditorHint nodeId={node.id} className={className}>{NO_LISTING}</EditorHint>
+  const { t } = useTranslation()
+  if (!page) return <EditorHint nodeId={node.id} className={className} hint="listing" />
   const cols = Number(props.columns) || 0
   if (!page.listing.items.length) {
-    return <p className={`cos-muted ${className}`} data-node={node.id}>No products found.</p>
+    return <p className={`cos-muted ${className}`} data-node={node.id}>{t('listing.noProducts')}</p>
   }
   return (
     <div className={`cos-product-grid ${className}`} data-node={node.id} style={cols ? ({ '--cos-grid-cols': cols } as React.CSSProperties) : undefined}>
@@ -36,14 +36,15 @@ export function CollectionProductsView({ node, props, className }: RendererProps
 
 export function CollectionFiltersView({ node, props, className }: RendererProps<CollectionFiltersProps>) {
   const page = useListingPage()
-  if (!page) return <EditorHint nodeId={node.id} className={className}>{NO_LISTING}</EditorHint>
+  const { t } = useTranslation()
+  if (!page) return <EditorHint nodeId={node.id} className={className} hint="listing" />
   const facets = page.listing.category_facets ?? []
   if (!facets.length) return null
   return (
-    <nav className={`cos-filters ${className}`} data-node={node.id} aria-label={props.title || 'Filter'}>
+    <nav className={`cos-filters ${className}`} data-node={node.id} aria-label={props.title || t('listing.filter')}>
       {props.title && <h2 className="cos-label">{props.title}</h2>}
       <ul>
-        <li><a href={page.hrefForCategory(null)} aria-current={!page.activeCategoryId ? 'true' : undefined}>All</a></li>
+        <li><a href={page.hrefForCategory(null)} aria-current={!page.activeCategoryId ? 'true' : undefined}>{t('listing.all')}</a></li>
         {facets.map(f => (
           <li key={f.category_id}>
             <a href={page.hrefForCategory(f.category_id)} aria-current={page.activeCategoryId === f.category_id ? 'true' : undefined}>
@@ -58,13 +59,14 @@ export function CollectionFiltersView({ node, props, className }: RendererProps<
 
 export function PaginationView({ node, className }: RendererProps) {
   const page = useListingPage()
-  if (!page) return <EditorHint nodeId={node.id} className={className}>Page links for long collections.</EditorHint>
+  const { t } = useTranslation()
+  if (!page) return <EditorHint nodeId={node.id} className={className} hint="pagination" />
   if (page.pageCount <= 1) return null
   return (
-    <nav className={`cos-pagination ${className}`} data-node={node.id} aria-label="Pages">
-      {page.page > 1 && <a href={page.hrefForPage(page.page - 1)} rel="prev">Previous</a>}
-      <span>{`Page ${page.page} of ${page.pageCount}`}</span>
-      {page.page < page.pageCount && <a href={page.hrefForPage(page.page + 1)} rel="next">Next</a>}
+    <nav className={`cos-pagination ${className}`} data-node={node.id} aria-label={t('listing.pages')}>
+      {page.page > 1 && <a href={page.hrefForPage(page.page - 1)} rel="prev">{t('listing.previous')}</a>}
+      <span>{t('listing.pageOf', { page: page.page, total: page.pageCount })}</span>
+      {page.page < page.pageCount && <a href={page.hrefForPage(page.page + 1)} rel="next">{t('listing.next')}</a>}
     </nav>
   )
 }
@@ -73,12 +75,13 @@ export function BreadcrumbsView({ node, props, className }: RendererProps<Breadc
   const env = useRenderEnv()
   const product = useProductPage()
   const listing = useListingPage()
+  const { t } = useTranslation()
   const current = product?.product.name ?? listing?.title
-  if (!current) return <EditorHint nodeId={node.id} className={className}>Home › where the shopper is</EditorHint>
+  if (!current) return <EditorHint nodeId={node.id} className={className} hint="breadcrumbs" />
   return (
-    <nav className={`cos-breadcrumbs ${className}`} data-node={node.id} aria-label="Breadcrumb">
+    <nav className={`cos-breadcrumbs ${className}`} data-node={node.id} aria-label={t('nav.breadcrumb')}>
       <ol>
-        <li><a href={env.storePath('')}>{props.home_label || 'Home'}</a></li>
+        <li><a href={env.storePath('')}>{props.home_label || t('nav.home')}</a></li>
         <li aria-current="page">{current}</li>
       </ol>
     </nav>

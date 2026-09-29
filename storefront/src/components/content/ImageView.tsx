@@ -1,14 +1,16 @@
 import { storeHref } from '../../runtime/page/links'
+import { useTranslation } from 'react-i18next'
 import { resolveAssetRef, useRenderEnv } from '../../runtime/RenderContext'
 import type { RendererProps } from '../types'
 import type { ImageProps } from './image'
 
 export function ImageView({ node, props, className }: RendererProps<ImageProps>) {
   const env = useRenderEnv()
+  const { t } = useTranslation()
   const asset = resolveAssetRef(props.image, env.assets)
   if (!asset) {
     return env.mode === 'editor'
-      ? <div className={`cos-placeholder cos-image-placeholder ${className}`} data-node={node.id}>Choose an image</div>
+      ? <div className={`cos-placeholder cos-image-placeholder ${className}`} data-node={node.id}>{t('hint.chooseImage')}</div>
       : null
   }
   const img = (

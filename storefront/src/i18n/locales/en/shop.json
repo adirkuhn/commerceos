@@ -1,0 +1,147 @@
+{
+  "account": {
+    "emailMeLink": "Email me a sign-in link",
+    "linkExpired": "This sign-in link has expired or was already used. Request a new one below.",
+    "linkSent": "Check your inbox: we sent you a sign-in link. It works for 15 minutes.",
+    "loadingOrders": "Loading orders…",
+    "noOrders": "No orders yet.",
+    "ordersFailed": "Your orders couldn’t be loaded.",
+    "signInFirst": "Please <link>sign in</link> to see your account.",
+    "signingIn": "Signing you in…",
+    "signOut": "Sign out"
+  },
+  "cart": {
+    "apply": "Apply",
+    "checkout": "Checkout",
+    "couponCode": "Coupon code",
+    "discount": "Discount",
+    "empty": "Your cart is empty.",
+    "items": "Cart items",
+    "quantityOf": "Quantity of {{name}}",
+    "subtotal": "Subtotal"
+  },
+  "checkout": {
+    "apartment": "Apartment, suite (optional)",
+    "city": "City",
+    "contact": "Contact",
+    "country": "Country",
+    "delivery": "Delivery",
+    "deliveryAddress": "Delivery address",
+    "failed": "Your order could not be placed",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "paymentNote": "You’ll be taken to our payment provider to pay securely.",
+    "phone": "Phone (optional)",
+    "placeOrder": "Place order",
+    "placing": "Placing order…",
+    "postcode": "Postcode",
+    "street": "Street and number"
+  },
+  "common": {
+    "continueShopping": "Continue shopping",
+    "date": "Date",
+    "email": "Email",
+    "order": "Order",
+    "remove": "Remove",
+    "somethingWrong": "Something went wrong",
+    "status": "Status",
+    "store": "Store",
+    "total": "Total"
+  },
+  "hint": {
+    "account": "The signed-in shopper’s details and orders.",
+    "breadcrumbs": "Home › where the shopper is",
+    "cart": "The shopper’s cart items appear here.",
+    "checkout": "Checkout: contact, address, delivery choice and payment.",
+    "chooseImage": "Choose an image",
+    "chooseProduct": "Choose a product in the settings.",
+    "dataFailed": "This component’s store data couldn’t be loaded.",
+    "listing": "Shows the collection or search this page is about.",
+    "noProductsYet": "No products to show yet. Pick a category or products in the settings.",
+    "order": "The order just placed: number, total and status.",
+    "pagination": "Page links for long collections.",
+    "product": "Shows the product this page is about.",
+    "publishCollection": "Publish a collection to show it here.",
+    "recommendations": "Shows products often bought with this one.",
+    "reviews": "Shows reviews of the product this page is about.",
+    "wishlist": "Products the shopper saved.",
+    "wishlistButton": "Saves the product this page is about."
+  },
+  "listing": {
+    "all": "All",
+    "filter": "Filter",
+    "next": "Next",
+    "noProducts": "No products found.",
+    "pageOf": "Page {{page}} of {{total}}",
+    "pages": "Pages",
+    "previous": "Previous",
+    "searchResults": "Search results for “{{query}}”"
+  },
+  "nav": {
+    "account": "Account",
+    "breadcrumb": "Breadcrumb",
+    "cart": "Cart",
+    "cartItems_one": "{{count}} item",
+    "cartItems_other": "{{count}} items",
+    "home": "Home",
+    "menu": "Menu",
+    "search": "Search",
+    "signIn": "Sign in"
+  },
+  "newsletter": {
+    "checkInbox": "Almost done: check your inbox and confirm your subscription.",
+    "confirmed": "You’re subscribed. Thanks for joining our newsletter!",
+    "confirmFailed": "This confirmation link has expired or was already used. Sign up again to get a new one.",
+    "confirming": "Confirming your subscription…",
+    "subscribe": "Subscribe",
+    "title": "Newsletter",
+    "unsubscribed": "You’ve been unsubscribed. You won’t get our newsletter anymore.",
+    "unsubscribeFailed": "This unsubscribe link is not valid. If you still get our emails, use the link in the latest one.",
+    "unsubscribing": "Unsubscribing…"
+  },
+  "order": {
+    "lookupPrompt": "Enter the email you ordered with to see this order",
+    "notFound": "We couldn’t find an order with that number and email.",
+    "number": "Order <strong>{{number}}</strong>",
+    "show": "Show order"
+  },
+  "orderStatus": {
+    "cancelled": "Cancelled",
+    "completed": "Completed",
+    "failed": "Failed",
+    "on-hold": "On hold",
+    "partially_refunded": "Partially refunded",
+    "pending": "Pending",
+    "processing": "Processing",
+    "refunded": "Refunded",
+    "shipped": "Shipped"
+  },
+  "product": {
+    "added": "Added to your cart.",
+    "addToCart": "Add to cart",
+    "chooseOptions": "Choose options",
+    "fewer": "Fewer",
+    "inStock": "In stock",
+    "more": "More",
+    "noReviews": "No reviews yet.",
+    "option": "Option",
+    "percentOff": "-{{percent}}%",
+    "quantity": "Quantity",
+    "rating": "{{rating}} out of 5 stars",
+    "recommendations": "Recommendations",
+    "reviews": "Reviews",
+    "saved": "Saved",
+    "saveToWishlist": "Save to wishlist",
+    "showImage": "Show image {{number}}",
+    "soldOut": "Sold out",
+    "was": "Was"
+  },
+  "store": {
+    "unavailableText": "Please check the address or come back later.",
+    "unavailableTitle": "This store is not available"
+  },
+  "wishlist": {
+    "empty": "Nothing saved yet.",
+    "title": "Saved products"
+  }
+}

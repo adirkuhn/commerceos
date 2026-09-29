@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { useStorefrontAPI } from '../../api/ApiContext'
 import type { OrderStatus } from '../../api/storefront'
-import { formatPrice } from '../../core/money'
+import { useShopFormat } from '../../i18n/format'
+import { orderStatusLabel } from '../../i18n/orderStatus'
 import { useRenderEnv } from '../../runtime/RenderContext'
 import { rememberedEmailFor, useOrderNumber } from '../../runtime/page/OrderContext'
 import { EditorHint } from '../EditorHint'
@@ -14,6 +16,8 @@ export function OrderStatusView({ node, props, className }: RendererProps<OrderS
   const api = useStorefrontAPI()
   const env = useRenderEnv()
   const orderNumber = useOrderNumber()
+  const { t } = useTranslation()
+  const { price } = useShopFormat()
   const [order, setOrder] = useState<OrderStatus | null>(null)
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
@@ -21,7 +25,7 @@ export function OrderStatusView({ node, props, className }: RendererProps<OrderS
   const lookup = (address: string) => {
     if (!orderNumber) return
     setError('')
-    api.lookupOrder(orderNumber, address).then(setOrder, () => setError('We couldn’t find an order with that number and email.'))
+    api.lookupOrder(orderNumber, address).then(setOrder, () => setError(t('order.notFound')))
   }
 
   useEffect(() => {
@@ -32,22 +36,22 @@ export function OrderStatusView({ node, props, className }: RendererProps<OrderS
   }, [orderNumber])
 
   if (env.mode === 'editor' || !orderNumber) {
-    return <EditorHint nodeId={node.id} className={className}>The order just placed: number, total and status.</EditorHint>
+    return <EditorHint nodeId={node.id} className={className} hint="order" />
   }
   return (
     <section className={`cos-order-status ${className}`} data-node={node.id}>
       {props.title && <h1 className="cos-heading">{props.title}</h1>}
-      <p>Order <strong>{orderNumber}</strong></p>
+      <p><Trans i18nKey="order.number" values={{ number: orderNumber }} components={{ strong: <strong /> }} /></p>
       {order ? (
         <dl>
-          <div><dt>Status</dt><dd>{order.status}</dd></div>
-          <div><dt>Total</dt><dd>{formatPrice(order.total_minor_units, order.currency_code)}</dd></div>
+          <div><dt>{t('common.status')}</dt><dd>{orderStatusLabel(t, order.status)}</dd></div>
+          <div><dt>{t('common.total')}</dt><dd>{price(order.total_minor_units, order.currency_code)}</dd></div>
         </dl>
       ) : (
         <form onSubmit={e => { e.preventDefault(); lookup(email) }}>
-          <label htmlFor={`${node.id}-email`} className="cos-label">Enter the email you ordered with to see this order</label>
+          <label htmlFor={`${node.id}-email`} className="cos-label">{t('order.lookupPrompt')}</label>
           <input id={`${node.id}-email`} type="email" required value={email} onChange={e => setEmail(e.target.value)} />
-          <button type="submit" className="cos-button cos-button-outline">Show order</button>
+          <button type="submit" className="cos-button cos-button-outline">{t('order.show')}</button>
         </form>
       )}
       {error && <p role="alert" className="cos-error">{error}</p>}
