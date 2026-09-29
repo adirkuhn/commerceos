@@ -12,7 +12,9 @@ import (
 // theme assets by id. Unknown ids are left out.
 type ResolveAssetURLsUseCase struct{ deps Deps }
 
-func NewResolveAssetURLsUseCase(deps Deps) *ResolveAssetURLsUseCase { return &ResolveAssetURLsUseCase{deps: deps} }
+func NewResolveAssetURLsUseCase(deps Deps) *ResolveAssetURLsUseCase {
+	return &ResolveAssetURLsUseCase{deps: deps}
+}
 
 func (uc *ResolveAssetURLsUseCase) Execute(ctx context.Context, ids []string) (map[string]string, error) {
 	out := map[string]string{}
