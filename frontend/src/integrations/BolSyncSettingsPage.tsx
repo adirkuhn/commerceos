@@ -1,3 +1,5 @@
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
@@ -7,20 +9,7 @@ import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import * as api from './api'
 import type { Connection, SyncSchedule, SyncEntityType, SyncDirection } from './types'
 import { useDateFormat } from '../format/DateFormatProvider'
-
-// The scheduler polls for due schedules every 60s (see cmd/scheduler's
-// pollInterval) -- same options WooCommerceSyncSettingsPage offers.
-const INTERVAL_OPTIONS: { label: string; minutes: number }[] = [
-  { label: '1 minute', minutes: 1 },
-  { label: '5 minutes', minutes: 5 },
-  { label: '10 minutes', minutes: 10 },
-  { label: '15 minutes', minutes: 15 },
-  { label: '30 minutes', minutes: 30 },
-  { label: '1 hour', minutes: 60 },
-  { label: '6 hours', minutes: 360 },
-  { label: '12 hours', minutes: 720 },
-  { label: '24 hours', minutes: 1440 },
-]
+import { INTERVAL_OPTIONS, directionLabel, runStatusLabel } from './wooSyncSettingsHelpers'
 
 // Only three rows, unlike Woo's five -- Bol has no category import/export
 // and no order push-back. bol_products/bol_stock are both export-only and
@@ -28,9 +17,9 @@ const INTERVAL_OPTIONS: { label: string; minutes: number }[] = [
 // endpoint, every push sends price+stock together) -- two rows exist only
 // so the merchant can pick two separate intervals over it.
 const ROWS: { entity: SyncEntityType; label: string; runnableDirections: SyncDirection[] }[] = [
-  { entity: 'bol_orders', label: 'Orders', runnableDirections: ['import'] },
-  { entity: 'bol_products', label: 'Products', runnableDirections: ['export'] },
-  { entity: 'bol_stock', label: 'Stock levels', runnableDirections: ['export'] },
+  { entity: 'bol_orders', get label() { return i18next.t('integrations:entity.orders') }, runnableDirections: ['import'] },
+  { entity: 'bol_products', get label() { return i18next.t('integrations:entity.products') }, runnableDirections: ['export'] },
+  { entity: 'bol_stock', get label() { return i18next.t('integrations:entity.stock') }, runnableDirections: ['export'] },
 ]
 
 const DIRECTIONS: SyncDirection[] = ['import', 'export']
@@ -39,25 +28,25 @@ const DIRECTIONS: SyncDirection[] = ['import', 'export']
 // domain/integrations.ValidBolDeliveryCodes exactly, or a save here would
 // pass client-side validation but get rejected by the backend.
 const DELIVERY_CODE_OPTIONS: { value: string; label: string }[] = [
-  { value: '3-5d', label: '3-5 days (default)' },
-  { value: '1-2d', label: '1-2 days' },
-  { value: '2-3d', label: '2-3 days' },
-  { value: '4-8d', label: '4-8 days' },
-  { value: '1-8d', label: '1-8 days' },
-  { value: '24uurs-23', label: 'Next day, order by 23:00' },
-  { value: '24uurs-22', label: 'Next day, order by 22:00' },
-  { value: '24uurs-21', label: 'Next day, order by 21:00' },
-  { value: '24uurs-20', label: 'Next day, order by 20:00' },
-  { value: '24uurs-19', label: 'Next day, order by 19:00' },
-  { value: '24uurs-18', label: 'Next day, order by 18:00' },
-  { value: '24uurs-17', label: 'Next day, order by 17:00' },
-  { value: '24uurs-16', label: 'Next day, order by 16:00' },
-  { value: '24uurs-15', label: 'Next day, order by 15:00' },
-  { value: '24uurs-14', label: 'Next day, order by 14:00' },
-  { value: '24uurs-13', label: 'Next day, order by 13:00' },
-  { value: '24uurs-12', label: 'Next day, order by 12:00' },
-  { value: 'MijnLeverbelofte', label: 'My delivery promise' },
-  { value: 'VVB', label: 'Shipped via Bol (VVB)' },
+  { value: '3-5d', get label() { return i18next.t('integrations:bol.delivery.days35') } },
+  { value: '1-2d', get label() { return i18next.t('integrations:bol.delivery.days', { range: '1-2' }) } },
+  { value: '2-3d', get label() { return i18next.t('integrations:bol.delivery.days', { range: '2-3' }) } },
+  { value: '4-8d', get label() { return i18next.t('integrations:bol.delivery.days', { range: '4-8' }) } },
+  { value: '1-8d', get label() { return i18next.t('integrations:bol.delivery.days', { range: '1-8' }) } },
+  { value: '24uurs-23', get label() { return i18next.t('integrations:bol.delivery.nextDay', { time: '23:00' }) } },
+  { value: '24uurs-22', get label() { return i18next.t('integrations:bol.delivery.nextDay', { time: '22:00' }) } },
+  { value: '24uurs-21', get label() { return i18next.t('integrations:bol.delivery.nextDay', { time: '21:00' }) } },
+  { value: '24uurs-20', get label() { return i18next.t('integrations:bol.delivery.nextDay', { time: '20:00' }) } },
+  { value: '24uurs-19', get label() { return i18next.t('integrations:bol.delivery.nextDay', { time: '19:00' }) } },
+  { value: '24uurs-18', get label() { return i18next.t('integrations:bol.delivery.nextDay', { time: '18:00' }) } },
+  { value: '24uurs-17', get label() { return i18next.t('integrations:bol.delivery.nextDay', { time: '17:00' }) } },
+  { value: '24uurs-16', get label() { return i18next.t('integrations:bol.delivery.nextDay', { time: '16:00' }) } },
+  { value: '24uurs-15', get label() { return i18next.t('integrations:bol.delivery.nextDay', { time: '15:00' }) } },
+  { value: '24uurs-14', get label() { return i18next.t('integrations:bol.delivery.nextDay', { time: '14:00' }) } },
+  { value: '24uurs-13', get label() { return i18next.t('integrations:bol.delivery.nextDay', { time: '13:00' }) } },
+  { value: '24uurs-12', get label() { return i18next.t('integrations:bol.delivery.nextDay', { time: '12:00' }) } },
+  { value: 'MijnLeverbelofte', get label() { return i18next.t('integrations:bol.delivery.own') } },
+  { value: 'VVB', get label() { return i18next.t('integrations:bol.delivery.vvb') } },
 ]
 
 type CellState = {
@@ -86,6 +75,7 @@ export default function BolSyncSettingsPage({
   connectionId: initialConnectionId, initialConnection, onClose, onConnected,
 }: { connectionId?: string; initialConnection?: Connection; onClose: () => void; onConnected: () => void }) {
   const { formatDateTime } = useDateFormat()
+  const { t } = useTranslation(['integrations', 'common'])
   const { token } = useAuth()
   const [connectionId, setConnectionId] = useState(initialConnectionId ?? '')
   const [clientId, setClientId] = useState('')
@@ -132,12 +122,12 @@ export default function BolSyncSettingsPage({
     try {
       const operators = await api.listBolEconomicOperators(token, connectionId)
       if (operators.length === 0) {
-        setFetchOperatorsError('Bol returned no economic operators for this account -- enter the id manually.')
+        setFetchOperatorsError(t('bol.noOperators'))
       } else {
         setOperatorChoices(operators)
       }
     } catch (err) {
-      setFetchOperatorsError(err instanceof Error ? err.message : 'Failed to fetch from Bol')
+      setFetchOperatorsError(err instanceof Error ? err.message : t('bol.fetchFailed'))
     } finally {
       setFetchingOperators(false)
     }
@@ -152,7 +142,7 @@ export default function BolSyncSettingsPage({
       await api.updateConnectionSettings(token, connectionId, '', null, configEconomicOperatorId || null, configDeliveryCode || null)
       setConfigSaved(true)
     } catch (err) {
-      setConfigSaveError(err instanceof Error ? err.message : 'Failed to save configuration')
+      setConfigSaveError(err instanceof Error ? err.message : t('bol.configSaveFailed'))
     } finally {
       setConfigSaving(false)
     }
@@ -168,7 +158,7 @@ export default function BolSyncSettingsPage({
       setConnectionId(conn.id)
       onConnected()
     } catch (err) {
-      setConnectError(err instanceof Error ? err.message : 'Failed to connect')
+      setConnectError(err instanceof Error ? err.message : t('connect.failed'))
     } finally {
       setConnecting(false)
     }
@@ -224,7 +214,7 @@ export default function BolSyncSettingsPage({
       )
       await save(payload)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save sync schedules')
+      setSaveError(err instanceof Error ? err.message : t('schedule.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -237,9 +227,9 @@ export default function BolSyncSettingsPage({
       <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
           <button onClick={onClose} className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1">
-            <ArrowLeft size={11} /> Integrations
+            <ArrowLeft size={11} /> {t('title')}
           </button>
-          <h1 className="text-xl font-semibold text-ink leading-tight">Bol.com</h1>
+          <h1 className="text-xl font-semibold text-ink leading-tight">{'Bol.com'}</h1>
         </div>
         {connectionId && (
           <button
@@ -247,7 +237,7 @@ export default function BolSyncSettingsPage({
             disabled={saving}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('common:actions.saving') : t('common:actions.save')}
           </button>
         )}
       </div>
@@ -256,43 +246,43 @@ export default function BolSyncSettingsPage({
         {!connectionId ? (
           <form onSubmit={handleConnect} className="max-w-lg space-y-4">
             <p className="text-xs text-ink-4">
-              Paste the credentials from your Bol.com Retailer API portal. No redirect step -- Bol authenticates via client_credentials.
+              {t('bol.connectIntro')}
             </p>
             <div>
-              <label htmlFor="bol-client-id" className="block text-xs font-medium text-ink-3 mb-1">Client ID</label>
+              <label htmlFor="bol-client-id" className="block text-xs font-medium text-ink-3 mb-1">{t('bol.clientId')}</label>
               <input id="bol-client-id" value={clientId} onChange={e => setClientId(e.target.value)} required
                 className="w-full px-3 py-2 rounded-lg text-sm bg-surface border border-line text-ink" />
             </div>
             <div>
-              <label htmlFor="bol-client-secret" className="block text-xs font-medium text-ink-3 mb-1">Client secret</label>
+              <label htmlFor="bol-client-secret" className="block text-xs font-medium text-ink-3 mb-1">{t('bol.clientSecret')}</label>
               <input id="bol-client-secret" type="password" value={clientSecret} onChange={e => setClientSecret(e.target.value)} required
                 className="w-full px-3 py-2 rounded-lg text-sm bg-surface border border-line text-ink" />
             </div>
             <div>
-              <label htmlFor="bol-economic-operator-id" className="block text-xs font-medium text-ink-3 mb-1">Economic operator ID</label>
+              <label htmlFor="bol-economic-operator-id" className="block text-xs font-medium text-ink-3 mb-1">{t('bol.operatorId')}</label>
               <input id="bol-economic-operator-id" value={economicOperatorId} onChange={e => setEconomicOperatorId(e.target.value)} required
                 className="w-full px-3 py-2 rounded-lg text-sm bg-surface border border-line text-ink" />
-              <p className="text-2xs text-ink-4 mt-1">Your EU operator identifier, required on every offer.</p>
+              <p className="text-2xs text-ink-4 mt-1">{t('bol.operatorIdHint')}</p>
             </div>
             {connectError && <p className="text-xs text-danger">{connectError}</p>}
             <button type="submit" disabled={connecting}
               className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
-              {connecting ? 'Connecting…' : 'Connect'}
+              {connecting ? t('connect.connecting') : t('connect.submit')}
             </button>
           </form>
         ) : (
           <div className="max-w-3xl space-y-6">
             <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
               <div>
-                <h2 className="text-sm font-semibold text-ink mb-1">Configuration</h2>
+                <h2 className="text-sm font-semibold text-ink mb-1">{t('bol.configuration')}</h2>
                 <p className="text-xs text-ink-4">
-                  Sent on every offer this connection pushes to Bol.
+                  {t('bol.configurationHint')}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="bol-config-economic-operator-id" className="block text-xs font-medium text-ink-3 mb-1">
-                    Economic operator ID
+                    {t('bol.operatorId')}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -304,17 +294,17 @@ export default function BolSyncSettingsPage({
                       type="button" onClick={handleFetchFromBol} disabled={fetchingOperators}
                       className="px-2 py-1 text-2xs rounded dark:bg-night-700 bg-gray-200 text-ink-2 hover:opacity-80 disabled:opacity-50 transition-opacity shrink-0"
                     >
-                      {fetchingOperators ? 'Fetching…' : 'Fetch from Bol'}
+                      {fetchingOperators ? t('bol.fetching') : t('bol.fetch')}
                     </button>
                   </div>
                   <p className="text-2xs text-ink-4 mt-1">
-                    A UUID from Bol's Partner Platform (GPSR/economic operator settings) -- not your KVK/VAT number.
+                    {t('bol.operatorUuidHint')}
                   </p>
                   {fetchOperatorsError && <p className="text-2xs text-danger mt-1">{fetchOperatorsError}</p>}
                   {operatorChoices.length > 0 && (
                     <div className="mt-2">
                       <label htmlFor="bol-config-fetched-operators" className="block text-2xs text-ink-3 mb-1">
-                        Select from Bol
+                        {t('bol.selectFromBol')}
                       </label>
                       <select
                         id="bol-config-fetched-operators"
@@ -322,7 +312,7 @@ export default function BolSyncSettingsPage({
                         onChange={e => { setConfigEconomicOperatorId(e.target.value); setOperatorChoices([]) }}
                         className={clsx(inputClass, 'w-full')}
                       >
-                        <option value="" disabled>Select an operator…</option>
+                        <option value="" disabled>{t('bol.selectOperator')}</option>
                         {operatorChoices.map(op => (
                           <option key={op.id} value={op.id}>{op.name} ({op.status}) -- {op.id}</option>
                         ))}
@@ -332,7 +322,7 @@ export default function BolSyncSettingsPage({
                 </div>
                 <div>
                   <label htmlFor="bol-config-delivery-code" className="block text-xs font-medium text-ink-3 mb-1">
-                    Delivery promise
+                    {t('bol.deliveryPromise')}
                   </label>
                   <select
                     id="bol-config-delivery-code" value={configDeliveryCode}
@@ -350,17 +340,16 @@ export default function BolSyncSettingsPage({
                   disabled={configSaving}
                   className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                 >
-                  {configSaving ? 'Saving…' : 'Save configuration'}
+                  {configSaving ? t('common:actions.saving') : t('bol.saveConfiguration')}
                 </button>
-                {configSaved && <span className="text-2xs text-success">Saved</span>}
+                {configSaved && <span className="text-2xs text-success">{t('common:status.saved')}</span>}
               </div>
             </div>
 
             <div>
-              <h2 className="text-sm font-semibold text-ink mb-1">Sync schedule</h2>
+              <h2 className="text-sm font-semibold text-ink mb-1">{t('schedule.title')}</h2>
               <p className="text-xs text-ink-4">
-                Configure how often each type of data syncs between CommerceOS and Bol.com. Products/stock only push what's
-                enrolled in your Bol sales channel -- configure enrollment under Sales Channels.
+                {t('bol.scheduleIntro')}
               </p>
             </div>
 
@@ -372,13 +361,12 @@ export default function BolSyncSettingsPage({
                   <p className="text-xs font-semibold text-ink mb-3">{row.label}</p>
                   {row.entity === 'bol_orders' && (
                     <p className="text-2xs text-ink-4 mb-2">
-                      Import only -- CommerceOS never pushes orders back to Bol. Polls currently open orders every run.
+                      {t('bol.ordersHint')}
                     </p>
                   )}
                   {row.entity === 'bol_stock' && (
                     <p className="text-2xs text-ink-4 mb-2">
-                      Re-pushes every already-linked product's current price and stock -- Bol has no stock-only endpoint,
-                      so this runs the same push as Products, just on its own interval.
+                      {t('bol.stockHint')}
                     </p>
                   )}
                   <div className="grid grid-cols-2 gap-4">
@@ -392,11 +380,11 @@ export default function BolSyncSettingsPage({
                         <div key={direction} className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-2xs font-medium text-ink-3 uppercase tracking-wider capitalize">
-                              {direction}
+                              {directionLabel(direction)}
                             </span>
                             <label className={clsx('relative flex items-center shrink-0', runnable ? 'cursor-pointer' : 'cursor-not-allowed opacity-40')}>
                               <input
-                                type="checkbox" role="switch" aria-label={`${row.label} ${direction}`}
+                                type="checkbox" role="switch" aria-label={t('schedule.switchAria', { entity: row.label, direction: directionLabel(direction) })}
                                 checked={cell.enabled} disabled={!runnable}
                                 onChange={e => updateCell(row.entity, direction, { enabled: e.target.checked })}
                                 className="sr-only peer"
@@ -406,7 +394,7 @@ export default function BolSyncSettingsPage({
                             </label>
                           </div>
                           <select
-                            aria-label={`${row.label} ${direction} interval`}
+                            aria-label={t('schedule.intervalAria', { entity: row.label, direction: directionLabel(direction) })}
                             value={cell.intervalMinutes} disabled={!runnable}
                             onChange={e => updateCell(row.entity, direction, { intervalMinutes: Number(e.target.value) })}
                             className={clsx(inputClass, 'w-full disabled:opacity-40 disabled:cursor-not-allowed')}
@@ -415,18 +403,18 @@ export default function BolSyncSettingsPage({
                           </select>
                           {showExtraFields && (
                             <select
-                              aria-label="Default warehouse ID"
+                              aria-label={t('import.warehouse')}
                               value={cell.defaultWarehouseId}
                               onChange={e => updateCell(row.entity, direction, { defaultWarehouseId: e.target.value })}
                               className={clsx(inputClass, 'w-full')}
                             >
-                              <option value="" disabled>Select a warehouse…</option>
+                              <option value="" disabled>{t('import.selectWarehouse')}</option>
                               {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                             </select>
                           )}
                           {cell.lastRunAt && (
                             <p className="text-2xs text-ink-4">
-                              Last run: {formatDateTime(cell.lastRunAt)} ({cell.lastRunStatus || 'unknown'})
+                              {t('schedule.lastRun', { date: formatDateTime(cell.lastRunAt), status: runStatusLabel(cell.lastRunStatus) })}
                             </p>
                           )}
                           {cell.lastRunStatus === 'error' && cell.lastRunError && (

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import { CompanyProfileError } from './api'
 import { countryOptions } from './countries'
@@ -29,6 +30,7 @@ const inputClass = 'w-full px-3 py-2 text-sm rounded-lg bg-surface border text-i
 // Settings > Company: the tenant's business identity, printed as the seller
 // block on invoices.
 export function CompanyProfileSection() {
+  const { t } = useTranslation(['settings', 'common'])
   const { token, user } = useAuth()
   const { formatTime } = useDateFormat()
   const { profile, loading, error: loadError, save } = useCompanyProfile(token ?? '')
@@ -83,7 +85,7 @@ export function CompanyProfileSection() {
       setSavedAt(formatTime(new Date()))
     } catch (err) {
       if (err instanceof CompanyProfileError && err.field) setFieldError({ field: err.field, message: err.message })
-      else setFormError(err instanceof Error ? err.message : 'Could not save the company profile')
+      else setFormError(err instanceof Error ? err.message : t('company.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -119,7 +121,7 @@ export function CompanyProfileSection() {
     )
   }
 
-  if (loading) return <p className="text-sm text-ink-4">Loading company profile…</p>
+  if (loading) return <p className="text-sm text-ink-4">{t('company.loading')}</p>
   if (loadError) return <p role="alert" className="text-sm text-danger">{loadError}</p>
 
   const countryError = fieldError?.field === 'address.country'
@@ -127,32 +129,32 @@ export function CompanyProfileSection() {
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-6" noValidate>
       <div>
-        <h2 className="text-base font-semibold text-ink mb-1">Company</h2>
-        <p className="text-xs text-ink-4">Your business details, printed as the seller on invoices.</p>
-        {!canEdit && <p className="mt-2 text-xs text-ink-3">Only owners and admins can change these details.</p>}
+        <h2 className="text-base font-semibold text-ink mb-1">{t('sections.company')}</h2>
+        <p className="text-xs text-ink-4">{t('company.subtitle')}</p>
+        {!canEdit && <p className="mt-2 text-xs text-ink-3">{t('company.readOnly')}</p>}
       </div>
 
       {formError && <p role="alert" className="text-sm text-danger">{formError}</p>}
 
-      <Group title="Business">
-        {field('legal_name', 'Legal name', draft.legal_name, v => set('legal_name', v), { autoComplete: 'organization', required: true })}
-        {field('trading_name', 'Trading name', draft.trading_name, v => set('trading_name', v))}
-        {field('vat_number', 'VAT number', draft.vat_number, v => set('vat_number', v), { placeholder: 'NL123456789B01' })}
-        {field('chamber_of_commerce', 'Chamber of Commerce number', draft.chamber_of_commerce, v => set('chamber_of_commerce', v))}
+      <Group title={t('company.business')}>
+        {field('legal_name', t('company.legalName'), draft.legal_name, v => set('legal_name', v), { autoComplete: 'organization', required: true })}
+        {field('trading_name', t('company.tradingName'), draft.trading_name, v => set('trading_name', v))}
+        {field('vat_number', t('company.vatNumber'), draft.vat_number, v => set('vat_number', v), { placeholder: 'NL123456789B01' })}
+        {field('chamber_of_commerce', t('company.chamberOfCommerce'), draft.chamber_of_commerce, v => set('chamber_of_commerce', v))}
       </Group>
 
-      <Group title="Contact">
-        {field('email', 'Email', draft.email, v => set('email', v), { type: 'email', autoComplete: 'email' })}
-        {field('phone', 'Phone', draft.phone, v => set('phone', v), { type: 'tel', autoComplete: 'tel' })}
+      <Group title={t('company.contact')}>
+        {field('email', t('common:fields.email'), draft.email, v => set('email', v), { type: 'email', autoComplete: 'email' })}
+        {field('phone', t('company.phone'), draft.phone, v => set('phone', v), { type: 'tel', autoComplete: 'tel' })}
       </Group>
 
-      <Group title="Registered address">
-        {field('address.street', 'Street', draft.address.street, v => setAddress('street', v), { autoComplete: 'address-line1', className: 'sm:col-span-2' })}
-        {field('address.house_number', 'House number', draft.address.house_number, v => setAddress('house_number', v))}
-        {field('address.postal_code', 'Postal code', draft.address.postal_code, v => setAddress('postal_code', v), { autoComplete: 'postal-code' })}
-        {field('address.city', 'City', draft.address.city, v => setAddress('city', v), { autoComplete: 'address-level2' })}
+      <Group title={t('company.address')}>
+        {field('address.street', t('company.street'), draft.address.street, v => setAddress('street', v), { autoComplete: 'address-line1', className: 'sm:col-span-2' })}
+        {field('address.house_number', t('company.houseNumber'), draft.address.house_number, v => setAddress('house_number', v))}
+        {field('address.postal_code', t('company.postalCode'), draft.address.postal_code, v => setAddress('postal_code', v), { autoComplete: 'postal-code' })}
+        {field('address.city', t('company.city'), draft.address.city, v => setAddress('city', v), { autoComplete: 'address-level2' })}
         <div>
-          <label htmlFor="company-address-country" className="block text-xs font-medium text-ink-2 mb-1.5">Country</label>
+          <label htmlFor="company-address-country" className="block text-xs font-medium text-ink-2 mb-1.5">{t('company.country')}</label>
           <select
             id="company-address-country"
             ref={el => { fieldRefs.current['address.country'] = el }}
@@ -164,14 +166,14 @@ export function CompanyProfileSection() {
             aria-describedby={countryError ? 'company-address-country-error' : undefined}
             className={clsx(inputClass, countryError ? 'border-danger' : 'border-line', 'disabled:bg-sunken disabled:text-ink-3')}
           >
-            <option value="">Not set</option>
+            <option value="">{t('company.notSet')}</option>
             {countryOptions(draft.address.country).map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
           </select>
           {countryError && <p id="company-address-country-error" className="mt-1 text-xs text-danger">{fieldError.message}</p>}
         </div>
       </Group>
 
-      <Group title="Payment">
+      <Group title={t('company.payment')}>
         {field('iban', 'IBAN', draft.iban, v => set('iban', v), { placeholder: 'NL91 ABNA 0417 1643 00' })}
       </Group>
 
@@ -182,9 +184,9 @@ export function CompanyProfileSection() {
             disabled={!dirty || saving}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-sm font-medium hover:bg-accent-solid-hover disabled:opacity-50"
           >
-            {saving ? 'Saving…' : 'Save changes'}
+            {saving ? t('common:actions.saving') : t('common:actions.saveChanges')}
           </button>
-          <p role="status" className="text-xs text-ink-3">{savedAt && `Saved at ${savedAt}`}</p>
+          <p role="status" className="text-xs text-ink-3">{savedAt && t('savedAt', { time: savedAt })}</p>
         </div>
       )}
     </form>

@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useEffect, useState, type DependencyList } from 'react'
 
 export interface ResourceState<T> {
@@ -24,7 +25,7 @@ export function useResource<T>(load: () => Promise<T>, deps: DependencyList): Re
     setData(null)
     load()
       .then(result => { if (current) setData(result) })
-      .catch(err => { if (current) setError(err instanceof Error ? err.message : 'Failed to load') })
+      .catch(err => { if (current) setError(err instanceof Error ? err.message : i18next.t('ui:errors.load')) })
       .finally(() => { if (current) setLoading(false) })
     return () => { current = false }
   }, deps) // caller owns deps, like useEffect

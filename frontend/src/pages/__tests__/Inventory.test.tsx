@@ -2,6 +2,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import i18next from 'i18next'
 import Inventory from '../Inventory'
 import { renderAt } from '../../test/renderAt'
 import { act } from 'react'
@@ -112,6 +113,18 @@ describe('Inventory page', () => {
   it('lists products from the real API', async () => {
     renderAt(<Inventory />, '/inventory')
     expect(await screen.findByText('Widget')).toBeInTheDocument()
+  })
+
+  it('renders its texts in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      renderAt(<Inventory />, '/inventory')
+      expect(await screen.findByText('Widget')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Buscar produto...')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Estoque baixo' })).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 
   it('shows price, sale price, and total stock in the collapsed product row', async () => {

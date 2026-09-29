@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState } from 'react'
 import type { TenantSettings } from '../../settings/types'
 import type { CreateSKUPayload } from '../types'
@@ -39,7 +40,7 @@ export function useVariantAddSku(
       setOpen(false)
       setDraft(emptyVariantSkuDraft(tenantSettings?.default_currency || 'USD'))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add SKU')
+      setError(err instanceof Error ? err.message : i18next.t('pms:errors.addSku'))
     } finally {
       setSubmitting(false)
     }

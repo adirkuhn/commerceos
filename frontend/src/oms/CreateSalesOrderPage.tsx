@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import type { SalesOrderStatus, SalesOrderDetail, CreateSalesOrderInput, CreateSalesOrderLineItemInput, Address } from './types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
@@ -10,6 +12,7 @@ import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { STATUS_OPTIONS } from './salesOrderDisplay'
+import { salesOrderStatusLabel } from './statusLabel'
 import { formatMoney } from '../format/money'
 
 // ── Create Sales Order Page ──────────────────────────────────────────────────
@@ -31,6 +34,7 @@ function emptyAddress(): Address {
 
 export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateSalesOrderInput) => Promise<SalesOrderDetail>; onClose: () => void }) {
   const { token } = useAuth()
+  const { t } = useTranslation(['orders', 'common'])
   const { warehouses } = useWarehouses(token ?? '')
   const { classes: taxClasses } = useTaxClasses(token ?? '')
   const { rates: taxRates } = useTaxRates(token ?? '')
@@ -99,7 +103,7 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
     e.preventDefault()
     setFormError('')
     if (lineItems.length === 0) {
-      setFormError('Add at least one line item')
+      setFormError(t('create.needLine'))
       return
     }
     setSaving(true)
@@ -124,7 +128,7 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
       await onCreate(input)
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to create sales order')
+      setFormError(err instanceof Error ? err.message : t('create.failed'))
     } finally {
       setSaving(false)
     }
@@ -141,22 +145,22 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Sales Order
+            <ArrowLeft size={11} /> {t('detail.back')}
           </button>
-          <h1 className="text-xl font-semibold text-ink leading-tight">New sales order</h1>
+          <h1 className="text-xl font-semibold text-ink leading-tight">{t('create.title')}</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button" onClick={onClose}
             className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
           >
-            Discard
+            {t('create.discard')}
           </button>
           <button
             type="submit" form="create-sales-order-form" disabled={saving || !warehouseId}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Creating…' : 'Create sales order'}
+            {saving ? t('create.creating') : t('create.submit')}
           </button>
         </div>
       </div>
@@ -165,32 +169,32 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
         <div className="max-w-3xl mx-auto p-6 space-y-5">
           <form id="create-sales-order-form" onSubmit={handleCreate} className="space-y-5">
             <div className="rounded-xl border border-line p-4 space-y-3">
-              <h3 className="text-xs font-semibold text-ink">General</h3>
+              <h3 className="text-xs font-semibold text-ink">{t('create.general')}</h3>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label htmlFor="so-warehouse" className={labelClass}>Warehouse</label>
+                  <label htmlFor="so-warehouse" className={labelClass}>{t('common:fields.warehouse')}</label>
                   <select id="so-warehouse" required value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
-                    <option value="">Select…</option>
+                    <option value="">{t('create.select')}</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="so-status" className={labelClass}>Status</label>
+                  <label htmlFor="so-status" className={labelClass}>{t('common:fields.status')}</label>
                   <select id="so-status" value={status} onChange={e => setStatus(e.target.value as SalesOrderStatus)} className={inputClass}>
-                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{salesOrderStatusLabel(s)}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="so-currency" className={labelClass}>Currency</label>
+                  <label htmlFor="so-currency" className={labelClass}>{t('common:fields.currency')}</label>
                   <input id="so-currency" type="text" value={currencyCode} onChange={e => setCurrencyCode(e.target.value.toUpperCase())} className={inputClass} />
                 </div>
                 <div className="col-span-2">
-                  <label htmlFor="so-occurred-at" className={labelClass}>Date</label>
+                  <label htmlFor="so-occurred-at" className={labelClass}>{t('create.date')}</label>
                   <input id="so-occurred-at" type="datetime-local" value={occurredAt} onChange={e => setOccurredAt(e.target.value)} className={inputClass} />
                 </div>
               </div>
               <div>
-                <label htmlFor="so-note" className={labelClass}>Customer note</label>
+                <label htmlFor="so-note" className={labelClass}>{t('create.customerNote')}</label>
                 <input id="so-note" type="text" value={customerNote} onChange={e => setCustomerNote(e.target.value)} className={inputClass} />
               </div>
               {formError && (
@@ -200,23 +204,23 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
 
             <div className="rounded-xl border border-line p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-ink">Line items</h3>
+                <h3 className="text-xs font-semibold text-ink">{t('detail.lineItems')}</h3>
                 <button
                   type="button" onClick={() => setPickerOpen(v => !v)}
                   className="flex items-center gap-1 text-2xs font-medium text-accent hover:text-accent"
                 >
-                  <Plus size={12} /> Add product
+                  <Plus size={12} /> {t('create.addProduct')}
                 </button>
               </div>
               {pickerOpen && <ProductSkuPicker onSelect={addSku} onClose={() => setPickerOpen(false)} />}
-              {lineItems.length === 0 && <p className="text-xs text-ink-4">No line items yet</p>}
+              {lineItems.length === 0 && <p className="text-xs text-ink-4">{t('create.noLines')}</p>}
               {lineItems.length > 0 && (
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-line">
-                      <th className="text-left py-1.5 font-medium text-ink-4">Product</th>
-                      <th className="text-right py-1.5 font-medium text-ink-4 w-20">Qty</th>
-                      <th className="text-right py-1.5 font-medium text-ink-4 w-24">Price</th>
+                      <th className="text-left py-1.5 font-medium text-ink-4">{t('common:fields.product')}</th>
+                      <th className="text-right py-1.5 font-medium text-ink-4 w-20">{t('detail.qty')}</th>
+                      <th className="text-right py-1.5 font-medium text-ink-4 w-24">{t('common:fields.price')}</th>
                       <th className="w-8" />
                     </tr>
                   </thead>
@@ -239,7 +243,7 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
                           />
                         </td>
                         <td className="py-1.5 text-right">
-                          <button type="button" onClick={() => removeLineItem(li.key)} aria-label="Remove line item" title="Remove line item" className="p-1 -m-1 rounded hover:bg-hover">
+                          <button type="button" onClick={() => removeLineItem(li.key)} aria-label={t('create.removeLine')} title={t('create.removeLine')} className="p-1 -m-1 rounded hover:bg-hover">
                             <Trash2 size={12} className="text-ink-4 hover:text-danger" />
                           </button>
                         </td>
@@ -250,20 +254,20 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
               )}
               {lineItems.length > 0 && taxTotalMinorUnits > 0 && (
                 <div className="flex justify-between text-xs text-ink-3 pt-2 border-t border-line">
-                  <span>Tax</span>
+                  <span>{t('detail.tax')}</span>
                   <span>{formatMoney(taxTotalMinorUnits, currencyCode)}</span>
                 </div>
               )}
               {lineItems.length > 0 && (
                 <div className={clsx('flex justify-between text-xs font-semibold text-ink', taxTotalMinorUnits > 0 ? 'pt-1' : 'pt-2 border-t border-line')}>
-                  <span>Total</span>
+                  <span>{t('common:fields.total')}</span>
                   <span>{formatMoney(totalMinorUnits, currencyCode)}</span>
                 </div>
               )}
             </div>
 
-            <CreateAddressFields title="Billing address" prefix="new-billing" value={billing} onChange={setBilling} showPhone />
-            <CreateAddressFields title="Shipping address" prefix="new-shipping" value={shipping} onChange={setShipping} />
+            <CreateAddressFields kind="billing" prefix="new-billing" value={billing} onChange={setBilling} showPhone />
+            <CreateAddressFields kind="shipping" prefix="new-shipping" value={shipping} onChange={setShipping} />
           </form>
         </div>
       </div>
@@ -271,36 +275,45 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
   )
 }
 
-function CreateAddressFields({ title, prefix, value, onChange, showPhone }: { title: string; prefix: string; value: Address; onChange: (a: Address) => void; showPhone?: boolean }) {
+interface AddressLabels { title: string; firstName: string; lastName: string; city: string; country: string; phone: string }
+
+function addressLabels(kind: 'billing' | 'shipping'): AddressLabels {
+  return kind === 'billing'
+    ? { title: i18next.t('orders:create.billing.title'), firstName: i18next.t('orders:create.billing.firstName'), lastName: i18next.t('orders:create.billing.lastName'), city: i18next.t('orders:create.billing.city'), country: i18next.t('orders:create.billing.country'), phone: i18next.t('orders:create.billing.phone') }
+    : { title: i18next.t('orders:create.shipping.title'), firstName: i18next.t('orders:create.shipping.firstName'), lastName: i18next.t('orders:create.shipping.lastName'), city: i18next.t('orders:create.shipping.city'), country: i18next.t('orders:create.shipping.country'), phone: i18next.t('orders:create.shipping.phone') }
+}
+
+function CreateAddressFields({ kind, prefix, value, onChange, showPhone }: { kind: 'billing' | 'shipping'; prefix: string; value: Address; onChange: (a: Address) => void; showPhone?: boolean }) {
+  useTranslation('orders') // re-render when the language changes
+  const labels = addressLabels(kind)
   const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
   const set = (field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [field]: e.target.value })
   const id = (field: string) => `${prefix}-${field}`
-  const label = (text: string) => `${title.replace(' address', '')} ${text}`
 
   return (
     <div className="rounded-xl border border-line p-4 space-y-3">
-      <h3 className="text-xs font-semibold text-ink">{title}</h3>
+      <h3 className="text-xs font-semibold text-ink">{labels.title}</h3>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor={id('first-name')} className={labelClass}>{label('first name')}</label>
+          <label htmlFor={id('first-name')} className={labelClass}>{labels.firstName}</label>
           <input id={id('first-name')} type="text" value={value.first_name ?? ''} onChange={set('first_name')} className={inputClass} />
         </div>
         <div>
-          <label htmlFor={id('last-name')} className={labelClass}>{label('last name')}</label>
+          <label htmlFor={id('last-name')} className={labelClass}>{labels.lastName}</label>
           <input id={id('last-name')} type="text" value={value.last_name ?? ''} onChange={set('last_name')} className={inputClass} />
         </div>
         <div>
-          <label htmlFor={id('city')} className={labelClass}>{label('city')}</label>
+          <label htmlFor={id('city')} className={labelClass}>{labels.city}</label>
           <input id={id('city')} type="text" value={value.city ?? ''} onChange={set('city')} className={inputClass} />
         </div>
         <div>
-          <label htmlFor={id('country')} className={labelClass}>{label('country')}</label>
+          <label htmlFor={id('country')} className={labelClass}>{labels.country}</label>
           <input id={id('country')} type="text" value={value.country ?? ''} onChange={set('country')} className={inputClass} />
         </div>
         {showPhone && (
           <div>
-            <label htmlFor={id('phone')} className={labelClass}>{label('phone')}</label>
+            <label htmlFor={id('phone')} className={labelClass}>{labels.phone}</label>
             <input id={id('phone')} type="tel" value={value.phone ?? ''} onChange={set('phone')} className={inputClass} />
           </div>
         )}

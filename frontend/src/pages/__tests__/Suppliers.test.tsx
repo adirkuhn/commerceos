@@ -2,6 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import i18next from 'i18next'
 import Suppliers from '../Suppliers'
 import { renderAt } from '../../test/renderAt'
 import { act } from 'react'
@@ -49,6 +50,16 @@ describe('Suppliers list', () => {
     render(<MemoryRouter><Suppliers /></MemoryRouter>)
 
     expect(await screen.findByText('No suppliers yet')).toBeInTheDocument()
+  })
+
+  it('renders its texts in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      render(<MemoryRouter><Suppliers /></MemoryRouter>)
+      expect(await screen.findByText('Nenhum fornecedor ainda')).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 
   it('lists suppliers', async () => {

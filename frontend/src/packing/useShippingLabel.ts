@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect } from 'react'
 import type { SalesOrder } from '../oms/types'
 import { useConnections } from '../integrations/hooks/useConnections'
@@ -78,7 +79,7 @@ export function useShippingLabel({ token, activeOrder, beforeCreate, onError }: 
     try {
       setLabelTab(await openShipmentLabel(token, shipmentId, labelSize))
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Failed to load label')
+      onError(err instanceof Error ? err.message : i18next.t('packing:errors.loadLabel'))
     }
   }
 
@@ -102,7 +103,7 @@ export function useShippingLabel({ token, activeOrder, beforeCreate, onError }: 
     try {
       setLabelTab(await loadShipmentLabelIntoTab(tab, token, shipment.id, labelSize))
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Failed to load label')
+      onError(err instanceof Error ? err.message : i18next.t('packing:errors.loadLabel'))
     }
   }
 

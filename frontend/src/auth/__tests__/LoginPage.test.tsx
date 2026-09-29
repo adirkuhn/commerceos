@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import i18next from 'i18next'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { LoginPage } from '../LoginPage'
 
@@ -37,5 +38,18 @@ describe('LoginPage — Google sign-in', () => {
     fireEvent.click(screen.getByRole('button', { name: /sign in with google/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Google sign-in is unavailable')
+  })
+})
+
+describe('LoginPage — pt-BR', () => {
+  it('speaks Portuguese when the admin language is pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      render(<LoginPage />)
+      expect(screen.getByText('Entre para continuar')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Entrar com Google' })).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 })

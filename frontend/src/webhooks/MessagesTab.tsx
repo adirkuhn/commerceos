@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { useWebhookEvents } from '../integrations/hooks/useWebhookEvents'
@@ -32,6 +33,7 @@ export function MessagesTab({
   events, loading, error, updateEvent, topics, provider, onProviderChange,
 }: ReturnType<typeof useWebhookEvents> & { topics: AvailableWebhookTopics; provider: string; onProviderChange: (provider: string) => void }) {
   const { formatDateTime } = useDateFormat()
+  const { t } = useTranslation(['webhooks', 'common'])
   const senders = Array.from(new Set([...Object.keys(topics.active_webhooks), ...Object.keys(topics.all_events)])).sort()
   const [view, setView] = useQueryEnum('view', MESSAGE_VIEWS, 'all')
   const [retryingId, setRetryingId] = useState<string | null>(null)
@@ -49,7 +51,7 @@ export function MessagesTab({
       const updated = await api.retryWebhookEventDispatch(token, eventId)
       updateEvent(updated)
     } catch (err) {
-      setRetryError(err instanceof Error ? err.message : 'Failed to retry')
+      setRetryError(err instanceof Error ? err.message : t('messages.retryFailed'))
     } finally {
       setRetryingId(null)
     }
@@ -68,7 +70,7 @@ export function MessagesTab({
           const updated = await api.retryWebhookEventDispatch(token, e.id)
           updateEvent(updated)
         } catch (err) {
-          setRetryError(err instanceof Error ? err.message : 'Failed to retry one or more messages')
+          setRetryError(err instanceof Error ? err.message : t('messages.retryAllFailed'))
         }
       }
     } finally {
@@ -81,19 +83,19 @@ export function MessagesTab({
       <div className="bg-raised rounded-xl border border-line p-4">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
-            <h2 className="text-sm font-semibold text-ink mb-1">Received messages</h2>
+            <h2 className="text-sm font-semibold text-ink mb-1">{t('messages.title')}</h2>
             <p className="text-xs text-ink-4">
-              Every webhook this tenant has actually received, newest first.
+              {t('messages.intro')}
             </p>
           </div>
           <div className="flex items-end gap-2">
             <div>
-              <label htmlFor="message-sender" className="block text-2xs text-ink-3 mb-1">Sender</label>
+              <label htmlFor="message-sender" className="block text-2xs text-ink-3 mb-1">{t('messages.sender')}</label>
               <select
                 id="message-sender" value={provider} onChange={e => onProviderChange(e.target.value)}
                 className="px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink"
               >
-                <option value="">Any sender</option>
+                <option value="">{t('messages.anySender')}</option>
                 {senders.map(s => <option key={s} value={s}>{providerLabel(s)}</option>)}
               </select>
             </div>
@@ -102,7 +104,7 @@ export function MessagesTab({
                 type="button" onClick={handleRetryAll} disabled={bulkRetrying}
                 className="px-2.5 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
-                {bulkRetrying ? 'Retrying…' : `Retry all (${displayedEvents.length})`}
+                {bulkRetrying ? t('messages.retrying') : t('messages.retryAll', { count: displayedEvents.length })}
               </button>
             )}
           </div>
@@ -115,7 +117,7 @@ export function MessagesTab({
               view === 'all' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
             }`}
           >
-            All messages
+            {t('messages.all')}
           </button>
           <button aria-pressed={view === 'needsAttention'}
             type="button" onClick={() => setView('needsAttention')}
@@ -123,7 +125,7 @@ export function MessagesTab({
               view === 'needsAttention' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
             }`}
           >
-            Needs attention{events.filter(needsAttention).length > 0 && ` (${events.filter(needsAttention).length})`}
+            {t('messages.needsAttention')}{events.filter(needsAttention).length > 0 && ` (${events.filter(needsAttention).length})`}
           </button>
         </div>
 
@@ -131,21 +133,21 @@ export function MessagesTab({
         {retryError && <p className="text-xs text-danger mb-2">{retryError}</p>}
 
         {loading ? (
-          <p className="text-xs text-ink-4">Loading…</p>
+          <p className="text-xs text-ink-4">{t('common:status.loading')}</p>
         ) : displayedEvents.length === 0 ? (
           <p className="text-xs text-ink-4">
-            {view === 'needsAttention' ? 'Nothing needs attention.' : 'No messages received yet.'}
+            {view === 'needsAttention' ? t('messages.emptyAttention') : t('messages.empty')}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-ink-4 border-b border-line">
-                  <th className="py-2 pr-3 font-medium">Sender</th>
-                  <th className="py-2 pr-3 font-medium">Topic</th>
-                  <th className="py-2 pr-3 font-medium">Received at</th>
-                  <th className="py-2 pr-3 font-medium">Status</th>
-                  <th className="py-2 pr-3 font-medium">Payload</th>
+                  <th className="py-2 pr-3 font-medium">{t('messages.sender')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('topic')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('messages.receivedAt')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('common:fields.status')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('messages.payload')}</th>
                   <th className="py-2 pr-3 font-medium"></th>
                 </tr>
               </thead>
@@ -165,7 +167,7 @@ export function MessagesTab({
                           type="button" onClick={() => handleRetry(e.id)} disabled={retryingId === e.id || bulkRetrying}
                           className="px-2 py-1 rounded bg-fill text-ink-3 hover:text-ink-2 disabled:opacity-50 transition-colors"
                         >
-                          {retryingId === e.id ? 'Retrying…' : 'Retry'}
+                          {retryingId === e.id ? t('messages.retrying') : t('messages.retry')}
                         </button>
                       )}
                     </td>
@@ -185,26 +187,28 @@ export function MessagesTab({
 // nothing more was ever going to happen. Only "processed"/"failed" mean a
 // dispatch handler (myparcel's shipment_status_change today) actually ran.
 function MessageStatusBadge({ status, dispatchError }: { status: WebhookEvent['status']; dispatchError: string }) {
+  const { t } = useTranslation('webhooks')
   if (status === 'failed') {
     return (
       <span
         title={dispatchError || undefined}
         className="px-1.5 py-0.5 rounded text-2xs font-medium bg-red-500/15 text-danger cursor-help"
       >
-        Failed
+        {t('messages.status.failed')}
       </span>
     )
   }
   if (status === 'processed') {
-    return <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-emerald-500/15 text-success">Processed</span>
+    return <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-emerald-500/15 text-success">{t('messages.status.processed')}</span>
   }
-  return <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-fill text-ink-3">Received</span>
+  return <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-fill text-ink-3">{t('messages.status.received')}</span>
 }
 
 // Truncated one-line preview that expands into the full formatted JSON on
 // click -- avoids a wall of raw JSON per row while still letting an admin
 // actually see what was sent.
 function PayloadPreview({ payload }: { payload: unknown }) {
+  const { t } = useTranslation('webhooks')
   const [expanded, setExpanded] = useState(false)
   const json = JSON.stringify(payload)
   const pretty = JSON.stringify(payload, null, 2)
@@ -217,14 +221,14 @@ function PayloadPreview({ payload }: { payload: unknown }) {
     return (
       <div>
         <pre className="whitespace-pre-wrap break-all text-2xs bg-sunken rounded-lg p-2 max-h-64 overflow-y-auto">{pretty}</pre>
-        <button type="button" onClick={() => setExpanded(false)} className="text-accent hover:underline mt-1">Collapse</button>
+        <button type="button" onClick={() => setExpanded(false)} className="text-accent hover:underline mt-1">{t('messages.collapse')}</button>
       </div>
     )
   }
 
   const preview = json.length > 60 ? `${json.slice(0, 60)}…` : json
   return (
-    <button type="button" onClick={() => setExpanded(true)} className="truncate max-w-[360px] block text-left hover:underline" title="View full payload">
+    <button type="button" onClick={() => setExpanded(true)} className="truncate max-w-[360px] block text-left hover:underline" title={t('messages.viewPayload')}>
       {preview}
     </button>
   )

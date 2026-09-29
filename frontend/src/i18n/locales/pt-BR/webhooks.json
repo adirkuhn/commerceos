@@ -1,0 +1,64 @@
+{
+  "any": "qualquer",
+  "connection": "Conexão",
+  "deliveryUrl": "URL de entrega",
+  "fanout": {
+    "add": "Adicionar regra",
+    "addFailed": "Não foi possível adicionar a regra",
+    "adding": "Adicionando…",
+    "anyTopic": "Qualquer tópico (abrange tudo)",
+    "attempts": "Tentativas",
+    "empty": "Nenhuma regra de encaminhamento configurada ainda.",
+    "groupActive": "ativos",
+    "groupAll": "todos os eventos",
+    "intro": "Distribua um webhook recebido para outros sistemas — todo evento que corresponde ao provedor/tópico também é enviado (POST) à URL de destino, com o payload original idêntico, byte a byte. Deixe o tópico em branco para abranger todos os eventos desse provedor.",
+    "providerTopic": "Provedor / tópico",
+    "recent": "Entregas recentes",
+    "removeFailed": "Não foi possível remover a regra",
+    "title": "Encaminhamento de webhooks"
+  },
+  "messages": {
+    "all": "Todas as mensagens",
+    "anySender": "Qualquer remetente",
+    "collapse": "Recolher",
+    "empty": "Nenhuma mensagem recebida ainda.",
+    "emptyAttention": "Nada requer atenção.",
+    "intro": "Todos os webhooks que esta conta de fato recebeu, dos mais recentes aos mais antigos.",
+    "needsAttention": "Requer atenção",
+    "payload": "Payload",
+    "receivedAt": "Recebida em",
+    "retry": "Tentar novamente",
+    "retryAll_one": "Tentar todas novamente ({{count}})",
+    "retryAll_many": "Tentar todas novamente ({{count}})",
+    "retryAll_other": "Tentar todas novamente ({{count}})",
+    "retryAllFailed": "Não foi possível reprocessar uma ou mais mensagens",
+    "retryFailed": "Não foi possível tentar novamente",
+    "retrying": "Tentando novamente…",
+    "sender": "Remetente",
+    "status": {
+      "failed": "Falhou",
+      "processed": "Processada",
+      "received": "Recebida"
+    },
+    "title": "Mensagens recebidas",
+    "viewPayload": "Ver payload completo"
+  },
+  "noPermission": "Você não tem permissão para gerenciar webhooks.",
+  "provider": "Provedor",
+  "subscriptions": {
+    "empty": "Nada cadastrado ainda em nenhuma conexão.",
+    "intro": "Todas as assinaturas de webhook de fato cadastradas no WooCommerce/MyParcel, em todas as conexões desta conta — não necessariamente apontando para o próprio CommerceOS.",
+    "noneForUs": "Nenhum deles está cadastrado para o CommerceOS — todos apontam para outros sistemas. Clique em \"Registrar um webhook\" acima para abrir as configurações de uma conexão e inscrever o CommerceOS também.",
+    "register": "Registrar um webhook",
+    "removeFailed": "Não foi possível remover a assinatura",
+    "title": "Assinaturas ativas nos provedores"
+  },
+  "tabs": {
+    "fanout": "Distribuição",
+    "messages": "Mensagens",
+    "subscriptions": "Assinaturas"
+  },
+  "targetUrl": "URL de destino",
+  "title": "Webhooks",
+  "topic": "Tópico"
+}

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 interface SessionErrorPanelProps {
   error: string
   onBack: () => void
@@ -8,6 +10,7 @@ interface SessionErrorPanelProps {
 // panel, which doesn't exist without a session -- so without this the
 // error was set but never shown.
 export function SessionErrorPanel({ error, onBack }: SessionErrorPanelProps) {
+  const { t } = useTranslation('orders')
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8">
       <p className="text-sm text-danger">{error}</p>
@@ -15,7 +18,7 @@ export function SessionErrorPanel({ error, onBack }: SessionErrorPanelProps) {
         type="button" onClick={onBack}
         className="px-4 py-2 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 text-xs font-medium"
       >
-        Back to orders
+        {t('backToOrders')}
       </button>
     </div>
   )

@@ -1,0 +1,186 @@
+{
+  "category": {
+    "card": "Omzet per categorie",
+    "empty": "Geen categorieverkopen in deze periode",
+    "title": "Categorieprestaties"
+  },
+  "cohorts": {
+    "cell_one": "{{count}} klant, {{revenue}}",
+    "cell_other": "{{count}} klanten, {{revenue}}",
+    "cohort": "Cohort",
+    "desc": "Cohorten per maand van de allereerste order van elke klant in deze periode, retentie per maand sinds acquisitie",
+    "empty": "Geen nieuwe klanten in deze periode",
+    "month": "Maand {{number}}",
+    "size": "Grootte",
+    "title": "Klantcohorten"
+  },
+  "col": {
+    "category": "Categorie",
+    "orders": "Orders",
+    "product": "Product",
+    "revenue": "Omzet",
+    "sku": "SKU",
+    "sold": "Verkocht",
+    "stockOnHand": "Op voorraad",
+    "turnover": "Omloop",
+    "units": "Stuks"
+  },
+  "customerPerformance": {
+    "card": "Topklanten op omzet",
+    "desc": "Geselecteerde periode — gastbestellingen niet meegeteld",
+    "empty": "Geen klantorders in deze periode",
+    "ordersAov_one": "{{count}} order · {{aov}} gem. orderwaarde",
+    "ordersAov_other": "{{count}} orders · {{aov}} gem. orderwaarde",
+    "title": "Klantprestaties",
+    "unnamed": "Naamloze klant"
+  },
+  "fbt": {
+    "clear": "Selectie wissen",
+    "desc": "SKU-combinaties die deze periode het vaakst samen in orders zaten — support is het aantal orders met alle artikelen uit de combinatie",
+    "empty": "Geen vaak samen voorkomende SKU-combinaties in deze periode",
+    "items": "Artikelen",
+    "loadingRecs": "Aanbevelingen laden…",
+    "loadingSkus": "SKU’s laden…",
+    "noRecs": "Geen vaak samen gekochte producten gevonden voor dit product in de geselecteerde periode",
+    "percentOrders": "% van orders",
+    "pickVariant": "Dit product heeft meerdere varianten — kies er een:",
+    "recDesc": "Zoek een product om te zien wat er vaak mee samen wordt gekocht",
+    "recTitle": "Productaanbevelingen",
+    "search": "Producten zoeken…",
+    "searching": "Zoeken…",
+    "support": "Support",
+    "supportValue": "support {{value}}",
+    "title": "Vaak samen gekocht",
+    "unknownError": "Onbekende fout"
+  },
+  "inventorySales": {
+    "desc": "Voorraad vs. verkochte stuks in de geselecteerde periode, gesorteerd op omloop",
+    "empty": "Geen SKU’s op voorraad of verkocht in deze periode",
+    "title": "Voorraad + verkoop"
+  },
+  "lifecycle": {
+    "declining": "Dalend",
+    "decliningHint": "Minder verkocht dan in de vorige periode",
+    "desc": "Vergeleken met de direct voorafgaande periode van gelijke lengte",
+    "dormant": "Slapend",
+    "dormantHint": "Vorige periode verkocht, nu niets",
+    "empty": "Geen verkopen in deze of de vorige periode",
+    "growing": "Groeiend",
+    "growingHint": "Meer verkocht dan in de vorige periode",
+    "new": "Nieuw",
+    "newHint": "Nu verkocht, niet in de vorige periode",
+    "sold_one": "{{count}} verkocht",
+    "sold_other": "{{count}} verkocht",
+    "stable": "Stabiel",
+    "stableHint": "Ongeveer evenveel verkocht als in de vorige periode",
+    "title": "Productlevenscyclus"
+  },
+  "matrix": {
+    "empty": "Geen SKU’s met bekende marge in deze periode",
+    "hiddenGems": "Verborgen parels",
+    "hiddenGemsHint": "Lage omzet, hoge marge — promoot ze",
+    "problems": "Probleemgevallen",
+    "problemsHint": "Lage omzet, lage marge — overweeg te stoppen",
+    "split": "Verdeeld rond de mediane omzet ({{revenue}}) en mediane marge ({{margin}}) van deze periode",
+    "stars": "Sterren",
+    "starsHint": "Hoge omzet, lage marge — optimaliseer de prijs",
+    "title": "Productprestatiematrix",
+    "winners": "Winnaars",
+    "winnersHint": "Hoge omzet, hoge marge — zet extra in"
+  },
+  "na": "n.v.t.",
+  "none": "Geen",
+  "overview": {
+    "aov": "Gem. orderwaarde",
+    "byChannel": "Omzet per kanaal",
+    "channel": "Kanaal",
+    "cogs": "Kostprijs verkopen",
+    "dailyPerChannel": "Dagomzet per verkoopkanaal",
+    "hide": "{{channel}} verbergen",
+    "margin": "Marge",
+    "noCostRevenue": "Geen omzet met bekende kostprijs in deze periode",
+    "noRevenue": "Geen omzet in deze periode",
+    "profit": "Winst",
+    "profitability": "Winstgevendheid",
+    "profitabilityDesc": "Winst/marge gaan alleen over omzet met een bekende SKU-kostprijs",
+    "revenue": "Omzet",
+    "selectChannel": "Kies minstens één kanaal om te tonen",
+    "show": "{{channel}} tonen",
+    "title": "Overzicht",
+    "total": "Totaal",
+    "totalAll": "Totaal, alle kanalen:",
+    "totalOrders": "Totaal orders",
+    "totalPerChannel": "Totale omzet per verkoopkanaal",
+    "totalRevenue": "Totale omzet",
+    "unitsSold": "Verkochte stuks",
+    "withKnownCost": "{{amount}} met bekende kostprijs"
+  },
+  "productPerformance": {
+    "card": "Topproducten op omzet",
+    "empty": "Geen verkopen in deze periode",
+    "marginNa": "marge n.v.t.",
+    "title": "Productprestaties"
+  },
+  "rfm": {
+    "atRisk": "Risico",
+    "atRiskHint": "Bestelde vaak, recent niet meer",
+    "champions": "Kampioenen",
+    "championsHint": "Recent, vaak, hoogste besteding",
+    "desc": "Recency/frequency/monetary-kwintielen ten opzichte van de klanten van deze periode — gastbestellingen niet meegeteld",
+    "empty": "Geen klantorders in deze periode",
+    "lost": "Verloren",
+    "lostHint": "Niet recent en niet vaak",
+    "loyal": "Trouwe klanten",
+    "loyalHint": "Vaak en recent",
+    "needsAttention": "Aandacht nodig",
+    "needsAttentionHint": "Gemiddeld op elke as",
+    "potential": "Potentieel trouw",
+    "potentialHint": "Recent, nog niet vaak",
+    "title": "Klantsegmenten (RFM)"
+  },
+  "salesTrends": {
+    "empty": "Geen verkopen in deze periode",
+    "granularity": {
+      "day": "Dag",
+      "month": "Maand",
+      "week": "Week"
+    },
+    "title": "Verkooptrends en seizoenspatronen",
+    "trend": "Verkooptrend",
+    "trendDesc": "Omzet in de geselecteerde periode",
+    "weekday": "Seizoenspatroon per weekdag",
+    "weekdayDesc": "Omzet opgeteld over elke keer dat een weekdag voorkomt",
+    "weekdayEmpty": "Geen verkopen om per weekdag te tonen in deze periode",
+    "weekdays": {
+      "fri": "vr",
+      "mon": "ma",
+      "sat": "za",
+      "sun": "zo",
+      "thu": "do",
+      "tue": "di",
+      "wed": "wo"
+    }
+  },
+  "selectedPeriod": "Geselecteerde periode",
+  "shared": {
+    "custom": "Aangepast",
+    "daily": "Dagelijks",
+    "noPrev": "— t.o.v. vorige periode",
+    "summary": "Samenvatting",
+    "vsPrev": "t.o.v. vorige periode"
+  },
+  "slowMoving": {
+    "desc": "Op voorraad maar niets verkocht in de geselecteerde periode",
+    "empty": "Geen langzaam lopende producten in deze periode",
+    "title": "Langzaam lopende producten"
+  },
+  "stockout": {
+    "daysLeft": "Dagen over",
+    "desc": "SKU’s die naar verwachting op zijn voordat een vandaag geplaatste nabestelling (14 dagen levertijd) binnen is, snelste eerst",
+    "empty": "Geen SKU’s met risico op uitverkoop",
+    "reorder": "Voorgestelde nabestelling",
+    "stock": "Voorraad",
+    "title": "Risico op uitverkoop"
+  },
+  "unnamedCustomer": "Naamloze klant"
+}

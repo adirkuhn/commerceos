@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import * as api from '../api'
 
@@ -25,7 +26,7 @@ export function useGroupPermissions(token: string, groupId: string): UseGroupPer
       const data = await api.listGroupPermissions(token, groupId)
       setPermissions(data.permissions)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('iam:unknownError'))
     } finally {
       setLoading(false)
     }

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { useAllProviderWebhooks } from '../integrations/hooks/useAllProviderWebhooks'
 
@@ -10,6 +11,7 @@ import { useAllProviderWebhooks } from '../integrations/hooks/useAllProviderWebh
 export function SubscriptionsTab({
   webhooks, loading, error, remove, onRegisterWebhook,
 }: ReturnType<typeof useAllProviderWebhooks> & { onRegisterWebhook: () => void }) {
+  const { t } = useTranslation(['webhooks', 'common'])
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [rowError, setRowError] = useState('')
 
@@ -27,7 +29,7 @@ export function SubscriptionsTab({
     try {
       await remove(connectionId, webhookId)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'Failed to remove subscription')
+      setRowError(err instanceof Error ? err.message : t('subscriptions.removeFailed'))
     } finally {
       setBusyKey(null)
     }
@@ -38,24 +40,22 @@ export function SubscriptionsTab({
       <div className="bg-raised rounded-xl border border-line p-4">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
-            <h2 className="text-sm font-semibold text-ink mb-1">Active provider subscriptions</h2>
+            <h2 className="text-sm font-semibold text-ink mb-1">{t('subscriptions.title')}</h2>
             <p className="text-xs text-ink-4">
-              Every webhook subscription actually registered at WooCommerce/MyParcel, across every connection this tenant has --
-              not necessarily pointed at CommerceOS itself.
+              {t('subscriptions.intro')}
             </p>
           </div>
           <button
             type="button" onClick={onRegisterWebhook}
             className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors shrink-0"
           >
-            Register a webhook
+            {t('subscriptions.register')}
           </button>
         </div>
 
         {noneTargetCommerceOS && (
           <p className="text-xs text-warning bg-amber-50 dark:bg-amber-500/10 rounded-lg px-3 py-2 mb-3">
-            None of these are registered with CommerceOS -- they're all pointed at other systems. Click "Register a webhook"
-            above to open a connection's settings and subscribe CommerceOS too.
+            {t('subscriptions.noneForUs')}
           </p>
         )}
 
@@ -63,18 +63,18 @@ export function SubscriptionsTab({
         {rowError && <p className="text-xs text-danger mb-2">{rowError}</p>}
 
         {loading ? (
-          <p className="text-xs text-ink-4">Loading…</p>
+          <p className="text-xs text-ink-4">{t('common:status.loading')}</p>
         ) : webhooks.length === 0 ? (
-          <p className="text-xs text-ink-4">Nothing registered yet at any connection.</p>
+          <p className="text-xs text-ink-4">{t('subscriptions.empty')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-ink-4 border-b border-line">
-                  <th className="py-2 pr-3 font-medium">Connection</th>
-                  <th className="py-2 pr-3 font-medium">Topic</th>
-                  <th className="py-2 pr-3 font-medium">Delivery URL</th>
-                  <th className="py-2 pr-3 font-medium">Status</th>
+                  <th className="py-2 pr-3 font-medium">{t('connection')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('topic')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('deliveryUrl')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('common:fields.status')}</th>
                   <th className="py-2 pr-3 font-medium"></th>
                 </tr>
               </thead>
@@ -87,7 +87,7 @@ export function SubscriptionsTab({
                         <span className="capitalize">{w.provider}</span>
                         {w.store_label && <span className="text-ink-4"> · {w.store_label}</span>}
                       </td>
-                      <td className="py-2 pr-3 text-ink-3">{w.topic || 'any'}</td>
+                      <td className="py-2 pr-3 text-ink-3">{w.topic || t('any')}</td>
                       <td className="py-2 pr-3 text-ink-3 font-mono truncate max-w-[240px]" title={w.delivery_url}>{w.delivery_url}</td>
                       <td className="py-2 pr-3 text-ink-3">{w.status}</td>
                       <td className="py-2 pr-3">
@@ -96,7 +96,7 @@ export function SubscriptionsTab({
                           disabled={busyKey === key || !w.connection_id}
                           className="px-2 py-1 rounded bg-fill text-ink-3 hover:text-danger disabled:opacity-50 transition-colors"
                         >
-                          Remove
+                          {t('common:actions.remove')}
                         </button>
                       </td>
                     </tr>

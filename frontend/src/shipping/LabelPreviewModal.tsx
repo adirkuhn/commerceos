@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import type { RecipientAddress } from './types'
 import { CARRIERS, PACKAGE_TYPES } from './types'
 import { Dialog } from '../components/common/Dialog'
@@ -32,8 +33,9 @@ interface LabelPreviewModalProps {
 // staff commit to actually creating the shipment.
 export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, onLabelSizeChange, onBack, onPrint, onClose }: LabelPreviewModalProps) {
   const [printing, setPrinting] = useState(false)
+  const { t } = useTranslation(['shipping', 'common'])
   const [error, setError] = useState('')
-  const carrierLabel = CARRIERS.find(c => c.id === carrier)?.label ?? `Carrier ${carrier}`
+  const carrierLabel = CARRIERS.find(c => c.id === carrier)?.label ?? t('preview.carrierFallback', { id: carrier })
   const packageTypeLabel = PACKAGE_TYPES.find(p => p.id === packageType)?.label
 
   async function handlePrint() {
@@ -42,7 +44,7 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
     try {
       await onPrint()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create shipping label')
+      setError(err instanceof Error ? err.message : t('preview.createFailed'))
       setPrinting(false)
     }
     // No `finally` -- on success the caller unmounts this modal (moves on
@@ -55,15 +57,15 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
       <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-ink">Ready to print</h3>
-          <button onClick={onClose} aria-label="Close"><X size={14} className="text-ink-4" /></button>
+          <h3 className="text-sm font-semibold text-ink">{t('preview.title')}</h3>
+          <button onClick={onClose} aria-label={t('common:actions.close')}><X size={14} className="text-ink-4" /></button>
         </div>
 
         {/* Label-shaped preview -- deliberately always white/black text
             (like the real printed label) regardless of the app's own
             dark/light theme, so what staff see here matches the paper. */}
         <div className="rounded-lg border-2 border-dashed border-gray-300 p-4 mb-4 bg-white text-gray-900">
-          <p className="text-2xs uppercase tracking-wider text-gray-500 mb-1">To</p>
+          <p className="text-2xs uppercase tracking-wider text-gray-500 mb-1">{t('preview.to')}</p>
           <p className="text-base font-bold leading-tight">{recipient.person || '—'}</p>
           {recipient.company && <p className="text-sm">{recipient.company}</p>}
           <p className="text-sm">
@@ -83,7 +85,7 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
         </div>
 
         <div className="mb-4">
-          <label className="block text-2xs font-medium text-ink-3 mb-1">Label size</label>
+          <label className="block text-2xs font-medium text-ink-3 mb-1">{t('preview.labelSize')}</label>
           <div className="flex items-center rounded-lg border border-line overflow-hidden">
             {(['A4', 'A6'] as const).map(s => (
               <button
@@ -100,7 +102,7 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
               </button>
             ))}
           </div>
-          <p className="text-2xs text-ink-4 mt-1">Can be changed again later when reprinting.</p>
+          <p className="text-2xs text-ink-4 mt-1">{t('preview.sizeHint')}</p>
         </div>
 
         {error && <p className="text-xs text-danger mb-3">{error}</p>}
@@ -110,13 +112,13 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
             type="button" onClick={onBack} disabled={printing}
             className="px-4 py-2 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover disabled:opacity-50 transition-colors"
           >
-            Back to edit
+            {t('preview.back')}
           </button>
           <button
             type="button" onClick={handlePrint} disabled={printing}
             className="flex-1 px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {printing ? 'Creating…' : 'Print label'}
+            {printing ? t('preview.creating') : t('preview.print')}
           </button>
         </div>
       </div>

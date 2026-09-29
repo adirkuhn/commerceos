@@ -1,0 +1,74 @@
+{
+  "batch": {
+    "expires": "exp {{date}}",
+    "label": "Clearance batch",
+    "loadFailed": "Failed to load batches",
+    "noExpiry": "no expiry",
+    "noLot": "No lot",
+    "option": "{{lot}} · {{expiry}} · {{quantity}} left",
+    "wholeSku": "Whole SKU (no batch)"
+  },
+  "edit": {
+    "addSku": "Add SKU",
+    "back": "Promotions",
+    "batchFinished": "Batch finished {{date}} — back to regular price",
+    "bps": "bps",
+    "create": "Create promotion",
+    "discard": "Discard",
+    "discountValue": "Discount value",
+    "duplicateSku": "That SKU is already in this promotion",
+    "edit": "Edit promotion",
+    "endsAt": "Ends at",
+    "general": "General",
+    "loadFailed": "Failed to load promotion",
+    "minorUnits": "minor units",
+    "name": "Name",
+    "new": "New promotion",
+    "noSkus": "No SKUs added yet.",
+    "remove": "Remove",
+    "resolveFailed": "Failed to resolve SKU",
+    "resolving": "Resolving…",
+    "saveFailed": "Failed to save promotion",
+    "searchProduct": "Search product",
+    "skuPlaceholder": "SKU code or barcode",
+    "skus": "SKUs",
+    "startsAt": "Starts at",
+    "type": "Type"
+  },
+  "list": {
+    "add": "Add promotion",
+    "colEnds": "Ends",
+    "colPromotion": "Promotion",
+    "colStarts": "Starts",
+    "colStatus": "Status",
+    "colType": "Type",
+    "count_one": "{{count}} promotion",
+    "count_other": "{{count}} promotions",
+    "deleteConfirm": "Delete promotion",
+    "deleteMessage": "This cannot be undone.",
+    "deleteTitle": "Delete promotion \"{{name}}\"?",
+    "empty": "No promotions yet",
+    "search": "Search by name..."
+  },
+  "performance": {
+    "change": "{{change}}% vs before",
+    "intro": "Covered SKUs during the active window vs. the immediately preceding period of equal length",
+    "loadFailed": "Failed to load performance",
+    "noChange": "— vs before",
+    "revenueBefore": "Revenue (before)",
+    "revenueDuring": "Revenue (during)",
+    "title": "Performance",
+    "unitsBefore": "Units sold (before)",
+    "unitsDuring": "Units sold (during)"
+  },
+  "status": {
+    "active": "Active",
+    "draft": "Draft",
+    "ended": "Ended",
+    "label": "Status"
+  },
+  "type": {
+    "fixed_amount": "Fixed amount",
+    "percentage": "Percentage"
+  }
+}

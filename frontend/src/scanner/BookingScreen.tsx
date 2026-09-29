@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Check, PackageCheck, ChevronDown, ChevronUp, Camera, Warehouse as WarehouseIcon } from 'lucide-react'
 import * as api from './api'
 import * as procurementApi from '../procurement/api'
@@ -22,6 +23,7 @@ interface BookingScreenProps {
 }
 
 export function BookingScreen({ token, bookingId, onExit, onAuthError }: BookingScreenProps) {
+  const { t } = useTranslation(['scanner', 'common'])
   const [detail, setDetail] = useState<BookingDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -55,7 +57,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       setWarehouses(whs)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : 'Failed to load booking')
+      setError(err instanceof Error ? err.message : t('errors.loadBooking'))
     } finally {
       setLoading(false)
     }
@@ -78,7 +80,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       setWarehouseSheetOpen(false)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : 'Failed to change warehouse')
+      setError(err instanceof Error ? err.message : t('errors.changeWarehouse'))
     } finally {
       setChangingWarehouse(false)
     }
@@ -101,7 +103,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : 'Scan failed')
+      setError(err instanceof Error ? err.message : t('errors.scanFailed'))
     } finally {
       setScanning(false)
       codeInputRef.current?.focus()
@@ -177,7 +179,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       } catch {
         // fall through to the original resolve error below
       }
-      setError(err instanceof Error ? err.message : 'Scan failed')
+      setError(err instanceof Error ? err.message : t('errors.scanFailed'))
     } finally {
       setScanning(false)
       codeInputRef.current?.focus()
@@ -191,7 +193,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
     // scan, applied here too so this fuzzy-search fallback can't bypass it.
     if (c.sku.pricing_mode === 'per_weight') {
       setCandidates([])
-      setError('Priced by weight — scan its scale barcode, not a name/code match')
+      setError(t('errors.pricedByWeight'))
       return
     }
     const fields = pendingBookFields
@@ -232,7 +234,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : 'Failed to delete scan')
+      setError(err instanceof Error ? err.message : t('errors.deleteScan'))
     }
   }
 
@@ -242,7 +244,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       onExit()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : 'Failed to pause')
+      setError(err instanceof Error ? err.message : t('errors.pause'))
     }
   }
 
@@ -253,7 +255,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       setConfirmingFinish(false)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : 'Failed to complete')
+      setError(err instanceof Error ? err.message : t('errors.complete'))
     } finally {
       setFinishing(false)
     }
@@ -264,21 +266,21 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
     return (
       <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
         <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-          <button aria-label="Back to booking" onClick={() => setConfirmingFinish(false)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to booking">
+          <button aria-label={t('booking.backToBooking')} onClick={() => setConfirmingFinish(false)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('booking.backToBooking')}>
             <ArrowLeft size={18} className="text-gray-400" />
           </button>
-          <h1 className="flex-1 text-base font-semibold">Review before finishing</h1>
+          <h1 className="flex-1 text-base font-semibold">{t('review.title')}</h1>
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
           {missing.length === 0 ? (
-            <p className="text-center text-sm text-gray-400 py-8">Every line is fully scanned.</p>
+            <p className="text-center text-sm text-gray-400 py-8">{t('booking.allScanned')}</p>
           ) : (
             <>
-              <p className="text-sm text-amber-400">{missing.length} line(s) aren't fully scanned yet:</p>
+              <p className="text-sm text-amber-400">{t('booking.notFullyScanned', { count: missing.length })}</p>
               {missing.map(m => (
                 <div key={m.line_item_id} className="rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                   <p className="text-sm text-gray-200">{m.raw_description}</p>
-                  <p className="text-xs text-gray-400">expected {m.expected_qty} · scanned {m.scanned_qty}</p>
+                  <p className="text-xs text-gray-400">{t('booking.expectedScanned', { expected: m.expected_qty, scanned: m.scanned_qty })}</p>
                 </div>
               ))}
             </>
@@ -291,10 +293,10 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
             disabled={finishing}
             className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
           >
-            {finishing ? 'Completing…' : 'Confirm & complete'}
+            {finishing ? t('review.completing') : t('review.confirm')}
           </button>
           <button onClick={() => setConfirmingFinish(false)} className="w-full py-2.5 rounded-xl bg-night-800 text-gray-300 text-sm font-medium">
-            Back, scan more
+            {t('review.backScanMore')}
           </button>
         </div>
       </div>
@@ -308,23 +310,23 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           <div className="w-14 h-14 rounded-2xl bg-green-600/20 flex items-center justify-center">
             <PackageCheck size={26} className="text-green-400" />
           </div>
-          <h1 className="text-lg font-semibold">Booking complete</h1>
-          {result.missing_items.length === 0 && <p className="text-sm text-gray-400">Every line was fully scanned.</p>}
+          <h1 className="text-lg font-semibold">{t('booking.complete')}</h1>
+          {result.missing_items.length === 0 && <p className="text-sm text-gray-400">{t('booking.everyScanned')}</p>}
         </div>
         {result.missing_items.length > 0 && (
           <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-2">
-            <p className="text-sm text-amber-400">{result.missing_items.length} line(s) weren't fully scanned:</p>
+            <p className="text-sm text-amber-400">{t('booking.wereNotScanned', { count: result.missing_items.length })}</p>
             {result.missing_items.map(m => (
               <div key={m.line_item_id} className="rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                 <p className="text-sm text-gray-200">{m.raw_description}</p>
-                <p className="text-xs text-gray-400">expected {m.expected_qty} · scanned {m.scanned_qty}</p>
+                <p className="text-xs text-gray-400">{t('booking.expectedScanned', { expected: m.expected_qty, scanned: m.scanned_qty })}</p>
               </div>
             ))}
           </div>
         )}
         <div className="p-6 shrink-0">
           <button onClick={onExit} className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold hover:bg-accent-solid-hover">
-            Done
+            {t('shared.done')}
           </button>
         </div>
       </div>
@@ -341,24 +343,24 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button aria-label="Pause and go back" onClick={handlePause} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Pause and go back">
+        <button aria-label={t('shared.pauseBack')} onClick={handlePause} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('shared.pauseBack')}>
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
-        <h1 className="flex-1 text-base font-semibold">Booking</h1>
+        <h1 className="flex-1 text-base font-semibold">{t('booking.title')}</h1>
         <button
           onClick={() => setConfirmingFinish(true)}
           className="px-4 min-h-11 -my-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700"
         >
-          Finish
+          {t('shared.finish')}
         </button>
       </div>
 
       {purchaseOrder && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-night-700 shrink-0 text-xs text-gray-400">
           <WarehouseIcon size={13} className="shrink-0" />
-          <span className="flex-1 truncate">{warehouses.find(w => w.id === purchaseOrder.warehouse_id)?.name ?? 'No warehouse'}</span>
+          <span className="flex-1 truncate">{warehouses.find(w => w.id === purchaseOrder.warehouse_id)?.name ?? t('booking.noWarehouse')}</span>
           <button type="button" onClick={() => setWarehouseSheetOpen(true)} className="text-accent font-medium shrink-0">
-            Change
+            {t('shared.change')}
           </button>
         </div>
       )}
@@ -370,7 +372,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       )}
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-        {loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
+        {loading && <p className="text-center text-sm text-gray-400 py-8">{t('common:status.loading')}</p>}
         {detail?.line_items.map(li => {
           const scannedQty = li.sku_id ? scannedBySKU.get(li.sku_id) ?? 0 : 0
           const damagedLostQty = li.sku_id ? damagedLostBySKU.get(li.sku_id) ?? 0 : 0
@@ -387,8 +389,8 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
               {done && <Check size={16} className="text-green-400 shrink-0" />}
               <div className="flex-1 min-w-0">
                 <p className="text-sm truncate">{li.raw_description}</p>
-                {!skuId && <p className="text-xs text-amber-400">Not linked to a product yet</p>}
-                {damagedLostQty > 0 && <p className="text-xs text-red-400">{damagedLostQty} damaged/lost</p>}
+                {!skuId && <p className="text-xs text-amber-400">{t('shared.notLinked')}</p>}
+                {damagedLostQty > 0 && <p className="text-xs text-red-400">{t('booking.damagedLostQty', { quantity: damagedLostQty })}</p>}
               </div>
               <p className={`text-sm font-medium shrink-0 ${done ? 'text-green-400' : 'text-gray-300'}`}>
                 {scannedBoxes} / {li.quantity}
@@ -422,7 +424,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
         {error && <p className="text-sm text-red-400">{error}</p>}
         {candidates.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-xs text-gray-400">Multiple matches -- pick one:</p>
+            <p className="text-xs text-gray-400">{t('shared.multipleMatches')}</p>
             {candidates.map(c => (
               <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => handleCandidateBook(c)} />
             ))}
@@ -433,25 +435,25 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
             ref={codeInputRef}
             value={code}
             onChange={e => setCode(e.target.value)}
-            placeholder="Scan or type barcode…"
+            placeholder={t('shared.scanPlaceholder')}
             className="flex-1 px-3 py-3 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
           />
-          <button aria-label="Use camera"
+          <button aria-label={t('shared.useCamera')}
             type="button"
             onClick={() => setCameraOpen(true)}
-            title="Use camera"
+            title={t('shared.useCamera')}
             className="w-11 shrink-0 rounded-xl bg-night-800 border border-night-700 flex items-center justify-center text-gray-300"
           >
             <Camera size={16} />
           </button>
         </div>
         <button type="button" onClick={() => setAdvancedOpen(o => !o)} className="flex items-center gap-1 text-xs text-gray-400">
-          {advancedOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Lot / expiry
+          {advancedOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />} {t('booking.lotExpiry')}
         </button>
         {advancedOpen && (
           <div className="grid grid-cols-2 gap-2">
             <input
-              value={lotNumber} onChange={e => setLotNumber(e.target.value)} placeholder="Lot number"
+              value={lotNumber} onChange={e => setLotNumber(e.target.value)} placeholder={t('batch.lotNumber')}
               className="px-3 py-2 text-sm rounded-lg bg-night-800 border border-night-700 text-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
             />
             <input
@@ -464,7 +466,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           type="submit" disabled={scanning || !code.trim()}
           className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
         >
-          {scanning ? 'Looking up…' : 'Scan'}
+          {scanning ? t('shared.lookingUp') : t('shared.scan')}
         </button>
       </form>
 

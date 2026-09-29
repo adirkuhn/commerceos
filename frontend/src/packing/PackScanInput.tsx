@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { RefObject } from 'react'
 import { ScanBarcode } from 'lucide-react'
 
@@ -12,6 +13,7 @@ interface PackScanInputProps {
 
 // The always-focused scan field; Enter submits the code.
 export function PackScanInput({ inputRef, code, onChange, onSubmit, disabled, error }: PackScanInputProps) {
+  const { t } = useTranslation('packing')
   return (
     <div className="px-6 py-4 border-b border-line shrink-0 dark:bg-night-900/80 bg-gray-50">
       <div className="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border-2  border-accent bg-raised">
@@ -22,7 +24,7 @@ export function PackScanInput({ inputRef, code, onChange, onSubmit, disabled, er
           value={code}
           onChange={e => onChange(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && onSubmit()}
-          placeholder="Scan barcode or type and press Enter..."
+          placeholder={t('scanInput.placeholder')}
           disabled={disabled}
           className="flex-1 bg-transparent text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus/60 placeholder-ink-4 font-mono disabled:opacity-50"
         />

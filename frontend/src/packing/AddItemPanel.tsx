@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import { Gift, PackagePlus, X } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 
 export interface AddItemInput {
   skuId: string
@@ -24,6 +25,7 @@ const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-
 // order and add it as a freebie or a paid new item. Staged like every other
 // order change -- it becomes a real line when packing finishes.
 export function AddItemPanel({ busy, resolveCode, onAdd, onClose }: AddItemPanelProps) {
+  const { t } = useTranslation(['packing', 'common'])
   const [code, setCode] = useState('')
   const [product, setProduct] = useState<{ skuId: string; name: string } | null>(null)
   const [error, setError] = useState('')
@@ -41,7 +43,7 @@ export function AddItemPanel({ busy, resolveCode, onAdd, onClose }: AddItemPanel
       setProduct({ skuId: r.sku_id, name: r.product_name })
       setCode('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Scan not recognized')
+      setError(err instanceof Error ? err.message : t('errors.scanNotRecognized'))
     }
   }
 
@@ -56,19 +58,19 @@ export function AddItemPanel({ busy, resolveCode, onAdd, onClose }: AddItemPanel
   return (
     <div className="w-80 border-l border-line bg-sunken flex flex-col shrink-0">
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-        <p className="text-xs font-semibold text-ink">Add item not on order</p>
-        <button type="button" onClick={onClose} aria-label="Close" className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
+        <p className="text-xs font-semibold text-ink">{t('add.title')}</p>
+        <button type="button" onClick={onClose} aria-label={t('common:actions.close')} className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
           <X size={14} />
         </button>
       </div>
       <div className="p-4 space-y-4">
         {!product ? (
           <>
-            <p className="text-2xs text-ink-3">Scan or type the product&apos;s SKU/barcode.</p>
+            <p className="text-2xs text-ink-3">{t('add.scanHelp')}</p>
             <input
               type="text" value={code} onChange={e => setCode(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && resolve()}
-              placeholder="Scan or type SKU/barcode" className={inputClass} autoFocus
+              placeholder={t('add.placeholder')} className={inputClass} autoFocus
             />
             {error && <p role="alert" className="text-2xs text-danger">{error}</p>}
           </>
@@ -80,17 +82,17 @@ export function AddItemPanel({ busy, resolveCode, onAdd, onClose }: AddItemPanel
                 type="button" onClick={() => setFreebie(true)}
                 className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', freebie ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
               >
-                <Gift size={11} /> Freebie
+                <Gift size={11} /> {t('add.freebie')}
               </button>
               <button aria-pressed={!freebie}
                 type="button" onClick={() => setFreebie(false)}
                 className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-2xs font-medium', !freebie ? 'bg-accent-solid text-white' : 'bg-raised text-ink-3')}
               >
-                <PackagePlus size={11} /> New item
+                <PackagePlus size={11} /> {t('add.newItem')}
               </button>
             </div>
             <div>
-              <label htmlFor={`${id}-qty`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
+              <label htmlFor={`${id}-qty`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">{t('add.quantity')}</label>
               <input
                 id={`${id}-qty`} type="number" min={1} value={quantity}
                 onChange={e => setQuantity(e.target.value)} className={inputClass}
@@ -98,7 +100,7 @@ export function AddItemPanel({ busy, resolveCode, onAdd, onClose }: AddItemPanel
             </div>
             {!freebie && (
               <div>
-                <label htmlFor={`${id}-price`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Price</label>
+                <label htmlFor={`${id}-price`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">{t('add.price')}</label>
                 <input id={`${id}-price`} type="number" min={0} step="0.01" value={price} onChange={e => setPrice(e.target.value)} className={inputClass} />
               </div>
             )}
@@ -106,7 +108,7 @@ export function AddItemPanel({ busy, resolveCode, onAdd, onClose }: AddItemPanel
               type="button" onClick={add} disabled={busy || !(Number(quantity) >= 1)}
               className="w-full px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
             >
-              Add to order
+              {t('add.submit')}
             </button>
           </>
         )}

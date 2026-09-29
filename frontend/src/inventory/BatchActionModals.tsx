@@ -1,6 +1,7 @@
 import { useState, useRef, type ReactNode } from 'react'
 import { Plus, ArrowRightLeft, PackageMinus, ClipboardList, Boxes } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import type { SKU } from '../pms/types'
 import { Modal, inputClass, labelClass } from './components/Modal'
 import { formatMinorUnitsAsInput } from './inventoryFormat'
@@ -17,6 +18,7 @@ export function PriceModal({ sku, onSave, onClose }: {
   const [salePrice, setSalePrice] = useState(sku.sale_price_minor_units != null ? formatMinorUnitsAsInput(sku.sale_price_minor_units) : '')
   const [saleEndDate, setSaleEndDate] = useState(sku.sale_end_date ?? '')
   const [saving, setSaving] = useState(false)
+  const { t } = useTranslation(['inventory', 'common'])
   const [error, setError] = useState<string | null>(null)
 
   const submit = async () => {
@@ -26,7 +28,7 @@ export function PriceModal({ sku, onSave, onClose }: {
       await onSave(price, salePrice, saleEndDate)
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update price')
+      setError(e instanceof Error ? e.message : t('price.updateFailed'))
     } finally {
       setSaving(false)
     }
@@ -37,21 +39,21 @@ export function PriceModal({ sku, onSave, onClose }: {
   const discountPct = salePriceNum != null && priceNum > 0 ? Math.round((1 - salePriceNum / priceNum) * 100) : null
 
   return (
-    <Modal title="Edit price" onClose={onClose}>
+    <Modal title={t('price.title')} onClose={onClose}>
       <div className="space-y-3">
         <div>
-          <label className={labelClass} htmlFor="price-edit-price">Regular price ({sku.currency_code})</label>
+          <label className={labelClass} htmlFor="price-edit-price">{t('price.regular', { currency: sku.currency_code })}</label>
           <input id="price-edit-price" type="number" step="0.01" min="0" value={price} onChange={e => setPrice(e.target.value)} className={inputClass} />
         </div>
 
         <div className="rounded-lg border border-line p-2.5 space-y-2">
           <div className="flex items-center justify-between">
-            <label className={clsx(labelClass, 'mb-0')} htmlFor="price-edit-sale-price">Sale price (optional)</label>
+            <label className={clsx(labelClass, 'mb-0')} htmlFor="price-edit-sale-price">{t('price.sale')}</label>
             {discountPct != null && discountPct > 0 && (
               <span className="text-2xs px-1.5 py-px rounded bg-green-500/15 text-success font-medium">-{discountPct}%</span>
             )}
             {discountPct != null && discountPct <= 0 && (
-              <span className="text-2xs text-danger">must be below regular price</span>
+              <span className="text-2xs text-danger">{t('price.mustBeBelow')}</span>
             )}
           </div>
           <input id="price-edit-sale-price" type="number" step="0.01" min="0" value={salePrice} onChange={e => {
@@ -60,19 +62,19 @@ export function PriceModal({ sku, onSave, onClose }: {
           }} className={inputClass} />
 
           <div>
-            <label className={labelClass} htmlFor="price-edit-sale-end-date">Sale ends (optional)</label>
+            <label className={labelClass} htmlFor="price-edit-sale-end-date">{t('price.saleEnds')}</label>
             <input id="price-edit-sale-end-date" type="date" value={saleEndDate} onChange={e => setSaleEndDate(e.target.value)} className={inputClass} disabled={salePriceNum == null} />
-            <p className="text-2xs text-ink-4 mt-1">Reverts to the regular price automatically the day after this date.</p>
+            <p className="text-2xs text-ink-4 mt-1">{t('price.saleEndsHint')}</p>
           </div>
         </div>
 
         {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
-            Cancel
+            {t('common:actions.cancel')}
           </button>
           <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50">
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('common:actions.saving') : t('common:actions.save')}
           </button>
         </div>
       </div>
@@ -113,12 +115,13 @@ export function BatchRowActionModal({ scope, canSplitCase = false, onChoose, onC
   onChoose: (action: BatchRowAction) => void
   onClose: () => void
 }) {
+  const { t } = useTranslation(['inventory', 'common'])
   const actions: { key: BatchRowAction; label: string; icon: ReactNode; danger?: boolean }[] = [
-    { key: 'adjust', label: 'Adjust (add/remove)', icon: <Plus size={13} /> },
-    { key: 'recount', label: 'Recount', icon: <ClipboardList size={13} /> },
-    { key: 'transfer', label: 'Transfer', icon: <ArrowRightLeft size={13} /> },
-    ...(canSplitCase ? [{ key: 'split-case' as const, label: 'Split case into units', icon: <Boxes size={13} /> }] : []),
-    { key: 'damaged-lost', label: 'Damaged / lost', icon: <PackageMinus size={13} />, danger: true },
+    { key: 'adjust', label: t('rowAction.adjust'), icon: <Plus size={13} /> },
+    { key: 'recount', label: t('rowAction.recount'), icon: <ClipboardList size={13} /> },
+    { key: 'transfer', label: t('rowAction.transfer'), icon: <ArrowRightLeft size={13} /> },
+    ...(canSplitCase ? [{ key: 'split-case' as const, label: t('rowAction.splitCase'), icon: <Boxes size={13} /> }] : []),
+    { key: 'damaged-lost', label: t('rowAction.damagedLost'), icon: <PackageMinus size={13} />, danger: true },
   ]
   return (
     <Modal title={scope.label} onClose={onClose}>
@@ -135,7 +138,7 @@ export function BatchRowActionModal({ scope, canSplitCase = false, onChoose, onC
           </button>
         ))}
         <button type="button" onClick={onClose} className="w-full px-3 py-2 text-xs rounded-lg text-ink-3 hover:bg-hover">
-          Cancel
+          {t('common:actions.cancel')}
         </button>
       </div>
     </Modal>

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Route, Routes } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
 import { ArrowLeft, Tag, Boxes } from 'lucide-react'
 import * as pmsApi from '../pms/api'
 import * as inventoryApi from '../inventory/api'
@@ -57,13 +58,14 @@ export function PriceLookupApp({ token, onExit }: PriceLookupAppProps) {
 }
 
 function PriceLookupShell({ onExit, children }: { onExit: () => void; children: ReactNode }) {
+  const { t } = useTranslation('scanner')
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button aria-label="Back to apps" onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
+        <button aria-label={t('shared.backToApps')} onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('shared.backToApps')}>
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
-        <h1 className="flex-1 text-base font-semibold">Price Lookup</h1>
+        <h1 className="flex-1 text-base font-semibold">{t('price.title')}</h1>
       </div>
       {children}
     </div>
@@ -71,6 +73,7 @@ function PriceLookupShell({ onExit, children }: { onExit: () => void; children: 
 }
 
 function PriceLookupScan({ token, onResolved }: { token: string; onResolved: (r: Resolved) => void }) {
+  const { t } = useTranslation('scanner')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [candidates, setCandidates] = useState<SKUCandidate[]>([])
@@ -100,7 +103,7 @@ function PriceLookupScan({ token, onResolved }: { token: string; onResolved: (r:
       } catch {
         // fall through to the original resolveBarcode error below
       }
-      setError(err instanceof Error ? err.message : 'Failed to resolve code')
+      setError(err instanceof Error ? err.message : t('errors.resolveCode'))
     } finally {
       setLoading(false)
     }
@@ -108,10 +111,10 @@ function PriceLookupScan({ token, onResolved }: { token: string; onResolved: (r:
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
-      <ScanCodeScreen icon={Tag} prompt="Scan a barcode or type a SKU code" loading={loading} error={error} onSubmit={handleSubmit} />
+      <ScanCodeScreen icon={Tag} prompt={t('shared.scanPrompt')} loading={loading} error={error} onSubmit={handleSubmit} />
       {candidates.length > 0 && (
         <div className="w-full max-w-xs mx-auto px-6 pb-6 space-y-1.5 shrink-0">
-          <p className="text-xs text-gray-400">Multiple matches -- pick one:</p>
+          <p className="text-xs text-gray-400">{t('shared.multipleMatches')}</p>
           {candidates.map(c => (
             <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => onResolved({ sku: c.sku, productName: c.productName })} />
           ))}
@@ -129,6 +132,7 @@ interface PriceLookupResultProps {
 }
 
 function PriceLookupResult({ token, resolved, onViewInventory, onLookUpAnother }: PriceLookupResultProps) {
+  const { t } = useTranslation('scanner')
   const { sku, productName } = resolved
   const [stockTotal, setStockTotal] = useState<number | null>(null)
 
@@ -161,20 +165,20 @@ function PriceLookupResult({ token, resolved, onViewInventory, onLookUpAnother }
         )}
       </div>
       {stockTotal !== null && (
-        <p className="text-sm text-gray-400">In stock: <span className="font-mono text-gray-200">{stockTotal}</span></p>
+        <p className="text-sm text-gray-400"><Trans t={t} i18nKey="price.inStock" values={{ quantity: stockTotal }} components={{ value: <span className="font-mono text-gray-200" /> }} /></p>
       )}
       <div className="w-full max-w-xs space-y-2">
         <button
           onClick={onViewInventory}
           className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-accent-solid text-white font-medium"
         >
-          <Boxes size={16} /> View in Inventory
+          <Boxes size={16} /> {t('price.viewInventory')}
         </button>
         <button
           onClick={onLookUpAnother}
           className="w-full py-3 rounded-xl bg-night-800 text-gray-200 font-medium border border-night-700"
         >
-          Look up another
+          {t('price.lookUpAnother')}
         </button>
       </div>
     </div>

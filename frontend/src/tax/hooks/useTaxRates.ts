@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { TaxRate, UpsertTaxRateInput } from '../types'
 import * as api from '../api'
@@ -27,7 +28,7 @@ export function useTaxRates(token: string): UseTaxRatesState & UseTaxRatesAction
       const data = await api.listTaxRates(token)
       setRates(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('common:status.error'))
     } finally {
       setLoading(false)
     }

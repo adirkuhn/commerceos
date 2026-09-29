@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Search, X, Check } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import type { PurchaseOrderLineItem, AddLineItemInput, LineItemType } from './types'
 import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
-import { LINE_TYPE_LABELS, isChargeLineType, signedLineItemAmount } from './procurementHelpers'
+import { LINE_TYPES, isChargeLineType, lineTypeLabel, signedLineItemAmount } from './procurementHelpers'
 
 interface LineItemFormRowProps {
   initial?: PurchaseOrderLineItem
@@ -26,6 +27,7 @@ export function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRow
   const [unitsPerPurchasedItem, setUnitsPerPurchasedItem] = useState(initial ? String(initial.units_per_purchased_item) : '1')
   const [lineType, setLineType] = useState<LineItemType>(initial?.line_type || 'product')
   const [saving, setSaving] = useState(false)
+  const { t } = useTranslation(['procurement', 'common'])
   const [rowError, setRowError] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const isCharge = isChargeLineType(lineType)
@@ -46,7 +48,7 @@ export function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRow
         line_type: lineType,
       })
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'Failed to save line item')
+      setRowError(err instanceof Error ? err.message : t('lineForm.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -61,38 +63,38 @@ export function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRow
       <td colSpan={8} className="px-4 py-3">
           <div className="grid grid-cols-4 gap-3">
             <div className="col-span-2">
-              <label htmlFor={`li-description-${idPrefix}`} className={labelClass}>Description</label>
+              <label htmlFor={`li-description-${idPrefix}`} className={labelClass}>{t('lineForm.description')}</label>
               <input
                 id={`li-description-${idPrefix}`}
-                aria-label="Line item description" required value={description} onChange={e => setDescription(e.target.value)}
-                className={inputClass} placeholder="Description"
+                aria-label={t('lineForm.descriptionAria')} required value={description} onChange={e => setDescription(e.target.value)}
+                className={inputClass} placeholder={t('lineForm.description')}
               />
             </div>
             <div>
-              <label htmlFor={`li-type-${idPrefix}`} className={labelClass}>Type</label>
+              <label htmlFor={`li-type-${idPrefix}`} className={labelClass}>{t('lineForm.type')}</label>
               <select
                 id={`li-type-${idPrefix}`}
-                aria-label="Line item type" value={lineType} onChange={e => setLineType(e.target.value as LineItemType)}
+                aria-label={t('lineForm.typeAria')} value={lineType} onChange={e => setLineType(e.target.value as LineItemType)}
                 className={inputClass}
               >
-                {(Object.keys(LINE_TYPE_LABELS) as LineItemType[]).map(t => (
-                  <option key={t} value={t}>{LINE_TYPE_LABELS[t]}</option>
+                {LINE_TYPES.map(type => (
+                  <option key={type} value={type}>{lineTypeLabel(type)}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label htmlFor={`li-quantity-${idPrefix}`} className={labelClass}>Quantity</label>
+              <label htmlFor={`li-quantity-${idPrefix}`} className={labelClass}>{t('lineForm.quantity')}</label>
               <input
                 id={`li-quantity-${idPrefix}`}
-                aria-label="Quantity" type="number" min="1" required value={quantity} onChange={e => setQuantity(e.target.value)}
+                aria-label={t('lineForm.quantity')} type="number" min="1" required value={quantity} onChange={e => setQuantity(e.target.value)}
                 className={inputClass}
               />
             </div>
 
             <div className="col-span-2">
-              <span className={labelClass}>Linked product</span>
+              <span className={labelClass}>{t('lineForm.linkedProduct')}</span>
               {isCharge ? (
-                <p className="text-xs text-ink-4 py-2">— (charge rows don't link to a product)</p>
+                <p className="text-xs text-ink-4 py-2">{t('lineForm.chargeNoProduct')}</p>
               ) : skuId ? (
                 <div className="flex items-center gap-2 py-1">
                   <span
@@ -105,7 +107,7 @@ export function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRow
                     type="button" onClick={() => { setSkuId(null); setSkuLabel(null) }}
                     className="flex items-center gap-1 text-2xs text-ink-4 hover:text-danger shrink-0"
                   >
-                    <X size={11} /> Unlink
+                    <X size={11} /> {t('lineForm.unlink')}
                   </button>
                 </div>
               ) : (
@@ -114,35 +116,35 @@ export function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRow
                   onClick={() => setPickerOpen(true)}
                   className="flex items-center gap-1 text-xs text-accent hover:underline py-2"
                 >
-                  <Search size={12} /> Link product
+                  <Search size={12} /> {t('lineForm.linkProduct')}
                 </button>
               )}
             </div>
             {!isCharge && skuId && (
               <div>
-                <label htmlFor={`li-units-per-item-${idPrefix}`} className={labelClass}>Units per purchased item</label>
+                <label htmlFor={`li-units-per-item-${idPrefix}`} className={labelClass}>{t('lineForm.unitsPerItem')}</label>
                 <input
                   id={`li-units-per-item-${idPrefix}`}
-                  aria-label="Units per purchased item" type="number" min="1" step="1"
+                  aria-label={t('lineForm.unitsPerItem')} type="number" min="1" step="1"
                   value={unitsPerPurchasedItem} onChange={e => setUnitsPerPurchasedItem(e.target.value)}
                   className={inputClass}
                 />
                 <p className="text-2xs text-ink-4 mt-1">
-                  Stock units one purchased item holds — e.g. 36 if this line is a box of 36 units.
+                  {t('lineForm.unitsPerItemHint')}
                 </p>
               </div>
             )}
 
             <div>
-              <label htmlFor={`li-unit-cost-${idPrefix}`} className={labelClass}>Unit cost</label>
+              <label htmlFor={`li-unit-cost-${idPrefix}`} className={labelClass}>{t('lineForm.unitCost')}</label>
               <input
                 id={`li-unit-cost-${idPrefix}`}
-                aria-label="Unit cost" type="number" min="0" step="0.01" required value={unitCost} onChange={e => setUnitCost(e.target.value)}
+                aria-label={t('lineForm.unitCost')} type="number" min="0" step="0.01" required value={unitCost} onChange={e => setUnitCost(e.target.value)}
                 className={inputClass}
               />
             </div>
             <div>
-              <span className={labelClass}>Total</span>
+              <span className={labelClass}>{t('lineForm.total')}</span>
               <p className="px-3 py-2 text-xs text-ink-2">
                 {(signedLineItemAmount({
                   line_type: lineType, quantity: parseInt(quantity || '0', 10),
@@ -172,13 +174,13 @@ export function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRow
               type="button" disabled={saving} onClick={handleSubmit}
               className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50"
             >
-              <Check size={12} /> Save line
+              <Check size={12} /> {t('lineForm.saveLine')}
             </button>
             <button
               type="button" onClick={onCancel}
               className="px-3 py-1.5 rounded-lg text-xs text-ink-2 hover:bg-hover"
             >
-              Cancel
+              {t('common:actions.cancel')}
             </button>
           </div>
       </td>

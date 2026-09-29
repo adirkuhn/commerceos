@@ -1,6 +1,7 @@
 import { Lock } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { formatLockAge } from '../packing/lockDisplay'
-import { SCAN_ACTIVITY_WORDS, type ScanActivity } from './scanSessionActivity'
+import type { ScanActivity } from './scanSessionActivity'
 
 interface ScanSessionLockBannerProps {
   activity: ScanActivity
@@ -12,15 +13,17 @@ interface ScanSessionLockBannerProps {
 
 // Shown while someone else holds the session -- the screen is view only.
 export function ScanSessionLockBanner({ activity, holderName, lockedSince, canTakeOver, onTakeOver }: ScanSessionLockBannerProps) {
+  const { t } = useTranslation('scanner')
+  const since = lockedSince ? ` · ${formatLockAge(lockedSince)}` : ''
   return (
     <div role="status" className="flex items-center gap-2 px-4 py-2 border-b border-night-700 bg-amber-500/10 text-sm text-amber-200 shrink-0">
       <Lock size={14} className="shrink-0" />
       <span className="flex-1">
-        {holderName} is {SCAN_ACTIVITY_WORDS[activity].doing} this order{lockedSince ? ` · ${formatLockAge(lockedSince)}` : ''} -- view only.
+        {activity === 'picking' ? t('session.lockPicking', { name: holderName, since }) : t('session.lockPacking', { name: holderName, since })}
       </span>
       {canTakeOver && (
         <button type="button" onClick={onTakeOver} className="min-h-11 px-3 -my-2 rounded-lg bg-night-800 border border-night-700 text-gray-100 font-medium">
-          Take over
+          {t('session.takeOver')}
         </button>
       )}
     </div>

@@ -1,0 +1,50 @@
+{
+  "channelManual": "Manual",
+  "channels": {
+    "empty": "No sales yet this month.",
+    "revenue": "Revenue",
+    "sub": "This month",
+    "title": "Sales by channel"
+  },
+  "errors": {
+    "unknown": "Unknown error"
+  },
+  "expiring": {
+    "empty": "Nothing expiring in the next 30 days.",
+    "lot": "{{sku}} · lot {{lot}} · {{warehouse}}",
+    "title": "Expiring soon",
+    "units_one": "{{count}} unit",
+    "units_other": "{{count}} units",
+    "within": "{{n}} within 30 days"
+  },
+  "needsAttention": "Needs attention",
+  "stats": {
+    "expired": "Expired",
+    "expiredSub": "need disposal",
+    "expiring": "Expiring (7d)",
+    "expiringSub": "batches near expiry",
+    "orders": "Total orders",
+    "ordersSub": "all time",
+    "products": "Total products",
+    "productsSub": "across all channels",
+    "revenue": "Est. revenue",
+    "revenueSub": "this month",
+    "stock": "Total stock",
+    "stockIssues": "Stock Issues",
+    "stockIssuesSub": "orders need stock resolution",
+    "stockSub": "units in all locations"
+  },
+  "stockFlow": {
+    "inbound": "Inbound",
+    "outbound": "Outbound",
+    "sub": "Inbound vs outbound",
+    "title": "Stock flow"
+  },
+  "topProducts": {
+    "empty": "No products sold yet this month.",
+    "revenue": "Revenue",
+    "sold": "Sold",
+    "title": "Top products"
+  },
+  "vsLastWeek": "{{value}} vs last week"
+}

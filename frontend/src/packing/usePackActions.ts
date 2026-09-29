@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useRef } from 'react'
 import * as packingApi from '../scanner/api'
 import type { PackingSessionDetail, PickingSessionLineItem } from '../scanner/types'
@@ -46,7 +47,7 @@ export function usePackActions({ token, session, loadSession, setError }: PackAc
       await loadSession(session.session.id)
     } catch (err) {
       playErrorSound()
-      setScanErrorAlert(err instanceof Error ? err.message : 'Item not on this order')
+      setScanErrorAlert(err instanceof Error ? err.message : i18next.t('packing:errors.notOnOrder'))
     } finally {
       setBusy(false)
       codeRef.current?.focus()
@@ -96,7 +97,7 @@ export function usePackActions({ token, session, loadSession, setError }: PackAc
   function confirmPack(quantity: number) {
     const skuId = packLine?.lineItem.sku_id
     if (!skuId) return
-    stageChange((id, t) => packingApi.scanPackItem(t, id, { sku_id: skuId, quantity }), 'Failed to record pack')
+    stageChange((id, t) => packingApi.scanPackItem(t, id, { sku_id: skuId, quantity }), i18next.t('packing:errors.recordPack'))
   }
 
   function confirmSubstitute(rows: SubstituteRowInput[]) {
@@ -108,20 +109,20 @@ export function usePackActions({ token, session, loadSession, setError }: PackAc
         substitute_quantity: r.substituteQuantity, original_quantity_covered: r.coveredQuantity, return_to_stock: r.returnToStock,
       })))
       return packingApi.substitutePackLine(t, id, { line_item_id: lineItemId, lines })
-    }, 'Failed to record substitute')
+    }, i18next.t('packing:errors.recordSubstitute'))
   }
 
   function confirmRefund(quantity: number, reason: string) {
     const lineItemId = packLine?.lineItem.id
     if (!lineItemId) return
-    stageChange((id, t) => packingApi.refundPackLine(t, id, { line_item_id: lineItemId, quantity, reason: reason || undefined }), 'Failed to record refund')
+    stageChange((id, t) => packingApi.refundPackLine(t, id, { line_item_id: lineItemId, quantity, reason: reason || undefined }), i18next.t('packing:errors.recordRefund'))
   }
 
   function confirmAddItem(item: AddItemInput) {
     stageChange((id, t) => packingApi.scanPackItem(t, id, {
       sku_id: item.skuId, quantity: item.quantity, action_type: item.freebie ? 'freebie' : 'new_item',
       price_minor_units: item.priceMinorUnits, reason: item.name,
-    }), 'Failed to add item')
+    }), i18next.t('packing:errors.addItem'))
   }
 
   async function deleteScan(scanId: string) {
@@ -131,7 +132,7 @@ export function usePackActions({ token, session, loadSession, setError }: PackAc
       await packingApi.deletePackScan(token, session.session.id, scanId)
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove scan')
+      setError(err instanceof Error ? err.message : i18next.t('packing:errors.removeScan'))
     }
   }
 

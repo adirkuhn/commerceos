@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useCallback, useEffect, useState } from 'react'
 import * as api from './api'
 import type { Subscriber, SubscriberQuery } from './types'
@@ -17,7 +18,7 @@ export function useSubscribers(token: string, query: SubscriberQuery) {
       setTotal(res.total)
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load subscribers')
+      setError(err instanceof Error ? err.message : i18next.t('newsletter:list.loadFailed'))
     } finally {
       setLoading(false)
     }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Package, Tag, Trash2 } from 'lucide-react'
 import * as pmsApi from '../pms/api'
 import { useSKUStock } from '../inventory/hooks/useSKUStock'
@@ -18,6 +19,7 @@ export interface SelectedRow {
 }
 
 export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBack }: { token: string; sku: SKU; productName: string; onSKUUpdated: (sku: SKU) => void; onBack: () => void }) {
+  const { t } = useTranslation(['scanner', 'common'])
   const { level, batches, loading, error, addBatch, removeBatch, adjust, transfer, markDamagedOrLost } = useSKUStock(token, sku.id)
   const { warehouses } = useWarehouses(token)
   const [selectedRow, setSelectedRow] = useState<SelectedRow | null>(null)
@@ -36,7 +38,7 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
       await fn()
       setSelectedRow(null)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Action failed')
+      setActionError(err instanceof Error ? err.message : t('errors.action'))
     }
   }
 
@@ -48,7 +50,7 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
     try {
       await removeBatch(batchId)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Failed to delete batch')
+      setDeleteError(err instanceof Error ? err.message : t('errors.deleteBatch'))
     }
   }
 
@@ -61,7 +63,7 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
       }
       setAddBatchOpen(false)
     } catch (err) {
-      setAddBatchError(err instanceof Error ? err.message : 'Failed to add batch')
+      setAddBatchError(err instanceof Error ? err.message : t('errors.addBatch'))
     }
   }
 
@@ -90,14 +92,14 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
       onSKUUpdated(updated)
       setPriceOpen(false)
     } catch (err) {
-      setPriceError(err instanceof Error ? err.message : 'Failed to update price')
+      setPriceError(err instanceof Error ? err.message : t('errors.updatePrice'))
     }
   }
 
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button aria-label="Back to scan" onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to scan">
+        <button aria-label={t('shared.backToScan')} onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('shared.backToScan')}>
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <div className="flex-1 min-w-0">
@@ -105,9 +107,9 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
             <span>{productName}</span>{' '}
             <span className="text-xs font-normal text-gray-400">- <span>{sku.sku_code}</span></span>
           </h1>
-          {level && <p className="text-xs text-gray-400">Total stock: {level.total}</p>}
+          {level && <p className="text-xs text-gray-400">{t('shared.totalStock', { total: level.total })}</p>}
         </div>
-        <button type="button" onClick={() => setPriceOpen(true)} className="flex items-baseline gap-1.5 text-sm font-semibold text-accent shrink-0" title="Edit price" aria-label="Price">
+        <button type="button" onClick={() => setPriceOpen(true)} className="flex items-baseline gap-1.5 text-sm font-semibold text-accent shrink-0" title={t('inventory.editPrice')} aria-label={t('inventory.price')}>
           <Tag size={15} className="self-center" />
           {sku.sale_price_minor_units != null ? (
             <>
@@ -129,11 +131,11 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
           onClick={() => setAddBatchOpen(true)}
           className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-300 text-xs font-medium flex items-center justify-center gap-1.5"
         >
-          + Add batch
+          {t('inventory.addBatchButton')}
         </button>
-        {loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
+        {loading && <p className="text-center text-sm text-gray-400 py-8">{t('common:status.loading')}</p>}
         {!loading && batches.length === 0 && (
-          <p className="text-center text-sm text-gray-400 py-8">No batches yet</p>
+          <p className="text-center text-sm text-gray-400 py-8">{t('shared.noBatches')}</p>
         )}
         {batches.map(b => (
           <div
@@ -145,7 +147,7 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
               onClick={() => setSelectedRow({
                 warehouseId: b.warehouse_id,
                 batchId: b.is_general_ledger ? null : b.id,
-                label: b.is_general_ledger ? 'General ledger' : (b.lot_number || 'Batch'),
+                label: b.is_general_ledger ? t('batch.generalLedger') : (b.lot_number || t('booking.batch')),
               })}
               className="flex-1 flex items-center gap-3 min-w-0 text-left"
             >
@@ -153,7 +155,7 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
                 <Package size={16} className="text-gray-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{b.is_general_ledger ? 'General ledger' : (b.lot_number || '—')}</p>
+                <p className="text-sm font-medium truncate">{b.is_general_ledger ? t('batch.generalLedger') : (b.lot_number || '—')}</p>
                 <p className="text-xs text-gray-400">{warehouseName(b.warehouse_id)}</p>
               </div>
               <p className="text-sm font-mono shrink-0">{b.quantity}</p>
@@ -162,7 +164,7 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
               <button
                 type="button"
                 onClick={() => handleDeleteBatch(b.id)}
-                aria-label={`Delete batch ${b.lot_number}`}
+                aria-label={t('inventory.deleteBatch', { lot: b.lot_number })}
                 className="shrink-0 w-11 h-11 -m-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400"
               >
                 <Trash2 size={15} />

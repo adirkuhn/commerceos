@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { LoginPage } from './auth/LoginPage'
 import { CallbackPage } from './auth/CallbackPage'
@@ -21,11 +22,12 @@ const SCANNER_CALLBACK_PATH = '/scanner/auth/callback'
 const ACCEPT_INVITE_PATH = '/accept-invite'
 
 function NotFoundPage() {
+  const { t } = useTranslation('ui')
   return (
     <div className="flex h-full items-center justify-center">
       <div className="text-center">
-        <p className="text-sm font-medium text-ink">Page not found</p>
-        <p className="text-xs text-ink-4 mt-1">This page doesn&apos;t exist.</p>
+        <p className="text-sm font-medium text-ink">{t('app.pageNotFound')}</p>
+        <p className="text-xs text-ink-4 mt-1">{t('app.pageNotFoundHint')}</p>
       </div>
     </div>
   )

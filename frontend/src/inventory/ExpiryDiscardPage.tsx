@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, ArrowLeft, Image as ImageIcon } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useQueryEnum } from '../routing/useQueryState'
 import { useExpiredBatchReview } from './hooks/useExpiredBatchReview'
 import { useExpiringBatches } from './hooks/useExpiringBatches'
@@ -31,34 +32,35 @@ function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
 }) {
   const [reason, setReason] = useState('')
   const [photo, setPhoto] = useState<File | undefined>(undefined)
+  const { t } = useTranslation(['inventory', 'common'])
 
   return (
     <Dialog onClose={onCancel} dismissible={!submitting} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="w-full max-w-sm rounded-2xl bg-surface border border-line p-5 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-ink">Discard {target.label}</h2>
+            <h2 className="text-sm font-semibold text-ink">{t('expiry.discardTitle', { label: target.label })}</h2>
             <p className="text-xs text-ink-4 mt-0.5">
-              Records a Lost movement for {target.quantity} unit{target.quantity === 1 ? '' : 's'} — cannot be undone.
+              {t('expiry.discardHint', { count: target.quantity })}
             </p>
           </div>
-          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 text-ink-4 dark:hover:text-ink-2">
+          <button aria-label={t('common:actions.close')} onClick={onCancel} title={t('common:actions.close')} className="shrink-0 text-ink-4 dark:hover:text-ink-2">
             <X size={16} />
           </button>
         </div>
         {error && <p className="text-xs text-danger">{error}</p>}
         <div>
-          <label htmlFor="discard-reason" className="block text-xs text-ink-3 mb-1.5">Reason</label>
+          <label htmlFor="discard-reason" className="block text-xs text-ink-3 mb-1.5">{t('expiry.reason')}</label>
           <input
             id="discard-reason" value={reason} onChange={e => setReason(e.target.value)}
             className="w-full px-3 py-2 text-sm rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <div>
-          <label className="block text-xs text-ink-3 mb-1.5">Photo (optional)</label>
+          <label className="block text-xs text-ink-3 mb-1.5">{t('expiry.photoOptional')}</label>
           <label className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink-2 cursor-pointer">
             <ImageIcon size={14} />
-            <span className="truncate">{photo ? photo.name : 'Choose a photo'}</span>
+            <span className="truncate">{photo ? photo.name : t('expiry.choosePhoto')}</span>
             <input
               type="file" accept="image/*" className="hidden"
               onChange={e => setPhoto(e.target.files?.[0] ?? undefined)}
@@ -70,14 +72,14 @@ function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
             onClick={onCancel}
             className="flex-1 py-2 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 text-xs font-medium hover:bg-hover"
           >
-            Cancel
+            {t('common:actions.cancel')}
           </button>
           <button
             onClick={() => onConfirm(reason, photo)}
             disabled={submitting}
             className="flex-1 py-2 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
           >
-            {submitting ? 'Discarding…' : 'Confirm'}
+            {submitting ? t('expiry.discarding') : t('common:actions.confirm')}
           </button>
         </div>
       </div>
@@ -105,6 +107,7 @@ export function ExpiryDiscardPage({
   discardHook: ReturnType<typeof useDiscardBatch>
 }) {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation(['inventory', 'common'])
   const { batches, loading, error, extend, dismiss } = expiredReview
   const [tab, setTab] = useQueryEnum<ExpiryTab>('tab', EXPIRY_TABS, 'expired')
   const [rowError, setRowError] = useState('')
@@ -150,7 +153,7 @@ export function ExpiryDiscardPage({
       await extend(batchId, newExpiryDate)
       setExtendingBatchId(null)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'Failed to extend expiry')
+      setRowError(err instanceof Error ? err.message : t('expiry.extendFailed'))
     } finally {
       setActingBatchId(null)
     }
@@ -162,16 +165,16 @@ export function ExpiryDiscardPage({
     try {
       await dismiss(batchId)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'Failed to dismiss batch')
+      setRowError(err instanceof Error ? err.message : t('expiry.dismissFailed'))
     } finally {
       setActingBatchId(null)
     }
   }
 
   const TABS: { id: ExpiryTab; label: string }[] = [
-    { id: 'expired', label: `Expired${batches.length ? ` (${batches.length})` : ''}` },
-    { id: 'expiring', label: 'Expiring soon' },
-    { id: 'discarded', label: 'Discarded' },
+    { id: 'expired', label: batches.length ? t('expiry.tabExpiredCount', { n: batches.length }) : t('expiry.tabExpired') },
+    { id: 'expiring', label: t('expiry.tabExpiring') },
+    { id: 'discarded', label: t('expiry.tabDiscarded') },
   ]
 
   return (
@@ -182,27 +185,27 @@ export function ExpiryDiscardPage({
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Inventory
+            <ArrowLeft size={11} /> {t('history.backToInventory')}
           </button>
-          <h1 className="text-xl font-semibold text-ink leading-tight">Expiry & discards</h1>
-          <p className="text-xs text-ink-4 mt-0.5">Review expired/expiring stock, discard it, and see what's already been thrown away</p>
+          <h1 className="text-xl font-semibold text-ink leading-tight">{t('expiry.title')}</h1>
+          <p className="text-xs text-ink-4 mt-0.5">{t('expiry.subtitle')}</p>
         </div>
       </div>
 
       <div className="flex gap-2 px-6 pt-4 shrink-0">
-        {TABS.map(t => (
+        {TABS.map(item => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            aria-pressed={tab === t.id}
+            key={item.id}
+            onClick={() => setTab(item.id)}
+            aria-pressed={tab === item.id}
             className={clsx(
               'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-              tab === t.id
+              tab === item.id
                 ? 'bg-accent-solid text-white'
                 : 'bg-raised text-ink-3 hover:bg-hover',
             )}
           >
-            {t.label}
+            {item.label}
           </button>
         ))}
       </div>
@@ -215,16 +218,16 @@ export function ExpiryDiscardPage({
 
         {tab === 'expired' && (
           <>
-            {!error && loading && batches.length === 0 && <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>}
+            {!error && loading && batches.length === 0 && <p className="px-6 py-4 text-xs text-ink-4">{t('common:status.loading')}</p>}
             {!error && !loading && batches.length === 0 && (
-              <p className="px-6 py-4 text-xs text-ink-4">No expired batches pending review.</p>
+              <p className="px-6 py-4 text-xs text-ink-4">{t('expiry.noExpired')}</p>
             )}
             {batches.length > 0 && (
               <table className="w-full text-xs">
                 <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
-                    {['SKU', 'Product', 'Warehouse', 'Lot', 'Expired', 'Qty', ''].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                    {[t('expiry.colSku'), t('expiry.colProduct'), t('expiry.colWarehouse'), t('expiry.colLot'), t('expiry.colExpired'), t('expiry.colQty'), ''].map((h, i) => (
+                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -242,7 +245,7 @@ export function ExpiryDiscardPage({
                           <div className="flex items-center gap-1.5">
                             <input
                               type="date"
-                              aria-label="New expiry date"
+                              aria-label={t('expiry.newExpiryDate')}
                               value={newExpiryDate}
                               onChange={e => setNewExpiryDate(e.target.value)}
                               className="px-2 py-1 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
@@ -252,13 +255,13 @@ export function ExpiryDiscardPage({
                               disabled={!newExpiryDate || actingBatchId === b.batch_id}
                               className="px-2 py-1 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50"
                             >
-                              Confirm
+                              {t('common:actions.confirm')}
                             </button>
                             <button
                               onClick={() => setExtendingBatchId(null)}
                               className="px-2 py-1 rounded-lg bg-fill text-ink-2 text-2xs font-medium hover:bg-hover"
                             >
-                              Cancel
+                              {t('common:actions.cancel')}
                             </button>
                           </div>
                         ) : (
@@ -268,21 +271,21 @@ export function ExpiryDiscardPage({
                               disabled={actingBatchId === b.batch_id}
                               className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-2xs font-medium hover:dark:bg-red-500/20 hover:bg-red-100 disabled:opacity-50"
                             >
-                              Discard
+                              {t('expiry.discard')}
                             </button>
                             <button
                               onClick={() => openExtend(b.batch_id)}
                               disabled={actingBatchId === b.batch_id}
                               className="px-2 py-1 rounded-lg bg-fill text-ink-2 text-2xs font-medium hover:bg-hover disabled:opacity-50"
                             >
-                              Extend
+                              {t('expiry.extend')}
                             </button>
                             <button
                               onClick={() => handleDismiss(b.batch_id)}
                               disabled={actingBatchId === b.batch_id}
                               className="px-2 py-1 rounded-lg bg-fill text-ink-2 text-2xs font-medium hover:bg-hover disabled:opacity-50"
                             >
-                              Dismiss
+                              {t('expiry.dismiss')}
                             </button>
                           </div>
                         )}
@@ -298,17 +301,17 @@ export function ExpiryDiscardPage({
         {tab === 'expiring' && (
           <>
             {!expiringBatches.error && expiringBatches.loading && expiringBatches.batches.length === 0 && (
-              <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>
+              <p className="px-6 py-4 text-xs text-ink-4">{t('common:status.loading')}</p>
             )}
             {!expiringBatches.error && !expiringBatches.loading && expiringBatches.batches.length === 0 && (
-              <p className="px-6 py-4 text-xs text-ink-4">Nothing expiring soon.</p>
+              <p className="px-6 py-4 text-xs text-ink-4">{t('expiry.nothingExpiring')}</p>
             )}
             {expiringBatches.batches.length > 0 && (
               <table className="w-full text-xs">
                 <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
-                    {['SKU', 'Product', 'Warehouse', 'Lot', 'Expires', 'Qty', ''].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                    {[t('expiry.colSku'), t('expiry.colProduct'), t('expiry.colWarehouse'), t('expiry.colLot'), t('expiry.colExpires'), t('expiry.colQty'), ''].map((h, i) => (
+                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -326,7 +329,7 @@ export function ExpiryDiscardPage({
                           onClick={() => openDiscard('expiring', b)}
                           className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-2xs font-medium hover:dark:bg-red-500/20 hover:bg-red-100"
                         >
-                          Discard
+                          {t('expiry.discard')}
                         </button>
                       </td>
                     </tr>
@@ -340,17 +343,17 @@ export function ExpiryDiscardPage({
         {tab === 'discarded' && (
           <>
             {!discardsReport.error && discardsReport.loading && discardsReport.discards.length === 0 && (
-              <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>
+              <p className="px-6 py-4 text-xs text-ink-4">{t('common:status.loading')}</p>
             )}
             {!discardsReport.error && !discardsReport.loading && discardsReport.discards.length === 0 && (
-              <p className="px-6 py-4 text-xs text-ink-4">Nothing discarded yet.</p>
+              <p className="px-6 py-4 text-xs text-ink-4">{t('expiry.nothingDiscarded')}</p>
             )}
             {discardsReport.discards.length > 0 && (
               <table className="w-full text-xs">
                 <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
-                    {['Photo', 'SKU', 'Product', 'Type', 'Warehouse', 'Lot', 'Qty', 'Reason', 'By', 'Discarded'].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                    {[t('expiry.colPhoto'), t('expiry.colSku'), t('expiry.colProduct'), t('expiry.colType'), t('expiry.colWarehouse'), t('expiry.colLot'), t('expiry.colQty'), t('expiry.colReason'), t('expiry.colBy'), t('expiry.colDiscarded')].map((h, i) => (
+                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -359,7 +362,7 @@ export function ExpiryDiscardPage({
                     <tr key={d.id} className="hover:bg-hover/60 transition-colors">
                       <td className="px-4 py-2.5">
                         {d.photo_url ? (
-                          <img src={d.photo_url} alt={`${d.product_name} discard photo`} className="w-8 h-8 rounded object-cover" />
+                          <img src={d.photo_url} alt={t('expiry.photoAlt', { product: d.product_name })} className="w-8 h-8 rounded object-cover" />
                         ) : (
                           <div className="w-8 h-8 rounded dark:bg-night-800 bg-gray-100 flex items-center justify-center">
                             <ImageIcon size={12} className="text-ink-4" />
@@ -373,7 +376,7 @@ export function ExpiryDiscardPage({
                           'px-1.5 py-0.5 rounded text-2xs font-medium capitalize',
                           d.type === 'damaged' ? 'bg-amber-500/15 text-warning' : 'bg-red-500/15 text-danger',
                         )}>
-                          {d.type}
+                          {d.type === 'damaged' ? t('writeOff.damaged') : d.type === 'lost' ? t('writeOff.lost') : d.type}
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-ink-3">{d.warehouse_name}</td>

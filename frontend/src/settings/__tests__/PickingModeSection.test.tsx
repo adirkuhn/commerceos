@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import i18next from 'i18next'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PickingModeSection } from '../PickingModeSection'
 import type { TenantSettings } from '../types'
@@ -54,5 +55,18 @@ describe('PickingModeSection', () => {
     render(<PickingModeSection />)
 
     expect(await screen.findByRole('radio', { name: /Scan each item/ })).toBeChecked()
+  })
+})
+
+describe('PickingModeSection — pt-BR', () => {
+  it('speaks Portuguese when the admin language is pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      render(<PickingModeSection />)
+      expect(await screen.findByRole('radio', { name: /Escanear cada item/ })).toBeChecked()
+      expect(screen.getByText('Separação')).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 })

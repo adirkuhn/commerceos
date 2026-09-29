@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import clsx from 'clsx'
 import type { WooConnectFormState } from '../hooks/useConnectForms'
 import { ConnectFormFooter } from './ConnectFormFooter'
@@ -8,10 +9,7 @@ interface Props {
   starting: boolean
 }
 
-const MODES = [
-  { mode: 'auto', label: 'Connect automatically' },
-  { mode: 'manual', label: 'Manual setup' },
-] as const
+const MODES = ['auto', 'manual'] as const
 
 function StoreUrlInput({ form }: { form: WooConnectFormState }) {
   return (
@@ -21,7 +19,7 @@ function StoreUrlInput({ form }: { form: WooConnectFormState }) {
       autoFocus
       value={form.storeUrl}
       onChange={e => form.setStoreUrl(e.target.value)}
-      placeholder="https://mystore.com"
+      placeholder={'https://mystore.com'}
       className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
     />
   )
@@ -29,10 +27,11 @@ function StoreUrlInput({ form }: { form: WooConnectFormState }) {
 
 // WooCommerce: OAuth-style redirect ("automatically") or pasted REST API keys.
 export function WooConnectForm({ form, error, starting }: Props) {
+  const { t } = useTranslation('integrations')
   return (
     <>
       <div className="flex gap-1 mb-4 p-0.5 rounded-lg bg-fill">
-        {MODES.map(({ mode, label }) => (
+        {MODES.map(mode => (
           <button aria-pressed={form.mode === mode}
             key={mode}
             type="button"
@@ -44,7 +43,7 @@ export function WooConnectForm({ form, error, starting }: Props) {
                 : 'text-ink-3',
             )}
           >
-            {label}
+            {mode === 'auto' ? t('woo.modeAuto') : t('woo.modeManual')}
           </button>
         ))}
       </div>
@@ -53,11 +52,11 @@ export function WooConnectForm({ form, error, starting }: Props) {
         <form onSubmit={form.startConnect} className="space-y-3">
           <div>
             <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-              Store URL
+              {t('woo.storeUrl')}
             </label>
             <StoreUrlInput form={form} />
             <p className="mt-1.5 text-2xs text-ink-4">
-              Redirects to your store to approve access. Requires your store to reach this server.
+              {t('woo.autoHint')}
             </p>
           </div>
           <ConnectFormFooter error={error} starting={starting} />
@@ -66,37 +65,37 @@ export function WooConnectForm({ form, error, starting }: Props) {
         <form onSubmit={form.manualConnect} className="space-y-3">
           <div>
             <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-              Store URL
+              {t('woo.storeUrl')}
             </label>
             <StoreUrlInput form={form} />
           </div>
           <div>
             <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-              Consumer key
+              {t('woo.consumerKey')}
             </label>
             <input
               type="text"
               required
               value={form.consumerKey}
               onChange={e => form.setConsumerKey(e.target.value)}
-              placeholder="ck_..."
+              placeholder={'ck_...'}
               className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
             />
           </div>
           <div>
             <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-              Consumer secret
+              {t('woo.consumerSecret')}
             </label>
             <input
               type="password"
               required
               value={form.consumerSecret}
               onChange={e => form.setConsumerSecret(e.target.value)}
-              placeholder="cs_..."
+              placeholder={'cs_...'}
               className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
             />
             <p className="mt-1.5 text-2xs text-ink-4">
-              Generate under WooCommerce → Settings → Advanced → REST API.
+              {t('woo.manualHint')}
             </p>
           </div>
           <ConnectFormFooter error={error} starting={starting} />

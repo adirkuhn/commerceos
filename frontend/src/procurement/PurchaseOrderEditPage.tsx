@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { ArrowLeft, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { usePurchaseOrderDetail } from './hooks/usePurchaseOrderDetail'
 import { useSuppliers } from '../suppliers/hooks/useSuppliers'
@@ -8,7 +9,7 @@ import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import * as procurementApi from './api'
 import type { PurchaseOrder, PurchaseOrderStatus, CreatePurchaseOrderInput, UpdatePurchaseOrderInput } from './types'
-import { CURRENCIES, todayDateString } from './procurementHelpers'
+import { CURRENCIES, poStatusLabel, todayDateString } from './procurementHelpers'
 import { DocumentsSection } from './DocumentsSection'
 import { LineItemsSection } from './LineItemsSection'
 import { ReceivingSection } from './ReceivingSection'
@@ -31,6 +32,7 @@ interface PurchaseOrderEditPageProps {
 export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate, onCreated, onClose }: PurchaseOrderEditPageProps) {
   const { token } = useAuth()
   const { suppliers } = useSuppliers(token ?? '')
+  const { t } = useTranslation(['procurement', 'common'])
   const { warehouses } = useWarehouses(token ?? '')
   const { settings: tenantSettings } = useTenantSettings(token ?? '')
   const [createdId, setCreatedId] = useState<string | null>(null)
@@ -107,7 +109,7 @@ export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, on
       if (updated.supplier_id) setSupplierId(updated.supplier_id)
       await refreshDetail()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to confirm supplier')
+      setFormError(err instanceof Error ? err.message : t('po.confirmSupplierFailed'))
     } finally {
       setConfirmingSuggestedSupplier(false)
     }
@@ -136,7 +138,7 @@ export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, on
         await updateHeader(input)
       }
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to save purchase order')
+      setFormError(err instanceof Error ? err.message : t('po.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -167,10 +169,10 @@ export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, on
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Purchase Orders
+            <ArrowLeft size={11} /> {t('po.back')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {isNew ? 'New purchase order' : 'Edit purchase order'}
+            {isNew ? t('po.new') : t('po.edit')}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -178,13 +180,13 @@ export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, on
             type="button" onClick={onClose}
             className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
           >
-            Discard
+            {t('po.discard')}
           </button>
           <button
             type="submit" form="po-form" disabled={saving || !supplierId}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : isNew ? 'Create purchase order' : 'Save'}
+            {saving ? t('common:actions.saving') : isNew ? t('po.create') : t('common:actions.save')}
           </button>
         </div>
       </div>
@@ -194,16 +196,16 @@ export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, on
           <form id="po-form" onSubmit={handleSave} className="space-y-5">
             <div className="rounded-xl border border-line p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-ink">General</h3>
+                <h3 className="text-xs font-semibold text-ink">{t('po.general')}</h3>
                 {!isNew && (
                   <select
-                    aria-label="Status"
+                    aria-label={t('po.status')}
                     value={status}
                     onChange={e => setStatus(e.target.value as PurchaseOrderStatus)}
                     className="px-2 py-1 text-2xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60 capitalize"
                   >
                     {(['draft', 'sent', 'partially_received', 'received', 'cancelled', 'needs_review'] as const).map(s => (
-                      <option key={s} value={s} className="capitalize">{s.replace('_', ' ')}</option>
+                      <option key={s} value={s} className="capitalize">{poStatusLabel(s)}</option>
                     ))}
                   </select>
                 )}
@@ -211,13 +213,13 @@ export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, on
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label htmlFor="po-supplier" className={labelClass + ' mb-0'}>Supplier</label>
+                    <label htmlFor="po-supplier" className={labelClass + ' mb-0'}>{t('po.supplier')}</label>
                     {suggestedSupplierMatch && !po?.supplier_id && (
                       <button
                         type="button" onClick={handleConfirmSuggestedSupplier} disabled={confirmingSuggestedSupplier}
                         className="text-2xs font-semibold text-accent hover:underline disabled:opacity-50"
                       >
-                        {confirmingSuggestedSupplier ? 'Confirming…' : 'Confirm'}
+                        {confirmingSuggestedSupplier ? t('po.confirming') : t('po.confirm')}
                       </button>
                     )}
                   </div>
@@ -225,25 +227,25 @@ export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, on
                     id="po-supplier" required value={supplierId} onChange={e => setSupplierId(e.target.value)}
                     className={inputClass}
                   >
-                    <option value="">Select supplier…</option>
+                    <option value="">{t('po.selectSupplier')}</option>
                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                   {suggestedSupplierMatch && !po?.supplier_id && (
-                    <p className="text-2xs text-accent mt-1">Suggested from the uploaded document — confirm to assign.</p>
+                    <p className="text-2xs text-accent mt-1">{t('po.suggestedConfirm')}</p>
                   )}
                 </div>
                 <div>
-                  <label htmlFor="po-warehouse" className={labelClass}>Warehouse (optional)</label>
+                  <label htmlFor="po-warehouse" className={labelClass}>{t('po.warehouseOptional')}</label>
                   <select
                     id="po-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)}
                     className={inputClass}
                   >
-                    <option value="">Not set — assign when receiving</option>
+                    <option value="">{t('po.warehouseNotSet')}</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="po-currency" className={labelClass}>Currency</label>
+                  <label htmlFor="po-currency" className={labelClass}>{t('po.currency')}</label>
                   <select
                     id="po-currency" required value={currencyCode} onChange={e => { currencyTouched.current = true; setCurrencyCode(e.target.value) }}
                     className={inputClass}
@@ -252,7 +254,7 @@ export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, on
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="po-expected-date" className={labelClass}>Expected date</label>
+                  <label htmlFor="po-expected-date" className={labelClass}>{t('po.expectedDate')}</label>
                   <input
                     id="po-expected-date" type="date" value={expectedDate ?? ''} onChange={e => setExpectedDate(e.target.value)}
                     className={inputClass}
@@ -260,7 +262,7 @@ export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, on
                 </div>
               </div>
               <div>
-                <label htmlFor="po-notes" className={labelClass}>Notes</label>
+                <label htmlFor="po-notes" className={labelClass}>{t('po.notes')}</label>
                 <textarea
                   id="po-notes" rows={3} value={notes} onChange={e => setNotes(e.target.value)}
                   className={inputClass}
@@ -334,6 +336,7 @@ function normalizeSupplierName(name: string): string {
 function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAssigned }: MissingSupplierReviewProps) {
   const { token } = useAuth()
   const [name, setName] = useState(suggestedName)
+  const { t } = useTranslation('procurement')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -347,7 +350,7 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAs
       const po = await procurementApi.createSupplierAndAssignToPurchaseOrder(token ?? '', purchaseOrderId, { name })
       if (po.supplier_id) onAssigned(po.supplier_id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create supplier')
+      setError(err instanceof Error ? err.message : t('missing.createFailed'))
     } finally {
       setSaving(false)
     }
@@ -356,28 +359,28 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAs
   return (
     <div className="rounded-xl border dark:border-amber-500/30 border-amber-300 dark:bg-amber-500/5 bg-amber-50/40 p-4 space-y-2">
       <p className="flex items-center gap-1.5 text-xs font-semibold text-warning">
-        <Sparkles size={12} /> Needs review: this purchase order has no supplier
+        <Sparkles size={12} /> {t('missing.title')}
       </p>
       <p className="text-2xs text-ink-3">
-        Pick an existing supplier above, or create a new one and assign it in one step.
+        {t('missing.hint')}
       </p>
       {suggestedName && (
-        <p className="text-2xs text-accent">Suggested from the uploaded document — edit if it's wrong.</p>
+        <p className="text-2xs text-accent">{t('missing.suggested')}</p>
       )}
       {matchedSupplier && (
         <p className="text-2xs text-success">
-          Matches existing supplier "{matchedSupplier.name}" — this will assign it, not create a new one.
+          {t('missing.matches', { name: matchedSupplier.name })}
         </p>
       )}
       <form onSubmit={handleCreate} className="flex items-center gap-2">
         <input
-          aria-label="New supplier name" required value={name} onChange={e => setName(e.target.value)}
-          placeholder="New supplier name"
+          aria-label={t('missing.newName')} required value={name} onChange={e => setName(e.target.value)}
+          placeholder={t('missing.newName')}
           className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
         />
         <button type="submit" disabled={saving || !name.trim()}
           className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 whitespace-nowrap">
-          {saving ? (matchedSupplier ? 'Assigning…' : 'Creating…') : (matchedSupplier ? 'Assign existing supplier' : 'Create & assign')}
+          {saving ? (matchedSupplier ? t('missing.assigning') : t('missing.creating')) : (matchedSupplier ? t('missing.assignExisting') : t('missing.createAssign'))}
         </button>
       </form>
       {error && <p className="text-2xs text-danger">{error}</p>}

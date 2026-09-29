@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import type { PurchaseOrderStatus, PurchaseOrderLineItem, ReceivingRecord, DiscrepancyType, LineItemType } from './types'
 
 export const PROCUREMENT_PATH = '/procurement'
@@ -22,13 +23,18 @@ export const STATUS_STYLE: Record<PurchaseOrderStatus, string> = {
 
 // '' and 'product' both mean "an actual item" -- everything else is a
 // charge/adjustment row that must never be forced through SKU matching.
-export const LINE_TYPE_LABELS: Record<LineItemType, string> = {
-  product: 'Product',
-  shipping: 'Shipping',
-  discount: 'Discount',
-  credit_note: 'Credit note',
-  fee: 'Fee',
-  other_charge: 'Other charge',
+export const LINE_TYPES: LineItemType[] = ['product', 'shipping', 'discount', 'credit_note', 'fee', 'other_charge']
+
+export function lineTypeLabel(type: LineItemType): string {
+  switch (type) {
+    case 'product': return i18next.t('procurement:lineType.product')
+    case 'shipping': return i18next.t('procurement:lineType.shipping')
+    case 'discount': return i18next.t('procurement:lineType.discount')
+    case 'credit_note': return i18next.t('procurement:lineType.credit_note')
+    case 'fee': return i18next.t('procurement:lineType.fee')
+    case 'other_charge': return i18next.t('procurement:lineType.other_charge')
+    default: return type
+  }
 }
 
 export function isChargeLineType(type: LineItemType): boolean {
@@ -58,9 +64,9 @@ const AI_NOT_CONFIGURED_MESSAGE = 'AI document parsing is not configured'
 
 export function friendlyParsingError(errorMessage: string): string {
   if (errorMessage === AI_NOT_CONFIGURED_MESSAGE) {
-    return 'No AI provider is configured, so this document couldn’t auto-parse into line items. The document is saved below — add line items manually, or connect an AI provider in Settings → Integrations.'
+    return i18next.t('procurement:parsing.aiNotConfigured')
   }
-  return errorMessage || 'Failed to parse document'
+  return errorMessage || i18next.t('procurement:parsing.failed')
 }
 
 export const RECEIVING_STATUS_STYLE: Record<ReceivingRecord['status'], string> = {
@@ -68,10 +74,36 @@ export const RECEIVING_STATUS_STYLE: Record<ReceivingRecord['status'], string> =
   applied: 'bg-green-500/15 text-success',
 }
 
-export const DISCREPANCY_LABEL: Record<DiscrepancyType, string> = {
-  quantity_mismatch: 'Quantity mismatch',
-  missing_item: 'Missing from invoice',
-  unexpected_item: 'Not on purchase order',
-  expiry_mismatch: 'Expiry mismatch',
-  damaged_item: 'Damaged',
+export const DISCREPANCY_TYPES: DiscrepancyType[] = ['quantity_mismatch', 'missing_item', 'unexpected_item', 'expiry_mismatch', 'damaged_item']
+
+export function discrepancyLabel(type: DiscrepancyType): string {
+  switch (type) {
+    case 'quantity_mismatch': return i18next.t('procurement:discrepancy.quantity_mismatch')
+    case 'missing_item': return i18next.t('procurement:discrepancy.missing_item')
+    case 'unexpected_item': return i18next.t('procurement:discrepancy.unexpected_item')
+    case 'expiry_mismatch': return i18next.t('procurement:discrepancy.expiry_mismatch')
+    case 'damaged_item': return i18next.t('procurement:discrepancy.damaged_item')
+    default: return type
+  }
+}
+
+/** A purchase order status as shown in badges (lower case; CSS capitalises). */
+export function poStatusLabel(status: PurchaseOrderStatus): string {
+  switch (status) {
+    case 'draft': return i18next.t('procurement:poStatus.draft')
+    case 'sent': return i18next.t('procurement:poStatus.sent')
+    case 'partially_received': return i18next.t('procurement:poStatus.partially_received')
+    case 'received': return i18next.t('procurement:poStatus.received')
+    case 'cancelled': return i18next.t('procurement:poStatus.cancelled')
+    case 'needs_review': return i18next.t('procurement:poStatus.needs_review')
+    default: return status
+  }
+}
+
+export function receivingStatusLabel(status: ReceivingRecord['status']): string {
+  switch (status) {
+    case 'pending_review': return i18next.t('procurement:receivingStatus.pending_review')
+    case 'applied': return i18next.t('procurement:receivingStatus.applied')
+    default: return status
+  }
 }

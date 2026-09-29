@@ -1,16 +1,18 @@
+import { useTranslation } from 'react-i18next'
 import { fieldInputClass, fieldLabelClass } from './formStyles'
 import type { DimensionInputs } from './skuPayloads'
 
-const DIMENSION_FIELDS: { key: keyof DimensionInputs; label: string }[] = [
-  { key: 'weightGrams', label: 'Weight (g)' },
-  { key: 'lengthMM', label: 'Length (mm)' },
-  { key: 'widthMM', label: 'Width (mm)' },
-  { key: 'heightMM', label: 'Height (mm)' },
-]
 
 // Compact weight/length/width/height inputs, shared by the variant row's
 // edit and add-SKU panels.
 export function DimensionInputsGrid({ values, onChange }: { values: DimensionInputs; onChange: (key: keyof DimensionInputs, value: string) => void }) {
+  const { t } = useTranslation('pms')
+  const DIMENSION_FIELDS: { key: keyof DimensionInputs; label: string }[] = [
+    { key: 'weightGrams', label: t('shipping.weight') },
+    { key: 'lengthMM', label: t('shipping.length') },
+    { key: 'widthMM', label: t('shipping.width') },
+    { key: 'heightMM', label: t('shipping.height') },
+  ]
   return (
     <div className="grid grid-cols-2 gap-1.5">
       {DIMENSION_FIELDS.map(f => (

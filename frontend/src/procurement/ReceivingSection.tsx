@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Upload, PackageCheck, FileText, AlertTriangle, ClipboardList, Download } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useReceivingRecords } from './hooks/useReceivingRecords'
 import { pollParsingJob } from './pollParsingJob'
 import * as procurementApi from './api'
-import type { PurchaseOrderLineItem, ReceivingRecordDetail, ReceivingDiscrepancy, DiscrepancyType } from './types'
+import type { PurchaseOrderLineItem, ReceivingRecordDetail, ReceivingDiscrepancy } from './types'
 import type { Warehouse } from '../inventory/types'
 import { Dialog } from '../components/common/Dialog'
-import { DISCREPANCY_LABEL, RECEIVING_STATUS_STYLE } from './procurementHelpers'
+import { DISCREPANCY_TYPES, RECEIVING_STATUS_STYLE, discrepancyLabel, receivingStatusLabel } from './procurementHelpers'
 import { DiscrepancyRow, FlagDamagedItemForm } from './DiscrepancyRow'
 import { useDateFormat } from '../format/DateFormatProvider'
 
@@ -28,6 +29,7 @@ interface ReceivingSectionProps {
 export function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onAssignWarehouse, lineItems }: ReceivingSectionProps) {
   const { token } = useAuth()
   const { records, loading, error, refresh, upload } = useReceivingRecords(token ?? '', purchaseOrderId)
+  const { t } = useTranslation(['procurement', 'common'])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'parsing'>('idle')
   const [uploadError, setUploadError] = useState('')
@@ -44,11 +46,11 @@ export function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onA
       setUploadStatus('parsing')
       const finalJob = await pollParsingJob(() => procurementApi.getReceivingParsingJob(token ?? '', job.id))
       if (finalJob.status === 'failed') {
-        setUploadError(finalJob.error_message || 'Failed to parse invoice')
+        setUploadError(finalJob.error_message || t('receiving.parseFailed'))
       }
       refresh()
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Failed to upload invoice')
+      setUploadError(err instanceof Error ? err.message : t('receiving.uploadFailed'))
     } finally {
       setUploadStatus('idle')
     }
@@ -57,18 +59,18 @@ export function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onA
   return (
     <div className="rounded-xl border border-line overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 dark:bg-night-900/50 bg-gray-50 border-b border-line">
-        <h3 className="text-xs font-semibold text-ink">Receiving</h3>
+        <h3 className="text-xs font-semibold text-ink">{t('receiving.title')}</h3>
         <div className="flex items-center gap-2">
-          {uploadStatus === 'uploading' && <span className="text-2xs text-ink-4">Uploading…</span>}
-          {uploadStatus === 'parsing' && <span className="text-2xs text-warning">Parsing invoice…</span>}
-          <input ref={fileInputRef} type="file" aria-label="Upload invoice" accept=".pdf,.csv,.xlsx" className="hidden" onChange={handleFileSelected} />
+          {uploadStatus === 'uploading' && <span className="text-2xs text-ink-4">{t('receiving.uploading')}</span>}
+          {uploadStatus === 'parsing' && <span className="text-2xs text-warning">{t('receiving.parsing')}</span>}
+          <input ref={fileInputRef} type="file" aria-label={t('receiving.uploadInvoice')} accept=".pdf,.csv,.xlsx" className="hidden" onChange={handleFileSelected} />
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadStatus !== 'idle'}
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-line bg-raised text-2xs text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
           >
-            <Upload size={11} /> Upload invoice
+            <Upload size={11} /> {t('receiving.uploadInvoice')}
           </button>
         </div>
       </div>
@@ -76,9 +78,9 @@ export function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onA
         <p className="text-2xs text-danger bg-red-50 dark:bg-red-500/10 px-4 py-1.5">{uploadError || error}</p>
       )}
       <div className="divide-y divide-line/50">
-        {loading && <p className="px-4 py-6 text-center text-xs text-ink-4">Loading…</p>}
+        {loading && <p className="px-4 py-6 text-center text-xs text-ink-4">{t('common:status.loading')}</p>}
         {!loading && records.length === 0 && (
-          <p className="px-4 py-6 text-center text-xs text-ink-4">No invoices uploaded yet</p>
+          <p className="px-4 py-6 text-center text-xs text-ink-4">{t('receiving.empty')}</p>
         )}
         {records.map(record => (
           <div key={record.id}>
@@ -91,14 +93,14 @@ export function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onA
               <span className="flex-1 text-xs text-ink truncate">{record.invoice_file_name}</span>
               {record.is_potential_duplicate && (
                 <span
-                  title="Another invoice with identical file content was already uploaded for this supplier"
+                  title={t('receiving.duplicateTitle')}
                   className="flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-100 dark:bg-amber-500/10 text-warning"
                 >
-                  <AlertTriangle size={10} /> Possible duplicate
+                  <AlertTriangle size={10} /> {t('receiving.possibleDuplicate')}
                 </span>
               )}
               <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', RECEIVING_STATUS_STYLE[record.status])}>
-                {record.status.replace('_', ' ')}
+                {receivingStatusLabel(record.status)}
               </span>
             </button>
             {expandedId === record.id && (
@@ -139,6 +141,7 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
   const [completing, setCompleting] = useState(false)
   const [damagedFormOpen, setDamagedFormOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const { t } = useTranslation(['procurement', 'common'])
 
   const load = async () => {
     setLoading(true)
@@ -146,7 +149,7 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
     try {
       setDetail(await procurementApi.getReceivingRecord(token ?? '', recordId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load receiving record')
+      setError(err instanceof Error ? err.message : t('receiving.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -162,13 +165,13 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
       await load()
       onCompleted()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to complete receiving')
+      setError(err instanceof Error ? err.message : t('receiving.completeFailed'))
     } finally {
       setCompleting(false)
     }
   }
 
-  if (loading) return <p className="text-2xs text-ink-4 py-2">Loading…</p>
+  if (loading) return <p className="text-2xs text-ink-4 py-2">{t('common:status.loading')}</p>
   if (!detail) return error ? <p className="text-2xs text-danger py-2">{error}</p> : null
 
   const record = detail.receiving_record
@@ -178,7 +181,7 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
     <div className="space-y-2 pt-1">
       {detail.discrepancies.length === 0 ? (
         <p className="text-2xs text-ink-3">
-          The invoice matched the purchase order exactly — no discrepancies.
+          {t('receiving.noDiscrepancies')}
         </p>
       ) : (
         <div className="space-y-2">
@@ -207,7 +210,7 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
             type="button" onClick={() => setDamagedFormOpen(true)}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:underline"
           >
-            <AlertTriangle size={10} /> Flag damaged item
+            <AlertTriangle size={10} /> {t('receiving.flagDamaged')}
           </button>
         )
       )}
@@ -216,18 +219,18 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
           type="button" onClick={() => setReportOpen(true)}
           className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 text-ink-2 text-2xs font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
         >
-          <ClipboardList size={11} /> Generate report
+          <ClipboardList size={11} /> {t('receiving.generateReport')}
         </button>
         {isApplied ? (
           <span className="flex items-center gap-1 text-2xs font-medium text-success">
-            <PackageCheck size={11} /> Receiving completed
+            <PackageCheck size={11} /> {t('receiving.completed')}
           </span>
         ) : (
           <button
             type="button" onClick={handleComplete} disabled={completing}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50"
           >
-            <PackageCheck size={11} /> {completing ? 'Completing…' : 'Mark receiving complete'}
+            <PackageCheck size={11} /> {completing ? t('receiving.completing') : t('receiving.markComplete')}
           </button>
         )}
       </div>
@@ -249,16 +252,17 @@ interface ReceivingReportModalProps {
 
 function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: ReceivingReportModalProps) {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation(['procurement', 'common'])
   const describe = (d: ReceivingDiscrepancy) =>
-    d.expiry_date ? `${d.details} · Expires ${formatDate(d.expiry_date)}` : d.details
-  const grouped = (Object.keys(DISCREPANCY_LABEL) as DiscrepancyType[]).map(type => ({
+    d.expiry_date ? t('report.expires', { details: d.details, date: formatDate(d.expiry_date) }) : d.details
+  const grouped = DISCREPANCY_TYPES.map(type => ({
     type, items: discrepancies.filter(d => d.type === type),
   })).filter(g => g.items.length > 0)
 
   function handleExportCsv() {
-    const header = ['Type', 'Expected qty', 'Received qty', 'Status', 'Details', 'Expiry date']
+    const header = [t('report.colType'), t('report.colExpected'), t('report.colReceived'), t('report.colStatus'), t('report.colDetails'), t('report.colExpiry')]
     const rows = discrepancies.map(d => [
-      DISCREPANCY_LABEL[d.type], String(d.expected_qty), String(d.received_qty), d.status, d.details,
+      discrepancyLabel(d.type), String(d.expected_qty), String(d.received_qty), d.status === 'acknowledged' ? t('report.acknowledged') : t('report.open'), d.details,
       d.expiry_date ? formatDate(d.expiry_date) : '',
     ])
     const csv = [header, ...rows]
@@ -279,26 +283,26 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
     <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl dark:bg-night-900 bg-white border border-line shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
-          <h2 className="text-sm font-semibold text-ink">Receiving discrepancy report</h2>
-          <button aria-label="Close" type="button" onClick={onClose} title="Close">
+          <h2 className="text-sm font-semibold text-ink">{t('report.title')}</h2>
+          <button aria-label={t('common:actions.close')} type="button" onClick={onClose} title={t('common:actions.close')}>
             <X size={16} className="text-ink-4" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {grouped.length === 0 ? (
-            <p className="text-2xs text-ink-3">No discrepancies to report.</p>
+            <p className="text-2xs text-ink-3">{t('report.empty')}</p>
           ) : (
             grouped.map(g => (
               <div key={g.type} className="space-y-1.5">
                 <h3 className="text-2xs font-semibold text-ink-2">
-                  {DISCREPANCY_LABEL[g.type]} <span className="dark:text-ink-4 font-normal">({g.items.length})</span>
+                  {discrepancyLabel(g.type)} <span className="dark:text-ink-4 font-normal">({g.items.length})</span>
                 </h3>
                 <ul className="space-y-1">
                   {g.items.map(d => (
                     <li key={d.id} className="text-2xs text-ink-3 flex items-center justify-between gap-2">
                       <span>{describe(d)}</span>
                       <span className={clsx('shrink-0', d.status === 'acknowledged' ? 'text-green-400' : 'text-amber-400')}>
-                        {d.status === 'acknowledged' ? 'Acknowledged' : 'Open'}
+                        {d.status === 'acknowledged' ? t('report.acknowledged') : t('report.open')}
                       </span>
                     </li>
                   ))}
@@ -312,7 +316,7 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
             type="button" onClick={handleExportCsv}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-fill text-ink-2 text-2xs font-semibold hover:bg-hover"
           >
-            <Download size={11} /> Export CSV
+            <Download size={11} /> {t('report.exportCsv')}
           </button>
         </div>
       </div>

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import i18next from 'i18next'
 import Reviews from '../Reviews'
 import { renderAt } from '../../test/renderAt'
 import type { Review } from '../../reviews/types'
@@ -86,5 +87,16 @@ describe('Reviews URLs', () => {
     const { router } = renderAt(<Reviews />, '/reviews', '/reviews?page=2')
     await userEvent.type(await screen.findByPlaceholderText('Search by customer, product, or text...'), 'x')
     expect(router.state.location.search).toBe('?q=x')
+  })
+})
+
+describe('in Brazilian Portuguese', () => {
+  afterEach(async () => { await i18next.changeLanguage('en') })
+
+  it('shows the empty state in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    renderAt(<Reviews />, '/reviews')
+
+    expect(await screen.findByText('Nenhuma avaliação ainda')).toBeInTheDocument()
   })
 })

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import i18next from 'i18next'
 import Collections from '../../pages/Collections'
 import { renderAt } from '../../test/renderAt'
 import type { Collection } from '../types'
@@ -91,5 +92,17 @@ describe('Collections', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Delete Summer' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Delete collection' }))
     await waitFor(() => expect(api.deleteCollection).toHaveBeenCalledWith('tok', 'c1'))
+  })
+})
+
+describe('in Brazilian Portuguese', () => {
+  afterEach(async () => { await i18next.changeLanguage('en') })
+
+  it('lists collections in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    renderPage()
+    const summer = (await screen.findByText('Summer')).closest('tr')!
+    expect(within(summer).getByText('Escolhidos a dedo')).toBeInTheDocument()
+    expect(within(summer).getByText('Visível')).toBeInTheDocument()
   })
 })

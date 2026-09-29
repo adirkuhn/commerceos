@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
 import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { Plus, Search, Package, Trash2, Edit3, Copy } from 'lucide-react'
@@ -30,6 +31,7 @@ function archivedPayload(p: Product): UpdateProductPayload {
 export default function Products() {
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
+  const { t } = useTranslation(['pms', 'common'])
 
   // Search (?q=), page (?page=) and the open product (/products/<id>, or
   // /products/new) all live in the URL -- survives a refresh, is a real
@@ -77,19 +79,19 @@ export default function Products() {
       await removeProduct(p.id)
     } catch (err) {
       if (!(err instanceof CodedApiError && err.code === PRODUCT_HAS_HISTORY)) {
-        setDeleteError(err instanceof Error ? err.message : 'Failed to delete product')
+        setDeleteError(err instanceof Error ? err.message : t('list.deleteFailed'))
         return
       }
       const archive = await confirm({
-        title: `"${p.name}" can't be deleted`,
-        message: `${capitalize(err.message)}. Archive it instead? It keeps its history and can be made active again later.`,
-        confirmLabel: 'Archive product',
+        title: t('list.cantDeleteTitle', { name: p.name }),
+        message: t('list.cantDeleteMessage', { reason: capitalize(err.message) }),
+        confirmLabel: t('list.archive'),
       })
       if (!archive) return
       try {
         await updateProduct(p.id, archivedPayload(p))
       } catch (archiveErr) {
-        setDeleteError(archiveErr instanceof Error ? archiveErr.message : 'Failed to archive product')
+        setDeleteError(archiveErr instanceof Error ? archiveErr.message : t('list.archiveFailed'))
       }
     }
   }
@@ -104,7 +106,7 @@ export default function Products() {
       const detail = await pmsApi.duplicateProduct(token, id)
       openEditor(detail.product.id)
     } catch (err) {
-      setDuplicateError(err instanceof Error ? err.message : 'Failed to duplicate product')
+      setDuplicateError(err instanceof Error ? err.message : t('list.duplicateFailed'))
     } finally {
       setDuplicatingId(null)
     }
@@ -144,7 +146,7 @@ export default function Products() {
           <input
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
-            placeholder="Search by name or slug..."
+            placeholder={t('list.search')}
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
@@ -153,14 +155,14 @@ export default function Products() {
             onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
-            <Plus size={13} /> New product
+            <Plus size={13} /> {t('list.new')}
           </button>
         </div>
       </div>
 
       {/* Stats strip */}
       <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{total} product{total === 1 ? '' : 's'}</span>
+        <span className="text-xs text-ink-4">{t('list.count', { count: total })}</span>
         {(error || duplicateError || deleteError) && <span className="text-xs text-danger ml-auto">{error || duplicateError || deleteError}</span>}
       </div>
 
@@ -170,20 +172,20 @@ export default function Products() {
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Product</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Category</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Price</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Sale price</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colProduct')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colCategory')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colPrice')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colSalePrice')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colStatus')}</th>
               <th className="px-3 py-2.5 w-8" />
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
             )}
             {!loading && products.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">No products yet</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">{t('list.empty')}</td></tr>
             )}
             {products.map(p => (
               <tr
@@ -217,35 +219,35 @@ export default function Products() {
                 </td>
                 <td className="px-3 py-2.5">
                   <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLES[p.status])}>
-                    {p.status}
+                    {{ draft: t('statusTag.draft'), active: t('statusTag.active'), archived: t('statusTag.archived') }[p.status] ?? p.status}
                   </span>
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button aria-label="Edit"
+                    <button aria-label={t('common:actions.edit')}
                       onClick={e => { e.stopPropagation(); openEditor(p.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Edit"
+                      title={t('common:actions.edit')}
                     >
                       <Edit3 size={12} className="text-ink-3" />
                     </button>
-                    <button aria-label="Duplicate"
+                    <button aria-label={t('list.duplicate')}
                       onClick={e => { e.stopPropagation(); handleDuplicate(p.id) }}
                       disabled={duplicatingId === p.id}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors disabled:opacity-50"
-                      title="Duplicate"
+                      title={t('list.duplicate')}
                     >
                       <Copy size={12} className="text-ink-3" />
                     </button>
-                    <button aria-label="Delete"
+                    <button aria-label={t('common:actions.delete')}
                       onClick={async e => {
                         e.stopPropagation()
-                        if (await confirm({ title: `Delete "${p.name}"?`, message: 'Its variants and SKUs are deleted too.', confirmLabel: 'Delete product', destructive: true })) {
+                        if (await confirm({ title: t('list.deleteTitle', { name: p.name }), message: t('list.deleteMessage'), confirmLabel: t('list.deleteConfirm'), destructive: true })) {
                           await handleDelete(p)
                         }
                       }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Delete"
+                      title={t('common:actions.delete')}
                     >
                       <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>

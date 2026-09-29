@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, Search, Truck, Trash2, Edit3, ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useSuppliers } from '../suppliers/hooks/useSuppliers'
@@ -20,6 +21,7 @@ const STATUS_STYLE: Record<SupplierStatus, string> = {
 export default function Suppliers() {
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
+  const { t } = useTranslation(['suppliers', 'common'])
   const { suppliers, loading, error, create, update, remove } = useSuppliers(token ?? '')
 
   // Search and page live in the URL (?q=, ?page=) -- refresh and Back keep them.
@@ -44,19 +46,19 @@ export default function Suppliers() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleDelete(s: Supplier) {
-    if (!(await confirm({ title: `Delete supplier "${s.name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete supplier', destructive: true }))) return
+    if (!(await confirm({ title: t('confirmDelete.title', { name: s.name }), message: t('confirmDelete.message'), confirmLabel: t('confirmDelete.confirm'), destructive: true }))) return
     setDeleteError('')
     try {
       await remove(s.id)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Unknown error')
+      setDeleteError(err instanceof Error ? err.message : t('unknownError'))
     }
   }
 
   if (editingId !== null) {
     const existing = editingId === NEW_RECORD ? null : suppliers.find(s => s.id === editingId) ?? null
     if (editingId !== NEW_RECORD && !existing) {
-      return loading ? <RecordLoading /> : <RecordNotFound label="Supplier" onBack={closeEditor} />
+      return loading ? <RecordLoading /> : <RecordNotFound label={t('subject')} onBack={closeEditor} />
     }
     return (
       <SupplierEditPage
@@ -77,7 +79,7 @@ export default function Suppliers() {
           <input
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
-            placeholder="Search by name or country..."
+            placeholder={t('searchPlaceholder')}
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
@@ -86,14 +88,14 @@ export default function Suppliers() {
             onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
-            <Plus size={13} /> Add supplier
+            <Plus size={13} /> {t('add')}
           </button>
         </div>
       </div>
 
       {/* Stats strip */}
       <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{filtered.length} supplier{filtered.length === 1 ? '' : 's'}</span>
+        <span className="text-xs text-ink-4">{t('count', { count: filtered.length })}</span>
         {(error || deleteError) && <span className="text-xs text-danger ml-auto">{error || deleteError}</span>}
       </div>
 
@@ -103,19 +105,19 @@ export default function Suppliers() {
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Supplier</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Country</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Lead time</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('colSupplier')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('colCountry')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('colLeadTime')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('colStatus')}</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">No suppliers yet</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">{t('empty')}</td></tr>
             )}
             {paged.map(s => (
               <tr
@@ -133,25 +135,25 @@ export default function Suppliers() {
                   {s.email && <p className="text-2xs text-ink-4 truncate">{s.email}</p>}
                 </td>
                 <td className="px-3 py-2.5 text-ink-3">{s.country || '—'}</td>
-                <td className="px-3 py-2.5 text-ink-3">{s.lead_time_days != null ? `${s.lead_time_days}d` : '—'}</td>
+                <td className="px-3 py-2.5 text-ink-3">{s.lead_time_days != null ? t('leadTimeDays', { days: s.lead_time_days }) : '—'}</td>
                 <td className="px-3 py-2.5">
                   <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLE[s.status])}>
-                    {s.status}
+                    {s.status === 'active' ? t('badge.active') : t('badge.inactive')}
                   </span>
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button aria-label="Edit"
+                    <button aria-label={t('common:actions.edit')}
                       onClick={e => { e.stopPropagation(); openEditor(s.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Edit"
+                      title={t('common:actions.edit')}
                     >
                       <Edit3 size={12} className="text-ink-3" />
                     </button>
-                    <button aria-label="Delete"
+                    <button aria-label={t('common:actions.delete')}
                       onClick={e => { e.stopPropagation(); handleDelete(s) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Delete"
+                      title={t('common:actions.delete')}
                     >
                       <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>
@@ -187,6 +189,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
   const [status, setStatus] = useState<SupplierStatus>(supplier?.status ?? 'active')
   const [notes, setNotes] = useState(supplier?.notes ?? '')
   const [saving, setSaving] = useState(false)
+  const { t } = useTranslation(['suppliers', 'common'])
   const [formError, setFormError] = useState('')
 
   // A deep link (Cmd+K search, direct URL, hard refresh) mounts this page
@@ -223,7 +226,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
       }
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to save supplier')
+      setFormError(err instanceof Error ? err.message : t('saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -240,10 +243,10 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Suppliers
+            <ArrowLeft size={11} /> {t('back')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {supplier ? name || 'Edit supplier' : 'New supplier'}
+            {supplier ? name || t('edit') : t('new')}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -251,13 +254,13 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
             type="button" onClick={onClose}
             className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
           >
-            Discard
+            {t('discard')}
           </button>
           <button
             type="submit" form="supplier-form" disabled={saving || !name.trim()}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : supplier ? 'Save' : 'Create supplier'}
+            {saving ? t('common:actions.saving') : supplier ? t('common:actions.save') : t('create')}
           </button>
         </div>
       </div>
@@ -267,19 +270,19 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
           <form id="supplier-form" onSubmit={handleSave} className="space-y-5">
             <div className="rounded-xl border border-line p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-ink">General</h3>
+                <h3 className="text-xs font-semibold text-ink">{t('general')}</h3>
                 <select
-                  aria-label="Status"
+                  aria-label={t('colStatus')}
                   value={status}
                   onChange={e => setStatus(e.target.value as SupplierStatus)}
                   className="px-2 py-1 text-2xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="active">{t('status.active')}</option>
+                  <option value="inactive">{t('status.inactive')}</option>
                 </select>
               </div>
               <div>
-                <label htmlFor="supplier-name" className={labelClass}>Name</label>
+                <label htmlFor="supplier-name" className={labelClass}>{t('name')}</label>
                 <input
                   id="supplier-name"
                   type="text" required autoFocus value={name} onChange={e => setName(e.target.value)}
@@ -288,7 +291,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="supplier-email" className={labelClass}>Email</label>
+                  <label htmlFor="supplier-email" className={labelClass}>{t('email')}</label>
                   <input
                     id="supplier-email"
                     type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -296,7 +299,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
                   />
                 </div>
                 <div>
-                  <label htmlFor="supplier-phone" className={labelClass}>Phone</label>
+                  <label htmlFor="supplier-phone" className={labelClass}>{t('phone')}</label>
                   <input
                     id="supplier-phone"
                     type="tel" value={phone} onChange={e => setPhone(e.target.value)}
@@ -304,7 +307,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
                   />
                 </div>
                 <div>
-                  <label htmlFor="supplier-country" className={labelClass}>Country</label>
+                  <label htmlFor="supplier-country" className={labelClass}>{t('country')}</label>
                   <input
                     id="supplier-country"
                     type="text" value={country} onChange={e => setCountry(e.target.value)}
@@ -312,7 +315,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
                   />
                 </div>
                 <div>
-                  <label htmlFor="supplier-lead-time" className={labelClass}>Lead time (days)</label>
+                  <label htmlFor="supplier-lead-time" className={labelClass}>{t('leadTime')}</label>
                   <input
                     id="supplier-lead-time"
                     type="number" min="0" value={leadTimeDays} onChange={e => setLeadTimeDays(e.target.value)}
@@ -321,7 +324,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
                 </div>
               </div>
               <div>
-                <label htmlFor="supplier-notes" className={labelClass}>Notes</label>
+                <label htmlFor="supplier-notes" className={labelClass}>{t('notes')}</label>
                 <textarea
                   id="supplier-notes"
                   rows={3} value={notes} onChange={e => setNotes(e.target.value)}

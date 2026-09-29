@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Bot, X } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
+import { connectionStatusLabel } from '../integrations/connectionStatus'
 import { useAuth } from '../auth/AuthContext'
 import { useAIConnection } from '../integrations/hooks/useAIConnection'
 import type { AIProvider } from '../integrations/types'
@@ -8,11 +11,15 @@ import { Dialog } from '../components/common/Dialog'
 import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_STYLES } from './IntegrationsSettingsSection'
 
-const AI_PROVIDER_LABELS: Record<AIProvider, string> = {
-  openai: 'OpenAI',
-  anthropic: 'Anthropic (Claude)',
-  gemini: 'Google Gemini',
-  ollama: 'Ollama (self-hosted)',
+const AI_PROVIDERS: AIProvider[] = ['openai', 'anthropic', 'gemini', 'ollama']
+
+function providerLabel(t: TFunction<['settings', 'common']>, provider: AIProvider): string {
+  switch (provider) {
+    case 'openai': return 'OpenAI'
+    case 'anthropic': return 'Anthropic (Claude)'
+    case 'gemini': return 'Google Gemini'
+    case 'ollama': return t('ai.ollama')
+  }
 }
 
 // AI is a separate integration shape from Connection (WooCommerce etc.) --
@@ -21,6 +28,7 @@ const AI_PROVIDER_LABELS: Record<AIProvider, string> = {
 // Connection list above.
 export function AIIntegrationCard() {
   const { confirm, confirmDialog } = useConfirm()
+  const { t } = useTranslation(['settings', 'common'])
   const { token } = useAuth()
   const { connection, loading, error, connect, disconnect } = useAIConnection(token ?? '')
   const [configuring, setConfiguring] = useState(false)
@@ -50,14 +58,14 @@ export function AIIntegrationCard() {
       await connect({ provider, apiKey, baseUrl, model, fallbackModels })
       setConfiguring(false)
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to connect')
+      setFormError(err instanceof Error ? err.message : t('ai.connectFailed'))
     } finally {
       setSaving(false)
     }
   }
 
   const handleDisconnect = async () => {
-    if (!(await confirm({ title: 'Disconnect the AI provider?', message: 'Procurement PDF parsing and WhatsApp AI-assisted parsing stop working until a provider is configured again.', confirmLabel: 'Disconnect', destructive: true }))) return
+    if (!(await confirm({ title: t('ai.disconnectTitle'), message: t('ai.disconnectMessage'), confirmLabel: t('ai.disconnect'), destructive: true }))) return
     await disconnect()
   }
 
@@ -70,17 +78,17 @@ export function AIIntegrationCard() {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="text-xs font-medium text-ink">AI</p>
+              <p className="text-xs font-medium text-ink">{t('ai.title')}</p>
               {connection && (
                 <span className={clsx('px-1.5 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLES[connection.status])}>
-                  {connection.status}
+                  {connectionStatusLabel(connection.status)}
                 </span>
               )}
             </div>
             <p className="text-2xs text-ink-4 mt-0.5">
-              {loading ? 'Loading…' : connection
-                ? AI_PROVIDER_LABELS[connection.provider]
-                : 'Used for procurement document parsing (PDF invoices) and optional WhatsApp AI-assisted message parsing. Not configured.'}
+              {loading ? t('common:status.loading') : connection
+                ? providerLabel(t, connection.provider)
+                : t('ai.notConfigured')}
             </p>
           </div>
         </div>
@@ -89,14 +97,14 @@ export function AIIntegrationCard() {
             onClick={openConfigure}
             className="px-3 py-1.5 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover transition-colors"
           >
-            {connection ? 'Configure' : 'Connect'}
+            {connection ? t('integrations.configure') : t('ai.connect')}
           </button>
           {connection && (
             <button
               onClick={handleDisconnect}
               className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-3 hover:text-danger transition-colors"
             >
-              Disconnect
+              {t('ai.disconnect')}
             </button>
           )}
         </div>
@@ -108,15 +116,15 @@ export function AIIntegrationCard() {
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={() => setConfiguring(false)} />
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-ink">Configure AI</h3>
-              <button onClick={() => setConfiguring(false)} aria-label="Close">
+              <h3 className="text-sm font-semibold text-ink">{t('ai.configureTitle')}</h3>
+              <button onClick={() => setConfiguring(false)} aria-label={t('common:actions.close')}>
                 <X size={14} className="text-ink-4" />
               </button>
             </div>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
                 <label htmlFor="ai-provider" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Provider
+                  {t('ai.provider')}
                 </label>
                 <select
                   id="ai-provider"
@@ -124,15 +132,15 @@ export function AIIntegrationCard() {
                   onChange={e => setProvider(e.target.value as AIProvider)}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
-                  {(Object.keys(AI_PROVIDER_LABELS) as AIProvider[]).map(p => (
-                    <option key={p} value={p}>{AI_PROVIDER_LABELS[p]}</option>
+                  {AI_PROVIDERS.map(p => (
+                    <option key={p} value={p}>{providerLabel(t, p)}</option>
                   ))}
                 </select>
               </div>
               {provider !== 'ollama' && (
                 <div>
                   <label htmlFor="ai-api-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    API key
+                    {t('ai.apiKey')}
                   </label>
                   <input
                     id="ai-api-key"
@@ -141,14 +149,14 @@ export function AIIntegrationCard() {
                     autoFocus
                     value={apiKey}
                     onChange={e => setApiKey(e.target.value)}
-                    placeholder="sk-..."
+                    placeholder={'sk-...'}
                     className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                 </div>
               )}
               <div>
                 <label htmlFor="ai-base-url" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  {provider === 'ollama' ? 'Server URL' : 'Base URL (optional)'}
+                  {provider === 'ollama' ? t('ai.serverUrl') : t('ai.baseUrl')}
                 </label>
                 <input
                   id="ai-base-url"
@@ -163,32 +171,32 @@ export function AIIntegrationCard() {
               </div>
               <div>
                 <label htmlFor="ai-model" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Model (optional)
+                  {t('ai.model')}
                 </label>
                 <input
                   id="ai-model"
                   type="text"
                   value={model}
                   onChange={e => setModel(e.target.value)}
-                  placeholder="Uses the provider's default"
+                  placeholder={t('ai.modelPlaceholder')}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
               </div>
               {provider === 'gemini' && (
                 <div>
                   <label htmlFor="ai-fallback-models" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    Fallback models (optional)
+                    {t('ai.fallbackModels')}
                   </label>
                   <input
                     id="ai-fallback-models"
                     type="text"
                     value={fallbackModels}
                     onChange={e => setFallbackModels(e.target.value)}
-                    placeholder="gemini-3.5-flash-lite, gemini-3.1-flash-lite"
+                    placeholder={'gemini-3.5-flash-lite, gemini-3.1-flash-lite'}
                     className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                   <p className="mt-1.5 text-2xs text-ink-4">
-                    Comma-separated. Tried in order when Model hits a rate limit (Gemini's free tier caps some models at 20 requests/day, others at 500).
+                    {t('ai.fallbackHelp')}
                   </p>
                 </div>
               )}
@@ -200,7 +208,7 @@ export function AIIntegrationCard() {
                 disabled={saving}
                 className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
-                {saving ? 'Saving…' : 'Save'}
+                {saving ? t('common:actions.saving') : t('common:actions.save')}
               </button>
             </form>
           </div>

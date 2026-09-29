@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, LogOut, ShoppingCart, ArrowLeft, Lock } from 'lucide-react'
 import { usePickingQueue } from '../oms/hooks/usePackingQueue'
 import { useMemberNames } from '../team/hooks/useMemberNames'
@@ -8,7 +9,7 @@ import * as api from './api'
 import type { SalesOrder } from '../oms/types'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { customerName } from '../oms/salesOrderDisplay'
-import { UNKNOWN_CUSTOMER_LABEL } from './scannerLabels'
+import { unknownCustomerLabel } from './scannerLabels'
 
 interface SalesOrderPickerScreenProps {
   token: string
@@ -29,6 +30,7 @@ function formatPrice(minorUnits: number, currency: string): string {
 // picking session directly -- or, in list mode, opens its item list.
 export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenForList, onLogout, onBack }: SalesOrderPickerScreenProps) {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation(['scanner', 'common'])
   const { mode, error: modeError } = usePickingMode(token)
   const queue = usePickingQueue(token)
   const nameFor = useMemberNames(token)
@@ -40,7 +42,7 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenF
 
   const filtered = queue.entries.filter(({ sales_order: o }) =>
     query.trim() === ''
-    || customerName(o, UNKNOWN_CUSTOMER_LABEL).toLowerCase().includes(query.toLowerCase())
+    || customerName(o, unknownCustomerLabel()).toLowerCase().includes(query.toLowerCase())
     || (o.number || o.external_order_id).toLowerCase().includes(query.toLowerCase()),
   )
 
@@ -57,7 +59,7 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenF
       const session = await api.startOrResumePicking(token, order.id)
       onPickingStarted(session.id, order)
     } catch (err) {
-      setStartError(err instanceof Error ? err.message : 'Failed to start picking')
+      setStartError(err instanceof Error ? err.message : t('errors.startPicking'))
       setStartingId(null)
     }
   }
@@ -65,11 +67,11 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenF
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button aria-label="Back to apps" onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
+        <button aria-label={t('shared.backToApps')} onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('shared.backToApps')}>
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
-        <h1 className="flex-1 text-base font-semibold">Select an order to pick</h1>
-        <button aria-label="Unpair" onClick={onLogout} className="p-2 rounded-lg hover:bg-night-800" title="Unpair">
+        <h1 className="flex-1 text-base font-semibold">{t('orderPicker.pickTitle')}</h1>
+        <button aria-label={t('shared.unpair')} onClick={onLogout} className="p-2 rounded-lg hover:bg-night-800" title={t('shared.unpair')}>
           <LogOut size={16} className="text-gray-400" />
         </button>
       </div>
@@ -79,16 +81,16 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenF
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search by customer or order number…"
+            placeholder={t('orderPicker.search')}
             className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
           />
         </div>
       </div>
-      {(error || modeError) && <p className="mx-4 mb-2 text-sm text-red-400">{error || `Couldn't load the picking mode (${modeError}) -- using scan mode.`}</p>}
+      {(error || modeError) && <p className="mx-4 mb-2 text-sm text-red-400">{error || t('orderPicker.modeError', { error: modeError })}</p>}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
-        {loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
+        {loading && <p className="text-center text-sm text-gray-400 py-8">{t('common:status.loading')}</p>}
         {!loading && filtered.length === 0 && (
-          <p className="text-center text-sm text-gray-400 py-8">No unfulfilled orders ready to pick</p>
+          <p className="text-center text-sm text-gray-400 py-8">{t('orderPicker.noneToPick')}</p>
         )}
         {filtered.map(({ sales_order: o, lock, in_packing }) => (
           <button
@@ -101,7 +103,7 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenF
               <ShoppingCart size={16} className="text-gray-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{customerName(o, UNKNOWN_CUSTOMER_LABEL)}</p>
+              <p className="text-sm font-medium truncate">{customerName(o, unknownCustomerLabel())}</p>
               <p className="text-xs text-gray-400 flex items-center gap-1.5">
                 <span>#{o.number || o.external_order_id}</span>
                 <span>·</span>
@@ -110,12 +112,12 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenF
               {(lock || in_packing) && (
                 <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                   <Lock size={11} className="shrink-0" />
-                  <span className="truncate">{lock ? lockLabel(lock, nameFor(lock.user_id)) : 'In packing'}</span>
+                  <span className="truncate">{lock ? lockLabel(lock, nameFor(lock.user_id)) : t('orderPicker.inPacking')}</span>
                 </p>
               )}
             </div>
             <p className="text-xs font-medium text-gray-300 shrink-0">{formatPrice(o.total_minor_units, o.currency_code)}</p>
-            {startingId === o.id && <span className="text-xs text-accent shrink-0">Starting…</span>}
+            {startingId === o.id && <span className="text-xs text-accent shrink-0">{t('pickDone.starting')}</span>}
           </button>
         ))}
       </div>

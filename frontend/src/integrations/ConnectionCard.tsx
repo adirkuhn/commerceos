@@ -1,22 +1,31 @@
 import clsx from 'clsx'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import type { Connection } from './types'
 import type { ConnectionPanel } from './hooks/useIntegrationsRoute'
 import type { TestResult } from './hooks/useTestConnection'
 import { PROVIDER_COLORS, STATUS_COLOR, STATUS_ICON } from './integrationsPageHelpers'
 
 type CardAction =
-  | { kind: 'panel'; label: string; panel: ConnectionPanel; danger?: boolean }
+  | { kind: 'panel'; label: () => string; panel: ConnectionPanel; danger?: boolean }
   | { kind: 'test' }
 
-const panel = (label: string, target: ConnectionPanel, danger = false): CardAction => ({ kind: 'panel', label, panel: target, danger })
+const panel = (label: () => string, target: ConnectionPanel, danger = false): CardAction => ({ kind: 'panel', label, panel: target, danger })
+
+const configure = () => i18next.t('integrations:card.configure')
 
 // The buttons each provider's card offers, in display order ("Disconnect"
 // is always appended). Providers not listed only get Disconnect.
 export const PROVIDER_CARD_ACTIONS: Record<string, CardAction[]> = {
-  woocommerce: [panel('Configure', 'settings'), { kind: 'test' }, panel('Import', 'import'), panel('Delete imported', 'delete-products', true)],
-  myparcel: [panel('Configure', 'settings'), panel('Register webhook', 'webhooks')],
-  bol: [panel('Configure', 'settings')],
-  whatsapp: [panel('Test mode', 'test-mode'), panel('AI parsing', 'ai-parsing'), panel('Edit credentials', 'credentials'), panel('Webhook', 'whatsapp-webhook')],
+  woocommerce: [panel(configure, 'settings'), { kind: 'test' }, panel(() => i18next.t('common:actions.import'), 'import'), panel(() => i18next.t('integrations:card.deleteImported'), 'delete-products', true)],
+  myparcel: [panel(configure, 'settings'), panel(() => i18next.t('integrations:card.registerWebhook'), 'webhooks')],
+  bol: [panel(configure, 'settings')],
+  whatsapp: [
+    panel(() => i18next.t('integrations:card.testMode'), 'test-mode'),
+    panel(() => i18next.t('integrations:card.aiParsing'), 'ai-parsing'),
+    panel(() => i18next.t('integrations:card.editCredentials'), 'credentials'),
+    panel(() => i18next.t('integrations:card.webhook'), 'whatsapp-webhook'),
+  ],
 }
 
 interface Props {
@@ -30,6 +39,7 @@ interface Props {
 }
 
 export function ConnectionCard({ connection: conn, testing, testResult, onOpenPanel, onTest, onDisconnect }: Props) {
+  const { t } = useTranslation('integrations')
   const Icon = STATUS_ICON[conn.status]
   const actions = PROVIDER_CARD_ACTIONS[conn.provider] ?? []
   return (
@@ -49,12 +59,12 @@ export function ConnectionCard({ connection: conn, testing, testResult, onOpenPa
       <p className="text-2xs text-ink-4 mt-0.5 truncate">{conn.store_url}</p>
       {conn.provider === 'whatsapp' && conn.whatsapp_test_mode_enabled && (
         <p className="mt-2 text-2xs px-2 py-1 rounded-lg text-warning bg-amber-500/10">
-          Test mode on — all messages go to {conn.whatsapp_test_phone_e164}
+          {t('card.testModeOn', { phone: conn.whatsapp_test_phone_e164 })}
         </p>
       )}
       {conn.provider === 'whatsapp' && conn.whatsapp_ai_parsing_enabled && (
         <p className="mt-2 text-2xs px-2 py-1 rounded-lg text-accent bg-accent/10">
-          AI-assisted parsing on
+          {t('card.aiParsingOn')}
         </p>
       )}
       {testResult && (
@@ -73,7 +83,7 @@ export function ConnectionCard({ connection: conn, testing, testResult, onOpenPa
             disabled={testing}
             className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent disabled:opacity-50 transition-colors"
           >
-            {testing ? 'Testing…' : 'Test'}
+            {testing ? t('card.testing') : t('card.test')}
           </button>
         ) : (
           <button
@@ -81,14 +91,14 @@ export function ConnectionCard({ connection: conn, testing, testResult, onOpenPa
             onClick={() => onOpenPanel(action.panel)}
             className={clsx('py-1.5 rounded-lg bg-fill text-2xs text-ink-3', action.danger ? 'hover:text-danger' : 'hover:text-accent', 'transition-colors')}
           >
-            {action.label}
+            {action.label()}
           </button>
         ))}
         <button
           onClick={onDisconnect}
           className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-danger transition-colors"
         >
-          Disconnect
+          {t('card.disconnect')}
         </button>
       </div>
     </div>

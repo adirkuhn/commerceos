@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Boxes } from 'lucide-react'
 import * as pmsApi from '../pms/api'
 import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
@@ -15,6 +16,7 @@ export interface Resolved {
 const SCAN_TABS = ['code', 'name'] as const
 
 export function InventoryScanScreen({ token, onResolved, onExit }: { token: string; onResolved: (r: Resolved) => void; onExit: () => void }) {
+  const { t } = useTranslation('scanner')
   const [tab, setTab] = useQueryEnum('by', SCAN_TABS, 'code')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -45,7 +47,7 @@ export function InventoryScanScreen({ token, onResolved, onExit }: { token: stri
       } catch {
         // fall through to the original resolveBarcode error below
       }
-      setError(err instanceof Error ? err.message : 'Failed to resolve code')
+      setError(err instanceof Error ? err.message : t('errors.resolveCode'))
     } finally {
       setLoading(false)
     }
@@ -54,10 +56,10 @@ export function InventoryScanScreen({ token, onResolved, onExit }: { token: stri
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button aria-label="Back to apps" onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
+        <button aria-label={t('shared.backToApps')} onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('shared.backToApps')}>
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
-        <h1 className="flex-1 text-base font-semibold">Inventory</h1>
+        <h1 className="flex-1 text-base font-semibold">{t('inventory.title')}</h1>
       </div>
       <div className="flex gap-2 px-4 pt-4 shrink-0">
         <button aria-pressed={tab === 'code'}
@@ -65,22 +67,22 @@ export function InventoryScanScreen({ token, onResolved, onExit }: { token: stri
           onClick={() => setTab('code')}
           className={`flex-1 py-2 rounded-lg text-xs font-medium ${tab === 'code' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
         >
-          Scan code
+          {t('inventory.scanCode')}
         </button>
         <button aria-pressed={tab === 'name'}
           type="button"
           onClick={() => setTab('name')}
           className={`flex-1 py-2 rounded-lg text-xs font-medium ${tab === 'name' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
         >
-          Search by name
+          {t('inventory.searchByName')}
         </button>
       </div>
       {tab === 'code' ? (
         <div className="flex-1 flex flex-col overflow-y-auto">
-          <ScanCodeScreen icon={Boxes} prompt="Scan a barcode or type a SKU code" loading={loading} error={error} onSubmit={handleSubmit} />
+          <ScanCodeScreen icon={Boxes} prompt={t('shared.scanPrompt')} loading={loading} error={error} onSubmit={handleSubmit} />
           {candidates.length > 0 && (
             <div className="w-full max-w-xs mx-auto px-6 pb-6 space-y-1.5 shrink-0">
-              <p className="text-xs text-gray-400">Multiple matches -- pick one:</p>
+              <p className="text-xs text-gray-400">{t('shared.multipleMatches')}</p>
               {candidates.map(c => (
                 <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => onResolved({ sku: c.sku, productName: c.productName })} />
               ))}
@@ -100,6 +102,7 @@ export function InventoryScanScreen({ token, onResolved, onExit }: { token: stri
 // one candidate resolves straight through (same as a barcode scan), more
 // than one shows a list to pick from.
 function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r: Resolved) => void }) {
+  const { t } = useTranslation('scanner')
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -115,7 +118,7 @@ function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r
     try {
       const found = await searchSKUCandidates(token, query)
       if (found.length === 0) {
-        setError('No products found')
+        setError(t('inventory.noProducts'))
         return
       }
       if (found.length === 1) {
@@ -124,7 +127,7 @@ function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r
       }
       setCandidates(found)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to search')
+      setError(err instanceof Error ? err.message : t('errors.search'))
     } finally {
       setLoading(false)
     }
@@ -137,7 +140,7 @@ function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r
           autoFocus
           value={name}
           onChange={e => setName(e.target.value)}
-          placeholder="Product name…"
+          placeholder={t('inventory.namePlaceholder')}
           className="w-full px-4 py-4 text-center text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
         />
         {error && <p className="text-sm text-red-400">{error}</p>}
@@ -146,7 +149,7 @@ function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r
           disabled={loading || name.trim().length === 0}
           className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
-          {loading ? 'Searching…' : 'Search'}
+          {loading ? t('inventory.searching') : t('inventory.search')}
         </button>
       </form>
       {candidates.length > 0 && (

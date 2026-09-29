@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Customers from '../Customers'
+import i18next from 'i18next'
 import { renderAt } from '../../test/renderAt'
 import { act } from 'react'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
@@ -457,5 +458,18 @@ describe('Customers URLs', () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
     renderAt(<Customers />, '/customers', '/customers/nope?edit=1')
     expect(await screen.findByText('Customer not found')).toBeInTheDocument()
+  })
+})
+
+describe('Customers list in Portuguese', () => {
+  it('renders its texts in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      render(<MemoryRouter><Customers /></MemoryRouter>)
+      expect(await screen.findByText('Ainda não há clientes')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Buscar por nome ou e-mail...')).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 })

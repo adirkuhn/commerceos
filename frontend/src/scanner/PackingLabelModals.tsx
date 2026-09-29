@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { guessCarrierFromShippingMethod } from '../shipping/carrierGuess'
 import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
 import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
@@ -67,13 +68,14 @@ const labelButtonClass = 'w-full py-2.5 rounded-xl bg-night-800 border border-ni
 // print the one just made.
 export function PackingLabelButton({ label }: { label: PackingLabelFlow }) {
   const { createdShipmentId } = label
+  const { t } = useTranslation('scanner')
   return createdShipmentId ? (
     <button type="button" onClick={() => label.openLabel(createdShipmentId)} className={labelButtonClass}>
-      {label.autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
+      {label.autoPrintEnabled ? t('label.retryPrint') : t('label.print')}
     </button>
   ) : label.myParcelConnection ? (
     <button type="button" onClick={label.createLabel} className={labelButtonClass}>
-      Create shipping label
+      {t('label.create')}
     </button>
   ) : null
 }

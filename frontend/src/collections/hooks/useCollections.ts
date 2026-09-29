@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import i18next from 'i18next'
 import * as api from '../api'
 import type { Collection, CollectionInput } from '../types'
 
@@ -13,7 +14,7 @@ export function useCollections(token: string) {
       setCollections((await api.listCollections(token)).items)
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load collections')
+      setError(err instanceof Error ? err.message : i18next.t('collections:list.loadFailed'))
     } finally {
       setLoading(false)
     }

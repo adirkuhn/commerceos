@@ -1,4 +1,6 @@
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
+import { connectionStatusLabel } from '../integrations/connectionStatus'
 import { useAuth } from '../auth/AuthContext'
 import { useConnections } from '../integrations/hooks/useConnections'
 import type { Connection } from '../integrations/types'
@@ -15,13 +17,14 @@ export const STATUS_STYLES: Record<Connection['status'], string> = {
 
 export function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (connection: Connection) => void }) {
   const { token } = useAuth()
+  const { t } = useTranslation(['settings', 'common'])
   const { connections, loading, error } = useConnections(token ?? '')
 
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h2 className="text-base font-semibold text-ink mb-1">Integrations</h2>
-        <p className="text-xs text-ink-4">Connected external services. Configure sync schedules for each.</p>
+        <h2 className="text-base font-semibold text-ink mb-1">{t('sections.integrations')}</h2>
+        <p className="text-xs text-ink-4">{t('integrations.subtitle')}</p>
       </div>
 
       <AIIntegrationCard />
@@ -30,12 +33,12 @@ export function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (con
 
       <RecommendationsSettingsCard />
 
-      {loading && <p className="text-xs text-ink-4">Loading…</p>}
+      {loading && <p className="text-xs text-ink-4">{t('common:status.loading')}</p>}
       {error && <p className="text-xs text-danger">{error}</p>}
 
       {!loading && connections.length === 0 && (
         <div className="bg-raised rounded-xl border border-line p-6 text-center">
-          <p className="text-xs text-ink-4">No integrations connected yet.</p>
+          <p className="text-xs text-ink-4">{t('integrations.none')}</p>
         </div>
       )}
 
@@ -46,7 +49,7 @@ export function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (con
               <div className="flex items-center gap-2">
                 <p className="text-xs font-medium text-ink capitalize">{conn.provider}</p>
                 <span className={clsx('px-1.5 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLES[conn.status])}>
-                  {conn.status}
+                  {connectionStatusLabel(conn.status)}
                 </span>
               </div>
               <p className="text-2xs text-ink-4 truncate mt-0.5">{conn.store_url}</p>
@@ -56,10 +59,10 @@ export function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (con
                 onClick={() => onConfigure(conn)}
                 className="px-3 py-1.5 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover transition-colors shrink-0"
               >
-                Configure
+                {t('integrations.configure')}
               </button>
             ) : (
-              <span className="text-2xs text-ink-4 shrink-0">Coming soon</span>
+              <span className="text-2xs text-ink-4 shrink-0">{t('integrations.comingSoon')}</span>
             )}
           </div>
         ))}

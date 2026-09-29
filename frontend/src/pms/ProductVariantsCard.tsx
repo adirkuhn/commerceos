@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { FormCard } from './FormCard'
 import { VariantsSection } from './VariantsSection'
 import type { useProductDetail } from './hooks/useProductDetail'
@@ -22,8 +23,9 @@ export function ProductVariantsCard({
   detail, savedProductId, variantsMode, showWooVariationsToggle, syncVariantsAsWooVariations, onSyncVariantsAsWooVariationsChange,
   enablingVariants, enableVariantsError, onEnableVariants, onDisableVariants,
 }: ProductVariantsCardProps) {
+  const { t } = useTranslation('pms')
   return (
-    <FormCard title="Variants">
+    <FormCard title={t('variantsCard.title')}>
       {variantsMode ? (
         <>
           {showWooVariationsToggle && (
@@ -35,18 +37,16 @@ export function ProductVariantsCard({
                 className="mt-0.5"
               />
               <span className="text-2xs text-ink-3">
-                <span className="font-medium text-ink-2">Sync variants as WooCommerce variations</span>
+                <span className="font-medium text-ink-2">{t('variantsCard.wooVariations')}</span>
                 <br />
-                On: one Woo product with a variation per variant. Off (default): each variant becomes its own
-                separate Woo product. Changing this after the product is already synced deletes the old
-                WooCommerce listing(s) and recreates them in the new shape.
+                {t('variantsCard.wooVariationsHint')}
               </span>
             </label>
           )}
           {savedProductId ? (
             <VariantsSection detail={detail} productId={savedProductId} />
           ) : (
-            <p className="text-2xs text-ink-4">Save the product first, then add variants below.</p>
+            <p className="text-2xs text-ink-4">{t('variantsCard.saveFirst')}</p>
           )}
           {!savedProductId && (
             <button
@@ -54,7 +54,7 @@ export function ProductVariantsCard({
               onClick={onDisableVariants}
               className="text-2xs text-ink-4 hover:text-ink-2 transition-colors"
             >
-              ← Actually, no variants
+              {t('variantsCard.noVariants')}
             </button>
           )}
         </>
@@ -66,7 +66,7 @@ export function ProductVariantsCard({
             disabled={enablingVariants}
             className="text-xs font-medium text-accent hover:text-accent/80 transition-colors disabled:opacity-50"
           >
-            {enablingVariants ? 'Enabling…' : '+ Add variants like size or color'}
+            {enablingVariants ? t('variantsCard.enabling') : t('variantsCard.addVariants')}
           </button>
           {enableVariantsError && <p className="text-2xs text-danger mt-1.5">{enableVariantsError}</p>}
         </div>

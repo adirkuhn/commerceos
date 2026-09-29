@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import i18next from 'i18next'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ThemesPanel } from '../ThemesPanel'
 import type { SalesChannel } from '../../integrations/types'
@@ -152,5 +153,20 @@ describe('version history', () => {
     await userEvent.click(within(within(list).getAllByRole('listitem')[1]).getByRole('button', { name: 'Make live' }))
     await acceptConfirm()
     expect(await screen.findByRole('alert')).toHaveTextContent('version not sealed')
+  })
+})
+
+describe('ThemesPanel — pt-BR', () => {
+  it('speaks Portuguese when the admin language is pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      renderPanel()
+      const list = await screen.findByRole('list', { name: 'Temas' })
+      expect(within(list).getByText('No ar')).toBeInTheDocument()
+      expect(within(list).getByText('Somente rascunho')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Criar tema' })).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 })

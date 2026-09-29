@@ -1,0 +1,75 @@
+{
+  "batch": {
+    "expires": "val. {{date}}",
+    "label": "Lote em liquidação",
+    "loadFailed": "Não foi possível carregar os lotes",
+    "noExpiry": "sem validade",
+    "noLot": "Sem lote",
+    "option": "{{lot}} · {{expiry}} · restam {{quantity}}",
+    "wholeSku": "SKU inteiro (sem lote)"
+  },
+  "edit": {
+    "addSku": "Adicionar SKU",
+    "back": "Promoções",
+    "batchFinished": "Lote encerrado em {{date}} — voltou ao preço normal",
+    "bps": "pontos-base",
+    "create": "Criar promoção",
+    "discard": "Descartar",
+    "discountValue": "Valor do desconto",
+    "duplicateSku": "Esse SKU já está nesta promoção",
+    "edit": "Editar promoção",
+    "endsAt": "Termina em",
+    "general": "Geral",
+    "loadFailed": "Não foi possível carregar a promoção",
+    "minorUnits": "centavos",
+    "name": "Nome",
+    "new": "Nova promoção",
+    "noSkus": "Nenhum SKU adicionado ainda.",
+    "remove": "Remover",
+    "resolveFailed": "Não foi possível encontrar o SKU",
+    "resolving": "Buscando…",
+    "saveFailed": "Não foi possível salvar a promoção",
+    "searchProduct": "Buscar produto",
+    "skuPlaceholder": "Código SKU ou código de barras",
+    "skus": "SKUs",
+    "startsAt": "Começa em",
+    "type": "Tipo"
+  },
+  "list": {
+    "add": "Adicionar promoção",
+    "colEnds": "Fim",
+    "colPromotion": "Promoção",
+    "colStarts": "Início",
+    "colStatus": "Status",
+    "colType": "Tipo",
+    "count_one": "{{count}} promoção",
+    "count_many": "{{count}} promoções",
+    "count_other": "{{count}} promoções",
+    "deleteConfirm": "Excluir promoção",
+    "deleteMessage": "Esta ação não pode ser desfeita.",
+    "deleteTitle": "Excluir a promoção \"{{name}}\"?",
+    "empty": "Nenhuma promoção ainda",
+    "search": "Buscar por nome..."
+  },
+  "performance": {
+    "change": "{{change}}% vs antes",
+    "intro": "SKUs incluídos durante o período ativo vs. o período imediatamente anterior de mesma duração",
+    "loadFailed": "Não foi possível carregar o desempenho",
+    "noChange": "— vs antes",
+    "revenueBefore": "Receita (antes)",
+    "revenueDuring": "Receita (durante)",
+    "title": "Desempenho",
+    "unitsBefore": "Unidades vendidas (antes)",
+    "unitsDuring": "Unidades vendidas (durante)"
+  },
+  "status": {
+    "active": "Ativa",
+    "draft": "Rascunho",
+    "ended": "Encerrada",
+    "label": "Status"
+  },
+  "type": {
+    "fixed_amount": "Valor fixo",
+    "percentage": "Porcentagem"
+  }
+}

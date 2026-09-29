@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { Search } from 'lucide-react'
 import { FormCard } from './FormCard'
@@ -17,14 +18,12 @@ interface FlatSkuWeightPoolCardProps {
 // kilo), or portioned from one, never both.
 export function FlatSkuWeightPoolCard({ form, patch, currentSkuId }: FlatSkuWeightPoolCardProps) {
   const [portionPickerOpen, setPortionPickerOpen] = useState(false)
+  const { t } = useTranslation('pms')
   const { unitType, portionedFromSKUID, portionedFromLabel } = form
   return (
-    <FormCard
-      title="Weight pool"
-      description="Book a bulk lot once (e.g. 20kg), then peel off individually-weighed sellable items from it over time as they're packaged."
-    >
+    <FormCard title={t('pool.title')} description={t('pool.description')}>
       <div>
-        <label htmlFor="product-unit-type" className={labelClass}>Item type</label>
+        <label htmlFor="product-unit-type" className={labelClass}>{t('pool.itemType')}</label>
         <select
           id="product-unit-type" value={unitType}
           onChange={e => {
@@ -33,23 +32,23 @@ export function FlatSkuWeightPoolCard({ form, patch, currentSkuId }: FlatSkuWeig
           }}
           className={inputClass}
         >
-          <option value="unit">Unit</option>
-          <option value="box">Box</option>
-          <option value="kilo">Kilo (weight pool)</option>
+          <option value="unit">{t('pool.unit')}</option>
+          <option value="box">{t('pool.box')}</option>
+          <option value="kilo">{t('pool.kilo')}</option>
         </select>
       </div>
       {unitType !== 'kilo' && (
         portionedFromSKUID ? (
           <div className="flex items-center gap-2 mt-2">
             <span className="flex-1 text-xs text-ink">
-              Portioned from <span className="font-medium">{portionedFromLabel || portionedFromSKUID}</span>
+              <Trans t={t} i18nKey="pool.portionedFrom" values={{ label: portionedFromLabel || portionedFromSKUID }} components={{ b: <span className="font-medium" /> }} />
             </span>
             <button
               type="button"
               onClick={() => patch({ portionedFromSKUID: null, portionedFromLabel: '' })}
               className="text-2xs text-ink-4 hover:underline"
             >
-              Remove
+              {t('pool.remove')}
             </button>
           </div>
         ) : portionPickerOpen ? (
@@ -67,7 +66,7 @@ export function FlatSkuWeightPoolCard({ form, patch, currentSkuId }: FlatSkuWeig
             onClick={() => setPortionPickerOpen(true)}
             className="flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80 transition-colors mt-2"
           >
-            <Search size={12} /> This is portioned from a weight pool
+            <Search size={12} /> {t('pool.linkPool')}
           </button>
         )
       )}

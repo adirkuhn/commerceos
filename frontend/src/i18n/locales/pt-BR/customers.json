@@ -1,0 +1,97 @@
+{
+  "detail": {
+    "amountSpent": "Valor gasto",
+    "back": "Clientes",
+    "billingAddress": "Endereço de cobrança",
+    "contactInfo": "Informações de contato",
+    "created": "Cliente criado",
+    "edit": "Editar",
+    "editNotes": "Editar observações",
+    "failedNote": "Não foi possível salvar a observação",
+    "failedOrders": "Não foi possível carregar os pedidos",
+    "lastOrder": "Último pedido",
+    "noActivity": "Nenhuma atividade ainda",
+    "noNotes": "Sem observações",
+    "noOrders": "Nenhum pedido ainda",
+    "notes": "Observações",
+    "notFound": "Cliente não encontrado",
+    "orders": "Pedidos",
+    "placedOrder": "Fez o pedido #{{number}} ({{total}})",
+    "sameAsShipping": "Igual ao endereço de entrega",
+    "saveNote": "Salvar observação",
+    "shippingAddress": "Endereço de entrega",
+    "timeline": "Histórico",
+    "title": "Cliente"
+  },
+  "edit": {
+    "back": "Cliente",
+    "billing": {
+      "address1": "Endereço, linha 1 (cobrança)",
+      "address2": "Endereço, linha 2 (cobrança)",
+      "city": "Cidade (cobrança)",
+      "country": "País (cobrança)",
+      "phone": "Telefone (cobrança)",
+      "postcode": "CEP / código postal (cobrança)",
+      "state": "Estado (cobrança)",
+      "title": "Endereço de cobrança"
+    },
+    "create": "Criar cliente",
+    "discard": "Descartar",
+    "editTitle": "Editar cliente",
+    "failed": "Não foi possível salvar o cliente",
+    "firstName": "Nome",
+    "general": "Geral",
+    "lastName": "Sobrenome",
+    "newTitle": "Novo cliente",
+    "paying": "Cliente pagante",
+    "shipping": {
+      "address1": "Endereço, linha 1 (entrega)",
+      "address2": "Endereço, linha 2 (entrega)",
+      "city": "Cidade (entrega)",
+      "country": "País (entrega)",
+      "phone": "Telefone (entrega)",
+      "postcode": "CEP / código postal (entrega)",
+      "state": "Estado (entrega)",
+      "title": "Endereço de entrega"
+    }
+  },
+  "errors": {
+    "unknown": "Erro desconhecido"
+  },
+  "list": {
+    "add": "Adicionar cliente",
+    "colLocation": "Localização",
+    "count_one": "{{count}} cliente",
+    "count_many": "{{count}} clientes",
+    "count_other": "{{count}} clientes",
+    "deleteConfirm": "Excluir cliente",
+    "deleteMessage": "Esta ação não pode ser desfeita.",
+    "deleteTitle": "Excluir o cliente \"{{name}}\"?",
+    "empty": "Ainda não há clientes",
+    "noOrders": "Nenhum pedido ainda",
+    "paying": "Pagante",
+    "recordLabel": "Cliente",
+    "search": "Buscar por nome ou e-mail..."
+  },
+  "relative": {
+    "days_one": "há {{count}} dia",
+    "days_many": "há {{count}} dias",
+    "days_other": "há {{count}} dias",
+    "hours_one": "há {{count}} hora",
+    "hours_many": "há {{count}} horas",
+    "hours_other": "há {{count}} horas",
+    "justNow": "Agora mesmo",
+    "minutes_one": "há {{count}} minuto",
+    "minutes_many": "há {{count}} minutos",
+    "minutes_other": "há {{count}} minutos",
+    "months_one": "há {{count}} mês",
+    "months_many": "há {{count}} meses",
+    "months_other": "há {{count}} meses",
+    "years_one": "há {{count}} ano",
+    "years_many": "há {{count}} anos",
+    "years_other": "há {{count}} anos"
+  },
+  "whatsapp": {
+    "title": "Conversa no WhatsApp"
+  }
+}

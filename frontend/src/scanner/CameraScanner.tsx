@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { X, Camera } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface CameraScannerProps {
   onDecode: (text: string) => void
@@ -22,6 +23,7 @@ interface ScannerControls {
 // alternative entry point, full-screen overlay so it works on small phone
 // screens.
 export function CameraScanner({ onDecode, onClose, frameShape = 'square', variant = 'fullscreen' }: CameraScannerProps) {
+  const { t } = useTranslation(['scanner', 'common'])
   const videoRef = useRef<HTMLVideoElement>(null)
   const [error, setError] = useState('')
 
@@ -39,7 +41,7 @@ export function CameraScanner({ onDecode, onClose, frameShape = 'square', varian
           onDecode(result.getText())
         })
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Camera unavailable')
+        if (!cancelled) setError(err instanceof Error ? err.message : t('camera.unavailable'))
       }
     }
     start()
@@ -57,9 +59,9 @@ export function CameraScanner({ onDecode, onClose, frameShape = 'square', varian
     >
       <div className="flex items-center justify-between px-4 py-4 shrink-0">
         <p className="flex items-center gap-2 text-sm text-white">
-          <Camera size={16} /> Point camera at code
+          <Camera size={16} /> {t('camera.pointAtCode')}
         </p>
-        <button aria-label="Close" onClick={onClose} title="Close">
+        <button aria-label={t('common:actions.close')} onClick={onClose} title={t('common:actions.close')}>
           <X size={20} className="text-white" />
         </button>
       </div>

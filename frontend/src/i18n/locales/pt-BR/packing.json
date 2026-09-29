@@ -1,0 +1,156 @@
+{
+  "action": {
+    "freebie": "Brinde",
+    "new_item": "Item novo",
+    "pack": "Embalado",
+    "refund": "Reembolsado",
+    "substitute": "Substituído"
+  },
+  "add": {
+    "freebie": "Brinde",
+    "newItem": "Item novo",
+    "placeholder": "Escaneie ou digite o SKU/código de barras",
+    "price": "Preço",
+    "quantity": "Quantidade",
+    "scanHelp": "Escaneie ou digite o SKU/código de barras do produto.",
+    "submit": "Adicionar ao pedido",
+    "title": "Adicionar item fora do pedido"
+  },
+  "change": {
+    "addReplacement": "+ Adicionar outro substituto",
+    "alreadyRecorded": "Já registrado",
+    "confirmPack": "Confirmar embalagem",
+    "confirmRefund": "Confirmar reembolso",
+    "confirmReplace": "Confirmar substituição",
+    "covers": "Cobre (do original)",
+    "coversTotal": "Cobre {{covered}} de {{remaining}}",
+    "lineComplete": "Esta linha está completa. Remova o que foi registrado para substituí-la.",
+    "modePack": "Embalar",
+    "modeRefund": "Reembolsar",
+    "modeReplace": "Substituir",
+    "qtyAdded": "Qtd adicionada",
+    "quantity": "Quantidade",
+    "reason": "Motivo (opcional)",
+    "refundHelp": "Não pode enviar e não quer substituir? Reembolse parte ou toda esta linha ({{quantity}}) — o dinheiro só é movimentado quando a embalagem terminar.",
+    "refundQty": "Quantidade a reembolsar",
+    "removeRow": "Remover esta linha",
+    "removeScan": "Remover {{scan}}",
+    "replaceHelp": "Substitua por um ou mais produtos — as quantidades \"cobre\" das linhas precisam somar o que falta desta linha ({{remaining}}).",
+    "replacementPlaceholder": "Escaneie ou digite o SKU/código de barras do substituto",
+    "returnToStock": "Devolver a quantidade original ao estoque"
+  },
+  "dialogs": {
+    "ok": "OK",
+    "resetting": "Reiniciando…",
+    "scanError": "Erro de leitura",
+    "startOverText": "Isso descarta todos os itens embalados até agora neste pedido e reinicia a sessão. Não é possível desfazer.",
+    "startOverTitle": "Recomeçar?"
+  },
+  "done": {
+    "backToOrders": "Voltar aos pedidos",
+    "notFullyPacked": "Não totalmente embalado",
+    "packed": "#{{number}} embalado"
+  },
+  "errors": {
+    "addItem": "Não foi possível adicionar o item",
+    "complete": "Não foi possível concluir a embalagem",
+    "loadLabel": "Não foi possível carregar a etiqueta",
+    "loadSession": "Não foi possível carregar a sessão de embalagem",
+    "notOnOrder": "Item não está neste pedido",
+    "recordPack": "Não foi possível registrar a embalagem",
+    "recordRefund": "Não foi possível registrar o reembolso",
+    "recordSubstitute": "Não foi possível registrar a substituição",
+    "removeScan": "Não foi possível remover a leitura",
+    "reset": "Não foi possível reiniciar a sessão de embalagem",
+    "scanNotRecognized": "Leitura não reconhecida",
+    "someoneElse": "Outra pessoa está embalando este pedido",
+    "start": "Não foi possível iniciar a embalagem",
+    "takenOver": "Outro usuário assumiu esta sessão de embalagem",
+    "takeOver": "Não foi possível assumir"
+  },
+  "header": {
+    "addItem": "Adicionar item",
+    "complete": "Concluir",
+    "createLabel": "Criar etiqueta",
+    "startOver": "Recomeçar"
+  },
+  "label": {
+    "create": "Criar etiqueta de envio",
+    "print": "Imprimir etiqueta de envio",
+    "retryPrint": "Tentar imprimir de novo"
+  },
+  "line": {
+    "packed": "embalados"
+  },
+  "lock": {
+    "activity": {
+      "packing": "Embalagem",
+      "picking": "Separação"
+    },
+    "hours": "{{hours}} h",
+    "hoursMinutes": "{{hours}} h {{minutes}} min",
+    "lessThanMinute": "<1 min",
+    "message": "{{name}} está embalando este pedido{{since}} — somente visualização.",
+    "minutes": "{{minutes}} min",
+    "takeOver": "Assumir",
+    "user": "Usuário {{id}}"
+  },
+  "page": {
+    "selectOrder": "Selecione um pedido para começar a embalar"
+  },
+  "print": {
+    "items_one": "{{count}} item",
+    "items_many": "{{count}} itens",
+    "items_other": "{{count}} itens",
+    "noSku": "Sem SKU",
+    "nothingLeft": "Nada mais para separar nesses pedidos.",
+    "orders": "Pedidos",
+    "orders_one": "{{count}} pedido",
+    "orders_many": "{{count}} pedidos",
+    "orders_other": "{{count}} pedidos",
+    "picked": "Separado",
+    "print": "Imprimir",
+    "product": "Produto",
+    "qty": "Qtd",
+    "title": "Lista de separação"
+  },
+  "progress": {
+    "items": "{{packed}} / {{total}} itens",
+    "label": "Progresso"
+  },
+  "queue": {
+    "addToPickList": "Adicionar #{{number}} à lista de separação",
+    "count_one": "{{count}} para embalar",
+    "count_many": "{{count}} para embalar",
+    "count_other": "{{count}} para embalar",
+    "empty": "Nenhum pedido para embalar",
+    "inProgress": "Em andamento",
+    "notPicked": "Não separado",
+    "pickList": "Lista de separação",
+    "pickListCount": "Lista de separação ({{n}})",
+    "search": "Buscar pedidos...",
+    "selectAll": "Selecionar todos os pedidos",
+    "takeOver": "Assumir",
+    "takeOverOrder": "Assumir #{{number}}",
+    "title": "Pedidos para embalar"
+  },
+  "review": {
+    "allPacked": "Todas as linhas foram totalmente embaladas.",
+    "back": "Voltar à embalagem",
+    "completing": "Concluindo…",
+    "confirm": "Confirmar e concluir",
+    "expectedPacked": "esperado {{expected}} · embalado {{packed}}",
+    "notFullyPacked_one": "{{count}} linha ainda não foi totalmente embalada:",
+    "notFullyPacked_many": "{{count}} linhas ainda não foram totalmente embaladas:",
+    "notFullyPacked_other": "{{count}} linhas ainda não foram totalmente embaladas:",
+    "title": "Revise antes de concluir"
+  },
+  "scanInput": {
+    "placeholder": "Escaneie o código de barras ou digite e pressione Enter..."
+  },
+  "scanLog": {
+    "entry": "{{action}}{{name}} · qtd {{quantity}}",
+    "remove": "Remover leitura",
+    "title": "Nesta sessão"
+  }
+}

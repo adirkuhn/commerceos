@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import type { QueueLock } from '../oms/types'
 import { isTenantAdmin } from '../auth/roles'
 
@@ -10,19 +11,21 @@ export function canTakeOverLocks(role: string | undefined): boolean {
 
 export function formatLockAge(sinceIso: string, now: number = Date.now()): string {
   const minutes = Math.max(0, Math.floor((now - new Date(sinceIso).getTime()) / 60_000))
-  if (minutes < 1) return '<1 min'
-  if (minutes < 60) return `${minutes} min`
+  if (minutes < 1) return i18next.t('packing:lock.lessThanMinute')
+  if (minutes < 60) return i18next.t('packing:lock.minutes', { minutes })
   const hours = Math.floor(minutes / 60)
   const rest = minutes % 60
-  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`
+  return rest === 0 ? i18next.t('packing:lock.hours', { hours }) : i18next.t('packing:lock.hoursMinutes', { hours, minutes: rest })
 }
 
 export function shortUserId(userId: string): string {
-  return `User ${userId.slice(0, 6)}`
+  return i18next.t('packing:lock.user', { id: userId.slice(0, 6) })
 }
 
-const ACTIVITY_LABEL: Record<QueueLock['activity'], string> = { picking: 'Picking', packing: 'Packing' }
+function activityLabel(activity: QueueLock['activity']): string {
+  return activity === 'picking' ? i18next.t('packing:lock.activity.picking') : i18next.t('packing:lock.activity.packing')
+}
 
 export function lockLabel(lock: QueueLock, name: string, now: number = Date.now()): string {
-  return `${ACTIVITY_LABEL[lock.activity]} · ${name} · ${formatLockAge(lock.since, now)}`
+  return `${activityLabel(lock.activity)} · ${name} · ${formatLockAge(lock.since, now)}`
 }

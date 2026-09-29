@@ -2,6 +2,7 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import OverviewPage from '../OverviewPage'
+import i18next from 'i18next'
 import { renderAt } from '../../../test/renderAt'
 import type { SalesSummaryReport, BusinessInsightsReport, ProfitabilityReport, ProfitabilityTrendReport, RevenueByChannelReport } from '../../../reports/types'
 
@@ -240,5 +241,18 @@ describe('OverviewPage URL state', () => {
     const { router } = renderAt(<OverviewPage />, '/reports', '/reports?view=daily')
     await waitFor(() => expect(reportsApi.getProfitabilityTrendReport).toHaveBeenCalled())
     expect(router.state.location.search).toBe('?view=daily')
+  })
+})
+
+describe('OverviewPage in Portuguese', () => {
+  it('renders its texts in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      renderAt(<OverviewPage />, '/reports')
+      expect(await screen.findByText('Receita total')).toBeInTheDocument()
+      expect(screen.getByText('Rentabilidade')).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 })

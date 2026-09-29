@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import * as api from './api'
 import ProviderWebhooksPanel from './ProviderWebhooksPanel'
@@ -14,6 +15,7 @@ function webhookURL(tenantId: string, provider: string): string {
 
 export function WebhooksTab({ token, connectionId, tenantId, provider }: { token: string; connectionId: string; tenantId: string; provider: string }) {
   const [secret, setSecret] = useState('')
+  const { t } = useTranslation(['integrations', 'common'])
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
   const [copiedField, setCopiedField] = useState<'url' | 'secret' | null>(null)
@@ -25,7 +27,7 @@ export function WebhooksTab({ token, connectionId, tenantId, provider }: { token
       const result = await api.setWebhookSecret(token, connectionId)
       setSecret(result.webhook_secret)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate webhook secret')
+      setError(err instanceof Error ? err.message : t('wooWebhooks.failed'))
     } finally {
       setGenerating(false)
     }
@@ -47,18 +49,16 @@ export function WebhooksTab({ token, connectionId, tenantId, provider }: { token
     <div className="flex-1 overflow-y-auto p-6">
       <div className="max-w-3xl space-y-4">
         <div>
-          <h2 className="text-sm font-semibold text-ink mb-1">Webhook signature secret</h2>
+          <h2 className="text-sm font-semibold text-ink mb-1">{t('wooWebhooks.title')}</h2>
           <p className="text-xs text-ink-4">
-            Generate a secret, then configure it as this webhook's "Secret" when creating it under WooCommerce → Settings →
-            Advanced → Webhooks. Regenerating replaces the old value immediately -- update WooCommerce's webhook config with
-            the new one, or deliveries will start failing signature verification.
+            {t('wooWebhooks.intro')}
           </p>
         </div>
 
         <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
           <div>
             <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-              Delivery URL
+              {t('deliveryUrl')}
             </label>
             <div className="flex items-center gap-2">
               <code className="flex-1 px-3 py-2 text-2xs rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
@@ -69,7 +69,7 @@ export function WebhooksTab({ token, connectionId, tenantId, provider }: { token
                 onClick={() => handleCopy('url', webhookURL(tenantId, provider))}
                 className="px-2.5 py-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors shrink-0"
               >
-                {copiedField === 'url' ? 'Copied' : 'Copy'}
+                {copiedField === 'url' ? t('copied') : t('copy')}
               </button>
             </div>
           </div>
@@ -77,7 +77,7 @@ export function WebhooksTab({ token, connectionId, tenantId, provider }: { token
           {secret ? (
             <div>
               <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                Secret (shown once -- copy it now)
+                {t('wooWebhooks.secretOnce')}
               </label>
               <div className="flex items-center gap-2">
                 <code className="flex-1 px-3 py-2 text-2xs font-mono rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
@@ -88,15 +88,15 @@ export function WebhooksTab({ token, connectionId, tenantId, provider }: { token
                   onClick={() => handleCopy('secret', secret)}
                   className="px-2.5 py-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors shrink-0"
                 >
-                  {copiedField === 'secret' ? 'Copied' : 'Copy'}
+                  {copiedField === 'secret' ? t('copied') : t('copy')}
                 </button>
               </div>
               <p className="mt-1.5 text-2xs text-warning">
-                This won't be shown again -- if you lose it, generate a new one and update WooCommerce.
+                {t('wooWebhooks.notShownAgain')}
               </p>
             </div>
           ) : (
-            <p className="text-xs text-ink-4">No secret generated yet -- webhooks from this connection can't be verified until you generate one.</p>
+            <p className="text-xs text-ink-4">{t('wooWebhooks.noSecret')}</p>
           )}
 
           {error && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error}</p>}
@@ -107,7 +107,7 @@ export function WebhooksTab({ token, connectionId, tenantId, provider }: { token
             disabled={generating}
             className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {generating ? 'Generating…' : secret ? 'Regenerate secret' : 'Generate secret'}
+            {generating ? t('generating') : secret ? t('wooWebhooks.regenerate') : t('wooWebhooks.generate')}
           </button>
         </div>
 

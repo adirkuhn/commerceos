@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 interface ShippingLabelButtonProps {
   // Set once a label was made (or picked for reprint) in this visit.
   createdShipmentId: string | null
@@ -11,17 +13,18 @@ interface ShippingLabelButtonProps {
 // The label button shared by the review and done screens: create one, or
 // print the one just made.
 export function ShippingLabelButton({ createdShipmentId, autoPrintEnabled, canCreate, onOpen, onCreate, className }: ShippingLabelButtonProps) {
+  const { t } = useTranslation('packing')
   if (createdShipmentId) {
     return (
       <button type="button" onClick={() => onOpen(createdShipmentId)} className={className}>
-        {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
+        {autoPrintEnabled ? t('label.retryPrint') : t('label.print')}
       </button>
     )
   }
   if (!canCreate) return null
   return (
     <button type="button" onClick={onCreate} className={className}>
-      Create shipping label
+      {t('label.create')}
     </button>
   )
 }

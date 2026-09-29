@@ -1,4 +1,5 @@
 import { Package } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { SessionErrorPanel } from '../oms/SessionErrorPanel'
 import { PackingOrderQueue } from '../packing/PackingOrderQueue'
@@ -33,6 +34,7 @@ import { ScanErrorDialog, ResetSessionDialog } from '../packing/PackingDialogs'
 // the shipping label flow into the queue + pack area + side panels.
 export default function Packing() {
   const { token, user } = useAuth()
+  const { t } = useTranslation(['packing', 'common'])
   // ?pick=<id,id> shows the multi-order pick list. Opening pushes (Back
   // closes it, refresh keeps it); the Close button replaces, so closing
   // doesn't leave a Back step that reopens it.
@@ -97,14 +99,14 @@ export default function Packing() {
         {!activeOrder && !((pack.urlSessionId || pack.orderToStart) && (pack.sessionLoading || error)) && (
           <div className="flex-1 flex flex-col items-center justify-center text-ink-4">
             <Package size={32} className="mb-3 opacity-40" />
-            <p className="text-sm">Select an order to start packing</p>
+            <p className="text-sm">{t('page.selectOrder')}</p>
           </div>
         )}
 
         {!session && !pack.sessionLoading && error && <SessionErrorPanel error={error} onBack={pack.backToOrders} />}
 
         {(activeOrder || pack.urlSessionId || pack.orderToStart) && pack.sessionLoading && !session && (
-          <div className="flex-1 flex items-center justify-center text-ink-4 text-sm">Loading…</div>
+          <div className="flex-1 flex items-center justify-center text-ink-4 text-sm">{t('common:status.loading')}</div>
         )}
 
         {activeOrder && completeResult && (

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from './hooks/useTenantSettings'
 import { toInput } from './tenantSettingsInput'
@@ -12,6 +13,7 @@ import { toInput } from './tenantSettingsInput'
 // not how fast the mining runs.
 export function RecommendationsSettingsCard() {
   const { token } = useAuth()
+  const { t } = useTranslation(['settings', 'common'])
   const { settings, save } = useTenantSettings(token ?? '')
 
   const [confidencePercent, setConfidencePercent] = useState('')
@@ -36,15 +38,15 @@ export function RecommendationsSettingsCard() {
     const support = minSupport.trim() === '' ? 0 : Math.round(parseFloat(minSupport))
     const days = lookbackDays.trim() === '' ? 0 : Math.round(parseFloat(lookbackDays))
     if (confidence < 0 || confidence > 1) {
-      setSaveError('Bundle confidence must be between 0 and 100%.')
+      setSaveError(t('recommendations.confidenceRange'))
       return
     }
     if (support < 0) {
-      setSaveError('Minimum support cannot be negative.')
+      setSaveError(t('recommendations.supportNegative'))
       return
     }
     if (days < 0) {
-      setSaveError('Lookback window cannot be negative.')
+      setSaveError(t('recommendations.lookbackNegative'))
       return
     }
     setSaving(true)
@@ -57,7 +59,7 @@ export function RecommendationsSettingsCard() {
       })
       setSaved(true)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save recommendation settings')
+      setSaveError(err instanceof Error ? err.message : t('recommendations.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -65,15 +67,15 @@ export function RecommendationsSettingsCard() {
 
   return (
     <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-ink">Cross-sell recommendations</h3>
+      <h3 className="text-sm font-semibold text-ink">{t('recommendations.title')}</h3>
       <p className="text-2xs text-ink-4">
-        Tunes the pattern-mining behind "You may also like" and "Frequently bought together" on connected storefronts. Leave blank to use CommerceOS' defaults.
+        {t('recommendations.help')}
       </p>
 
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label htmlFor="bundle-confidence" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-            Bundle confidence (%)
+            {t('recommendations.confidence')}
           </label>
           <input
             id="bundle-confidence"
@@ -86,7 +88,7 @@ export function RecommendationsSettingsCard() {
         </div>
         <div>
           <label htmlFor="min-support" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-            Minimum support (orders)
+            {t('recommendations.support')}
           </label>
           <input
             id="min-support"
@@ -99,7 +101,7 @@ export function RecommendationsSettingsCard() {
         </div>
         <div>
           <label htmlFor="lookback-days" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-            Lookback window (days)
+            {t('recommendations.lookback')}
           </label>
           <input
             id="lookback-days"
@@ -113,19 +115,19 @@ export function RecommendationsSettingsCard() {
       </div>
 
       <ul className="text-2xs text-ink-4 space-y-0.5 list-disc list-inside">
-        <li><span className="font-medium">Bundle confidence</span> — of orders containing a cart item, the % that must also contain a candidate before it's flagged bundle-worthy. Higher = fewer, more reliable bundle suggestions.</li>
-        <li><span className="font-medium">Minimum support</span> — orders a product pairing must appear in before it counts as a real pattern rather than coincidence. Raise this on a high-volume store to cut noise; keep it low on a small catalog or recommendations may disappear entirely.</li>
-        <li><span className="font-medium">Lookback window</span> — how far back order history is mined. Shorter favors recent behavior over stale, since-discontinued patterns; longer gives more data for a seasonal or slow-moving catalog.</li>
+        <li><Trans t={t} i18nKey="recommendations.confidenceHelp" components={{ strong: <span className="font-medium" /> }} /></li>
+        <li><Trans t={t} i18nKey="recommendations.supportHelp" components={{ strong: <span className="font-medium" /> }} /></li>
+        <li><Trans t={t} i18nKey="recommendations.lookbackHelp" components={{ strong: <span className="font-medium" /> }} /></li>
       </ul>
 
       {saveError && <p className="text-xs text-danger">{saveError}</p>}
-      {saved && <p className="text-xs text-success">Saved.</p>}
+      {saved && <p className="text-xs text-success">{t('savedMessage')}</p>}
       <button
         onClick={handleSave}
         disabled={saving}
         className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
       >
-        {saving ? 'Saving…' : 'Save recommendation settings'}
+        {saving ? t('common:actions.saving') : t('recommendations.save')}
       </button>
     </div>
   )

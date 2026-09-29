@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
@@ -17,6 +18,7 @@ export function WhatsAppAIParsingModal({ connection, onClose, onSaved }: {
   onSaved: (connection: Connection) => void
 }) {
   const { token } = useAuth()
+  const { t } = useTranslation(['integrations', 'common'])
   const { connection: aiConnection, loading: loadingAIConnection } = useAIConnection(token ?? '')
   const [enabled, setEnabled] = useState(connection.whatsapp_ai_parsing_enabled ?? false)
   const [saving, setSaving] = useState(false)
@@ -32,7 +34,7 @@ export function WhatsAppAIParsingModal({ connection, onClose, onSaved }: {
       onSaved(updated)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save')
+      setError(err instanceof Error ? err.message : t('saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -43,21 +45,19 @@ export function WhatsAppAIParsingModal({ connection, onClose, onSaved }: {
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
       <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-ink">WhatsApp AI-assisted parsing</h3>
-          <button onClick={onClose} aria-label="Close">
+          <h3 className="text-sm font-semibold text-ink">{t('aiParsing.title')}</h3>
+          <button onClick={onClose} aria-label={t('common:actions.close')}>
             <X size={14} className="text-ink-4" />
           </button>
         </div>
 
         <p className="text-xs text-ink-4 mb-4">
-          When a message doesn't match a strict command (e.g. "voce tem estoque do cha de limao?"), the connected AI
-          provider classifies it into stock/price/expiry/info and extracts the product — never a free-form chat reply,
-          only strict classification.
+          {t('aiParsing.intro')}
         </p>
 
         {!loadingAIConnection && !aiConfigured && (
           <p className="text-xs text-warning bg-amber-500/10 rounded-lg px-2 py-1.5 mb-3">
-            No AI provider connected yet. Connect one under Settings → Integrations → AI first.
+            {t('aiParsing.noProvider')}
           </p>
         )}
 
@@ -69,7 +69,7 @@ export function WhatsAppAIParsingModal({ connection, onClose, onSaved }: {
             onChange={e => setEnabled(e.target.checked)}
             className="rounded"
           />
-          <span className="text-xs text-ink-2">Enable AI-assisted parsing</span>
+          <span className="text-xs text-ink-2">{t('aiParsing.enable')}</span>
         </label>
 
         {error && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{error}</p>}
@@ -79,7 +79,7 @@ export function WhatsAppAIParsingModal({ connection, onClose, onSaved }: {
           disabled={saving || (enabled && !aiConfigured)}
           className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('common:actions.saving') : t('common:actions.save')}
         </button>
       </div>
     </Dialog>

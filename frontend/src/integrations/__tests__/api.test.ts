@@ -448,6 +448,15 @@ describe('createSalesChannel', () => {
     const [, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
     expect(JSON.parse(opts.body as string).storefront_mode).toBe('theme')
   })
+
+  it('sends the storefront language, omitting it when not chosen', async () => {
+    mockFetch(sampleChannel)
+    await api.createSalesChannel(TOKEN, { name: 'Loja', type: 'internal', enrollmentMode: 'all', storefrontLocale: 'pt-BR' })
+    await api.createSalesChannel(TOKEN, { name: 'Woo', type: 'woocommerce', enrollmentMode: 'all' })
+    const bodies = vi.mocked(fetch).mock.calls.map(c => JSON.parse((c[1] as RequestInit).body as string))
+    expect(bodies[0].storefront_locale).toBe('pt-BR')
+    expect(bodies[1]).not.toHaveProperty('storefront_locale')
+  })
 })
 
 describe('updateSalesChannel', () => {
@@ -471,6 +480,15 @@ describe('updateSalesChannel', () => {
     expect(JSON.parse(opts.body as string).storefront_mode).toBe('headless')
     // "" clears the sign-in page; omitting it keeps the current one.
     expect(JSON.parse(opts.body as string).sign_in_url).toBe('')
+  })
+
+  it('sends the storefront language only when given (omitted keeps it)', async () => {
+    mockFetch(sampleChannel)
+    await api.updateSalesChannel(TOKEN, 'chan-1', { name: 'Shop', enrollmentMode: 'all', active: true, storefrontLocale: 'nl' })
+    await api.updateSalesChannel(TOKEN, 'chan-1', { name: 'Shop', enrollmentMode: 'all', active: true })
+    const bodies = vi.mocked(fetch).mock.calls.map(c => JSON.parse((c[1] as RequestInit).body as string))
+    expect(bodies[0].storefront_locale).toBe('nl')
+    expect(bodies[1]).not.toHaveProperty('storefront_locale')
   })
 
   it('throws on not found', async () => {

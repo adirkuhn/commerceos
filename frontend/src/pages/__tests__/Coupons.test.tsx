@@ -2,7 +2,8 @@
 import { screen, waitFor } from '@testing-library/react'
 import { act } from 'react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import i18next from 'i18next'
 import Coupons from '../Coupons'
 import { renderAt } from '../../test/renderAt'
 import type { Coupon } from '../../coupons/types'
@@ -223,5 +224,16 @@ describe('Coupons URLs (refresh + Back)', () => {
     await userEvent.clear(screen.getByPlaceholderText('Search by code...'))
     await userEvent.type(screen.getByPlaceholderText('Search by code...'), 'al')
     expect(router.state.location.search).toBe('?q=al')
+  })
+})
+
+describe('in Brazilian Portuguese', () => {
+  afterEach(async () => { await i18next.changeLanguage('en') })
+
+  it('shows the empty state in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    renderAt(<Coupons />, '/coupons')
+
+    expect(await screen.findByText('Nenhum cupom ainda')).toBeInTheDocument()
   })
 })

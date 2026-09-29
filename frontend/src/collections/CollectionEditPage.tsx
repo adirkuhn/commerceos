@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { getProduct } from '../pms/api'
@@ -8,12 +10,12 @@ import { RulesEditor } from './RulesEditor'
 import { inputClass, labelClass } from './styles'
 import type { Collection, CollectionInput, CollectionSort } from './types'
 
-const SORTS: { value: CollectionSort; label: string; manualOnly?: boolean }[] = [
-  { value: 'manual', label: 'In the order I set', manualOnly: true },
-  { value: 'newest', label: 'Newest first' },
-  { value: 'name_asc', label: 'Name A–Z' },
-  { value: 'price_asc', label: 'Price, low to high' },
-  { value: 'price_desc', label: 'Price, high to low' },
+const sorts = (t: TFunction<'collections'>): { value: CollectionSort; label: string; manualOnly?: boolean }[] => [
+  { value: 'manual', label: t('sort.manual'), manualOnly: true },
+  { value: 'newest', label: t('sort.newest') },
+  { value: 'name_asc', label: t('sort.nameAsc') },
+  { value: 'price_asc', label: t('sort.priceAsc') },
+  { value: 'price_desc', label: t('sort.priceDesc') },
 ]
 
 interface Props {
@@ -25,6 +27,7 @@ interface Props {
 
 export function CollectionEditPage({ collection, onSave, onClose, onSaved }: Props) {
   const { token } = useAuth()
+  const { t } = useTranslation(['collections', 'common'])
   const [input, setInput] = useState<CollectionInput>(() => (collection ? toInput(collection) : emptyInput()))
   const [slugTouched, setSlugTouched] = useState(!!collection)
   const [productIds, setProductIds] = useState<string[]>(collection?.product_ids ?? [])
@@ -54,7 +57,7 @@ export function CollectionEditPage({ collection, onSave, onClose, onSaved }: Pro
       const saved = await onSave(collection?.id ?? null, input, input.type === 'manual' ? productIds : undefined)
       onSaved(saved.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save collection')
+      setError(err instanceof Error ? err.message : t('edit.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -63,57 +66,57 @@ export function CollectionEditPage({ collection, onSave, onClose, onSaved }: Pro
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-y-auto">
       <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
-        <button type="button" onClick={onClose} aria-label="Back to collections" className="p-1.5 rounded-lg bg-fill text-ink-3 hover:text-accent"><ArrowLeft size={14} /></button>
-        <h2 className="text-sm font-semibold text-ink">{collection ? collection.name : 'New collection'}</h2>
+        <button type="button" onClick={onClose} aria-label={t('edit.back')} className="p-1.5 rounded-lg bg-fill text-ink-3 hover:text-accent"><ArrowLeft size={14} /></button>
+        <h2 className="text-sm font-semibold text-ink">{collection ? collection.name : t('edit.new')}</h2>
         <label className="ml-auto flex items-center gap-2 text-xs text-ink-2">
           <input type="checkbox" role="switch" checked={!!input.published} onChange={e => set({ published: e.target.checked })} />
-          Visible in stores
+          {t('edit.visible')}
         </label>
         <button type="submit" disabled={saving} className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium disabled:opacity-50">
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('common:actions.saving') : t('common:actions.save')}
         </button>
       </div>
       {error && <p role="alert" className="mx-5 mt-3 text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}
       <div className="grid gap-5 p-5 max-w-3xl">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="col-name" className={labelClass}>Name</label>
+            <label htmlFor="col-name" className={labelClass}>{t('edit.name')}</label>
             <input id="col-name" className={inputClass} value={input.name} maxLength={120}
               onChange={e => set({ name: e.target.value, ...(slugTouched ? {} : { slug: slugify(e.target.value) }) })} />
           </div>
           <div>
-            <label htmlFor="col-slug" className={labelClass}>URL</label>
-            <div className="flex items-center gap-1 text-xs text-ink-4">/collections/
+            <label htmlFor="col-slug" className={labelClass}>{t('edit.url')}</label>
+            <div className="flex items-center gap-1 text-xs text-ink-4">{'/collections/'}
               <input id="col-slug" className={inputClass} value={input.slug} maxLength={64}
                 onChange={e => { setSlugTouched(true); set({ slug: e.target.value }) }} />
             </div>
           </div>
         </div>
         <div>
-          <label htmlFor="col-description" className={labelClass}>Description</label>
+          <label htmlFor="col-description" className={labelClass}>{t('edit.description')}</label>
           <textarea id="col-description" className={`${inputClass} min-h-20`} value={input.description ?? ''} maxLength={5000}
             onChange={e => set({ description: e.target.value })} />
         </div>
         <fieldset className="space-y-3">
-          <legend className={labelClass}>Products</legend>
+          <legend className={labelClass}>{t('edit.products')}</legend>
           <div className="flex gap-4 text-xs text-ink-2">
-            <label className="flex items-center gap-1.5"><input type="radio" name="col-type" checked={input.type === 'manual'} onChange={() => setInput(i => withType(i, 'manual'))} /> I pick the products</label>
-            <label className="flex items-center gap-1.5"><input type="radio" name="col-type" checked={input.type === 'smart'} onChange={() => setInput(i => withType(i, 'smart'))} /> Automatically, by conditions</label>
+            <label className="flex items-center gap-1.5"><input type="radio" name="col-type" checked={input.type === 'manual'} onChange={() => setInput(i => withType(i, 'manual'))} /> {t('edit.manual')}</label>
+            <label className="flex items-center gap-1.5"><input type="radio" name="col-type" checked={input.type === 'smart'} onChange={() => setInput(i => withType(i, 'smart'))} /> {t('edit.smart')}</label>
           </div>
           {input.type === 'manual'
             ? <ManualProducts ids={productIds} names={names} onChange={(ids, n) => { setProductIds(ids); setNames(n) }} />
             : <RulesEditor match={input.match ?? 'all'} rules={input.rules ?? []} onMatch={match => set({ match })} onRules={rules => set({ rules })} />}
         </fieldset>
         <div>
-          <label htmlFor="col-sort" className={labelClass}>Sort products</label>
+          <label htmlFor="col-sort" className={labelClass}>{t('edit.sort')}</label>
           <select id="col-sort" className={inputClass} value={input.sort} onChange={e => set({ sort: e.target.value as CollectionSort })}>
-            {SORTS.filter(s => input.type === 'manual' || !s.manualOnly).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            {sorts(t).filter(s => input.type === 'manual' || !s.manualOnly).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
         <fieldset className="grid gap-3">
-          <legend className={labelClass}>Search engines</legend>
-          <input aria-label="Search engine title" placeholder="Title (defaults to the name)" className={inputClass} value={input.seo_title ?? ''} maxLength={70} onChange={e => set({ seo_title: e.target.value })} />
-          <textarea aria-label="Search engine description" placeholder="Description" className={inputClass} value={input.seo_description ?? ''} maxLength={320} onChange={e => set({ seo_description: e.target.value })} />
+          <legend className={labelClass}>{t('edit.seo')}</legend>
+          <input aria-label={t('edit.seoTitle')} placeholder={t('edit.seoTitlePlaceholder')} className={inputClass} value={input.seo_title ?? ''} maxLength={70} onChange={e => set({ seo_title: e.target.value })} />
+          <textarea aria-label={t('edit.seoDescription')} placeholder={t('edit.seoDescriptionPlaceholder')} className={inputClass} value={input.seo_description ?? ''} maxLength={320} onChange={e => set({ seo_description: e.target.value })} />
         </fieldset>
       </div>
     </form>

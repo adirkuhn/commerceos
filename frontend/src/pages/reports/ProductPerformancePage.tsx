@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
@@ -11,6 +12,7 @@ const TOP_PRODUCTS_LIMIT = 20
 
 export default function ProductPerformancePage() {
   const { token } = useAuth()
+  const { t } = useTranslation('reports')
   // In ?period= -- refresh and shared links keep the chosen range.
   const [period, setPeriod] = useReportPeriod()
   const getProductPerformanceReport = useCallback(reportsApi.getProductPerformanceReport, [])
@@ -21,10 +23,10 @@ export default function ProductPerformancePage() {
     .slice(0, TOP_PRODUCTS_LIMIT)
 
   return (
-    <ReportPageShell title="Product Performance" period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
-      <ReportCard title="Top products by revenue" description="Selected period">
+    <ReportPageShell title={t('productPerformance.title')} period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
+      <ReportCard title={t('productPerformance.card')} description={t('selectedPeriod')}>
         {topProducts.length === 0 ? (
-          <EmptyState>No sales in this period</EmptyState>
+          <EmptyState>{t('productPerformance.empty')}</EmptyState>
         ) : (
           <div className="divide-y divide-line/50">
             {topProducts.map(p => (
@@ -36,7 +38,7 @@ export default function ProductPerformancePage() {
                 <div className="text-right shrink-0">
                   <p className="text-xs font-medium text-ink">{formatMoney(p.revenue_minor_units, currency)}</p>
                   <p className={clsx('text-2xs font-medium', p.margin_basis_points === null ? 'text-ink-4' : p.margin_basis_points >= 5000 ? 'text-success' : 'text-warning')}>
-                    {p.margin_basis_points === null ? 'margin n/a' : `${(p.margin_basis_points / 100).toFixed(1)}%`}
+                    {p.margin_basis_points === null ? t('productPerformance.marginNa') : `${(p.margin_basis_points / 100).toFixed(1)}%`}
                   </p>
                 </div>
               </div>

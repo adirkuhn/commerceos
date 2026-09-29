@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { Product, CreateProductPayload, UpdateProductPayload } from '../types'
 import * as api from '../api'
@@ -33,7 +34,7 @@ export function useProducts(token: string, params: { page?: number; perPage?: nu
       setProducts(result.products)
       setTotal(result.total)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('common:status.error'))
     } finally {
       setLoading(false)
     }

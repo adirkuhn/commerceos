@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Merge, RefreshCw } from 'lucide-react'
 import * as integrationsApi from '../integrations/api'
 
@@ -17,6 +18,7 @@ interface ProductEditHeaderProps {
 // Title bar of the product editor: back link, title, and the page-level
 // actions (resync, discard, save -- save submits the General tab's form).
 export function ProductEditHeader({ token, savedProductId, name, showResync, saving, saveDisabled, onClose, onMerge }: ProductEditHeaderProps) {
+  const { t } = useTranslation(['pms', 'common'])
   const [resyncing, setResyncing] = useState(false)
   const [resyncMessage, setResyncMessage] = useState('')
 
@@ -26,9 +28,9 @@ export function ProductEditHeader({ token, savedProductId, name, showResync, sav
     setResyncMessage('')
     try {
       await integrationsApi.resyncProductToChannels(token ?? '', savedProductId)
-      setResyncMessage('Resync started.')
+      setResyncMessage(t('header.resyncStarted'))
     } catch (err) {
-      setResyncMessage(err instanceof Error ? err.message : 'Failed to resync')
+      setResyncMessage(err instanceof Error ? err.message : t('header.resyncFailed'))
     } finally {
       setResyncing(false)
     }
@@ -41,10 +43,10 @@ export function ProductEditHeader({ token, savedProductId, name, showResync, sav
           onClick={onClose}
           className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
         >
-          <ArrowLeft size={11} /> Products
+          <ArrowLeft size={11} /> {t('header.back')}
         </button>
         <h1 className="text-xl font-semibold text-ink leading-tight">
-          {savedProductId ? name || 'Edit product' : 'New product'}
+          {savedProductId ? name || t('header.edit') : t('header.new')}
         </h1>
       </div>
       <div className="flex items-center gap-2">
@@ -52,33 +54,33 @@ export function ProductEditHeader({ token, savedProductId, name, showResync, sav
         {savedProductId && showResync && (
           <button
             type="button" onClick={handleResync} disabled={resyncing}
-            title="Force-push this product's current fields and stock to every linked channel, even if nothing changed"
+            title={t('header.resyncHint')}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
           >
             <RefreshCw size={12} className={resyncing ? 'animate-spin' : undefined} />
-            {resyncing ? 'Resyncing…' : 'Resync to channels'}
+            {resyncing ? t('header.resyncing') : t('header.resync')}
           </button>
         )}
         {onMerge && (
           <button
             type="button" onClick={onMerge}
-            title="This is a duplicate of a product that already exists: move everything into that one and delete this"
+            title={t('header.mergeHint')}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
           >
-            <Merge size={12} /> Merge into…
+            <Merge size={12} /> {t('header.merge')}
           </button>
         )}
         <button
           type="button" onClick={onClose}
           className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
         >
-          Discard
+          {t('header.discard')}
         </button>
         <button
           type="submit" form="product-general-form" disabled={saving || saveDisabled}
           className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
-          {saving ? 'Saving…' : savedProductId ? 'Save' : 'Create product'}
+          {saving ? t('common:actions.saving') : savedProductId ? t('common:actions.save') : t('header.create')}
         </button>
       </div>
     </div>

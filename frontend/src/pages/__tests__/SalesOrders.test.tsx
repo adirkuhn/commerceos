@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
 import SalesOrders from '../SalesOrders'
+import i18next from 'i18next'
 import type { SalesOrder, SalesOrderDetail } from '../../oms/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -158,7 +159,7 @@ describe('Sales orders list', () => {
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
-    expect(screen.getByText('completed', { selector: 'span.rounded-full' })).toBeInTheDocument()
+    expect(screen.getByText('Completed', { selector: 'span.rounded-full' })).toBeInTheDocument()
     expect(screen.getByText('$50.00')).toBeInTheDocument()
   })
 
@@ -279,7 +280,7 @@ describe('Sales orders list', () => {
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
-    await userEvent.click(screen.getByRole('button', { name: 'shipped' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Shipped' }))
 
     await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', {
       page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: ['shipped'], source: [],
@@ -311,7 +312,7 @@ describe('Sales orders list', () => {
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
-    await userEvent.click(screen.getByRole('button', { name: 'processing' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Processing' }))
     await userEvent.selectOptions(screen.getByLabelText('Filter by fulfilled substatus'), 'false')
 
     await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', {
@@ -333,7 +334,7 @@ describe('Sales orders list', () => {
       page: 2, perPage: 20, sortBy: 'total', sortDir: 'asc', status: ['shipped'], source: ['pos'], fulfilled: true,
     })
     expect(screen.getByRole('button', { name: 'POS' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'shipped' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Shipped' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByLabelText('Filter by fulfilled substatus')).toHaveValue('true')
   })
 
@@ -737,7 +738,7 @@ describe('Sales order detail page', () => {
 
     await acceptConfirm()
     await waitFor(() => expect(shippingApi.cancelShipment).toHaveBeenCalledWith('test-token', 'ship-1'))
-    expect(await screen.findByText('Cancelled')).toBeInTheDocument()
+    expect(await screen.findByText('Cancelled', { selector: 'span' })).toBeInTheDocument()
     expect(await screen.findByText(/could not delete this shipment/)).toBeInTheDocument()
     // Re-fetches the shipment list, which now excludes it from the delete
     // affordance (already cancelled).
@@ -1078,7 +1079,7 @@ describe('Sales order detail page', () => {
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
-    await userEvent.selectOptions(screen.getByDisplayValue('completed'), 'cancelled')
+    await userEvent.selectOptions(screen.getByDisplayValue('Completed'), 'cancelled')
 
     expect(omsApi.updateSalesOrder).toHaveBeenCalledWith('test-token', 'so-1', { status: 'cancelled' })
   })
@@ -1245,5 +1246,19 @@ describe('Create sales order', () => {
 
     expect(omsApi.createSalesOrder).not.toHaveBeenCalled()
     expect(await screen.findByRole('button', { name: 'New sales order' })).toBeInTheDocument()
+  })
+})
+
+describe('Sales orders list in Portuguese', () => {
+  it('renders its texts and status labels in pt-BR', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder({ status: 'completed' })], total: 1 })
+    await i18next.changeLanguage('pt-BR')
+    try {
+      render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+      expect(await screen.findByText('1 pedido de venda')).toBeInTheDocument()
+      expect(screen.getByText('Concluído', { selector: 'span' })).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 })

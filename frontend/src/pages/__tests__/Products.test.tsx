@@ -3,7 +3,8 @@ import { render, screen, waitFor, within, fireEvent } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import i18next from 'i18next'
 import Products from '../Products'
 import { renderAt } from '../../test/renderAt'
 import { AppProvider, useApp } from '../../context/AppContext'
@@ -2455,5 +2456,18 @@ describe('Products URLs (refresh + Back)', () => {
     const { router } = renderProductsAt('/products/prod-1')
     await userEvent.click(await screen.findByRole('button', { name: /WooCommerce/ }))
     expect(router.state.location.search).toBe('?tab=woocommerce')
+  })
+})
+
+describe('in Brazilian Portuguese', () => {
+  afterEach(async () => { await i18next.changeLanguage('en') })
+
+  it('lists products with translated search and status in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+
+    expect(await screen.findByText('T-Shirt')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Buscar por nome ou slug...')).toBeInTheDocument()
+    expect(screen.getByText('ativo')).toBeInTheDocument()
   })
 })

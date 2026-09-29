@@ -1,4 +1,4 @@
-import type { Connection, SalesChannel, EnrollmentMode, ChannelType, StorefrontMode } from '../types'
+import type { Connection, SalesChannel, EnrollmentMode, ChannelType, StorefrontLocale, StorefrontMode } from '../types'
 
 export interface ChannelFormState {
   name: string
@@ -23,13 +23,15 @@ export interface ChannelFormState {
   // Headless 'internal' channels: the merchant's page that completes
   // shopper sign-in ("" = none). Themed stores use their hosted /login.
   signInUrl: string
+  // 'internal' channels: the language the storefront speaks to shoppers.
+  storefrontLocale: StorefrontLocale
 }
 
 export function emptyForm(): ChannelFormState {
   return {
     name: '', channelType: 'woocommerce', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '',
     enrollmentTag: '', active: true, defaultWarehouseId: '', channelWarehouseId: '', paymentConnectionId: '',
-    currencyCode: '', storefrontMode: 'headless', signInUrl: '',
+    currencyCode: '', storefrontMode: 'headless', signInUrl: '', storefrontLocale: 'en',
   }
 }
 
@@ -53,5 +55,6 @@ export function toForm(channel: SalesChannel, connections: Connection[]): Channe
     currencyCode: channel.currency_code ?? '',
     storefrontMode: channel.storefront_mode ?? 'headless',
     signInUrl: channel.sign_in_url ?? '',
+    storefrontLocale: channel.storefront_locale ?? 'en',
   }
 }

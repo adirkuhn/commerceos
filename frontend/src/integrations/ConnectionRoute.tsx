@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useConnections } from './hooks/useConnections'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
@@ -16,8 +17,9 @@ interface ConnectionRouteProps {
 // been passed along in memory from a click.
 export function ConnectionRoute({ connectionId, onBack, children }: ConnectionRouteProps) {
   const { token } = useAuth()
+  const { t } = useTranslation('integrations')
   const { connections, loading } = useConnections(token ?? '')
   const connection = connections.find(c => c.id === connectionId)
   if (connection) return <>{children(connection)}</>
-  return loading ? <RecordLoading /> : <RecordNotFound label="Connection" onBack={onBack} />
+  return loading ? <RecordLoading /> : <RecordNotFound label={t('connection')} onBack={onBack} />
 }

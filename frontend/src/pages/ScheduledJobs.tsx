@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Clock, ShieldAlert } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import * as api from '../scheduler/api'
 import type { Job, SyncScheduleRow } from '../scheduler/types'
 import { useDateFormat } from '../format/DateFormatProvider'
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === 'success') return <span className="text-success">success</span>
-  if (status === 'error') return <span className="text-danger">error</span>
-  return <span className="text-ink-4">never run</span>
+  const { t } = useTranslation('settings')
+  if (status === 'success') return <span className="text-success">{t('jobs.statusSuccess')}</span>
+  if (status === 'error') return <span className="text-danger">{t('jobs.statusError')}</span>
+  return <span className="text-ink-4">{t('jobs.statusNeverRun')}</span>
 }
 
 // ScheduledJobs is the super_admin "Scheduled Jobs" admin page -- global
@@ -24,6 +26,7 @@ interface JobConfigEdit {
 
 export default function ScheduledJobs() {
   const { formatDateTime } = useDateFormat()
+  const { t } = useTranslation(['settings', 'common'])
   const { token, user } = useAuth()
   const [jobs, setJobs] = useState<Job[]>([])
   const [schedules, setSchedules] = useState<SyncScheduleRow[]>([])
@@ -48,11 +51,11 @@ export default function ScheduledJobs() {
       setSchedules(schedulesResult)
       setEdits(Object.fromEntries(jobsResult.map(j => [j.job_key, { enabled: j.enabled, interval_minutes: String(j.interval_minutes) }])))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load scheduled jobs')
+      setError(err instanceof Error ? err.message : t('jobs.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [token, isSuperAdmin])
+  }, [token, isSuperAdmin, t])
 
   useEffect(() => { load() }, [load])
 
@@ -63,7 +66,7 @@ export default function ScheduledJobs() {
       await api.runJobNow(token ?? '', jobKey)
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to run job')
+      setError(err instanceof Error ? err.message : t('jobs.runFailed'))
     } finally {
       setRunningKey(null)
     }
@@ -76,7 +79,7 @@ export default function ScheduledJobs() {
       await api.runSyncScheduleNow(token ?? '', id)
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to trigger sync schedule')
+      setError(err instanceof Error ? err.message : t('jobs.triggerFailed'))
     } finally {
       setRunningKey(null)
     }
@@ -92,7 +95,7 @@ export default function ScheduledJobs() {
     const edit = edits[j.job_key]
     const intervalMinutes = parseInt(edit.interval_minutes, 10)
     if (!Number.isFinite(intervalMinutes) || intervalMinutes < 1) {
-      setError('Interval must be at least 1 minute')
+      setError(t('jobs.intervalMin'))
       return
     }
     setSavingKey(j.job_key)
@@ -101,7 +104,7 @@ export default function ScheduledJobs() {
       await api.updateJobConfig(token ?? '', j.job_key, edit.enabled, intervalMinutes)
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save job config')
+      setError(err instanceof Error ? err.message : t('jobs.saveFailed'))
     } finally {
       setSavingKey(null)
     }
@@ -111,7 +114,7 @@ export default function ScheduledJobs() {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-2 text-ink-4">
         <ShieldAlert size={24} />
-        <p className="text-sm">Super admin access required.</p>
+        <p className="text-sm">{t('jobs.superAdminOnly')}</p>
       </div>
     )
   }
@@ -120,27 +123,27 @@ export default function ScheduledJobs() {
     <div className="flex flex-col h-full overflow-auto">
       <div className="flex items-center gap-2 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <Clock size={14} className="text-accent" />
-        <h1 className="text-sm font-semibold text-ink">Scheduled Jobs</h1>
+        <h1 className="text-sm font-semibold text-ink">{t('jobs.title')}</h1>
       </div>
 
       {error && <div className="px-5 py-2 text-xs text-danger">{error}</div>}
-      {loading && <div className="px-5 py-6 text-xs text-center text-ink-4">Loading…</div>}
+      {loading && <div className="px-5 py-6 text-xs text-center text-ink-4">{t('common:status.loading')}</div>}
 
       {!loading && (
         <div className="p-5 flex flex-col gap-8">
           <section>
             <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-3 mb-2">
-              Global jobs ({jobs.length})
+              {t('jobs.global', { count: jobs.length })}
             </h2>
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-ink-4 text-left">
-                  <th className="font-medium pb-2">Job</th>
-                  <th className="font-medium pb-2">Enabled</th>
-                  <th className="font-medium pb-2">Interval (min)</th>
-                  <th className="font-medium pb-2">Last run</th>
-                  <th className="font-medium pb-2">Status</th>
-                  <th className="font-medium pb-2">Next run</th>
+                  <th className="font-medium pb-2">{t('jobs.job')}</th>
+                  <th className="font-medium pb-2">{t('common:status.enabled')}</th>
+                  <th className="font-medium pb-2">{t('jobs.intervalMinutes')}</th>
+                  <th className="font-medium pb-2">{t('jobs.lastRun')}</th>
+                  <th className="font-medium pb-2">{t('common:fields.status')}</th>
+                  <th className="font-medium pb-2">{t('jobs.nextRun')}</th>
                   <th className="pb-2" />
                 </tr>
               </thead>
@@ -156,7 +159,7 @@ export default function ScheduledJobs() {
                           type="checkbox"
                           checked={edit.enabled}
                           onChange={e => setEdits(prev => ({ ...prev, [j.job_key]: { ...edit, enabled: e.target.checked } }))}
-                          aria-label={`Enabled: ${j.job_key}`}
+                          aria-label={t('jobs.enabledFor', { job: j.job_key })}
                         />
                       </td>
                       <td className="py-2">
@@ -165,7 +168,7 @@ export default function ScheduledJobs() {
                           min={1}
                           value={edit.interval_minutes}
                           onChange={e => setEdits(prev => ({ ...prev, [j.job_key]: { ...edit, interval_minutes: e.target.value } }))}
-                          aria-label={`Interval minutes: ${j.job_key}`}
+                          aria-label={t('jobs.intervalFor', { job: j.job_key })}
                           className="w-20 px-2 py-1 rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                         />
                       </td>
@@ -179,7 +182,7 @@ export default function ScheduledJobs() {
                             disabled={savingKey === j.job_key}
                             className="px-3 py-1.5 rounded-lg bg-fill text-2xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
                           >
-                            {savingKey === j.job_key ? 'Saving…' : 'Save'}
+                            {savingKey === j.job_key ? t('common:actions.saving') : t('common:actions.save')}
                           </button>
                         )}
                         <button
@@ -187,7 +190,7 @@ export default function ScheduledJobs() {
                           disabled={runningKey === j.job_key}
                           className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                         >
-                          {runningKey === j.job_key ? 'Running…' : 'Run now'}
+                          {runningKey === j.job_key ? t('jobs.running') : t('jobs.runNow')}
                         </button>
                       </td>
                     </tr>
@@ -199,40 +202,40 @@ export default function ScheduledJobs() {
 
           <section>
             <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-3 mb-2">
-              Sync schedules ({schedules.length})
+              {t('jobs.schedules', { count: schedules.length })}
             </h2>
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-ink-4 text-left">
-                  <th className="font-medium pb-2">Store</th>
-                  <th className="font-medium pb-2">Entity</th>
-                  <th className="font-medium pb-2">Direction</th>
-                  <th className="font-medium pb-2">Interval</th>
-                  <th className="font-medium pb-2">Last run</th>
-                  <th className="font-medium pb-2">Status</th>
+                  <th className="font-medium pb-2">{t('jobs.store')}</th>
+                  <th className="font-medium pb-2">{t('jobs.entity')}</th>
+                  <th className="font-medium pb-2">{t('jobs.direction')}</th>
+                  <th className="font-medium pb-2">{t('jobs.interval')}</th>
+                  <th className="font-medium pb-2">{t('jobs.lastRun')}</th>
+                  <th className="font-medium pb-2">{t('common:fields.status')}</th>
                   <th className="pb-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
                 {schedules.length === 0 && (
-                  <tr><td colSpan={7} className="py-4 text-center text-ink-4">No sync schedules configured</td></tr>
+                  <tr><td colSpan={7} className="py-4 text-center text-ink-4">{t('jobs.noSchedules')}</td></tr>
                 )}
                 {schedules.map(s => (
                   <tr key={s.id}>
                     <td className="py-2 text-ink">{s.connection_store_url || s.connection_id}</td>
                     <td className="py-2 text-ink-3">{s.entity_type}</td>
                     <td className="py-2 text-ink-3">{s.direction}</td>
-                    <td className="py-2 text-ink-3">{s.interval_minutes}m</td>
+                    <td className="py-2 text-ink-3">{t('jobs.minutesShort', { minutes: s.interval_minutes })}</td>
                     <td className="py-2 text-ink-3">{formatDateTime(s.last_run_at)}</td>
                     <td className="py-2"><StatusBadge status={s.last_run_status} /></td>
                     <td className="py-2 text-right">
                       <button
                         onClick={() => handleRunScheduleNow(s.id)}
                         disabled={runningKey === s.id || !s.enabled}
-                        title={!s.enabled ? 'Schedule is disabled' : undefined}
+                        title={!s.enabled ? t('jobs.scheduleDisabled') : undefined}
                         className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                       >
-                        {runningKey === s.id ? 'Running…' : 'Run now'}
+                        {runningKey === s.id ? t('jobs.running') : t('jobs.runNow')}
                       </button>
                     </td>
                   </tr>

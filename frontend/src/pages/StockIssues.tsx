@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
@@ -27,6 +28,7 @@ function pendingLineItems(items: SalesOrderLineItem[]): SalesOrderLineItem[] {
 // auto-triggered by any stock fix itself.
 export default function StockIssues() {
   const { formatDateTime } = useDateFormat()
+  const { t } = useTranslation(['stockIssues', 'common'])
   const { token } = useAuth()
   // In the URL (?page=) so refresh and Back keep it.
   const [page, setPage] = useQueryPage()
@@ -55,7 +57,7 @@ export default function StockIssues() {
       const detail = await api.getSalesOrder(token ?? '', order.id)
       setLineItemsById(prev => ({ ...prev, [order.id]: detail.line_items }))
     } catch (err) {
-      setDetailError(err instanceof Error ? err.message : 'Failed to load line items')
+      setDetailError(err instanceof Error ? err.message : t('lineItemsFailed'))
     } finally {
       setDetailLoadingId(null)
     }
@@ -68,11 +70,11 @@ export default function StockIssues() {
     setLastResult(null)
     try {
       const result = await api.retryStockDecrement(token ?? '', id)
-      setLastResult({ id, text: `${result.resolved} resolved${result.still_pending > 0 ? `, ${result.still_pending} still pending` : ''}` })
+      setLastResult({ id, text: result.still_pending > 0 ? t('resolvedPending', { n: result.resolved, pending: result.still_pending }) : t('resolved', { n: result.resolved }) })
       setLineItemsById(prev => { const next = { ...prev }; delete next[id]; return next })
       await refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to retry stock decrement')
+      setActionError(err instanceof Error ? err.message : t('retryFailed'))
     } finally {
       setBusyId(null)
       setBusyAction(null)
@@ -86,11 +88,11 @@ export default function StockIssues() {
     setLastResult(null)
     try {
       const result = await api.forceAcceptStock(token ?? '', id)
-      setLastResult({ id, text: `${result.resolved} force-accepted` })
+      setLastResult({ id, text: t('forceAccepted', { n: result.resolved }) })
       setLineItemsById(prev => { const next = { ...prev }; delete next[id]; return next })
       await refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to force-accept stock')
+      setActionError(err instanceof Error ? err.message : t('forceFailed'))
     } finally {
       setBusyId(null)
       setBusyAction(null)
@@ -101,11 +103,11 @@ export default function StockIssues() {
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <AlertTriangle size={14} className="text-warning" />
-        <h1 className="text-sm font-semibold text-ink">Stock Issues</h1>
+        <h1 className="text-sm font-semibold text-ink">{t('title')}</h1>
       </div>
 
       <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{total} order{total === 1 ? '' : 's'} awaiting stock</span>
+        <span className="text-xs text-ink-4">{t('awaiting', { count: total })}</span>
         {(error || actionError || detailError) && (
           <span className="text-xs text-danger ml-auto">{error || actionError || detailError}</span>
         )}
@@ -116,18 +118,18 @@ export default function StockIssues() {
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-3 py-2.5 w-6" />
-              <th className="px-3 py-2.5 text-left font-medium uppercase tracking-wider text-ink-4">Order</th>
-              <th className="px-3 py-2.5 text-left font-medium uppercase tracking-wider text-ink-4">Customer</th>
-              <th className="px-3 py-2.5 text-left font-medium uppercase tracking-wider text-ink-4">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium uppercase tracking-wider text-ink-4">{t('colOrder')}</th>
+              <th className="px-3 py-2.5 text-left font-medium uppercase tracking-wider text-ink-4">{t('colCustomer')}</th>
+              <th className="px-3 py-2.5 text-left font-medium uppercase tracking-wider text-ink-4">{t('colStatus')}</th>
               <th className="px-3 py-2.5 w-56" />
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
+              <tr><td colSpan={5} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
             )}
             {!loading && salesOrders.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-ink-4">No stock issues — everything's resolved</td></tr>
+              <tr><td colSpan={5} className="px-4 py-6 text-center text-ink-4">{t('empty')}</td></tr>
             )}
             {salesOrders.map(o => (
               <Fragment key={o.id}>
@@ -146,17 +148,17 @@ export default function StockIssues() {
                       <button
                         onClick={() => handleForceAccept(o.id)}
                         disabled={busyId === o.id}
-                        title="Bypass the stock check -- use only when you know the item physically exists"
+                        title={t('forceTitle')}
                         className="px-3 py-1.5 rounded-lg border border-line text-ink-2 text-2xs font-medium hover:bg-amber-500/10 hover:text-warning disabled:opacity-50 transition-colors"
                       >
-                        {busyId === o.id && busyAction === 'force' ? 'Accepting…' : 'Force accept'}
+                        {busyId === o.id && busyAction === 'force' ? t('accepting') : t('forceAccept')}
                       </button>
                       <button
                         onClick={() => handleRetry(o.id)}
                         disabled={busyId === o.id}
                         className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                       >
-                        {busyId === o.id && busyAction === 'retry' ? 'Retrying…' : 'Retry stock'}
+                        {busyId === o.id && busyAction === 'retry' ? t('retrying') : t('retry')}
                       </button>
                     </div>
                     {lastResult?.id === o.id && (
@@ -168,17 +170,17 @@ export default function StockIssues() {
                   <tr className="dark:bg-night-900 bg-gray-50/60">
                     <td />
                     <td colSpan={4} className="px-3 py-2.5">
-                      {detailLoadingId === o.id && <p className="text-ink-4">Loading line items…</p>}
+                      {detailLoadingId === o.id && <p className="text-ink-4">{t('loadingLines')}</p>}
                       {detailLoadingId !== o.id && lineItemsById[o.id] && (
                         pendingLineItems(lineItemsById[o.id]).length === 0 ? (
-                          <p className="text-ink-4">No pending line items found.</p>
+                          <p className="text-ink-4">{t('noPending')}</p>
                         ) : (
                           <table className="w-full text-2xs">
                             <thead>
                               <tr className="text-ink-4">
-                                <th className="text-left font-medium pb-1">Item</th>
-                                <th className="text-left font-medium pb-1">SKU</th>
-                                <th className="text-right font-medium pb-1">Qty short</th>
+                                <th className="text-left font-medium pb-1">{t('colItem')}</th>
+                                <th className="text-left font-medium pb-1">{t('colSku')}</th>
+                                <th className="text-right font-medium pb-1">{t('colShort')}</th>
                               </tr>
                             </thead>
                             <tbody>

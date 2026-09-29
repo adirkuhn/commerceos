@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import type { Collection, CollectionInput, CollectionRule, CollectionRuleField } from './types'
 
 /** "Summer Sale 2026!" -> "summer-sale-2026" (the storefront URL). */
@@ -37,14 +38,16 @@ export function withType(input: CollectionInput, type: CollectionInput['type']):
 
 /** What's wrong before sending, in the merchant's words ('' when fine). */
 export function validationMessage(input: CollectionInput): string {
-  if (!input.name.trim()) return 'Give the collection a name.'
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.slug)) return 'The URL can only use lowercase letters, numbers and dashes.'
+  const t = i18next.t
+  if (!input.name.trim()) return t('collections:validation.name')
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.slug)) return t('collections:validation.slug')
   if (input.type === 'smart') {
-    if (!input.rules?.length) return 'Add at least one condition.'
+    if (!input.rules?.length) return t('collections:validation.noConditions')
     for (const r of input.rules) {
-      if ((r.field === 'category' || r.field === 'tag') && !r.value?.trim()) return `Choose a ${r.field} for every ${r.field} condition.`
-      if (r.field === 'price' && r.min_minor_units == null && r.max_minor_units == null) return 'Give every price condition a minimum or maximum.'
-      if (r.field === 'price' && r.min_minor_units != null && r.max_minor_units != null && r.min_minor_units > r.max_minor_units) return 'A price minimum can\'t be above its maximum.'
+      if (r.field === 'category' && !r.value?.trim()) return t('collections:validation.chooseCategory')
+      if (r.field === 'tag' && !r.value?.trim()) return t('collections:validation.chooseTag')
+      if (r.field === 'price' && r.min_minor_units == null && r.max_minor_units == null) return t('collections:validation.priceBounds')
+      if (r.field === 'price' && r.min_minor_units != null && r.max_minor_units != null && r.min_minor_units > r.max_minor_units) return t('collections:validation.priceOrder')
     }
   }
   return ''

@@ -1,0 +1,37 @@
+{
+  "app": {
+    "pageNotFound": "Página não encontrada",
+    "pageNotFoundHint": "Esta página não existe."
+  },
+  "errors": {
+    "load": "Não foi possível carregar",
+    "unknown": "Erro desconhecido"
+  },
+  "monthShort": {
+    "apr": "Abr",
+    "aug": "Ago",
+    "dec": "Dez",
+    "feb": "Fev",
+    "jan": "Jan",
+    "jul": "Jul",
+    "jun": "Jun",
+    "mar": "Mar",
+    "may": "Mai",
+    "nov": "Nov",
+    "oct": "Out",
+    "sep": "Set"
+  },
+  "pagination": {
+    "pageOf": "Página {{page}} de {{total}}"
+  },
+  "record": {
+    "backToList": "Voltar para a lista",
+    "notFound": "{{label}} não encontrado",
+    "notFoundHint": "Pode ter sido excluído, ou o link está desatualizado."
+  },
+  "skuPicker": {
+    "noProducts": "Nenhum produto encontrado",
+    "noSkus": "Nenhum SKU neste produto",
+    "searchPlaceholder": "Buscar produtos pelo nome…"
+  }
+}

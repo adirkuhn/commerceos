@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useProductDetail } from './hooks/useProductDetail'
 import type { VariantWithSKUs, Media } from './types'
@@ -24,6 +25,7 @@ interface VariantRowProps {
 export function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
+  const { t } = useTranslation('pms')
   // Same "resolve tax class -> country rate" lookup as the product editor's
   // price preview, but scoped to this row's own SKU.tax_class_id.
   const { tenantSettings, rateFor } = useSkuTaxContext()
@@ -56,12 +58,12 @@ export function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
       })
       setPickerOpen(false)
     } catch (err) {
-      setImageError(err instanceof Error ? err.message : 'Failed to update image')
+      setImageError(err instanceof Error ? err.message : t('variant.imageFailed'))
     }
   }
 
   const removeVariant = async () => {
-    if (await confirm({ title: `Remove variant "${variant.name}"?`, message: 'Its SKU and stock records are removed too.', confirmLabel: 'Remove variant', destructive: true })) {
+    if (await confirm({ title: t('variant.removeTitle', { name: variant.name }), message: t('variant.removeMessage'), confirmLabel: t('variant.removeVariant'), destructive: true })) {
       detail.removeVariant(variant.id)
     }
   }
@@ -91,7 +93,7 @@ export function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           token={token ?? ''} sku={sku} barcode={barcode} updateSKU={detail.updateSKU}
           onPortionsCreated={() => detail.refresh()}
           onRemove={async () => {
-            if (await confirm({ title: `Remove SKU "${sku.sku_code}"?`, message: 'Its stock records are removed too.', confirmLabel: 'Remove SKU', destructive: true })) {
+            if (await confirm({ title: t('variant.removeSkuTitle', { code: sku.sku_code }), message: t('variant.removeSkuMessage'), confirmLabel: t('variant.removeSku'), destructive: true })) {
               detail.removeSKU(sku.id)
             }
           }}
@@ -102,7 +104,7 @@ export function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
 
       {!sku && !addSku.open && (
         <button type="button" onClick={() => addSku.setOpen(true)} className="text-2xs text-accent hover:text-accent/80 transition-colors mt-2">
-          + Add SKU
+          {t('variant.addSku')}
         </button>
       )}
 

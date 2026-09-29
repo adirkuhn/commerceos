@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState } from 'react'
 import * as api from '../api'
 
@@ -20,9 +21,9 @@ export function useTestConnection(token: string, onTested: () => void) {
     setTestResult(null)
     try {
       await api.testConnection(token, id)
-      setTestResult({ id, ok: true, message: 'Connection OK' })
+      setTestResult({ id, ok: true, message: i18next.t('integrations:test.ok') })
     } catch (err) {
-      setTestResult({ id, ok: false, message: err instanceof Error ? err.message : 'Test failed' })
+      setTestResult({ id, ok: false, message: err instanceof Error ? err.message : i18next.t('integrations:test.failed') })
     } finally {
       setTestingId(null)
       onTested()

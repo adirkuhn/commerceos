@@ -1,0 +1,41 @@
+{
+  "backToChannels": "Terug naar verkoopkanalen",
+  "create": "Thema aanmaken",
+  "creating": "Aanmaken…",
+  "customize": "Aanpassen",
+  "delete": {
+    "confirm": "Thema verwijderen",
+    "message": "Het ontwerp en alle opgeslagen versies worden verwijderd. Dit kan niet ongedaan worden gemaakt.",
+    "title": "Thema \"{{name}}\" verwijderen?"
+  },
+  "draftOnly": "Alleen concept",
+  "empty": "Nog geen thema’s. Maak er een aan om deze winkel te ontwerpen.",
+  "errors": {
+    "create": "Thema aanmaken mislukt",
+    "delete": "Thema verwijderen mislukt",
+    "load": "Thema’s laden mislukt",
+    "makeLive": "Versie live zetten mislukt",
+    "openEditor": "De editor kon niet worden geopend"
+  },
+  "headlessWarning": "Dit kanaal is headless. Zet de instelling Webwinkel op \"Gehoste webwinkel\" om een thema te ontwerpen en te publiceren.",
+  "history": {
+    "confirmMessage": "Klanten zien het meteen. Niet-gepubliceerde wijzigingen in de editor blijven bewaard.",
+    "confirmTitle": "Versie {{number}} van \"{{name}}\" live zetten?",
+    "listLabel": "Versies van {{name}}",
+    "loading": "Versies laden…",
+    "makeLive": "Live zetten",
+    "notPublished": "Nog niet gepubliceerd.",
+    "published": "Gepubliceerd op {{date}}",
+    "version": "Versie {{number}}"
+  },
+  "listLabel": "Thema’s",
+  "live": "Live",
+  "liveCannotDelete": "Het live thema kan niet worden verwijderd",
+  "loading": "Thema’s laden…",
+  "newThemeName": "Naam van nieuw thema",
+  "notLive": "Niet live",
+  "title": "Thema’s · {{channel}}",
+  "updated": "Bijgewerkt op {{date}}",
+  "versions": "Versies",
+  "viewStore": "Winkel bekijken"
+}

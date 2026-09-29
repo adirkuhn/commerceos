@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { ReceivingParsingJob, ReceivingRecord } from '../types'
 import * as api from '../api'
@@ -31,7 +32,7 @@ export function useReceivingRecords(token: string, purchaseOrderId: string | nul
       const data = await api.listReceivingRecords(token, purchaseOrderId)
       setRecords(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('procurement:errors.unknown'))
     } finally {
       setLoading(false)
     }
@@ -40,7 +41,7 @@ export function useReceivingRecords(token: string, purchaseOrderId: string | nul
   useEffect(() => { load() }, [load])
 
   const upload = useCallback(async (file: File) => {
-    if (!purchaseOrderId) throw new Error('Cannot upload an invoice before the purchase order has been saved')
+    if (!purchaseOrderId) throw new Error(i18next.t('procurement:errors.uploadBeforeSave'))
     return api.uploadInvoice(token, purchaseOrderId, file)
   }, [token, purchaseOrderId])
 

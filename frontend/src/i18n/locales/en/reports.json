@@ -1,0 +1,186 @@
+{
+  "category": {
+    "card": "Revenue by category",
+    "empty": "No category sales in this period",
+    "title": "Category Performance"
+  },
+  "cohorts": {
+    "cell_one": "{{count}} customer, {{revenue}}",
+    "cell_other": "{{count}} customers, {{revenue}}",
+    "cohort": "Cohort",
+    "desc": "Cohorts by month of each customer's first-ever order in this period, retention by month since acquisition",
+    "empty": "No new customers acquired in this period",
+    "month": "Month {{number}}",
+    "size": "Size",
+    "title": "Customer Cohorts"
+  },
+  "col": {
+    "category": "Category",
+    "orders": "Orders",
+    "product": "Product",
+    "revenue": "Revenue",
+    "sku": "SKU",
+    "sold": "Sold",
+    "stockOnHand": "Stock on hand",
+    "turnover": "Turnover",
+    "units": "Units"
+  },
+  "customerPerformance": {
+    "card": "Top customers by revenue",
+    "desc": "Selected period — guest orders excluded",
+    "empty": "No customer orders in this period",
+    "ordersAov_one": "{{count}} order · {{aov}} AOV",
+    "ordersAov_other": "{{count}} orders · {{aov}} AOV",
+    "title": "Customer Performance",
+    "unnamed": "Unnamed customer"
+  },
+  "fbt": {
+    "clear": "Clear selection",
+    "desc": "SKU sets that co-occurred most often in orders this period — support is the number of qualifying orders containing every item in the set",
+    "empty": "No frequently co-occurring SKU sets in this period",
+    "items": "Items",
+    "loadingRecs": "Loading recommendations…",
+    "loadingSkus": "Loading SKUs…",
+    "noRecs": "No frequent co-purchases found for this product in the selected period",
+    "percentOrders": "% of Orders",
+    "pickVariant": "This product has multiple variants — pick one:",
+    "recDesc": "Search a product to see what's frequently bought with it",
+    "recTitle": "Product recommendations",
+    "search": "Search products…",
+    "searching": "Searching…",
+    "support": "Support",
+    "supportValue": "support {{value}}",
+    "title": "Frequently Bought Together",
+    "unknownError": "Unknown error"
+  },
+  "inventorySales": {
+    "desc": "Stock on hand vs. units sold in the selected period, sorted by turnover",
+    "empty": "No stocked or sold SKUs in this period",
+    "title": "Inventory + Sales"
+  },
+  "lifecycle": {
+    "declining": "Declining",
+    "decliningHint": "Sold less than the previous period",
+    "desc": "Compared against the immediately preceding period of equal length",
+    "dormant": "Dormant",
+    "dormantHint": "Sold last period, nothing now",
+    "empty": "No sales in this or the previous period",
+    "growing": "Growing",
+    "growingHint": "Sold more than the previous period",
+    "new": "New",
+    "newHint": "Sold now, not in the previous period",
+    "sold_one": "{{count}} sold",
+    "sold_other": "{{count}} sold",
+    "stable": "Stable",
+    "stableHint": "Sold about the same as the previous period",
+    "title": "Product Lifecycle"
+  },
+  "matrix": {
+    "empty": "No SKUs with a known margin in this period",
+    "hiddenGems": "Hidden Gems",
+    "hiddenGemsHint": "Low revenue, high margin — promote",
+    "problems": "Problems",
+    "problemsHint": "Low revenue, low margin — consider discontinuing",
+    "split": "Split around this period's own median revenue ({{revenue}}) and median margin ({{margin}})",
+    "stars": "Stars",
+    "starsHint": "High revenue, low margin — optimize pricing",
+    "title": "Product Performance Matrix",
+    "winners": "Winners",
+    "winnersHint": "High revenue, high margin — push harder"
+  },
+  "na": "n/a",
+  "none": "None",
+  "overview": {
+    "aov": "Avg order value",
+    "byChannel": "Revenue by channel",
+    "channel": "Channel",
+    "cogs": "COGS",
+    "dailyPerChannel": "Daily revenue per sales channel",
+    "hide": "Hide {{channel}}",
+    "margin": "Margin",
+    "noCostRevenue": "No cost-known revenue in this period",
+    "noRevenue": "No revenue in this period",
+    "profit": "Profit",
+    "profitability": "Profitability",
+    "profitabilityDesc": "Profit/margin cover only the revenue with a known SKU cost price",
+    "revenue": "Revenue",
+    "selectChannel": "Select at least one channel to show",
+    "show": "Show {{channel}}",
+    "title": "Overview",
+    "total": "Total",
+    "totalAll": "Total, all channels:",
+    "totalOrders": "Total orders",
+    "totalPerChannel": "Total revenue per sales channel",
+    "totalRevenue": "Total revenue",
+    "unitsSold": "Units sold",
+    "withKnownCost": "{{amount}} with known cost"
+  },
+  "productPerformance": {
+    "card": "Top products by revenue",
+    "empty": "No sales in this period",
+    "marginNa": "margin n/a",
+    "title": "Product Performance"
+  },
+  "rfm": {
+    "atRisk": "At Risk",
+    "atRiskHint": "Used to order often, hasn’t recently",
+    "champions": "Champions",
+    "championsHint": "Recent, frequent, highest spend",
+    "desc": "Recency/Frequency/Monetary quintiles, relative to this period's own customers — guest orders excluded",
+    "empty": "No customer orders in this period",
+    "lost": "Lost",
+    "lostHint": "Neither recent nor frequent",
+    "loyal": "Loyal Customers",
+    "loyalHint": "Frequent and recent",
+    "needsAttention": "Needs attention",
+    "needsAttentionHint": "Mid-range on every axis",
+    "potential": "Potential Loyalists",
+    "potentialHint": "Recent, not yet frequent",
+    "title": "Customer Segments (RFM)"
+  },
+  "salesTrends": {
+    "empty": "No sales in this period",
+    "granularity": {
+      "day": "Day",
+      "month": "Month",
+      "week": "Week"
+    },
+    "title": "Sales Trends & Seasonality",
+    "trend": "Sales trend",
+    "trendDesc": "Revenue over the selected period",
+    "weekday": "Seasonality by weekday",
+    "weekdayDesc": "Revenue summed across every occurrence of each weekday",
+    "weekdayEmpty": "No sales to break down by weekday in this period",
+    "weekdays": {
+      "fri": "Fri",
+      "mon": "Mon",
+      "sat": "Sat",
+      "sun": "Sun",
+      "thu": "Thu",
+      "tue": "Tue",
+      "wed": "Wed"
+    }
+  },
+  "selectedPeriod": "Selected period",
+  "shared": {
+    "custom": "Custom",
+    "daily": "Daily",
+    "noPrev": "— vs prev period",
+    "summary": "Summary",
+    "vsPrev": "vs prev period"
+  },
+  "slowMoving": {
+    "desc": "In stock with zero units sold in the selected period",
+    "empty": "No slow-moving products in this period",
+    "title": "Slow-Moving Products"
+  },
+  "stockout": {
+    "daysLeft": "Days left",
+    "desc": "SKUs projected to run out before a reorder placed today (14-day lead time) could arrive, ranked soonest-first",
+    "empty": "No SKUs at risk of stocking out",
+    "reorder": "Suggested reorder",
+    "stock": "Stock",
+    "title": "Stockout Risk"
+  },
+  "unnamedCustomer": "Unnamed customer"
+}

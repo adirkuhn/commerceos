@@ -1,21 +1,30 @@
+import i18next from 'i18next'
 import type { EnrollmentMode, ChannelType } from '../types'
 
-export const ENROLLMENT_LABELS: Record<EnrollmentMode, string> = {
-  all: 'All products',
-  category: 'By category',
-  tag: 'By tag',
-  manual: 'Manual only',
+export const ENROLLMENT_MODES: EnrollmentMode[] = ['all', 'category', 'tag', 'manual']
+
+export function enrollmentLabel(mode: EnrollmentMode): string {
+  switch (mode) {
+    case 'all': return i18next.t('channels:enrollment.all')
+    case 'category': return i18next.t('channels:enrollment.category')
+    case 'tag': return i18next.t('channels:enrollment.tag')
+    case 'manual': return i18next.t('channels:enrollment.manual')
+  }
 }
 
 export function capitalize(s: string): string {
   return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1)
 }
 
-export const TYPE_LABELS: Record<ChannelType, string> = {
-  woocommerce: 'WooCommerce',
-  bol: 'Bol.com',
-  whatsapp: 'WhatsApp',
-  internal: 'Internal store',
+export const CHANNEL_TYPES: ChannelType[] = ['woocommerce', 'bol', 'whatsapp', 'internal']
+
+export function typeLabel(type: ChannelType): string {
+  switch (type) {
+    case 'woocommerce': return 'WooCommerce'
+    case 'bol': return 'Bol.com'
+    case 'whatsapp': return 'WhatsApp'
+    case 'internal': return i18next.t('channels:type.internal')
+  }
 }
 
 // A built-in storefront has nothing external to connect to (see backend
@@ -32,37 +41,40 @@ export const INTERNAL_TYPE: ChannelType = 'internal'
 // old Puck-editor-only routes -- irrelevant to a headless integration,
 // see the "remove Freeform" commit). Keep in sync with openapi.yaml by
 // hand if a storefront route is added/changed/removed.
-export const HEADLESS_API_ENDPOINTS: { method: string; path: string; summary: string }[] = [
-  { method: 'GET', path: '/products', summary: "List the calling channel's enrolled catalog" },
-  { method: 'GET', path: '/products/{id}', summary: "Fetch one enrolled product's full variant/SKU/image detail" },
-  { method: 'GET', path: '/products/{id}/recommendations', summary: 'Products historically bought alongside this one' },
-  { method: 'GET', path: '/products/{id}/reviews', summary: "List a product's reviews, with a rating summary" },
-  { method: 'POST', path: '/products/{id}/reviews', summary: 'Submit a review for a product' },
-  { method: 'GET', path: '/categories', summary: "The tenant's whole category tree, flat with parent_id" },
-  { method: 'POST', path: '/recommendations/cart', summary: "Cross-sell candidates for the shopper's whole cart" },
-  { method: 'POST', path: '/carts', summary: "Start a new guest cart on the calling key's sales channel" },
-  { method: 'GET', path: '/carts/{token}', summary: "Fetch a cart's current line items and subtotal" },
-  { method: 'PUT', path: '/carts/{token}/items', summary: "Replace a cart's whole line set" },
-  { method: 'PUT', path: '/carts/{token}/coupon', summary: 'Attach a coupon code to the cart, or remove it' },
-  { method: 'POST', path: '/carts/{token}/shipping-options', summary: 'Priced delivery options for a shipping address' },
-  { method: 'POST', path: '/carts/{token}/payment-intent', summary: "Start an embedded Stripe Elements card payment for this cart's total" },
-  { method: 'POST', path: '/carts/{token}/checkout', summary: "Place an order for a cart's current contents" },
-  { method: 'POST', path: '/wishlists', summary: 'Start a new, empty wishlist on the calling channel' },
-  { method: 'GET', path: '/wishlists/{token}', summary: 'Fetch a wishlist by its token' },
-  { method: 'PUT', path: '/wishlists/{token}/items', summary: 'Add product_id to the wishlist, or remove it' },
-  { method: 'POST', path: '/auth/magic-link', summary: 'Email a one-time sign-in link to the given address' },
-  { method: 'POST', path: '/auth/session', summary: 'Exchange a magic-link token for a signed-in session' },
-  { method: 'GET', path: '/account/{token}', summary: "Fetch the signed-in shopper's profile" },
-  { method: 'DELETE', path: '/account/{token}', summary: 'End the session' },
-  { method: 'GET', path: '/account/{token}/orders', summary: "The signed-in shopper's order history" },
-  { method: 'GET', path: '/orders/lookup', summary: 'Guest order-status lookup by order number + billing email' },
-]
+export function headlessApiEndpoints(): { method: string; path: string; summary: string }[] {
+  const t = i18next.t
+  return [
+    { method: 'GET', path: '/products', summary: t('channels:api.products') },
+    { method: 'GET', path: '/products/{id}', summary: t('channels:api.product') },
+    { method: 'GET', path: '/products/{id}/recommendations', summary: t('channels:api.recommendations') },
+    { method: 'GET', path: '/products/{id}/reviews', summary: t('channels:api.reviews') },
+    { method: 'POST', path: '/products/{id}/reviews', summary: t('channels:api.submitReview') },
+    { method: 'GET', path: '/categories', summary: t('channels:api.categories') },
+    { method: 'POST', path: '/recommendations/cart', summary: t('channels:api.cartRecommendations') },
+    { method: 'POST', path: '/carts', summary: t('channels:api.createCart') },
+    { method: 'GET', path: '/carts/{token}', summary: t('channels:api.getCart') },
+    { method: 'PUT', path: '/carts/{token}/items', summary: t('channels:api.cartItems') },
+    { method: 'PUT', path: '/carts/{token}/coupon', summary: t('channels:api.cartCoupon') },
+    { method: 'POST', path: '/carts/{token}/shipping-options', summary: t('channels:api.shippingOptions') },
+    { method: 'POST', path: '/carts/{token}/payment-intent', summary: t('channels:api.paymentIntent') },
+    { method: 'POST', path: '/carts/{token}/checkout', summary: t('channels:api.checkout') },
+    { method: 'POST', path: '/wishlists', summary: t('channels:api.createWishlist') },
+    { method: 'GET', path: '/wishlists/{token}', summary: t('channels:api.getWishlist') },
+    { method: 'PUT', path: '/wishlists/{token}/items', summary: t('channels:api.wishlistItems') },
+    { method: 'POST', path: '/auth/magic-link', summary: t('channels:api.magicLink') },
+    { method: 'POST', path: '/auth/session', summary: t('channels:api.session') },
+    { method: 'GET', path: '/account/{token}', summary: t('channels:api.account') },
+    { method: 'DELETE', path: '/account/{token}', summary: t('channels:api.signOut') },
+    { method: 'GET', path: '/account/{token}/orders', summary: t('channels:api.accountOrders') },
+    { method: 'GET', path: '/orders/lookup', summary: t('channels:api.orderLookup') },
+  ]
+}
 
 export function apiBaseURL(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/storefront/v1`
 }
 
-export const CONNECTION_REQUIRED_TYPES: ChannelType[] = (Object.keys(TYPE_LABELS) as ChannelType[]).filter(t => t !== INTERNAL_TYPE)
+export const CONNECTION_REQUIRED_TYPES: ChannelType[] = CHANNEL_TYPES.filter(t => t !== INTERNAL_TYPE)
 
 export const PAYMENT_CAPABLE_TYPES: ChannelType[] = ['whatsapp', INTERNAL_TYPE]
 

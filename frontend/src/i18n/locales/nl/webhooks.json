@@ -1,0 +1,63 @@
+{
+  "any": "alle",
+  "connection": "Koppeling",
+  "deliveryUrl": "Afleverings-URL",
+  "fanout": {
+    "add": "Regel toevoegen",
+    "addFailed": "Regel toevoegen mislukt",
+    "adding": "Toevoegen…",
+    "anyTopic": "Elk topic (alles matchen)",
+    "attempts": "Pogingen",
+    "empty": "Nog geen doorstuurregels ingesteld.",
+    "groupActive": "actief",
+    "groupAll": "alle events",
+    "intro": "Stuur een ontvangen webhook door naar andere systemen — elk event dat overeenkomt met provider/topic wordt ook naar de doel-URL gePOST (exact de originele payload, byte voor byte). Laat topic leeg om elk event van die provider te matchen.",
+    "providerTopic": "Provider / topic",
+    "recent": "Recente leveringen",
+    "removeFailed": "Regel verwijderen mislukt",
+    "title": "Webhooks doorsturen"
+  },
+  "messages": {
+    "all": "Alle berichten",
+    "anySender": "Elke afzender",
+    "collapse": "Inklappen",
+    "empty": "Nog geen berichten ontvangen.",
+    "emptyAttention": "Niets vraagt aandacht.",
+    "intro": "Elke webhook die dit account echt heeft ontvangen, nieuwste eerst.",
+    "needsAttention": "Vraagt aandacht",
+    "payload": "Payload",
+    "receivedAt": "Ontvangen op",
+    "retry": "Opnieuw proberen",
+    "retryAll_one": "Alles opnieuw proberen ({{count}})",
+    "retryAll_other": "Alles opnieuw proberen ({{count}})",
+    "retryAllFailed": "Een of meer berichten opnieuw proberen mislukt",
+    "retryFailed": "Opnieuw proberen mislukt",
+    "retrying": "Opnieuw proberen…",
+    "sender": "Afzender",
+    "status": {
+      "failed": "Mislukt",
+      "processed": "Verwerkt",
+      "received": "Ontvangen"
+    },
+    "title": "Ontvangen berichten",
+    "viewPayload": "Volledige payload bekijken"
+  },
+  "noPermission": "Je hebt geen recht om webhooks te beheren.",
+  "provider": "Provider",
+  "subscriptions": {
+    "empty": "Nog niets geregistreerd bij een koppeling.",
+    "intro": "Elk webhookabonnement dat echt bij WooCommerce/MyParcel is geregistreerd, over alle koppelingen van dit account — niet per se gericht op CommerceOS zelf.",
+    "noneForUs": "Geen van deze is voor CommerceOS geregistreerd — ze wijzen allemaal naar andere systemen. Klik hierboven op \"Een webhook registreren\" om de instellingen van een koppeling te openen en CommerceOS ook te abonneren.",
+    "register": "Een webhook registreren",
+    "removeFailed": "Abonnement verwijderen mislukt",
+    "title": "Actieve providerabonnementen"
+  },
+  "tabs": {
+    "fanout": "Doorsturen",
+    "messages": "Berichten",
+    "subscriptions": "Abonnementen"
+  },
+  "targetUrl": "Doel-URL",
+  "title": "Webhooks",
+  "topic": "Topic"
+}

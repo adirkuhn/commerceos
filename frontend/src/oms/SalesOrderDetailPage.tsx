@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Trash2, Printer, Edit3 } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useSalesOrderDetail } from './hooks/useSalesOrderDetail'
 import { useSalesOrderActivities } from './hooks/useSalesOrderActivities'
@@ -18,6 +19,7 @@ import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import type { RecipientAddress, Shipment } from '../shipping/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_OPTIONS, addressesEqual, customerName } from './salesOrderDisplay'
+import { salesOrderStatusLabel } from './statusLabel'
 import { ShipmentTrackingSection } from './ShipmentTrackingSection'
 import { SoldExpiryNote } from './SoldExpiryNote'
 import { useDateFormat } from '../format/DateFormatProvider'
@@ -27,6 +29,7 @@ import { formatMoney } from '../format/money'
 
 export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string; onClose: () => void }) {
   const { formatDateTime } = useDateFormat()
+  const { t } = useTranslation(['orders', 'common'])
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { detail, loading, error, update, remove } = useSalesOrderDetail(token ?? '', salesOrderId)
@@ -50,7 +53,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
       await update({ customer_note: noteDraft })
       setEditingNote(false)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to save note')
+      setActionError(err instanceof Error ? err.message : t('detail.failedSaveNote'))
     } finally {
       setSavingNote(false)
     }
@@ -129,7 +132,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
     try {
       setLabelTab(await openShipmentLabel(token, shipmentId, labelSize))
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to load label')
+      setActionError(err instanceof Error ? err.message : t('detail.failedLoadLabel'))
     }
   }
 
@@ -158,7 +161,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
     try {
       setLabelTab(await loadShipmentLabelIntoTab(tab, token, shipment.id, labelSize))
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to load label')
+      setActionError(err instanceof Error ? err.message : t('detail.failedLoadLabel'))
     }
     refreshActivities()
     loadShipments()
@@ -178,7 +181,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
     try {
       await update({ status })
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to update status')
+      setActionError(err instanceof Error ? err.message : t('detail.failedUpdateStatus'))
     } finally {
       setSavingStatus(false)
     }
@@ -186,14 +189,14 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
 
   async function handleDelete() {
     if (!detail) return
-    if (!(await confirm({ title: `Delete sales order #${detail.sales_order.number || detail.sales_order.external_order_id}?`, message: 'This cannot be undone.', confirmLabel: 'Delete order', destructive: true }))) return
+    if (!(await confirm({ title: t('detail.deleteTitle', { number: detail.sales_order.number || detail.sales_order.external_order_id }), message: t('detail.deleteMessage'), confirmLabel: t('detail.deleteConfirm'), destructive: true }))) return
     setDeleting(true)
     setActionError('')
     try {
       await remove()
       onClose()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to delete')
+      setActionError(err instanceof Error ? err.message : t('detail.failedDelete'))
       setDeleting(false)
     }
   }
@@ -206,15 +209,15 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Sales Order
+            <ArrowLeft size={11} /> {t('detail.back')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight flex items-center gap-2">
-            {detail ? `#${detail.sales_order.number || detail.sales_order.external_order_id}` : 'Sales Order'}
+            {detail ? `#${detail.sales_order.number || detail.sales_order.external_order_id}` : t('detail.title')}
             {detail?.sales_order.needs_stock_review && (
-              <span className="px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-500/15 text-warning">Stock issue</span>
+              <span className="px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-500/15 text-warning">{t('detail.stockIssue')}</span>
             )}
             {detail?.sales_order.needs_sku_review && (
-              <span className="px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-500/15 text-warning">Unmatched SKU</span>
+              <span className="px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-500/15 text-warning">{t('detail.unmatchedSku')}</span>
             )}
           </h1>
         </div>
@@ -222,37 +225,37 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPrintMode('picking-list')}
-              title="Print picking list"
+              title={t('detail.printPickingList')}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
             >
-              <Printer size={13} /> Picking list
+              <Printer size={13} /> {t('detail.pickingList')}
             </button>
             <button
               onClick={() => setPrintMode('invoice')}
-              title="Print invoice"
+              title={t('detail.printInvoice')}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
             >
-              <Printer size={13} /> Invoice
+              <Printer size={13} /> {t('detail.invoice')}
             </button>
             {myParcelConnection && !createdShipmentId && (
               <button
                 onClick={handleCreateLabelClick}
-                title="Create a MyParcel shipping label for this order"
+                title={t('detail.createLabelTitle')}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
               >
-                Create label
+                {t('detail.createLabel')}
               </button>
             )}
             {createdShipmentId && (
               <button
                 onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
-                title="Print shipping label"
+                title={t('detail.printLabelTitle')}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
               >
                 {/* auto_print_enabled already opened the print view once on
                     creation -- this button is then for re-printing (paper
                     jam, dismissed dialog, etc), not the first print. */}
-                <Printer size={13} /> {autoPrintEnabled ? 'Retry print' : 'Print label'}
+                <Printer size={13} /> {autoPrintEnabled ? t('detail.retryPrint') : t('detail.printLabel')}
               </button>
             )}
             <select
@@ -264,12 +267,12 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                 'bg-raised text-ink',
               )}
             >
-              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{salesOrderStatusLabel(s)}</option>)}
             </select>
-            <button aria-label="Delete sales order"
+            <button aria-label={t('detail.delete')}
               onClick={handleDelete}
               disabled={deleting}
-              title="Delete sales order"
+              title={t('detail.delete')}
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-line hover:bg-hover disabled:opacity-50 transition-colors"
             >
               <Trash2 size={14} className="text-ink-3" />
@@ -280,7 +283,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto p-6 space-y-5">
-          {loading && <p className="text-xs text-ink-4">Loading…</p>}
+          {loading && <p className="text-xs text-ink-4">{t('common:status.loading')}</p>}
           {(error || actionError) && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error || actionError}</p>}
 
           {detail && (
@@ -288,14 +291,14 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
               {/* Main column */}
               <div className="space-y-5 min-w-0">
                 <div className="rounded-xl border border-line p-4 space-y-3">
-                  <h3 className="text-xs font-semibold text-ink">Line items</h3>
+                  <h3 className="text-xs font-semibold text-ink">{t('detail.lineItems')}</h3>
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-line">
-                        <th className="text-left py-1.5 font-medium text-ink-4">Product</th>
-                        <th className="text-right py-1.5 font-medium text-ink-4">Qty</th>
-                        <th className="text-right py-1.5 font-medium text-ink-4">Price</th>
-                        <th className="text-right py-1.5 font-medium text-ink-4">Total</th>
+                        <th className="text-left py-1.5 font-medium text-ink-4">{t('common:fields.product')}</th>
+                        <th className="text-right py-1.5 font-medium text-ink-4">{t('detail.qty')}</th>
+                        <th className="text-right py-1.5 font-medium text-ink-4">{t('common:fields.price')}</th>
+                        <th className="text-right py-1.5 font-medium text-ink-4">{t('common:fields.total')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line/60">
@@ -311,7 +314,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                             )}
                             <SoldExpiryNote date={li.sold_expiry_date} />
                             {!li.sku_id && (
-                              <p className="text-2xs text-warning">Not linked to a product yet</p>
+                              <p className="text-2xs text-warning">{t('detail.notLinked')}</p>
                             )}
                           </td>
                           <td className="py-1.5 text-right text-ink-2">{li.quantity}</td>
@@ -328,45 +331,45 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
 
                   <div className="pt-2 border-t border-line space-y-1 text-xs">
                     <div className="flex justify-between text-ink-3">
-                      <span>Discount</span>
+                      <span>{t('detail.discount')}</span>
                       <span>{formatMoney(detail.sales_order.discount_total_minor_units, detail.sales_order.currency_code)}</span>
                     </div>
                     <div className="flex justify-between text-ink-3">
-                      <span>Shipping</span>
+                      <span>{t('detail.shipping')}</span>
                       <span>{formatMoney(detail.sales_order.shipping_total_minor_units, detail.sales_order.currency_code)}</span>
                     </div>
                     <div className="flex justify-between text-ink-3">
-                      <span>Tax</span>
+                      <span>{t('detail.tax')}</span>
                       <span>{formatMoney(detail.sales_order.tax_total_minor_units, detail.sales_order.currency_code)}</span>
                     </div>
                     <div className="flex justify-between font-semibold text-ink pt-1">
-                      <span>Total</span>
+                      <span>{t('common:fields.total')}</span>
                       <span>{formatMoney(detail.sales_order.total_minor_units, detail.sales_order.currency_code)}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-line p-4 space-y-1 text-xs">
-                  <h3 className="text-xs font-semibold text-ink mb-2">Payment</h3>
-                  <p className="text-ink-3">Source: <span className="text-ink capitalize">{detail.sales_order.source}</span></p>
+                  <h3 className="text-xs font-semibold text-ink mb-2">{t('detail.payment')}</h3>
+                  <p className="text-ink-3">{t('detail.source')} <span className="text-ink capitalize">{detail.sales_order.source}</span></p>
                   {(detail.sales_order.payment_method_title || detail.sales_order.payment_method) && (
-                    <p className="text-ink-3">Payment: <span className="text-ink">{detail.sales_order.payment_method_title || detail.sales_order.payment_method}</span></p>
+                    <p className="text-ink-3">{t('detail.paymentLabel')} <span className="text-ink">{detail.sales_order.payment_method_title || detail.sales_order.payment_method}</span></p>
                   )}
                   {detail.sales_order.shipping_method_title && (
-                    <p className="text-ink-3">Shipping method: <span className="text-ink">{detail.sales_order.shipping_method_title}</span></p>
+                    <p className="text-ink-3">{t('detail.shippingMethod')} <span className="text-ink">{detail.sales_order.shipping_method_title}</span></p>
                   )}
                 </div>
 
                 {shipments.length > 0 && token && (
                   <div className="rounded-xl border border-line p-4 space-y-3 text-xs">
-                    <p className="font-medium text-ink-2">Shipments</p>
+                    <p className="font-medium text-ink-2">{t('detail.shipments')}</p>
                     {shipments.map(s => <ShipmentTrackingSection key={s.id} token={token} shipment={s} onCancelled={loadShipments} />)}
                   </div>
                 )}
 
                 {activities.length > 0 && (
                   <div className="rounded-xl border border-line p-4 space-y-2 text-xs">
-                    <p className="font-medium text-ink-2">Timeline</p>
+                    <p className="font-medium text-ink-2">{t('detail.timeline')}</p>
                     {activities.map(a => (
                       <div key={a.id} className="flex justify-between gap-3 text-ink-3">
                         <span className="text-ink">{a.summary}</span>
@@ -381,12 +384,12 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
               <div className="space-y-5 min-w-0">
                 <div className="rounded-xl border border-line p-4 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold text-ink">Notes</h3>
+                    <h3 className="text-xs font-semibold text-ink">{t('detail.notes')}</h3>
                     {!editingNote && (
                       <button
                         onClick={startEditingNote}
-                        title="Edit notes"
-                        aria-label="Edit notes"
+                        title={t('detail.editNotes')}
+                        aria-label={t('detail.editNotes')}
                         className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       >
                         <Edit3 size={12} className="text-ink-3" />
@@ -395,7 +398,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                   </div>
                   {editingNote ? (
                     <div className="space-y-2">
-                      <label htmlFor="sales-order-note" className="sr-only">Notes</label>
+                      <label htmlFor="sales-order-note" className="sr-only">{t('detail.notes')}</label>
                       <textarea
                         id="sales-order-note"
                         value={noteDraft}
@@ -409,26 +412,26 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                           disabled={savingNote}
                           className="px-2.5 py-1 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors disabled:opacity-50"
                         >
-                          Save note
+                          {t('detail.saveNote')}
                         </button>
                         <button
                           onClick={() => setEditingNote(false)}
                           disabled={savingNote}
                           className="px-2.5 py-1 rounded-lg border border-line text-xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50"
                         >
-                          Cancel
+                          {t('common:actions.cancel')}
                         </button>
                       </div>
                     </div>
                   ) : detail.sales_order.customer_note ? (
                     <p className="text-ink whitespace-pre-wrap">{detail.sales_order.customer_note}</p>
                   ) : (
-                    <p className="text-ink-4">No notes</p>
+                    <p className="text-ink-4">{t('detail.noNotes')}</p>
                   )}
                 </div>
 
                 <div className="rounded-xl border border-line p-4 space-y-3 text-xs">
-                  <h3 className="text-xs font-semibold text-ink">Customer</h3>
+                  <h3 className="text-xs font-semibold text-ink">{t('detail.customer')}</h3>
                   <p>
                     {detail.sales_order.customer_id ? (
                       <Link to={`/customers/${detail.sales_order.customer_id}`} className="text-accent hover:underline">
@@ -441,20 +444,20 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
 
                   {detail.sales_order.billing?.email && (
                     <div>
-                      <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Contact information</h4>
+                      <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.contactInfo')}</h4>
                       <p className="text-ink">{detail.sales_order.billing.email}</p>
                     </div>
                   )}
 
                   <div>
-                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Shipping address</h4>
+                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.shippingAddress')}</h4>
                     <AddressLines address={detail.sales_order.shipping} />
                   </div>
 
                   <div>
-                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Billing address</h4>
+                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.billingAddress')}</h4>
                     {addressesEqual(detail.sales_order.billing, detail.sales_order.shipping) ? (
-                      <p className="text-ink-4">Same as shipping address</p>
+                      <p className="text-ink-4">{t('detail.sameAsShipping')}</p>
                     ) : (
                       <AddressLines address={detail.sales_order.billing} />
                     )}

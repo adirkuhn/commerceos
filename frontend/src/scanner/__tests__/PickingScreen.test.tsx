@@ -162,12 +162,12 @@ describe('PickingScreen', () => {
 
     await user.click(screen.getByRole('button', { name: 'Finish' }))
     expect(await screen.findByText('Review before finishing')).toBeInTheDocument()
-    expect(screen.getByText("1 line(s) aren't fully picked yet:")).toBeInTheDocument()
+    expect(screen.getByText("1 line isn't fully picked yet:")).toBeInTheDocument()
     expect(api.completePicking).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: 'Confirm & complete' }))
     expect(await screen.findByText('Order picked')).toBeInTheDocument()
-    expect(screen.getByText("1 line(s) weren't fully picked:")).toBeInTheDocument()
+    expect(screen.getByText("1 line wasn't fully picked:")).toBeInTheDocument()
   })
 
   // Regression test for a real bug: an order line for 4x Beans, 3 already

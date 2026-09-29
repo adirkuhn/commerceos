@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import i18next from 'i18next'
 import * as api from './api'
 import { useConnections } from '../integrations/hooks/useConnections'
 import * as shippingApi from '../shipping/api'
@@ -60,7 +61,7 @@ export function usePackingLabel({ token, sessionId, order, finished, reload, onA
         await reload()
       } catch (err) {
         if (isAuthError(err)) return onAuthError()
-        setError(err instanceof Error ? err.message : 'Someone else is packing this order')
+        setError(err instanceof Error ? err.message : i18next.t('scanner:errors.someoneElsePacking'))
         return
       }
     }
@@ -77,7 +78,7 @@ export function usePackingLabel({ token, sessionId, order, finished, reload, onA
     try {
       setLabelTab(await openShipmentLabel(token, shipmentId, labelSize))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load label')
+      setError(err instanceof Error ? err.message : i18next.t('scanner:errors.loadLabel'))
     }
   }
 
@@ -101,7 +102,7 @@ export function usePackingLabel({ token, sessionId, order, finished, reload, onA
     try {
       setLabelTab(await loadShipmentLabelIntoTab(tab, token, shipment.id, labelSize))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load label')
+      setError(err instanceof Error ? err.message : i18next.t('scanner:errors.loadLabel'))
     }
   }
 

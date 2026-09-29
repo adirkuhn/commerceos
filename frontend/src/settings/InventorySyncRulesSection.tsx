@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from './hooks/useTenantSettings'
 import { toInput } from './tenantSettingsInput'
 
 export function InventorySyncRulesSection() {
   const { token } = useAuth()
+  const { t } = useTranslation(['settings', 'common'])
   const { settings, save } = useTenantSettings(token ?? '')
 
   const [enabled, setEnabled] = useState(false)
@@ -28,7 +30,7 @@ export function InventorySyncRulesSection() {
       await save({ ...toInput(settings), inventory_sync_rules_enabled: enabled, batch_expiry_threshold_days: thresholdDays })
       setSaved(true)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save inventory rules')
+      setSaveError(err instanceof Error ? err.message : t('syncRules.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -36,19 +38,19 @@ export function InventorySyncRulesSection() {
 
   return (
     <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-ink">Sync & expiry rules</h3>
+      <h3 className="text-sm font-semibold text-ink">{t('syncRules.title')}</h3>
       <div className="flex items-center justify-between">
         <div>
-          <span className="text-xs text-ink-2 block">Enable inventory sync rules</span>
+          <span className="text-xs text-ink-2 block">{t('syncRules.enable')}</span>
           <span className="text-2xs text-ink-4">
-            Controls what quantity syncs to channels: no batches → ledger total · batches with no expiry → summed together · batches with an expiry → only the nearest-expiring batch's quantity, so channels sell through the oldest stock first.
+            {t('syncRules.help')}
           </span>
         </div>
         <label className="relative flex items-center shrink-0 cursor-pointer">
           <input
             type="checkbox"
             role="switch"
-            aria-label="Enable inventory sync rules"
+            aria-label={t('syncRules.enable')}
             checked={enabled}
             onChange={e => { setEnabled(e.target.checked); setSaved(false) }}
             className="sr-only peer"
@@ -59,7 +61,7 @@ export function InventorySyncRulesSection() {
       </div>
       <div className="max-w-[220px]">
         <label htmlFor="batch-expiry-threshold-days" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-          Auto-expire batches after (days)
+          {t('syncRules.autoExpire')}
         </label>
         <input
           id="batch-expiry-threshold-days"
@@ -71,13 +73,13 @@ export function InventorySyncRulesSection() {
         />
       </div>
       {saveError && <p className="text-xs text-danger">{saveError}</p>}
-      {saved && <p className="text-xs text-success">Saved.</p>}
+      {saved && <p className="text-xs text-success">{t('savedMessage')}</p>}
       <button
         onClick={handleSave}
         disabled={saving}
         className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
       >
-        {saving ? 'Saving…' : 'Save inventory rules'}
+        {saving ? t('common:actions.saving') : t('syncRules.save')}
       </button>
     </div>
   )

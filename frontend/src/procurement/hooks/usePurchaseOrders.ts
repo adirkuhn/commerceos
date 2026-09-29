@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { PurchaseOrder, CreatePurchaseOrderInput } from '../types'
 import * as api from '../api'
@@ -27,7 +28,7 @@ export function usePurchaseOrders(token: string): UsePurchaseOrdersState & UsePu
       const data = await api.listPurchaseOrders(token)
       setPurchaseOrders(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('procurement:errors.unknown'))
     } finally {
       setLoading(false)
     }

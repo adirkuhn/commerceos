@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { WhatsAppConversationMessage } from '../types'
 import * as api from '../api'
@@ -26,7 +27,7 @@ export function useWhatsAppConversationMessages(token: string, phoneE164: string
       const data = await api.listWhatsAppConversationMessages(token, phoneE164)
       setMessages(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('common:status.error'))
     } finally {
       setLoading(false)
     }

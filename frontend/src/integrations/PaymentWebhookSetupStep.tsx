@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 interface PaymentWebhookSetupStepProps {
   providerLabel: string
   dashboardHint: string
@@ -19,29 +20,30 @@ interface PaymentWebhookSetupStepProps {
 export function PaymentWebhookSetupStep({
   providerLabel, dashboardHint, webhookUrl, secret, onSecretChange, onSubmit, saving, error, saved, onDone,
 }: PaymentWebhookSetupStepProps) {
+  const { t } = useTranslation(['integrations', 'common'])
   return (
     <div className="space-y-3">
       <p className="text-xs text-ink-2">
-        Connected! Register this URL as a webhook endpoint in {dashboardHint}, then paste the signing secret it gives you below.
+        {t('payment.registerWebhook', { dashboard: dashboardHint })}
       </p>
       <p className="text-2xs font-mono break-all bg-fill rounded-lg px-2 py-1.5 text-ink-2">
         {webhookUrl}
       </p>
       {saved ? (
         <>
-          <p className="text-xs text-success bg-green-50 dark:bg-green-500/10 rounded-lg px-2 py-1.5">Webhook secret saved.</p>
+          <p className="text-xs text-success bg-green-50 dark:bg-green-500/10 rounded-lg px-2 py-1.5">{t('payment.secretSaved')}</p>
           <button
             onClick={onDone}
             className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
           >
-            Done
+            {t('done')}
           </button>
         </>
       ) : (
         <form onSubmit={onSubmit} className="space-y-3">
           <div>
             <label htmlFor="payment-webhook-secret" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-              {providerLabel} webhook signing secret
+              {t('payment.signingSecret', { provider: providerLabel })}
             </label>
             <input
               id="payment-webhook-secret"
@@ -62,14 +64,14 @@ export function PaymentWebhookSetupStep({
               onClick={onDone}
               className="py-2 rounded-lg bg-fill text-xs font-medium text-ink-2 transition-colors"
             >
-              Skip for now
+              {t('payment.skip')}
             </button>
             <button
               type="submit"
               disabled={saving}
               className="py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('common:actions.saving') : t('common:actions.save')}
             </button>
           </div>
         </form>

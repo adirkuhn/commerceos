@@ -1,0 +1,50 @@
+{
+  "channelManual": "Handmatig",
+  "channels": {
+    "empty": "Deze maand nog geen verkopen.",
+    "revenue": "Omzet",
+    "sub": "Deze maand",
+    "title": "Verkoop per kanaal"
+  },
+  "errors": {
+    "unknown": "Onbekende fout"
+  },
+  "expiring": {
+    "empty": "Niets verloopt in de komende 30 dagen.",
+    "lot": "{{sku}} · partij {{lot}} · {{warehouse}}",
+    "title": "Verloopt binnenkort",
+    "units_one": "{{count}} stuk",
+    "units_other": "{{count}} stuks",
+    "within": "{{n}} binnen 30 dagen"
+  },
+  "needsAttention": "Aandacht nodig",
+  "stats": {
+    "expired": "Verlopen",
+    "expiredSub": "moeten worden afgevoerd",
+    "expiring": "Verloopt (7d)",
+    "expiringSub": "partijen bijna over datum",
+    "orders": "Totaal orders",
+    "ordersSub": "sinds het begin",
+    "products": "Totaal producten",
+    "productsSub": "over alle kanalen",
+    "revenue": "Geschatte omzet",
+    "revenueSub": "deze maand",
+    "stock": "Totale voorraad",
+    "stockIssues": "Voorraadproblemen",
+    "stockIssuesSub": "orders wachten op voorraadoplossing",
+    "stockSub": "stuks op alle locaties"
+  },
+  "stockFlow": {
+    "inbound": "Inkomend",
+    "outbound": "Uitgaand",
+    "sub": "Inkomend vs. uitgaand",
+    "title": "Voorraadstroom"
+  },
+  "topProducts": {
+    "empty": "Deze maand nog geen producten verkocht.",
+    "revenue": "Omzet",
+    "sold": "Verkocht",
+    "title": "Topproducten"
+  },
+  "vsLastWeek": "{{value}} t.o.v. vorige week"
+}

@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Dialog } from './Dialog'
 
 export interface ConfirmOptions {
@@ -44,6 +45,7 @@ export function useConfirm(): { confirm: (options: ConfirmOptions) => Promise<bo
 }
 
 function ConfirmDialog({ options, onCancel, onConfirm }: { options: ConfirmOptions; onCancel: () => void; onConfirm: () => void }) {
+  const { t } = useTranslation('common')
   return (
     // No default button (focus on the dialog, not an action) so a reflexive
     // Return can't confirm something destructive.
@@ -57,7 +59,7 @@ function ConfirmDialog({ options, onCancel, onConfirm }: { options: ConfirmOptio
             onClick={onCancel}
             className="px-3 py-1.5 rounded-lg text-xs font-medium bg-fill text-ink-2 hover:bg-hover"
           >
-            Cancel
+            {t('actions.cancel')}
           </button>
           <button
             type="button"

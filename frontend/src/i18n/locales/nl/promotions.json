@@ -1,0 +1,74 @@
+{
+  "batch": {
+    "expires": "THT {{date}}",
+    "label": "Uitverkooppartij",
+    "loadFailed": "Partijen laden mislukt",
+    "noExpiry": "geen houdbaarheidsdatum",
+    "noLot": "Geen partij",
+    "option": "{{lot}} · {{expiry}} · nog {{quantity}}",
+    "wholeSku": "Hele SKU (geen partij)"
+  },
+  "edit": {
+    "addSku": "SKU toevoegen",
+    "back": "Promoties",
+    "batchFinished": "Partij op {{date}} afgelopen — weer normale prijs",
+    "bps": "basispunten",
+    "create": "Promotie aanmaken",
+    "discard": "Annuleren",
+    "discountValue": "Kortingswaarde",
+    "duplicateSku": "Die SKU zit al in deze promotie",
+    "edit": "Promotie bewerken",
+    "endsAt": "Eindigt op",
+    "general": "Algemeen",
+    "loadFailed": "Promotie laden mislukt",
+    "minorUnits": "centen",
+    "name": "Naam",
+    "new": "Nieuwe promotie",
+    "noSkus": "Nog geen SKU's toegevoegd.",
+    "remove": "Verwijderen",
+    "resolveFailed": "SKU niet gevonden",
+    "resolving": "Zoeken…",
+    "saveFailed": "Promotie opslaan mislukt",
+    "searchProduct": "Product zoeken",
+    "skuPlaceholder": "SKU-code of barcode",
+    "skus": "SKU's",
+    "startsAt": "Start op",
+    "type": "Type"
+  },
+  "list": {
+    "add": "Promotie toevoegen",
+    "colEnds": "Einde",
+    "colPromotion": "Promotie",
+    "colStarts": "Start",
+    "colStatus": "Status",
+    "colType": "Type",
+    "count_one": "{{count}} promotie",
+    "count_other": "{{count}} promoties",
+    "deleteConfirm": "Promotie verwijderen",
+    "deleteMessage": "Dit kan niet ongedaan worden gemaakt.",
+    "deleteTitle": "Promotie \"{{name}}\" verwijderen?",
+    "empty": "Nog geen promoties",
+    "search": "Zoeken op naam..."
+  },
+  "performance": {
+    "change": "{{change}}% vs ervoor",
+    "intro": "Betrokken SKU's tijdens de actieve periode vs. de direct voorafgaande periode van gelijke lengte",
+    "loadFailed": "Prestaties laden mislukt",
+    "noChange": "— vs ervoor",
+    "revenueBefore": "Omzet (ervoor)",
+    "revenueDuring": "Omzet (tijdens)",
+    "title": "Prestaties",
+    "unitsBefore": "Verkochte eenheden (ervoor)",
+    "unitsDuring": "Verkochte eenheden (tijdens)"
+  },
+  "status": {
+    "active": "Actief",
+    "draft": "Concept",
+    "ended": "Afgelopen",
+    "label": "Status"
+  },
+  "type": {
+    "fixed_amount": "Vast bedrag",
+    "percentage": "Percentage"
+  }
+}

@@ -1,4 +1,5 @@
 import { ArrowLeft } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { SalesOrder } from '../oms/types'
 import type { PickingSessionDetail } from '../scanner/types'
 import { computeMissingItems } from '../scanner/pickingMissingItems'
@@ -16,14 +17,15 @@ interface PickingReviewStepProps {
 // The review step between "Complete" and actually completing: every line
 // not fully picked, plus who/where it ships to.
 export function PickingReviewStep({ order, session, error, completing, onConfirm, onBack }: PickingReviewStepProps) {
+  const { t } = useTranslation('picking')
   const missing = computeMissingItems(session.line_items, session.scans)
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center gap-3 px-6 py-4 border-b border-line shrink-0">
-        <button aria-label="Back to picking" onClick={onBack} className="p-1 -ml-1" title="Back to picking">
+        <button aria-label={t('review.back')} onClick={onBack} className="p-1 -ml-1" title={t('review.back')}>
           <ArrowLeft size={18} className="text-ink-3" />
         </button>
-        <h2 className="text-sm font-semibold text-ink flex-1">Review before completing</h2>
+        <h2 className="text-sm font-semibold text-ink flex-1">{t('review.title')}</h2>
       </div>
       {/* Customer/address stays visible here too, not just during
           active picking -- staff confirming completion should never
@@ -37,20 +39,20 @@ export function PickingReviewStep({ order, session, error, completing, onConfirm
         )}
         {(order.shipping_method_title || order.shipping_method) && (
           <p className="text-xs text-ink-4 mt-0.5">
-            Shipping: {order.shipping_method_title || order.shipping_method}
+            {t('review.shipping', { method: order.shipping_method_title || order.shipping_method })}
           </p>
         )}
       </div>
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
         {missing.length === 0 ? (
-          <p className="text-sm text-ink-3">Every line is fully picked.</p>
+          <p className="text-sm text-ink-3">{t('review.allPicked')}</p>
         ) : (
           <>
-            <p className="text-sm text-warning">{missing.length} line(s) aren't fully picked yet:</p>
+            <p className="text-sm text-warning">{t('review.notFullyPicked', { count: missing.length })}</p>
             {missing.map(m => (
               <div key={m.line_item_id} className="rounded-lg bg-raised border border-line px-3 py-2">
                 <p className="text-sm text-ink">{m.name}</p>
-                <p className="text-xs text-ink-4">expected {m.expected_qty} · picked {m.picked_qty}</p>
+                <p className="text-xs text-ink-4">{t('review.expectedPicked', { expected: m.expected_qty, picked: m.picked_qty })}</p>
               </div>
             ))}
           </>
@@ -62,13 +64,13 @@ export function PickingReviewStep({ order, session, error, completing, onConfirm
           onClick={onConfirm} disabled={completing}
           className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
         >
-          {completing ? 'Completing…' : 'Confirm & complete'}
+          {completing ? t('review.completing') : t('review.confirm')}
         </button>
         <button
           onClick={onBack}
           className="w-full py-2.5 rounded-xl dark:bg-night-800 bg-gray-100 text-ink-2 text-sm font-medium"
         >
-          Back to scanning
+          {t('review.backToScanning')}
         </button>
       </div>
     </div>

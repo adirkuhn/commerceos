@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, Plus, Pencil, Trash2, X, Mail, MessageSquare, Phone } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { TEMPLATES_PATH } from './messageCenterPaths'
@@ -9,19 +10,6 @@ import type { MessageTemplate, MessageChannel, MessageCategory } from './types'
 import { Dialog } from '../components/common/Dialog'
 import { useConfirm } from '../components/common/useConfirm'
 
-const CATEGORY_LABELS: Record<MessageCategory, string> = {
-  purchase: 'Purchase',
-  order_status: 'Order status',
-  stock_info: 'Stock info',
-  tracking: 'Tracking',
-  custom: 'Custom',
-}
-
-const CHANNEL_LABELS: Record<MessageChannel, string> = {
-  email: 'Email',
-  sms: 'SMS',
-  whatsapp: 'WhatsApp',
-}
 
 const CHANNEL_ICONS: Record<MessageChannel, typeof Mail> = {
   email: Mail,
@@ -45,34 +33,40 @@ function emptyForm(): FormState {
   return { name: '', category: 'purchase', channels: [], subject: '', body: '', enabled: true }
 }
 
-function toForm(t: MessageTemplate): FormState {
-  return { name: t.name, category: t.category, channels: t.channels, subject: t.subject, body: t.body, enabled: t.enabled }
+function toForm(tpl: MessageTemplate): FormState {
+  return { name: tpl.name, category: tpl.category, channels: tpl.channels, subject: tpl.subject, body: tpl.body, enabled: tpl.enabled }
 }
 
 export default function MessageTemplatesPanel() {
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
+  const { t } = useTranslation(['messages', 'common'])
+  const CATEGORY_LABELS: Record<MessageCategory, string> = {
+    purchase: t('category.purchase'), order_status: t('category.order_status'), stock_info: t('category.stock_info'),
+    tracking: t('category.tracking'), custom: t('category.custom'),
+  }
+  const CHANNEL_LABELS: Record<MessageChannel, string> = { email: t('channel.email'), sms: t('channel.sms'), whatsapp: t('channel.whatsapp') }
   const { templates, loading, error, create, update, remove } = useMessageTemplates(token ?? '')
 
   const [search, setSearch] = useState('')
   // Editor open state is the URL (/message-center/templates/<new|id>).
   const editor = useRoutedEditor(TEMPLATES_PATH)
   const creating = editor.editingId === NEW_RECORD
-  const editingTemplate = editor.editingId && !creating ? templates.find(t => t.id === editor.editingId) ?? null : null
+  const editingTemplate = editor.editingId && !creating ? templates.find(tpl => tpl.id === editor.editingId) ?? null : null
   const [form, setForm] = useState<FormState>(emptyForm())
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const [actionError, setActionError] = useState('')
 
   const q = search.toLowerCase()
-  const filtered = templates.filter(t => t.name.toLowerCase().includes(q) || t.body.toLowerCase().includes(q))
+  const filtered = templates.filter(tpl => tpl.name.toLowerCase().includes(q) || tpl.body.toLowerCase().includes(q))
 
   const formReady = useInitOnce(editor.editingId, creating || !!editingTemplate, () => {
     setForm(editingTemplate ? toForm(editingTemplate) : emptyForm())
     setFormError('')
   })
   const openCreate = editor.openNew
-  const openEdit = (t: MessageTemplate) => editor.openEdit(t.id)
+  const openEdit = (tpl: MessageTemplate) => editor.openEdit(tpl.id)
   const closeForm = editor.close
 
   function toggleChannel(ch: MessageChannel) {
@@ -94,19 +88,19 @@ export default function MessageTemplatesPanel() {
       }
       closeForm()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Unknown error')
+      setFormError(err instanceof Error ? err.message : t('common:status.error'))
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleDelete(t: MessageTemplate) {
-    if (!(await confirm({ title: `Delete template "${t.name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete template', destructive: true }))) return
+  async function handleDelete(tpl: MessageTemplate) {
+    if (!(await confirm({ title: t('templates.deleteTitle', { name: tpl.name }), message: t('templates.deleteMessage'), confirmLabel: t('templates.deleteConfirm'), destructive: true }))) return
     setActionError('')
     try {
-      await remove(t.id)
+      await remove(tpl.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Unknown error')
+      setActionError(err instanceof Error ? err.message : t('common:status.error'))
     }
   }
 
@@ -118,7 +112,7 @@ export default function MessageTemplatesPanel() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search templates..."
+            placeholder={t('templates.search')}
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
@@ -126,12 +120,12 @@ export default function MessageTemplatesPanel() {
           onClick={openCreate}
           className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover transition-colors"
         >
-          <Plus size={13} /> New template
+          <Plus size={13} /> {t('templates.new')}
         </button>
       </div>
 
       <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{filtered.length} template{filtered.length === 1 ? '' : 's'}</span>
+        <span className="text-xs text-ink-4">{t('templates.count', { count: filtered.length })}</span>
         {(error || actionError) && <span className="text-xs text-danger ml-auto">{error || actionError}</span>}
       </div>
 
@@ -139,52 +133,52 @@ export default function MessageTemplatesPanel() {
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Name</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Category</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Channels</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Body</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colName')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colCategory')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colChannels')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colBody')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colStatus')}</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">No message templates yet</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">{t('templates.empty')}</td></tr>
             )}
-            {filtered.map(t => (
-              <tr key={t.id} className="group hover:bg-hover/60 transition-colors">
-                <td className="px-3 py-2.5 font-medium text-ink">{t.name}</td>
-                <td className="px-3 py-2.5 text-ink-3">{CATEGORY_LABELS[t.category]}</td>
+            {filtered.map(tpl => (
+              <tr key={tpl.id} className="group hover:bg-hover/60 transition-colors">
+                <td className="px-3 py-2.5 font-medium text-ink">{tpl.name}</td>
+                <td className="px-3 py-2.5 text-ink-3">{CATEGORY_LABELS[tpl.category]}</td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1.5">
-                    {t.channels.map(ch => {
+                    {tpl.channels.map(ch => {
                       const Icon = CHANNEL_ICONS[ch]
                       return <span key={ch} title={CHANNEL_LABELS[ch]}><Icon size={12} className="text-ink-3" /></span>
                     })}
                   </div>
                 </td>
-                <td className="px-3 py-2.5 max-w-[320px] truncate text-ink-3">{t.body}</td>
+                <td className="px-3 py-2.5 max-w-[320px] truncate text-ink-3">{tpl.body}</td>
                 <td className="px-3 py-2.5">
-                  <span className={t.enabled ? 'text-success' : 'text-ink-4'}>
-                    {t.enabled ? 'Enabled' : 'Disabled'}
+                  <span className={tpl.enabled ? 'text-success' : 'text-ink-4'}>
+                    {tpl.enabled ? t('common:status.enabled') : t('common:status.disabled')}
                   </span>
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button aria-label="Edit"
-                      onClick={() => openEdit(t)}
+                    <button aria-label={t('common:actions.edit')}
+                      onClick={() => openEdit(tpl)}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Edit"
+                      title={t('common:actions.edit')}
                     >
                       <Pencil size={12} className="text-ink-3" />
                     </button>
-                    <button aria-label="Delete"
-                      onClick={() => handleDelete(t)}
+                    <button aria-label={t('common:actions.delete')}
+                      onClick={() => handleDelete(tpl)}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Delete"
+                      title={t('common:actions.delete')}
                     >
                       <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>
@@ -202,16 +196,16 @@ export default function MessageTemplatesPanel() {
           <div className="relative w-full max-w-md bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-ink">
-                {editingTemplate ? 'Edit message template' : 'New message template'}
+                {editingTemplate ? t('templates.editTitle') : t('templates.newTitle')}
               </h3>
-              <button onClick={closeForm} aria-label="Close">
+              <button onClick={closeForm} aria-label={t('common:actions.close')}>
                 <X size={14} className="text-ink-4" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label htmlFor="template-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Name
+                  {t('templates.name')}
                 </label>
                 <input
                   id="template-name"
@@ -226,7 +220,7 @@ export default function MessageTemplatesPanel() {
 
               <div>
                 <label htmlFor="template-category" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Category
+                  {t('templates.category')}
                 </label>
                 <select
                   id="template-category"
@@ -242,7 +236,7 @@ export default function MessageTemplatesPanel() {
 
               <div>
                 <span className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Channels
+                  {t('templates.channels')}
                 </span>
                 <div className="flex items-center gap-4">
                   {ALL_CHANNELS.map(ch => (
@@ -262,7 +256,7 @@ export default function MessageTemplatesPanel() {
               {form.channels.includes('email') && (
                 <div>
                   <label htmlFor="template-subject" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    Subject (email only)
+                    {t('templates.subject')}
                   </label>
                   <input
                     id="template-subject"
@@ -276,7 +270,7 @@ export default function MessageTemplatesPanel() {
 
               <div>
                 <label htmlFor="template-body" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Body
+                  {t('templates.body')}
                 </label>
                 <textarea
                   id="template-body"
@@ -284,22 +278,22 @@ export default function MessageTemplatesPanel() {
                   rows={4}
                   value={form.body}
                   onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-                  placeholder="Hi {{customer_name}}, your order #{{order_number}} is confirmed."
+                  placeholder={t('templates.bodyPlaceholder', { customer: '{{customer_name}}', order: '{{order_number}}' })}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
                 <p className="text-2xs text-ink-4 mt-1">
-                  Use {'{{token}}'} placeholders -- available tokens depend on which event sends this template.
+                  {t('templates.tokensHint', { token: '{{token}}' })}
                 </p>
               </div>
 
               {editingTemplate && (
                 <div className="flex items-center justify-between">
-                  <span className="text-2xs text-ink-4 uppercase tracking-wider">Enabled</span>
+                  <span className="text-2xs text-ink-4 uppercase tracking-wider">{t('templates.enabled')}</span>
                   <label className="relative flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"
                       role="switch"
-                      aria-label="Enabled"
+                      aria-label={t('templates.enabled')}
                       checked={form.enabled}
                       onChange={e => setForm(f => ({ ...f, enabled: e.target.checked }))}
                       className="sr-only peer"
@@ -319,7 +313,7 @@ export default function MessageTemplatesPanel() {
                 disabled={saving}
                 className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
-                {saving ? 'Saving…' : editingTemplate ? 'Save changes' : 'Create template'}
+                {saving ? t('common:actions.saving') : editingTemplate ? t('common:actions.saveChanges') : t('templates.create')}
               </button>
             </form>
           </div>

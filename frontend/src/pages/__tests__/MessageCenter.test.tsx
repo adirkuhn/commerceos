@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import i18next from 'i18next'
 import { renderAt } from '../../test/renderAt'
 import { act } from 'react'
 import * as messagecenterApi from '../../messagecenter/api'
@@ -99,5 +100,16 @@ describe('MessageCenter URLs (refresh + Back)', () => {
     ] as never)
     renderAt(<MessageCenter />, '/message-center', '/message-center/conversations/31612345678')
     await waitFor(() => expect(whatsappApi.listWhatsAppConversationMessages).toHaveBeenCalledWith('test-token', '31612345678'))
+  })
+})
+
+describe('in Brazilian Portuguese', () => {
+  afterEach(async () => { await i18next.changeLanguage('en') })
+
+  it('shows the Templates panel in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    renderAt(<MessageCenter />, '/message-center')
+
+    expect(await screen.findByPlaceholderText('Buscar modelos...')).toBeInTheDocument()
   })
 })

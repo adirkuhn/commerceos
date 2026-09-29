@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 
 import { Webhook, ShieldAlert } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
@@ -37,6 +38,7 @@ const DEFAULT_TAB: Tab = 'fanout'
 // filterable by sender.
 export default function Webhooks() {
   const { token, user } = useAuth()
+  const { t } = useTranslation(['webhooks', 'common'])
   // Tab is the path (/webhooks/<tab>); the Messages tab's sender filter
   // and view are query params -- refresh and Back keep them.
   const location = useLocation()
@@ -60,7 +62,7 @@ export default function Webhooks() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
         <ShieldAlert size={24} className="text-ink-4 mb-2" />
-        <p className="text-sm text-ink-2">You don't have permission to manage webhooks.</p>
+        <p className="text-sm text-ink-2">{t('noPermission')}</p>
       </div>
     )
   }
@@ -71,7 +73,7 @@ export default function Webhooks() {
         <div className="w-8 h-8 rounded-lg dark:bg-accent/15 bg-accent/10 flex items-center justify-center shrink-0">
           <Webhook size={15} className="text-accent" />
         </div>
-        <h1 className="text-sm font-semibold text-ink">Webhooks</h1>
+        <h1 className="text-sm font-semibold text-ink">{t('title')}</h1>
       </div>
 
       <div className="flex gap-1 border-b border-line">
@@ -81,7 +83,7 @@ export default function Webhooks() {
             tab === 'fanout' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
           }`}
         >
-          Fan-out
+          {t('tabs.fanout')}
         </button>
         <button aria-pressed={tab === 'subscriptions'}
           onClick={() => setTab('subscriptions')}
@@ -89,7 +91,7 @@ export default function Webhooks() {
             tab === 'subscriptions' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
           }`}
         >
-          Subscriptions
+          {t('tabs.subscriptions')}
         </button>
         <button aria-pressed={tab === 'messages'}
           onClick={() => setTab('messages')}
@@ -97,7 +99,7 @@ export default function Webhooks() {
             tab === 'messages' ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
           }`}
         >
-          Messages
+          {t('tabs.messages')}
         </button>
       </div>
 

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
@@ -18,6 +19,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
   onSaved: (connection: Connection) => void
 }) {
   const { token } = useAuth()
+  const { t } = useTranslation(['integrations', 'common'])
   const [baseUrl, setBaseUrl] = useState(connection.store_url)
   const [instanceName, setInstanceName] = useState(connection.whatsapp_instance_name ?? '')
   const [apiKey, setApiKey] = useState('')
@@ -32,7 +34,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
       onSaved(updated)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save')
+      setError(err instanceof Error ? err.message : t('saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -43,8 +45,8 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
       <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-ink">WhatsApp credentials</h3>
-          <button onClick={onClose} aria-label="Close">
+          <h3 className="text-sm font-semibold text-ink">{t('credentials.title')}</h3>
+          <button onClick={onClose} aria-label={t('common:actions.close')}>
             <X size={14} className="text-ink-4" />
           </button>
         </div>
@@ -52,7 +54,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
         <div className="space-y-3 mb-4">
           <div>
             <label htmlFor="wa-base-url" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-              Base URL
+              {t('credentials.baseUrl')}
             </label>
             <input
               id="wa-base-url"
@@ -60,14 +62,14 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
               required
               value={baseUrl}
               onChange={e => setBaseUrl(e.target.value)}
-              placeholder="https://evolution.example.com"
+              placeholder={'https://evolution.example.com'}
               className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
             />
           </div>
 
           <div>
             <label htmlFor="wa-instance-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-              Instance name
+              {t('whatsapp.instanceName')}
             </label>
             <input
               id="wa-instance-name"
@@ -81,7 +83,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
 
           <div>
             <label htmlFor="wa-api-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-              API key
+              {t('whatsapp.apiKey')}
             </label>
             <input
               id="wa-api-key"
@@ -89,11 +91,11 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
               autoFocus
               value={apiKey}
               onChange={e => setApiKey(e.target.value)}
-              placeholder="Leave blank to keep the current key"
+              placeholder={t('credentials.keepKey')}
               className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
             />
             <p className="mt-1.5 text-2xs text-ink-4">
-              Never shown once saved -- leave blank unless you're rotating it.
+              {t('credentials.keyHint')}
             </p>
           </div>
         </div>
@@ -105,7 +107,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
           disabled={saving || baseUrl.trim() === '' || instanceName.trim() === ''}
           className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('common:actions.saving') : t('common:actions.save')}
         </button>
       </div>
     </Dialog>

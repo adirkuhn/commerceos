@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import clsx from 'clsx'
 import { Trash2 } from 'lucide-react'
@@ -25,6 +26,7 @@ export default function WhatsAppConversationsPanel() {
   const { formatDate, formatDateTime } = useDateFormat()
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
+  const { t } = useTranslation(['messages', 'common'])
   const { conversations, loading, error, deleteConversation } = useWhatsAppConversations(token ?? '')
   // Selected thread is the URL (/message-center/conversations/<e164>).
   const location = useLocation()
@@ -42,7 +44,7 @@ export default function WhatsAppConversationsPanel() {
 
   async function handleDelete() {
     if (!selected) return
-    if (!(await confirm({ title: `Delete the conversation with ${conversationLabel(selected)}?`, message: 'This permanently removes its message history and cannot be undone.', confirmLabel: 'Delete conversation', destructive: true }))) {
+    if (!(await confirm({ title: t('whatsapp.deleteTitle', { name: conversationLabel(selected) }), message: t('whatsapp.deleteMessage'), confirmLabel: t('whatsapp.deleteConfirm'), destructive: true }))) {
       return
     }
     setDeleting(true)
@@ -51,7 +53,7 @@ export default function WhatsAppConversationsPanel() {
       await deleteConversation(selected.phone_e164)
       setSelectedPhone(null)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Failed to delete conversation')
+      setDeleteError(err instanceof Error ? err.message : t('whatsapp.deleteFailed'))
     } finally {
       setDeleting(false)
     }
@@ -61,14 +63,14 @@ export default function WhatsAppConversationsPanel() {
     <div className="flex h-full overflow-hidden">
       <div className="w-72 shrink-0 border-r border-line flex flex-col overflow-hidden">
         <div className="px-4 py-3 border-b border-line shrink-0">
-          <h2 className="text-sm font-semibold text-ink">Conversations</h2>
+          <h2 className="text-sm font-semibold text-ink">{t('whatsapp.title')}</h2>
         </div>
         <div className="flex-1 overflow-y-auto">
           {error && <p className="text-xs text-danger p-3">{error}</p>}
           {loading && conversations.length === 0 ? (
-            <p className="text-xs text-ink-4 p-3">Loading…</p>
+            <p className="text-xs text-ink-4 p-3">{t('common:status.loading')}</p>
           ) : conversations.length === 0 ? (
-            <p className="text-xs text-ink-4 p-3">No WhatsApp conversations yet.</p>
+            <p className="text-xs text-ink-4 p-3">{t('whatsapp.empty')}</p>
           ) : (
             conversations.map(conv => (
               <button
@@ -99,7 +101,7 @@ export default function WhatsAppConversationsPanel() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {!selected ? (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-xs text-ink-4">Select a conversation</p>
+            <p className="text-xs text-ink-4">{t('whatsapp.select')}</p>
           </div>
         ) : (
           <>
@@ -113,8 +115,8 @@ export default function WhatsAppConversationsPanel() {
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                title="Delete chat"
-                aria-label="Delete chat"
+                title={t('whatsapp.deleteChat')}
+                aria-label={t('whatsapp.deleteChat')}
                 className="shrink-0 w-7 h-7 flex items-center justify-center rounded hover:bg-hover disabled:opacity-50 transition-colors"
               >
                 <Trash2 size={14} className="text-ink-4 hover:text-danger" />
@@ -123,7 +125,7 @@ export default function WhatsAppConversationsPanel() {
             {deleteError && <p className="text-xs text-danger px-5 pt-2">{deleteError}</p>}
             <div className="flex-1 overflow-y-auto p-5 space-y-2">
               {loadingMessages && messages.length === 0 ? (
-                <p className="text-xs text-ink-4">Loading…</p>
+                <p className="text-xs text-ink-4">{t('common:status.loading')}</p>
               ) : (
                 [...messages].reverse().map(m => (
                   <div key={m.id} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>

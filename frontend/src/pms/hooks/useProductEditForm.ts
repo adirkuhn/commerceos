@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState } from 'react'
 import * as pmsApi from '../api'
 import type { Product, ProductStatus, VariantWithSKUs } from '../types'
@@ -147,7 +148,7 @@ export function useProductEditForm({ token, productId, tenantSettings, onCreate,
       if (!savedProductId) await createProduct()
       else await updateProduct(savedProductId)
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to save product')
+      setFormError(err instanceof Error ? err.message : i18next.t('pms:errors.saveProduct'))
     } finally {
       setSaving(false)
     }
@@ -173,7 +174,7 @@ export function useProductEditForm({ token, productId, tenantSettings, onCreate,
       await onUpdate(savedProductId, { name: fields.name, description: fields.description, category_id: fields.categoryId || null, status: fields.status, has_variants: true, tags: fields.tags })
       setVariantsMode(true)
     } catch (err) {
-      setEnableVariantsError(err instanceof Error ? err.message : 'Failed to enable variants')
+      setEnableVariantsError(err instanceof Error ? err.message : i18next.t('pms:errors.enableVariants'))
     } finally {
       setEnablingVariants(false)
     }

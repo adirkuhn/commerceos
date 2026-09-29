@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import * as api from './api'
 import { CARRIERS, PACKAGE_TYPES } from './types'
@@ -31,10 +32,16 @@ function webhookURL(tenantId: string): string {
 // shows the global default carrier/package-type/label-format + per-carrier
 // override rows -- "configure general configuration and settings global
 // and per carrier" from the design.
+// Brand name, label sizes and an example URL: not translated.
+const PROVIDER_NAME = 'MyParcel'
+const LABEL_SIZES = ['A4', 'A6'] as const
+const TRACKING_TEMPLATE_EXAMPLE = 'https://example.com/track?code={barcode}&postcode={postcode}'
+
 export default function MyParcelSyncSettingsPage({
   connectionId: initialConnectionId, onClose, onConnected, focusWebhooks,
 }: { connectionId?: string; onClose: () => void; onConnected?: () => void; focusWebhooks?: boolean }) {
   const { token, user } = useAuth()
+  const { t } = useTranslation(['shipping', 'common'])
   const [connectionId, setConnectionId] = useState(initialConnectionId ?? '')
   const webhooksSectionRef = useRef<HTMLDivElement>(null)
   const [apiKey, setApiKey] = useState('')
@@ -80,7 +87,7 @@ export default function MyParcelSyncSettingsPage({
       const result = await integrationsApi.setWebhookSecret(token ?? '', connectionId)
       setWebhookSecret(result.webhook_secret)
     } catch (err) {
-      setWebhookSecretError(err instanceof Error ? err.message : 'Failed to generate webhook secret')
+      setWebhookSecretError(err instanceof Error ? err.message : t('myparcel.secretFailed'))
     } finally {
       setGeneratingSecret(false)
     }
@@ -104,7 +111,7 @@ export default function MyParcelSyncSettingsPage({
       setRegisterWebhookDone(true)
       setWebhooksPanelKey(k => k + 1)
     } catch (err) {
-      setRegisterWebhookError(err instanceof Error ? err.message : 'Failed to register webhook with MyParcel')
+      setRegisterWebhookError(err instanceof Error ? err.message : t('myparcel.registerFailed'))
     } finally {
       setRegisteringWebhook(false)
     }
@@ -143,7 +150,7 @@ export default function MyParcelSyncSettingsPage({
         }
         setOverrides(result.carrier_overrides)
       })
-      .catch(err => setSettingsError(err instanceof Error ? err.message : 'Failed to load settings'))
+      .catch(err => setSettingsError(err instanceof Error ? err.message : t('myparcel.loadFailed')))
       .finally(() => setSettingsLoading(false))
   }, [connectionId, token])
 
@@ -175,7 +182,7 @@ export default function MyParcelSyncSettingsPage({
       setConnectionId(conn.connection_id)
       onConnected?.()
     } catch (err) {
-      setConnectError(err instanceof Error ? err.message : 'Failed to connect')
+      setConnectError(err instanceof Error ? err.message : t('myparcel.connectFailed'))
     } finally {
       setConnecting(false)
     }
@@ -198,9 +205,9 @@ export default function MyParcelSyncSettingsPage({
         auto_print_enabled: autoPrintEnabled,
         export_order_to_myparcel: exportOrderToMyParcel,
       })
-      setSavedNote('Saved')
+      setSavedNote(t('myparcel.saved'))
     } catch (err) {
-      setSettingsError(err instanceof Error ? err.message : 'Failed to save settings')
+      setSettingsError(err instanceof Error ? err.message : t('myparcel.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -229,7 +236,7 @@ export default function MyParcelSyncSettingsPage({
         return next
       })
     } catch (err) {
-      setSettingsError(err instanceof Error ? err.message : 'Failed to save carrier override')
+      setSettingsError(err instanceof Error ? err.message : t('myparcel.overrideFailed'))
     }
   }
 
@@ -238,10 +245,10 @@ export default function MyParcelSyncSettingsPage({
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-3 px-5 py-4 border-b border-line">
-        <button onClick={onClose} aria-label="Back" className="p-1.5 rounded-lg hover:bg-hover transition-colors">
+        <button onClick={onClose} aria-label={t('common:actions.back')} className="p-1.5 rounded-lg hover:bg-hover transition-colors">
           <ArrowLeft size={18} className="text-ink-3" />
         </button>
-        <h2 className="text-sm font-semibold text-ink">MyParcel</h2>
+        <h2 className="text-sm font-semibold text-ink">{PROVIDER_NAME}</h2>
       </div>
       {/* The page's own <main> scrolls (App.tsx) -- no overflow/height
           wiring needed here, just flow naturally. */}
@@ -249,10 +256,10 @@ export default function MyParcelSyncSettingsPage({
         {!connectionId ? (
           <form onSubmit={handleConnect} className="space-y-4">
             <p className="text-xs text-ink-4">
-              Paste your MyParcel API key. No redirect step -- MyParcel authenticates via a single API key.
+              {t('myparcel.intro')}
             </p>
             <div>
-              <label htmlFor="myparcel-api-key" className="block text-xs font-medium text-ink-3 mb-1">API key</label>
+              <label htmlFor="myparcel-api-key" className="block text-xs font-medium text-ink-3 mb-1">{t('myparcel.apiKey')}</label>
               <input
                 id="myparcel-api-key"
                 type="password"
@@ -268,69 +275,68 @@ export default function MyParcelSyncSettingsPage({
               disabled={connecting}
               className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
             >
-              {connecting ? 'Connecting…' : 'Connect'}
+              {connecting ? t('myparcel.connecting') : t('myparcel.connect')}
             </button>
           </form>
         ) : (
           <div className="space-y-6">
-            {settingsLoading && <p className="text-xs text-ink-4">Loading settings…</p>}
+            {settingsLoading && <p className="text-xs text-ink-4">{t('myparcel.loadingSettings')}</p>}
             <form onSubmit={handleSaveSettings} className="space-y-4">
-              <h3 className="text-xs font-semibold text-ink-2">Global defaults</h3>
+              <h3 className="text-xs font-semibold text-ink-2">{t('myparcel.globalDefaults')}</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="default-carrier" className="block text-2xs font-medium text-ink-3 mb-1">Default carrier</label>
+                  <label htmlFor="default-carrier" className="block text-2xs font-medium text-ink-3 mb-1">{t('myparcel.defaultCarrier')}</label>
                   <select id="default-carrier" value={defaultCarrier} onChange={e => setDefaultCarrier(Number(e.target.value))} className={selectClass + ' w-full'}>
                     {CARRIERS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="default-package-type" className="block text-2xs font-medium text-ink-3 mb-1">Default package type</label>
+                  <label htmlFor="default-package-type" className="block text-2xs font-medium text-ink-3 mb-1">{t('myparcel.defaultPackageType')}</label>
                   <select id="default-package-type" value={defaultPackageType} onChange={e => setDefaultPackageType(Number(e.target.value))} className={selectClass + ' w-full'}>
                     {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="default-label-format" className="block text-2xs font-medium text-ink-3 mb-1">Label format</label>
+                  <label htmlFor="default-label-format" className="block text-2xs font-medium text-ink-3 mb-1">{t('myparcel.labelFormat')}</label>
                   <select id="default-label-format" value={defaultLabelFormat} onChange={e => setDefaultLabelFormat(e.target.value as 'pdf' | 'zpl')} className={selectClass + ' w-full'}>
                     <option value="pdf">PDF</option>
-                    <option value="zpl">ZPL (thermal)</option>
+                    <option value="zpl">{t('myparcel.zpl')}</option>
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="default-label-size" className="block text-2xs font-medium text-ink-3 mb-1">Label print size</label>
+                  <label htmlFor="default-label-size" className="block text-2xs font-medium text-ink-3 mb-1">{t('myparcel.labelSize')}</label>
                   <select id="default-label-size" value={defaultLabelSize} onChange={e => setDefaultLabelSize(e.target.value as 'A4' | 'A6')} className={selectClass + ' w-full'}>
-                    <option value="A4">A4</option>
-                    <option value="A6">A6</option>
+                    {LABEL_SIZES.map(size => <option key={size} value={size}>{size}</option>)}
                   </select>
-                  <p className="text-2xs text-ink-4 mt-1">Default only -- staff can pick a different size on each print.</p>
+                  <p className="text-2xs text-ink-4 mt-1">{t('myparcel.labelSizeHint')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 text-xs text-ink-2">
                   <input type="checkbox" checked={defaultSignatureRequired} onChange={e => setDefaultSignatureRequired(e.target.checked)} />
-                  Signature required
+                  {t('myparcel.signatureRequired')}
                 </label>
                 <label className="flex items-center gap-2 text-xs text-ink-2">
                   <input type="checkbox" checked={defaultOnlyRecipient} onChange={e => setDefaultOnlyRecipient(e.target.checked)} />
-                  Only recipient
+                  {t('myparcel.onlyRecipient')}
                 </label>
               </div>
               <div>
                 <label className="flex items-center gap-2 text-xs text-ink-2">
                   <input type="checkbox" checked={insureByDefault} onChange={e => setInsureByDefault(e.target.checked)} />
-                  Insure shipments by default
+                  {t('myparcel.insureDefault')}
                 </label>
                 <p className="text-2xs text-ink-4 mt-1">
-                  Insured amount is always the order's own value, computed automatically when the label is created -- not a fixed figure set here. Insuring a shipment forces "Signature required" and "Only recipient" -- required by MyParcel whenever insurance is set.
+                  {t('myparcel.insureHint')}
                 </p>
               </div>
-              <h3 className="text-xs font-semibold text-ink-2 pt-2">MyParcel fulfilment account</h3>
+              <h3 className="text-xs font-semibold text-ink-2 pt-2">{t('myparcel.account')}</h3>
               <p className="text-2xs text-ink-4 -mt-2">
-                Required to export orders via MyParcel's Orders API before creating a label -- find these in your MyParcel account settings.
+                {t('myparcel.accountHint')}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="myparcel-account-id" className="block text-2xs font-medium text-ink-3 mb-1">Account ID</label>
+                  <label htmlFor="myparcel-account-id" className="block text-2xs font-medium text-ink-3 mb-1">{t('myparcel.accountId')}</label>
                   <input
                     id="myparcel-account-id"
                     type="number"
@@ -340,7 +346,7 @@ export default function MyParcelSyncSettingsPage({
                   />
                 </div>
                 <div>
-                  <label htmlFor="myparcel-shop-id" className="block text-2xs font-medium text-ink-3 mb-1">Shop ID</label>
+                  <label htmlFor="myparcel-shop-id" className="block text-2xs font-medium text-ink-3 mb-1">{t('myparcel.shopId')}</label>
                   <input
                     id="myparcel-shop-id"
                     type="number"
@@ -353,18 +359,18 @@ export default function MyParcelSyncSettingsPage({
               <div>
                 <label className="flex items-center gap-2 text-xs text-ink-2">
                   <input type="checkbox" checked={exportOrderToMyParcel} onChange={e => setExportOrderToMyParcel(e.target.checked)} />
-                  Export orders to MyParcel
+                  {t('myparcel.exportOrders')}
                 </label>
                 <p className="text-2xs text-ink-4 mt-1">
-                  When on, creating a shipment also registers the order via MyParcel's Orders API, so it appears on MyParcel's own Orders page. Off by default -- it shares the full order (line items, prices) with MyParcel, which isn't needed just to print a label.
+                  {t('myparcel.exportOrdersHint')}
                 </p>
               </div>
               <label className="flex items-center gap-2 text-xs text-ink-2">
                 <input type="checkbox" checked={autoPrintEnabled} onChange={e => setAutoPrintEnabled(e.target.checked)} />
-                Auto-print labels
+                {t('myparcel.autoPrint')}
               </label>
               <p className="text-2xs text-ink-4 -mt-2">
-                Opens the print dialog automatically once a label is created, instead of requiring a manual click. You still pick the printer yourself -- this isn't silent printing.
+                {t('myparcel.autoPrintHint')}
               </p>
               {settingsError && <p className="text-xs text-danger">{settingsError}</p>}
               {savedNote && <p className="text-xs text-success">{savedNote}</p>}
@@ -373,12 +379,12 @@ export default function MyParcelSyncSettingsPage({
                 disabled={saving}
                 className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
-                {saving ? 'Saving…' : 'Save defaults'}
+                {saving ? t('myparcel.saving') : t('myparcel.saveDefaults')}
               </button>
             </form>
 
             <div>
-              <h3 className="text-xs font-semibold text-ink-2 mb-2">Per-carrier overrides</h3>
+              <h3 className="text-xs font-semibold text-ink-2 mb-2">{t('myparcel.overrides')}</h3>
               <div className="space-y-2">
                 {CARRIERS.map(c => {
                   const o = overrideFor(c.id)
@@ -387,45 +393,45 @@ export default function MyParcelSyncSettingsPage({
                       <div className="flex items-center gap-3">
                         <span className="text-xs text-ink w-40 shrink-0">{c.label}</span>
                         <select
-                          aria-label={`${c.label} package type override`}
+                          aria-label={t('myparcel.overridePackageAria', { carrier: c.label })}
                           value={o?.package_type ?? ''}
                           onChange={e => handleOverrideChange(c.id, 'package_type', e.target.value === '' ? null : Number(e.target.value))}
                           className={selectClass}
                         >
-                          <option value="">(use default)</option>
+                          <option value="">{t('myparcel.useDefault')}</option>
                           {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                         </select>
                         <label className="flex items-center gap-1.5 text-2xs text-ink-3">
                           <input
                             type="checkbox"
-                            aria-label={`${c.label} signature required override`}
+                            aria-label={t('myparcel.overrideSignatureAria', { carrier: c.label })}
                             checked={o?.signature_required ?? false}
                             onChange={e => handleOverrideChange(c.id, 'signature_required', e.target.checked)}
                           />
-                          Signature
+                          {t('myparcel.signature')}
                         </label>
                         <label className="flex items-center gap-1.5 text-2xs text-ink-3">
                           <input
                             type="checkbox"
-                            aria-label={`${c.label} insure by default override`}
+                            aria-label={t('myparcel.overrideInsureAria', { carrier: c.label })}
                             checked={o?.insure_by_default ?? false}
                             onChange={e => handleOverrideChange(c.id, 'insure_by_default', e.target.checked)}
                           />
-                          Insure
+                          {t('myparcel.insure')}
                         </label>
                       </div>
                       <div className="flex items-center gap-3">
-                        <label className="text-2xs text-ink-4 w-40 shrink-0">Tracking URL template</label>
+                        <label className="text-2xs text-ink-4 w-40 shrink-0">{t('myparcel.trackingTemplate')}</label>
                         <input
                           type="text"
-                          aria-label={`${c.label} tracking URL template`}
+                          aria-label={t('myparcel.trackingTemplateAria', { carrier: c.label })}
                           defaultValue={o?.tracking_url_template ?? ''}
                           onBlur={e => {
                             const value = e.target.value.trim()
                             if (value === (o?.tracking_url_template ?? '')) return
                             handleOverrideChange(c.id, 'tracking_url_template', value === '' ? null : value)
                           }}
-                          placeholder="https://example.com/track?code={barcode}&postcode={postcode}"
+                          placeholder={TRACKING_TEMPLATE_EXAMPLE}
                           className="flex-1 px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink placeholder:text-ink-4"
                         />
                       </div>
@@ -437,12 +443,11 @@ export default function MyParcelSyncSettingsPage({
 
             {canManageWebhooks(user?.role) && (
               <div ref={webhooksSectionRef}>
-                <h3 className="text-xs font-semibold text-ink-2 mb-2">Webhooks</h3>
+                <h3 className="text-xs font-semibold text-ink-2 mb-2">{t('myparcel.webhooks')}</h3>
                 <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-xs text-ink-3">
-                      Registers CommerceOS's own delivery URL with MyParcel for shipment_status_change -- this is what
-                      makes MyParcel actually start sending shipment updates here.
+                      {t('myparcel.webhooksIntro')}
                     </p>
                     <button
                       type="button"
@@ -450,7 +455,7 @@ export default function MyParcelSyncSettingsPage({
                       disabled={registeringWebhook}
                       className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors shrink-0"
                     >
-                      {registeringWebhook ? 'Registering…' : 'Register with MyParcel'}
+                      {registeringWebhook ? t('myparcel.registering') : t('myparcel.register')}
                     </button>
                   </div>
                   {registerWebhookError && (
@@ -458,13 +463,13 @@ export default function MyParcelSyncSettingsPage({
                   )}
                   {registerWebhookDone && !registerWebhookError && (
                     <p className="text-xs text-success bg-green-50 dark:bg-green-500/10 rounded-lg px-2 py-1.5">
-                      Registered -- MyParcel is now sending shipment_status_change webhooks to CommerceOS.
+                      {t('myparcel.registered')}
                     </p>
                   )}
 
                   <div>
                     <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                      Delivery URL
+                      {t('myparcel.deliveryUrl')}
                     </label>
                     <div className="flex items-center gap-2">
                       <code className="flex-1 px-3 py-2 text-2xs rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
@@ -475,7 +480,7 @@ export default function MyParcelSyncSettingsPage({
                         onClick={() => handleCopy('url', webhookURL(user?.tenant_id ?? ''))}
                         className="px-2.5 py-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors shrink-0"
                       >
-                        {copiedField === 'url' ? 'Copied' : 'Copy'}
+                        {copiedField === 'url' ? t('myparcel.copied') : t('myparcel.copy')}
                       </button>
                     </div>
                   </div>
@@ -483,7 +488,7 @@ export default function MyParcelSyncSettingsPage({
                   {webhookSecret ? (
                     <div>
                       <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                        Secret (shown once -- copy it now)
+                        {t('myparcel.secretOnce')}
                       </label>
                       <div className="flex items-center gap-2">
                         <code className="flex-1 px-3 py-2 text-2xs font-mono rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
@@ -494,17 +499,16 @@ export default function MyParcelSyncSettingsPage({
                           onClick={() => handleCopy('secret', webhookSecret)}
                           className="px-2.5 py-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors shrink-0"
                         >
-                          {copiedField === 'secret' ? 'Copied' : 'Copy'}
+                          {copiedField === 'secret' ? t('myparcel.copied') : t('myparcel.copy')}
                         </button>
                       </div>
                       <p className="mt-1.5 text-2xs text-warning">
-                        This won't be shown again -- generate a new one if you lose it.
+                        {t('myparcel.secretWarning')}
                       </p>
                     </div>
                   ) : (
                     <p className="text-xs text-ink-4">
-                      No secret generated yet -- Create a subscription below needs one first (MyParcel embeds it as
-                      part of the delivery URL's path, since MyParcel signs nothing).
+                      {t('myparcel.noSecret')}
                     </p>
                   )}
 
@@ -516,7 +520,7 @@ export default function MyParcelSyncSettingsPage({
                     disabled={generatingSecret}
                     className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                   >
-                    {generatingSecret ? 'Generating…' : webhookSecret ? 'Regenerate secret' : 'Generate secret'}
+                    {generatingSecret ? t('myparcel.generating') : webhookSecret ? t('myparcel.regenerate') : t('myparcel.generate')}
                   </button>
                 </div>
 

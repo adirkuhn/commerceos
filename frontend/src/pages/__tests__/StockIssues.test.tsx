@@ -2,6 +2,7 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import i18next from 'i18next'
 import StockIssues from '../StockIssues'
 import { renderAt } from '../../test/renderAt'
 import type { SalesOrder, SalesOrderLineItem, SalesOrderDetail, RetryStockDecrementResult, ForceAcceptStockResult } from '../../oms/types'
@@ -50,6 +51,16 @@ describe('StockIssues', () => {
     renderAt(<StockIssues />, '/stock-issues')
 
     expect(await screen.findByText("No stock issues — everything's resolved")).toBeInTheDocument()
+  })
+
+  it('renders its texts in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      renderAt(<StockIssues />, '/stock-issues')
+      expect(await screen.findByText('Nenhum problema de estoque — tudo resolvido')).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 
   it('lists orders flagged for stock review, requesting the needsStockReview filter', async () => {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Gift, PackagePlus, Search, X } from 'lucide-react'
 import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
 import { QuantityStepper } from './QuantityStepper'
@@ -17,6 +18,7 @@ export function AddItemSheet({ token, onCancel, onAdd }: {
   onCancel: () => void
   onAdd: (skuId: string, actionType: ExtraItemAction, quantity: number, priceMinorUnits: number | undefined, reason: string | undefined) => void
 }) {
+  const { t } = useTranslation(['scanner', 'common'])
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [candidates, setCandidates] = useState<SKUCandidate[]>([])
@@ -54,8 +56,8 @@ export function AddItemSheet({ token, onCancel, onAdd }: {
     <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
       <div className="w-full max-w-sm rounded-t-2xl bg-night-900 border-t border-night-700 max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
-          <h2 className="text-sm font-semibold">Add freebie or new item</h2>
-          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
+          <h2 className="text-sm font-semibold">{t('addItem.title')}</h2>
+          <button aria-label={t('common:actions.close')} onClick={onCancel} title={t('common:actions.close')} className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
             <X size={18} />
           </button>
         </div>
@@ -69,13 +71,13 @@ export function AddItemSheet({ token, onCancel, onAdd }: {
                   <input
                     value={query}
                     onChange={e => setQuery(e.target.value)}
-                    placeholder="Search or scan barcode…"
+                    placeholder={t('shared.searchOrScan')}
                     className="w-full pl-8 pr-3 py-2.5 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
                     autoFocus
                   />
                 </div>
                 <button type="submit" disabled={searching || !query.trim()} className="px-4 rounded-xl bg-night-800 border border-night-700 text-sm text-gray-300 disabled:opacity-50">
-                  {searching ? '…' : 'Find'}
+                  {searching ? '…' : t('shared.find')}
                 </button>
               </form>
               <div className="space-y-1.5">
@@ -91,7 +93,7 @@ export function AddItemSheet({ token, onCancel, onAdd }: {
                   <p className="text-sm font-medium truncate">{selected.productName}</p>
                   <p className="text-xs text-gray-400 truncate">{selected.sku.sku_code}</p>
                 </div>
-                <button type="button" onClick={() => setSelected(null)} className="text-xs text-accent shrink-0">Change</button>
+                <button type="button" onClick={() => setSelected(null)} className="text-xs text-accent shrink-0">{t('shared.change')}</button>
               </div>
 
               <div className="flex gap-2">
@@ -100,22 +102,22 @@ export function AddItemSheet({ token, onCancel, onAdd }: {
                   onClick={() => setIsFreebie(true)}
                   className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${isFreebie ? 'bg-purple-600 text-white' : 'bg-night-800 text-gray-400'}`}
                 >
-                  <Gift size={15} /> Freebie
+                  <Gift size={15} /> {t('addItem.freebie')}
                 </button>
                 <button aria-pressed={!isFreebie}
                   type="button"
                   onClick={() => setIsFreebie(false)}
                   className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${!isFreebie ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'}`}
                 >
-                  <PackagePlus size={15} /> New item
+                  <PackagePlus size={15} /> {t('addItem.newItem')}
                 </button>
               </div>
 
-              <QuantityStepper id="add-item-quantity" label="Quantity" value={qty} onChange={setQty} min={1} />
+              <QuantityStepper id="add-item-quantity" label={t('shared.quantity')} value={qty} onChange={setQty} min={1} />
 
               {!isFreebie && (
                 <div>
-                  <label htmlFor="add-item-price" className="block text-xs text-gray-400 mb-1.5">Price (each)</label>
+                  <label htmlFor="add-item-price" className="block text-xs text-gray-400 mb-1.5">{t('addItem.priceEach')}</label>
                   <input
                     id="add-item-price"
                     inputMode="decimal"
@@ -128,7 +130,7 @@ export function AddItemSheet({ token, onCancel, onAdd }: {
               )}
 
               <div>
-                <label htmlFor="add-item-reason" className="block text-xs text-gray-400 mb-1.5">Name / note</label>
+                <label htmlFor="add-item-reason" className="block text-xs text-gray-400 mb-1.5">{t('addItem.nameNote')}</label>
                 <input
                   id="add-item-reason"
                   value={reason}
@@ -142,7 +144,7 @@ export function AddItemSheet({ token, onCancel, onAdd }: {
                 disabled={n <= 0 || (!isFreebie && priceMinorUnits < 0)}
                 className={`w-full py-3 rounded-xl text-white font-semibold disabled:opacity-50 ${isFreebie ? 'bg-purple-600' : 'bg-accent-solid'}`}
               >
-                Add to order
+                {t('addItem.submit')}
               </button>
             </>
           )}

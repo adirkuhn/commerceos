@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import * as shippingApi from '../shipping/api'
 import type { Shipment, ShipmentTrackingEvent } from '../shipping/types'
 import { CARRIERS } from '../shipping/types'
@@ -13,6 +14,7 @@ import { useDateFormat } from '../format/DateFormatProvider'
 // RefreshShipmentTrackingUseCase).
 export function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: string; shipment: Shipment; onCancelled: () => void }) {
   const { formatDateTime } = useDateFormat()
+  const { t } = useTranslation(['orders', 'common'])
   const { confirm, confirmDialog } = useConfirm()
   const [events, setEvents] = useState<ShipmentTrackingEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,7 +27,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
     setLoading(true)
     shippingApi.listShipmentTrackingEvents(token, shipment.id)
       .then(setEvents)
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load tracking'))
+      .catch(err => setError(err instanceof Error ? err.message : t('tracking.failedLoad')))
       .finally(() => setLoading(false))
   }, [token, shipment.id])
   useEffect(() => { load() }, [load])
@@ -37,7 +39,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
       const event = await shippingApi.refreshShipmentTracking(token, shipment.id)
       setEvents(prev => [event, ...prev])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch from provider')
+      setError(err instanceof Error ? err.message : t('tracking.failedFetch'))
     } finally {
       setRefreshing(false)
     }
@@ -49,7 +51,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
   // shipment list so this card picks up cancelled_at/cancel_note and
   // "Create label" up top stops treating this as the active shipment.
   async function handleCancel() {
-    if (!(await confirm({ title: 'Cancel this shipment?', message: 'This cannot be undone.', confirmLabel: 'Cancel shipment', destructive: true }))) return
+    if (!(await confirm({ title: t('tracking.cancelTitle'), message: t('tracking.cancelMessage'), confirmLabel: t('tracking.cancelConfirm'), destructive: true }))) return
     setCancelling(true)
     setError('')
     try {
@@ -57,13 +59,13 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
       setCancelMessage(result.message)
       onCancelled()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel shipment')
+      setError(err instanceof Error ? err.message : t('tracking.failedCancel'))
     } finally {
       setCancelling(false)
     }
   }
 
-  const carrierLabel = CARRIERS.find(c => c.id === shipment.carrier)?.label ?? `Carrier ${shipment.carrier}`
+  const carrierLabel = CARRIERS.find(c => c.id === shipment.carrier)?.label ?? t('tracking.carrier', { id: shipment.carrier })
 
   return (
     <div className="border border-line rounded-lg p-3 space-y-2">
@@ -85,7 +87,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
             )}
           </span>
           {shipment.cancelled_at && (
-            <span className="ml-2 text-2xs px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-500/10 text-danger">Cancelled</span>
+            <span className="ml-2 text-2xs px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-500/10 text-danger">{t('tracking.cancelled')}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -93,13 +95,13 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
             type="button" onClick={handleRefresh} disabled={refreshing}
             className="px-2 py-1 rounded bg-fill text-ink-3 hover:text-ink-2 disabled:opacity-50 transition-colors"
           >
-            {refreshing ? 'Fetching…' : 'Refresh from provider'}
+            {refreshing ? t('tracking.fetching') : t('tracking.refresh')}
           </button>
           {!shipment.cancelled_at && (
             <button
               type="button" onClick={handleCancel} disabled={cancelling}
-              title="Wrong carrier? Cancel this shipment so a corrected one can be created"
-              aria-label="Delete"
+              title={t('tracking.cancelHint')}
+              aria-label={t('common:actions.delete')}
               className="w-7 h-7 flex items-center justify-center rounded bg-fill hover:bg-hover disabled:opacity-50 transition-colors"
             >
               {cancelling ? (
@@ -116,9 +118,9 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
       {error && <p className="text-danger">{error}</p>}
 
       {loading ? (
-        <p className="text-ink-4">Loading tracking…</p>
+        <p className="text-ink-4">{t('tracking.loading')}</p>
       ) : events.length === 0 ? (
-        <p className="text-ink-4">No tracking updates yet.</p>
+        <p className="text-ink-4">{t('tracking.empty')}</p>
       ) : (
         <div className="space-y-1">
           {events.map(e => (

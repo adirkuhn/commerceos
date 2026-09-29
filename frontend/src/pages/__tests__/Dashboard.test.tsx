@@ -2,6 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Dashboard from '../Dashboard'
+import i18next from 'i18next'
 import type { ExpiringBatch } from '../../inventory/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -199,5 +200,18 @@ describe('Dashboard — stat cards', () => {
   it('shows an empty state for top products when there are none', async () => {
     render(<Dashboard />)
     expect(await screen.findByText('No products sold yet this month.')).toBeInTheDocument()
+  })
+})
+
+describe('Dashboard in Portuguese', () => {
+  it('renders its texts in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      render(<Dashboard />)
+      expect(await screen.findByText('Nada vencendo nos próximos 30 dias.')).toBeInTheDocument()
+      expect(screen.getByText('Vencendo em breve')).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 })

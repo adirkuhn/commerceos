@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import * as pmsApi from './api'
 import type { SKUCurrencyPrice, BarcodeAlias, ScaleCodeAlias } from './types'
@@ -11,6 +12,7 @@ import { CURRENCIES, formatPrice, normalizeScaleCodeInput } from './productForma
 // exist) since most SKUs never need one.
 export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
   const { token } = useAuth()
+  const { t } = useTranslation(['pms', 'common'])
   const [open, setOpen] = useState(false)
   const [prices, setPrices] = useState<SKUCurrencyPrice[]>([])
   const [loading, setLoading] = useState(false)
@@ -26,7 +28,7 @@ export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
     setError('')
     pmsApi.listSKUCurrencyPrices(token, skuId)
       .then(setPrices)
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load currency overrides'))
+      .catch(err => setError(err instanceof Error ? err.message : t('alias.currencyLoadFailed')))
       .finally(() => setLoading(false))
   }, [open, token, skuId])
 
@@ -47,7 +49,7 @@ export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
       setNewPrice('')
       setNewSalePrice('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save currency override')
+      setError(err instanceof Error ? err.message : t('alias.currencySaveFailed'))
     } finally {
       setSaving(false)
     }
@@ -60,7 +62,7 @@ export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
       await pmsApi.deleteSKUCurrencyPrice(token, skuId, currencyCode)
       setPrices(prev => prev.filter(p => p.currency_code !== currencyCode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete currency override')
+      setError(err instanceof Error ? err.message : t('alias.currencyDeleteFailed'))
     }
   }
 
@@ -71,39 +73,39 @@ export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
         onClick={() => setOpen(o => !o)}
         className="text-2xs text-accent hover:text-accent/80 transition-colors"
       >
-        {open ? '− Hide' : '+'} Currency overrides{prices.length > 0 ? ` (${prices.length})` : ''}
+        {open ? t('alias.hide') : '+'} {t('alias.currencyTitle')}{prices.length > 0 ? ` (${prices.length})` : ''}
       </button>
       {open && (
         <div className="p-2 rounded-lg dark:bg-night-900/60 bg-gray-100 border border-line space-y-1.5">
           <p className="text-2xs text-ink-4">
-            Set an exact price for a channel running in another currency, instead of the auto-converted rate.
+            {t('alias.currencyHint')}
           </p>
-          {loading && <p className="text-2xs text-ink-4">Loading…</p>}
+          {loading && <p className="text-2xs text-ink-4">{t('common:status.loading')}</p>}
           {prices.map(p => (
             <div key={p.currency_code} className="flex items-center justify-between text-2xs text-ink-2">
               <span>
                 {p.currency_code}: {formatPrice(p.price_minor_units, p.currency_code)}
-                {p.sale_price_minor_units != null && <> (sale {formatPrice(p.sale_price_minor_units, p.currency_code)})</>}
+                {p.sale_price_minor_units != null && t('alias.sale', { price: formatPrice(p.sale_price_minor_units, p.currency_code) })}
               </span>
               <button type="button" onClick={() => handleDelete(p.currency_code)} className="text-2xs text-ink-4 hover:text-danger transition-colors">
-                Delete
+                {t('common:actions.delete')}
               </button>
             </div>
           ))}
           <div className="grid grid-cols-3 gap-1.5 pt-1">
             <div>
-              <label htmlFor={`sku-currency-override-currency-${skuId}`} className={label}>Currency</label>
+              <label htmlFor={`sku-currency-override-currency-${skuId}`} className={label}>{t('alias.currency')}</label>
               <select id={`sku-currency-override-currency-${skuId}`} value={newCurrency} onChange={e => setNewCurrency(e.target.value)} className={input}>
                 {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <label htmlFor={`sku-currency-override-price-${skuId}`} className={label}>Price</label>
+              <label htmlFor={`sku-currency-override-price-${skuId}`} className={label}>{t('alias.price')}</label>
               <input id={`sku-currency-override-price-${skuId}`} type="number" step="0.01" min="0" placeholder="0.00" value={newPrice} onChange={e => setNewPrice(e.target.value)} className={input} />
             </div>
             <div>
-              <label htmlFor={`sku-currency-override-sale-price-${skuId}`} className={label}>Sale price</label>
-              <input id={`sku-currency-override-sale-price-${skuId}`} type="number" step="0.01" min="0" placeholder="Optional" value={newSalePrice} onChange={e => setNewSalePrice(e.target.value)} className={input} />
+              <label htmlFor={`sku-currency-override-sale-price-${skuId}`} className={label}>{t('alias.salePrice')}</label>
+              <input id={`sku-currency-override-sale-price-${skuId}`} type="number" step="0.01" min="0" placeholder={t('alias.optional')} value={newSalePrice} onChange={e => setNewSalePrice(e.target.value)} className={input} />
             </div>
           </div>
           <button
@@ -112,7 +114,7 @@ export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
             disabled={saving || !newPrice}
             className="w-full py-1 rounded bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : 'Add / update'}
+            {saving ? t('common:actions.saving') : t('alias.addUpdate')}
           </button>
           {error && <p className="text-2xs text-danger">{error}</p>}
         </div>
@@ -123,6 +125,7 @@ export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
 
 export function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
   const { token } = useAuth()
+  const { t } = useTranslation(['pms', 'common'])
   const [open, setOpen] = useState(false)
   const [aliases, setAliases] = useState<BarcodeAlias[]>([])
   const [loading, setLoading] = useState(false)
@@ -137,7 +140,7 @@ export function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
     setError('')
     pmsApi.listBarcodeAliases(token, skuId)
       .then(setAliases)
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load alternate barcodes'))
+      .catch(err => setError(err instanceof Error ? err.message : t('alias.barcodesLoadFailed')))
       .finally(() => setLoading(false))
   }, [open, token, skuId])
 
@@ -157,7 +160,7 @@ export function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
       setNewCode('')
       setNewUnitsPerScan('1')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add barcode')
+      setError(err instanceof Error ? err.message : t('alias.barcodeAddFailed'))
     } finally {
       setSaving(false)
     }
@@ -170,36 +173,36 @@ export function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
       await pmsApi.deleteBarcodeAlias(token, aliasId)
       setAliases(prev => prev.filter(a => a.id !== aliasId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete barcode')
+      setError(err instanceof Error ? err.message : t('alias.barcodeDeleteFailed'))
     }
   }
 
   return (
     <div className="space-y-1.5">
       <button type="button" onClick={() => setOpen(o => !o)} className="text-2xs text-accent hover:text-accent/80 transition-colors">
-        {open ? '− Hide' : '+'} Alternate barcodes{aliases.length > 0 ? ` (${aliases.length})` : ''}
+        {open ? t('alias.hide') : '+'} {t('alias.barcodesTitle')}{aliases.length > 0 ? ` (${aliases.length})` : ''}
       </button>
       {open && (
         <div className="p-2 rounded-lg dark:bg-night-900/60 bg-gray-100 border border-line space-y-1.5">
           <p className="text-2xs text-ink-4">
-            Extra barcodes that resolve to this same SKU/price — e.g. the same product repackaged by another supplier with its own EAN, or a case/box barcode (units/scan &gt; 1 books that many units at once).
+            {t('alias.barcodesHint')}
           </p>
-          {loading && <p className="text-2xs text-ink-4">Loading…</p>}
+          {loading && <p className="text-2xs text-ink-4">{t('common:status.loading')}</p>}
           {aliases.map(a => (
             <div key={a.id} className="flex items-center justify-between text-2xs text-ink-2">
-              <span>{a.code}{a.units_per_scan > 1 ? ` (×${a.units_per_scan}/scan)` : ''}</span>
+              <span>{a.code}{a.units_per_scan > 1 ? t('alias.perScan', { n: a.units_per_scan }) : ''}</span>
               <button type="button" onClick={() => handleDelete(a.id)} className="text-2xs text-ink-4 hover:text-danger transition-colors">
-                Delete
+                {t('common:actions.delete')}
               </button>
             </div>
           ))}
           <div className="grid grid-cols-3 gap-1.5 pt-1">
             <div className="col-span-2">
-              <label htmlFor={`barcode-alias-code-${skuId}`} className={label}>Barcode</label>
+              <label htmlFor={`barcode-alias-code-${skuId}`} className={label}>{t('alias.barcode')}</label>
               <input id={`barcode-alias-code-${skuId}`} type="text" value={newCode} onChange={e => setNewCode(e.target.value)} className={input} />
             </div>
             <div>
-              <label htmlFor={`barcode-alias-units-${skuId}`} className={label}>Units/scan</label>
+              <label htmlFor={`barcode-alias-units-${skuId}`} className={label}>{t('alias.unitsPerScan')}</label>
               <input id={`barcode-alias-units-${skuId}`} type="number" step="1" min="1" value={newUnitsPerScan} onChange={e => setNewUnitsPerScan(e.target.value)} className={input} />
             </div>
           </div>
@@ -207,7 +210,7 @@ export function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
             type="button" onClick={handleAdd} disabled={saving || !newCode.trim()}
             className="w-full py-1 rounded bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : 'Add'}
+            {saving ? t('common:actions.saving') : t('common:actions.add')}
           </button>
           {error && <p className="text-2xs text-danger">{error}</p>}
         </div>
@@ -218,6 +221,7 @@ export function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
 
 export function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
   const { token } = useAuth()
+  const { t } = useTranslation(['pms', 'common'])
   const [open, setOpen] = useState(false)
   const [aliases, setAliases] = useState<ScaleCodeAlias[]>([])
   const [loading, setLoading] = useState(false)
@@ -231,7 +235,7 @@ export function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
     setError('')
     pmsApi.listScaleCodeAliases(token, skuId)
       .then(setAliases)
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load additional scale codes'))
+      .catch(err => setError(err instanceof Error ? err.message : t('alias.scaleLoadFailed')))
       .finally(() => setLoading(false))
   }, [open, token, skuId])
 
@@ -247,7 +251,7 @@ export function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
       setAliases(prev => [...prev, result])
       setNewCode('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add scale code')
+      setError(err instanceof Error ? err.message : t('alias.scaleAddFailed'))
     } finally {
       setSaving(false)
     }
@@ -260,32 +264,32 @@ export function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
       await pmsApi.deleteScaleCodeAlias(token, aliasId)
       setAliases(prev => prev.filter(a => a.id !== aliasId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete scale code')
+      setError(err instanceof Error ? err.message : t('alias.scaleDeleteFailed'))
     }
   }
 
   return (
     <div className="space-y-1.5">
       <button type="button" onClick={() => setOpen(o => !o)} className="text-2xs text-accent hover:text-accent/80 transition-colors">
-        {open ? '− Hide' : '+'} Additional scale codes{aliases.length > 0 ? ` (${aliases.length})` : ''}
+        {open ? t('alias.hide') : '+'} {t('alias.scaleTitle')}{aliases.length > 0 ? ` (${aliases.length})` : ''}
       </button>
       {open && (
         <div className="p-2 rounded-lg dark:bg-night-900/60 bg-gray-100 border border-line space-y-1.5">
           <p className="text-2xs text-ink-4">
-            For a second (or third) physical scale programmed with its own code for this same product.
+            {t('alias.scaleHint')}
           </p>
-          {loading && <p className="text-2xs text-ink-4">Loading…</p>}
+          {loading && <p className="text-2xs text-ink-4">{t('common:status.loading')}</p>}
           {aliases.map(a => (
             <div key={a.id} className="flex items-center justify-between text-2xs text-ink-2">
               <span>{a.code}</span>
               <button type="button" onClick={() => handleDelete(a.id)} className="text-2xs text-ink-4 hover:text-danger transition-colors">
-                Delete
+                {t('common:actions.delete')}
               </button>
             </div>
           ))}
           <div className="grid grid-cols-2 gap-1.5 pt-1">
             <div>
-              <label htmlFor={`scale-code-alias-${skuId}`} className={label}>Scale code</label>
+              <label htmlFor={`scale-code-alias-${skuId}`} className={label}>{t('alias.scaleCode')}</label>
               <input id={`scale-code-alias-${skuId}`} type="text" value={newCode} onChange={e => setNewCode(normalizeScaleCodeInput(e.target.value))} maxLength={7} inputMode="numeric" className={input} />
             </div>
           </div>
@@ -293,7 +297,7 @@ export function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
             type="button" onClick={handleAdd} disabled={saving || !newCode.trim()}
             className="w-full py-1 rounded bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : 'Add'}
+            {saving ? t('common:actions.saving') : t('common:actions.add')}
           </button>
           {error && <p className="text-2xs text-danger">{error}</p>}
         </div>

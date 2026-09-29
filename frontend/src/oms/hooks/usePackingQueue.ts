@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useCallback, useEffect, useState } from 'react'
 import type { OrderQueue, QueueEntry } from '../types'
 import * as api from '../api'
@@ -38,7 +39,7 @@ function useOrderQueue(token: string, fetchQueue: QueueFetcher): UsePackingQueue
       setEntries(queue.entries)
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load orders')
+      setError(err instanceof Error ? err.message : i18next.t('orders:errors.loadOrders'))
     } finally {
       setLoading(false)
     }

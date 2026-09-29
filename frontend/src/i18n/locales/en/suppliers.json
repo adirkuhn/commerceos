@@ -1,0 +1,41 @@
+{
+  "add": "Add supplier",
+  "back": "Suppliers",
+  "badge": {
+    "active": "active",
+    "inactive": "inactive"
+  },
+  "colCountry": "Country",
+  "colLeadTime": "Lead time",
+  "colStatus": "Status",
+  "colSupplier": "Supplier",
+  "confirmDelete": {
+    "confirm": "Delete supplier",
+    "message": "This cannot be undone.",
+    "title": "Delete supplier \"{{name}}\"?"
+  },
+  "count_one": "{{count}} supplier",
+  "count_many": "{{count}} suppliers",
+  "count_other": "{{count}} suppliers",
+  "country": "Country",
+  "create": "Create supplier",
+  "discard": "Discard",
+  "edit": "Edit supplier",
+  "email": "Email",
+  "empty": "No suppliers yet",
+  "general": "General",
+  "leadTime": "Lead time (days)",
+  "leadTimeDays": "{{days}}d",
+  "name": "Name",
+  "new": "New supplier",
+  "notes": "Notes",
+  "phone": "Phone",
+  "saveFailed": "Failed to save supplier",
+  "searchPlaceholder": "Search by name or country...",
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "subject": "Supplier",
+  "unknownError": "Unknown error"
+}

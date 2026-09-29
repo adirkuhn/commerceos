@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import i18next from 'i18next'
 import { useSessionLock } from '../fulfillment/useSessionLock'
 import { readClaims } from '../auth/jwtClaims'
 import { useMemberNames } from '../team/hooks/useMemberNames'
@@ -69,7 +70,7 @@ export function useScanSession<D extends ScanSessionDetail>(
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : 'Failed to take over')
+      setError(err instanceof Error ? err.message : i18next.t('scanner:errors.takeOver'))
     }
   }
   useWakeLock()
@@ -102,7 +103,7 @@ export function useScanSession<D extends ScanSessionDetail>(
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : 'Failed to delete scan')
+      setError(err instanceof Error ? err.message : i18next.t('scanner:errors.deleteScan'))
     }
   }
 

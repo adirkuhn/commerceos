@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Package } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -8,6 +9,9 @@ import type { UpsertBolProductContentPayload } from '../integrations/api'
 import type { SKU } from './types'
 import { skinTypeOptions, shelfLifeClosedOptions, shelfLifeAfterOpeningOptions, countryOfOriginOptions, hazardStatementsOptions, substanceOptions, precautionStatementsOptions } from './bolContentLovs'
 import { ContentCheckField, ContentNumberField, ContentSelectField, ContentTextField, defaultBolProductContent, inputClass, labelClass } from './BolContentFields'
+
+// Brand name, not translated.
+const BRAND = 'Bol.com'
 
 // Pure so the arithmetic is unit-testable without rendering the component.
 // All money inputs are major currency units (e.g. 19.99, not minor units) --
@@ -59,6 +63,7 @@ export function ProductBolTab({
   onSaveBarcode?: (skuId: string, barcode: string) => Promise<void>
 }) {
   const { token } = useAuth()
+  const { t } = useTranslation(['pms', 'common'])
 
   const [, setOverride] = useState<BolProductOverride | null>(null)
   const [loading, setLoading] = useState(true)
@@ -80,7 +85,7 @@ export function ProductBolTab({
     try {
       await onSaveBarcode(sku.id, barcodeEdit)
     } catch (err) {
-      setBarcodeError(err instanceof Error ? err.message : 'Failed to update barcode')
+      setBarcodeError(err instanceof Error ? err.message : t('bol.barcodeFailed'))
     } finally {
       setBarcodeSaving(false)
     }
@@ -149,7 +154,7 @@ export function ProductBolTab({
         const { product_id: _productId, connection_id: _connectionId, ...fields } = result
         setContent(prev => ({ ...prev, ...fields }))
       })
-      .catch(err => { if (!cancelled) setContentLoadError(err instanceof Error ? err.message : 'Failed to load product content') })
+      .catch(err => { if (!cancelled) setContentLoadError(err instanceof Error ? err.message : t('bol.contentLoadFailed')) })
       .finally(() => { if (!cancelled) setContentLoading(false) })
     return () => { cancelled = true }
   }, [token, connection.id, productId])
@@ -164,7 +169,7 @@ export function ProductBolTab({
       setContent(prev => ({ ...prev, ...fields }))
       setContentSaved(true)
     } catch (err) {
-      setContentSaveError(err instanceof Error ? err.message : 'Failed to save product content')
+      setContentSaveError(err instanceof Error ? err.message : t('bol.contentSaveFailed'))
     } finally {
       setContentSaving(false)
     }
@@ -192,7 +197,7 @@ export function ProductBolTab({
           }
         }
       })
-      .catch(err => { if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load Bol overrides') })
+      .catch(err => { if (!cancelled) setLoadError(err instanceof Error ? err.message : t('bol.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token, connection.id, productId])
@@ -207,7 +212,7 @@ export function ProductBolTab({
         setCommission(result)
         if (!commissionOverridden) setCommissionPercentInput(fmt(result.percentage))
       })
-      .catch(err => { if (!cancelled) setCommissionError(err instanceof Error ? err.message : 'Failed to fetch Bol commission') })
+      .catch(err => { if (!cancelled) setCommissionError(err instanceof Error ? err.message : t('bol.commissionFailed')) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, connection.id, productId, sku?.id, commissionRefreshKey])
@@ -232,7 +237,7 @@ export function ProductBolTab({
       setOverride(result)
       setCommissionRefreshKey(k => k + 1)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save')
+      setSaveError(err instanceof Error ? err.message : t('bol.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -256,24 +261,24 @@ export function ProductBolTab({
     <div className="rounded-xl border border-line p-4 space-y-4">
       <div className="flex items-center gap-2">
         <Package size={13} className="text-ink-3" />
-        <h3 className="text-xs font-semibold text-ink">Bol.com</h3>
+        <h3 className="text-xs font-semibold text-ink">{BRAND}</h3>
       </div>
 
       {notForSaleNote && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
-          <p className="text-2xs font-medium text-warning">Not for sale on Bol</p>
+          <p className="text-2xs font-medium text-warning">{t('bol.notForSale')}</p>
           <p className="text-2xs dark:text-amber-300/90 text-warning mt-0.5">{notForSaleNote}</p>
         </div>
       )}
 
-      {loading && <p className="text-2xs text-ink-4">Loading…</p>}
+      {loading && <p className="text-2xs text-ink-4">{t('common:status.loading')}</p>}
       {!loading && loadError && <p className="text-2xs text-danger">{loadError}</p>}
 
       {!loading && !loadError && (
         <>
           {sku && (
             <div>
-              <label htmlFor="bol-sku-barcode" className={labelClass}>EAN (SKU barcode)</label>
+              <label htmlFor="bol-sku-barcode" className={labelClass}>{t('bol.ean')}</label>
               <div className="flex items-center gap-2">
                 <input
                   id="bol-sku-barcode" value={barcodeEdit} onChange={e => setBarcodeEdit(e.target.value)}
@@ -284,56 +289,56 @@ export function ProductBolTab({
                     type="button" onClick={handleSaveBarcode} disabled={barcodeSaving}
                     className="px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors shrink-0"
                   >
-                    {barcodeSaving ? 'Saving…' : 'Save'}
+                    {barcodeSaving ? t('common:actions.saving') : t('common:actions.save')}
                   </button>
                 )}
               </div>
               <p className="text-2xs text-ink-4 mt-1">
-                Required by Bol -- pushed as this offer's EAN unless overridden below.
+                {t('bol.eanHint')}
               </p>
               {barcodeError && <p className="text-2xs text-danger mt-1">{barcodeError}</p>}
             </div>
           )}
           <div>
-            <label htmlFor="bol-name-override" className={labelClass}>Product title override</label>
+            <label htmlFor="bol-name-override" className={labelClass}>{t('bol.titleOverride')}</label>
             <input id="bol-name-override" value={nameOverride} onChange={e => setNameOverride(e.target.value)}
               placeholder={productName} className={inputClass} />
             <p className="text-2xs text-ink-4 mt-1">
-              Bol-only -- overrides the title synced to Bol without changing the product's real name. Every other channel keeps syncing the actual name.
+              {t('bol.titleOverrideHint')}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="bol-ean-override" className={labelClass}>EAN override</label>
+              <label htmlFor="bol-ean-override" className={labelClass}>{t('bol.eanOverride')}</label>
               <input id="bol-ean-override" value={eanOverride} onChange={e => setEanOverride(e.target.value)}
                 placeholder={sku?.barcode ?? ''} className={inputClass} />
             </div>
             <div>
-              <label htmlFor="bol-gpc-code" className={labelClass}>GPC code</label>
+              <label htmlFor="bol-gpc-code" className={labelClass}>{t('bol.gpcCode')}</label>
               <input id="bol-gpc-code" value={gpcCode} onChange={e => setGpcCode(e.target.value)} className={inputClass} />
-              <p className="text-2xs text-ink-4 mt-1">Only required if this EAN doesn't already exist in Bol's catalog.</p>
+              <p className="text-2xs text-ink-4 mt-1">{t('bol.gpcHint')}</p>
             </div>
             <div>
-              <label htmlFor="bol-condition" className={labelClass}>Condition</label>
+              <label htmlFor="bol-condition" className={labelClass}>{t('bol.condition')}</label>
               <select id="bol-condition" value={condition} onChange={e => setCondition(e.target.value as BolProductOverride['condition_category'])} className={inputClass}>
-                <option value="NEW">New</option>
-                <option value="SECONDHAND">Secondhand</option>
-                <option value="REFURBISHED">Refurbished</option>
+                <option value="NEW">{t('bol.conditionNew')}</option>
+                <option value="SECONDHAND">{t('bol.conditionSecondhand')}</option>
+                <option value="REFURBISHED">{t('bol.conditionRefurbished')}</option>
               </select>
             </div>
             <div>
-              <label className={labelClass}>Fulfilment method</label>
-              <input disabled readOnly value="FBR (self-ship)" className={`${inputClass} cursor-not-allowed opacity-70`} />
+              <label className={labelClass}>{t('bol.fulfilment')}</label>
+              <input disabled readOnly value={t('bol.fbr')} className={`${inputClass} cursor-not-allowed opacity-70`} />
             </div>
             <div>
-              <label htmlFor="bol-reference" className={labelClass}>Reference (optional)</label>
+              <label htmlFor="bol-reference" className={labelClass}>{t('bol.reference')}</label>
               <input id="bol-reference" value={referenceOverride} onChange={e => setReferenceOverride(e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label htmlFor="bol-custom-price" className={labelClass}>Custom price (optional)</label>
+              <label htmlFor="bol-custom-price" className={labelClass}>{t('bol.customPriceOptional')}</label>
               <input id="bol-custom-price" value={customPrice} onChange={e => setCustomPrice(e.target.value)}
                 placeholder={fmt(defaultPrice)} className={inputClass} />
-              <p className="text-2xs text-ink-4 mt-1">Leave empty to use the product's default price ({fmt(defaultPrice)}).</p>
+              <p className="text-2xs text-ink-4 mt-1">{t('bol.customPriceHint', { price: fmt(defaultPrice) })}</p>
             </div>
           </div>
 
@@ -341,7 +346,7 @@ export function ProductBolTab({
           <div className="flex items-center gap-2">
             <button type="button" onClick={handleSave} disabled={saving}
               className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('common:actions.saving') : t('common:actions.save')}
             </button>
           </div>
 
@@ -351,70 +356,70 @@ export function ProductBolTab({
               className="flex items-center justify-between w-full text-left"
             >
               <h4 className="text-xs font-semibold text-ink">
-                Product content <span className="font-normal text-ink-4">(Bol's product-content requirements -- category, e.g. GPC Code, is set above)</span>
+                {t('bol.contentTitle')} <span className="font-normal text-ink-4">{t('bol.contentSubtitle')}</span>
               </h4>
-              <span className="text-2xs text-ink-4">{contentExpanded ? 'Hide' : 'Show'}</span>
+              <span className="text-2xs text-ink-4">{contentExpanded ? t('bol.hide') : t('bol.show')}</span>
             </button>
 
             {contentExpanded && (
               <>
-                {contentLoading && <p className="text-2xs text-ink-4">Loading…</p>}
+                {contentLoading && <p className="text-2xs text-ink-4">{t('common:status.loading')}</p>}
                 {!contentLoading && contentLoadError && <p className="text-2xs text-danger">{contentLoadError}</p>}
                 {!contentLoading && !contentLoadError && (
                   <div className="space-y-4">
                     <div>
-                      <h5 className="text-2xs font-semibold text-ink-2 mb-2 uppercase tracking-wider">Basic information</h5>
+                      <h5 className="text-2xs font-semibold text-ink-2 mb-2 uppercase tracking-wider">{t('bol.basicInfo')}</h5>
                       <div className="grid grid-cols-2 gap-3">
-                        <ContentTextField id="bol-content-manufacturer-name" label="Manufacturer name" value={content.manufacturer_name ?? ''} onChange={v => setContentField('manufacturer_name', v)} />
-                        <ContentTextField id="bol-content-manufacturer-address" label="Manufacturer address" value={content.manufacturer_address ?? ''} onChange={v => setContentField('manufacturer_address', v)} />
-                        <ContentTextField id="bol-content-manufacturer-contact" label="Manufacturer email / contact form" value={content.manufacturer_contact ?? ''} onChange={v => setContentField('manufacturer_contact', v)} />
-                        <ContentSelectField id="bol-content-shelf-life-closed" label="Shelf life (unopened)" value={content.shelf_life_closed ?? ''} onChange={v => setContentField('shelf_life_closed', v)} options={shelfLifeClosedOptions} />
-                        <ContentSelectField id="bol-content-shelf-life-opened" label="Shelf life after opening" value={content.shelf_life_after_opening ?? ''} onChange={v => setContentField('shelf_life_after_opening', v)} options={shelfLifeAfterOpeningOptions} />
-                        <ContentSelectField id="bol-content-country-of-origin" label="Country of origin" value={content.country_of_origin ?? ''} onChange={v => setContentField('country_of_origin', v)} options={countryOfOriginOptions} />
-                        <ContentSelectField id="bol-content-substance" label="Substance" value={content.substance ?? ''} onChange={v => setContentField('substance', v)} options={substanceOptions} />
-                        <ContentTextField id="bol-content-instruction-language" label="Instruction manual language" value={content.instruction_language ?? ''} onChange={v => setContentField('instruction_language', v)} />
-                        <ContentTextField id="bol-content-packaging-language" label="Packaging language" value={content.packaging_language ?? ''} onChange={v => setContentField('packaging_language', v)} />
+                        <ContentTextField id="bol-content-manufacturer-name" label={t('bol.manufacturerName')} value={content.manufacturer_name ?? ''} onChange={v => setContentField('manufacturer_name', v)} />
+                        <ContentTextField id="bol-content-manufacturer-address" label={t('bol.manufacturerAddress')} value={content.manufacturer_address ?? ''} onChange={v => setContentField('manufacturer_address', v)} />
+                        <ContentTextField id="bol-content-manufacturer-contact" label={t('bol.manufacturerContact')} value={content.manufacturer_contact ?? ''} onChange={v => setContentField('manufacturer_contact', v)} />
+                        <ContentSelectField id="bol-content-shelf-life-closed" label={t('bol.shelfLifeClosed')} value={content.shelf_life_closed ?? ''} onChange={v => setContentField('shelf_life_closed', v)} options={shelfLifeClosedOptions} />
+                        <ContentSelectField id="bol-content-shelf-life-opened" label={t('bol.shelfLifeOpened')} value={content.shelf_life_after_opening ?? ''} onChange={v => setContentField('shelf_life_after_opening', v)} options={shelfLifeAfterOpeningOptions} />
+                        <ContentSelectField id="bol-content-country-of-origin" label={t('bol.countryOfOrigin')} value={content.country_of_origin ?? ''} onChange={v => setContentField('country_of_origin', v)} options={countryOfOriginOptions} />
+                        <ContentSelectField id="bol-content-substance" label={t('bol.substance')} value={content.substance ?? ''} onChange={v => setContentField('substance', v)} options={substanceOptions} />
+                        <ContentTextField id="bol-content-instruction-language" label={t('bol.instructionLanguage')} value={content.instruction_language ?? ''} onChange={v => setContentField('instruction_language', v)} />
+                        <ContentTextField id="bol-content-packaging-language" label={t('bol.packagingLanguage')} value={content.packaging_language ?? ''} onChange={v => setContentField('packaging_language', v)} />
                         <div className="grid grid-cols-2 gap-2">
-                          <ContentTextField id="bol-content-content-amount" label="Content amount" value={content.content_amount ?? ''} onChange={v => setContentField('content_amount', v)} />
-                          <ContentTextField id="bol-content-content-unit" label="Content unit" value={content.content_unit ?? ''} onChange={v => setContentField('content_unit', v)} hint="e.g. g, ml" />
+                          <ContentTextField id="bol-content-content-amount" label={t('bol.contentAmount')} value={content.content_amount ?? ''} onChange={v => setContentField('content_amount', v)} />
+                          <ContentTextField id="bol-content-content-unit" label={t('bol.contentUnit')} value={content.content_unit ?? ''} onChange={v => setContentField('content_unit', v)} hint={t('bol.contentUnitHint')} />
                         </div>
                       </div>
                       <div className="mt-3">
-                        <ContentTextField id="bol-content-ingredients" label="Ingredients" value={content.ingredients ?? ''} onChange={v => setContentField('ingredients', v)} multiline />
+                        <ContentTextField id="bol-content-ingredients" label={t('bol.ingredients')} value={content.ingredients ?? ''} onChange={v => setContentField('ingredients', v)} multiline />
                       </div>
                     </div>
 
                     <div>
-                      <h5 className="text-2xs font-semibold text-ink-2 mb-2 uppercase tracking-wider">Optional</h5>
+                      <h5 className="text-2xs font-semibold text-ink-2 mb-2 uppercase tracking-wider">{t('bol.optional')}</h5>
                       <div className="grid grid-cols-2 gap-3">
-                        <ContentTextField id="bol-content-brand" label="Brand" value={content.brand ?? ''} onChange={v => setContentField('brand', v)} />
-                        <ContentNumberField id="bol-content-items-per-package" label="Items per package" value={content.items_per_package} onChange={v => setContentField('items_per_package', v)} />
-                        <ContentTextField id="bol-content-package-insert-url" label="Package insert (URL)" value={content.package_insert_url ?? ''} onChange={v => setContentField('package_insert_url', v)} />
-                        <ContentSelectField id="bol-content-skin-type" label="Skin type" value={content.skin_type ?? ''} onChange={v => setContentField('skin_type', v)} options={skinTypeOptions} />
-                        <ContentSelectField id="bol-content-hazard-statements" label="Hazard statements (H-statements)" value={content.hazard_statements ?? ''} onChange={v => setContentField('hazard_statements', v)} options={hazardStatementsOptions} hint="Bol allows multiple H-statements per product; only one can be saved here today." />
-                        <ContentSelectField id="bol-content-precaution-statements" label="Precaution statements (P-statements)" value={content.precaution_statements ?? ''} onChange={v => setContentField('precaution_statements', v)} options={precautionStatementsOptions} hint="Bol allows multiple P-statements per product; only one can be saved here today." />
+                        <ContentTextField id="bol-content-brand" label={t('bol.brand')} value={content.brand ?? ''} onChange={v => setContentField('brand', v)} />
+                        <ContentNumberField id="bol-content-items-per-package" label={t('bol.itemsPerPackage')} value={content.items_per_package} onChange={v => setContentField('items_per_package', v)} />
+                        <ContentTextField id="bol-content-package-insert-url" label={t('bol.packageInsertUrl')} value={content.package_insert_url ?? ''} onChange={v => setContentField('package_insert_url', v)} />
+                        <ContentSelectField id="bol-content-skin-type" label={t('bol.skinType')} value={content.skin_type ?? ''} onChange={v => setContentField('skin_type', v)} options={skinTypeOptions} />
+                        <ContentSelectField id="bol-content-hazard-statements" label={t('bol.hazardStatements')} value={content.hazard_statements ?? ''} onChange={v => setContentField('hazard_statements', v)} options={hazardStatementsOptions} hint={t('bol.hazardHint')} />
+                        <ContentSelectField id="bol-content-precaution-statements" label={t('bol.precautionStatements')} value={content.precaution_statements ?? ''} onChange={v => setContentField('precaution_statements', v)} options={precautionStatementsOptions} hint={t('bol.precautionHint')} />
                         <div className="grid grid-cols-2 gap-2">
-                          <ContentTextField id="bol-content-dispenser-amount" label="Content per dispenser" value={content.content_per_dispenser_amount ?? ''} onChange={v => setContentField('content_per_dispenser_amount', v)} />
-                          <ContentTextField id="bol-content-dispenser-unit" label="Dispenser unit" value={content.content_per_dispenser_unit ?? ''} onChange={v => setContentField('content_per_dispenser_unit', v)} />
+                          <ContentTextField id="bol-content-dispenser-amount" label={t('bol.dispenserAmount')} value={content.content_per_dispenser_amount ?? ''} onChange={v => setContentField('content_per_dispenser_amount', v)} />
+                          <ContentTextField id="bol-content-dispenser-unit" label={t('bol.dispenserUnit')} value={content.content_per_dispenser_unit ?? ''} onChange={v => setContentField('content_per_dispenser_unit', v)} />
                         </div>
-                        <ContentNumberField id="bol-content-package-width" label="Package width" value={content.package_width_mm} onChange={v => setContentField('package_width_mm', v)} unit="mm" />
-                        <ContentNumberField id="bol-content-package-height" label="Package height" value={content.package_height_mm} onChange={v => setContentField('package_height_mm', v)} unit="mm" />
-                        <ContentNumberField id="bol-content-package-length" label="Package length" value={content.package_length_mm} onChange={v => setContentField('package_length_mm', v)} unit="mm" />
-                        <ContentNumberField id="bol-content-package-weight" label="Package weight" value={content.package_weight_g} onChange={v => setContentField('package_weight_g', v)} unit="g" />
-                        <ContentTextField id="bol-content-video-url" label="Video (URL)" value={content.video_url ?? ''} onChange={v => setContentField('video_url', v)} />
+                        <ContentNumberField id="bol-content-package-width" label={t('bol.packageWidth')} value={content.package_width_mm} onChange={v => setContentField('package_width_mm', v)} unit="mm" />
+                        <ContentNumberField id="bol-content-package-height" label={t('bol.packageHeight')} value={content.package_height_mm} onChange={v => setContentField('package_height_mm', v)} unit="mm" />
+                        <ContentNumberField id="bol-content-package-length" label={t('bol.packageLength')} value={content.package_length_mm} onChange={v => setContentField('package_length_mm', v)} unit="mm" />
+                        <ContentNumberField id="bol-content-package-weight" label={t('bol.packageWeight')} value={content.package_weight_g} onChange={v => setContentField('package_weight_g', v)} unit="g" />
+                        <ContentTextField id="bol-content-video-url" label={t('bol.videoUrl')} value={content.video_url ?? ''} onChange={v => setContentField('video_url', v)} />
                       </div>
                       <div className="grid grid-cols-2 gap-3 mt-3">
-                        <ContentTextField id="bol-content-precautions" label="Precautions" value={content.precautions ?? ''} onChange={v => setContentField('precautions', v)} multiline />
-                        <ContentTextField id="bol-content-warnings" label="Warnings" value={content.warnings ?? ''} onChange={v => setContentField('warnings', v)} multiline />
+                        <ContentTextField id="bol-content-precautions" label={t('bol.precautions')} value={content.precautions ?? ''} onChange={v => setContentField('precautions', v)} multiline />
+                        <ContentTextField id="bol-content-warnings" label={t('bol.warnings')} value={content.warnings ?? ''} onChange={v => setContentField('warnings', v)} multiline />
                       </div>
                       <div className="grid grid-cols-3 gap-2 mt-3">
-                        <ContentCheckField id="bol-content-is-gift" label="Gift" checked={content.is_gift} onChange={v => setContentField('is_gift', v)} />
-                        <ContentCheckField id="bol-content-dermatologically-tested" label="Dermatologically tested" checked={content.dermatologically_tested} onChange={v => setContentField('dermatologically_tested', v)} />
-                        <ContentCheckField id="bol-content-hypoallergenic" label="Hypoallergenic" checked={content.hypoallergenic} onChange={v => setContentField('hypoallergenic', v)} />
-                        <ContentCheckField id="bol-content-contains-zinc-oxide" label="Contains zinc oxide" checked={content.contains_zinc_oxide} onChange={v => setContentField('contains_zinc_oxide', v)} />
-                        <ContentCheckField id="bol-content-fragrance-free" label="Fragrance-free" checked={content.fragrance_free} onChange={v => setContentField('fragrance_free', v)} />
-                        <ContentCheckField id="bol-content-ph-neutral" label="pH-neutral" checked={content.ph_neutral} onChange={v => setContentField('ph_neutral', v)} />
-                        <ContentCheckField id="bol-content-cooling-effect" label="Cooling effect" checked={content.cooling_effect} onChange={v => setContentField('cooling_effect', v)} />
+                        <ContentCheckField id="bol-content-is-gift" label={t('bol.gift')} checked={content.is_gift} onChange={v => setContentField('is_gift', v)} />
+                        <ContentCheckField id="bol-content-dermatologically-tested" label={t('bol.dermatologicallyTested')} checked={content.dermatologically_tested} onChange={v => setContentField('dermatologically_tested', v)} />
+                        <ContentCheckField id="bol-content-hypoallergenic" label={t('bol.hypoallergenic')} checked={content.hypoallergenic} onChange={v => setContentField('hypoallergenic', v)} />
+                        <ContentCheckField id="bol-content-contains-zinc-oxide" label={t('bol.zincOxide')} checked={content.contains_zinc_oxide} onChange={v => setContentField('contains_zinc_oxide', v)} />
+                        <ContentCheckField id="bol-content-fragrance-free" label={t('bol.fragranceFree')} checked={content.fragrance_free} onChange={v => setContentField('fragrance_free', v)} />
+                        <ContentCheckField id="bol-content-ph-neutral" label={t('bol.phNeutral')} checked={content.ph_neutral} onChange={v => setContentField('ph_neutral', v)} />
+                        <ContentCheckField id="bol-content-cooling-effect" label={t('bol.coolingEffect')} checked={content.cooling_effect} onChange={v => setContentField('cooling_effect', v)} />
                       </div>
                     </div>
 
@@ -422,9 +427,9 @@ export function ProductBolTab({
                     <div className="flex items-center gap-2">
                       <button type="button" onClick={handleSaveContent} disabled={contentSaving}
                         className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
-                        {contentSaving ? 'Saving…' : 'Save product content'}
+                        {contentSaving ? t('common:actions.saving') : t('bol.saveContent')}
                       </button>
-                      {contentSaved && <span className="text-2xs text-success">Saved</span>}
+                      {contentSaved && <span className="text-2xs text-success">{t('common:status.saved')}</span>}
                     </div>
                   </div>
                 )}
@@ -433,26 +438,26 @@ export function ProductBolTab({
           </div>
 
           <div className="pt-3 border-t border-line space-y-3">
-            <h4 className="text-xs font-semibold text-ink">Profit calculator</h4>
+            <h4 className="text-xs font-semibold text-ink">{t('bol.profitCalculator')}</h4>
             {commissionError && <p className="text-2xs text-danger">{commissionError}</p>}
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className={labelClass}>Sell price</label>
+                <label className={labelClass}>{t('bol.sellPrice')}</label>
                 <input disabled readOnly value={fmt(sellPrice)} className={`${inputClass} cursor-not-allowed opacity-70`} />
-                {customPrice.trim() !== '' && <p className="text-2xs text-accent mt-1">Custom price</p>}
+                {customPrice.trim() !== '' && <p className="text-2xs text-accent mt-1">{t('bol.customPrice')}</p>}
               </div>
               <div>
-                <label className={labelClass}>Cost price</label>
+                <label className={labelClass}>{t('bol.costPrice')}</label>
                 <input disabled readOnly value={fmt(costPrice)} className={`${inputClass} cursor-not-allowed opacity-70`} />
               </div>
               <div>
-                <label htmlFor="bol-tax-rate" className={labelClass}>Tax rate %</label>
+                <label htmlFor="bol-tax-rate" className={labelClass}>{t('bol.taxRate')}</label>
                 <input id="bol-tax-rate" value={taxRatePercent} onChange={e => setTaxRatePercent(e.target.value)} className={inputClass} />
               </div>
               <div>
                 <label htmlFor="bol-commission-percent" className={labelClass}>
-                  Bol commission % {commission && !commissionOverridden && '(live)'}
+                  {t('bol.commission')} {commission && !commissionOverridden && t('bol.live')}
                 </label>
                 <input id="bol-commission-percent" value={commissionPercentInput}
                   onChange={e => { setCommissionPercentInput(e.target.value); setCommissionOverridden(true) }}
@@ -460,31 +465,31 @@ export function ProductBolTab({
                 {commissionOverridden && (
                   <button type="button" className="text-2xs text-accent mt-1"
                     onClick={() => { setCommissionOverridden(false); if (commission) setCommissionPercentInput(fmt(commission.percentage)) }}>
-                    Use live value
+                    {t('bol.useLive')}
                   </button>
                 )}
               </div>
               <div>
-                <label className={labelClass}>Commission fixed fee</label>
+                <label className={labelClass}>{t('bol.fixedFee')}</label>
                 <input disabled readOnly value={fmt(commission?.fixed_amount ?? 0)} className={`${inputClass} cursor-not-allowed opacity-70`} />
               </div>
               <div>
-                <label htmlFor="bol-shipping-cost" className={labelClass}>Shipping cost</label>
+                <label htmlFor="bol-shipping-cost" className={labelClass}>{t('bol.shippingCost')}</label>
                 <input id="bol-shipping-cost" value={shippingCost} onChange={e => setShippingCost(e.target.value)} className={inputClass} />
               </div>
             </div>
 
             <div className="rounded-lg bg-sunken p-3 space-y-1 text-2xs">
-              <div className="flex justify-between text-ink-3"><span>Sell price</span><span>{fmt(sellPrice)}</span></div>
-              <div className="flex justify-between text-ink-3"><span>− Cost price</span><span>{fmt(costPrice)}</span></div>
-              <div className="flex justify-between text-ink-3"><span>− Tax</span><span>{fmt(result.taxAmount)}</span></div>
-              <div className="flex justify-between text-ink-3"><span>− Bol commission</span><span>{fmt(result.commissionAmount)}</span></div>
-              <div className="flex justify-between text-ink-3"><span>− Shipping</span><span>{fmt(parsedShipping)}</span></div>
+              <div className="flex justify-between text-ink-3"><span>{t('bol.sellPrice')}</span><span>{fmt(sellPrice)}</span></div>
+              <div className="flex justify-between text-ink-3"><span>{t('bol.minusCost')}</span><span>{fmt(costPrice)}</span></div>
+              <div className="flex justify-between text-ink-3"><span>{t('bol.minusTax')}</span><span>{fmt(result.taxAmount)}</span></div>
+              <div className="flex justify-between text-ink-3"><span>{t('bol.minusCommission')}</span><span>{fmt(result.commissionAmount)}</span></div>
+              <div className="flex justify-between text-ink-3"><span>{t('bol.minusShipping')}</span><span>{fmt(parsedShipping)}</span></div>
               <div className="flex justify-between font-semibold text-ink pt-1 border-t border-line">
-                <span>Profit</span><span>{fmt(result.profit)}</span>
+                <span>{t('bol.profit')}</span><span>{fmt(result.profit)}</span>
               </div>
               <div className="flex justify-between text-ink-3">
-                <span>Margin</span><span>{fmt(result.marginPercent)}%</span>
+                <span>{t('bol.margin')}</span><span>{fmt(result.marginPercent)}%</span>
               </div>
             </div>
           </div>

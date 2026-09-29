@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState } from 'react'
 import type { SKU, UpdateSKUPayload } from '../types'
 import { skuPassThroughPayload } from '../skuPayloads'
@@ -26,7 +27,7 @@ export function useSkuBarcodeEdit(sku: SKU | undefined, updateSKU: (id: string, 
     try {
       await updateSKU(sku.id, { ...skuPassThroughPayload(sku), barcode: value || undefined })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update barcode')
+      setError(err instanceof Error ? err.message : i18next.t('pms:errors.updateBarcode'))
     } finally {
       setSaving(false)
     }

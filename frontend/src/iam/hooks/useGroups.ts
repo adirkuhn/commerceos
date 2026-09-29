@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { Group, CreateGroupPayload, UpdateGroupPayload } from '../types'
 import * as api from '../api'
@@ -29,7 +30,7 @@ export function useGroups(token: string): UseGroupsState & UseGroupsActions {
       const data = await api.listGroups(token)
       setGroups(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('iam:unknownError'))
     } finally {
       setLoading(false)
     }

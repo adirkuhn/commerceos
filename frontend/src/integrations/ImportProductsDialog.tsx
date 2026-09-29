@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { Dialog } from '../components/common/Dialog'
 import type { Connection } from './types'
@@ -16,6 +17,7 @@ interface Props {
 // "Import products" modal for a WooCommerce connection: pick warehouse +
 // currency, start a background import job.
 export function ImportProductsDialog({ token, connection, warehouses, tenantDefaultCurrency, onClose }: Props) {
+  const { t } = useTranslation(['integrations', 'common'])
   const imp = useImportProducts(token, connection, tenantDefaultCurrency)
 
   return (
@@ -23,8 +25,8 @@ export function ImportProductsDialog({ token, connection, warehouses, tenantDefa
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
       <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-ink">Import products</h3>
-          <button onClick={onClose} aria-label="Close">
+          <h3 className="text-sm font-semibold text-ink">{t('import.title')}</h3>
+          <button onClick={onClose} aria-label={t('common:actions.close')}>
             <X size={14} className="text-ink-4" />
           </button>
         </div>
@@ -32,23 +34,23 @@ export function ImportProductsDialog({ token, connection, warehouses, tenantDefa
         {imp.job ? (
           <div className="space-y-3">
             <p className="text-xs text-ink-2">
-              Import started — it's running in the background. You'll see a notification when it's done (check the bell icon, top right).
+              {t('import.started')}
             </p>
             <button
               onClick={onClose}
               className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
             >
-              Done
+              {t('done')}
             </button>
           </div>
         ) : (
           <form onSubmit={imp.submit} className="space-y-3">
             <p className="text-2xs text-ink-4">
-              Imports every WooCommerce product not yet linked, along with its category. Existing categories are matched by name; missing ones are created.
+              {t('import.intro')}
             </p>
             <div>
               <label htmlFor="import-warehouse-id" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                Default warehouse ID
+                {t('import.warehouse')}
               </label>
               <select
                 id="import-warehouse-id"
@@ -58,16 +60,16 @@ export function ImportProductsDialog({ token, connection, warehouses, tenantDefa
                 onChange={e => imp.setWarehouseId(e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
               >
-                <option value="" disabled>Select a warehouse…</option>
+                <option value="" disabled>{t('import.selectWarehouse')}</option>
                 {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select>
               <p className="mt-1.5 text-2xs text-ink-4">
-                Imported stock quantities are attributed to this warehouse — WooCommerce has no warehouse concept.
+                {t('import.warehouseHint')}
               </p>
             </div>
             <div>
               <label htmlFor="import-currency" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                Default currency
+                {t('import.currency')}
               </label>
               <select
                 id="import-currency"
@@ -76,7 +78,7 @@ export function ImportProductsDialog({ token, connection, warehouses, tenantDefa
                 onChange={e => imp.setCurrency(e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
               >
-                <option value="" disabled>Select a currency…</option>
+                <option value="" disabled>{t('import.selectCurrency')}</option>
                 {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
@@ -88,7 +90,7 @@ export function ImportProductsDialog({ token, connection, warehouses, tenantDefa
               disabled={imp.importing}
               className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
             >
-              {imp.importing ? 'Importing…' : 'Start import'}
+              {imp.importing ? t('import.importing') : t('import.start')}
             </button>
           </form>
         )}

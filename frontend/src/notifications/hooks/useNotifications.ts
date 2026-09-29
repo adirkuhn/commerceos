@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { Notification } from '../types'
 import * as api from '../api'
@@ -29,7 +30,7 @@ export function useNotifications(token: string): UseNotificationsState & UseNoti
       const data = await api.listNotifications(token)
       setNotifications(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('ui:errors.unknown'))
     } finally {
       setLoading(false)
     }

@@ -1,0 +1,18 @@
+{
+  "list": {
+    "colCustomer": "Klant",
+    "colDate": "Datum",
+    "colProduct": "Product-ID",
+    "colRating": "Beoordeling",
+    "colReview": "Review",
+    "count_one": "{{count}} review",
+    "count_other": "{{count}} reviews",
+    "deleteConfirm": "Review verwijderen",
+    "deleteMessage": "Dit kan niet ongedaan worden gemaakt.",
+    "deleteTitle": "Review van \"{{name}}\" verwijderen?",
+    "empty": "Nog geen reviews",
+    "search": "Zoeken op klant, product of tekst...",
+    "stars": "{{rating}} van 5 sterren",
+    "verified": "Geverifieerde aankoop"
+  }
+}

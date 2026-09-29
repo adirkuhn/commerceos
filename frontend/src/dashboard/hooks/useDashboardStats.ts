@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import * as pmsApi from '../../pms/api'
 import * as omsApi from '../../oms/api'
@@ -57,7 +58,7 @@ export function useDashboardStats(token: string): UseDashboardStatsState & { ref
         topProductsThisMonth: report.top_products_this_month,
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('dashboard:errors.unknown'))
     } finally {
       setLoading(false)
     }

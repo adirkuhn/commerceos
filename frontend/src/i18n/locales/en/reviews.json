@@ -1,0 +1,18 @@
+{
+  "list": {
+    "colCustomer": "Customer",
+    "colDate": "Date",
+    "colProduct": "Product ID",
+    "colRating": "Rating",
+    "colReview": "Review",
+    "count_one": "{{count}} review",
+    "count_other": "{{count}} reviews",
+    "deleteConfirm": "Delete review",
+    "deleteMessage": "This cannot be undone.",
+    "deleteTitle": "Delete the review from \"{{name}}\"?",
+    "empty": "No reviews yet",
+    "search": "Search by customer, product, or text...",
+    "stars": "{{rating}} out of 5 stars",
+    "verified": "Verified purchase"
+  }
+}

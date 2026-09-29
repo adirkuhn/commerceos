@@ -1,0 +1,37 @@
+{
+  "app": {
+    "pageNotFound": "Pagina niet gevonden",
+    "pageNotFoundHint": "Deze pagina bestaat niet."
+  },
+  "errors": {
+    "load": "Laden mislukt",
+    "unknown": "Onbekende fout"
+  },
+  "monthShort": {
+    "apr": "apr",
+    "aug": "aug",
+    "dec": "dec",
+    "feb": "feb",
+    "jan": "jan",
+    "jul": "jul",
+    "jun": "jun",
+    "mar": "mrt",
+    "may": "mei",
+    "nov": "nov",
+    "oct": "okt",
+    "sep": "sep"
+  },
+  "pagination": {
+    "pageOf": "Pagina {{page}} van {{total}}"
+  },
+  "record": {
+    "backToList": "Terug naar lijst",
+    "notFound": "{{label}} niet gevonden",
+    "notFoundHint": "Het is misschien verwijderd, of de link is verouderd."
+  },
+  "skuPicker": {
+    "noProducts": "Geen overeenkomende producten",
+    "noSkus": "Geen SKU’s bij dit product",
+    "searchPlaceholder": "Zoek producten op naam…"
+  }
+}

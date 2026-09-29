@@ -141,7 +141,7 @@ describe('ScanPicking', () => {
 
     await user.click(screen.getByRole('button', { name: /Complete/ }))
     expect(screen.getByText('Review before completing')).toBeInTheDocument()
-    expect(screen.getByText("1 line(s) aren't fully picked yet:")).toBeInTheDocument()
+    expect(screen.getByText("1 line isn't fully picked yet:")).toBeInTheDocument()
     expect(screen.getByText('expected 5 · picked 1')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Back to scanning' }))

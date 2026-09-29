@@ -1,0 +1,28 @@
+{
+  "list": {
+    "colConfirmed": "Confirmado em",
+    "colEmail": "E-mail",
+    "colSignedUp": "Inscrito em",
+    "colStatus": "Status",
+    "empty": "Nenhum inscrito encontrado",
+    "eraseAria": "Apagar {{email}}",
+    "eraseConfirm": "Apagar inscrito",
+    "eraseFailed": "Não foi possível apagar o inscrito",
+    "eraseMessage": "A inscrição e o registro de consentimento são apagados para sempre. Use para pedidos de remoção de dados; para parar os e-mails, a pessoa pode cancelar a inscrição.",
+    "eraseTitle": "Apagar {{email}}?",
+    "export": "Exportar inscritos (CSV)",
+    "exportFailed": "Não foi possível exportar os inscritos",
+    "exporting": "Exportando…",
+    "intro": "Os clientes se inscrevem pelo formulário da sua loja e confirmam por e-mail (confirmação dupla). Só inscritos confirmados são exportados.",
+    "loadFailed": "Não foi possível carregar os inscritos",
+    "search": "Buscar por e-mail...",
+    "searchLabel": "Buscar inscritos"
+  },
+  "status": {
+    "all": "Todos os status",
+    "confirmed": "Inscrito",
+    "label": "Status",
+    "pending": "Aguardando confirmação",
+    "unsubscribed": "Cancelado"
+  }
+}

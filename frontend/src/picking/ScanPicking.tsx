@@ -1,4 +1,5 @@
 import { ScanBarcode } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useMemberNames } from '../team/hooks/useMemberNames'
 import { canTakeOverLocks } from '../packing/lockDisplay'
 import { useAuth } from '../auth/AuthContext'
@@ -28,6 +29,7 @@ import { ScanErrorDialog, StartOverDialog } from './PickingDialogs'
 // fulfilled by completing the session.
 export function ScanPicking() {
   const { token, user } = useAuth()
+  const { t } = useTranslation(['picking', 'common'])
 
   // The picking queue: orders still to pick, with who is working each and
   // whether packing has it -- those open as a read-only item list
@@ -74,14 +76,14 @@ export function ScanPicking() {
         {!viewEntry && !activeOrder && !(ps.urlSessionId && (ps.sessionLoading || error)) && (
           <div className="flex-1 flex flex-col items-center justify-center text-ink-4">
             <ScanBarcode size={32} className="mb-3 opacity-40" />
-            <p className="text-sm">Select an order to start picking</p>
+            <p className="text-sm">{t('scan.selectOrder')}</p>
           </div>
         )}
 
         {!session && !ps.sessionLoading && error && <SessionErrorPanel error={error} onBack={ps.backToOrders} />}
 
         {(activeOrder || ps.urlSessionId) && ps.sessionLoading && !session && (
-          <div className="flex-1 flex items-center justify-center text-ink-4 text-sm">Loading…</div>
+          <div className="flex-1 flex items-center justify-center text-ink-4 text-sm">{t('common:status.loading')}</div>
         )}
 
         {activeOrder && ps.completeResult && (

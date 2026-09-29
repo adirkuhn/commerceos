@@ -51,7 +51,7 @@ describe('SalesTrendsPage', () => {
     renderAt(<SalesTrendsPage />, '/reports')
     await screen.findByText('Sales trend')
 
-    await user.click(screen.getByRole('button', { name: 'week' }))
+    await user.click(screen.getByRole('button', { name: 'Week' }))
 
     expect(reportsApi.getSalesTrendsReport).toHaveBeenLastCalledWith('test-token', expect.any(String), expect.any(String), 'week')
   })

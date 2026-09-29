@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { AlertTriangle, Info } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, ResponsiveContainer } from 'recharts'
 import { channelSeriesColor, seriesColor, useChartTheme } from '../../charts/chartTheme'
 import { useAuth } from '../../auth/AuthContext'
@@ -25,6 +26,7 @@ function isIsoDate(value: string | null): value is string {
 export default function OverviewPage() {
   const chart = useChartTheme()
   const { token } = useAuth()
+  const { t } = useTranslation('reports')
   const { formatDate, formatMonthDay, settings: { timeZone } } = useDateFormat()
   // Range (?period=, plus ?from=&to= for a custom range) and the
   // summary/daily view (?view=daily) live in the URL -- a refresh or a
@@ -79,10 +81,10 @@ export default function OverviewPage() {
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const kpis = [
-    { label: 'Total revenue', value: salesSummary ? formatMoney(salesSummary.current.revenue_minor_units, currency) : '—', change: salesSummary?.revenue_change_percent ?? null },
-    { label: 'Total orders', value: salesSummary ? String(salesSummary.current.order_count) : '—', change: salesSummary?.order_count_change_percent ?? null },
-    { label: 'Units sold', value: salesSummary ? String(salesSummary.current.units_sold) : '—', change: salesSummary?.units_sold_change_percent ?? null },
-    { label: 'Avg order value', value: salesSummary ? formatMoney(salesSummary.current.average_order_value_minor_units, currency) : '—', change: salesSummary?.aov_change_percent ?? null },
+    { label: t('overview.totalRevenue'), value: salesSummary ? formatMoney(salesSummary.current.revenue_minor_units, currency) : '—', change: salesSummary?.revenue_change_percent ?? null },
+    { label: t('overview.totalOrders'), value: salesSummary ? String(salesSummary.current.order_count) : '—', change: salesSummary?.order_count_change_percent ?? null },
+    { label: t('overview.unitsSold'), value: salesSummary ? String(salesSummary.current.units_sold) : '—', change: salesSummary?.units_sold_change_percent ?? null },
+    { label: t('overview.aov'), value: salesSummary ? formatMoney(salesSummary.current.average_order_value_minor_units, currency) : '—', change: salesSummary?.aov_change_percent ?? null },
   ]
 
   const profitabilityTrendPoints = (profitabilityTrend?.points ?? []).map((p: ProfitabilityPoint) => ({ ...p, label: formatMonthDay(p.period_start) }))
@@ -101,7 +103,7 @@ export default function OverviewPage() {
 
   return (
     <ReportPageShell
-      title="Overview"
+      title={t('overview.title')}
       subtitle={`${formatDate(firstDay)} – ${formatDate(lastDay)}`}
       loading={summaryLoading || insightsLoading || profitLoading || channelLoading || (showDaily && profitTrendLoading)}
       error={summaryError ?? insightsError ?? profitError ?? channelError ?? (showDaily ? profitTrendError : null)}
@@ -147,10 +149,10 @@ export default function OverviewPage() {
         </div>
       )}
 
-      <ReportCard title="Profitability" description="Profit/margin cover only the revenue with a known SKU cost price">
+      <ReportCard title={t('overview.profitability')} description={t('overview.profitabilityDesc')}>
         {showDaily ? (
           profitabilityTrendPoints.length === 0 ? (
-            <EmptyState>No cost-known revenue in this period</EmptyState>
+            <EmptyState>{t('overview.noCostRevenue')}</EmptyState>
           ) : (
             <div className="px-3 pb-3 pt-1">
               <ResponsiveContainer width="100%" height={260}>
@@ -160,50 +162,50 @@ export default function OverviewPage() {
                   <YAxis width={72} tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
                   <Tooltip contentStyle={chart.tooltip} formatter={(v: number, name: string) => [formatMoney(v, currency), name]} />
                   <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12, color: chart.label }} />
-                  <Line type="monotone" dataKey="revenue_minor_units" name="Revenue" stroke={seriesColor(chart, 0)} strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="profit_minor_units" name="Profit" stroke={seriesColor(chart, 1)} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="revenue_minor_units" name={t('overview.revenue')} stroke={seriesColor(chart, 0)} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="profit_minor_units" name={t('overview.profit')} stroke={seriesColor(chart, 1)} strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           )
         ) : !profitability || profitability.summary.cost_known_revenue_minor_units === 0 ? (
-          <EmptyState>No cost-known revenue in this period</EmptyState>
+          <EmptyState>{t('overview.noCostRevenue')}</EmptyState>
         ) : (
           <div data-testid="profitability-summary" className="grid grid-cols-4 gap-3 p-4">
             <div>
-              <p className="text-xs text-ink-4 mb-1">Revenue</p>
+              <p className="text-xs text-ink-4 mb-1">{t('overview.revenue')}</p>
               <p className="text-sm font-semibold text-ink">{formatMoney(profitability.summary.revenue_minor_units, currency)}</p>
               {profitability.summary.cost_known_revenue_minor_units < profitability.summary.revenue_minor_units && (
                 <p className="text-2xs text-ink-4 mt-0.5">
-                  {formatMoney(profitability.summary.cost_known_revenue_minor_units, currency)} with known cost
+                  {t('overview.withKnownCost', { amount: formatMoney(profitability.summary.cost_known_revenue_minor_units, currency) })}
                 </p>
               )}
             </div>
             <div>
-              <p className="text-xs text-ink-4 mb-1">COGS</p>
+              <p className="text-xs text-ink-4 mb-1">{t('overview.cogs')}</p>
               <p className="text-sm font-semibold text-ink">{formatMoney(profitability.summary.cost_minor_units, currency)}</p>
             </div>
             <div>
-              <p className="text-xs text-ink-4 mb-1">Profit</p>
+              <p className="text-xs text-ink-4 mb-1">{t('overview.profit')}</p>
               <p className="text-sm font-semibold text-ink">{formatMoney(profitability.summary.profit_minor_units, currency)}</p>
             </div>
             <div>
-              <p className="text-xs text-ink-4 mb-1">Margin</p>
+              <p className="text-xs text-ink-4 mb-1">{t('overview.margin')}</p>
               <p className="text-sm font-semibold text-ink">{(profitability.summary.margin_basis_points / 100).toFixed(1)}%</p>
             </div>
           </div>
         )}
       </ReportCard>
 
-      <ReportCard title="Revenue by channel" description={showDaily ? 'Daily revenue per sales channel' : 'Total revenue per sales channel'}>
+      <ReportCard title={t('overview.byChannel')} description={showDaily ? t('overview.dailyPerChannel') : t('overview.totalPerChannel')}>
         {showDaily ? (
           channelTrendRows.length === 0 ? (
-            <EmptyState>No revenue in this period</EmptyState>
+            <EmptyState>{t('overview.noRevenue')}</EmptyState>
           ) : (
             <>
               <div className="flex items-center justify-between px-4 pt-3">
                 <p data-testid="channel-total-all" className="text-xs text-ink-3">
-                  Total, all channels: <span className="font-semibold text-ink">{formatMoney(totalAllChannelsMinorUnits, currency)}</span>
+                  {t('overview.totalAll')} <span className="font-semibold text-ink">{formatMoney(totalAllChannelsMinorUnits, currency)}</span>
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5 px-4 pt-2">
@@ -219,7 +221,7 @@ export default function OverviewPage() {
                         'flex items-center gap-1.5 px-2 py-1 rounded-md text-2xs font-medium border transition-colors',
                         visible ? 'border-line bg-raised text-ink-2' : 'border-line text-ink-4 opacity-60',
                       )}
-                      title={visible ? `Hide ${source}` : `Show ${source}`}
+                      title={visible ? t('overview.hide', { channel: source }) : t('overview.show', { channel: source })}
                     >
                       <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: visible ? color : 'transparent', border: `1.5px solid ${color}` }} aria-hidden />
                       {source} · {formatMoney(channelTotalBySource[source] ?? 0, currency)}
@@ -228,7 +230,7 @@ export default function OverviewPage() {
                 })}
               </div>
               {visibleChannelSources.length === 0 ? (
-                <EmptyState>Select at least one channel to show</EmptyState>
+                <EmptyState>{t('overview.selectChannel')}</EmptyState>
               ) : (
                 <div className="px-3 pb-3 pt-1">
                   <ResponsiveContainer width="100%" height={280}>
@@ -236,7 +238,7 @@ export default function OverviewPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />
                       <XAxis dataKey="label" tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} tickMargin={8} />
                       <YAxis width={72} tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
-                      <Tooltip contentStyle={chart.tooltip} formatter={(v: number, name: string) => [formatMoney(v, currency), name === 'dayTotal' ? 'Total' : name]} />
+                      <Tooltip contentStyle={chart.tooltip} formatter={(v: number, name: string) => [formatMoney(v, currency), name === 'dayTotal' ? t('overview.total') : name]} />
                       <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12, color: chart.label }} />
                       {visibleChannelSources.map((source, i) => (
                         <Bar
@@ -255,7 +257,7 @@ export default function OverviewPage() {
             </>
           )
         ) : !revenueByChannel || revenueByChannel.channels.length === 0 ? (
-          <EmptyState>No revenue in this period</EmptyState>
+          <EmptyState>{t('overview.noRevenue')}</EmptyState>
         ) : (
           <>
             <div className="px-3 pb-3 pt-1">
@@ -264,7 +266,7 @@ export default function OverviewPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />
                   <XAxis dataKey="source" tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} tickMargin={8} />
                   <YAxis width={72} tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
-                  <Tooltip contentStyle={chart.tooltip} formatter={(v: number) => [formatMoney(v, currency), 'Revenue']} />
+                  <Tooltip contentStyle={chart.tooltip} formatter={(v: number) => [formatMoney(v, currency), t('overview.revenue')]} />
                   <Bar dataKey="total_minor_units" fill={seriesColor(chart, 0)} radius={4} />
                 </BarChart>
               </ResponsiveContainer>
@@ -272,7 +274,7 @@ export default function OverviewPage() {
             <table className="w-full text-xs border-t border-line">
               <thead>
                 <tr className="dark:bg-night-900/50 bg-gray-50">
-                  {['Channel', 'Revenue'].map(h => (
+                  {[t('overview.channel'), t('overview.revenue')].map(h => (
                     <th key={h} className="px-3 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{h}</th>
                   ))}
                 </tr>

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import i18next from 'i18next'
 import Newsletter from '../../pages/Newsletter'
 import { renderAt } from '../../test/renderAt'
 import type { Subscriber } from '../types'
@@ -76,5 +77,16 @@ describe('Newsletter', () => {
     vi.mocked(api.listSubscribers).mockRejectedValue(new Error('boom'))
     renderPage()
     expect(await screen.findByRole('alert')).toHaveTextContent('boom')
+  })
+})
+
+describe('in Brazilian Portuguese', () => {
+  afterEach(async () => { await i18next.changeLanguage('en') })
+
+  it('lists subscribers with their status in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    renderPage()
+    const ann = (await screen.findByText('ann@x.test')).closest('tr')!
+    expect(within(ann).getByText('Inscrito')).toBeInTheDocument()
   })
 })

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import type { Address } from '../oms/types'
 import type { RecipientAddress, DeliveryPriceOption } from './types'
 import { CARRIERS, PACKAGE_TYPES } from './types'
@@ -111,6 +112,7 @@ function normalize(s: string): string {
 // accepts/rejects it, surfaced on LabelPreviewModal's Print step.
 export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, defaultPackageType, connectionId, initialRecipient, initialCarrier, initialPackageType, onNext, onClose }: AddressConfirmModalProps) {
   const [recipient, setRecipient] = useState<RecipientAddress>(() => initialRecipient ?? addressToRecipientDraft(initialAddress, fallbackEmail))
+  const { t } = useTranslation(['shipping', 'common'])
   const [carrier, setCarrier] = useState(initialCarrier ?? defaultCarrier ?? 1)
   const [packageType, setPackageType] = useState(initialPackageType ?? defaultPackageType ?? 1)
 
@@ -253,59 +255,59 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
       <div className="relative w-full max-w-md bg-raised rounded-xl shadow-2xl border border-line p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-ink">Confirm shipping address</h3>
-          <button onClick={onClose} aria-label="Close"><X size={14} className="text-ink-4" /></button>
+          <h3 className="text-sm font-semibold text-ink">{t('address.title')}</h3>
+          <button onClick={onClose} aria-label={t('common:actions.close')}><X size={14} className="text-ink-4" /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label htmlFor="addr-person" className={labelClass}>Name</label>
+            <label htmlFor="addr-person" className={labelClass}>{t('address.name')}</label>
             <input id="addr-person" required {...field('person')} className={inputClass} />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="col-span-2">
-              <label htmlFor="addr-street" className={labelClass}>Street</label>
+              <label htmlFor="addr-street" className={labelClass}>{t('address.street')}</label>
               <input id="addr-street" required {...field('street')} className={inputClass} />
             </div>
             <div>
-              <label htmlFor="addr-number" className={labelClass}>Number</label>
+              <label htmlFor="addr-number" className={labelClass}>{t('address.number')}</label>
               <input id="addr-number" {...field('number')} onBlur={runAddressCheck} className={inputClass} />
             </div>
           </div>
           <div>
-            <label htmlFor="addr-number-suffix" className={labelClass}>Complement (toevoeging)</label>
+            <label htmlFor="addr-number-suffix" className={labelClass}>{t('address.suffix')}</label>
             <input id="addr-number-suffix" {...field('number_suffix')} onBlur={runAddressCheck} className={inputClass} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label htmlFor="addr-postal-code" className={labelClass}>Postal code</label>
+              <label htmlFor="addr-postal-code" className={labelClass}>{t('address.postalCode')}</label>
               <input id="addr-postal-code" {...field('postal_code')} onBlur={runAddressCheck} className={inputClass} />
             </div>
             <div>
-              <label htmlFor="addr-city" className={labelClass}>City</label>
+              <label htmlFor="addr-city" className={labelClass}>{t('address.city')}</label>
               <input id="addr-city" required {...field('city')} className={inputClass} />
             </div>
           </div>
 
           {addressCheck.status === 'checking' && (
-            <p className="text-2xs text-ink-4">Checking address…</p>
+            <p className="text-2xs text-ink-4">{t('address.checking')}</p>
           )}
           {addressCheck.status === 'not_found' && (
-            <p className="text-2xs text-warning">No match found for that postal code/number — enter manually.</p>
+            <p className="text-2xs text-warning">{t('address.notFound')}</p>
           )}
           {addressCheck.status === 'error' && (
-            <p className="text-2xs text-ink-4">Couldn't verify the address right now.</p>
+            <p className="text-2xs text-ink-4">{t('address.checkError')}</p>
           )}
           {addressCheck.status === 'mismatch' && (
             <div className="flex items-start gap-2 rounded-lg px-3 py-2 bg-amber-50 dark:bg-amber-500/10">
               <AlertTriangle size={13} className="text-warning mt-0.5 shrink-0" />
               <div className="flex-1 text-2xs text-warning">
-                <p>Possible typo: you entered <strong>{recipient.street}, {recipient.city}</strong>, the registry has <strong>{addressCheck.suggested.street}, {addressCheck.suggested.city}</strong>.</p>
+                <p><Trans t={t} i18nKey="address.mismatch" values={{ entered: `${recipient.street}, ${recipient.city}`, suggested: `${addressCheck.suggested.street}, ${addressCheck.suggested.city}` }} components={{ entered: <strong />, suggested: <strong /> }} /></p>
                 <div className="flex gap-2 mt-1.5">
                   <button type="button" onClick={useSuggestedAddress} className="px-2 py-1 rounded bg-amber-500 text-white text-2xs font-medium hover:bg-amber-600 transition-colors">
-                    Use suggested
+                    {t('address.useSuggested')}
                   </button>
                   <button type="button" onClick={() => setAddressCheck({ status: 'dismissed' })} className="px-2 py-1 rounded bg-surface border border-line text-2xs text-ink-2 hover:bg-hover transition-colors">
-                    Keep mine
+                    {t('address.keepMine')}
                   </button>
                 </div>
               </div>
@@ -313,11 +315,11 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
           )}
 
           <div>
-            <label htmlFor="addr-cc" className={labelClass}>Country code</label>
+            <label htmlFor="addr-cc" className={labelClass}>{t('address.country')}</label>
             <input id="addr-cc" required maxLength={2} {...field('cc')} onBlur={runAddressCheck} className={inputClass} />
           </div>
           <div>
-            <label htmlFor="addr-email" className={labelClass}>Email</label>
+            <label htmlFor="addr-email" className={labelClass}>{t('address.email')}</label>
             {/* Required, not just recommended -- MyParcel rejects some
                 carriers' shipments with a 422 when this is blank (it emails
                 the recipient tracking updates for those carriers). Prefilled
@@ -328,24 +330,24 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label htmlFor="ship-carrier" className={labelClass}>Carrier</label>
+              <label htmlFor="ship-carrier" className={labelClass}>{t('address.carrier')}</label>
               <select id="ship-carrier" value={carrier} onChange={e => setCarrier(Number(e.target.value))} className={inputClass}>
                 {CARRIERS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
             </div>
             <div>
-              <label htmlFor="ship-package-type" className={labelClass}>Package type</label>
+              <label htmlFor="ship-package-type" className={labelClass}>{t('address.packageType')}</label>
               <select id="ship-package-type" value={packageType} onChange={e => setPackageType(Number(e.target.value))} className={inputClass}>
                 {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select>
             </div>
           </div>
           {estimate.status === 'loading' && (
-            <p className="text-2xs text-ink-4">Estimating label cost…</p>
+            <p className="text-2xs text-ink-4">{t('address.estimating')}</p>
           )}
           {estimate.status === 'ready' && cheapestEstimate && (
             <p className="text-2xs text-ink-3">
-              Estimated cost: <strong>{formatMoney(cheapestEstimate.amount_minor_units, cheapestEstimate.currency, 'EUR')}</strong> ({cheapestEstimate.price_comment})
+              <Trans t={t} i18nKey="address.estimate" values={{ amount: formatMoney(cheapestEstimate.amount_minor_units, cheapestEstimate.currency, 'EUR'), comment: cheapestEstimate.price_comment }} components={{ strong: <strong /> }} />
             </p>
           )}
           <button
@@ -353,7 +355,7 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
             disabled={submitting}
             className="w-full px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {submitting ? 'Checking address…' : 'Review label'}
+            {submitting ? t('address.checking') : t('address.review')}
           </button>
         </form>
       </div>

@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, ImagePlus } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -11,6 +12,7 @@ const ACCEPTED_IMAGE_TYPES = 'image/jpeg,image/png,image/webp,image/gif'
 
 export function MediaSection({ productId }: { productId: string }) {
   const { token } = useAuth()
+  const { t } = useTranslation(['pms', 'common'])
   const { media, loading, error, upload, update, remove } = useProductMedia(token ?? '', productId)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -40,7 +42,7 @@ export function MediaSection({ productId }: { productId: string }) {
         await upload(file)
       }
     } catch (e) {
-      setUploadError(e instanceof Error ? e.message : 'Upload failed')
+      setUploadError(e instanceof Error ? e.message : t('media.uploadFailed'))
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -67,7 +69,7 @@ export function MediaSection({ productId }: { productId: string }) {
       await update(editingId, titleDraft)
       setEditingId(null)
     } catch (e) {
-      setTitleError(e instanceof Error ? e.message : 'Failed to update title')
+      setTitleError(e instanceof Error ? e.message : t('media.titleFailed'))
     } finally {
       setTitleSaving(false)
     }
@@ -99,7 +101,7 @@ export function MediaSection({ productId }: { productId: string }) {
               <button
                 type="button"
                 onClick={() => openTitleEditor(featured)}
-                aria-label="Edit image title"
+                aria-label={t('media.editTitle')}
                 className="w-full h-full cursor-pointer"
               >
                 <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
@@ -107,14 +109,14 @@ export function MediaSection({ productId }: { productId: string }) {
               <button
                 type="button"
                 onClick={() => remove(featured.id)}
-                aria-label="Remove image"
+                aria-label={t('media.removeImage')}
                 className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
               >
                 <X size={12} />
               </button>
             </>
           ) : (
-            <span>Featured image</span>
+            <span>{t('media.featured')}</span>
           )}
         </div>
         <div className="grid grid-cols-2 gap-2 content-start">
@@ -123,7 +125,7 @@ export function MediaSection({ productId }: { productId: string }) {
               <button
                 type="button"
                 onClick={() => openTitleEditor(m)}
-                aria-label="Edit image title"
+                aria-label={t('media.editTitle')}
                 className="w-full h-full cursor-pointer"
               >
                 <img src={m.url} alt={m.alt_text} className="w-full h-full object-cover" />
@@ -131,7 +133,7 @@ export function MediaSection({ productId }: { productId: string }) {
               <button
                 type="button"
                 onClick={() => remove(m.id)}
-                aria-label="Remove image"
+                aria-label={t('media.removeImage')}
                 className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
               >
                 <X size={10} />
@@ -142,8 +144,8 @@ export function MediaSection({ productId }: { productId: string }) {
             type="button"
             disabled={uploading}
             onClick={() => fileInputRef.current?.click()}
-            aria-label="Add image"
-            title="Add image"
+            aria-label={t('media.addImage')}
+            title={t('media.addImage')}
             className="aspect-square rounded-lg border-2 border-dashed border-line flex items-center justify-center text-ink-4 hover:text-ink-3 disabled:opacity-50"
           >
             <ImagePlus size={16} />
@@ -153,14 +155,14 @@ export function MediaSection({ productId }: { productId: string }) {
       {editingId && (
         <div className="p-2.5 rounded-lg border border-line space-y-2">
           <label htmlFor="media-title" className="block text-2xs font-medium text-ink-4 uppercase tracking-wider">
-            Title
+            {t('media.imageTitle')}
           </label>
           <input
             id="media-title"
             type="text"
             value={titleDraft}
             onChange={e => setTitleDraft(e.target.value)}
-            placeholder="Describe this image"
+            placeholder={t('media.describe')}
             className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
           />
           {titleError && <p className="text-2xs text-danger">{titleError}</p>}
@@ -170,7 +172,7 @@ export function MediaSection({ productId }: { productId: string }) {
               onClick={() => setEditingId(null)}
               className="text-2xs text-ink-4 hover:text-ink-2 transition-colors"
             >
-              Cancel
+              {t('common:actions.cancel')}
             </button>
             <button
               type="button"
@@ -178,12 +180,12 @@ export function MediaSection({ productId }: { productId: string }) {
               onClick={handleSaveTitle}
               className="text-2xs font-medium px-2.5 py-1 rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
             >
-              {titleSaving ? 'Saving…' : 'Save title'}
+              {titleSaving ? t('common:actions.saving') : t('media.saveTitle')}
             </button>
           </div>
         </div>
       )}
-      {loading && <p className="text-2xs text-ink-4">Loading…</p>}
+      {loading && <p className="text-2xs text-ink-4">{t('common:status.loading')}</p>}
       {(uploadError || error) && (
         <p className="text-2xs text-danger">{uploadError ?? error}</p>
       )}

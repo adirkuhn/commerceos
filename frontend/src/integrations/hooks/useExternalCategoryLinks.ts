@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { ExternalCategoryLink } from '../types'
 import * as api from '../api'
@@ -27,7 +28,7 @@ export function useExternalCategoryLinks(token: string, connectionId: string): U
       const data = await api.listExternalCategoryLinks(token, connectionId)
       setLinks(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('integrations:unknownError'))
     } finally {
       setLoading(false)
     }

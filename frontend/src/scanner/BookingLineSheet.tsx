@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18next from 'i18next'
 import { Check, Plus, Minus, Warehouse as WarehouseIcon, X, PackagePlus, Undo2, AlertTriangle, Trash2 } from 'lucide-react'
 import * as inventoryApi from '../inventory/api'
 import type { BookingScan, BookingScanActionType } from './types'
@@ -13,15 +15,17 @@ import { useDateFormat } from '../format/DateFormatProvider'
 // ScanBookingItemInput.sku_id), prefilled with the remaining quantity.
 type LineSheetMode = 'receive' | 'remove' | 'damaged-lost'
 
-const LINE_SHEET_TABS: { id: LineSheetMode; label: string; icon: typeof PackagePlus; help: string }[] = [
-  { id: 'receive', label: 'Receive', icon: PackagePlus, help: 'Add stock for this item, into an existing or a new batch.' },
-  { id: 'remove', label: 'Remove', icon: Undo2, help: "Fix a mistake -- you scanned more than actually arrived. Reduces what's counted as received." },
-  { id: 'damaged-lost', label: 'Damaged/lost', icon: AlertTriangle, help: "It did arrive, but isn't sellable. Stays counted as received; written off separately." },
-]
+function lineSheetTabs(): { id: LineSheetMode; label: string; icon: typeof PackagePlus; help: string }[] {
+  return [
+    { id: 'receive', label: i18next.t('scanner:booking.tab.receive'), icon: PackagePlus, help: i18next.t('scanner:booking.tab.receiveHelp') },
+    { id: 'remove', label: i18next.t('scanner:booking.tab.remove'), icon: Undo2, help: i18next.t('scanner:booking.tab.removeHelp') },
+    { id: 'damaged-lost', label: i18next.t('scanner:booking.tab.damagedLost'), icon: AlertTriangle, help: i18next.t('scanner:booking.tab.damagedLostHelp') },
+  ]
+}
 
 function formatBatchExpiry(iso: string | null | undefined, formatDate: (value: DateInput) => string): string {
-  if (!iso) return 'No expiry set'
-  return `Expires ${formatDate(iso)}`
+  if (!iso) return i18next.t('scanner:batch.noExpiry')
+  return i18next.t('scanner:batch.expires', { date: formatDate(iso) })
 }
 
 // One-line label for a staged scan in BookLineSheet's history list --
@@ -29,10 +33,10 @@ function formatBatchExpiry(iso: string | null | undefined, formatDate: (value: D
 // WriteOffQuantity for damaged/lost, see BookingScan's own doc comment).
 function scanSummary(s: BookingScan): string {
   switch (s.action_type) {
-    case 'receive': return `+${s.quantity} received`
-    case 'correction': return `${s.quantity} correction`
-    case 'damaged': return `${s.write_off_quantity} damaged`
-    case 'lost': return `${s.write_off_quantity} lost`
+    case 'receive': return i18next.t('scanner:booking.scan.receive', { quantity: s.quantity })
+    case 'correction': return i18next.t('scanner:booking.scan.correction', { quantity: s.quantity })
+    case 'damaged': return i18next.t('scanner:booking.scan.damaged', { quantity: s.write_off_quantity })
+    case 'lost': return i18next.t('scanner:booking.scan.lost', { quantity: s.write_off_quantity })
   }
 }
 
@@ -71,6 +75,8 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
   onBook: (fields: { action_type: BookingScanActionType; quantity: number; batch_id?: string | null; lot_number?: string; expiry_date?: string | null; reason?: string }) => void
 }) {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation(['scanner', 'common'])
+  const tabs = lineSheetTabs()
   const [mode, setMode] = useState<LineSheetMode>('receive')
   const [batches, setBatches] = useState<Batch[]>([])
   // '' = general ledger, 'new' = create new (receive only), 'pending:<lot>'
@@ -111,7 +117,7 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
 
   const maxQty = mode === 'receive' ? undefined : scannedSoFar
   const confirmDisabled = n <= 0 || (maxQty !== undefined && n > maxQty)
-  const activeTab = LINE_SHEET_TABS.find(t => t.id === mode)!
+  const activeTab = tabs.find(tab => tab.id === mode)!
 
   return (
     <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
@@ -119,16 +125,16 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold truncate">{description}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Received {scannedSoFar} of {expected}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{t('booking.receivedOf', { scanned: scannedSoFar, expected })}</p>
           </div>
-          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
+          <button aria-label={t('common:actions.close')} onClick={onCancel} title={t('common:actions.close')} className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
             <X size={18} />
           </button>
         </div>
 
         {scans.length > 0 && (
           <div className="px-5 pt-3 space-y-1.5">
-            <p className="text-xs text-gray-400">Already staged for this line:</p>
+            <p className="text-xs text-gray-400">{t('shared.alreadyStaged')}</p>
             {scans.map(s => (
               <div key={s.id} className="flex items-center gap-2 rounded-lg bg-night-800 border border-night-700 px-3 py-2">
                 <div className="flex-1 min-w-0">
@@ -137,10 +143,10 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
                     <p className="text-xs text-gray-400 truncate">{[s.lot_number, s.reason].filter(Boolean).join(' · ')}</p>
                   )}
                 </div>
-                <button aria-label="Delete this staged scan"
+                <button aria-label={t('shared.deleteStagedScan')}
                   type="button"
                   onClick={() => onDeleteScan(s.id)}
-                  title="Delete this staged scan"
+                  title={t('shared.deleteStagedScan')}
                   className="shrink-0 w-11 h-11 -m-2 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400"
                 >
                   <Trash2 size={14} />
@@ -152,17 +158,17 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
 
         <div className="p-5 space-y-4">
           <div className="flex gap-2">
-            {LINE_SHEET_TABS.map(t => (
-              <button aria-pressed={mode === t.id}
-                key={t.id}
+            {tabs.map(tab => (
+              <button aria-pressed={mode === tab.id}
+                key={tab.id}
                 type="button"
-                onClick={() => switchMode(t.id)}
+                onClick={() => switchMode(tab.id)}
                 className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-2xs font-medium leading-tight ${
-                  mode === t.id ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'
+                  mode === tab.id ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'
                 }`}
               >
-                <t.icon size={15} />
-                {t.label}
+                <tab.icon size={15} />
+                {tab.label}
               </button>
             ))}
           </div>
@@ -170,14 +176,14 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
 
           {mode === 'damaged-lost' && (
             <div className="flex gap-2">
-              {(['damaged', 'lost'] as const).map(t => (
-                <button aria-pressed={dlType === t}
-                  key={t}
+              {(['damaged', 'lost'] as const).map(kind => (
+                <button aria-pressed={dlType === kind}
+                  key={kind}
                   type="button"
-                  onClick={() => setDlType(t)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium capitalize ${dlType === t ? 'bg-red-600 text-white' : 'bg-night-800 text-gray-400'}`}
+                  onClick={() => setDlType(kind)}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium ${dlType === kind ? 'bg-red-600 text-white' : 'bg-night-800 text-gray-400'}`}
                 >
-                  {t}
+                  {kind === 'damaged' ? t('booking.damaged') : t('booking.lost')}
                 </button>
               ))}
             </div>
@@ -185,10 +191,10 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
 
           <div>
             <label htmlFor="line-quantity" className="block text-xs text-gray-400 mb-1.5">
-              {mode === 'receive' ? 'Quantity to receive' : mode === 'remove' ? 'Quantity to remove' : 'Quantity'}
+              {mode === 'receive' ? t('booking.qtyReceive') : mode === 'remove' ? t('booking.qtyRemove') : t('shared.quantity')}
             </label>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setQty(String(Math.max(n - 1, 0)))} className="w-11 h-11 shrink-0 rounded-xl bg-night-800 flex items-center justify-center" aria-label="Decrease quantity">
+              <button type="button" onClick={() => setQty(String(Math.max(n - 1, 0)))} className="w-11 h-11 shrink-0 rounded-xl bg-night-800 flex items-center justify-center" aria-label={t('shared.decreaseQuantity')}>
                 <Minus size={14} />
               </button>
               <input
@@ -198,21 +204,21 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
                 onChange={e => setQty(e.target.value.replace(/\D/g, ''))}
                 className="flex-1 min-w-0 px-2 py-2 text-center text-base rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
               />
-              <button type="button" onClick={() => setQty(String(n + 1))} className="w-11 h-11 shrink-0 rounded-xl bg-night-800 flex items-center justify-center" aria-label="Increase quantity">
+              <button type="button" onClick={() => setQty(String(n + 1))} className="w-11 h-11 shrink-0 rounded-xl bg-night-800 flex items-center justify-center" aria-label={t('shared.increaseQuantity')}>
                 <Plus size={14} />
               </button>
             </div>
-            {maxQty !== undefined && <p className="mt-1 text-xs text-gray-400">Up to {scannedSoFar} already received</p>}
+            {maxQty !== undefined && <p className="mt-1 text-xs text-gray-400">{t('booking.upTo', { quantity: scannedSoFar })}</p>}
           </div>
 
           <div>
-            <p className="text-xs text-gray-400 mb-1.5">{mode === 'receive' ? 'Batch' : 'From batch'}</p>
+            <p className="text-xs text-gray-400 mb-1.5">{mode === 'receive' ? t('booking.batch') : t('booking.fromBatch')}</p>
             <div className="space-y-1.5 max-h-40 overflow-y-auto">
               <BatchOption
                 selected={batchId === ''}
                 onClick={() => setBatchId('')}
-                title="General ledger"
-                subtitle="No specific batch"
+                title={t('batch.generalLedger')}
+                subtitle={t('batch.noSpecific')}
               />
               {pendingBatches.map(pb => (
                 <BatchOption
@@ -220,7 +226,7 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
                   selected={batchId === `${PENDING_PREFIX}${pb.lotNumber}`}
                   onClick={() => setBatchId(`${PENDING_PREFIX}${pb.lotNumber}`)}
                   title={pb.lotNumber}
-                  subtitle={`${formatBatchExpiry(pb.expiryDate, formatDate)} · Pending -- created when the booking finishes`}
+                  subtitle={t('booking.pendingBatch', { expiry: formatBatchExpiry(pb.expiryDate, formatDate) })}
                 />
               ))}
               {batches.map(b => (
@@ -228,16 +234,16 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
                   key={b.id}
                   selected={batchId === b.id}
                   onClick={() => setBatchId(b.id)}
-                  title={b.lot_number || `Batch ${b.id.slice(0, 8)}`}
-                  subtitle={`${formatBatchExpiry(b.expiry_date, formatDate)} · Qty ${b.quantity}`}
+                  title={b.lot_number || t('batch.fallbackName', { id: b.id.slice(0, 8) })}
+                  subtitle={t('batch.expiryQty', { expiry: formatBatchExpiry(b.expiry_date, formatDate), quantity: b.quantity })}
                 />
               ))}
               {mode === 'receive' && (
                 <BatchOption
                   selected={batchId === 'new'}
                   onClick={() => setBatchId('new')}
-                  title="+ New batch"
-                  subtitle="Start a new lot"
+                  title={t('batch.newBatch')}
+                  subtitle={t('batch.startNewLot')}
                 />
               )}
             </div>
@@ -246,10 +252,10 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
           {mode === 'receive' && batchId === 'new' && (
             <div className="grid grid-cols-2 gap-2">
               {suggestedLotNumber && (
-                <p className="col-span-2 text-2xs text-accent">Suggested from the uploaded document — confirm to assign.</p>
+                <p className="col-span-2 text-2xs text-accent">{t('booking.suggested')}</p>
               )}
               <div>
-                <label htmlFor="line-lot" className="block text-xs text-gray-400 mb-1.5">Lot number</label>
+                <label htmlFor="line-lot" className="block text-xs text-gray-400 mb-1.5">{t('batch.lotNumber')}</label>
                 <input
                   id="line-lot"
                   value={lotNumber}
@@ -258,7 +264,7 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
                 />
               </div>
               <div>
-                <label htmlFor="line-expiry" className="block text-xs text-gray-400 mb-1.5">Expiry date</label>
+                <label htmlFor="line-expiry" className="block text-xs text-gray-400 mb-1.5">{t('batch.expiryDate')}</label>
                 <input
                   id="line-expiry"
                   type="date"
@@ -272,12 +278,12 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
 
           {mode !== 'receive' && (
             <div>
-              <label htmlFor="line-reason" className="block text-xs text-gray-400 mb-1.5">Reason (optional)</label>
+              <label htmlFor="line-reason" className="block text-xs text-gray-400 mb-1.5">{t('shared.reasonOptional')}</label>
               <input
                 id="line-reason"
                 value={reason}
                 onChange={e => setReason(e.target.value)}
-                placeholder={mode === 'remove' ? 'e.g. counted wrong' : 'e.g. arrived crushed'}
+                placeholder={mode === 'remove' ? t('booking.reasonRemoveExample') : t('booking.reasonDamagedExample')}
                 className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus placeholder:text-gray-400"
               />
             </div>
@@ -288,7 +294,7 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
             disabled={confirmDisabled}
             className={`w-full py-3 rounded-xl text-white font-semibold disabled:opacity-50 ${mode === 'damaged-lost' ? 'bg-red-600' : 'bg-accent-solid'}`}
           >
-            Confirm
+            {t('shared.confirm')}
           </button>
         </div>
       </div>
@@ -326,10 +332,11 @@ export function WarehouseSheet({ warehouses, currentWarehouseId, changing, onCan
   onCancel: () => void
   onSelect: (warehouseId: string) => void
 }) {
+  const { t } = useTranslation(['scanner', 'common'])
   return (
     <Dialog onClose={onCancel} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
       <div className="w-full max-w-sm rounded-t-2xl bg-night-900 border-t border-night-700 p-5 space-y-3">
-        <h2 className="text-sm font-semibold">Change warehouse</h2>
+        <h2 className="text-sm font-semibold">{t('booking.changeWarehouse')}</h2>
         <div className="space-y-2">
           {warehouses.map(w => (
             <button
@@ -343,12 +350,12 @@ export function WarehouseSheet({ warehouses, currentWarehouseId, changing, onCan
                 <WarehouseIcon size={16} className="text-gray-400" />
               </div>
               <p className="text-sm font-medium flex-1 truncate">{w.name}</p>
-              {w.id === currentWarehouseId && <span className="text-xs text-gray-400 shrink-0">Current</span>}
+              {w.id === currentWarehouseId && <span className="text-xs text-gray-400 shrink-0">{t('booking.current')}</span>}
             </button>
           ))}
         </div>
         <button onClick={onCancel} className="w-full py-2.5 rounded-xl bg-night-800 text-gray-300 text-sm font-medium">
-          Cancel
+          {t('common:actions.cancel')}
         </button>
       </div>
     </Dialog>

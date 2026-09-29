@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState } from 'react'
 import * as api from '../api'
 import type { Connection, ImportJob } from '../types'
@@ -38,7 +39,7 @@ export function useImportProducts(token: string, connection: Connection | null, 
       setJob(started)
       notifyNotificationsChanged()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Import failed')
+      setError(err instanceof Error ? err.message : i18next.t('integrations:import.failed'))
     } finally {
       setImporting(false)
     }

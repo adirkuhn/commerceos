@@ -1,0 +1,189 @@
+{
+  "category": {
+    "card": "Receita por categoria",
+    "empty": "Nenhuma venda por categoria neste período",
+    "title": "Desempenho por categoria"
+  },
+  "cohorts": {
+    "cell_one": "{{count}} cliente, {{revenue}}",
+    "cell_many": "{{count}} clientes, {{revenue}}",
+    "cell_other": "{{count}} clientes, {{revenue}}",
+    "cohort": "Coorte",
+    "desc": "Coortes pelo mês do primeiro pedido de cada cliente neste período, retenção por mês desde a aquisição",
+    "empty": "Nenhum cliente novo neste período",
+    "month": "Mês {{number}}",
+    "size": "Tamanho",
+    "title": "Coortes de clientes"
+  },
+  "col": {
+    "category": "Categoria",
+    "orders": "Pedidos",
+    "product": "Produto",
+    "revenue": "Receita",
+    "sku": "SKU",
+    "sold": "Vendidos",
+    "stockOnHand": "Em estoque",
+    "turnover": "Giro",
+    "units": "Unidades"
+  },
+  "customerPerformance": {
+    "card": "Clientes com maior receita",
+    "desc": "Período selecionado — pedidos de visitantes excluídos",
+    "empty": "Nenhum pedido de cliente neste período",
+    "ordersAov_one": "{{count}} pedido · ticket médio {{aov}}",
+    "ordersAov_many": "{{count}} pedidos · ticket médio {{aov}}",
+    "ordersAov_other": "{{count}} pedidos · ticket médio {{aov}}",
+    "title": "Desempenho de clientes",
+    "unnamed": "Cliente sem nome"
+  },
+  "fbt": {
+    "clear": "Limpar seleção",
+    "desc": "Conjuntos de SKUs que mais apareceram juntos nos pedidos deste período — suporte é o número de pedidos que contêm todos os itens do conjunto",
+    "empty": "Nenhum conjunto de SKUs frequente neste período",
+    "items": "Itens",
+    "loadingRecs": "Carregando recomendações…",
+    "loadingSkus": "Carregando SKUs…",
+    "noRecs": "Nenhuma compra conjunta frequente encontrada para este produto no período selecionado",
+    "percentOrders": "% dos pedidos",
+    "pickVariant": "Este produto tem várias variações — escolha uma:",
+    "recDesc": "Busque um produto para ver o que costuma ser comprado junto",
+    "recTitle": "Recomendações de produtos",
+    "search": "Buscar produtos…",
+    "searching": "Buscando…",
+    "support": "Suporte",
+    "supportValue": "suporte {{value}}",
+    "title": "Comprados juntos com frequência",
+    "unknownError": "Erro desconhecido"
+  },
+  "inventorySales": {
+    "desc": "Estoque atual vs. unidades vendidas no período selecionado, ordenado por giro",
+    "empty": "Nenhum SKU em estoque ou vendido neste período",
+    "title": "Estoque + vendas"
+  },
+  "lifecycle": {
+    "declining": "Em queda",
+    "decliningHint": "Vendeu menos que no período anterior",
+    "desc": "Comparado ao período anterior de mesma duração",
+    "dormant": "Parado",
+    "dormantHint": "Vendeu no período anterior, nada agora",
+    "empty": "Nenhuma venda neste período nem no anterior",
+    "growing": "Em alta",
+    "growingHint": "Vendeu mais que no período anterior",
+    "new": "Novo",
+    "newHint": "Vendido agora, não no período anterior",
+    "sold_one": "{{count}} vendido",
+    "sold_many": "{{count}} vendidos",
+    "sold_other": "{{count}} vendidos",
+    "stable": "Estável",
+    "stableHint": "Vendeu quase o mesmo que no período anterior",
+    "title": "Ciclo de vida do produto"
+  },
+  "matrix": {
+    "empty": "Nenhum SKU com margem conhecida neste período",
+    "hiddenGems": "Joias escondidas",
+    "hiddenGemsHint": "Receita baixa, margem alta — divulgue",
+    "problems": "Problemas",
+    "problemsHint": "Receita baixa, margem baixa — considere descontinuar",
+    "split": "Dividido pela receita mediana deste período ({{revenue}}) e pela margem mediana ({{margin}})",
+    "stars": "Estrelas",
+    "starsHint": "Receita alta, margem baixa — otimize os preços",
+    "title": "Matriz de desempenho de produtos",
+    "winners": "Vencedores",
+    "winnersHint": "Receita alta, margem alta — invista mais"
+  },
+  "na": "n/d",
+  "none": "Nenhum",
+  "overview": {
+    "aov": "Ticket médio",
+    "byChannel": "Receita por canal",
+    "channel": "Canal",
+    "cogs": "CMV",
+    "dailyPerChannel": "Receita diária por canal de venda",
+    "hide": "Ocultar {{channel}}",
+    "margin": "Margem",
+    "noCostRevenue": "Nenhuma receita com custo conhecido neste período",
+    "noRevenue": "Nenhuma receita neste período",
+    "profit": "Lucro",
+    "profitability": "Rentabilidade",
+    "profitabilityDesc": "Lucro/margem consideram só a receita com custo de SKU conhecido",
+    "revenue": "Receita",
+    "selectChannel": "Selecione pelo menos um canal para mostrar",
+    "show": "Mostrar {{channel}}",
+    "title": "Visão geral",
+    "total": "Total",
+    "totalAll": "Total, todos os canais:",
+    "totalOrders": "Total de pedidos",
+    "totalPerChannel": "Receita total por canal de venda",
+    "totalRevenue": "Receita total",
+    "unitsSold": "Unidades vendidas",
+    "withKnownCost": "{{amount}} com custo conhecido"
+  },
+  "productPerformance": {
+    "card": "Produtos com maior receita",
+    "empty": "Nenhuma venda neste período",
+    "marginNa": "margem n/d",
+    "title": "Desempenho de produtos"
+  },
+  "rfm": {
+    "atRisk": "Em risco",
+    "atRiskHint": "Compravam com frequência, mas não recentemente",
+    "champions": "Campeões",
+    "championsHint": "Recentes, frequentes, maior gasto",
+    "desc": "Quintis de recência/frequência/valor em relação aos clientes deste período — pedidos de visitantes excluídos",
+    "empty": "Nenhum pedido de cliente neste período",
+    "lost": "Perdidos",
+    "lostHint": "Nem recentes nem frequentes",
+    "loyal": "Clientes fiéis",
+    "loyalHint": "Frequentes e recentes",
+    "needsAttention": "Precisam de atenção",
+    "needsAttentionHint": "Medianos em todos os critérios",
+    "potential": "Potenciais fiéis",
+    "potentialHint": "Recentes, ainda não frequentes",
+    "title": "Segmentos de clientes (RFM)"
+  },
+  "salesTrends": {
+    "empty": "Nenhuma venda neste período",
+    "granularity": {
+      "day": "Dia",
+      "month": "Mês",
+      "week": "Semana"
+    },
+    "title": "Tendências de vendas e sazonalidade",
+    "trend": "Tendência de vendas",
+    "trendDesc": "Receita no período selecionado",
+    "weekday": "Sazonalidade por dia da semana",
+    "weekdayDesc": "Receita somada em cada ocorrência de cada dia da semana",
+    "weekdayEmpty": "Nenhuma venda para detalhar por dia da semana neste período",
+    "weekdays": {
+      "fri": "Sex",
+      "mon": "Seg",
+      "sat": "Sáb",
+      "sun": "Dom",
+      "thu": "Qui",
+      "tue": "Ter",
+      "wed": "Qua"
+    }
+  },
+  "selectedPeriod": "Período selecionado",
+  "shared": {
+    "custom": "Personalizado",
+    "daily": "Diário",
+    "noPrev": "— vs. período anterior",
+    "summary": "Resumo",
+    "vsPrev": "vs. período anterior"
+  },
+  "slowMoving": {
+    "desc": "Em estoque e sem nenhuma unidade vendida no período selecionado",
+    "empty": "Nenhum produto de baixo giro neste período",
+    "title": "Produtos de baixo giro"
+  },
+  "stockout": {
+    "daysLeft": "Dias restantes",
+    "desc": "SKUs que devem acabar antes que uma reposição feita hoje (prazo de 14 dias) chegue, dos mais urgentes aos menos",
+    "empty": "Nenhum SKU em risco de ruptura",
+    "reorder": "Reposição sugerida",
+    "stock": "Estoque",
+    "title": "Risco de ruptura"
+  },
+  "unnamedCustomer": "Cliente sem nome"
+}

@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { SyncLogEntry } from '../types'
 import * as api from '../api'
@@ -32,7 +33,7 @@ export function useSyncLogsNeedingAttention(
       setEntries(result.entries)
       setTotal(result.total)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('integrations:unknownError'))
     } finally {
       setLoading(false)
     }

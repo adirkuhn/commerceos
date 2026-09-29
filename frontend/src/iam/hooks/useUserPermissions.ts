@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import * as api from '../api'
 
@@ -19,7 +20,7 @@ export function useUserPermissions(token: string, userId: string): UseUserPermis
       const data = await api.getUserEffectivePermissions(token, userId)
       setPermissions(data.permissions)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('iam:unknownError'))
     } finally {
       setLoading(false)
     }

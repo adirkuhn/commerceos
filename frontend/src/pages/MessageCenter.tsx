@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { subPathSegments } from '../routes'
 import {
   MESSAGE_CENTER_PATH, MESSAGE_CENTER_TABS, DEFAULT_MESSAGE_CENTER_TAB, messageCenterTabPath, type MessageCenterTab,
@@ -15,6 +16,7 @@ type Tab = MessageCenterTab
 export default function MessageCenter() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { t } = useTranslation('messages')
   const [segment] = subPathSegments(location.pathname, MESSAGE_CENTER_PATH)
   const tab: Tab = (MESSAGE_CENTER_TABS as readonly string[]).includes(segment) ? segment as Tab : DEFAULT_MESSAGE_CENTER_TAB
   const setTab = (next: Tab) => {
@@ -33,7 +35,7 @@ export default function MessageCenter() {
               : 'border-transparent text-ink-4 hover:text-ink-2',
           )}
         >
-          Templates
+          {t('tabs.templates')}
         </button>
         <button aria-pressed={tab === 'rules'}
           onClick={() => setTab('rules')}
@@ -44,7 +46,7 @@ export default function MessageCenter() {
               : 'border-transparent text-ink-4 hover:text-ink-2',
           )}
         >
-          Automation rules
+          {t('tabs.rules')}
         </button>
         <button aria-pressed={tab === 'conversations'}
           onClick={() => setTab('conversations')}
@@ -55,7 +57,7 @@ export default function MessageCenter() {
               : 'border-transparent text-ink-4 hover:text-ink-2',
           )}
         >
-          Conversations
+          {t('tabs.conversations')}
         </button>
       </div>
 

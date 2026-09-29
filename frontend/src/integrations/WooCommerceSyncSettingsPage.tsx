@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import clsx from 'clsx'
@@ -13,7 +14,7 @@ import { Dialog } from '../components/common/Dialog'
 import { WooTaxesTab } from './WooTaxesTab'
 import { WooCategoriesTab } from './WooCategoriesTab'
 import { WebhooksTab } from './WooWebhooksTab'
-import { CURRENCIES, CellState, DIRECTIONS, INTERVAL_OPTIONS, ROWS, cellKey, defaultCell, normalizeCurrency } from './wooSyncSettingsHelpers'
+import { CURRENCIES, CellState, DIRECTIONS, INTERVAL_OPTIONS, ROWS, cellKey, defaultCell, directionLabel, normalizeCurrency, runStatusLabel } from './wooSyncSettingsHelpers'
 import { useDateFormat } from '../format/DateFormatProvider'
 
 const TABS = ['sync', 'taxes', 'categories', 'webhooks'] as const
@@ -34,6 +35,7 @@ function canManageWebhooks(role: string | undefined): boolean {
 
 export default function WooCommerceSyncSettingsPage({ connection, onClose }: { connection: Connection; onClose: () => void }) {
   const { formatDateTime } = useDateFormat()
+  const { t } = useTranslation(['integrations', 'common'])
   const { token, user } = useAuth()
   const { schedules, loading, error: loadError, save } = useSyncSchedules(token ?? '', connection.id)
   const { warehouses } = useWarehouses(token ?? '')
@@ -64,7 +66,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       await api.updateConnectionSettings(token, connection.id, storeCurrency, storeWarehouse || null)
       setCurrencySaved(true)
     } catch (err) {
-      setCurrencyError(err instanceof Error ? err.message : 'Failed to save currency')
+      setCurrencyError(err instanceof Error ? err.message : t('woo.currencySaveFailed'))
     } finally {
       setSavingCurrency(false)
     }
@@ -85,7 +87,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       const result = await api.fetchWooOrder(token, connection.id, fetchOrderNumber.trim())
       setFetchOrderResult(result)
     } catch (err) {
-      setFetchOrderError(err instanceof Error ? err.message : 'Failed to fetch order')
+      setFetchOrderError(err instanceof Error ? err.message : t('woo.fetchOrderFailed'))
     } finally {
       setFetchingOrder(false)
     }
@@ -114,7 +116,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       setDeleteResult(result)
       notifyProductsChanged()
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Delete failed')
+      setDeleteError(err instanceof Error ? err.message : t('deleteImported.failed'))
     } finally {
       setDeleting(false)
     }
@@ -187,7 +189,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       )
       await save(payload)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save sync schedules')
+      setSaveError(err instanceof Error ? err.message : t('schedule.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -203,7 +205,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Integrations
+            <ArrowLeft size={11} /> {t('title')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">{connection.store_url}</h1>
         </div>
@@ -213,29 +215,29 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
             disabled={saving}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('common:actions.saving') : t('common:actions.save')}
           </button>
         )}
       </div>
 
       <div className="flex gap-1 px-6 pt-3 border-b border-line bg-sunken shrink-0">
         {([
-          { id: 'sync', label: 'Sync' },
-          { id: 'taxes', label: 'Taxes' },
-          { id: 'categories', label: 'Categories' },
-          ...(canManageWebhooks(user?.role) ? [{ id: 'webhooks', label: 'Webhooks' }] as { id: Tab; label: string }[] : []),
-        ] as { id: Tab; label: string }[]).map(t => (
-          <button aria-pressed={tab === t.id}
-            key={t.id}
-            onClick={() => setTab(t.id)}
+          { id: 'sync', label: t('woo.tabs.sync') },
+          { id: 'taxes', label: t('woo.tabs.taxes') },
+          { id: 'categories', label: t('woo.tabs.categories') },
+          ...(canManageWebhooks(user?.role) ? [{ id: 'webhooks', label: t('woo.tabs.webhooks') }] as { id: Tab; label: string }[] : []),
+        ] as { id: Tab; label: string }[]).map(tb => (
+          <button aria-pressed={tab === tb.id}
+            key={tb.id}
+            onClick={() => setTab(tb.id)}
             className={clsx(
               'px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
-              tab === t.id
+              tab === tb.id
                 ? 'border-accent text-accent'
                 : 'border-transparent text-ink-4 hover:text-ink-2',
             )}
           >
-            {t.label}
+            {tb.label}
           </button>
         ))}
       </div>
@@ -250,16 +252,14 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-3xl space-y-4">
           <div className="bg-raised rounded-xl border border-line p-4">
-            <h2 className="text-sm font-semibold text-ink mb-1">Store defaults</h2>
+            <h2 className="text-sm font-semibold text-ink mb-1">{t('woo.storeDefaults')}</h2>
             <p className="text-xs text-ink-4 mb-3">
-              WooCommerce's product endpoint doesn't return a currency (it's a store-level setting) — set it once here, reused by
-              both manual imports and the scheduled products/import job. Default location seeds each sync schedule row below
-              until that row picks its own.
+              {t('woo.storeDefaultsIntro')}
             </p>
             <div className="flex items-end gap-2">
               <div className="flex-1 max-w-[160px]">
                 <label htmlFor="store-default-currency" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Default currency
+                  {t('import.currency')}
                 </label>
                 <select
                   id="store-default-currency"
@@ -267,13 +267,13 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                   onChange={e => { setStoreCurrency(e.target.value); setCurrencySaved(false) }}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
-                  <option value="" disabled>Select a currency…</option>
+                  <option value="" disabled>{t('import.selectCurrency')}</option>
                   {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div className="flex-1 max-w-[160px]">
                 <label htmlFor="store-default-location" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Default location
+                  {t('woo.defaultLocation')}
                 </label>
                 <select
                   id="store-default-location"
@@ -281,7 +281,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                   onChange={e => { setStoreWarehouse(e.target.value); setCurrencySaved(false) }}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
-                  <option value="">No preference</option>
+                  <option value="">{t('woo.noPreference')}</option>
                   {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               </div>
@@ -290,29 +290,28 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                 disabled={savingCurrency}
                 className="px-3 py-2 rounded-lg bg-fill text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
               >
-                {savingCurrency ? 'Saving…' : 'Save currency'}
+                {savingCurrency ? t('common:actions.saving') : t('woo.saveCurrency')}
               </button>
             </div>
             {currencyError && <p className="text-2xs text-danger mt-1.5">{currencyError}</p>}
-            {currencySaved && <p className="text-2xs text-success mt-1.5">Saved.</p>}
+            {currencySaved && <p className="text-2xs text-success mt-1.5">{t('woo.saved')}</p>}
           </div>
 
           <div className="bg-raised rounded-xl border border-line p-4">
-            <h2 className="text-sm font-semibold text-ink mb-1">Fetch a specific order</h2>
+            <h2 className="text-sm font-semibold text-ink mb-1">{t('woo.fetchOrderTitle')}</h2>
             <p className="text-xs text-ink-4 mb-3">
-              Import (or update) one known order right now by its WooCommerce order number, without waiting for the
-              next scheduled sync -- useful for backfilling an order you already know is missing.
+              {t('woo.fetchOrderIntro')}
             </p>
             <form onSubmit={handleFetchOrder} className="flex items-end gap-2">
               <div className="flex-1 max-w-[200px]">
                 <label htmlFor="fetch-order-number" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Woo order number
+                  {t('woo.orderNumber')}
                 </label>
                 <input
                   id="fetch-order-number"
                   value={fetchOrderNumber}
                   onChange={e => { setFetchOrderNumber(e.target.value); setFetchOrderResult(null); setFetchOrderError('') }}
-                  placeholder="e.g. 1234"
+                  placeholder={t('woo.orderNumberPlaceholder')}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
               </div>
@@ -321,7 +320,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                 disabled={fetchingOrder || !fetchOrderNumber.trim()}
                 className="px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
-                {fetchingOrder ? 'Fetching…' : 'Fetch order'}
+                {fetchingOrder ? t('bol.fetching') : t('woo.fetchOrder')}
               </button>
             </form>
             {fetchOrderError && <p className="text-2xs text-danger mt-2">{fetchOrderError}</p>}
@@ -331,8 +330,11 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                   fetchOrderResult.errors.map((e, i) => <p key={i} className="text-danger">{e}</p>)
                 ) : (
                   <p className="text-success">
-                    Order {fetchOrderResult.external_order_id}{' '}
-                    {fetchOrderResult.created ? 'imported' : fetchOrderResult.updated ? 'updated' : 'already up to date'}.
+                    {fetchOrderResult.created
+                      ? t('woo.orderImported', { id: fetchOrderResult.external_order_id })
+                      : fetchOrderResult.updated
+                        ? t('woo.orderUpdated', { id: fetchOrderResult.external_order_id })
+                        : t('woo.orderUpToDate', { id: fetchOrderResult.external_order_id })}
                   </p>
                 )}
               </div>
@@ -340,9 +342,9 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
           </div>
 
           <div>
-            <h2 className="text-sm font-semibold text-ink mb-1">Sync schedule</h2>
+            <h2 className="text-sm font-semibold text-ink mb-1">{t('schedule.title')}</h2>
             <p className="text-xs text-ink-4">
-              Configure how often each type of data syncs between CommerceOS and this WooCommerce store.
+              {t('woo.scheduleIntro')}
             </p>
           </div>
 
@@ -353,18 +355,16 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
               <div key={row.entity} className="p-4">
                 <p className="text-xs font-semibold text-ink mb-3">{row.label}</p>
                 {row.runnableDirections.length === 0 && (
-                  <p className="text-2xs text-ink-4 mb-2">Coming soon — not supported yet.</p>
+                  <p className="text-2xs text-ink-4 mb-2">{t('woo.comingSoon')}</p>
                 )}
                 {row.entity === 'orders' && (
                   <p className="text-2xs text-ink-4 mb-2">
-                    Import only — CommerceOS never pushes orders back to Woo. The first run always does a full import;
-                    every run after that is incremental.
+                    {t('woo.ordersHint')}
                   </p>
                 )}
                 {row.entity === 'orders_reconciliation' && (
                   <p className="text-2xs text-ink-4 mb-2">
-                    Re-checks the last 5 days of Woo orders on every run, independent of the Orders schedule above — catches
-                    anything that schedule ever missed. Already-imported orders are skipped, so this is safe to run daily.
+                    {t('woo.reconciliationHint')}
                   </p>
                 )}
                 <div className="grid grid-cols-2 gap-4">
@@ -379,13 +379,13 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                       <div key={direction} className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-2xs font-medium text-ink-3 uppercase tracking-wider capitalize">
-                            {direction}
+                            {directionLabel(direction)}
                           </span>
                           <label className={clsx('relative flex items-center shrink-0', runnable ? 'cursor-pointer' : 'cursor-not-allowed opacity-40')}>
                             <input
                               type="checkbox"
                               role="switch"
-                              aria-label={`${row.label} ${direction}`}
+                              aria-label={t('schedule.switchAria', { entity: row.label, direction: directionLabel(direction) })}
                               checked={cell.enabled}
                               disabled={!runnable}
                               onChange={e => updateCell(row.entity, direction, { enabled: e.target.checked })}
@@ -396,7 +396,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                           </label>
                         </div>
                         <select
-                          aria-label={`${row.label} ${direction} interval`}
+                          aria-label={t('schedule.intervalAria', { entity: row.label, direction: directionLabel(direction) })}
                           value={cell.intervalMinutes}
                           disabled={!runnable}
                           onChange={e => updateCell(row.entity, direction, { intervalMinutes: Number(e.target.value) })}
@@ -406,29 +406,29 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                         </select>
                         {showExtraFields && needsWarehouse && (
                           <select
-                            aria-label="Default warehouse ID"
+                            aria-label={t('import.warehouse')}
                             value={cell.defaultWarehouseId}
                             onChange={e => updateCell(row.entity, direction, { defaultWarehouseId: e.target.value })}
                             className={clsx(inputClass, 'w-full')}
                           >
-                            <option value="" disabled>Select a warehouse…</option>
+                            <option value="" disabled>{t('import.selectWarehouse')}</option>
                             {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                           </select>
                         )}
                         {showExtraFields && needsCurrency && (
                           <select
-                            aria-label="Default currency (e.g. USD)"
+                            aria-label={t('woo.currencyAria')}
                             value={cell.defaultCurrency}
                             onChange={e => updateCell(row.entity, direction, { defaultCurrency: e.target.value })}
                             className={clsx(inputClass, 'w-full')}
                           >
-                            <option value="" disabled>Select a currency…</option>
+                            <option value="" disabled>{t('import.selectCurrency')}</option>
                             {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
                         )}
                         {cell.lastRunAt && (
                           <p className="text-2xs text-ink-4">
-                            Last run: {formatDateTime(cell.lastRunAt)} ({cell.lastRunStatus || 'unknown'})
+                            {t('schedule.lastRun', { date: formatDateTime(cell.lastRunAt), status: runStatusLabel(cell.lastRunStatus) })}
                           </p>
                         )}
                         {cell.lastRunStatus === 'error' && cell.lastRunError && (
@@ -445,16 +445,15 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
           {saveError && <p className="text-xs text-danger">{saveError}</p>}
 
           <div className="dark:bg-red-500/5 bg-red-50 border dark:border-red-500/20 border-red-200 rounded-xl p-4">
-            <h2 className="text-sm font-semibold text-danger mb-1">Danger zone</h2>
+            <h2 className="text-sm font-semibold text-danger mb-1">{t('woo.dangerZone')}</h2>
             <p className="text-xs text-ink-4 mb-3">
-              Permanently delete every product this connection has ever imported — variants, SKUs, stock history, images, and
-              any category left empty afterward.
+              {t('woo.dangerZoneBody')}
             </p>
             <button
               onClick={() => setShowDeleteModal(true)}
               className="px-3 py-1.5 rounded-lg bg-raised border border-line text-xs font-medium text-danger hover:bg-red-100 hover:dark:bg-red-500/10 transition-colors"
             >
-              Delete imported products
+              {t('deleteImported.title')}
             </button>
           </div>
         </div>
@@ -466,9 +465,9 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={deleteResult ? closeDeleteModal : undefined} />
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-ink">Delete imported products</h3>
+              <h3 className="text-sm font-semibold text-ink">{t('deleteImported.title')}</h3>
               {deleteResult && (
-                <button onClick={closeDeleteModal} aria-label="Close">
+                <button onClick={closeDeleteModal} aria-label={t('common:actions.close')}>
                   <X size={14} className="text-ink-4" />
                 </button>
               )}
@@ -477,10 +476,11 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
             {deleteResult ? (
               <div className="space-y-3">
                 <p className="text-xs text-ink-2">
-                  Deleted{deleteResult.deleted_sales_orders > 0 && (
-                    <> <strong>{deleteResult.deleted_sales_orders}</strong> sales order{deleteResult.deleted_sales_orders === 1 ? '' : 's'},</>
-                  )} <strong>{deleteResult.deleted_products}</strong> product{deleteResult.deleted_products === 1 ? '' : 's'} and{' '}
-                  <strong>{deleteResult.deleted_categories}</strong> now-empty categor{deleteResult.deleted_categories === 1 ? 'y' : 'ies'}.
+                  {t('deleteImported.deleted')}{deleteResult.deleted_sales_orders > 0 && (
+                    <> <Trans t={t} i18nKey="deleteImported.salesOrders" count={deleteResult.deleted_sales_orders} components={{ strong: <strong /> }} />,</>
+                  )} <Trans t={t} i18nKey="deleteImported.products" count={deleteResult.deleted_products} components={{ strong: <strong /> }} />{' '}
+                  {t('deleteImported.and')}{' '}
+                  <Trans t={t} i18nKey="deleteImported.categories" count={deleteResult.deleted_categories} components={{ strong: <strong /> }} />.
                 </p>
                 {(deleteResult.errors ?? []).length > 0 && (
                   <div className="max-h-32 overflow-y-auto space-y-1">
@@ -493,20 +493,19 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                   onClick={closeDeleteModal}
                   className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
                 >
-                  Done
+                  {t('done')}
                 </button>
               </div>
             ) : (
               <form onSubmit={handleDeleteImported} className="space-y-3">
                 <div className="dark:bg-red-500/10 bg-red-50 border dark:border-red-500/20 border-red-200 rounded-lg p-3">
                   <p className="text-xs text-danger">
-                    This permanently deletes every product imported from <strong>{connection.store_url}</strong> — including their
-                    variants, SKUs, stock history, and images. Categories left empty afterward are also deleted. This cannot be undone.
+                    <Trans t={t} i18nKey="deleteImported.warning" values={{ store: connection.store_url }} components={{ strong: <strong /> }} />
                   </p>
                 </div>
                 <div>
                   <label htmlFor="woo-delete-confirm" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    Type DELETE to confirm
+                    {t('deleteImported.typeToConfirm')}
                   </label>
                   <input
                     id="woo-delete-confirm"
@@ -527,14 +526,14 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                     onClick={closeDeleteModal}
                     className="py-2 rounded-lg bg-fill text-xs font-medium text-ink-2 transition-colors"
                   >
-                    Cancel
+                    {t('common:actions.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={deleting || deleteConfirmText !== 'DELETE'}
                     className="py-2 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
                   >
-                    {deleting ? 'Deleting…' : 'Delete'}
+                    {deleting ? t('deleteImported.deleting') : t('common:actions.delete')}
                   </button>
                 </div>
               </form>

@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type {
   Batch, StockLevel, StockMovement,
@@ -59,7 +60,7 @@ export function useSKUStock(token: string, skuId: string | null): UseSKUStockSta
       setLevel(levelResult)
       setBatches(batchesResult)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('inventory:errors.unknown'))
     } finally {
       setLoading(false)
     }

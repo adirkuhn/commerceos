@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import { Check } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { ProductThumb, SCANNER_THUMB } from '../pms/ProductThumb'
 import type { PickingSessionLineItem } from './types'
-import { SCAN_ACTIVITY_WORDS, type ScanActivity } from './scanSessionActivity'
+import type { ScanActivity } from './scanSessionActivity'
 
 // SoldExpiryNote styling on the scanner's always-dark line rows.
 export const SCANNER_SOLD_EXPIRY_CLASS = 'text-xs text-gray-400 truncate'
@@ -50,10 +51,14 @@ interface MissingLineCardProps {
 
 // A line that wasn't fully picked/packed, on the review and done screens.
 export function MissingLineCard({ activity, name, expectedQty, actualQty }: MissingLineCardProps) {
+  const { t } = useTranslation('scanner')
+  const detail = activity === 'picking'
+    ? t('session.expectedPicked', { expected: expectedQty, actual: actualQty })
+    : t('session.expectedPacked', { expected: expectedQty, actual: actualQty })
   return (
     <div className="rounded-lg bg-night-800 border border-night-700 px-3 py-2">
       <p className="text-sm text-gray-200">{name}</p>
-      <p className="text-xs text-gray-400">expected {expectedQty} · {SCAN_ACTIVITY_WORDS[activity].done} {actualQty}</p>
+      <p className="text-xs text-gray-400">{detail}</p>
     </div>
   )
 }

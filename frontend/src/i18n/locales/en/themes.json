@@ -1,0 +1,41 @@
+{
+  "backToChannels": "Back to sales channels",
+  "create": "Create theme",
+  "creating": "Creating…",
+  "customize": "Customize",
+  "delete": {
+    "confirm": "Delete theme",
+    "message": "Its design and every saved version are deleted. This cannot be undone.",
+    "title": "Delete theme \"{{name}}\"?"
+  },
+  "draftOnly": "Draft only",
+  "empty": "No themes yet. Create one to start designing this store.",
+  "errors": {
+    "create": "Failed to create theme",
+    "delete": "Failed to delete theme",
+    "load": "Failed to load themes",
+    "makeLive": "Failed to make the version live",
+    "openEditor": "Could not open the editor"
+  },
+  "headlessWarning": "This channel is headless. Switch its Storefront setting to \"Hosted storefront\" to design and publish a theme.",
+  "history": {
+    "confirmMessage": "Shoppers see it right away. Unpublished changes in the editor are kept.",
+    "confirmTitle": "Make version {{number}} of \"{{name}}\" live?",
+    "listLabel": "Versions of {{name}}",
+    "loading": "Loading versions…",
+    "makeLive": "Make live",
+    "notPublished": "Not published yet.",
+    "published": "Published {{date}}",
+    "version": "Version {{number}}"
+  },
+  "listLabel": "Themes",
+  "live": "Live",
+  "liveCannotDelete": "The live theme cannot be deleted",
+  "loading": "Loading themes…",
+  "newThemeName": "New theme name",
+  "notLive": "Not live",
+  "title": "Themes · {{channel}}",
+  "updated": "Updated {{date}}",
+  "versions": "Versions",
+  "viewStore": "View store"
+}

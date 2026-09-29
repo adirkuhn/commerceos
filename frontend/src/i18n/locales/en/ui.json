@@ -1,0 +1,37 @@
+{
+  "app": {
+    "pageNotFound": "Page not found",
+    "pageNotFoundHint": "This page doesn’t exist."
+  },
+  "errors": {
+    "load": "Failed to load",
+    "unknown": "Unknown error"
+  },
+  "monthShort": {
+    "apr": "Apr",
+    "aug": "Aug",
+    "dec": "Dec",
+    "feb": "Feb",
+    "jan": "Jan",
+    "jul": "Jul",
+    "jun": "Jun",
+    "mar": "Mar",
+    "may": "May",
+    "nov": "Nov",
+    "oct": "Oct",
+    "sep": "Sep"
+  },
+  "pagination": {
+    "pageOf": "Page {{page}} of {{total}}"
+  },
+  "record": {
+    "backToList": "Back to list",
+    "notFound": "{{label}} not found",
+    "notFoundHint": "It may have been deleted, or the link is out of date."
+  },
+  "skuPicker": {
+    "noProducts": "No matching products",
+    "noSkus": "No SKUs on this product",
+    "searchPlaceholder": "Search products by name…"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "detail": {
+    "amountSpent": "Uitgegeven bedrag",
+    "back": "Klanten",
+    "billingAddress": "Factuuradres",
+    "contactInfo": "Contactgegevens",
+    "created": "Klant aangemaakt",
+    "edit": "Bewerken",
+    "editNotes": "Notities bewerken",
+    "failedNote": "Notitie opslaan mislukt",
+    "failedOrders": "Orders laden mislukt",
+    "lastOrder": "Laatste order geplaatst",
+    "noActivity": "Nog geen activiteit",
+    "noNotes": "Geen notities",
+    "noOrders": "Nog geen orders",
+    "notes": "Notities",
+    "notFound": "Klant niet gevonden",
+    "orders": "Orders",
+    "placedOrder": "Order #{{number}} geplaatst ({{total}})",
+    "sameAsShipping": "Zelfde als afleveradres",
+    "saveNote": "Notitie opslaan",
+    "shippingAddress": "Afleveradres",
+    "timeline": "Tijdlijn",
+    "title": "Klant"
+  },
+  "edit": {
+    "back": "Klant",
+    "billing": {
+      "address1": "Adresregel 1 (factuur)",
+      "address2": "Adresregel 2 (factuur)",
+      "city": "Plaats (factuur)",
+      "country": "Land (factuur)",
+      "phone": "Telefoon (factuur)",
+      "postcode": "Postcode (factuur)",
+      "state": "Provincie (factuur)",
+      "title": "Factuuradres"
+    },
+    "create": "Klant aanmaken",
+    "discard": "Verwerpen",
+    "editTitle": "Klant bewerken",
+    "failed": "Klant opslaan mislukt",
+    "firstName": "Voornaam",
+    "general": "Algemeen",
+    "lastName": "Achternaam",
+    "newTitle": "Nieuwe klant",
+    "paying": "Betalende klant",
+    "shipping": {
+      "address1": "Adresregel 1 (aflevering)",
+      "address2": "Adresregel 2 (aflevering)",
+      "city": "Plaats (aflevering)",
+      "country": "Land (aflevering)",
+      "phone": "Telefoon (aflevering)",
+      "postcode": "Postcode (aflevering)",
+      "state": "Provincie (aflevering)",
+      "title": "Afleveradres"
+    }
+  },
+  "errors": {
+    "unknown": "Onbekende fout"
+  },
+  "list": {
+    "add": "Klant toevoegen",
+    "colLocation": "Locatie",
+    "count_one": "{{count}} klant",
+    "count_other": "{{count}} klanten",
+    "deleteConfirm": "Klant verwijderen",
+    "deleteMessage": "Dit kan niet ongedaan worden gemaakt.",
+    "deleteTitle": "Klant \"{{name}}\" verwijderen?",
+    "empty": "Nog geen klanten",
+    "noOrders": "Nog geen orders",
+    "paying": "Betalend",
+    "recordLabel": "Klant",
+    "search": "Zoek op naam of e-mail..."
+  },
+  "relative": {
+    "days_one": "{{count}} dag geleden",
+    "days_other": "{{count}} dagen geleden",
+    "hours_one": "{{count}} uur geleden",
+    "hours_other": "{{count}} uur geleden",
+    "justNow": "Zojuist",
+    "minutes_one": "{{count}} minuut geleden",
+    "minutes_other": "{{count}} minuten geleden",
+    "months_one": "{{count}} maand geleden",
+    "months_other": "{{count}} maanden geleden",
+    "years_one": "{{count}} jaar geleden",
+    "years_other": "{{count}} jaar geleden"
+  },
+  "whatsapp": {
+    "title": "WhatsApp-gesprek"
+  }
+}

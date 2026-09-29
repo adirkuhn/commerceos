@@ -3,6 +3,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { describe, it, expect } from 'vitest'
+import i18next from 'i18next'
 import Shipping from '../Shipping'
 import { renderAt } from '../../test/renderAt'
 
@@ -16,6 +17,18 @@ describe('Shipping URLs (refresh + Back)', () => {
 
     await act(() => router.navigate(-1))
     expect(router.state.location.pathname).toBe('/shipping')
+  })
+
+  it('renders its texts in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      renderAt(<Shipping />, '/shipping')
+      expect(await screen.findByRole('button', { name: 'Regras de transportadora' })).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Pedido, cliente, rastreio...')).toBeInTheDocument()
+      expect(screen.getByText('Enviados hoje')).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 
   it('/shipping/rules opens the rules tab on load', async () => {

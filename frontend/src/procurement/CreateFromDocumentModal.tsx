@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
@@ -24,6 +25,7 @@ export function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocume
   const [file, setFile] = useState<File | null>(null)
   const [status, setStatus] = useState<'idle' | 'uploading'>('idle')
   const [formError, setFormError] = useState('')
+  const { t } = useTranslation(['procurement', 'common'])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -42,7 +44,7 @@ export function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocume
       // freeze this modal waiting for it.
       onCreated(job.purchase_order_id, job.id)
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to upload document')
+      setFormError(err instanceof Error ? err.message : t('upload.failed'))
       setStatus('idle')
     }
   }
@@ -53,18 +55,17 @@ export function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocume
     <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-surface border border-line shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
-          <h2 className="text-sm font-semibold text-ink">Upload document</h2>
-          <button aria-label="Close" type="button" onClick={onClose} title="Close">
+          <h2 className="text-sm font-semibold text-ink">{t('upload.title')}</h2>
+          <button aria-label={t('common:actions.close')} type="button" onClick={onClose} title={t('common:actions.close')}>
             <X size={16} className="text-ink-4" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <p className="text-2xs text-ink-4">
-            Upload a supplier PDF, CSV, or XLSX. Supplier and line items are extracted and matched to products
-            automatically — anything that can't be matched will need review.
+            {t('upload.hint')}
           </p>
           <div>
-            <label htmlFor="upload-file" className={labelClass}>Document</label>
+            <label htmlFor="upload-file" className={labelClass}>{t('upload.document')}</label>
             <input id="upload-file" type="file" accept=".pdf,.csv,.xlsx"
               disabled={status !== 'idle'}
               onChange={e => setFile(e.target.files?.[0] ?? null)}
@@ -74,11 +75,11 @@ export function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocume
           <div className="flex items-center justify-end gap-2 pt-1">
             <button type="button" onClick={onClose}
               className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors">
-              Cancel
+              {t('common:actions.cancel')}
             </button>
             <button type="submit" disabled={status !== 'idle' || !file}
               className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
-              {status === 'uploading' ? 'Uploading…' : 'Upload & create'}
+              {status === 'uploading' ? t('upload.uploading') : t('upload.submit')}
             </button>
           </div>
         </form>

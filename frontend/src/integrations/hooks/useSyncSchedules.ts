@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { SyncSchedule } from '../types'
 import * as api from '../api'
@@ -35,7 +36,7 @@ export function useSyncSchedules(token: string, connectionId: string | null): Us
       const data = await api.listSyncSchedules(token, connectionId)
       setSchedules(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('integrations:unknownError'))
     } finally {
       setLoading(false)
     }
@@ -44,7 +45,7 @@ export function useSyncSchedules(token: string, connectionId: string | null): Us
   useEffect(() => { load() }, [load])
 
   const save = useCallback(async (updated: SyncSchedule[]): Promise<SyncSchedule[]> => {
-    if (!connectionId) throw new Error('No connection selected')
+    if (!connectionId) throw new Error(i18next.t('integrations:noConnectionSelected'))
     const result = await api.upsertSyncSchedules(token, connectionId, updated)
     setSchedules(result)
     return result

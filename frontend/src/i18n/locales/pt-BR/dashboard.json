@@ -1,0 +1,51 @@
+{
+  "channelManual": "Manual",
+  "channels": {
+    "empty": "Nenhuma venda este mês ainda.",
+    "revenue": "Receita",
+    "sub": "Este mês",
+    "title": "Vendas por canal"
+  },
+  "errors": {
+    "unknown": "Erro desconhecido"
+  },
+  "expiring": {
+    "empty": "Nada vencendo nos próximos 30 dias.",
+    "lot": "{{sku}} · lote {{lot}} · {{warehouse}}",
+    "title": "Vencendo em breve",
+    "units_one": "{{count}} unidade",
+    "units_many": "{{count}} unidades",
+    "units_other": "{{count}} unidades",
+    "within": "{{n}} em até 30 dias"
+  },
+  "needsAttention": "Requer atenção",
+  "stats": {
+    "expired": "Vencidos",
+    "expiredSub": "precisam ser descartados",
+    "expiring": "Vencendo (7d)",
+    "expiringSub": "lotes perto do vencimento",
+    "orders": "Total de pedidos",
+    "ordersSub": "desde o início",
+    "products": "Total de produtos",
+    "productsSub": "em todos os canais",
+    "revenue": "Receita estimada",
+    "revenueSub": "este mês",
+    "stock": "Estoque total",
+    "stockIssues": "Problemas de estoque",
+    "stockIssuesSub": "pedidos aguardando solução de estoque",
+    "stockSub": "unidades em todos os locais"
+  },
+  "stockFlow": {
+    "inbound": "Entradas",
+    "outbound": "Saídas",
+    "sub": "Entradas vs. saídas",
+    "title": "Fluxo de estoque"
+  },
+  "topProducts": {
+    "empty": "Nenhum produto vendido este mês ainda.",
+    "revenue": "Receita",
+    "sold": "Vendidos",
+    "title": "Produtos mais vendidos"
+  },
+  "vsLastWeek": "{{value}} vs. semana passada"
+}

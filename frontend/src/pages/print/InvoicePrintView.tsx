@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import type { SalesOrder, SalesOrderLineItem, Address } from '../../oms/types'
 import type { CompanyProfile } from '../../settings/company/types'
 import { formatMoney } from '../../format/money'
@@ -25,9 +27,9 @@ function sellerBlock(seller: CompanyProfile): string[] {
     seller.legal_name,
     [a.street, a.house_number].filter(Boolean).join(' '),
     [a.postal_code, a.city].filter(Boolean).join(' '),
-    seller.vat_number && `VAT: ${seller.vat_number}`,
-    seller.chamber_of_commerce && `Chamber of Commerce: ${seller.chamber_of_commerce}`,
-    seller.iban && `IBAN: ${seller.iban}`,
+    seller.vat_number && i18next.t('orders:print.vat', { value: seller.vat_number }),
+    seller.chamber_of_commerce && i18next.t('orders:print.coc', { value: seller.chamber_of_commerce }),
+    seller.iban && i18next.t('orders:print.iban', { value: seller.iban }),
     seller.email,
     seller.phone,
   ].filter((l): l is string => Boolean(l))
@@ -46,6 +48,7 @@ interface InvoicePrintViewProps {
 // and the browser's own print dialog.
 export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoicePrintViewProps) {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation(['orders', 'common'])
   useEffect(() => { window.print() }, [])
 
   const billing = addressBlock(order.billing)
@@ -53,24 +56,24 @@ export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoiceP
 
   return (
     <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-      <button aria-label="Close"
+      <button aria-label={t('common:actions.close')}
         onClick={onClose}
         className="print:hidden fixed top-4 right-4 w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"
-        title="Close"
+        title={t('common:actions.close')}
       >
         <X size={16} />
       </button>
       <div className="max-w-2xl mx-auto p-10 text-gray-900">
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold">Invoice</h1>
+            <h1 className="text-2xl font-bold">{t('print.invoice')}</h1>
             {seller && seller.legal_name ? (
-              <section aria-label="Seller" className="mt-3 text-sm">
+              <section aria-label={t('print.seller')} className="mt-3 text-sm">
                 {sellerBlock(seller).map((l, i) => <p key={i} className={i === 0 ? 'font-medium' : 'text-gray-700'}>{l}</p>)}
               </section>
             ) : (
               <p className="print:hidden mt-3 text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
-                This invoice has no seller details. Add your company details in Settings → Company.
+                {t('print.noSeller')}
               </p>
             )}
           </div>
@@ -82,11 +85,11 @@ export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoiceP
 
         <div className="grid grid-cols-2 gap-6 mb-8 text-sm">
           <div>
-            <p className="font-medium mb-1">Billing</p>
+            <p className="font-medium mb-1">{t('print.billing')}</p>
             {billing.length === 0 ? <p className="text-gray-500">—</p> : billing.map((l, i) => <p key={i}>{l}</p>)}
           </div>
           <div>
-            <p className="font-medium mb-1">Shipping</p>
+            <p className="font-medium mb-1">{t('print.shipping')}</p>
             {shipping.length === 0 ? <p className="text-gray-500">—</p> : shipping.map((l, i) => <p key={i}>{l}</p>)}
           </div>
         </div>
@@ -94,10 +97,10 @@ export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoiceP
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b-2 border-gray-900">
-              <th className="text-left py-2">Product</th>
-              <th className="text-right py-2">Qty</th>
-              <th className="text-right py-2">Price</th>
-              <th className="text-right py-2">Total</th>
+              <th className="text-left py-2">{t('common:fields.product')}</th>
+              <th className="text-right py-2">{t('detail.qty')}</th>
+              <th className="text-right py-2">{t('common:fields.price')}</th>
+              <th className="text-right py-2">{t('common:fields.total')}</th>
             </tr>
           </thead>
           <tbody>
@@ -115,19 +118,19 @@ export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoiceP
         <div className="flex justify-end mt-4">
           <div className="w-56 space-y-1 text-sm">
             <div className="flex justify-between text-gray-600">
-              <span>Discount</span>
+              <span>{t('detail.discount')}</span>
               <span>{formatMoney(order.discount_total_minor_units, order.currency_code)}</span>
             </div>
             <div className="flex justify-between text-gray-600">
-              <span>Shipping</span>
+              <span>{t('detail.shipping')}</span>
               <span>{formatMoney(order.shipping_total_minor_units, order.currency_code)}</span>
             </div>
             <div className="flex justify-between text-gray-600">
-              <span>Tax</span>
+              <span>{t('detail.tax')}</span>
               <span>{formatMoney(order.tax_total_minor_units, order.currency_code)}</span>
             </div>
             <div className="flex justify-between font-bold pt-1 border-t border-gray-900">
-              <span>Total</span>
+              <span>{t('common:fields.total')}</span>
               <span>{formatMoney(order.total_minor_units, order.currency_code)}</span>
             </div>
           </div>

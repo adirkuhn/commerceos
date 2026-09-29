@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, ShoppingBag, Trash2, Edit3, Upload, Sparkles, AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
 import { useStackNavigation } from '../routing/useStackNavigation'
@@ -10,7 +11,7 @@ import { useSuppliers } from '../suppliers/hooks/useSuppliers'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import type { PurchaseOrder, PurchaseOrderStatus } from '../procurement/types'
 import { useConfirm } from '../components/common/useConfirm'
-import { DISCREPANCIES_SEGMENT, PROCUREMENT_PATH, STATUS_STYLE } from '../procurement/procurementHelpers'
+import { DISCREPANCIES_SEGMENT, PROCUREMENT_PATH, STATUS_STYLE, poStatusLabel } from '../procurement/procurementHelpers'
 import { BookingDiscrepanciesPage } from '../procurement/BookingDiscrepanciesPage'
 import { CreateFromDocumentModal } from '../procurement/CreateFromDocumentModal'
 import { PurchaseOrderEditPage } from '../procurement/PurchaseOrderEditPage'
@@ -21,6 +22,7 @@ const STATUS_TABS: readonly (PurchaseOrderStatus | 'all')[] = ['all', 'draft', '
 export default function Procurement() {
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
+  const { t } = useTranslation(['procurement', 'common'])
   const { purchaseOrders, loading, error, create, remove, refresh } = usePurchaseOrders(token ?? '')
   const { suppliers } = useSuppliers(token ?? '')
   const { warehouses } = useWarehouses(token ?? '')
@@ -53,12 +55,12 @@ export default function Procurement() {
   const filtered = purchaseOrders.filter(po => statusFilter === 'all' || po.status === statusFilter)
 
   async function handleDelete(po: PurchaseOrder) {
-    if (!(await confirm({ title: 'Delete this purchase order?', message: 'This cannot be undone.', confirmLabel: 'Delete order', destructive: true }))) return
+    if (!(await confirm({ title: t('list.deleteTitle'), message: t('list.deleteMessage'), confirmLabel: t('list.deleteConfirm'), destructive: true }))) return
     setDeleteError('')
     try {
       await remove(po.id)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Unknown error')
+      setDeleteError(err instanceof Error ? err.message : t('errors.unknown'))
     }
   }
 
@@ -95,7 +97,7 @@ export default function Procurement() {
                   : 'text-ink-4 hover:text-ink-2',
               )}
             >
-              {s.replace('_', ' ')}
+              {s === 'all' ? t('list.all') : poStatusLabel(s)}
             </button>
           ))}
         </div>
@@ -104,19 +106,19 @@ export default function Procurement() {
             onClick={() => open(`${PROCUREMENT_PATH}/${DISCREPANCIES_SEGMENT}`)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
           >
-            <AlertTriangle size={13} /> Discrepancies
+            <AlertTriangle size={13} /> {t('list.discrepancies')}
           </button>
           <button
             onClick={() => setUploadModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
           >
-            <Upload size={13} /> Upload document
+            <Upload size={13} /> {t('list.uploadDocument')}
           </button>
           <button
             onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
-            <Plus size={13} /> Add purchase order
+            <Plus size={13} /> {t('list.add')}
           </button>
         </div>
       </div>
@@ -134,7 +136,7 @@ export default function Procurement() {
 
       {/* Stats strip */}
       <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{filtered.length} purchase order{filtered.length === 1 ? '' : 's'}</span>
+        <span className="text-xs text-ink-4">{t('list.count', { count: filtered.length })}</span>
         {(error || deleteError) && <span className="text-xs text-danger ml-auto">{error || deleteError}</span>}
       </div>
 
@@ -144,21 +146,21 @@ export default function Procurement() {
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Supplier</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Warehouse</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Expected</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Currency</th>
-              <th className="px-3 py-2.5 text-right font-medium text-ink-4 uppercase tracking-wider">Total</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colSupplier')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colWarehouse')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colStatus')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colExpected')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colCurrency')}</th>
+              <th className="px-3 py-2.5 text-right font-medium text-ink-4 uppercase tracking-wider">{t('list.colTotal')}</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={8} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
+              <tr><td colSpan={8} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={8} className="px-4 py-6 text-center text-ink-4">No purchase orders yet</td></tr>
+              <tr><td colSpan={8} className="px-4 py-6 text-center text-ink-4">{t('list.empty')}</td></tr>
             )}
             {filtered.map(po => (
               <tr
@@ -176,7 +178,7 @@ export default function Procurement() {
                     <p className="font-medium text-ink truncate">{supplierName(po.supplier_id)}</p>
                   ) : (
                     <p className="flex items-center gap-1 font-medium text-warning truncate">
-                      <Sparkles size={11} /> Missing supplier
+                      <Sparkles size={11} /> {t('list.missingSupplier')}
                     </p>
                   )}
                   {po.is_potential_duplicate && (
@@ -185,14 +187,14 @@ export default function Procurement() {
                       onClick={e => { e.stopPropagation(); if (po.duplicate_of_purchase_order_id) openEdit(po.duplicate_of_purchase_order_id) }}
                       className="flex items-center gap-1 mt-0.5 text-2xs font-medium text-danger hover:underline"
                     >
-                      <AlertTriangle size={10} /> Possible duplicate order
+                      <AlertTriangle size={10} /> {t('list.possibleDuplicate')}
                     </button>
                   )}
                 </td>
                 <td className="px-3 py-2.5 text-ink-3">{warehouseName(po.warehouse_id) ?? '—'}</td>
                 <td className="px-3 py-2.5">
                   <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLE[po.status])}>
-                    {po.status.replace('_', ' ')}
+                    {poStatusLabel(po.status)}
                   </span>
                 </td>
                 <td className="px-3 py-2.5 text-ink-3">{po.expected_date ?? '—'}</td>
@@ -202,17 +204,17 @@ export default function Procurement() {
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button aria-label="Edit"
+                    <button aria-label={t('common:actions.edit')}
                       onClick={e => { e.stopPropagation(); openEdit(po.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Edit"
+                      title={t('common:actions.edit')}
                     >
                       <Edit3 size={12} className="text-ink-3" />
                     </button>
-                    <button aria-label="Delete"
+                    <button aria-label={t('common:actions.delete')}
                       onClick={e => { e.stopPropagation(); handleDelete(po) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Delete"
+                      title={t('common:actions.delete')}
                     >
                       <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>

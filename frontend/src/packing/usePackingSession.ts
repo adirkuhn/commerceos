@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useRoutedSession } from '../oms/useRoutedSession'
@@ -36,7 +37,7 @@ export function usePackingSession({ token, me, onSelect, onCleared }: PackingSes
     try {
       setSession(await packingApi.getPackingSession(token, sessionId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load packing session')
+      setError(err instanceof Error ? err.message : i18next.t('packing:errors.loadSession'))
     } finally {
       setSessionLoading(false)
     }
@@ -50,7 +51,7 @@ export function usePackingSession({ token, me, onSelect, onCleared }: PackingSes
     active: !!session && session.session.status !== 'completed',
     touch: id => packingApi.touchPackingSession(token ?? '', id),
     release: id => packingApi.releasePackingSessionLock(token ?? '', id),
-    onLost: () => setError('Another user has taken over this packing session'),
+    onLost: () => setError(i18next.t('packing:errors.takenOver')),
   })
 
   async function takeOver() {
@@ -60,7 +61,7 @@ export function usePackingSession({ token, me, onSelect, onCleared }: PackingSes
       await packingApi.takeOverPackingSession(token, session.session.id)
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to take over')
+      setError(err instanceof Error ? err.message : i18next.t('packing:errors.takeOver'))
     }
   }
 
@@ -74,7 +75,7 @@ export function usePackingSession({ token, me, onSelect, onCleared }: PackingSes
       await loadSession(session.session.id)
       return true
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Someone else is packing this order')
+      setError(err instanceof Error ? err.message : i18next.t('packing:errors.someoneElse'))
       return false
     }
   }
@@ -108,7 +109,7 @@ export function usePackingSession({ token, me, onSelect, onCleared }: PackingSes
       const newSession = await packingApi.startOrResumePacking(token ?? '', order.id)
       if (showSession(newSession.id)) await loadSession(newSession.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start packing')
+      setError(err instanceof Error ? err.message : i18next.t('packing:errors.start'))
       setSessionLoading(false)
     }
   }
@@ -128,7 +129,7 @@ export function usePackingSession({ token, me, onSelect, onCleared }: PackingSes
       })
       .catch(err => {
         if (!current) return
-        setError(err instanceof Error ? err.message : 'Failed to start packing')
+        setError(err instanceof Error ? err.message : i18next.t('packing:errors.start'))
         setSessionLoading(false)
       })
     return () => { current = false }

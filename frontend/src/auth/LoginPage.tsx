@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { hasLoginUrl, APP_ID, lm2Origin } from './loginConfig'
 import { AuthLayout, primaryButtonClass, secondaryButtonClass } from './AuthLayout'
 
@@ -6,15 +7,17 @@ const LM2_LOGIN_URL = import.meta.env.VITE_LM2_LOGIN_URL as string
 const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
 
 function ConfigMissing() {
+  const { t } = useTranslation('auth')
   return (
     <AuthLayout
       title="CommerceOS"
-      subtitle={<>The lm2 login server is not configured. Set <code>VITE_LM2_LOGIN_URL</code> to enable sign-in.</>}
+      subtitle={<Trans t={t} i18nKey="login.notConfigured" values={{ variable: 'VITE_LM2_LOGIN_URL' }} components={{ code: <code /> }} />}
     />
   )
 }
 
 export function LoginPage() {
+  const { t } = useTranslation('auth')
   const [googleError, setGoogleError] = useState<string | null>(null)
   const [googleLoading, setGoogleLoading] = useState(false)
 
@@ -38,22 +41,22 @@ export function LoginPage() {
       const callbackUrl = `${window.location.origin}${CALLBACK_PATH}`
       const res = await fetch(`${lm2Origin()}/api/v1/auth/app/google/url?app=${APP_ID}&redirect=${encodeURIComponent(callbackUrl)}`)
       const body = await res.json()
-      if (!res.ok) throw new Error(body.error?.message ?? body.message ?? 'Google sign-in is unavailable')
+      if (!res.ok) throw new Error(body.error?.message ?? body.message ?? t('login.googleUnavailable'))
       window.location.href = body.data.url
     } catch (e) {
-      setGoogleError(e instanceof Error ? e.message : 'Google sign-in is unavailable')
+      setGoogleError(e instanceof Error ? e.message : t('login.googleUnavailable'))
       setGoogleLoading(false)
     }
   }
 
   return (
-    <AuthLayout title="CommerceOS" subtitle="Sign in to continue">
+    <AuthLayout title="CommerceOS" subtitle={t('login.subtitle')}>
       <div className="space-y-3">
         <button onClick={handleLogin} className={primaryButtonClass}>
-          Sign in with lm2
+          {t('login.withLm2')}
         </button>
         <button onClick={handleGoogleLogin} disabled={googleLoading} className={secondaryButtonClass}>
-          {googleLoading ? 'Redirecting…' : 'Sign in with Google'}
+          {googleLoading ? t('login.redirecting') : t('login.withGoogle')}
         </button>
         {googleError && <p role="alert" className="text-xs text-danger">{googleError}</p>}
       </div>

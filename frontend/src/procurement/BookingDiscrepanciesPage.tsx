@@ -1,5 +1,6 @@
 import { ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useQueryEnum } from '../routing/useQueryState'
 import { useBookingDiscrepancies } from './hooks/useBookingDiscrepancies'
 import { useDateFormat } from '../format/DateFormatProvider'
@@ -13,12 +14,13 @@ type DiscrepancyTab = typeof DISCREPANCY_TABS[number]
 // the Inventory module's Expiry & Discards report.
 export function BookingDiscrepanciesPage({ token, onClose }: { token: string; onClose: () => void }) {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation(['procurement', 'common'])
   const { report, loading, error } = useBookingDiscrepancies(token)
   const [tab, setTab] = useQueryEnum('tab', DISCREPANCY_TABS, 'missing')
 
   const TABS: { id: DiscrepancyTab; label: string }[] = [
-    { id: 'missing', label: `Missing${report.missing_items.length ? ` (${report.missing_items.length})` : ''}` },
-    { id: 'damaged-lost', label: `Damaged / Lost${report.damaged_lost.length ? ` (${report.damaged_lost.length})` : ''}` },
+    { id: 'missing', label: report.missing_items.length ? t('booking.tabMissingCount', { n: report.missing_items.length }) : t('booking.tabMissing') },
+    { id: 'damaged-lost', label: report.damaged_lost.length ? t('booking.tabDamagedCount', { n: report.damaged_lost.length }) : t('booking.tabDamaged') },
   ]
 
   return (
@@ -29,26 +31,26 @@ export function BookingDiscrepanciesPage({ token, onClose }: { token: string; on
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Procurement
+            <ArrowLeft size={11} /> {t('booking.back')}
           </button>
-          <h1 className="text-xl font-semibold text-ink leading-tight">Booking discrepancies</h1>
-          <p className="text-xs text-ink-4 mt-0.5">Every completed booking's under-scanned line items and damaged/lost stock</p>
+          <h1 className="text-xl font-semibold text-ink leading-tight">{t('booking.title')}</h1>
+          <p className="text-xs text-ink-4 mt-0.5">{t('booking.subtitle')}</p>
         </div>
       </div>
 
       <div className="flex gap-2 px-6 pt-4 shrink-0">
-        {TABS.map(t => (
-          <button aria-pressed={tab === t.id}
-            key={t.id}
-            onClick={() => setTab(t.id)}
+        {TABS.map(item => (
+          <button aria-pressed={tab === item.id}
+            key={item.id}
+            onClick={() => setTab(item.id)}
             className={clsx(
               'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-              tab === t.id
+              tab === item.id
                 ? 'bg-accent-solid text-white'
                 : 'bg-raised text-ink-3 hover:bg-hover',
             )}
           >
-            {t.label}
+            {item.label}
           </button>
         ))}
       </div>
@@ -58,16 +60,16 @@ export function BookingDiscrepanciesPage({ token, onClose }: { token: string; on
 
         {tab === 'missing' && (
           <>
-            {!error && loading && report.missing_items.length === 0 && <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>}
+            {!error && loading && report.missing_items.length === 0 && <p className="px-6 py-4 text-xs text-ink-4">{t('common:status.loading')}</p>}
             {!error && !loading && report.missing_items.length === 0 && (
-              <p className="px-6 py-4 text-xs text-ink-4">No missing items -- every completed booking was fully scanned.</p>
+              <p className="px-6 py-4 text-xs text-ink-4">{t('booking.noMissing')}</p>
             )}
             {report.missing_items.length > 0 && (
               <table className="w-full text-xs">
                 <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
-                    {['SKU', 'Product', 'Expected', 'Scanned', 'Missing', 'Completed'].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                    {[t('booking.colSku'), t('booking.colProduct'), t('booking.colExpected'), t('booking.colScanned'), t('booking.colMissing'), t('booking.colCompleted')].map((h, i) => (
+                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -90,16 +92,16 @@ export function BookingDiscrepanciesPage({ token, onClose }: { token: string; on
 
         {tab === 'damaged-lost' && (
           <>
-            {!error && loading && report.damaged_lost.length === 0 && <p className="px-6 py-4 text-xs text-ink-4">Loading…</p>}
+            {!error && loading && report.damaged_lost.length === 0 && <p className="px-6 py-4 text-xs text-ink-4">{t('common:status.loading')}</p>}
             {!error && !loading && report.damaged_lost.length === 0 && (
-              <p className="px-6 py-4 text-xs text-ink-4">Nothing damaged or lost across any completed booking.</p>
+              <p className="px-6 py-4 text-xs text-ink-4">{t('booking.noDamaged')}</p>
             )}
             {report.damaged_lost.length > 0 && (
               <table className="w-full text-xs">
                 <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
-                    {['SKU', 'Product', 'Type', 'Qty', 'Reason', 'Scanned by', 'Date'].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                    {[t('booking.colSku'), t('booking.colProduct'), t('booking.colType'), t('booking.colQty'), t('booking.colReason'), t('booking.colScannedBy'), t('booking.colDate')].map((h, i) => (
+                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -108,7 +110,7 @@ export function BookingDiscrepanciesPage({ token, onClose }: { token: string; on
                     <tr key={d.scan_id} className="hover:bg-hover/60 transition-colors">
                       <td className="px-4 py-2.5 font-mono text-ink-2">{d.sku_code ?? '—'}</td>
                       <td className="px-4 py-2.5 text-ink">{d.product_name ?? '—'}</td>
-                      <td className="px-4 py-2.5 capitalize text-danger">{d.action_type}</td>
+                      <td className="px-4 py-2.5 capitalize text-danger">{d.action_type === 'damaged' ? t('booking.damaged') : d.action_type === 'lost' ? t('booking.lost') : d.action_type}</td>
                       <td className="px-4 py-2.5 tabular-nums text-ink-2">{d.quantity}</td>
                       <td className="px-4 py-2.5 text-ink-3">{d.reason || '—'}</td>
                       <td className="px-4 py-2.5 text-ink-3">{d.scanned_by || '—'}</td>

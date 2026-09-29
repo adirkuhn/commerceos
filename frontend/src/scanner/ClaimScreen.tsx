@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Hash, ScanLine, Camera } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import * as api from './api'
 import { CameraScanner } from './CameraScanner'
 import { hasLoginUrl, APP_ID, lm2Origin } from '../auth/loginConfig'
@@ -16,6 +17,7 @@ const SCANNER_CALLBACK_PATH = '/scanner/auth/callback'
 type ClaimTab = 'digits' | 'scan'
 
 export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
+  const { t } = useTranslation('scanner')
   const [tab, setTab] = useState<ClaimTab>('scan')
   const [code, setCode] = useState('')
   const [scanValue, setScanValue] = useState('')
@@ -33,7 +35,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
       const { token } = await api.claimPairingCode(code.trim())
       onClaimed(token)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to pair')
+      setError(err instanceof Error ? err.message : t('claim.failed'))
       setClaiming(false)
     }
   }
@@ -45,7 +47,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
       const { token } = await api.claimPairingCodeByToken(value.trim())
       onClaimed(token)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to pair')
+      setError(err instanceof Error ? err.message : t('claim.failed'))
       setClaiming(false)
     }
   }
@@ -73,10 +75,10 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
       const callbackUrl = `${window.location.origin}${SCANNER_CALLBACK_PATH}`
       const res = await fetch(`${lm2Origin()}/api/v1/auth/app/google/url?app=${APP_ID}&redirect=${encodeURIComponent(callbackUrl)}`)
       const body = await res.json()
-      if (!res.ok) throw new Error(body.error?.message ?? body.message ?? 'Google sign-in is unavailable')
+      if (!res.ok) throw new Error(body.error?.message ?? body.message ?? t('claim.googleUnavailable'))
       window.location.href = body.data.url
     } catch (err) {
-      setGoogleError(err instanceof Error ? err.message : 'Google sign-in is unavailable')
+      setGoogleError(err instanceof Error ? err.message : t('claim.googleUnavailable'))
       setGoogleLoading(false)
     }
   }
@@ -87,9 +89,9 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
         {tab === 'digits' ? <Hash size={28} className="text-accent" /> : <ScanLine size={28} className="text-accent" />}
       </div>
       <div>
-        <h1 className="text-lg font-semibold text-gray-100">Pair this scanner</h1>
+        <h1 className="text-lg font-semibold text-gray-100">{t('claim.title')}</h1>
         <p className="mt-1 text-sm text-gray-400">
-          {tab === 'digits' ? 'Enter the code shown on the desktop screen' : 'Scan the QR code or barcode shown on the desktop screen'}
+          {tab === 'digits' ? t('claim.enterCode') : t('claim.scanCode')}
         </p>
       </div>
 
@@ -101,7 +103,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
             tab === 'digits' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'
           }`}
         >
-          <Hash size={13} /> Type code
+          <Hash size={13} /> {t('claim.typeCode')}
         </button>
         <button aria-pressed={tab === 'scan'}
           type="button"
@@ -110,7 +112,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
             tab === 'scan' ? 'bg-accent-solid text-white' : 'bg-night-800 text-gray-400'
           }`}
         >
-          <ScanLine size={13} /> Scan
+          <ScanLine size={13} /> {t('claim.scan')}
         </button>
       </div>
 
@@ -131,7 +133,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
             disabled={claiming || code.length !== 6}
             className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {claiming ? 'Pairing…' : 'Pair'}
+            {claiming ? t('claim.pairing') : t('claim.pair')}
           </button>
         </form>
       )}
@@ -146,7 +148,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
             autoFocus
             value={scanValue}
             onChange={e => setScanValue(e.target.value)}
-            placeholder="Scan QR code or barcode…"
+            placeholder={t('claim.scanPlaceholder')}
             className="w-full px-4 py-4 text-center text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
           />
           {error && <p className="text-sm text-red-400">{error}</p>}
@@ -155,14 +157,14 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
             disabled={claiming || scanValue.trim().length === 0}
             className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {claiming ? 'Pairing…' : 'Pair'}
+            {claiming ? t('claim.pairing') : t('claim.pair')}
           </button>
           <button
             type="button"
             onClick={() => setCameraOpen(true)}
             className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-300 text-xs font-medium flex items-center justify-center gap-1.5"
           >
-            <Camera size={13} /> Use camera
+            <Camera size={13} /> {t('shared.useCamera')}
           </button>
         </form>
       )}
@@ -175,7 +177,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
         <div className="w-full max-w-xs space-y-3">
           <div className="flex items-center gap-3 text-2xs text-gray-400">
             <div className="h-px flex-1 bg-night-700" />
-            or
+            {t('claim.or')}
             <div className="h-px flex-1 bg-night-700" />
           </div>
           {googleError && <p className="text-sm text-red-400">{googleError}</p>}
@@ -185,7 +187,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
             disabled={googleLoading}
             className="w-full py-3 rounded-xl bg-night-800 border border-night-700 text-gray-200 text-sm font-medium disabled:opacity-50 transition-colors"
           >
-            {googleLoading ? 'Redirecting…' : 'Sign in with Google'}
+            {googleLoading ? t('claim.redirecting') : t('claim.google')}
           </button>
         </div>
       )}

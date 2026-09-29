@@ -1,0 +1,28 @@
+{
+  "list": {
+    "colConfirmed": "Bevestigd",
+    "colEmail": "E-mail",
+    "colSignedUp": "Aangemeld",
+    "colStatus": "Status",
+    "empty": "Geen abonnees gevonden",
+    "eraseAria": "{{email}} wissen",
+    "eraseConfirm": "Abonnee wissen",
+    "eraseFailed": "Abonnee wissen mislukt",
+    "eraseMessage": "De inschrijving en toestemming worden definitief verwijderd. Gebruik dit voor verzoeken om gegevens te verwijderen; om geen e-mails meer te krijgen kan iemand zich uitschrijven.",
+    "eraseTitle": "{{email}} wissen?",
+    "export": "Ingeschreven exporteren (CSV)",
+    "exportFailed": "Abonnees exporteren mislukt",
+    "exporting": "Exporteren…",
+    "intro": "Klanten schrijven zich in via het formulier in je webwinkel en bevestigen per e-mail (dubbele opt-in). Alleen bevestigde abonnees worden geëxporteerd.",
+    "loadFailed": "Abonnees laden mislukt",
+    "search": "Zoeken op e-mail...",
+    "searchLabel": "Abonnees zoeken"
+  },
+  "status": {
+    "all": "Alle statussen",
+    "confirmed": "Ingeschreven",
+    "label": "Status",
+    "pending": "Wacht op bevestiging",
+    "unsubscribed": "Uitgeschreven"
+  }
+}

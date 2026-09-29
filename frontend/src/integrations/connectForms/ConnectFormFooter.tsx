@@ -1,5 +1,8 @@
+import { useTranslation } from 'react-i18next'
+
 // Error line + submit button shared by every connect form in the catalog.
 export function ConnectFormFooter({ error, starting }: { error: string; starting: boolean }) {
+  const { t } = useTranslation('integrations')
   return (
     <>
       {error && (
@@ -10,7 +13,7 @@ export function ConnectFormFooter({ error, starting }: { error: string; starting
         disabled={starting}
         className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
       >
-        {starting ? 'Connecting…' : 'Connect'}
+        {starting ? t('connect.connecting') : t('connect.submit')}
       </button>
     </>
   )

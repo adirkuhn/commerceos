@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useEffect, useState } from 'react'
 import type { PickList } from '../types'
 import * as api from '../api'
@@ -28,7 +29,7 @@ export function usePickList(token: string, salesOrderIds: string[]): UsePickList
     setError(null)
     api.getPickList(token, ids)
       .then(data => { if (!cancelled) setPickList(data) })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load pick list') })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : i18next.t('orders:errors.loadPickList')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token, key])

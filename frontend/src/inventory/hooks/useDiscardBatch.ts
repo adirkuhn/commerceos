@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useCallback } from 'react'
 import type { DiscardBatchInput, DiscardRecord } from '../types'
 import * as api from '../api'
@@ -20,7 +21,7 @@ export function useDiscardBatch(token: string): {
     try {
       return await api.discardBatch(token, skuId, input)
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Unknown error'
+      const message = e instanceof Error ? e.message : i18next.t('inventory:errors.unknown')
       setError(message)
       throw e
     } finally {

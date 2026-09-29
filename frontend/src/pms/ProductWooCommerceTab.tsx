@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plug } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -14,9 +15,8 @@ import { useDateFormat } from '../format/DateFormatProvider'
 // row) is an expected, common state — most products aren't linked to every
 // connected channel — rendered as "not linked yet", not an error.
 
-const WOO_SYNC_STATUS_LABEL: Record<ProductChannelListingSyncStatus, string> = {
-  pending: 'Pending', synced: 'Synced', error: 'Error',
-}
+// Brand name, not translated.
+const BRAND = 'WooCommerce'
 
 const WOO_SYNC_STATUS_STYLE: Record<ProductChannelListingSyncStatus, string> = {
   pending: 'text-warning',
@@ -32,6 +32,8 @@ export function ProductWooCommerceTab({
 }) {
   const { formatDateTime } = useDateFormat()
   const { token } = useAuth()
+  const { t } = useTranslation('pms')
+  const syncLabel: Record<ProductChannelListingSyncStatus, string> = { pending: t('woo.pending'), synced: t('woo.synced'), error: t('woo.error') }
   const [listings, setListings] = useState<ProductChannelListing[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -47,7 +49,7 @@ export function ProductWooCommerceTab({
       const result = await integrationsApi.listProductChannelListings(token, connection.id, productId)
       setListings(result)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load WooCommerce sync status')
+      setError(err instanceof Error ? err.message : t('woo.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -77,7 +79,7 @@ export function ProductWooCommerceTab({
       setListings([result])
       setLinkSku('')
     } catch (err) {
-      setLinkError(err instanceof Error ? err.message : 'Failed to link product')
+      setLinkError(err instanceof Error ? err.message : t('woo.linkFailed'))
     } finally {
       setLinking(false)
     }
@@ -90,12 +92,12 @@ export function ProductWooCommerceTab({
     <div data-testid="woocommerce-tab" className="rounded-xl border border-line p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Plug size={13} className="text-ink-3" />
-        <h3 className="text-xs font-semibold text-ink">WooCommerce</h3>
+        <h3 className="text-xs font-semibold text-ink">{BRAND}</h3>
         <span className="text-2xs text-ink-4">· {connection.store_url}</span>
       </div>
 
       {loading && (
-        <p className="text-2xs text-ink-4">Loading sync status…</p>
+        <p className="text-2xs text-ink-4">{t('woo.loading')}</p>
       )}
 
       {!loading && error && (
@@ -106,8 +108,9 @@ export function ProductWooCommerceTab({
         <div className="space-y-2">
           {parentListing && (
             <WooListingRow
-              label="Parent product" sku={null}
+              label={t('woo.parent')} sku={null}
               listing={parentListing}
+              syncLabel={syncLabel}
             />
           )}
           {variants.map(v => (
@@ -116,6 +119,7 @@ export function ProductWooCommerceTab({
               label={v.name}
               sku={v.skus?.[0]?.sku_code ?? null}
               listing={listings.find(l => l.variant_id === v.id) ?? null}
+              syncLabel={syncLabel}
             />
           ))}
         </div>
@@ -124,15 +128,14 @@ export function ProductWooCommerceTab({
       {!loading && !error && !isMultiVariant && !listing && (
         <div className="space-y-2">
           <p className="text-2xs text-ink-4">
-            Not linked to this WooCommerce store yet — import it from WooCommerce or push it from CommerceOS to start syncing.
-            If the product already exists on WooCommerce (e.g. after a reconnect), link it by SKU instead:
+            {t('woo.notLinkedHint')}
           </p>
           <form onSubmit={handleLinkExisting} className="flex items-center gap-2">
             <input
               type="text"
               value={linkSku}
               onChange={e => setLinkSku(e.target.value)}
-              placeholder="SKU on WooCommerce"
+              placeholder={t('woo.skuPlaceholder')}
               className="flex-1 px-3 py-2 text-xs rounded-lg bg-raised border border-line outline-none focus:ring-1 focus:ring-focus text-ink"
             />
             <button
@@ -140,7 +143,7 @@ export function ProductWooCommerceTab({
               disabled={linking || !linkSku.trim()}
               className="px-3 py-2 text-2xs font-medium rounded-lg bg-accent-solid hover:bg-accent-solid-hover disabled:opacity-50 text-white shrink-0"
             >
-              {linking ? 'Linking…' : 'Link existing product'}
+              {linking ? t('woo.linking') : t('woo.linkExisting')}
             </button>
           </form>
           {linkError && <p className="text-2xs text-danger">{linkError}</p>}
@@ -150,20 +153,20 @@ export function ProductWooCommerceTab({
       {!loading && !error && !isMultiVariant && listing && (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass}>WooCommerce product ID</label>
+            <label className={labelClass}>{t('woo.productId')}</label>
             <input disabled readOnly value={listing.external_id} className={clsx(inputClass, 'text-ink-2')} />
           </div>
           <div>
-            <label className={labelClass}>Sync status</label>
+            <label className={labelClass}>{t('woo.syncStatus')}</label>
             <input
               disabled
               readOnly
-              value={WOO_SYNC_STATUS_LABEL[listing.sync_status]}
+              value={syncLabel[listing.sync_status]}
               className={clsx(inputClass, WOO_SYNC_STATUS_STYLE[listing.sync_status])}
             />
           </div>
           <div>
-            <label className={labelClass}>Last synced</label>
+            <label className={labelClass}>{t('woo.lastSynced')}</label>
             <input
               disabled
               readOnly
@@ -181,17 +184,17 @@ export function ProductWooCommerceTab({
       {sku?.woo_tax_class_slug != null && (
         <div className="grid grid-cols-2 gap-3 pt-3 border-t border-line">
           <div>
-            <label htmlFor="product-woo-tax-class" className={labelClass}>Tax class (Woo)</label>
+            <label htmlFor="product-woo-tax-class" className={labelClass}>{t('woo.taxClass')}</label>
             <input
               id="product-woo-tax-class"
               disabled
               readOnly
-              value={sku.woo_tax_class_slug || 'Standard'}
+              value={sku.woo_tax_class_slug || t('woo.standard')}
               className={clsx(inputClass, 'text-ink-2')}
             />
           </div>
           <div>
-            <label htmlFor="product-woo-tax-status" className={labelClass}>Tax status (Woo)</label>
+            <label htmlFor="product-woo-tax-status" className={labelClass}>{t('woo.taxStatus')}</label>
             <input
               id="product-woo-tax-status"
               disabled
@@ -208,7 +211,10 @@ export function ProductWooCommerceTab({
 
 // One row of the multi-variant WooCommerce sync summary -- a variant (or
 // the variable parent) alongside whatever listing matches it, if any.
-function WooListingRow({ label, sku, listing }: { label: string; sku: string | null; listing: ProductChannelListing | null }) {
+function WooListingRow({ label, sku, listing, syncLabel }: {
+  label: string; sku: string | null; listing: ProductChannelListing | null; syncLabel: Record<ProductChannelListingSyncStatus, string>
+}) {
+  const { t } = useTranslation('pms')
   return (
     <div className="flex items-center gap-3 rounded-lg px-3 py-2 dark:bg-night-800/40 bg-gray-50 text-2xs">
       <div className="flex-1 min-w-0">
@@ -217,13 +223,13 @@ function WooListingRow({ label, sku, listing }: { label: string; sku: string | n
       </div>
       {listing ? (
         <>
-          <span className="text-ink-3 shrink-0">Woo ID {listing.external_id}</span>
+          <span className="text-ink-3 shrink-0">{t('woo.wooId', { id: listing.external_id })}</span>
           <span className={clsx('font-medium shrink-0', WOO_SYNC_STATUS_STYLE[listing.sync_status])}>
-            {WOO_SYNC_STATUS_LABEL[listing.sync_status]}
+            {syncLabel[listing.sync_status]}
           </span>
         </>
       ) : (
-        <span className="text-ink-4 shrink-0">Not linked</span>
+        <span className="text-ink-4 shrink-0">{t('woo.notLinked')}</span>
       )}
     </div>
   )

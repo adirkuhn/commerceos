@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Plus, Search, Shield, X, CheckCircle, XCircle } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useUsersRoute } from '../team/useUsersRoute'
 import { useQueryString } from '../routing/useQueryState'
@@ -14,7 +16,9 @@ import { InviteForm } from '../iam/components/InviteForm'
 import { fullName } from '../format/personName'
 import { useDateFormat } from '../format/DateFormatProvider'
 
-const ROLE_LABELS: Record<MemberRole, string> = { customer_owner: 'Owner', customer_user: 'User' }
+function roleLabel(t: TFunction<['iam', 'common']>, role: MemberRole): string {
+  return role === 'customer_owner' ? t('users.roleOwner') : t('users.roleUser')
+}
 const ROLE_COLORS: Record<MemberRole, string> = {
   customer_owner: 'bg-red-500/15 text-danger',
   customer_user: 'bg-gray-500/15 text-ink-4',
@@ -22,6 +26,7 @@ const ROLE_COLORS: Record<MemberRole, string> = {
 
 function UserActivityPanel({ token, member, onClose }: { token: string; member: CompanyMember; onClose: () => void }) {
   const { formatDateTime } = useDateFormat()
+  const { t } = useTranslation(['iam', 'common'])
   const { activities, loading, error } = useUserActivities(token, member.user_id)
 
   return (
@@ -29,14 +34,14 @@ function UserActivityPanel({ token, member, onClose }: { token: string; member: 
       <div className="px-4 py-3 border-b border-line shrink-0 flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-ink">{fullName(member)}</h3>
-          <p className="text-2xs text-ink-4 mt-0.5">Activity across all their orders</p>
+          <p className="text-2xs text-ink-4 mt-0.5">{t('users.activitySubtitle')}</p>
         </div>
-        <button onClick={onClose} aria-label="Close" className="p-1 -m-1 rounded hover:bg-hover"><X size={14} className="text-ink-3" /></button>
+        <button onClick={onClose} aria-label={t('common:actions.close')} className="p-1 -m-1 rounded hover:bg-hover"><X size={14} className="text-ink-3" /></button>
       </div>
       <div className="flex-1 overflow-auto p-4 space-y-2">
         {error && <p className="text-xs text-danger">{error}</p>}
         {!loading && activities.length === 0 && !error && (
-          <p className="text-xs text-ink-4">No activity yet.</p>
+          <p className="text-xs text-ink-4">{t('users.noActivity')}</p>
         )}
         {activities.map(a => (
           <div key={a.id} className="flex justify-between gap-3 text-xs">
@@ -51,6 +56,7 @@ function UserActivityPanel({ token, member, onClose }: { token: string; member: 
 
 export default function Users() {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation(['iam', 'common'])
   const { confirm, confirmDialog } = useConfirm()
   const { token, user } = useAuth()
   // customer_owner (normal case) or super_admin (akantio staff managing
@@ -76,7 +82,7 @@ export default function Users() {
   if (!isOwner) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-sm text-ink-3">Only company owners can manage users.</p>
+        <p className="text-sm text-ink-3">{t('users.ownersOnly')}</p>
       </div>
     )
   }
@@ -87,12 +93,12 @@ export default function Users() {
   )
 
   const handleRemove = async (m: CompanyMember) => {
-    if (!(await confirm({ title: `Remove ${fullName(m)} from this company?`, message: 'They lose access to this company right away.', confirmLabel: 'Remove member', destructive: true }))) return
+    if (!(await confirm({ title: t('users.removeTitle', { name: fullName(m) }), message: t('users.removeMessage'), confirmLabel: t('users.removeConfirm'), destructive: true }))) return
     setActionError(null)
     try {
       await membersState.remove(m.membership_id)
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Unknown error')
+      setActionError(e instanceof Error ? e.message : t('unknownError'))
     }
   }
 
@@ -104,7 +110,7 @@ export default function Users() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search users..."
+            placeholder={t('users.search')}
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
@@ -117,13 +123,13 @@ export default function Users() {
               : 'bg-raised border-line text-ink-2',
           )}
         >
-          <Shield size={13} /> Groups
+          <Shield size={13} /> {t('groups.title')}
         </button>
         <button
           onClick={route.openInvite}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover ml-auto font-medium"
         >
-          <Plus size={13} /> Invite user
+          <Plus size={13} /> {t('users.invite')}
         </button>
       </div>
 
@@ -145,17 +151,17 @@ export default function Users() {
           <div className="flex-1 overflow-auto">
             {invitesState.invites.length > 0 && (
               <div className="px-5 py-3 border-b border-line">
-                <h3 className="text-xs font-semibold text-ink-2 uppercase tracking-wider mb-2">Pending invites</h3>
+                <h3 className="text-xs font-semibold text-ink-2 uppercase tracking-wider mb-2">{t('users.pendingInvites')}</h3>
                 <ul className="space-y-1.5">
                   {invitesState.invites.map(inv => (
                     <li key={inv.id} className="flex items-center justify-between text-xs text-ink-2">
-                      <span>{inv.email} <span className="text-ink-4">({ROLE_LABELS[inv.role]})</span></span>
+                      <span>{inv.email} <span className="text-ink-4">({roleLabel(t, inv.role)})</span></span>
                       <button
-                        aria-label={`Revoke invite for ${inv.email}`}
+                        aria-label={t('users.revokeInvite', { email: inv.email })}
                         onClick={() => invitesState.revoke(inv.id)}
                         className="text-danger hover:text-red-300"
                       >
-                        Revoke
+                        {t('groups.revoke')}
                       </button>
                     </li>
                   ))}
@@ -165,7 +171,7 @@ export default function Users() {
             <table className="w-full text-xs">
               <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                 <tr>
-                  {['User', 'Role', 'Status', 'Last login', ''].map(h => (
+                  {[t('users.colUser'), t('users.role'), t('common:fields.status'), t('users.colLastLogin'), ''].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">
                       {h}
                     </th>
@@ -179,7 +185,7 @@ export default function Users() {
                       <button
                         onClick={() => route.openMember(m.user_id)}
                         className="flex items-center gap-2.5 text-left hover:underline"
-                        title={`View ${fullName(m)}'s activity`}
+                        title={t('users.viewActivity', { name: fullName(m) })}
                       >
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xs font-bold text-white shrink-0">
                           {fullName(m).slice(0, 2).toUpperCase()}
@@ -191,16 +197,16 @@ export default function Users() {
                       </button>
                     </td>
                     <td className="px-3 py-3">
-                      <label className="sr-only" htmlFor={`role-${m.membership_id}`}>Role for {fullName(m)}</label>
+                      <label className="sr-only" htmlFor={`role-${m.membership_id}`}>{t('users.roleFor', { name: fullName(m) })}</label>
                       <select
                         id={`role-${m.membership_id}`}
-                        aria-label={`Role for ${fullName(m)}`}
+                        aria-label={t('users.roleFor', { name: fullName(m) })}
                         value={m.role}
                         onChange={e => membersState.updateRole(m.membership_id, e.target.value as MemberRole)}
                         className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium border-0 outline-none focus-visible:ring-2 focus-visible:ring-focus/60', ROLE_COLORS[m.role])}
                       >
-                        <option value="customer_owner">Owner</option>
-                        <option value="customer_user">User</option>
+                        <option value="customer_owner">{t('users.roleOwner')}</option>
+                        <option value="customer_user">{t('users.roleUser')}</option>
                       </select>
                     </td>
                     <td className="px-3 py-3">
@@ -210,21 +216,21 @@ export default function Users() {
                           : <XCircle size={12} className="text-ink-4" />
                         }
                         <span className={clsx('text-2xs font-medium', m.status === 'active' ? 'text-success' : 'text-ink-4')}>
-                          {m.status === 'active' ? 'Active' : m.status}
+                          {m.status === 'active' ? t('common:status.active') : m.status}
                         </span>
                       </div>
                     </td>
                     <td className="px-3 py-3 text-ink-4">
-                      {m.last_login_at ? formatDate(m.last_login_at) : 'Never'}
+                      {m.last_login_at ? formatDate(m.last_login_at) : t('users.never')}
                     </td>
                     <td className="px-3 py-3">
                       {m.user_id !== user?.user_id && (
                         <button
-                          aria-label={`Remove ${fullName(m)}`}
+                          aria-label={t('users.removeLabel', { name: fullName(m) })}
                           onClick={() => handleRemove(m)}
                           className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 text-2xs text-danger hover:text-red-300"
                         >
-                          Remove
+                          {t('common:actions.remove')}
                         </button>
                       )}
                     </td>
@@ -233,7 +239,7 @@ export default function Users() {
               </tbody>
             </table>
             {!membersState.loading && filtered.length === 0 && (
-              <p className="px-5 py-4 text-xs text-ink-4">No members found.</p>
+              <p className="px-5 py-4 text-xs text-ink-4">{t('users.noneFound')}</p>
             )}
           </div>
         </div>

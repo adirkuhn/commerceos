@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, Star, Trash2, BadgeCheck } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -12,8 +13,9 @@ import { useDateFormat } from '../format/DateFormatProvider'
 const PAGE_SIZE = 20
 
 function Stars({ rating }: { rating: number }) {
+  const { t } = useTranslation('reviews')
   return (
-    <span className="flex items-center gap-0.5" aria-label={`${rating} out of 5 stars`}>
+    <span className="flex items-center gap-0.5" aria-label={t('list.stars', { rating })}>
       {[1, 2, 3, 4, 5].map(n => (
         <Star key={n} size={12} className={n <= rating ? 'fill-amber-400 text-warning' : 'text-ink-4'} />
       ))}
@@ -23,6 +25,7 @@ function Stars({ rating }: { rating: number }) {
 
 export default function Reviews() {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation(['reviews', 'common'])
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { reviews, loading, error, remove } = useReviews(token ?? '')
@@ -44,12 +47,12 @@ export default function Reviews() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleDelete(r: Review) {
-    if (!(await confirm({ title: `Delete the review from "${r.customer_name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete review', destructive: true }))) return
+    if (!(await confirm({ title: t('list.deleteTitle', { name: r.customer_name }), message: t('list.deleteMessage'), confirmLabel: t('list.deleteConfirm'), destructive: true }))) return
     setActionError('')
     try {
       await remove(r.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Unknown error')
+      setActionError(err instanceof Error ? err.message : t('common:status.error'))
     }
   }
 
@@ -61,14 +64,14 @@ export default function Reviews() {
           <input
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
-            placeholder="Search by customer, product, or text..."
+            placeholder={t('list.search')}
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
       </div>
 
       <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{filtered.length} review{filtered.length === 1 ? '' : 's'}</span>
+        <span className="text-xs text-ink-4">{t('list.count', { count: filtered.length })}</span>
         {(error || actionError) && <span className="text-xs text-danger ml-auto">{error || actionError}</span>}
       </div>
 
@@ -76,20 +79,20 @@ export default function Reviews() {
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Customer</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Rating</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Review</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Product ID</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Date</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colCustomer')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colRating')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colReview')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colProduct')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colDate')}</th>
               <th className="px-3 py-2.5 w-10" />
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">No reviews yet</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">{t('list.empty')}</td></tr>
             )}
             {paged.map(r => (
               <tr key={r.id} className="group hover:bg-hover/60 transition-colors">
@@ -97,7 +100,7 @@ export default function Reviews() {
                   <div className="flex items-center gap-1.5">
                     <p className="font-medium text-ink truncate">{r.customer_name}</p>
                     {r.verified && (
-                      <span title="Verified purchase">
+                      <span title={t('list.verified')}>
                         <BadgeCheck size={13} className="text-success shrink-0" />
                       </span>
                     )}
@@ -113,10 +116,10 @@ export default function Reviews() {
                 <td className="px-3 py-2.5 text-ink-3">{formatDate(r.created_at)}</td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button aria-label="Delete"
+                    <button aria-label={t('common:actions.delete')}
                       onClick={() => handleDelete(r)}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Delete"
+                      title={t('common:actions.delete')}
                     >
                       <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>

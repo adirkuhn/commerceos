@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { FormCard } from './FormCard'
 import { BarcodeAliasesEditor } from './SkuAliasEditors'
 import { CURRENCIES } from './productFormat'
@@ -20,34 +21,35 @@ interface FlatSkuPricingCardProps {
 // "Pricing & SKU" card of the flat single-SKU form.
 export function FlatSkuPricingCard({ form, setField, currentSkuId, taxClasses, defaultTaxClass, taxPreview }: FlatSkuPricingCardProps) {
   const { scaleCode, currency } = form
+  const { t } = useTranslation('pms')
   return (
-    <FormCard title="Pricing & SKU">
+    <FormCard title={t('sku.pricingTitle')}>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor="product-sku-code" className={labelClass}>SKU code</label>
+          <label htmlFor="product-sku-code" className={labelClass}>{t('sku.skuCode')}</label>
           <input
             id="product-sku-code"
-            type="text" required placeholder="e.g. SHIRT-BLK-M" value={form.skuCode} onChange={e => setField('skuCode', e.target.value)}
+            type="text" required placeholder={t('sku.skuCodePlaceholder')} value={form.skuCode} onChange={e => setField('skuCode', e.target.value)}
             className={inputClass}
           />
         </div>
         <div>
-          <label htmlFor="product-barcode" className={labelClass}>Barcode / EAN</label>
+          <label htmlFor="product-barcode" className={labelClass}>{t('sku.barcode')}</label>
           <input
             id="product-barcode"
-            type="text" placeholder={scaleCode ? 'Not used — see Weight-embedded barcode below' : 'Optional'}
+            type="text" placeholder={scaleCode ? t('sku.barcodeScaleUsed') : t('sku.optional')}
             disabled={!!scaleCode} value={scaleCode ? '' : form.barcode} onChange={e => setField('barcode', e.target.value)}
             className={inputClass}
           />
           {scaleCode && (
             <p className="text-2xs text-ink-4 mt-1">
-              Not used for this SKU — its real printed barcode changes per package (weight baked in).
+              {t('sku.barcodeScaleHint')}
             </p>
           )}
           {currentSkuId && !scaleCode && <div className="mt-1"><BarcodeAliasesEditor skuId={currentSkuId} /></div>}
         </div>
         <div>
-          <label htmlFor="product-price" className={labelClass}>Price</label>
+          <label htmlFor="product-price" className={labelClass}>{t('sku.price')}</label>
           <input
             id="product-price"
             type="number" step="0.01" min="0" required placeholder="0.00" value={form.price} onChange={e => setField('price', e.target.value)}
@@ -55,20 +57,20 @@ export function FlatSkuPricingCard({ form, setField, currentSkuId, taxClasses, d
           />
           {taxPreview && (
             <p className="mt-1 text-2xs text-ink-4">
-              Excl. tax: {currency} {taxPreview.exclusive.toFixed(2)} · Incl. tax: {currency} {taxPreview.inclusive.toFixed(2)} ({taxPreview.ratePercent}% {taxPreview.country})
+              {t('sku.taxPreview', { currency, excl: taxPreview.exclusive.toFixed(2), incl: taxPreview.inclusive.toFixed(2), rate: taxPreview.ratePercent, country: taxPreview.country })}
             </p>
           )}
         </div>
         <div>
-          <label htmlFor="product-sale-price" className={labelClass}>Sale price (optional)</label>
+          <label htmlFor="product-sale-price" className={labelClass}>{t('sku.salePrice')}</label>
           <input
             id="product-sale-price"
-            type="number" step="0.01" min="0" placeholder="None" value={form.salePrice} onChange={e => setField('salePrice', e.target.value)}
+            type="number" step="0.01" min="0" placeholder={t('sku.none')} value={form.salePrice} onChange={e => setField('salePrice', e.target.value)}
             className={inputClass}
           />
         </div>
         <div>
-          <label htmlFor="product-sale-end-date" className={labelClass}>Sale ends (optional)</label>
+          <label htmlFor="product-sale-end-date" className={labelClass}>{t('sku.saleEnds')}</label>
           <input
             id="product-sale-end-date"
             type="date" value={form.saleEndDate} onChange={e => setField('saleEndDate', e.target.value)}
@@ -76,28 +78,28 @@ export function FlatSkuPricingCard({ form, setField, currentSkuId, taxClasses, d
           />
         </div>
         <div>
-          <label htmlFor="product-currency" className={labelClass}>Currency</label>
+          <label htmlFor="product-currency" className={labelClass}>{t('sku.currency')}</label>
           <select id="product-currency" value={currency} onChange={e => setField('currency', e.target.value)} className={inputClass}>
             {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
-          <label htmlFor="product-tax-class" className={labelClass}>Tax class</label>
+          <label htmlFor="product-tax-class" className={labelClass}>{t('sku.taxClass')}</label>
           <select
             id="product-tax-class"
             value={form.taxClassId ?? ''}
             onChange={e => setField('taxClassId', e.target.value || null)}
             className={inputClass}
           >
-            <option value="">Tenant default{defaultTaxClass ? ` (${defaultTaxClass.name})` : ''}</option>
+            <option value="">{defaultTaxClass ? t('sku.tenantDefaultNamed', { name: defaultTaxClass.name }) : t('sku.tenantDefault')}</option>
             {taxClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         <div>
-          <label htmlFor="product-sku-status" className={labelClass}>SKU status</label>
+          <label htmlFor="product-sku-status" className={labelClass}>{t('sku.skuStatus')}</label>
           <select id="product-sku-status" value={form.skuStatus} onChange={e => setField('skuStatus', e.target.value as SKUStatus)} className={inputClass}>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="active">{t('sku.active')}</option>
+            <option value="inactive">{t('sku.inactive')}</option>
           </select>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ExternalLink, History, Paintbrush, Plus } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useConfirm } from '../components/common/useConfirm'
@@ -22,6 +23,7 @@ interface Props {
 // what shoppers see at /store/{channel}.
 export function ThemesPanel({ channel, onClose }: Props) {
   const { token } = useAuth()
+  const { t } = useTranslation(['themes', 'common'])
   const { themes, loading, error, create, remove, makeLive } = useThemes(token ?? '', channel.id)
   const [historyFor, setHistoryFor] = useQueryString('history')
   const { confirm, confirmDialog } = useConfirm()
@@ -40,7 +42,7 @@ export function ThemesPanel({ channel, onClose }: Props) {
       await create(name.trim())
       setName('')
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to create theme')
+      setActionError(err instanceof Error ? err.message : t('errors.create'))
     } finally {
       setCreating(false)
     }
@@ -58,15 +60,15 @@ export function ThemesPanel({ channel, onClose }: Props) {
       }
     } catch (err) {
       win?.close()
-      setActionError(err instanceof Error ? err.message : 'Could not open the editor')
+      setActionError(err instanceof Error ? err.message : t('errors.openEditor'))
     }
   }
 
   const handleDelete = async (theme: Theme) => {
     const ok = await confirm({
-      title: `Delete theme "${theme.name}"?`,
-      message: 'Its design and every saved version are deleted. This cannot be undone.',
-      confirmLabel: 'Delete theme',
+      title: t('delete.title', { name: theme.name }),
+      message: t('delete.message'),
+      confirmLabel: t('delete.confirm'),
       destructive: true,
     })
     if (!ok) return
@@ -74,7 +76,7 @@ export function ThemesPanel({ channel, onClose }: Props) {
     try {
       await remove(theme.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to delete theme')
+      setActionError(err instanceof Error ? err.message : t('errors.delete'))
     }
   }
 
@@ -83,73 +85,73 @@ export function ThemesPanel({ channel, onClose }: Props) {
     try {
       await makeLive(theme.id, version.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to make the version live')
+      setActionError(err instanceof Error ? err.message : t('errors.makeLive'))
     }
   }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden p-5 gap-4">
       <div className="flex items-center gap-3">
-        <button onClick={onClose} aria-label="Back to sales channels" className="p-1.5 rounded-lg bg-fill text-ink-3 hover:text-accent">
+        <button onClick={onClose} aria-label={t('backToChannels')} className="p-1.5 rounded-lg bg-fill text-ink-3 hover:text-accent">
           <ArrowLeft size={14} />
         </button>
-        <h2 className="text-sm font-semibold text-ink">Themes · {channel.name}</h2>
+        <h2 className="text-sm font-semibold text-ink">{t('title', { channel: channel.name })}</h2>
         {hasLive && (
           <a href={storeURL(channel.id)} target="_blank" rel="noopener noreferrer"
             className="ml-auto flex items-center gap-1 text-2xs text-accent">
-            View store <ExternalLink size={11} />
+            {t('viewStore')} <ExternalLink size={11} />
           </a>
         )}
       </div>
 
       {channel.storefront_mode !== 'theme' && (
         <p className="text-xs text-warning bg-amber-500/10 rounded-lg px-3 py-2">
-          This channel is headless. Switch its Storefront setting to "Hosted storefront" to design and publish a theme.
+          {t('headlessWarning')}
         </p>
       )}
 
       <form onSubmit={handleCreate} className="flex gap-2 max-w-md">
-        <label htmlFor="new-theme-name" className="sr-only">New theme name</label>
+        <label htmlFor="new-theme-name" className="sr-only">{t('newThemeName')}</label>
         <input id="new-theme-name" value={name} onChange={e => setName(e.target.value)} maxLength={120}
-          placeholder="New theme name"
+          placeholder={t('newThemeName')}
           className="flex-1 px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus" />
         <button type="submit" disabled={creating || !name.trim() || channel.storefront_mode !== 'theme'}
           className="flex items-center gap-1 px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium disabled:opacity-50">
-          <Plus size={12} /> {creating ? 'Creating…' : 'Create theme'}
+          <Plus size={12} /> {creating ? t('creating') : t('create')}
         </button>
       </form>
 
       {(error || actionError) && <p className="text-xs text-danger" role="alert">{actionError || error}</p>}
 
       {loading ? (
-        <p className="text-xs text-ink-4">Loading themes…</p>
+        <p className="text-xs text-ink-4">{t('loading')}</p>
       ) : themes.length === 0 ? (
-        <p className="text-xs text-ink-4">No themes yet. Create one to start designing this store.</p>
+        <p className="text-xs text-ink-4">{t('empty')}</p>
       ) : (
-        <ul className="flex flex-col gap-2 overflow-y-auto" aria-label="Themes">
+        <ul className="flex flex-col gap-2 overflow-y-auto" aria-label={t('listLabel')}>
           {themes.map(theme => (
             <li key={theme.id} className="rounded-xl border border-line bg-raised">
               <div className="flex items-center gap-3 p-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-ink truncate">{theme.name}</p>
-                  <p className="text-2xs text-ink-4">Updated {formatDate(theme.updated_at)}</p>
+                  <p className="text-2xs text-ink-4">{t('updated', { date: formatDate(theme.updated_at) })}</p>
                 </div>
                 {theme.is_live
-                  ? <span className="text-2xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-700 dark:text-green-400">Live</span>
-                  : <span className="text-2xs px-2 py-0.5 rounded-full bg-fill text-ink-3">{theme.published_version_id ? 'Not live' : 'Draft only'}</span>}
+                  ? <span className="text-2xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-700 dark:text-green-400">{t('live')}</span>
+                  : <span className="text-2xs px-2 py-0.5 rounded-full bg-fill text-ink-3">{theme.published_version_id ? t('notLive') : t('draftOnly')}</span>}
                 <button onClick={() => void customize(theme)} disabled={channel.storefront_mode !== 'theme'}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-fill text-2xs text-ink-2 hover:text-accent disabled:opacity-50">
-                  <Paintbrush size={11} /> Customize
+                  <Paintbrush size={11} /> {t('customize')}
                 </button>
                 <button onClick={() => void handleDelete(theme)} disabled={theme.is_live}
-                  title={theme.is_live ? 'The live theme cannot be deleted' : undefined}
+                  title={theme.is_live ? t('liveCannotDelete') : undefined}
                   className="px-3 py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-danger disabled:opacity-40">
-                  Delete
+                  {t('common:actions.delete')}
                 </button>
                 {theme.published_version_id && (
                   <button onClick={() => setHistoryFor(historyFor === theme.id ? null : theme.id)} aria-expanded={historyFor === theme.id}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-fill text-2xs text-ink-2 hover:text-accent">
-                    <History size={11} /> Versions
+                    <History size={11} /> {t('versions')}
                   </button>
                 )}
               </div>

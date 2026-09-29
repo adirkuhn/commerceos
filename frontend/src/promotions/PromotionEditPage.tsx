@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, Trash2, ArrowLeft } from 'lucide-react'
 import { getPromotion } from './api'
 import { resolveBarcode } from '../pms/api'
@@ -26,6 +27,7 @@ interface PromotionEditPageProps {
 
 export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: PromotionEditPageProps) {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation(['promotions', 'common'])
   const [name, setName] = useState('')
   const [type, setType] = useState<PromotionType>('percentage')
   const [status, setStatus] = useState<PromotionStatus>('draft')
@@ -53,7 +55,7 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
         setEndsAt(detail.ends_at ? detail.ends_at.slice(0, 16) : '')
         setLines((detail.lines ?? []).map(l => ({ ...l, product_name: '' })))
       })
-      .catch(err => { if (!cancelled) setFormError(err instanceof Error ? err.message : 'Failed to load promotion') })
+      .catch(err => { if (!cancelled) setFormError(err instanceof Error ? err.message : t('edit.loadFailed')) })
       .finally(() => { if (!cancelled) setLoadingDetail(false) })
     return () => { cancelled = true }
   }, [token, promotionId])
@@ -67,7 +69,7 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
       const result = await resolveBarcode(token, code)
       if (addLine(result.sku.id, result.sku.sku_code, result.product_name)) setSkuCode('')
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to resolve SKU')
+      setFormError(err instanceof Error ? err.message : t('edit.resolveFailed'))
     } finally {
       setResolving(false)
     }
@@ -77,7 +79,7 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
   // error) when the SKU is already in this promotion.
   function addLine(skuId: string, skuCode: string, productName: string): boolean {
     if (lines.some(l => l.sku_id === skuId)) {
-      setFormError('That SKU is already in this promotion')
+      setFormError(t('edit.duplicateSku'))
       return false
     }
     setLines(prev => [...prev, {
@@ -129,7 +131,7 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
       }
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to save promotion')
+      setFormError(err instanceof Error ? err.message : t('edit.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -139,7 +141,7 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
 
   if (loadingDetail) {
-    return <div className="flex h-full items-center justify-center text-xs text-ink-4">Loading…</div>
+    return <div className="flex h-full items-center justify-center text-xs text-ink-4">{t('common:status.loading')}</div>
   }
 
   return (
@@ -150,10 +152,10 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Promotions
+            <ArrowLeft size={11} /> {t('edit.back')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {promotionId ? name || 'Edit promotion' : 'New promotion'}
+            {promotionId ? name || t('edit.edit') : t('edit.new')}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -161,13 +163,13 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
             type="button" onClick={onClose}
             className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
           >
-            Discard
+            {t('edit.discard')}
           </button>
           <button
             type="submit" form="promotion-form" disabled={saving || !name.trim() || lines.length === 0}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : promotionId ? 'Save' : 'Create promotion'}
+            {saving ? t('common:actions.saving') : promotionId ? t('common:actions.save') : t('edit.create')}
           </button>
         </div>
       </div>
@@ -177,20 +179,20 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
           <form id="promotion-form" onSubmit={handleSave} className="space-y-5">
             <div className="rounded-xl border border-line p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-ink">General</h3>
+                <h3 className="text-xs font-semibold text-ink">{t('edit.general')}</h3>
                 <select
-                  aria-label="Status"
+                  aria-label={t('status.label')}
                   value={status}
                   onChange={e => setStatus(e.target.value as PromotionStatus)}
                   className="px-2 py-1 text-2xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
                 >
-                  <option value="draft">Draft</option>
-                  <option value="active">Active</option>
-                  <option value="ended">Ended</option>
+                  <option value="draft">{t('status.draft')}</option>
+                  <option value="active">{t('status.active')}</option>
+                  <option value="ended">{t('status.ended')}</option>
                 </select>
               </div>
               <div>
-                <label htmlFor="promotion-name" className={labelClass}>Name</label>
+                <label htmlFor="promotion-name" className={labelClass}>{t('edit.name')}</label>
                 <input
                   id="promotion-name"
                   type="text" required autoFocus value={name} onChange={e => setName(e.target.value)}
@@ -199,18 +201,18 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label htmlFor="promotion-type" className={labelClass}>Type</label>
+                  <label htmlFor="promotion-type" className={labelClass}>{t('edit.type')}</label>
                   <select
                     id="promotion-type"
                     value={type} onChange={e => setType(e.target.value as PromotionType)}
                     className={inputClass}
                   >
-                    <option value="percentage">Percentage</option>
-                    <option value="fixed_amount">Fixed amount</option>
+                    <option value="percentage">{t('type.percentage')}</option>
+                    <option value="fixed_amount">{t('type.fixed_amount')}</option>
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="promotion-starts" className={labelClass}>Starts at</label>
+                  <label htmlFor="promotion-starts" className={labelClass}>{t('edit.startsAt')}</label>
                   <input
                     id="promotion-starts"
                     type="datetime-local" required value={startsAt} onChange={e => setStartsAt(e.target.value)}
@@ -218,7 +220,7 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
                   />
                 </div>
                 <div>
-                  <label htmlFor="promotion-ends" className={labelClass}>Ends at</label>
+                  <label htmlFor="promotion-ends" className={labelClass}>{t('edit.endsAt')}</label>
                   <input
                     id="promotion-ends"
                     type="datetime-local" value={endsAt} onChange={e => setEndsAt(e.target.value)}
@@ -232,28 +234,28 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
             </div>
 
             <div className="rounded-xl border border-line p-4 space-y-3">
-              <h3 className="text-xs font-semibold text-ink">SKUs</h3>
+              <h3 className="text-xs font-semibold text-ink">{t('edit.skus')}</h3>
               <div className="flex items-center gap-2">
                 <input
-                  type="text" placeholder="SKU code or barcode" value={skuCode} onChange={e => setSkuCode(e.target.value)}
+                  type="text" placeholder={t('edit.skuPlaceholder')} value={skuCode} onChange={e => setSkuCode(e.target.value)}
                   className={inputClass}
                 />
                 <button
                   type="button" onClick={handleAddSKU} disabled={resolving || !skuCode.trim()}
                   className="shrink-0 px-3 py-2 rounded-lg bg-raised border border-line text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
                 >
-                  {resolving ? 'Resolving…' : 'Add SKU'}
+                  {resolving ? t('edit.resolving') : t('edit.addSku')}
                 </button>
                 <button
                   type="button" onClick={() => setPickerOpen(open => !open)}
                   className="shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-raised border border-line text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
                 >
-                  <Search size={12} /> Search product
+                  <Search size={12} /> {t('edit.searchProduct')}
                 </button>
               </div>
               {pickerOpen && <ProductSkuPicker onSelect={handlePickSKU} onClose={() => setPickerOpen(false)} />}
               {lines.length === 0 && (
-                <p className="text-xs text-ink-4">No SKUs added yet.</p>
+                <p className="text-xs text-ink-4">{t('edit.noSkus')}</p>
               )}
               <div className="divide-y divide-line/60">
                 {lines.map(l => (
@@ -262,26 +264,26 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
                       <p className="text-xs text-ink truncate">{l.product_name || l.sku_code}</p>
                       <p className="text-2xs font-mono text-ink-4">{l.sku_code}</p>
                       {l.finished_at && (
-                        <p className="text-2xs text-ink-4">Batch finished {formatDate(l.finished_at)} — back to regular price</p>
+                        <p className="text-2xs text-ink-4">{t('edit.batchFinished', { date: formatDate(l.finished_at) })}</p>
                       )}
                     </div>
                     <div className="w-56">
                       <ClearanceBatchSelect token={token} skuId={l.sku_id} value={l.batch_id ?? null} onChange={id => updateLineBatch(l.sku_id, id)} />
                     </div>
                     <div className="w-28">
-                      <label htmlFor={`discount-${l.sku_id}`} className="sr-only">Discount value</label>
+                      <label htmlFor={`discount-${l.sku_id}`} className="sr-only">{t('edit.discountValue')}</label>
                       <input
                         id={`discount-${l.sku_id}`}
                         type="number" min="0" value={l.discount_value === 0 ? '' : l.discount_value}
                         onChange={e => updateLineValue(l.sku_id, e.target.value)}
-                        placeholder={type === 'percentage' ? 'bps' : 'minor units'}
+                        placeholder={type === 'percentage' ? t('edit.bps') : t('edit.minorUnits')}
                         className={inputClass}
                       />
                     </div>
-                    <button aria-label="Remove"
+                    <button aria-label={t('edit.remove')}
                       type="button" onClick={() => removeLine(l.sku_id)}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors shrink-0"
-                      title="Remove"
+                      title={t('edit.remove')}
                     >
                       <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>

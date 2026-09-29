@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { SKUCurrencyPricesEditor } from './SkuAliasEditors'
 import { CURRENCIES } from './productFormat'
 import { fieldInputClass, fieldLabelClass } from './formStyles'
@@ -27,6 +28,7 @@ interface VariantEditPanelProps {
 export function VariantEditPanel({ variant, sku, updateVariant, updateSKU, onClose }: VariantEditPanelProps) {
   const [form, setForm] = useState<VariantEditForm>(() => variantEditFormFrom(variant, sku))
   const set = <K extends keyof VariantEditForm>(key: K, value: VariantEditForm[K]) => setForm(prev => ({ ...prev, [key]: value }))
+  const { t } = useTranslation(['pms', 'common'])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -42,7 +44,7 @@ export function VariantEditPanel({ variant, sku, updateVariant, updateSKU, onClo
       if (sku) await updateSKU(sku.id, variantEditSkuPayload(form, sku))
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save changes')
+      setError(err instanceof Error ? err.message : t('variant.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -53,54 +55,54 @@ export function VariantEditPanel({ variant, sku, updateVariant, updateSKU, onClo
     // outer-form avoidance as the Add Variant/Add SKU panels.
     <div className="mt-2 space-y-3 p-3 rounded-lg dark:bg-night-800/60 bg-gray-50 border border-line">
       <div>
-        <label className={fieldLabelClass}>Variant name</label>
+        <label className={fieldLabelClass}>{t('variant.name')}</label>
         <input
-          type="text" required placeholder="Variant name" value={form.name} onChange={e => set('name', e.target.value)}
+          type="text" required placeholder={t('variant.name')} value={form.name} onChange={e => set('name', e.target.value)}
           className={fieldInputClass}
         />
       </div>
       {sku && (
         <>
           <div className="space-y-1.5">
-            <p className="text-2xs font-semibold text-ink-3 uppercase tracking-wide">Pricing</p>
+            <p className="text-2xs font-semibold text-ink-3 uppercase tracking-wide">{t('variant.pricing')}</p>
             <div className="grid grid-cols-2 gap-1.5">
               <div>
-                <label className={fieldLabelClass}>SKU code</label>
-                <input type="text" required placeholder="SKU code" value={form.skuCode} onChange={e => set('skuCode', e.target.value)} className={fieldInputClass} />
+                <label className={fieldLabelClass}>{t('variant.skuCode')}</label>
+                <input type="text" required placeholder={t('variant.skuCode')} value={form.skuCode} onChange={e => set('skuCode', e.target.value)} className={fieldInputClass} />
               </div>
               <div>
-                <label className={fieldLabelClass}>Currency</label>
+                <label className={fieldLabelClass}>{t('variant.currency')}</label>
                 <select value={form.currency} onChange={e => set('currency', e.target.value)} className={fieldInputClass}>
                   {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
-                <label className={fieldLabelClass}>Price</label>
+                <label className={fieldLabelClass}>{t('variant.price')}</label>
                 <input type="number" step="0.01" min="0" required placeholder="0.00" value={form.price} onChange={e => set('price', e.target.value)} className={fieldInputClass} />
               </div>
               <div>
-                <label className={fieldLabelClass}>Sale price</label>
-                <input type="number" step="0.01" min="0" placeholder="Optional" value={form.salePrice} onChange={e => set('salePrice', e.target.value)} className={fieldInputClass} />
+                <label className={fieldLabelClass}>{t('variant.salePrice')}</label>
+                <input type="number" step="0.01" min="0" placeholder={t('variant.optional')} value={form.salePrice} onChange={e => set('salePrice', e.target.value)} className={fieldInputClass} />
               </div>
               <div>
-                <label className={fieldLabelClass}>Sale ends</label>
-                <input type="date" title="Sale ends (optional)" value={form.saleEndDate} onChange={e => set('saleEndDate', e.target.value)} className={fieldInputClass} />
+                <label className={fieldLabelClass}>{t('variant.saleEnds')}</label>
+                <input type="date" title={t('variant.saleEndsOptional')} value={form.saleEndDate} onChange={e => set('saleEndDate', e.target.value)} className={fieldInputClass} />
               </div>
               <div>
-                <label className={fieldLabelClass}>Status</label>
+                <label className={fieldLabelClass}>{t('variant.status')}</label>
                 <select value={form.status} onChange={e => set('status', e.target.value as SKUStatus)} className={fieldInputClass}>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="active">{t('sku.active')}</option>
+                  <option value="inactive">{t('sku.inactive')}</option>
                 </select>
               </div>
             </div>
           </div>
           <SKUCurrencyPricesEditor skuId={sku.id} />
           <div className="space-y-1.5">
-            <p className="text-2xs font-semibold text-ink-3 uppercase tracking-wide">Shipping</p>
+            <p className="text-2xs font-semibold text-ink-3 uppercase tracking-wide">{t('variant.shipping')}</p>
             <label className="flex items-center gap-1.5 text-2xs text-ink-3">
               <input type="checkbox" checked={form.isVirtual} onChange={e => set('isVirtual', e.target.checked)} />
-              Virtual (no shipping)
+              {t('variant.virtual')}
             </label>
             {!form.isVirtual && <DimensionInputsGrid values={form} onChange={set} />}
           </div>
@@ -112,13 +114,13 @@ export function VariantEditPanel({ variant, sku, updateVariant, updateSKU, onClo
           type="button" disabled={saving || !form.name || (!!sku && !form.skuCode)} onClick={save}
           className="px-2.5 py-1 rounded bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('common:actions.saving') : t('common:actions.save')}
         </button>
         <button
           type="button" disabled={saving} onClick={onClose}
           className="px-2.5 py-1 rounded bg-fill text-2xs text-ink-3 hover:bg-hover transition-colors disabled:opacity-50"
         >
-          Cancel
+          {t('common:actions.cancel')}
         </button>
       </div>
     </div>

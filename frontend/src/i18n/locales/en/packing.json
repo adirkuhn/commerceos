@@ -1,0 +1,156 @@
+{
+  "action": {
+    "freebie": "Freebie",
+    "new_item": "New item",
+    "pack": "Packed",
+    "refund": "Refunded",
+    "substitute": "Substituted"
+  },
+  "add": {
+    "freebie": "Freebie",
+    "newItem": "New item",
+    "placeholder": "Scan or type SKU/barcode",
+    "price": "Price",
+    "quantity": "Quantity",
+    "scanHelp": "Scan or type the product's SKU/barcode.",
+    "submit": "Add to order",
+    "title": "Add item not on order"
+  },
+  "change": {
+    "addReplacement": "+ Add another replacement",
+    "alreadyRecorded": "Already recorded",
+    "confirmPack": "Confirm pack",
+    "confirmRefund": "Confirm refund",
+    "confirmReplace": "Confirm replace",
+    "covers": "Covers (of original)",
+    "coversTotal": "Covers {{covered}} of {{remaining}}",
+    "lineComplete": "This line is complete. Remove what's recorded to replace it.",
+    "modePack": "Pack",
+    "modeRefund": "Refund",
+    "modeReplace": "Replace",
+    "qtyAdded": "Qty added",
+    "quantity": "Quantity",
+    "reason": "Reason (optional)",
+    "refundHelp": "Can't send this and don't want to substitute? Refund part or all of this line ({{quantity}}) -- money only moves once packing is finished.",
+    "refundQty": "Quantity to refund",
+    "removeRow": "Remove this row",
+    "removeScan": "Remove {{scan}}",
+    "replaceHelp": "Replace with one or more products -- the rows' \"covers\" quantities must add up to what's left of this line ({{remaining}}).",
+    "replacementPlaceholder": "Scan or type replacement SKU/barcode",
+    "returnToStock": "Return original quantity to stock"
+  },
+  "dialogs": {
+    "ok": "OK",
+    "resetting": "Resetting…",
+    "scanError": "Scan error",
+    "startOverText": "This discards every item packed so far on this order and starts the session fresh. This can't be undone.",
+    "startOverTitle": "Start over?"
+  },
+  "done": {
+    "backToOrders": "Back to orders",
+    "notFullyPacked": "Not fully packed",
+    "packed": "#{{number}} packed"
+  },
+  "errors": {
+    "addItem": "Failed to add item",
+    "complete": "Failed to complete packing",
+    "loadLabel": "Failed to load label",
+    "loadSession": "Failed to load packing session",
+    "notOnOrder": "Item not on this order",
+    "recordPack": "Failed to record pack",
+    "recordRefund": "Failed to record refund",
+    "recordSubstitute": "Failed to record substitute",
+    "removeScan": "Failed to remove scan",
+    "reset": "Failed to reset packing session",
+    "scanNotRecognized": "Scan not recognized",
+    "someoneElse": "Someone else is packing this order",
+    "start": "Failed to start packing",
+    "takenOver": "Another user has taken over this packing session",
+    "takeOver": "Failed to take over"
+  },
+  "header": {
+    "addItem": "Add item",
+    "complete": "Complete",
+    "createLabel": "Create label",
+    "startOver": "Start over"
+  },
+  "label": {
+    "create": "Create shipping label",
+    "print": "Print shipping label",
+    "retryPrint": "Retry print"
+  },
+  "line": {
+    "packed": "packed"
+  },
+  "lock": {
+    "activity": {
+      "packing": "Packing",
+      "picking": "Picking"
+    },
+    "hours": "{{hours}} h",
+    "hoursMinutes": "{{hours}} h {{minutes}} min",
+    "lessThanMinute": "<1 min",
+    "message": "{{name}} is packing this order{{since}} -- view only.",
+    "minutes": "{{minutes}} min",
+    "takeOver": "Take over",
+    "user": "User {{id}}"
+  },
+  "page": {
+    "selectOrder": "Select an order to start packing"
+  },
+  "print": {
+    "items_one": "{{count}} item",
+    "items_many": "{{count}} items",
+    "items_other": "{{count}} items",
+    "noSku": "No SKU",
+    "nothingLeft": "Nothing left to pick for these orders.",
+    "orders": "Orders",
+    "orders_one": "{{count}} order",
+    "orders_many": "{{count}} orders",
+    "orders_other": "{{count}} orders",
+    "picked": "Picked",
+    "print": "Print",
+    "product": "Product",
+    "qty": "Qty",
+    "title": "Pick list"
+  },
+  "progress": {
+    "items": "{{packed}} / {{total}} items",
+    "label": "Progress"
+  },
+  "queue": {
+    "addToPickList": "Add #{{number}} to pick list",
+    "count_one": "{{count}} to pack",
+    "count_many": "{{count}} to pack",
+    "count_other": "{{count}} to pack",
+    "empty": "No orders to pack",
+    "inProgress": "In progress",
+    "notPicked": "Not picked",
+    "pickList": "Pick list",
+    "pickListCount": "Pick list ({{n}})",
+    "search": "Search orders...",
+    "selectAll": "Select all orders",
+    "takeOver": "Take over",
+    "takeOverOrder": "Take over #{{number}}",
+    "title": "Orders to pack"
+  },
+  "review": {
+    "allPacked": "Every line is fully packed.",
+    "back": "Back to packing",
+    "completing": "Completing…",
+    "confirm": "Confirm & complete",
+    "expectedPacked": "expected {{expected}} · packed {{packed}}",
+    "notFullyPacked_one": "{{count}} line isn't fully packed yet:",
+    "notFullyPacked_many": "{{count}} lines aren't fully packed yet:",
+    "notFullyPacked_other": "{{count}} lines aren't fully packed yet:",
+    "title": "Review before completing"
+  },
+  "scanInput": {
+    "placeholder": "Scan barcode or type and press Enter..."
+  },
+  "scanLog": {
+    "entry": "{{action}}{{name}} · qty {{quantity}}",
+    "remove": "Remove scan",
+    "title": "This session"
+  }
+}

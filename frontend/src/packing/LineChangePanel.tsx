@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import { Repeat, Trash2, Undo2, X } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import type { PackScan, PickingSessionLineItem } from '../scanner/types'
 import { packScanLabel } from './packScanLabel'
 
@@ -51,6 +52,7 @@ const primaryButton = 'w-full px-3 py-2 rounded-lg bg-accent-solid text-white te
 // Pure UI: the page resolves codes and calls the API.
 export function LineChangePanel({ lineItem, coveredSoFar, scans, busy, onPack, onSubstitute, onRefund, onClose, onDeleteScan }: LineChangePanelProps) {
   const remaining = Math.max(0, lineItem.quantity - coveredSoFar)
+  const { t } = useTranslation(['packing', 'common'])
   const [mode, setMode] = useState<Mode>('pack')
   const [packQty, setPackQty] = useState(String(Math.max(1, remaining)))
   const [rows, setRows] = useState<SubstituteRowState[]>([newRow()])
@@ -84,66 +86,66 @@ export function LineChangePanel({ lineItem, coveredSoFar, scans, busy, onPack, o
     <div className="w-80 border-l border-line bg-sunken flex flex-col shrink-0">
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <p className="text-xs font-semibold text-ink">{lineItem.name}</p>
-        <button type="button" onClick={onClose} aria-label="Close" className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
+        <button type="button" onClick={onClose} aria-label={t('common:actions.close')} className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
           <X size={14} />
         </button>
       </div>
       <div className="p-4 space-y-4 overflow-y-auto">
         {scans.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-2xs font-medium text-ink-4 uppercase tracking-wider">Already recorded</p>
+            <p className="text-2xs font-medium text-ink-4 uppercase tracking-wider">{t('change.alreadyRecorded')}</p>
             {scans.map(s => (
               <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg border border-line bg-raised px-2.5 py-1.5">
                 <span className="text-2xs text-ink-2">{packScanLabel(s)}</span>
-                <button type="button" onClick={() => onDeleteScan(s.id)} aria-label={`Remove ${packScanLabel(s)}`} className="text-ink-4 hover:text-danger">
+                <button type="button" onClick={() => onDeleteScan(s.id)} aria-label={t('change.removeScan', { scan: packScanLabel(s) })} className="text-ink-4 hover:text-danger">
                   <Trash2 size={11} />
                 </button>
               </div>
             ))}
-            {remaining === 0 && <p className="text-2xs text-ink-4">This line is complete. Remove what&apos;s recorded to replace it.</p>}
+            {remaining === 0 && <p className="text-2xs text-ink-4">{t('change.lineComplete')}</p>}
           </div>
         )}
         <div className="flex items-center rounded-lg border border-line overflow-hidden">
-          {modeButton('pack', 'Pack')}
-          {modeButton('substitute', <><Repeat size={11} /> Replace</>)}
-          {modeButton('refund', <><Undo2 size={11} /> Refund</>)}
+          {modeButton('pack', t('change.modePack'))}
+          {modeButton('substitute', <><Repeat size={11} /> {t('change.modeReplace')}</>)}
+          {modeButton('refund', <><Undo2 size={11} /> {t('change.modeRefund')}</>)}
         </div>
 
         {mode === 'pack' && (
           <>
             <div>
-              <label htmlFor={`${id}-pack-qty`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity</label>
+              <label htmlFor={`${id}-pack-qty`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">{t('change.quantity')}</label>
               <input
                 id={`${id}-pack-qty`} type="number" min={1} max={remaining || undefined}
                 value={packQty} onChange={e => setPackQty(e.target.value)}
                 className={inputClass}
               />
             </div>
-            <button type="button" onClick={() => onPack(Number(packQty))} disabled={busy || !(Number(packQty) >= 1)} className={primaryButton}>Confirm pack</button>
+            <button type="button" onClick={() => onPack(Number(packQty))} disabled={busy || !(Number(packQty) >= 1)} className={primaryButton}>{t('change.confirmPack')}</button>
           </>
         )}
 
         {mode === 'substitute' && (
           <>
             <p className="text-2xs text-ink-3">
-              Replace with one or more products -- the rows&apos; &quot;covers&quot; quantities must add up to what&apos;s left of this line ({remaining}).
+              {t('change.replaceHelp', { remaining })}
             </p>
             {rows.map((row, i) => (
               <div key={row.key} className="space-y-2 rounded-lg border border-line p-2.5">
                 <input
                   type="text" value={row.code} onChange={e => updateRow(row.key, { code: e.target.value })}
-                  placeholder="Scan or type replacement SKU/barcode" className={inputClass} autoFocus={i === 0}
+                  placeholder={t('change.replacementPlaceholder')} className={inputClass} autoFocus={i === 0}
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label htmlFor={`${id}-sub-qty-${row.key}`} className="block text-2xs text-ink-4 mb-1">Qty added</label>
+                    <label htmlFor={`${id}-sub-qty-${row.key}`} className="block text-2xs text-ink-4 mb-1">{t('change.qtyAdded')}</label>
                     <input
                       id={`${id}-sub-qty-${row.key}`} type="number" min={1} value={row.substituteQty}
                       onChange={e => updateRow(row.key, { substituteQty: e.target.value })} className={inputClass}
                     />
                   </div>
                   <div>
-                    <label htmlFor={`${id}-sub-cov-${row.key}`} className="block text-2xs text-ink-4 mb-1">Covers (of original)</label>
+                    <label htmlFor={`${id}-sub-cov-${row.key}`} className="block text-2xs text-ink-4 mb-1">{t('change.covers')}</label>
                     <input
                       id={`${id}-sub-cov-${row.key}`} type="number" min={1} value={row.coveredQty}
                       onChange={e => updateRow(row.key, { coveredQty: e.target.value })} className={inputClass}
@@ -152,11 +154,11 @@ export function LineChangePanel({ lineItem, coveredSoFar, scans, busy, onPack, o
                 </div>
                 <label className="flex items-center gap-2 text-2xs text-ink-3">
                   <input type="checkbox" checked={row.returnToStock} onChange={e => updateRow(row.key, { returnToStock: e.target.checked })} />
-                  Return original quantity to stock
+                  {t('change.returnToStock')}
                 </label>
                 {rows.length > 1 && (
                   <button type="button" onClick={() => setRows(rs => rs.filter(r => r.key !== row.key))} className="text-2xs text-ink-4 hover:text-danger">
-                    Remove this row
+                    {t('change.removeRow')}
                   </button>
                 )}
               </div>
@@ -165,16 +167,16 @@ export function LineChangePanel({ lineItem, coveredSoFar, scans, busy, onPack, o
               type="button" onClick={() => setRows(rs => [...rs, newRow()])}
               className="w-full py-2 rounded-lg border border-dashed border-line text-2xs text-ink-3"
             >
-              + Add another replacement
+              {t('change.addReplacement')}
             </button>
-            <p className="text-2xs text-center text-ink-4">Covers {coveredTotal} of {remaining}</p>
+            <p className="text-2xs text-center text-ink-4">{t('change.coversTotal', { covered: coveredTotal, remaining })}</p>
             <button
               type="button" disabled={busy || !substituteReady} className={primaryButton}
               onClick={() => onSubstitute(rows.map(r => ({
                 code: r.code.trim(), substituteQuantity: Number(r.substituteQty), coveredQuantity: Number(r.coveredQty), returnToStock: r.returnToStock,
               })))}
             >
-              Confirm replace
+              {t('change.confirmReplace')}
             </button>
           </>
         )}
@@ -182,22 +184,21 @@ export function LineChangePanel({ lineItem, coveredSoFar, scans, busy, onPack, o
         {mode === 'refund' && (
           <>
             <p className="text-2xs text-ink-3">
-              Can&apos;t send this and don&apos;t want to substitute? Refund part or all of this line ({lineItem.quantity}) --
-              money only moves once packing is finished.
+              {t('change.refundHelp', { quantity: lineItem.quantity })}
             </p>
             <div>
-              <label htmlFor={`${id}-refund-qty`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Quantity to refund</label>
+              <label htmlFor={`${id}-refund-qty`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">{t('change.refundQty')}</label>
               <input
                 id={`${id}-refund-qty`} type="number" min={1} max={lineItem.quantity}
                 value={refundQty} onChange={e => setRefundQty(e.target.value)} className={inputClass}
               />
             </div>
             <div>
-              <label htmlFor={`${id}-refund-reason`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">Reason (optional)</label>
+              <label htmlFor={`${id}-refund-reason`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">{t('change.reason')}</label>
               <input id={`${id}-refund-reason`} type="text" value={refundReason} onChange={e => setRefundReason(e.target.value)} className={inputClass} />
             </div>
             <button type="button" onClick={() => onRefund(refundQtyNum, refundReason)} disabled={busy || !refundReady} className={primaryButton}>
-              Confirm refund
+              {t('change.confirmRefund')}
             </button>
           </>
         )}

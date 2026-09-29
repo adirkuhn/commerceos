@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState } from 'react'
 import * as api from '../api'
 
@@ -142,7 +143,7 @@ export function useConnectForms(token: string, onConnected: () => void, onClose:
       const { connection, webhook_url } = await connectFn()
       setPaymentWebhook({ connectionId: connection.id, url: webhook_url })
       onConnected()
-    }, 'Failed to connect')
+    }, i18next.t('integrations:connect.failed'))
 
   const savePaymentWebhookSecret = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -153,7 +154,7 @@ export function useConnectForms(token: string, onConnected: () => void, onClose:
       await api.setWebhookSecret(token, paymentWebhook.connectionId, paymentWebhookSecret)
       setPaymentWebhookSecretSaved(true)
     } catch (err) {
-      setPaymentWebhookSecretError(errorMessage(err, 'Failed to save webhook secret'))
+      setPaymentWebhookSecretError(errorMessage(err, i18next.t('integrations:connect.webhookSecretFailed')))
     } finally {
       setSavingPaymentWebhookSecret(false)
     }
@@ -168,12 +169,12 @@ export function useConnectForms(token: string, onConnected: () => void, onClose:
       startConnect: submit(async () => {
         const { authorize_url } = await api.startWooConnect(token, storeUrl)
         window.location.href = authorize_url
-      }, 'Failed to start connection', true),
+      }, i18next.t('integrations:connect.startFailed'), true),
       manualConnect: submit(async () => {
         await api.manualConnectWooCommerce(token, { storeUrl, consumerKey, consumerSecret })
         onConnected()
         onClose()
-      }, 'Failed to connect', true),
+      }, i18next.t('integrations:connect.failed'), true),
     },
     whatsapp: {
       baseUrl: waBaseUrl, setBaseUrl: setWaBaseUrl,
@@ -184,7 +185,7 @@ export function useConnectForms(token: string, onConnected: () => void, onClose:
         const { webhook_url } = await api.connectWhatsapp(token, { baseUrl: waBaseUrl, instanceName: waInstanceName, apiKey: waApiKey })
         setWaWebhookUrl(webhook_url)
         onConnected()
-      }, 'Failed to connect'),
+      }, i18next.t('integrations:connect.failed')),
     },
     stripe: {
       secretKey: stripeSecretKey, setSecretKey: setStripeSecretKey,
@@ -205,7 +206,7 @@ export function useConnectForms(token: string, onConnected: () => void, onClose:
         await api.connectEmail(token, { host: emailHost, port: emailPort, username: emailUsername, password: emailPassword, from: emailFrom })
         onClose()
         onConnected()
-      }, 'Failed to connect'),
+      }, i18next.t('integrations:connect.failed')),
     },
     paymentWebhook: {
       webhook: paymentWebhook,

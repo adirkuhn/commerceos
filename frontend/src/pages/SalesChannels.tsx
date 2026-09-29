@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Radio, X, Code2, Paintbrush } from 'lucide-react'
 import clsx from 'clsx'
+import { Trans, useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useSalesChannelRoute } from '../integrations/hooks/useSalesChannelRoute'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
@@ -13,9 +14,9 @@ import * as integrationsApi from '../integrations/api'
 import type { SalesChannel, EnrollmentMode, ChannelType } from '../integrations/types'
 import type { SalesChannelPayload, UpdateSalesChannelPayload } from '../integrations/api'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
-import { CURRENCY_OPTIONS } from '../settings/currencyOptions'
+import { currencyOptions } from '../settings/currencyOptions'
 import { Dialog } from '../components/common/Dialog'
-import { CONNECTION_REQUIRED_TYPES, ENROLLMENT_LABELS, HEADLESS_API_ENDPOINTS, INTERNAL_TYPE, PAYMENT_CAPABLE_TYPES, TYPE_LABELS, WAREHOUSE_REQUIRED_TYPES, apiBaseURL, capitalize } from '../integrations/salesChannels/salesChannelConstants'
+import { CHANNEL_TYPES, CONNECTION_REQUIRED_TYPES, ENROLLMENT_MODES, INTERNAL_TYPE, PAYMENT_CAPABLE_TYPES, WAREHOUSE_REQUIRED_TYPES, apiBaseURL, capitalize, enrollmentLabel, headlessApiEndpoints, typeLabel } from '../integrations/salesChannels/salesChannelConstants'
 import { ChannelFormState, emptyForm, toForm } from '../integrations/salesChannels/channelForm'
 import StorefrontModeField from '../integrations/salesChannels/StorefrontModeField'
 import { ThemesPanel } from '../themes/ThemesPanel'
@@ -23,6 +24,7 @@ import { ChannelProductsPanel } from '../integrations/salesChannels/ChannelProdu
 
 export default function SalesChannels() {
   const { token } = useAuth()
+  const { t } = useTranslation(['channels', 'common'])
   const { channels, loading, error, create, update, remove } = useSalesChannels(token ?? '')
   const { connections, error: connectionsError, refresh: refreshConnections } = useConnections(token ?? '')
   const { categories } = useCategories(token ?? '')
@@ -106,6 +108,7 @@ export default function SalesChannels() {
         defaultWarehouseId: WAREHOUSE_REQUIRED_TYPES.includes(channelType) ? (form.channelWarehouseId || null) : undefined,
         storefrontMode: channelType === INTERNAL_TYPE ? form.storefrontMode : undefined,
         signInUrl: channelType === INTERNAL_TYPE ? form.signInUrl.trim() : undefined,
+        storefrontLocale: channelType === INTERNAL_TYPE ? form.storefrontLocale : undefined,
       }
       if (editingChannel) {
         await update(editingChannel.id, { ...shared, active: form.active } satisfies UpdateSalesChannelPayload)
@@ -122,7 +125,7 @@ export default function SalesChannels() {
       }
       closeForm()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to save channel')
+      setFormError(err instanceof Error ? err.message : t('errors.save'))
     } finally {
       setSaving(false)
     }
@@ -136,7 +139,7 @@ export default function SalesChannels() {
       await remove(deletingChannel.id)
       setDeletingChannel(null)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Failed to delete channel')
+      setDeleteError(err instanceof Error ? err.message : t('errors.delete'))
     } finally {
       setDeleting(false)
     }
@@ -144,11 +147,11 @@ export default function SalesChannels() {
 
   const connectionLabel = (connectionId?: string | null) => {
     const conn = connections.find(c => c.id === connectionId)
-    return conn ? `${capitalize(conn.provider)} — ${conn.store_url}` : 'No connection'
+    return conn ? `${capitalize(conn.provider)} — ${conn.store_url}` : t('card.noConnection')
   }
 
   if (routeChannelId && !routeChannel) {
-    return loading ? <RecordLoading /> : <RecordNotFound label="Sales channel" onBack={route.close} />
+    return loading ? <RecordLoading /> : <RecordNotFound label={t('recordLabel')} onBack={route.close} />
   }
 
   if (themesChannel) {
@@ -173,24 +176,24 @@ export default function SalesChannels() {
           <div className="w-12 h-12 rounded-xl bg-raised border border-line flex items-center justify-center mb-3">
             <Radio size={20} className="text-ink-4" />
           </div>
-          <p className="text-sm font-medium text-ink-2 mb-1">No sales channels yet</p>
-          <p className="text-xs text-ink-4 mb-4">Add a channel to control which products sync where</p>
+          <p className="text-sm font-medium text-ink-2 mb-1">{t('empty.title')}</p>
+          <p className="text-xs text-ink-4 mb-4">{t('empty.text')}</p>
           <button
             onClick={openCreate}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
           >
-            Add sales channel
+            {t('form.addTitle')}
           </button>
         </div>
       ) : (
         <>
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink">Sales channels</h2>
+            <h2 className="text-sm font-semibold text-ink">{t('title')}</h2>
             <button
               onClick={openCreate}
               className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
             >
-              Add sales channel
+              {t('form.addTitle')}
             </button>
           </div>
           {error && <p className="text-xs text-danger">{error}</p>}
@@ -207,11 +210,11 @@ export default function SalesChannels() {
                 <p className="text-2xs text-ink-4 truncate">{connectionLabel(channel.connection_id)}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <span className="inline-block text-2xs px-2 py-0.5 rounded-full bg-fill text-ink-3">
-                    {ENROLLMENT_LABELS[channel.enrollment_mode]}
+                    {enrollmentLabel(channel.enrollment_mode)}
                   </span>
                   {!!channel.price_adjustment_basis_points && (
                     <span className="inline-block text-2xs px-2 py-0.5 rounded-full bg-amber-500/10 text-warning">
-                      {(channel.price_adjustment_basis_points / 100).toString()}% off
+                      {t('card.percentOff', { percent: (channel.price_adjustment_basis_points / 100).toString() })}
                     </span>
                   )}
                 </div>
@@ -221,13 +224,13 @@ export default function SalesChannels() {
                       onClick={() => route.openApiDocs(channel.id)}
                       className="flex items-center gap-1 text-2xs text-accent hover:text-accent transition-colors"
                     >
-                      <Code2 size={11} /> API docs
+                      <Code2 size={11} /> {t('card.apiDocs')}
                     </button>
                     <button
                       onClick={() => route.openThemes(channel.id)}
                       className="flex items-center gap-1 text-2xs text-accent hover:text-accent transition-colors"
                     >
-                      <Paintbrush size={11} /> Themes
+                      <Paintbrush size={11} /> {t('card.themes')}
                     </button>
                   </div>
                 )}
@@ -236,19 +239,19 @@ export default function SalesChannels() {
                     onClick={() => route.openManage(channel.id)}
                     className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                   >
-                    Products
+                    {t('card.products')}
                   </button>
                   <button
                     onClick={() => openEdit(channel)}
                     className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                   >
-                    Edit
+                    {t('common:actions.edit')}
                   </button>
                   <button
                     onClick={() => setDeletingChannel(channel)}
                     className="py-1.5 rounded-lg bg-fill text-2xs text-ink-3 hover:text-danger transition-colors"
                   >
-                    Delete
+                    {t('common:actions.delete')}
                   </button>
                 </div>
               </div>
@@ -263,16 +266,16 @@ export default function SalesChannels() {
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-ink">
-                {editingChannel ? 'Edit sales channel' : 'Add sales channel'}
+                {editingChannel ? t('form.editTitle') : t('form.addTitle')}
               </h3>
-              <button onClick={closeForm} aria-label="Close">
+              <button onClick={closeForm} aria-label={t('common:actions.close')}>
                 <X size={14} className="text-ink-4" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label htmlFor="channel-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Name
+                  {t('common:fields.name')}
                 </label>
                 <input
                   id="channel-name"
@@ -287,7 +290,7 @@ export default function SalesChannels() {
               {!editingChannel && (
                 <div>
                   <label htmlFor="channel-type" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    Type
+                    {t('common:fields.type')}
                   </label>
                   <select
                     id="channel-type"
@@ -295,13 +298,13 @@ export default function SalesChannels() {
                     onChange={e => setForm(f => ({ ...f, channelType: e.target.value as ChannelType, connectionId: '', defaultWarehouseId: '', channelWarehouseId: '' }))}
                     className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
-                    {(Object.keys(TYPE_LABELS) as ChannelType[]).map(t => (
-                      <option key={t} value={t}>{TYPE_LABELS[t]}</option>
+                    {CHANNEL_TYPES.map(type => (
+                      <option key={type} value={type}>{typeLabel(type)}</option>
                     ))}
                   </select>
                   {form.channelType === INTERNAL_TYPE && (
                     <p className="mt-1.5 text-2xs text-ink-4">
-                      A storefront CommerceOS itself hosts checkout for — no external connection needed.
+                      {t('form.internalHelp')}
                     </p>
                   )}
                 </div>
@@ -309,7 +312,7 @@ export default function SalesChannels() {
               {!editingChannel && form.channelType === INTERNAL_TYPE && (
                 <div>
                   <label htmlFor="channel-currency" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    Currency
+                    {t('common:fields.currency')}
                   </label>
                   <select
                     id="channel-currency"
@@ -317,21 +320,21 @@ export default function SalesChannels() {
                     onChange={e => setForm(f => ({ ...f, currencyCode: e.target.value }))}
                     className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
-                    <option value="">Default (tenant's own currency)</option>
-                    {CURRENCY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    <option value="">{t('form.currencyDefault')}</option>
+                    {currencyOptions().map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                   <p className="mt-1.5 text-2xs text-ink-4">
-                    Fixed for this channel once created.
+                    {t('form.currencyFixed')}{' '}
                     {form.currencyCode && !exchangeRates.some(r => r.currency_code === form.currencyCode)
-                      ? ` No exchange rate configured for ${form.currencyCode} yet -- add one under Settings > Localization, or prices won't convert.`
-                      : " Prices convert via Settings > Localization's exchange rate unless a product has a manual override for it."}
+                      ? t('form.currencyNoRate', { currency: form.currencyCode })
+                      : t('form.currencyConverts')}
                   </p>
                 </div>
               )}
               {(editingChannel ? CONNECTION_REQUIRED_TYPES.includes(editingChannel.type) : form.channelType !== INTERNAL_TYPE) && (
                 <div>
                   <label htmlFor="channel-connection" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    Connection
+                    {t('form.connection')}
                   </label>
                   <select
                     id="channel-connection"
@@ -344,7 +347,7 @@ export default function SalesChannels() {
                     }}
                     className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
-                    <option value="" disabled>Select a connection…</option>
+                    <option value="" disabled>{t('form.selectConnection')}</option>
                     {connections
                       .filter(c => c.provider === (editingChannel ? editingChannel.type : form.channelType))
                       .map(c => <option key={c.id} value={c.id}>{capitalize(c.provider)} — {c.store_url}</option>)}
@@ -354,7 +357,7 @@ export default function SalesChannels() {
               {form.connectionId && (
                 <div>
                   <label htmlFor="channel-default-warehouse" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    Default location
+                    {t('form.defaultLocation')}
                   </label>
                   <select
                     id="channel-default-warehouse"
@@ -362,18 +365,18 @@ export default function SalesChannels() {
                     onChange={e => setForm(f => ({ ...f, defaultWarehouseId: e.target.value }))}
                     className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
-                    <option value="">No preference</option>
+                    <option value="">{t('form.noPreference')}</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
                   <p className="mt-1.5 text-2xs text-ink-4">
-                    Which warehouse this channel's orders and stock sync are attributed to.
+                    {t('form.defaultLocationHelp')}
                   </p>
                 </div>
               )}
               {WAREHOUSE_REQUIRED_TYPES.includes(editingChannel ? editingChannel.type : form.channelType) && (
                 <div>
                   <label htmlFor="channel-fulfillment-warehouse" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    Fulfillment warehouse
+                    {t('form.fulfillmentWarehouse')}
                   </label>
                   <select
                     id="channel-fulfillment-warehouse"
@@ -382,11 +385,11 @@ export default function SalesChannels() {
                     onChange={e => setForm(f => ({ ...f, channelWarehouseId: e.target.value }))}
                     className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
-                    <option value="" disabled>Select a warehouse…</option>
+                    <option value="" disabled>{t('form.selectWarehouse')}</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
                   <p className="mt-1.5 text-2xs text-ink-4">
-                    Required -- every order placed through this channel decrements stock from and ships from this warehouse.
+                    {t('form.fulfillmentWarehouseHelp')}
                   </p>
                 </div>
               )}
@@ -394,11 +397,12 @@ export default function SalesChannels() {
                 <StorefrontModeField
                   value={form.storefrontMode} onChange={storefrontMode => setForm(f => ({ ...f, storefrontMode }))}
                   signInUrl={form.signInUrl} onSignInUrlChange={signInUrl => setForm(f => ({ ...f, signInUrl }))}
+                  locale={form.storefrontLocale} onLocaleChange={storefrontLocale => setForm(f => ({ ...f, storefrontLocale }))}
                 />
               )}
               <div>
                 <label htmlFor="channel-enrollment-mode" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Default enrollment
+                  {t('form.defaultEnrollment')}
                 </label>
                 <select
                   id="channel-enrollment-mode"
@@ -406,18 +410,18 @@ export default function SalesChannels() {
                   onChange={e => setForm(f => ({ ...f, enrollmentMode: e.target.value as EnrollmentMode }))}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
-                  {(Object.keys(ENROLLMENT_LABELS) as EnrollmentMode[]).map(mode => (
-                    <option key={mode} value={mode}>{ENROLLMENT_LABELS[mode]}</option>
+                  {ENROLLMENT_MODES.map(mode => (
+                    <option key={mode} value={mode}>{enrollmentLabel(mode)}</option>
                   ))}
                 </select>
                 <p className="mt-1.5 text-2xs text-ink-4">
-                  Which products belong on this channel by default. Individual products can still be added or removed later.
+                  {t('form.defaultEnrollmentHelp')}
                 </p>
               </div>
               {form.enrollmentMode === 'category' && (
                 <div>
                   <label htmlFor="channel-enrollment-category" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    Category
+                    {t('form.category')}
                   </label>
                   <select
                     id="channel-enrollment-category"
@@ -426,7 +430,7 @@ export default function SalesChannels() {
                     onChange={e => setForm(f => ({ ...f, enrollmentCategoryId: e.target.value }))}
                     className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
-                    <option value="" disabled>Select a category…</option>
+                    <option value="" disabled>{t('form.selectCategory')}</option>
                     {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                   </select>
                 </div>
@@ -434,7 +438,7 @@ export default function SalesChannels() {
               {form.enrollmentMode === 'tag' && (
                 <div>
                   <label htmlFor="channel-enrollment-tag" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    Tag
+                    {t('form.tag')}
                   </label>
                   <input
                     id="channel-enrollment-tag"
@@ -442,7 +446,7 @@ export default function SalesChannels() {
                     required
                     value={form.enrollmentTag}
                     onChange={e => setForm(f => ({ ...f, enrollmentTag: e.target.value }))}
-                    placeholder="summer"
+                    placeholder={t('form.tagPlaceholder')}
                     className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                 </div>
@@ -450,7 +454,7 @@ export default function SalesChannels() {
               {editingChannel && PAYMENT_CAPABLE_TYPES.includes(editingChannel.type) && (
                 <div>
                   <label htmlFor="channel-payment-method" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                    Payment method
+                    {t('form.paymentMethod')}
                   </label>
                   <select
                     id="channel-payment-method"
@@ -458,24 +462,24 @@ export default function SalesChannels() {
                     onChange={e => setForm(f => ({ ...f, paymentConnectionId: e.target.value }))}
                     className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   >
-                    <option value="">Disabled — no payment link sent</option>
+                    <option value="">{t('form.paymentDisabled')}</option>
                     {connections
                       .filter(c => (c.provider === 'stripe' || c.provider === 'revolut') && c.status === 'connected')
                       .map(c => <option key={c.id} value={c.id}>{capitalize(c.provider)}</option>)}
                   </select>
                   <p className="mt-1.5 text-2xs text-ink-4">
-                    Which connected payment integration an order's payment link is generated through. Connect Stripe or Revolut from the Integrations page first.
+                    {t('form.paymentHelp')}
                   </p>
                 </div>
               )}
               {editingChannel && (
                 <div className="flex items-center justify-between">
-                  <span className="text-2xs text-ink-4 uppercase tracking-wider">Active</span>
+                  <span className="text-2xs text-ink-4 uppercase tracking-wider">{t('common:status.active')}</span>
                   <label className="relative flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"
                       role="switch"
-                      aria-label="Active"
+                      aria-label={t('common:status.active')}
                       checked={form.active}
                       onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
                       className="sr-only peer"
@@ -493,7 +497,7 @@ export default function SalesChannels() {
                 disabled={saving}
                 className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
-                {saving ? 'Saving…' : editingChannel ? 'Save changes' : 'Add channel'}
+                {saving ? t('common:actions.saving') : editingChannel ? t('common:actions.saveChanges') : t('form.addChannel')}
               </button>
             </form>
           </div>
@@ -504,10 +508,9 @@ export default function SalesChannels() {
         <Dialog onClose={() => setDeletingChannel(null)} className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={() => setDeletingChannel(null)} />
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
-            <h3 className="text-sm font-semibold text-ink mb-3">Delete sales channel</h3>
+            <h3 className="text-sm font-semibold text-ink mb-3">{t('delete.title')}</h3>
             <p className="text-xs text-ink-2 mb-4">
-              Delete <strong>{deletingChannel.name}</strong>? Products already synced to it stay listed there — this only removes
-              the enrollment rule.
+              <Trans t={t} i18nKey="delete.text" values={{ name: deletingChannel.name }} components={{ strong: <strong /> }} />
             </p>
             {deleteError && (
               <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5 mb-3">{deleteError}</p>
@@ -517,14 +520,14 @@ export default function SalesChannels() {
                 onClick={() => setDeletingChannel(null)}
                 className="py-2 rounded-lg bg-fill text-xs font-medium text-ink-2 transition-colors"
               >
-                Cancel
+                {t('common:actions.cancel')}
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deleting}
                 className="py-2 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
-                {deleting ? 'Deleting…' : 'Delete'}
+                {deleting ? t('delete.deleting') : t('common:actions.delete')}
               </button>
             </div>
           </div>
@@ -536,34 +539,33 @@ export default function SalesChannels() {
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={route.close} />
           <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-semibold text-ink">{apiDocsChannel.name} — headless API</h3>
-              <button onClick={route.close} aria-label="Close">
+              <h3 className="text-sm font-semibold text-ink">{t('api.title', { name: apiDocsChannel.name })}</h3>
+              <button onClick={route.close} aria-label={t('common:actions.close')}>
                 <X size={14} className="text-ink-4" />
               </button>
             </div>
             <p className="text-2xs text-ink-4 mb-3">
-              No storefront app is attached to this channel -- it's a plain REST API any frontend can call directly.
+              {t('api.intro')}
             </p>
             <div className="shrink-0 mb-3 p-2.5 rounded-lg bg-sunken border border-line space-y-1.5">
-              <p className="text-2xs text-ink-4 uppercase tracking-wider">Base URL</p>
+              <p className="text-2xs text-ink-4 uppercase tracking-wider">{t('api.baseUrl')}</p>
               <code className="block text-xs text-ink break-all">{apiBaseURL()}</code>
-              <p className="text-2xs text-ink-4 uppercase tracking-wider pt-1">Auth (every request)</p>
+              <p className="text-2xs text-ink-4 uppercase tracking-wider pt-1">{t('api.auth')}</p>
               <div className="flex items-center gap-1.5">
-                <code className="flex-1 text-xs text-ink break-all">Authorization: Bearer {apiDocsChannel.id}</code>
+                <code className="flex-1 text-xs text-ink break-all">{`Authorization: Bearer ${apiDocsChannel.id}`}</code>
                 <button
                   onClick={() => copyAuthHeader(apiDocsChannel.id)}
                   className="shrink-0 text-2xs text-accent hover:text-accent transition-colors"
                 >
-                  {copiedAuthHeader ? 'Copied' : 'Copy'}
+                  {copiedAuthHeader ? t('api.copied') : t('api.copy')}
                 </button>
               </div>
               <p className="text-2xs text-ink-4">
-                Public/anonymous-shopper privilege only -- this channel's own id doubles as its bearer key, same trust
-                model as a Stripe publishable key.
+                {t('api.keyNote')}
               </p>
             </div>
             <div className="flex-1 overflow-y-auto -mx-5 px-5">
-              {HEADLESS_API_ENDPOINTS.map(ep => (
+              {headlessApiEndpoints().map(ep => (
                 <div key={`${ep.method} ${ep.path}`} className="flex items-start gap-2 py-1.5 border-b border-line last:border-0">
                   <span
                     className={clsx(
@@ -584,7 +586,7 @@ export default function SalesChannels() {
               ))}
             </div>
             <p className="shrink-0 pt-3 text-2xs text-ink-4">
-              Full request/response contracts: backend/api/storefront/openapi.yaml.
+              {t('api.contracts')}
             </p>
           </div>
         </Dialog>

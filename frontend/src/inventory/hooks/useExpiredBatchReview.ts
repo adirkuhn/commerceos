@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { ExpiredBatchReview } from '../types'
 import * as api from '../api'
@@ -31,7 +32,7 @@ export function useExpiredBatchReview(token: string): UseExpiredBatchReviewState
       const data = await api.listPendingExpiredBatches(token)
       setBatches(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('inventory:errors.unknown'))
     } finally {
       setLoading(false)
     }

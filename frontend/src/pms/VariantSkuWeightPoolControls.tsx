@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { BulkAddWeightPortionsModal } from './BulkAddWeightPortionsModal'
 import { CaseOfSKUPicker } from './VariantsSection'
 import { skuPassThroughPayload } from './skuPayloads'
@@ -20,6 +21,7 @@ interface VariantSkuWeightPoolControlsProps {
 // already-created variant's SKU, unlike the flat single-SKU form on the
 // product's General tab.
 export function VariantSkuWeightPoolControls({ token, sku, updateSKU, onPortionsCreated, trailing }: VariantSkuWeightPoolControlsProps) {
+  const { t } = useTranslation('pms')
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkError, setBulkError] = useState('')
   const [existingPortionPickerOpen, setExistingPortionPickerOpen] = useState(false)
@@ -32,7 +34,7 @@ export function VariantSkuWeightPoolControls({ token, sku, updateSKU, onPortions
       await updateSKU(sku.id, { ...skuPassThroughPayload(sku), unit_type: next.unitType, portioned_from_sku_id: next.portionedFromSkuId })
       setExistingPortionPickerOpen(false)
     } catch (err) {
-      setBulkError(err instanceof Error ? err.message : 'Failed to update weight pool link')
+      setBulkError(err instanceof Error ? err.message : t('variant.poolFailed'))
     } finally {
       setBulkSaving(false)
     }
@@ -43,30 +45,30 @@ export function VariantSkuWeightPoolControls({ token, sku, updateSKU, onPortions
       <div className="flex items-center justify-between">
         {sku.unit_type === 'kilo' ? (
           <span className="text-2xs text-ink-3 flex items-center gap-1.5">
-            Weight pool
+            {t('variant.weightPool')}
             <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: 'unit', portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
-              Turn off
+              {t('variant.turnOff')}
             </button>
             {sku.pricing_mode === 'per_weight' && sku.scale_code && sku.price_per_kilo_minor_units != null && (
               <button type="button" onClick={() => setBulkAddOpen(true)} className="text-accent hover:text-accent/80 transition-colors">
-                Bulk add by weight
+                {t('variant.bulkAdd')}
               </button>
             )}
           </span>
         ) : sku.portioned_from_sku_id ? (
           <span className="text-2xs text-ink-3 flex items-center gap-1.5">
-            Portioned from <span className="font-medium">{sku.portioned_from_sku ? linkedSkuLabel(sku.portioned_from_sku) : sku.portioned_from_sku_id}</span>
+            <Trans t={t} i18nKey="variant.portionedFrom" values={{ label: sku.portioned_from_sku ? linkedSkuLabel(sku.portioned_from_sku) : sku.portioned_from_sku_id }} components={{ b: <span className="font-medium" /> }} />
             <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: sku.unit_type ?? 'unit', portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
-              Unlink
+              {t('variant.unlink')}
             </button>
           </span>
         ) : existingPortionPickerOpen ? null : (
           <div className="flex items-center gap-2">
             <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: 'kilo', portionedFromSkuId: null })} className="text-2xs text-accent hover:text-accent/80 transition-colors disabled:opacity-50">
-              Make weight pool
+              {t('variant.makePool')}
             </button>
             <button type="button" onClick={() => setExistingPortionPickerOpen(true)} className="text-2xs text-accent hover:text-accent/80 transition-colors">
-              Link to weight pool
+              {t('variant.linkPool')}
             </button>
           </div>
         )}

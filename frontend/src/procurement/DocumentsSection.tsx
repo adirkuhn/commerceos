@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Trash2, FileText, AlertTriangle, RefreshCw } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { pollParsingJob } from './pollParsingJob'
@@ -18,12 +19,13 @@ interface DocumentsSectionProps {
 export function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSectionProps) {
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
+  const { t } = useTranslation(['procurement', 'common'])
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [reparsingId, setReparsingId] = useState<string | null>(null)
   const [reparseError, setReparseError] = useState<{ id: string; message: string } | null>(null)
 
   async function handleDelete(doc: PurchaseOrderDocument) {
-    if (!(await confirm({ title: `Delete "${doc.file_name}"?`, message: 'Line items already created from it are kept.', confirmLabel: 'Delete document', destructive: true }))) return
+    if (!(await confirm({ title: t('docs.deleteTitle', { name: doc.file_name }), message: t('docs.deleteMessage'), confirmLabel: t('docs.deleteConfirm'), destructive: true }))) return
     setDeletingId(doc.id)
     try {
       await onDelete(doc.id)
@@ -43,7 +45,7 @@ export function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSe
       }
       onRefresh()
     } catch (err) {
-      setReparseError({ id: doc.id, message: err instanceof Error ? err.message : 'Failed to reparse document' })
+      setReparseError({ id: doc.id, message: err instanceof Error ? err.message : t('docs.reparseFailed') })
     } finally {
       setReparsingId(null)
     }
@@ -52,7 +54,7 @@ export function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSe
   return (
     <div className="rounded-xl border border-line overflow-hidden">
       <div className="px-4 py-3 dark:bg-night-900/50 bg-gray-50 border-b border-line">
-        <h3 className="text-xs font-semibold text-ink">Documents</h3>
+        <h3 className="text-xs font-semibold text-ink">{t('docs.title')}</h3>
       </div>
       <div className="divide-y divide-line">
         {documents.map(doc => (
@@ -64,21 +66,21 @@ export function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSe
               </a>
               {doc.is_potential_duplicate && (
                 <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-2xs font-medium text-warning bg-amber-500/10 shrink-0">
-                  <AlertTriangle size={10} /> Possible duplicate
+                  <AlertTriangle size={10} /> {t('docs.possibleDuplicate')}
                 </span>
               )}
-              <button aria-label="Reparse"
+              <button aria-label={t('docs.reparse')}
                 type="button"
-                title="Reparse"
+                title={t('docs.reparse')}
                 onClick={() => handleReparse(doc)}
                 disabled={reparsingId === doc.id}
                 className="p-1 rounded text-ink-4 hover:text-accent disabled:opacity-50 transition-colors shrink-0"
               >
                 <RefreshCw size={13} className={reparsingId === doc.id ? 'animate-spin' : ''} />
               </button>
-              <button aria-label="Delete"
+              <button aria-label={t('common:actions.delete')}
                 type="button"
-                title="Delete"
+                title={t('common:actions.delete')}
                 onClick={() => handleDelete(doc)}
                 disabled={deletingId === doc.id}
                 className="p-1 rounded text-ink-4 hover:text-danger disabled:opacity-50 transition-colors shrink-0"

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Search, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import * as pmsApi from '../../pms/api'
@@ -23,29 +24,30 @@ interface SKUOption {
 
 export default function FrequentlyBoughtTogetherPage() {
   const { token } = useAuth()
+  const { t } = useTranslation('reports')
   // In ?period= -- refresh and shared links keep the chosen range.
   const [period, setPeriod] = useReportPeriod()
   const getFrequentlyBoughtTogetherReport = useCallback(reportsApi.getFrequentlyBoughtTogetherReport, [])
   const { data: frequentlyBoughtTogether, loading, error } = useSingleReport(token ?? '', period, getFrequentlyBoughtTogetherReport)
 
   return (
-    <ReportPageShell title="Frequently Bought Together" period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
+    <ReportPageShell title={t('fbt.title')} period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
       <ProductRecommendationsSearch token={token ?? ''} period={period} />
 
       <ReportCard
-        title="Frequently Bought Together"
-        description="SKU sets that co-occurred most often in orders this period — support is the number of qualifying orders containing every item in the set"
+        title={t('fbt.title')}
+        description={t('fbt.desc')}
       >
         {!frequentlyBoughtTogether || frequentlyBoughtTogether.rows.length === 0 ? (
-          <EmptyState>No frequently co-occurring SKU sets in this period</EmptyState>
+          <EmptyState>{t('fbt.empty')}</EmptyState>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="dark:bg-night-900/50 bg-gray-50">
-                  <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">Items</th>
-                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">Support</th>
-                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">% of Orders</th>
+                  <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{t('fbt.items')}</th>
+                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">{t('fbt.support')}</th>
+                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">{t('fbt.percentOrders')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/50">
@@ -74,6 +76,7 @@ export default function FrequentlyBoughtTogetherPage() {
 // tenant-wide table above but scoped to one product.
 function ProductRecommendationsSearch({ token, period }: { token: string; period: ReportsPeriod }) {
   const { timeZone } = useDateFormat().settings
+  const { t } = useTranslation('reports')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Product[]>([])
   const [searching, setSearching] = useState(false)
@@ -103,7 +106,7 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
       setSearchError(null)
       pmsApi.listProducts(token, { search: query.trim(), perPage: 8 })
         .then(res => { if (!cancelled) setResults(res.products) })
-        .catch(e => { if (!cancelled) setSearchError(e instanceof Error ? e.message : 'Unknown error') })
+        .catch(e => { if (!cancelled) setSearchError(e instanceof Error ? e.message : t('fbt.unknownError')) })
         .finally(() => { if (!cancelled) setSearching(false) })
     }, SEARCH_DEBOUNCE_MS)
     return () => { cancelled = true; clearTimeout(timer) }
@@ -140,7 +143,7 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
         setSkuOptions(options)
         if (options.length === 1) setSelectedSkuId(options[0].sku.id)
       })
-      .catch(e => { if (!cancelled) setSearchError(e instanceof Error ? e.message : 'Unknown error') })
+      .catch(e => { if (!cancelled) setSearchError(e instanceof Error ? e.message : t('fbt.unknownError')) })
       .finally(() => { if (!cancelled) setLoadingSkus(false) })
     return () => { cancelled = true }
   }, [token, productId, setSelectedSkuId])
@@ -153,13 +156,13 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
     const { from, to } = dateRange(period, new Date(), timeZone)
     reportsApi.getProductRecommendations(token, selectedSkuId, from, to)
       .then(r => { if (!cancelled) setRecommendations(r) })
-      .catch(e => { if (!cancelled) setRecError(e instanceof Error ? e.message : 'Unknown error') })
+      .catch(e => { if (!cancelled) setRecError(e instanceof Error ? e.message : t('fbt.unknownError')) })
       .finally(() => { if (!cancelled) setRecLoading(false) })
     return () => { cancelled = true }
   }, [token, selectedSkuId, period, timeZone])
 
   return (
-    <ReportCard title="Product recommendations" description="Search a product to see what's frequently bought with it" overflowVisible>
+    <ReportCard title={t('fbt.recTitle')} description={t('fbt.recDesc')} overflowVisible>
       <div className="p-4 space-y-3">
         {!selectedProduct ? (
           <div className="relative">
@@ -169,11 +172,11 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Search products…"
+                placeholder={t('fbt.search')}
                 className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-line bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-focus"
               />
             </div>
-            {searching && <p className="text-2xs text-ink-4 mt-1">Searching…</p>}
+            {searching && <p className="text-2xs text-ink-4 mt-1">{t('fbt.searching')}</p>}
             {searchError && <p className="text-2xs text-danger mt-1">{searchError}</p>}
             {results.length > 0 && (
               <div className="absolute z-10 mt-1 w-full rounded-lg border border-line bg-raised shadow-lg max-h-64 overflow-y-auto">
@@ -192,17 +195,17 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
         ) : (
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-ink">{selectedProduct.name}</p>
-            <button onClick={clearSelection} aria-label="Clear selection" className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
+            <button onClick={clearSelection} aria-label={t('fbt.clear')} className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
               <X size={14} />
             </button>
           </div>
         )}
 
-        {selectedProduct && loadingSkus && <p className="text-2xs text-ink-4">Loading SKUs…</p>}
+        {selectedProduct && loadingSkus && <p className="text-2xs text-ink-4">{t('fbt.loadingSkus')}</p>}
 
         {selectedProduct && !loadingSkus && skuOptions.length > 1 && !selectedSkuId && (
           <div className="space-y-1">
-            <p className="text-2xs text-ink-4">This product has multiple variants — pick one:</p>
+            <p className="text-2xs text-ink-4">{t('fbt.pickVariant')}</p>
             {skuOptions.map(opt => (
               <button
                 key={opt.sku.id}
@@ -217,17 +220,17 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
 
         {selectedSkuId && (
           <div>
-            {recLoading && <p className="text-2xs text-ink-4">Loading recommendations…</p>}
+            {recLoading && <p className="text-2xs text-ink-4">{t('fbt.loadingRecs')}</p>}
             {recError && <p className="text-2xs text-danger">{recError}</p>}
             {recommendations && recommendations.rows.length === 0 && !recLoading && (
-              <p className="text-2xs text-ink-4">No frequent co-purchases found for this product in the selected period</p>
+              <p className="text-2xs text-ink-4">{t('fbt.noRecs')}</p>
             )}
             {recommendations && recommendations.rows.length > 0 && (
               <div data-testid="product-recommendations" className="space-y-1">
                 {recommendations.rows.map(row => (
                   <div key={row.sku_id} className="flex items-center justify-between gap-2 text-xs px-3 py-1.5 rounded-lg border border-line">
                     <span className="text-ink truncate">{row.product_name || row.sku_code || row.sku_id}</span>
-                    <span className="text-ink-4 shrink-0">support {row.support}</span>
+                    <span className="text-ink-4 shrink-0">{t('fbt.supportValue', { value: row.support })}</span>
                   </div>
                 ))}
               </div>

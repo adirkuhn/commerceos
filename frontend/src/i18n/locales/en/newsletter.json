@@ -1,0 +1,28 @@
+{
+  "list": {
+    "colConfirmed": "Confirmed",
+    "colEmail": "Email",
+    "colSignedUp": "Signed up",
+    "colStatus": "Status",
+    "empty": "No subscribers found",
+    "eraseAria": "Erase {{email}}",
+    "eraseConfirm": "Erase subscriber",
+    "eraseFailed": "Failed to erase subscriber",
+    "eraseMessage": "Their subscription and consent record are deleted for good. Use this for data-removal requests; to stop emails, they can unsubscribe.",
+    "eraseTitle": "Erase {{email}}?",
+    "export": "Export subscribed (CSV)",
+    "exportFailed": "Failed to export subscribers",
+    "exporting": "Exporting…",
+    "intro": "Shoppers join from your storefront's signup form and confirm by email (double opt-in). Only confirmed subscribers are exported.",
+    "loadFailed": "Failed to load subscribers",
+    "search": "Search by email...",
+    "searchLabel": "Search subscribers"
+  },
+  "status": {
+    "all": "All statuses",
+    "confirmed": "Subscribed",
+    "label": "Status",
+    "pending": "Awaiting confirmation",
+    "unsubscribed": "Unsubscribed"
+  }
+}

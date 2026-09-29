@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import clsx from 'clsx'
 import { FormCard } from './FormCard'
 import { CategoryMarginEditor } from './ProductPricingCards'
@@ -21,6 +22,7 @@ interface ProductSidebarProps {
 // Right-hand column of the General tab: status, category (with inline
 // create + target margin), and the not-yet-supported placeholders.
 export function ProductSidebar({ status, onStatusChange, categoryId, onCategoryChange, categories, onAddCategory, onUpdateCategoryMargin }: ProductSidebarProps) {
+  const { t } = useTranslation('pms')
   const [newCategoryName, setNewCategoryName] = useState('')
 
   const handleAddCategory = async () => {
@@ -32,26 +34,26 @@ export function ProductSidebar({ status, onStatusChange, categoryId, onCategoryC
     <div className="space-y-5">
       <div className="rounded-xl border border-line p-4 divide-y divide-line/60">
         <div className="pb-4">
-          <label htmlFor="product-status-sidebar" className={labelClass}>Status</label>
+          <label htmlFor="product-status-sidebar" className={labelClass}>{t('status.label')}</label>
           <select
             id="product-status-sidebar"
             value={status} onChange={e => onStatusChange(e.target.value as ProductStatus)}
             className={inputClass}
           >
-            <option value="draft">Draft</option>
-            <option value="active">Active</option>
-            <option value="archived">Archived</option>
+            <option value="draft">{t('status.draft')}</option>
+            <option value="active">{t('status.active')}</option>
+            <option value="archived">{t('status.archived')}</option>
           </select>
         </div>
 
         <div className="pt-4 pb-4">
-          <label htmlFor="product-category" className={labelClass}>Category</label>
+          <label htmlFor="product-category" className={labelClass}>{t('sidebar.category')}</label>
           <select
             id="product-category"
             value={categoryId} onChange={e => onCategoryChange(e.target.value)}
             className={inputClass}
           >
-            <option value="">No category</option>
+            <option value="">{t('sidebar.noCategory')}</option>
             {sortCategoriesHierarchically(categories).map(c => (
               <option key={c.id} value={c.id}>{'    '.repeat(c.depth)}{c.depth > 0 ? '↳ ' : ''}{c.name}</option>
             ))}
@@ -59,11 +61,11 @@ export function ProductSidebar({ status, onStatusChange, categoryId, onCategoryC
           <div className="flex gap-1.5 mt-1.5">
             <input
               type="text" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)}
-              placeholder="+ new category name"
+              placeholder={t('sidebar.newCategory')}
               className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
             />
             <button type="button" onClick={handleAddCategory} className="px-3 py-1.5 rounded-lg dark:bg-night-800 bg-gray-100 text-2xs font-medium text-ink-2 hover:bg-hover transition-colors">
-              Add
+              {t('sidebar.add')}
             </button>
           </div>
           {categoryId && (
@@ -75,24 +77,24 @@ export function ProductSidebar({ status, onStatusChange, categoryId, onCategoryC
         </div>
 
         <div className="pt-4">
-          <label htmlFor="product-vendor" className={labelClass}>Vendor</label>
-          <input id="product-vendor" disabled placeholder="Coming soon" className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
+          <label htmlFor="product-vendor" className={labelClass}>{t('sidebar.vendor')}</label>
+          <input id="product-vendor" disabled placeholder={t('sidebar.comingSoon')} className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
         </div>
 
         <div className="pt-4">
-          <label htmlFor="product-collections" className={labelClass}>Collections</label>
-          <input id="product-collections" disabled placeholder="Coming soon" className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
+          <label htmlFor="product-collections" className={labelClass}>{t('sidebar.collections')}</label>
+          <input id="product-collections" disabled placeholder={t('sidebar.comingSoon')} className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
         </div>
       </div>
 
-      <FormCard title="SEO" description="Coming soon.">
+      <FormCard title={t('sidebar.seo')} description={t('sidebar.comingSoonDot')}>
         <div>
-          <label htmlFor="product-seo-title" className={labelClass}>Page title</label>
-          <input id="product-seo-title" disabled placeholder="Coming soon" className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
+          <label htmlFor="product-seo-title" className={labelClass}>{t('sidebar.pageTitle')}</label>
+          <input id="product-seo-title" disabled placeholder={t('sidebar.comingSoon')} className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
         </div>
         <div>
-          <label htmlFor="product-seo-description" className={labelClass}>Meta description</label>
-          <textarea id="product-seo-description" disabled placeholder="Coming soon" rows={2} className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
+          <label htmlFor="product-seo-description" className={labelClass}>{t('sidebar.metaDescription')}</label>
+          <textarea id="product-seo-description" disabled placeholder={t('sidebar.comingSoon')} rows={2} className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
         </div>
       </FormCard>
     </div>

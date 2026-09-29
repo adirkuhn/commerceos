@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import i18next from 'i18next'
 import { getNotificationPreferences, updateNotificationPreferences } from './api'
 import type { NotificationPreferences, NotificationPreferencesInput } from './types'
 
@@ -12,7 +13,7 @@ export function useNotificationPreferences(token: string) {
     setLoading(true)
     getNotificationPreferences(token)
       .then(p => { if (!cancelled) setPreferences(p) })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : 'Could not load notification settings') })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : i18next.t('settings:notifications.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token])

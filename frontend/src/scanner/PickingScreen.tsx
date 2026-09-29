@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
 import { canTakeOverLocks } from '../packing/lockDisplay'
 import * as api from './api'
@@ -45,13 +47,14 @@ const PICKING_SESSION_API: ScanSessionApi<PickingSessionDetail> = {
   deleteScan: (token, id, scanId) => api.deletePickScan(token, id, scanId),
   reset: (token, id) => api.resetPickingSession(token, id),
   messages: {
-    loadFailed: 'Failed to load picking session',
-    lockLost: 'Another user has taken over this picking session',
-    resetFailed: 'Failed to reset picking session',
+    get loadFailed() { return i18next.t('scanner:errors.loadPickingSession') },
+    get lockLost() { return i18next.t('scanner:errors.pickingLockLost') },
+    get resetFailed() { return i18next.t('scanner:errors.resetPickingSession') },
   },
 }
 
 export function PickingScreen({ token, sessionId, order, onExit, onAuthError, onContinueToPacking }: PickingScreenProps) {
+  const { t } = useTranslation(['scanner', 'common'])
   const session = useScanSession(token, sessionId, onAuthError, PICKING_SESSION_API)
   const { detail, error, setError, readOnly, codeInputRef } = session
   const completion = useSessionCompletion(
@@ -61,7 +64,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
   const [startingPacking, setStartingPacking] = useState(false)
 
   function stage(input: Parameters<typeof api.scanPickItem>[2]): Promise<boolean> {
-    return session.run(() => api.scanPickItem(token, sessionId, input), 'Scan failed')
+    return session.run(() => api.scanPickItem(token, sessionId, input), t('errors.scanFailed'))
   }
 
   const scan = usePickingScan({
@@ -74,7 +77,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
       onExit()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : 'Failed to pause')
+      setError(err instanceof Error ? err.message : t('errors.pauseFailed'))
     }
   }
 
@@ -85,7 +88,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
       onContinueToPacking(packingSession.id, order)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : 'Failed to start packing')
+      setError(err instanceof Error ? err.message : t('errors.startPacking'))
       setStartingPacking(false)
     }
   }
@@ -126,15 +129,15 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button aria-label="Pause and go back" onClick={handlePause} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Pause and go back">
+        <button aria-label={t('shared.pauseBack')} onClick={handlePause} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('shared.pauseBack')}>
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
-        <h1 className="flex-1 text-base font-semibold">Picking</h1>
+        <h1 className="flex-1 text-base font-semibold">{t('pickScreen.title')}</h1>
         <button
           onClick={() => completion.setConfirmingFinish(true)} disabled={readOnly}
           className="px-4 min-h-11 -my-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
         >
-          Finish
+          {t('shared.finish')}
         </button>
       </div>
 
@@ -160,7 +163,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
       )}
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-        {session.loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
+        {session.loading && <p className="text-center text-sm text-gray-400 py-8">{t('common:status.loading')}</p>}
         {detail?.line_items.map(li => {
           const pickedQty = pickedByLineItem.get(li.id) ?? 0
           return (
@@ -169,7 +172,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
               onClick={() => setPickLine({ lineItem: li, pickedSoFar: pickedQty })}
             >
               <SoldExpiryNote date={li.sold_expiry_date} className={SCANNER_SOLD_EXPIRY_CLASS} />
-              {!li.sku_id && <p className="text-xs text-amber-400">Not linked to a product yet</p>}
+              {!li.sku_id && <p className="text-xs text-amber-400">{t('shared.notLinked')}</p>}
             </ScanSessionLineRow>
           )
         })}
@@ -184,7 +187,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
       >
         {scan.candidates.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-xs text-gray-400">Multiple matches -- pick one:</p>
+            <p className="text-xs text-gray-400">{t('shared.multipleMatches')}</p>
             {scan.candidates.map(c => (
               <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => scan.selectCandidate(c)} />
             ))}

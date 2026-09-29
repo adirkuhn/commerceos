@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import i18next from 'i18next'
 import UnmatchedSkus from '../UnmatchedSkus'
 import { renderAt } from '../../test/renderAt'
 import type { SalesOrder, SalesOrderDetail } from '../../oms/types'
@@ -113,5 +114,16 @@ describe('UnmatchedSkus URLs', () => {
   it('requests the page in ?page=', async () => {
     renderAt(<UnmatchedSkus />, '/unmatched-skus', '/unmatched-skus?page=3')
     await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', expect.objectContaining({ page: 3 })))
+  })
+})
+
+describe('in Brazilian Portuguese', () => {
+  afterEach(async () => { await i18next.changeLanguage('en') })
+
+  it('shows the empty state in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    renderAt(<UnmatchedSkus />, '/unmatched-skus')
+
+    expect(await screen.findByText('Nenhum SKU sem vínculo — está tudo vinculado')).toBeInTheDocument()
   })
 })

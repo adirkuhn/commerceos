@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react'
 import { act } from 'react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import i18next from 'i18next'
 import Warehouses from '../Warehouses'
 import { renderAt } from '../../test/renderAt'
 import type { Warehouse } from '../../inventory/types'
@@ -40,6 +41,16 @@ describe('Warehouses list', () => {
     renderAt(<Warehouses />, '/warehouses')
 
     expect(await screen.findByText('No warehouses yet')).toBeInTheDocument()
+  })
+
+  it('renders its texts in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      renderAt(<Warehouses />, '/warehouses')
+      expect(await screen.findByText('Nenhum depósito ainda')).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 
   it('lists warehouses', async () => {

@@ -1,0 +1,113 @@
+{
+  "action": {
+    "freebie": "Gratis artikel",
+    "new_item": "Nieuw artikel",
+    "pick": "Gepickt",
+    "refund": "Terugbetaald",
+    "substitute": "Vervangen"
+  },
+  "dialogs": {
+    "ok": "OK",
+    "resetting": "Resetten…",
+    "scanError": "Scanfout",
+    "startOverText": "Hiermee worden alle tot nu toe gepickte artikelen van deze order verwijderd en begint de sessie opnieuw. Dit kan niet ongedaan worden gemaakt.",
+    "startOverTitle": "Opnieuw beginnen?"
+  },
+  "done": {
+    "backToOrders": "Terug naar orders",
+    "continue": "Verder naar inpakken",
+    "fulfilled": "#{{number}} gemarkeerd als afgehandeld",
+    "notFullyPicked": "Niet volledig gepickt"
+  },
+  "errors": {
+    "alreadyPicked": "Al volledig gepickt",
+    "barcodeUnknown": "Barcode niet herkend",
+    "complete": "Kan orderpicken niet afronden",
+    "loadMode": "Kan de pickmodus niet laden",
+    "loadSession": "Kan de picksessie niet laden",
+    "markPicked": "Kan order niet als gepickt markeren",
+    "notOnOrder": "Artikel staat niet op deze order",
+    "pause": "Pauzeren mislukt",
+    "recordPick": "Kan pick niet registreren",
+    "removeScan": "Kan scan niet verwijderen",
+    "reset": "Kan de picksessie niet resetten",
+    "start": "Kan orderpicken niet starten",
+    "takenOver": "Een andere gebruiker heeft deze picksessie overgenomen",
+    "takeOver": "Overnemen mislukt"
+  },
+  "header": {
+    "complete": "Afronden",
+    "pause": "Pauzeren",
+    "pausing": "Pauzeren…",
+    "startOver": "Opnieuw beginnen"
+  },
+  "item": {
+    "noSku": "Geen SKU"
+  },
+  "line": {
+    "picked": "gepickt",
+    "unlinked": "niet gekoppeld — scan om op te lossen"
+  },
+  "list": {
+    "itemsToPick": "Te picken artikelen",
+    "markedNotice": "#{{number}} als gepickt gemarkeerd — staat nu in de inpakwachtrij.",
+    "marking": "Markeren…",
+    "markPicked": "Markeren als gepickt",
+    "selectOrder": "Kies een order om te zien wat er gepickt moet worden"
+  },
+  "lock": {
+    "message": "{{name}} pickt deze order{{since}} — alleen bekijken.",
+    "takeOver": "Overnemen"
+  },
+  "page": {
+    "modeFailed": "Kan de pickmodus niet laden ({{error}}) — scanmodus wordt getoond."
+  },
+  "progress": {
+    "items": "{{picked}} / {{total}} artikelen",
+    "label": "Voortgang"
+  },
+  "queue": {
+    "count_one": "{{count}} te picken",
+    "count_many": "{{count}} te picken",
+    "count_other": "{{count}} te picken",
+    "empty": "Geen orders om te picken",
+    "inPacking": "Bij inpakken",
+    "inProgress": "Bezig",
+    "noUnfulfilled": "Geen openstaande orders",
+    "search": "Orders zoeken...",
+    "title": "Te picken orders"
+  },
+  "readOnly": {
+    "inPacking": "Deze order wordt ingepakt — alleen bekijken",
+    "lock": "{{lock}} — alleen bekijken"
+  },
+  "review": {
+    "allPicked": "Elke regel is volledig gepickt.",
+    "back": "Terug naar orderpicken",
+    "backToScanning": "Terug naar scannen",
+    "completing": "Afronden…",
+    "confirm": "Bevestigen en afronden",
+    "expectedPicked": "verwacht {{expected}} · gepickt {{picked}}",
+    "notFullyPicked_one": "{{count}} regel is nog niet volledig gepickt:",
+    "notFullyPicked_many": "{{count}} regels zijn nog niet volledig gepickt:",
+    "notFullyPicked_other": "{{count}} regels zijn nog niet volledig gepickt:",
+    "shipping": "Verzending: {{method}}",
+    "title": "Controleren voor afronden"
+  },
+  "scan": {
+    "selectOrder": "Kies een order om te beginnen met picken"
+  },
+  "scanInput": {
+    "placeholder": "Scan de barcode of typ en druk op Enter..."
+  },
+  "scanLog": {
+    "entry": "{{action}} · aantal {{quantity}}",
+    "remove": "Scan verwijderen",
+    "title": "Deze sessie"
+  },
+  "sheet": {
+    "confirm": "Pick bevestigen",
+    "hint": "Niet op voorraad of moet het vervangen worden? Vervangingen en terugbetalingen gebeuren bij het inpakken.",
+    "quantity": "Aantal"
+  }
+}

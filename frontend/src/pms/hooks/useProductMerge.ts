@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ProductMergePreview, ProductMergeResult, SKUMergePair } from '../types'
 import * as api from '../api'
@@ -30,7 +31,7 @@ export function useProductMerge(token: string, duplicateId: string, targetId: st
       setPreview(next)
       if (!skuMapping) setMapping(Object.fromEntries(next.sku_mapping.map(p => [p.source_sku_id, p.target_sku_id])))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to preview the merge')
+      setError(e instanceof Error ? e.message : i18next.t('pms:errors.mergePreview'))
     } finally {
       setLoading(false)
     }
@@ -56,7 +57,7 @@ export function useProductMerge(token: string, duplicateId: string, targetId: st
   }, [pairs])
 
   const merge = useCallback((): Promise<ProductMergeResult> => {
-    if (!targetId) return Promise.reject(new Error('choose the product to merge into'))
+    if (!targetId) return Promise.reject(new Error(i18next.t('pms:errors.chooseMergeTarget')))
     return api.mergeProduct(token, duplicateId, { target_product_id: targetId, sku_mapping: pairs })
   }, [token, duplicateId, targetId, pairs])
 

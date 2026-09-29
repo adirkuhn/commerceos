@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import i18next from 'i18next'
 import { isAuthError } from '../auth/isAuthError'
 import type { StockShortfall, StockShortfallResolution } from './types'
 
@@ -34,7 +35,7 @@ export function useSessionCompletion<R extends CompletionResult>(
       setConfirmingFinish(false)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : 'Failed to complete')
+      setError(err instanceof Error ? err.message : i18next.t('scanner:errors.complete'))
     } finally {
       setFinishing(false)
     }

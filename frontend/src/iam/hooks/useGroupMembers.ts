@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import * as api from '../api'
 
@@ -25,7 +26,7 @@ export function useGroupMembers(token: string, groupId: string): UseGroupMembers
       const data = await api.listMembers(token, groupId)
       setMembers(data.members)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('iam:unknownError'))
     } finally {
       setLoading(false)
     }

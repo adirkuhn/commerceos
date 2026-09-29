@@ -240,6 +240,9 @@ export type EnrollmentMode = 'all' | 'category' | 'tag' | 'manual'
 // Only 'internal' channels may use 'theme'.
 export type StorefrontMode = 'headless' | 'theme'
 
+/** Language a channel's storefront speaks to shoppers (backend domain/locale). */
+export type StorefrontLocale = 'en' | 'pt-BR' | 'nl'
+
 export interface SalesChannel {
   id: string
   name: string
@@ -273,6 +276,7 @@ export interface SalesChannel {
   // a WooCommerce/Bol *import*'s stock sync instead.
   default_warehouse_id?: string | null
   storefront_mode?: StorefrontMode
+  storefront_locale?: StorefrontLocale
   // Headless internal channels: page that completes shopper sign-in.
   sign_in_url?: string | null
   active: boolean

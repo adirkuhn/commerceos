@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { Dialog } from '../components/common/Dialog'
 import type { ConnectFormProvider, NewPageProvider } from './hooks/useIntegrationsRoute'
@@ -27,7 +29,7 @@ export const INTEGRATIONS_CATALOG: CatalogEntry[] = [
   { label: 'WhatsApp', initial: 'WA', gradient: 'from-green-500 to-emerald-600', target: { connect: 'whatsapp' } },
   { label: 'Stripe', initial: 'S', gradient: 'from-indigo-500 to-purple-600', target: { connect: 'stripe' } },
   { label: 'Revolut', initial: 'R', gradient: 'from-slate-700 to-black', target: { connect: 'revolut' } },
-  { label: 'Email', initial: 'E', gradient: 'from-teal-500 to-cyan-600', target: { connect: 'email' } },
+  { get label() { return i18next.t('integrations:browse.email') }, initial: 'E', gradient: 'from-teal-500 to-cyan-600', target: { connect: 'email' } },
 ]
 
 type FormRenderer = (forms: ConnectForms, onClose: () => void) => ReactNode
@@ -60,6 +62,7 @@ interface Props {
 // form. Form state lives here, so it resets whenever the modal closes.
 export function BrowseIntegrationsDialog({ token, provider, onOpenConnect, onOpenNew, onConnected, onClose }: Props) {
   const forms = useConnectForms(token, onConnected, onClose)
+  const { t } = useTranslation(['integrations', 'common'])
 
   const openEntry = (target: CatalogTarget) =>
     'connect' in target ? onOpenConnect(target.connect) : onOpenNew(target.new)
@@ -72,8 +75,8 @@ export function BrowseIntegrationsDialog({ token, provider, onOpenConnect, onOpe
       />
       <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-ink">Browse integrations</h3>
-          <button onClick={onClose} aria-label="Close" className="p-1 -m-1 rounded hover:bg-hover">
+          <h3 className="text-sm font-semibold text-ink">{t('browse.title')}</h3>
+          <button onClick={onClose} aria-label={t('common:actions.close')} className="p-1 -m-1 rounded hover:bg-hover">
             <X size={14} className="text-ink-4" />
           </button>
         </div>
@@ -82,7 +85,7 @@ export function BrowseIntegrationsDialog({ token, provider, onOpenConnect, onOpe
           <div className="space-y-2">
             {INTEGRATIONS_CATALOG.map(entry => (
               <button
-                key={entry.label}
+                key={entry.initial}
                 onClick={() => openEntry(entry.target)}
                 className="w-full flex items-center gap-3 p-3 rounded-lg border border-line hover:bg-hover transition-colors text-left"
               >

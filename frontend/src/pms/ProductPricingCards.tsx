@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as pmsApi from './api'
@@ -35,6 +36,7 @@ export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesI
   skuId: string; currency: string; taxRateBasisPoints: number | null; pricesIncludeTax: boolean
 }) {
   const { token } = useAuth()
+  const { t } = useTranslation(['pms', 'common'])
   const [insight, setInsight] = useState<SKUMarginInsight | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -46,7 +48,7 @@ export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesI
     setError('')
     pmsApi.getSKUMarginInsight(token, skuId)
       .then(result => { if (!cancelled) setInsight(result) })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load margin insight') })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : t('insight.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }
@@ -72,13 +74,13 @@ export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesI
       <div>
         <div className="text-ink-4">{label}</div>
         <div className={clsx('font-medium', profitMinorUnits < 0 ? 'text-danger' : 'text-ink')}>
-          {money(profitMinorUnits)} <span className="font-normal">({pct(marginBps)} margin / {pct(markupBps)} markup)</span>
+          {money(profitMinorUnits)} <span className="font-normal">{t('insight.marginMarkup', { margin: pct(marginBps), markup: pct(markupBps) })}</span>
         </div>
         {both && (
           <div className="text-2xs text-ink-4 mt-0.5">
-            Excl. BTW: {money(both.exclusive.profit)} ({pct(both.exclusive.marginBasisPoints)} margin / {pct(both.exclusive.markupBasisPoints)} markup)
+            {t('insight.exclBtw', { profit: money(both.exclusive.profit), margin: pct(both.exclusive.marginBasisPoints), markup: pct(both.exclusive.markupBasisPoints) })}
             {' · '}
-            Incl. BTW: {money(both.inclusive.profit)} ({pct(both.inclusive.marginBasisPoints)} margin / {pct(both.inclusive.markupBasisPoints)} markup)
+            {t('insight.inclBtw', { profit: money(both.inclusive.profit), margin: pct(both.inclusive.marginBasisPoints), markup: pct(both.inclusive.markupBasisPoints) })}
           </div>
         )}
       </div>
@@ -86,48 +88,48 @@ export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesI
   }
 
   return (
-    <FormCard title="Cost & margin insight" description="Cost price is recomputed daily from purchase order receiving history; not a live figure.">
-      {loading && <p className="text-xs text-ink-4">Loading…</p>}
+    <FormCard title={t('insight.title')} description={t('insight.description')}>
+      {loading && <p className="text-xs text-ink-4">{t('common:status.loading')}</p>}
       {!loading && error && <p className="text-xs text-danger">{error}</p>}
       {!loading && !error && insight && !insight.cost_price_available && (
         <p className="text-xs text-ink-4">
-          No cost price yet — this SKU hasn't been received against a purchase order, or the daily cost-price job hasn't run since.
+          {t('insight.noCost')}
         </p>
       )}
       {!loading && !error && insight && insight.cost_price_available && (
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
           <div>
-            <div className="text-ink-4">Cost price</div>
+            <div className="text-ink-4">{t('insight.costPrice')}</div>
             <div className="font-medium text-ink">{money(insight.cost_price_minor_units)}</div>
           </div>
           <div>
-            <div className="text-ink-4">Recommended price</div>
+            <div className="text-ink-4">{t('insight.recommended')}</div>
             <div className="font-medium text-ink">
               {money(insight.recommended_price_minor_units)}
-              <span className="text-ink-4 font-normal"> ({pct(insight.effective_target_markup_basis_points)} target markup)</span>
+              <span className="text-ink-4 font-normal">{t('insight.targetMarkup', { percent: pct(insight.effective_target_markup_basis_points) })}</span>
             </div>
           </div>
           {profitRow(
-            'Profit at current price', insight.profit_at_price_minor_units, insight.margin_at_price_basis_points, insight.markup_at_price_basis_points,
+            t('insight.profitCurrent'), insight.profit_at_price_minor_units, insight.margin_at_price_basis_points, insight.markup_at_price_basis_points,
             insight.cost_price_minor_units + insight.profit_at_price_minor_units, insight.cost_price_minor_units,
           )}
           {insight.profit_at_sale_price_minor_units != null && insight.margin_at_sale_price_basis_points != null && insight.markup_at_sale_price_basis_points != null && (
             profitRow(
-              'Profit at sale price', insight.profit_at_sale_price_minor_units, insight.margin_at_sale_price_basis_points, insight.markup_at_sale_price_basis_points,
+              t('insight.profitSale'), insight.profit_at_sale_price_minor_units, insight.margin_at_sale_price_basis_points, insight.markup_at_sale_price_basis_points,
               insight.cost_price_minor_units + insight.profit_at_sale_price_minor_units, insight.cost_price_minor_units,
             )
           )}
           <div>
-            <div className="text-ink-4">On hand</div>
-            <div className="font-medium text-ink">{insight.total_on_hand_quantity} units</div>
+            <div className="text-ink-4">{t('insight.onHand')}</div>
+            <div className="font-medium text-ink">{t('insight.units', { count: insight.total_on_hand_quantity })}</div>
           </div>
           <div>
-            <div className="text-ink-4">Total profit potential</div>
+            <div className="text-ink-4">{t('insight.profitPotential')}</div>
             <div className="font-medium text-ink">{money(insight.total_profit_potential_minor_units)}</div>
           </div>
           {insight.shrinkage_minor_units > 0 && (
             <div className="col-span-2">
-              <div className="text-ink-4">Shrinkage (damaged/lost, last 30 days)</div>
+              <div className="text-ink-4">{t('insight.shrinkage')}</div>
               <div className="font-medium text-warning">{money(insight.shrinkage_minor_units)}</div>
             </div>
           )}
@@ -140,11 +142,6 @@ export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesI
   )
 }
 
-const PRICE_HISTORY_REASON_LABEL: Record<SKUPriceHistoryReason, string> = {
-  created: 'Created',
-  manual_update: 'Manual edit',
-  sale_expired: 'Sale expired',
-}
 
 // PriceHistoryCard shows the SKU's immutable effective-dated price/sale
 // price intervals -- see domain/pms.SKUPriceHistory. A row is only written
@@ -155,6 +152,10 @@ const PRICE_HISTORY_REASON_LABEL: Record<SKUPriceHistoryReason, string> = {
 export function PriceHistoryCard({ skuId, currency }: { skuId: string; currency: string }) {
   const { token } = useAuth()
   const { formatDateTime } = useDateFormat()
+  const { t } = useTranslation(['pms', 'common'])
+  const reasonLabel: Record<SKUPriceHistoryReason, string> = {
+    created: t('priceHistory.created'), manual_update: t('priceHistory.manual_update'), sale_expired: t('priceHistory.sale_expired'),
+  }
   const [history, setHistory] = useState<SKUPriceHistoryEntry[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -166,7 +167,7 @@ export function PriceHistoryCard({ skuId, currency }: { skuId: string; currency:
     setError('')
     pmsApi.listSKUPriceHistory(token, skuId)
       .then(result => { if (!cancelled) setHistory(result) })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load price history') })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : t('priceHistory.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token, skuId])
@@ -174,21 +175,21 @@ export function PriceHistoryCard({ skuId, currency }: { skuId: string; currency:
   const money = (minorUnits: number) => formatPrice(minorUnits, currency)
 
   return (
-    <FormCard title="Price history" description="An immutable record of every effective price change -- not the same as the daily-computed cost price above.">
-      {loading && <p className="text-xs text-ink-4">Loading…</p>}
+    <FormCard title={t('priceHistory.title')} description={t('priceHistory.description')}>
+      {loading && <p className="text-xs text-ink-4">{t('common:status.loading')}</p>}
       {!loading && error && <p className="text-xs text-danger">{error}</p>}
       {!loading && !error && history && history.length === 0 && (
-        <p className="text-xs text-ink-4">No price changes recorded yet.</p>
+        <p className="text-xs text-ink-4">{t('priceHistory.empty')}</p>
       )}
       {!loading && !error && history && history.length > 0 && (
         <table className="w-full text-xs">
           <thead>
             <tr className="text-ink-4">
-              <th className="text-left font-medium pb-1.5 pr-3">Valid from</th>
-              <th className="text-left font-medium pb-1.5 pr-3">Valid until</th>
-              <th className="text-left font-medium pb-1.5 pr-3">Price</th>
-              <th className="text-left font-medium pb-1.5 pr-3">Sale price</th>
-              <th className="text-left font-medium pb-1.5">Reason</th>
+              <th className="text-left font-medium pb-1.5 pr-3">{t('priceHistory.validFrom')}</th>
+              <th className="text-left font-medium pb-1.5 pr-3">{t('priceHistory.validUntil')}</th>
+              <th className="text-left font-medium pb-1.5 pr-3">{t('priceHistory.price')}</th>
+              <th className="text-left font-medium pb-1.5 pr-3">{t('priceHistory.salePrice')}</th>
+              <th className="text-left font-medium pb-1.5">{t('priceHistory.reason')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
@@ -196,13 +197,13 @@ export function PriceHistoryCard({ skuId, currency }: { skuId: string; currency:
               <tr key={entry.id}>
                 <td className="py-1.5 pr-3 text-ink-2">{formatDateTime(entry.valid_from)}</td>
                 <td className="py-1.5 pr-3 text-ink-2">
-                  {entry.valid_until ? formatDateTime(entry.valid_until) : <span className="text-success font-medium">Current</span>}
+                  {entry.valid_until ? formatDateTime(entry.valid_until) : <span className="text-success font-medium">{t('priceHistory.current')}</span>}
                 </td>
                 <td className="py-1.5 pr-3 text-ink font-medium">{money(entry.price_minor_units)}</td>
                 <td className="py-1.5 pr-3 text-ink">
                   {entry.sale_price_minor_units != null ? money(entry.sale_price_minor_units) : '—'}
                 </td>
-                <td className="py-1.5 text-ink-3">{PRICE_HISTORY_REASON_LABEL[entry.reason]}</td>
+                <td className="py-1.5 text-ink-3">{reasonLabel[entry.reason]}</td>
               </tr>
             ))}
           </tbody>
@@ -219,6 +220,8 @@ export function PriceHistoryCard({ skuId, currency }: { skuId: string; currency:
 export function ProductHistoryCard({ productId }: { productId: string }) {
   const { token } = useAuth()
   const { formatDateTime } = useDateFormat()
+  const { t } = useTranslation(['pms', 'common'])
+  const fieldLabel: Record<string, string> = { name: t('changeHistory.fieldName'), status: t('changeHistory.fieldStatus') }
   const [history, setHistory] = useState<ProductHistoryEntry[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -230,33 +233,33 @@ export function ProductHistoryCard({ productId }: { productId: string }) {
     setError('')
     pmsApi.listProductHistory(token, productId)
       .then(result => { if (!cancelled) setHistory(result) })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load change history') })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : t('changeHistory.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token, productId])
 
   return (
-    <FormCard title="Change history" description="Name and status changes -- an immutable audit trail.">
-      {loading && <p className="text-xs text-ink-4">Loading…</p>}
+    <FormCard title={t('changeHistory.title')} description={t('changeHistory.description')}>
+      {loading && <p className="text-xs text-ink-4">{t('common:status.loading')}</p>}
       {!loading && error && <p className="text-xs text-danger">{error}</p>}
       {!loading && !error && history && history.length === 0 && (
-        <p className="text-xs text-ink-4">No changes recorded yet.</p>
+        <p className="text-xs text-ink-4">{t('changeHistory.empty')}</p>
       )}
       {!loading && !error && history && history.length > 0 && (
         <table className="w-full text-xs">
           <thead>
             <tr className="text-ink-4">
-              <th className="text-left font-medium pb-1.5 pr-3">When</th>
-              <th className="text-left font-medium pb-1.5 pr-3">Field</th>
-              <th className="text-left font-medium pb-1.5 pr-3">From</th>
-              <th className="text-left font-medium pb-1.5">To</th>
+              <th className="text-left font-medium pb-1.5 pr-3">{t('changeHistory.when')}</th>
+              <th className="text-left font-medium pb-1.5 pr-3">{t('changeHistory.field')}</th>
+              <th className="text-left font-medium pb-1.5 pr-3">{t('changeHistory.from')}</th>
+              <th className="text-left font-medium pb-1.5">{t('changeHistory.to')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {history.map(entry => (
               <tr key={entry.id}>
                 <td className="py-1.5 pr-3 text-ink-2">{formatDateTime(entry.changed_at)}</td>
-                <td className="py-1.5 pr-3 text-ink-3 capitalize">{entry.field}</td>
+                <td className="py-1.5 pr-3 text-ink-3 capitalize">{fieldLabel[entry.field] ?? entry.field}</td>
                 <td className="py-1.5 pr-3 text-ink-2">{entry.old_value}</td>
                 <td className="py-1.5 text-ink font-medium">{entry.new_value}</td>
               </tr>
@@ -276,6 +279,7 @@ export function ProductHistoryCard({ productId }: { productId: string }) {
 // application/pms's RecalculateCostPricesUseCase).
 function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId: string; insight: SKUMarginInsight; currency: string; onChanged: () => void }) {
   const { token } = useAuth()
+  const { t } = useTranslation(['pms', 'common'])
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -299,7 +303,7 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
       setValue('')
       onChanged()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to set cost price')
+      setError(err instanceof Error ? err.message : t('insight.setFailed'))
     } finally {
       setSaving(false)
     }
@@ -313,7 +317,7 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
       await pmsApi.clearCostPriceOverride(token, skuId)
       onChanged()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to revert cost price')
+      setError(err instanceof Error ? err.message : t('insight.revertFailed'))
     } finally {
       setSaving(false)
     }
@@ -324,19 +328,19 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
       {isManual ? (
         <div className="flex items-center gap-2 text-xs">
           <span className="text-ink-4">
-            Cost price set manually ({currency} {(insight.cost_price_minor_units / 100).toFixed(2)}) -- the daily job won't overwrite it.
+            {t('insight.manualSet', { currency, amount: (insight.cost_price_minor_units / 100).toFixed(2) })}
           </span>
           <button
             type="button" onClick={handleClear} disabled={saving}
             className="px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-2xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50 shrink-0"
           >
-            {saving ? 'Reverting…' : 'Revert to automatic'}
+            {saving ? t('insight.reverting') : t('insight.revert')}
           </button>
         </div>
       ) : (
         <div className="flex items-center gap-1.5">
           <span className="text-2xs text-ink-4 shrink-0">
-            {insight.cost_price_available ? 'Override cost price' : 'Set cost price manually'}
+            {insight.cost_price_available ? t('insight.override') : t('insight.setManually')}
           </span>
           <input
             type="number" step="0.01" min="0" placeholder={currency}
@@ -347,7 +351,7 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
             type="button" onClick={handleSet} disabled={saving || value.trim() === ''}
             className="px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-2xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50"
           >
-            {saving ? 'Saving…' : 'Set'}
+            {saving ? t('common:actions.saving') : t('insight.set')}
           </button>
         </div>
       )}
@@ -361,6 +365,7 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
 // pms.Category.TargetMarkupBasisPoints) -- an empty input means "use the
 // tenant default", matching UpdateCategoryInput's full-replace semantics.
 export function CategoryMarginEditor({ category, onSave }: { category: Category | null; onSave: (basisPoints: number | null) => Promise<Category> }) {
+  const { t } = useTranslation(['pms', 'common'])
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
@@ -386,15 +391,15 @@ export function CategoryMarginEditor({ category, onSave }: { category: Category 
   return (
     <div className="flex items-center gap-1.5 mt-1.5">
       <input
-        type="number" step="0.1" min="0" placeholder="Tenant default"
+        type="number" step="0.1" min="0" placeholder={t('insight.tenantDefault')}
         value={value} onChange={e => { setValue(e.target.value); setSavedMsg(false) }}
         className="w-28 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
       />
-      <span className="text-2xs text-ink-4">% target markup for this category</span>
+      <span className="text-2xs text-ink-4">{t('insight.categoryMarkup')}</span>
       <button type="button" onClick={handleSave} disabled={saving} className="px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-2xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50">
-        {saving ? 'Saving…' : 'Save'}
+        {saving ? t('common:actions.saving') : t('common:actions.save')}
       </button>
-      {savedMsg && <span className="text-2xs text-success">Saved</span>}
+      {savedMsg && <span className="text-2xs text-success">{t('common:status.saved')}</span>}
     </div>
   )
 }

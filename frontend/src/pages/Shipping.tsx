@@ -1,5 +1,6 @@
 import { Truck, Package, Search, CheckCircle, Clock, AlertTriangle, Printer, ExternalLink } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { subPathSegments } from '../routes'
 import { useQueryString } from '../routing/useQueryState'
@@ -35,13 +36,13 @@ const CARRIER_COLORS: Record<string, string> = {
   postnl: 'bg-orange-600/15 text-orange-500',
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  label_created: { label: 'Label created', color: 'text-ink-4', icon: Printer },
-  picked_up: { label: 'Picked up', color: 'text-accent', icon: Package },
-  in_transit: { label: 'In transit', color: 'text-warning', icon: Truck },
-  out_for_delivery: { label: 'Out for delivery', color: 'text-accent', icon: Truck },
-  delivered: { label: 'Delivered', color: 'text-success', icon: CheckCircle },
-  exception: { label: 'Exception', color: 'text-danger', icon: AlertTriangle },
+const STATUS_CONFIG: Record<Shipment['status'], { color: string; icon: React.ElementType }> = {
+  label_created: { color: 'text-ink-4', icon: Printer },
+  picked_up: { color: 'text-accent', icon: Package },
+  in_transit: { color: 'text-warning', icon: Truck },
+  out_for_delivery: { color: 'text-accent', icon: Truck },
+  delivered: { color: 'text-success', icon: CheckCircle },
+  exception: { color: 'text-danger', icon: AlertTriangle },
 }
 
 const CARRIER_RULES = [
@@ -55,6 +56,11 @@ const CARRIER_RULES = [
 const SHIPPING_PATH = '/shipping'
 
 export default function Shipping() {
+  const { t } = useTranslation(['shipping', 'common'])
+  const statusLabel: Record<Shipment['status'], string> = {
+    label_created: t('status.label_created'), picked_up: t('status.picked_up'), in_transit: t('status.in_transit'),
+    out_for_delivery: t('status.out_for_delivery'), delivered: t('status.delivered'), exception: t('status.exception'),
+  }
   // Tab is the path (/shipping, /shipping/rules); search is ?q= -- refresh
   // and Back keep them.
   const [searchParam, setSearch] = useQueryString('q')
@@ -82,10 +88,10 @@ export default function Shipping() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-0 border-b border-line shrink-0">
         {[
-          ['Shipped today', stats.today.toString(), 'blue'],
-          ['In transit', stats.inTransit.toString(), 'amber'],
-          ['Delivered', stats.delivered.toString(), 'green'],
-          ['Exceptions', stats.exceptions.toString(), 'red'],
+          [t('page.shippedToday'), stats.today.toString(), 'blue'],
+          [t('page.inTransit'), stats.inTransit.toString(), 'amber'],
+          [t('page.delivered'), stats.delivered.toString(), 'green'],
+          [t('page.exceptions'), stats.exceptions.toString(), 'red'],
         ].map(([label, val, color]) => (
           <div key={label} className="px-5 py-3 border-r last:border-0 border-line">
             <p className={clsx('text-2xl font-semibold',
@@ -98,18 +104,18 @@ export default function Shipping() {
 
       {/* Tabs + toolbar */}
       <div className="flex items-center gap-4 px-5 py-2.5 border-b border-line shrink-0">
-        {(['shipments', 'rules'] as const).map(t => (
-          <button aria-pressed={tab === t}
-            key={t}
-            onClick={() => setTab(t)}
+        {(['shipments', 'rules'] as const).map(item => (
+          <button aria-pressed={tab === item}
+            key={item}
+            onClick={() => setTab(item)}
             className={clsx(
               'text-xs font-medium capitalize transition-colors pb-0.5',
-              tab === t
+              tab === item
                 ? 'text-ink border-b-2 border-accent'
                 : 'text-ink-4 hover:text-ink-2',
             )}
           >
-            {t === 'shipments' ? 'Shipments' : 'Carrier rules'}
+            {item === 'shipments' ? t('page.tabShipments') : t('page.tabRules')}
           </button>
         ))}
 
@@ -119,7 +125,7 @@ export default function Shipping() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Order, customer, tracking..."
+              placeholder={t('page.search')}
               className="pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus w-60"
             />
           </div>
@@ -135,8 +141,8 @@ export default function Shipping() {
                 <th className="px-4 py-2.5 w-8">
                   <input type="checkbox" className="rounded accent-accent-solid w-3 h-3" />
                 </th>
-                {['Shipment', 'Order', 'Customer', 'Carrier', 'Service', 'Weight', 'Tracking', 'Status', 'Cost', 'Date', ''].map(h => (
-                  <th key={h} className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                {[t('page.colShipment'), t('page.colOrder'), t('page.colCustomer'), t('page.colCarrier'), t('page.colService'), t('page.colWeight'), t('page.colTracking'), t('page.colStatus'), t('page.colCost'), t('page.colDate'), ''].map((h, i) => (
+                  <th key={i} className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -165,17 +171,17 @@ export default function Shipping() {
                     <td className="px-3 py-2.5">
                       <span className={clsx('flex items-center gap-1 w-fit font-medium text-2xs', cfg.color)}>
                         <Icon size={10} />
-                        {cfg.label}
+                        {statusLabel[s.status]}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-ink font-medium">€{s.cost.toFixed(2)}</td>
                     <td className="px-3 py-2.5 text-ink-4 font-mono text-2xs">{s.created}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
-                        <button aria-label="Print label" title="Print label" className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover">
+                        <button aria-label={t('page.printLabel')} title={t('page.printLabel')} className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover">
                           <Printer size={12} className="text-ink-3" />
                         </button>
-                        <button aria-label="Open tracking" title="Open tracking" className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover">
+                        <button aria-label={t('page.openTracking')} title={t('page.openTracking')} className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover">
                           <ExternalLink size={12} className="text-ink-3" />
                         </button>
                       </div>
@@ -194,18 +200,18 @@ export default function Shipping() {
           <div className="bg-raised rounded-xl border border-line overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-line">
               <div>
-                <h3 className="text-sm font-semibold text-ink">Auto-carrier rules</h3>
-                <p className="text-2xs text-ink-4 mt-0.5">Rules applied automatically based on weight, region, and cost</p>
+                <h3 className="text-sm font-semibold text-ink">{t('page.rulesTitle')}</h3>
+                <p className="text-2xs text-ink-4 mt-0.5">{t('page.rulesIntro')}</p>
               </div>
               <button className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">
-                + Add Rule
+                {t('page.addRule')}
               </button>
             </div>
             <table className="w-full text-xs">
               <thead className="dark:bg-night-900/50 bg-gray-50 border-b border-line">
                 <tr>
-                  {['Service', 'Carrier', 'Condition', 'Cost', 'Auto', 'Priority'].map(h => (
-                    <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">{h}</th>
+                  {[t('page.colService'), t('page.colCarrier'), t('page.colCondition'), t('page.colCost'), t('page.colAuto'), t('page.colPriority')].map((h, i) => (
+                    <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">{h}</th>
                   ))}
                 </tr>
               </thead>

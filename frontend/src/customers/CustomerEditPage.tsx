@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import type { Customer, CustomerInput, Address } from './types'
 
 // ── Customer Edit Page ───────────────────────────────────────────────────────
@@ -16,6 +18,7 @@ function emptyAddress(): Address {
 }
 
 export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: CustomerEditPageProps) {
+  const { t } = useTranslation(['customers', 'common'])
   const [firstName, setFirstName] = useState(customer?.first_name ?? '')
   const [lastName, setLastName] = useState(customer?.last_name ?? '')
   const [email, setEmail] = useState(customer?.email ?? '')
@@ -56,7 +59,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
       }
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to save customer')
+      setFormError(err instanceof Error ? err.message : t('edit.failed'))
     } finally {
       setSaving(false)
     }
@@ -73,10 +76,10 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Customer
+            <ArrowLeft size={11} /> {t('edit.back')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {customer ? [firstName, lastName].filter(Boolean).join(' ') || 'Edit customer' : 'New customer'}
+            {customer ? [firstName, lastName].filter(Boolean).join(' ') || t('edit.editTitle') : t('edit.newTitle')}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -84,13 +87,13 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
             type="button" onClick={onClose}
             className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
           >
-            Discard
+            {t('edit.discard')}
           </button>
           <button
             type="submit" form="customer-form" disabled={saving || !email.trim()}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : customer ? 'Save' : 'Create customer'}
+            {saving ? t('common:actions.saving') : customer ? t('common:actions.save') : t('edit.create')}
           </button>
         </div>
       </div>
@@ -100,24 +103,24 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
           <form id="customer-form" onSubmit={handleSave} className="space-y-5">
             <div className="rounded-xl border border-line p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-ink">General</h3>
+                <h3 className="text-xs font-semibold text-ink">{t('edit.general')}</h3>
                 <label className="flex items-center gap-1.5 text-2xs text-ink-3">
                   <input type="checkbox" checked={isPayingCustomer} onChange={e => setIsPayingCustomer(e.target.checked)} />
-                  Paying customer
+                  {t('edit.paying')}
                 </label>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="customer-first-name" className={labelClass}>First name</label>
+                  <label htmlFor="customer-first-name" className={labelClass}>{t('edit.firstName')}</label>
                   <input id="customer-first-name" type="text" autoFocus value={firstName} onChange={e => setFirstName(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label htmlFor="customer-last-name" className={labelClass}>Last name</label>
+                  <label htmlFor="customer-last-name" className={labelClass}>{t('edit.lastName')}</label>
                   <input id="customer-last-name" type="text" value={lastName} onChange={e => setLastName(e.target.value)} className={inputClass} />
                 </div>
               </div>
               <div>
-                <label htmlFor="customer-email" className={labelClass}>Email</label>
+                <label htmlFor="customer-email" className={labelClass}>{t('common:fields.email')}</label>
                 <input id="customer-email" type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} />
               </div>
               {formError && (
@@ -125,8 +128,8 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
               )}
             </div>
 
-            <AddressFields title="Billing address" prefix="billing" value={billing} onChange={setBilling} showEmailPhone />
-            <AddressFields title="Shipping address" prefix="shipping" value={shipping} onChange={setShipping} />
+            <AddressFields kind="billing" prefix="billing" value={billing} onChange={setBilling} showEmailPhone />
+            <AddressFields kind="shipping" prefix="shipping" value={shipping} onChange={setShipping} />
           </form>
         </div>
       </div>
@@ -134,44 +137,53 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
   )
 }
 
-function AddressFields({ title, prefix, value, onChange, showEmailPhone }: { title: string; prefix: string; value: Address; onChange: (a: Address) => void; showEmailPhone?: boolean }) {
+interface AddressLabels { title: string; address1: string; address2: string; city: string; state: string; postcode: string; country: string; phone: string }
+
+function addressLabels(kind: 'billing' | 'shipping'): AddressLabels {
+  return kind === 'billing'
+    ? { title: i18next.t('customers:edit.billing.title'), address1: i18next.t('customers:edit.billing.address1'), address2: i18next.t('customers:edit.billing.address2'), city: i18next.t('customers:edit.billing.city'), state: i18next.t('customers:edit.billing.state'), postcode: i18next.t('customers:edit.billing.postcode'), country: i18next.t('customers:edit.billing.country'), phone: i18next.t('customers:edit.billing.phone') }
+    : { title: i18next.t('customers:edit.shipping.title'), address1: i18next.t('customers:edit.shipping.address1'), address2: i18next.t('customers:edit.shipping.address2'), city: i18next.t('customers:edit.shipping.city'), state: i18next.t('customers:edit.shipping.state'), postcode: i18next.t('customers:edit.shipping.postcode'), country: i18next.t('customers:edit.shipping.country'), phone: i18next.t('customers:edit.shipping.phone') }
+}
+
+function AddressFields({ kind, prefix, value, onChange, showEmailPhone }: { kind: 'billing' | 'shipping'; prefix: string; value: Address; onChange: (a: Address) => void; showEmailPhone?: boolean }) {
+  useTranslation('customers') // re-render when the language changes
+  const labels = addressLabels(kind)
   const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
   const set = (field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [field]: e.target.value })
   const id = (field: string) => `${prefix}-${field}`
-  const label = (text: string) => `${title.replace(' address', '')} ${text}`
 
   return (
     <div className="rounded-xl border border-line p-4 space-y-3">
-      <h3 className="text-xs font-semibold text-ink">{title}</h3>
+      <h3 className="text-xs font-semibold text-ink">{labels.title}</h3>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor={id('address-1')} className={labelClass}>{label('address line 1')}</label>
+          <label htmlFor={id('address-1')} className={labelClass}>{labels.address1}</label>
           <input id={id('address-1')} type="text" value={value.address_1 ?? ''} onChange={set('address_1')} className={inputClass} />
         </div>
         <div>
-          <label htmlFor={id('address-2')} className={labelClass}>{label('address line 2')}</label>
+          <label htmlFor={id('address-2')} className={labelClass}>{labels.address2}</label>
           <input id={id('address-2')} type="text" value={value.address_2 ?? ''} onChange={set('address_2')} className={inputClass} />
         </div>
         <div>
-          <label htmlFor={id('city')} className={labelClass}>{label('city')}</label>
+          <label htmlFor={id('city')} className={labelClass}>{labels.city}</label>
           <input id={id('city')} type="text" value={value.city ?? ''} onChange={set('city')} className={inputClass} />
         </div>
         <div>
-          <label htmlFor={id('state')} className={labelClass}>{label('state')}</label>
+          <label htmlFor={id('state')} className={labelClass}>{labels.state}</label>
           <input id={id('state')} type="text" value={value.state ?? ''} onChange={set('state')} className={inputClass} />
         </div>
         <div>
-          <label htmlFor={id('postcode')} className={labelClass}>{label('postcode')}</label>
+          <label htmlFor={id('postcode')} className={labelClass}>{labels.postcode}</label>
           <input id={id('postcode')} type="text" value={value.postcode ?? ''} onChange={set('postcode')} className={inputClass} />
         </div>
         <div>
-          <label htmlFor={id('country')} className={labelClass}>{label('country')}</label>
+          <label htmlFor={id('country')} className={labelClass}>{labels.country}</label>
           <input id={id('country')} type="text" value={value.country ?? ''} onChange={set('country')} className={inputClass} />
         </div>
         {showEmailPhone && (
           <div>
-            <label htmlFor={id('phone')} className={labelClass}>{label('phone')}</label>
+            <label htmlFor={id('phone')} className={labelClass}>{labels.phone}</label>
             <input id={id('phone')} type="tel" value={value.phone ?? ''} onChange={set('phone')} className={inputClass} />
           </div>
         )}

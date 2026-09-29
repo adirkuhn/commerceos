@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import i18next from 'i18next'
 import * as api from './api'
 import type { Theme } from './types'
 
@@ -13,7 +14,7 @@ export function useThemes(token: string, salesChannelId: string) {
       setThemes((await api.listThemes(token, salesChannelId)).items)
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load themes')
+      setError(err instanceof Error ? err.message : i18next.t('themes:errors.load'))
     } finally {
       setLoading(false)
     }

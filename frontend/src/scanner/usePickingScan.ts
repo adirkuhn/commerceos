@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type RefObject } from 'react'
+import i18next from 'i18next'
 import * as api from './api'
 import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
 import { isAuthError } from '../auth/isAuthError'
@@ -48,7 +49,7 @@ export function usePickingScan({ token, sessionId, detail, codeInputRef, stage, 
     if (li) {
       const pickedSoFar = pickedQuantityByLineItem(detail?.scans ?? []).get(li.id) ?? 0
       if (pickedSoFar >= li.quantity) {
-        showScanError('Already fully picked')
+        showScanError(i18next.t('scanner:errors.alreadyPicked'))
         return
       }
       await stage({ sku_id: skuId, action_type: 'pick', quantity })
@@ -62,7 +63,7 @@ export function usePickingScan({ token, sessionId, detail, codeInputRef, stage, 
     const ok = await stage({ sku_id: skuId, action_type: 'pick', quantity })
     if (!ok) {
       setError('')
-      showScanError('Item not on this order')
+      showScanError(i18next.t('scanner:errors.notOnOrder'))
     }
   }
 
@@ -86,7 +87,7 @@ export function usePickingScan({ token, sessionId, detail, codeInputRef, stage, 
       } catch {
         // fall through to the blocking error below
       }
-      showScanError('Barcode not recognized')
+      showScanError(i18next.t('scanner:errors.barcodeUnknown'))
     } finally {
       setScanning(false)
       codeInputRef.current?.focus()
@@ -99,7 +100,7 @@ export function usePickingScan({ token, sessionId, detail, codeInputRef, stage, 
     // scan, applied here too so this fuzzy-search fallback can't bypass it.
     if (c.sku.pricing_mode === 'per_weight') {
       setCandidates([])
-      showScanError('Priced by weight — scan its scale barcode, not a name/code match')
+      showScanError(i18next.t('scanner:errors.pricedByWeight'))
       return
     }
     setCandidates([])

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useCustomerWhatsAppMessages } from './hooks/useCustomerWhatsAppMessages'
 import { useDateFormat } from '../format/DateFormatProvider'
@@ -8,16 +9,17 @@ import { useDateFormat } from '../format/DateFormatProvider'
 export function WhatsAppConversationPanel({ customerId }: { customerId: string }) {
   const { formatDateTime } = useDateFormat()
   const { token } = useAuth()
+  const { t } = useTranslation(['customers', 'common'])
   const { messages, loading, error } = useCustomerWhatsAppMessages(token ?? '', customerId)
 
   if (!loading && messages.length === 0 && !error) return null
 
   return (
     <div className="rounded-xl border border-line p-4 space-y-2 text-xs">
-      <p className="font-medium text-ink-2">WhatsApp conversation</p>
+      <p className="font-medium text-ink-2">{t('whatsapp.title')}</p>
       {error && <p className="text-danger">{error}</p>}
       {loading ? (
-        <p className="text-ink-4">Loading…</p>
+        <p className="text-ink-4">{t('common:status.loading')}</p>
       ) : (
         <div className="space-y-2 max-h-80 overflow-y-auto">
           {messages.map(m => (

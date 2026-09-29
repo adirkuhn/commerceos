@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import type { SyncSchedule, SyncEntityType, SyncDirection } from './types'
 
 export const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
@@ -14,26 +15,26 @@ export function normalizeCurrency(value: string | null | undefined): string {
 // pollInterval), so 1 minute is the shortest interval that's meaningful --
 // anything sub-minute would just run every poll tick anyway.
 export const INTERVAL_OPTIONS: { label: string; minutes: number }[] = [
-  { label: '1 minute', minutes: 1 },
-  { label: '5 minutes', minutes: 5 },
-  { label: '10 minutes', minutes: 10 },
-  { label: '15 minutes', minutes: 15 },
-  { label: '30 minutes', minutes: 30 },
-  { label: '1 hour', minutes: 60 },
-  { label: '6 hours', minutes: 360 },
-  { label: '12 hours', minutes: 720 },
-  { label: '24 hours', minutes: 1440 },
+  { get label() { return i18next.t('integrations:interval.minutes', { count: 1 }) }, minutes: 1 },
+  { get label() { return i18next.t('integrations:interval.minutes', { count: 5 }) }, minutes: 5 },
+  { get label() { return i18next.t('integrations:interval.minutes', { count: 10 }) }, minutes: 10 },
+  { get label() { return i18next.t('integrations:interval.minutes', { count: 15 }) }, minutes: 15 },
+  { get label() { return i18next.t('integrations:interval.minutes', { count: 30 }) }, minutes: 30 },
+  { get label() { return i18next.t('integrations:interval.hours', { count: 1 }) }, minutes: 60 },
+  { get label() { return i18next.t('integrations:interval.hours', { count: 6 }) }, minutes: 360 },
+  { get label() { return i18next.t('integrations:interval.hours', { count: 12 }) }, minutes: 720 },
+  { get label() { return i18next.t('integrations:interval.hours', { count: 24 }) }, minutes: 1440 },
 ]
 
 // runnableDirections: which of Import/Export columns actually work for
 // this entity. Orders is import-only -- CommerceOS never pushes an order
 // it created back to Woo.
 export const ROWS: { entity: SyncEntityType; label: string; runnableDirections: SyncDirection[] }[] = [
-  { entity: 'products', label: 'Products', runnableDirections: ['import', 'export'] },
-  { entity: 'stock', label: 'Stock levels', runnableDirections: ['import', 'export'] },
-  { entity: 'orders', label: 'Orders', runnableDirections: ['import'] },
-  { entity: 'orders_reconciliation', label: 'Order reconciliation', runnableDirections: ['import'] },
-  { entity: 'categories', label: 'Categories', runnableDirections: [] },
+  { entity: 'products', get label() { return i18next.t('integrations:entity.products') }, runnableDirections: ['import', 'export'] },
+  { entity: 'stock', get label() { return i18next.t('integrations:entity.stock') }, runnableDirections: ['import', 'export'] },
+  { entity: 'orders', get label() { return i18next.t('integrations:entity.orders') }, runnableDirections: ['import'] },
+  { entity: 'orders_reconciliation', get label() { return i18next.t('integrations:entity.ordersReconciliation') }, runnableDirections: ['import'] },
+  { entity: 'categories', get label() { return i18next.t('integrations:entity.categories') }, runnableDirections: [] },
 ]
 
 export const DIRECTIONS: SyncDirection[] = ['import', 'export']
@@ -54,4 +55,14 @@ export function cellKey(entity: SyncEntityType, direction: SyncDirection): strin
 
 export function defaultCell(seedCurrency = ''): CellState {
   return { enabled: false, intervalMinutes: 60, defaultWarehouseId: '', defaultCurrency: seedCurrency, lastRunStatus: '', lastRunError: '' }
+}
+
+export function directionLabel(direction: SyncDirection): string {
+  return direction === 'import' ? i18next.t('integrations:direction.import') : i18next.t('integrations:direction.export')
+}
+
+export function runStatusLabel(status: SyncSchedule['last_run_status']): string {
+  if (status === 'success') return i18next.t('integrations:schedule.statusSuccess')
+  if (status === 'error') return i18next.t('integrations:schedule.statusError')
+  return i18next.t('integrations:schedule.statusUnknown')
 }

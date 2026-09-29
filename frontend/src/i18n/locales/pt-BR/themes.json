@@ -1,0 +1,41 @@
+{
+  "backToChannels": "Voltar aos canais de venda",
+  "create": "Criar tema",
+  "creating": "Criando…",
+  "customize": "Personalizar",
+  "delete": {
+    "confirm": "Excluir tema",
+    "message": "O design e todas as versões salvas serão excluídos. Isso não pode ser desfeito.",
+    "title": "Excluir o tema \"{{name}}\"?"
+  },
+  "draftOnly": "Somente rascunho",
+  "empty": "Nenhum tema ainda. Crie um para começar a montar esta loja.",
+  "errors": {
+    "create": "Não foi possível criar o tema",
+    "delete": "Não foi possível excluir o tema",
+    "load": "Não foi possível carregar os temas",
+    "makeLive": "Não foi possível colocar a versão no ar",
+    "openEditor": "Não foi possível abrir o editor"
+  },
+  "headlessWarning": "Este canal é headless. Mude a configuração Loja virtual para \"Loja hospedada\" para criar e publicar um tema.",
+  "history": {
+    "confirmMessage": "Os clientes verão na hora. As alterações não publicadas no editor são mantidas.",
+    "confirmTitle": "Colocar a versão {{number}} de \"{{name}}\" no ar?",
+    "listLabel": "Versões de {{name}}",
+    "loading": "Carregando versões…",
+    "makeLive": "Colocar no ar",
+    "notPublished": "Ainda não publicado.",
+    "published": "Publicado em {{date}}",
+    "version": "Versão {{number}}"
+  },
+  "listLabel": "Temas",
+  "live": "No ar",
+  "liveCannotDelete": "O tema no ar não pode ser excluído",
+  "loading": "Carregando temas…",
+  "newThemeName": "Nome do novo tema",
+  "notLive": "Fora do ar",
+  "title": "Temas · {{channel}}",
+  "updated": "Atualizado em {{date}}",
+  "versions": "Versões",
+  "viewStore": "Ver loja"
+}

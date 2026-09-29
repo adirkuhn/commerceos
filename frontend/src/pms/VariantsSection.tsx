@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, X, Boxes } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useApp } from '../context/AppContext'
@@ -22,6 +23,7 @@ interface VariantsSectionProps {
 export function VariantsSection({ detail, productId }: VariantsSectionProps) {
   const { token } = useAuth()
   const { media: productMedia } = useProductMedia(token ?? '', productId)
+  const { t } = useTranslation(['pms', 'common'])
   const [adding, setAdding] = useState(false)
   const [variantName, setVariantName] = useState('')
   const [addError, setAddError] = useState('')
@@ -39,7 +41,7 @@ export function VariantsSection({ detail, productId }: VariantsSectionProps) {
     try {
       await detail.addVariant({ name: variantName })
     } catch (err) {
-      setAddError(err instanceof Error ? err.message : 'Failed to add variant')
+      setAddError(err instanceof Error ? err.message : t('variant.addFailed'))
       setSubmitting(false)
       return
     }
@@ -55,11 +57,11 @@ export function VariantsSection({ detail, productId }: VariantsSectionProps) {
           onClick={() => setAdding(v => !v)}
           className="text-2xs font-medium px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 hover:bg-hover transition-colors"
         >
-          {adding ? 'Cancel' : '+ Add Variant'}
+          {adding ? t('common:actions.cancel') : t('variant.addVariant')}
         </button>
       </div>
 
-      {detail.loading && <p className="text-xs text-ink-4">Loading…</p>}
+      {detail.loading && <p className="text-xs text-ink-4">{t('common:status.loading')}</p>}
       {detail.error && <p className="text-xs text-danger">{detail.error}</p>}
 
       <div className="space-y-2">
@@ -78,15 +80,15 @@ export function VariantsSection({ detail, productId }: VariantsSectionProps) {
         // "Add variant" button redirecting home.
         <div className="p-3 rounded-lg border border-line space-y-2">
           <input
-            type="text" required placeholder="Variant name (e.g. Large)" value={variantName} onChange={e => setVariantName(e.target.value)}
+            type="text" required placeholder={t('variant.namePlaceholderExample')} value={variantName} onChange={e => setVariantName(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddVariant() } }}
             className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
           />
           {addError && <p className="text-xs text-danger">{addError}</p>}
           <button type="button" onClick={handleAddVariant} disabled={submitting} className="w-full py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors">
-            {submitting ? 'Adding…' : 'Add variant'}
+            {submitting ? t('variant.adding') : t('variant.addVariantButton')}
           </button>
-          <p className="text-2xs text-ink-4">Add a SKU (price/barcode) to the variant after creating it.</p>
+          <p className="text-2xs text-ink-4">{t('variant.addSkuAfter')}</p>
         </div>
       )}
     </div>
@@ -109,6 +111,7 @@ interface CaseOfSKUPickerProps {
 
 export function CaseOfSKUPicker({ excludeSKUID, filterSku, onSelect, onClose }: CaseOfSKUPickerProps) {
   const { token } = useAuth()
+  const { t } = useTranslation(['pms', 'common'])
   const [query, setQuery] = useState('')
   const { products } = useProducts(token ?? '', { search: query, perPage: 5 })
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null)
@@ -138,16 +141,16 @@ export function CaseOfSKUPicker({ excludeSKUID, filterSku, onSelect, onClose }: 
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-4" />
           <input
             autoFocus value={query} onChange={e => setQuery(e.target.value)}
-            placeholder="Search products by name…"
+            placeholder={t('variant.searchProducts')}
             className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
-        <button aria-label="Close" type="button" onClick={onClose} title="Close">
+        <button aria-label={t('common:actions.close')} type="button" onClick={onClose} title={t('common:actions.close')}>
           <X size={14} className="text-ink-4" />
         </button>
       </div>
       <div className="max-h-48 overflow-auto space-y-1">
-        {products.length === 0 && <p className="text-2xs text-ink-4 px-1">No matching products</p>}
+        {products.length === 0 && <p className="text-2xs text-ink-4 px-1">{t('variant.noMatching')}</p>}
         {products.map(p => (
           <div key={p.id}>
             <button
@@ -159,8 +162,8 @@ export function CaseOfSKUPicker({ excludeSKUID, filterSku, onSelect, onClose }: 
             </button>
             {expandedProductId === p.id && (
               <div className="pl-4 space-y-0.5">
-                {loadingSkus && <p className="text-2xs text-ink-4">Loading…</p>}
-                {!loadingSkus && skus.length === 0 && <p className="text-2xs text-ink-4">No other SKUs on this product</p>}
+                {loadingSkus && <p className="text-2xs text-ink-4">{t('common:status.loading')}</p>}
+                {!loadingSkus && skus.length === 0 && <p className="text-2xs text-ink-4">{t('variant.noOtherSkus')}</p>}
                 {!loadingSkus && skus.map(s => (
                   <button
                     key={s.id}
@@ -187,6 +190,7 @@ export function CaseOfSKUPicker({ excludeSKUID, filterSku, onSelect, onClose }: 
 export function StockBadge({ skuId }: { skuId: string }) {
   const { token } = useAuth()
   const { setActiveNav } = useApp()
+  const { t } = useTranslation('pms')
   const [level, setLevel] = useState<StockLevel | null>(null)
 
   useEffect(() => {
@@ -200,11 +204,11 @@ export function StockBadge({ skuId }: { skuId: string }) {
     <button
       type="button"
       onClick={() => setActiveNav('inventory')}
-      title="View in Inventory"
+      title={t('variant.viewInventory')}
       className="flex items-center gap-1 text-2xs text-ink-3 hover:text-accent shrink-0"
     >
       <Boxes size={11} />
-      {level ? `${level.total} in stock` : '…'}
+      {level ? t('variant.inStock', { n: level.total }) : '…'}
     </button>
   )
 }

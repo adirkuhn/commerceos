@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ClipboardList, Lock, Search } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import type { QueueEntry, SalesOrder } from '../oms/types'
 import { orderNumber } from './orderDisplay'
 import { lockLabel } from './lockDisplay'
@@ -30,6 +31,7 @@ interface PackingOrderQueueProps {
 export function PackingOrderQueue({
   entries, loading, error, activeOrderId, activeInProgress, currentUserId, isAdmin, nameFor, onSelect, onOpenPickList,
 }: PackingOrderQueueProps) {
+  const { t } = useTranslation(['packing', 'common'])
   const [search, setSearch] = useState('')
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
 
@@ -63,8 +65,8 @@ export function PackingOrderQueue({
   return (
     <div className="w-64 border-r border-line bg-sunken flex flex-col overflow-hidden shrink-0">
       <div className="px-4 py-3 border-b border-line">
-        <p className="text-xs font-semibold text-ink">Orders to pack</p>
-        <p className="text-2xs text-ink-4 mt-0.5">{entries.length} to pack</p>
+        <p className="text-xs font-semibold text-ink">{t('queue.title')}</p>
+        <p className="text-2xs text-ink-4 mt-0.5">{t('queue.count', { count: entries.length })}</p>
       </div>
       <div className="px-3 py-2 border-b border-line space-y-2">
         <div className="relative">
@@ -72,14 +74,14 @@ export function PackingOrderQueue({
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search orders..."
+            placeholder={t('queue.search')}
             className="w-full pl-7 pr-2 py-1.5 text-2xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
-            aria-label="Select all orders"
+            aria-label={t('queue.selectAll')}
             checked={allVisibleTicked}
             onChange={toggleAllVisible}
             disabled={visible.length === 0}
@@ -91,15 +93,15 @@ export function PackingOrderQueue({
             className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-2xs font-medium rounded-lg bg-raised border border-line text-ink-2 hover:text-ink disabled:opacity-40"
           >
             <ClipboardList size={12} />
-            {tickedIds.length > 0 ? `Pick list (${tickedIds.length})` : 'Pick list'}
+            {tickedIds.length > 0 ? t('queue.pickListCount', { n: tickedIds.length }) : t('queue.pickList')}
           </button>
         </div>
       </div>
       <ul className="flex-1 overflow-y-auto py-2">
-        {loading && <li className="px-4 py-3 text-2xs text-ink-4">Loading…</li>}
+        {loading && <li className="px-4 py-3 text-2xs text-ink-4">{t('common:status.loading')}</li>}
         {error && <li className="px-4 py-3 text-2xs text-danger">{error}</li>}
         {!loading && !error && visible.length === 0 && (
-          <li className="px-4 py-3 text-2xs text-ink-4">No orders to pack</li>
+          <li className="px-4 py-3 text-2xs text-ink-4">{t('queue.empty')}</li>
         )}
         {visible.map(({ sales_order: o, lock }) => {
           const active = activeOrderId === o.id
@@ -109,8 +111,8 @@ export function PackingOrderQueue({
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-xs font-medium text-ink">#{orderNumber(o)}</span>
                 {active && activeInProgress
-                  ? <span className="text-2xs font-medium text-accent">In progress</span>
-                  : !o.fulfilled && <span className="text-2xs font-medium text-warning">Not picked</span>}
+                  ? <span className="text-2xs font-medium text-accent">{t('queue.inProgress')}</span>
+                  : !o.fulfilled && <span className="text-2xs font-medium text-warning">{t('queue.notPicked')}</span>}
               </div>
               <p className="text-2xs text-ink-3 truncate">{customerName(o)}</p>
               <p className="text-2xs text-ink-4 mt-0.5">{formatMoney(o.total_minor_units, o.currency_code)}</p>
@@ -126,7 +128,7 @@ export function PackingOrderQueue({
             >
               <input
                 type="checkbox"
-                aria-label={`Add #${orderNumber(o)} to pick list`}
+                aria-label={t('queue.addToPickList', { number: orderNumber(o) })}
                 checked={ticked.has(o.id)}
                 onChange={() => toggle(o.id)}
                 className="mt-3.5 accent-accent"
@@ -140,11 +142,11 @@ export function PackingOrderQueue({
                   </p>
                   {isAdmin && (
                     <button
-                      aria-label={`Take over #${orderNumber(o)}`}
+                      aria-label={t('queue.takeOverOrder', { number: orderNumber(o) })}
                       onClick={() => onSelect(o)}
                       className="mt-1.5 px-2 py-0.5 text-2xs font-medium rounded-md border border-line text-ink-2 hover:text-ink hover:bg-raised"
                     >
-                      Take over
+                      {t('queue.takeOver')}
                     </button>
                   )}
                 </div>

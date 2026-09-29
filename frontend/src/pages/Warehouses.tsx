@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Search, Warehouse as WarehouseIcon, Trash2, Edit3, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
@@ -14,6 +15,7 @@ const PAGE_SIZE = 20
 export default function Warehouses() {
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
+  const { t } = useTranslation(['warehouses', 'common'])
   const { warehouses, loading, error, create, update, remove } = useWarehouses(token ?? '')
 
   // Search, page and the open editor (/warehouses/new, /warehouses/:id) live in the
@@ -32,19 +34,19 @@ export default function Warehouses() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleDelete(w: Warehouse) {
-    if (!(await confirm({ title: `Delete warehouse "${w.name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete warehouse', destructive: true }))) return
+    if (!(await confirm({ title: t('confirmDelete.title', { name: w.name }), message: t('confirmDelete.message'), confirmLabel: t('confirmDelete.confirm'), destructive: true }))) return
     setDeleteError('')
     try {
       await remove(w.id)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Unknown error')
+      setDeleteError(err instanceof Error ? err.message : t('unknownError'))
     }
   }
 
   if (editingId !== null) {
     const existing = editingId === NEW_RECORD ? null : warehouses.find(w => w.id === editingId) ?? null
     if (editingId !== NEW_RECORD && !existing) {
-      return loading ? <RecordLoading /> : <RecordNotFound label="Warehouse" onBack={close} />
+      return loading ? <RecordLoading /> : <RecordNotFound label={t('subject')} onBack={close} />
     }
     return (
       <WarehouseEditPage
@@ -66,7 +68,7 @@ export default function Warehouses() {
           <input
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
-            placeholder="Search by name..."
+            placeholder={t('searchPlaceholder')}
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
@@ -75,14 +77,14 @@ export default function Warehouses() {
             onClick={openNew}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
-            <Plus size={13} /> New warehouse
+            <Plus size={13} /> {t('new')}
           </button>
         </div>
       </div>
 
       {/* Stats strip */}
       <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{filtered.length} warehouses</span>
+        <span className="text-xs text-ink-4">{t('count', { count: filtered.length })}</span>
         {(error || deleteError) && <span className="text-xs text-danger ml-auto">{error || deleteError}</span>}
       </div>
 
@@ -92,16 +94,16 @@ export default function Warehouses() {
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Warehouse</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('colWarehouse')}</th>
               <th className="px-3 py-2.5 w-8" />
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={3} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
+              <tr><td colSpan={3} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={3} className="px-4 py-6 text-center text-ink-4">No warehouses yet</td></tr>
+              <tr><td colSpan={3} className="px-4 py-6 text-center text-ink-4">{t('empty')}</td></tr>
             )}
             {paged.map(w => (
               <tr
@@ -117,7 +119,7 @@ export default function Warehouses() {
                 <td className="px-3 py-2.5 max-w-[280px]">
                   <p className="font-medium text-ink truncate">
                     {w.name}
-                    {!w.active && <span className="ml-2 px-1.5 py-0.5 rounded-full text-2xs font-medium dark:bg-gray-500/15 bg-gray-100 text-ink-3 align-middle">inactive</span>}
+                    {!w.active && <span className="ml-2 px-1.5 py-0.5 rounded-full text-2xs font-medium dark:bg-gray-500/15 bg-gray-100 text-ink-3 align-middle">{t('inactive')}</span>}
                   </p>
                   {(w.city || w.country) && (
                     <p className="text-2xs text-ink-4 truncate">{[w.city, w.country].filter(Boolean).join(', ')}</p>
@@ -125,17 +127,17 @@ export default function Warehouses() {
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button aria-label="Edit"
+                    <button aria-label={t('common:actions.edit')}
                       onClick={e => { e.stopPropagation(); openEdit(w.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Edit"
+                      title={t('common:actions.edit')}
                     >
                       <Edit3 size={12} className="text-ink-3" />
                     </button>
-                    <button aria-label="Delete"
+                    <button aria-label={t('common:actions.delete')}
                       onClick={e => { e.stopPropagation(); handleDelete(w) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Delete"
+                      title={t('common:actions.delete')}
                     >
                       <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>
@@ -173,6 +175,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
   const [phone, setPhone] = useState(warehouse?.phone ?? '')
   const [active, setActive] = useState(warehouse?.active ?? true)
   const [saving, setSaving] = useState(false)
+  const { t } = useTranslation(['warehouses', 'common'])
   const [formError, setFormError] = useState('')
 
   async function handleSave(e: React.FormEvent) {
@@ -188,7 +191,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
       }
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to save warehouse')
+      setFormError(err instanceof Error ? err.message : t('saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -205,10 +208,10 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Warehouses
+            <ArrowLeft size={11} /> {t('back')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {warehouse ? name || 'Edit warehouse' : 'New warehouse'}
+            {warehouse ? name || t('edit') : t('new')}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -216,13 +219,13 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
             type="button" onClick={onClose}
             className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
           >
-            Discard
+            {t('discard')}
           </button>
           <button
             type="submit" form="warehouse-form" disabled={saving || !name.trim()}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : warehouse ? 'Save' : 'Create warehouse'}
+            {saving ? t('common:actions.saving') : warehouse ? t('common:actions.save') : t('create')}
           </button>
         </div>
       </div>
@@ -232,14 +235,14 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
           <form id="warehouse-form" onSubmit={handleSave} className="space-y-5">
             <div className="rounded-xl border border-line p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-ink">General</h3>
+                <h3 className="text-xs font-semibold text-ink">{t('general')}</h3>
                 <label className="relative flex items-center gap-2 cursor-pointer shrink-0">
-                  <span className="text-2xs font-medium text-ink-3">Active</span>
+                  <span className="text-2xs font-medium text-ink-3">{t('active')}</span>
                   <span className="relative inline-flex items-center">
                     <input
                       type="checkbox"
                       role="switch"
-                      aria-label="Active"
+                      aria-label={t('active')}
                       checked={active}
                       onChange={e => setActive(e.target.checked)}
                       className="sr-only peer"
@@ -250,7 +253,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
                 </label>
               </div>
               <div>
-                <label htmlFor="warehouse-name" className={labelClass}>Name</label>
+                <label htmlFor="warehouse-name" className={labelClass}>{t('name')}</label>
                 <input
                   id="warehouse-name"
                   type="text" required autoFocus value={name} onChange={e => setName(e.target.value)}
@@ -264,11 +267,11 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
 
             <div className="rounded-xl border border-line p-4 space-y-3">
               <div>
-                <h3 className="text-xs font-semibold text-ink">Address</h3>
-                <p className="text-2xs text-ink-4 mt-0.5">Where imported and stocked inventory physically lives.</p>
+                <h3 className="text-xs font-semibold text-ink">{t('address')}</h3>
+                <p className="text-2xs text-ink-4 mt-0.5">{t('addressHint')}</p>
               </div>
               <div>
-                <label htmlFor="warehouse-address1" className={labelClass}>Address line 1</label>
+                <label htmlFor="warehouse-address1" className={labelClass}>{t('address1')}</label>
                 <input
                   id="warehouse-address1"
                   type="text" value={address1} onChange={e => setAddress1(e.target.value)}
@@ -276,7 +279,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
                 />
               </div>
               <div>
-                <label htmlFor="warehouse-address2" className={labelClass}>Address line 2</label>
+                <label htmlFor="warehouse-address2" className={labelClass}>{t('address2')}</label>
                 <input
                   id="warehouse-address2"
                   type="text" value={address2} onChange={e => setAddress2(e.target.value)}
@@ -285,7 +288,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="warehouse-city" className={labelClass}>City</label>
+                  <label htmlFor="warehouse-city" className={labelClass}>{t('city')}</label>
                   <input
                     id="warehouse-city"
                     type="text" value={city} onChange={e => setCity(e.target.value)}
@@ -293,7 +296,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
                   />
                 </div>
                 <div>
-                  <label htmlFor="warehouse-province" className={labelClass}>Province / state</label>
+                  <label htmlFor="warehouse-province" className={labelClass}>{t('province')}</label>
                   <input
                     id="warehouse-province"
                     type="text" value={province} onChange={e => setProvince(e.target.value)}
@@ -301,7 +304,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
                   />
                 </div>
                 <div>
-                  <label htmlFor="warehouse-zip" className={labelClass}>ZIP / Postal code</label>
+                  <label htmlFor="warehouse-zip" className={labelClass}>{t('zip')}</label>
                   <input
                     id="warehouse-zip"
                     type="text" value={zip} onChange={e => setZip(e.target.value)}
@@ -309,7 +312,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
                   />
                 </div>
                 <div>
-                  <label htmlFor="warehouse-country" className={labelClass}>Country</label>
+                  <label htmlFor="warehouse-country" className={labelClass}>{t('country')}</label>
                   <input
                     id="warehouse-country"
                     type="text" value={country} onChange={e => setCountry(e.target.value)}
@@ -318,7 +321,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
                 </div>
               </div>
               <div>
-                <label htmlFor="warehouse-phone" className={labelClass}>Phone</label>
+                <label htmlFor="warehouse-phone" className={labelClass}>{t('phone')}</label>
                 <input
                   id="warehouse-phone"
                   type="tel" value={phone} onChange={e => setPhone(e.target.value)}

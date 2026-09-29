@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { SalesChannel } from '../types'
 import * as api from '../api'
@@ -31,7 +32,7 @@ export function useSalesChannels(token: string): UseSalesChannelsState & UseSale
       const data = await api.listSalesChannels(token)
       setChannels(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('integrations:unknownError'))
     } finally {
       setLoading(false)
     }

@@ -1,9 +1,10 @@
 import { CheckCircle, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import type { PickScan, PickingSessionLineItem } from '../scanner/types'
 import { ProductThumb, ADMIN_THUMB } from '../pms/ProductThumb'
 import { SoldExpiryNote } from '../oms/SoldExpiryNote'
-import { ACTION_LABEL } from './pickingDisplay'
+import { actionLabel } from './pickingDisplay'
 import type { PickProgress } from './pickingProgress'
 
 interface PickProgressBarProps {
@@ -11,11 +12,12 @@ interface PickProgressBarProps {
 }
 
 export function PickProgressBar({ progress }: PickProgressBarProps) {
+  const { t } = useTranslation('picking')
   return (
     <div className="px-6 py-3 border-b border-line shrink-0">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs text-ink-3">Progress</span>
-        <span className="text-xs font-medium text-ink">{progress.pickedItems} / {progress.totalItems} items</span>
+        <span className="text-xs text-ink-3">{t('progress.label')}</span>
+        <span className="text-xs font-medium text-ink">{t('progress.items', { picked: progress.pickedItems, total: progress.totalItems })}</span>
       </div>
       <div className="h-2 dark:bg-night-700 bg-gray-200 rounded-full overflow-hidden">
         <div
@@ -38,6 +40,7 @@ interface PickLineListProps {
 // The order's lines, each with picked/ordered; tapping an unfinished one
 // opens the pick sheet.
 export function PickLineList({ token, lineItems, pickedByLineItem, readOnly, onOpenLine }: PickLineListProps) {
+  const { t } = useTranslation('picking')
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-2">
       {lineItems.map(li => {
@@ -67,7 +70,7 @@ export function PickLineList({ token, lineItems, pickedByLineItem, readOnly, onO
               <p className={clsx('text-sm font-medium', done ? 'dark:text-green-300 text-success' : 'text-ink')}>{li.name}</p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-2xs font-mono text-ink-4">{li.sku_code}</span>
-                {!li.sku_id && <span className="text-2xs text-warning">unlinked — scan to resolve</span>}
+                {!li.sku_id && <span className="text-2xs text-warning">{t('line.unlinked')}</span>}
               </div>
               <SoldExpiryNote date={li.sold_expiry_date} />
             </div>
@@ -75,7 +78,7 @@ export function PickLineList({ token, lineItems, pickedByLineItem, readOnly, onO
               <p className={clsx('text-lg font-bold tabular-nums', done ? 'text-success' : partial ? 'text-warning' : 'text-ink')}>
                 {picked}/{li.quantity}
               </p>
-              <p className="text-2xs text-ink-4">picked</p>
+              <p className="text-2xs text-ink-4">{t('line.picked')}</p>
             </div>
           </div>
         )
@@ -91,16 +94,17 @@ interface PickScanLogProps {
 
 // The session's staged scans, each removable. Hidden while empty.
 export function PickScanLog({ scans, onDelete }: PickScanLogProps) {
+  const { t } = useTranslation('picking')
   if (scans.length === 0) return null
   return (
     <div className="border-t border-line px-4 py-2 max-h-32 overflow-y-auto shrink-0">
-      <p className="text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1">This session</p>
+      <p className="text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1">{t('scanLog.title')}</p>
       {scans.map(s => (
         <div key={s.id} className="flex items-center justify-between py-0.5">
           <span className="text-2xs text-ink-3">
-            {ACTION_LABEL[s.action_type]} · qty {s.quantity}
+            {t('scanLog.entry', { action: actionLabel(s.action_type), quantity: s.quantity })}
           </span>
-          <button type="button" onClick={() => onDelete(s.id)} aria-label="Remove scan" className="text-ink-4 hover:text-danger">
+          <button type="button" onClick={() => onDelete(s.id)} aria-label={t('scanLog.remove')} className="text-ink-4 hover:text-danger">
             <Trash2 size={11} />
           </button>
         </div>

@@ -1,5 +1,6 @@
 import { CheckCircle } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import type { PickingSessionLineItem } from '../scanner/types'
 import { ProductThumb, ADMIN_THUMB } from '../pms/ProductThumb'
 import { SoldExpiryNote } from '../oms/SoldExpiryNote'
@@ -15,6 +16,7 @@ interface PackLineItemListProps {
 
 // The order's lines with how much of each is packed; tapping one opens it.
 export function PackLineItemList({ token, lineItems, packedByLineItem, readOnly, onOpenLine }: PackLineItemListProps) {
+  const { t } = useTranslation('packing')
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-2">
       {lineItems.map(li => {
@@ -49,7 +51,7 @@ export function PackLineItemList({ token, lineItems, packedByLineItem, readOnly,
               <p className={clsx('text-lg font-bold tabular-nums', done ? 'text-success' : partial ? 'text-warning' : 'text-ink')}>
                 {packed}/{li.quantity}
               </p>
-              <p className="text-2xs text-ink-4">packed</p>
+              <p className="text-2xs text-ink-4">{t('line.packed')}</p>
             </div>
           </div>
         )

@@ -1,4 +1,4 @@
-import type { APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, QuantityBreak, StorefrontMode } from '../types'
+import type { APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, QuantityBreak, StorefrontLocale, StorefrontMode } from '../types'
 import { base, request } from './client'
 
 export function listSalesChannels(token: string): Promise<SalesChannel[]> {
@@ -26,6 +26,8 @@ export interface SalesChannelPayload {
   storefrontMode?: StorefrontMode
   // Headless 'internal' channels only; omitted or "" means none.
   signInUrl?: string
+  // 'internal' channels only; omitted means English.
+  storefrontLocale?: StorefrontLocale
 }
 
 export function createSalesChannel(token: string, payload: SalesChannelPayload): Promise<SalesChannel> {
@@ -46,6 +48,7 @@ export function createSalesChannel(token: string, payload: SalesChannelPayload):
         default_warehouse_id: payload.defaultWarehouseId || undefined,
         storefront_mode: payload.storefrontMode,
         sign_in_url: payload.signInUrl || undefined,
+        storefront_locale: payload.storefrontLocale,
       }),
     },
     token,
@@ -66,6 +69,8 @@ export interface UpdateSalesChannelPayload {
   storefrontMode?: StorefrontMode
   // Omitted keeps the current page; "" clears it.
   signInUrl?: string
+  // Omitted keeps the channel's current language.
+  storefrontLocale?: StorefrontLocale
 }
 
 export function updateSalesChannel(token: string, id: string, payload: UpdateSalesChannelPayload): Promise<SalesChannel> {
@@ -85,6 +90,7 @@ export function updateSalesChannel(token: string, id: string, payload: UpdateSal
         default_warehouse_id: payload.defaultWarehouseId || undefined,
         storefront_mode: payload.storefrontMode,
         sign_in_url: payload.signInUrl,
+        storefront_locale: payload.storefrontLocale,
       }),
     },
     token,

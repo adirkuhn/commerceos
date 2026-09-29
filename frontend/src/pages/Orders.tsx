@@ -1,5 +1,7 @@
 import { Search, Filter, Plus, RefreshCw, ExternalLink, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { idFromPath } from '../routes'
 import { useStackNavigation } from '../routing/useStackNavigation'
@@ -57,7 +59,40 @@ const PAYMENT_COLORS: Record<string, string> = {
   failed: 'text-danger',
 }
 
-const FILTER_TABS = ['All', 'New', 'Reserved', 'Picking', 'Packed', 'Shipped', 'Delivered', 'Cancelled']
+const FILTER_TABS = ['all', 'new', 'reserved', 'picking', 'packed', 'shipped', 'delivered', 'cancelled'] as const
+
+// Demo statuses in the admin language (unknown ones as-is).
+function statusLabel(s: string): string {
+  switch (s) {
+    case 'all': return i18next.t('orders:demo.status.all')
+    case 'new': return i18next.t('orders:demo.status.new')
+    case 'reserved': return i18next.t('orders:demo.status.reserved')
+    case 'picking': return i18next.t('orders:demo.status.picking')
+    case 'packed': return i18next.t('orders:demo.status.packed')
+    case 'shipped': return i18next.t('orders:demo.status.shipped')
+    case 'delivered': return i18next.t('orders:demo.status.delivered')
+    case 'cancelled': return i18next.t('orders:demo.status.cancelled')
+    default: return s
+  }
+}
+
+function paymentLabel(s: string): string {
+  switch (s) {
+    case 'paid': return i18next.t('orders:demo.paymentStatus.paid')
+    case 'pending': return i18next.t('orders:demo.paymentStatus.pending')
+    case 'failed': return i18next.t('orders:demo.paymentStatus.failed')
+    default: return s
+  }
+}
+
+function fulfillmentLabel(s: string): string {
+  switch (s) {
+    case 'unfulfilled': return i18next.t('orders:demo.fulfillmentStatus.unfulfilled')
+    case 'partial': return i18next.t('orders:demo.fulfillmentStatus.partial')
+    case 'fulfilled': return i18next.t('orders:demo.fulfillmentStatus.fulfilled')
+    default: return s
+  }
+}
 const STATUS_FILTERS = ['all', ...ORDER_STATUS_FLOW] as const
 type StatusFilter = typeof STATUS_FILTERS[number]
 const ORDERS_PATH = '/orders'
@@ -68,8 +103,9 @@ export default function Orders() {
   const [searchParam, setSearch] = useQueryString('q')
   const search = searchParam ?? ''
   const [statusFilter, setStatusFilter] = useQueryEnum<StatusFilter>('status', STATUS_FILTERS, 'all')
-  const activeTab = FILTER_TABS.find(t => t.toLowerCase() === statusFilter) ?? 'All'
-  const setActiveTab = (tab: string) => setStatusFilter(tab.toLowerCase() as StatusFilter)
+  const { t } = useTranslation(['orders', 'common'])
+  const activeTab = FILTER_TABS.find(tab => tab === statusFilter) ?? 'all'
+  const setActiveTab = (tab: string) => setStatusFilter(tab as StatusFilter)
   const location = useLocation()
   const { open, exitToOpener } = useStackNavigation()
   const selectedId = idFromPath(location.pathname, ORDERS_PATH)
@@ -80,7 +116,7 @@ export default function Orders() {
   const filtered = ORDERS.filter(o => {
     const matchSearch = o.id.toLowerCase().includes(search.toLowerCase()) ||
       o.customer.toLowerCase().includes(search.toLowerCase())
-    const matchTab = activeTab === 'All' || o.status === activeTab.toLowerCase()
+    const matchTab = activeTab === 'all' || o.status === activeTab
     return matchSearch && matchTab
   })
 
@@ -95,18 +131,18 @@ export default function Orders() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search order ID, customer..."
+              placeholder={t('demo.searchPlaceholder')}
               className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
             />
           </div>
           <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-raised border border-line text-xs text-ink-2 hover:bg-hover">
-            <Filter size={13} /> Filters
+            <Filter size={13} /> {t('demo.filters')}
           </button>
           <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-raised border border-line text-xs text-ink-2 hover:bg-hover">
-            <RefreshCw size={13} /> Sync
+            <RefreshCw size={13} /> {t('demo.sync')}
           </button>
           <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover ml-auto font-medium">
-            <Plus size={13} /> Manual order
+            <Plus size={13} /> {t('demo.manualOrder')}
           </button>
         </div>
 
@@ -123,10 +159,10 @@ export default function Orders() {
                   : 'text-ink-4 hover:text-ink-2',
               )}
             >
-              {tab}
-              {tab !== 'All' && (
+              {statusLabel(tab)}
+              {tab !== 'all' && (
                 <span className="ml-1.5 text-ink-4">
-                  {ORDERS.filter(o => o.status === tab.toLowerCase()).length}
+                  {ORDERS.filter(o => o.status === tab).length}
                 </span>
               )}
             </button>
@@ -141,7 +177,7 @@ export default function Orders() {
                 <th className="px-4 py-2.5 w-8">
                   <input type="checkbox" className="rounded accent-accent-solid w-3 h-3" />
                 </th>
-                {['Order ID', 'Channel', 'Customer', 'Items', 'Total', 'Payment', 'Status', 'Fulfillment', 'Date'].map(h => (
+                {[t('demo.orderId'), t('demo.channel'), t('common:fields.customer'), t('demo.items'), t('common:fields.total'), t('demo.payment'), t('common:fields.status'), t('demo.fulfillment'), t('common:fields.date')].map(h => (
                   <th key={h} className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider whitespace-nowrap">
                     {h}
                   </th>
@@ -175,15 +211,15 @@ export default function Orders() {
                   <td className="px-3 py-2.5 font-medium text-ink">€{o.total.toFixed(2)}</td>
                   <td className="px-3 py-2.5">
                     <span className={clsx('font-medium capitalize', PAYMENT_COLORS[o.paymentStatus])}>
-                      {o.paymentStatus}
+                      {paymentLabel(o.paymentStatus)}
                     </span>
                   </td>
                   <td className="px-3 py-2.5">
                     <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_COLORS[o.status])}>
-                      {o.status}
+                      {statusLabel(o.status)}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-ink-3 capitalize">{o.fulfillmentStatus}</td>
+                  <td className="px-3 py-2.5 text-ink-3 capitalize">{fulfillmentLabel(o.fulfillmentStatus)}</td>
                   <td className="px-3 py-2.5 text-ink-4 font-mono whitespace-nowrap">{o.date}</td>
                   <td className="px-3 py-2.5">
                     <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 text-ink-4" />
@@ -200,12 +236,12 @@ export default function Orders() {
         <div className="w-80 border-l border-line bg-sunken flex flex-col overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-line">
             <h2 className="text-sm font-semibold text-ink">{selectedOrder.id}</h2>
-            <button onClick={closeOrder} className="text-xs text-ink-4 dark:hover:text-ink-2">✕</button>
+            <button onClick={closeOrder} aria-label={t('demo.close')} className="text-xs text-ink-4 dark:hover:text-ink-2">✕</button>
           </div>
 
           {/* Status flow */}
           <div className="px-4 py-3 border-b border-line">
-            <p className="text-2xs text-ink-4 uppercase tracking-wider mb-2">Order flow</p>
+            <p className="text-2xs text-ink-4 uppercase tracking-wider mb-2">{t('demo.orderFlow')}</p>
             <div className="flex items-center gap-1 flex-wrap">
               {ORDER_STATUS_FLOW.filter(s => s !== 'cancelled').map((s, i) => {
                 const steps = ORDER_STATUS_FLOW.filter(x => x !== 'cancelled')
@@ -227,19 +263,19 @@ export default function Orders() {
                 )
               })}
             </div>
-            <p className="text-xs mt-2 text-ink-2 capitalize font-medium">{selectedOrder.status}</p>
+            <p className="text-xs mt-2 text-ink-2 capitalize font-medium">{statusLabel(selectedOrder.status)}</p>
           </div>
 
           {/* Info */}
           <div className="px-4 py-3 space-y-2.5 border-b border-line">
             {[
-              ['Customer', selectedOrder.customer],
-              ['Address', selectedOrder.address],
-              ['Channel', selectedOrder.channel],
-              ['Items', selectedOrder.items.toString()],
-              ['Total', `€${selectedOrder.total.toFixed(2)}`],
-              ['Payment', selectedOrder.paymentStatus],
-              ['Date', selectedOrder.date],
+              [t('common:fields.customer'), selectedOrder.customer],
+              [t('demo.address'), selectedOrder.address],
+              [t('demo.channel'), selectedOrder.channel],
+              [t('demo.items'), selectedOrder.items.toString()],
+              [t('common:fields.total'), `€${selectedOrder.total.toFixed(2)}`],
+              [t('demo.payment'), paymentLabel(selectedOrder.paymentStatus)],
+              [t('common:fields.date'), selectedOrder.date],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between items-center">
                 <span className="text-xs text-ink-4">{k}</span>
@@ -251,10 +287,10 @@ export default function Orders() {
           {/* Actions */}
           <div className="px-4 py-3 space-y-2 mt-auto">
             <button className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors">
-              Start picking
+              {t('demo.startPicking')}
             </button>
             <button className="w-full py-2 rounded-lg bg-raised border border-line text-ink-2 text-xs hover:bg-hover transition-colors flex items-center justify-center gap-2">
-              Change status <ChevronDown size={12} />
+              {t('demo.changeStatus')} <ChevronDown size={12} />
             </button>
           </div>
         </div>

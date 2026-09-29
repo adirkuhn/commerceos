@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { listBatches } from '../../inventory/api'
 import type { Batch } from '../../inventory/types'
 import type { DateInput } from '../../format/date'
@@ -18,10 +20,10 @@ function isSellable(b: Batch, now: Date): boolean {
   return !b.expiry_date || new Date(b.expiry_date) > now
 }
 
-function batchLabel(b: Batch, formatDate: (value: DateInput) => string): string {
-  const lot = b.lot_number || 'No lot'
-  const expiry = b.expiry_date ? `exp ${formatDate(b.expiry_date)}` : 'no expiry'
-  return `${lot} · ${expiry} · ${b.quantity} left`
+function batchLabel(t: TFunction<'promotions'>, b: Batch, formatDate: (value: DateInput) => string): string {
+  const lot = b.lot_number || t('batch.noLot')
+  const expiry = b.expiry_date ? t('batch.expires', { date: formatDate(b.expiry_date) }) : t('batch.noExpiry')
+  return t('batch.option', { lot, expiry, quantity: b.quantity })
 }
 
 // ClearanceBatchSelect turns a promotion line into a clearance line for one
@@ -29,6 +31,7 @@ function batchLabel(b: Batch, formatDate: (value: DateInput) => string): string 
 // sold out, discarded, removed or expired.
 export function ClearanceBatchSelect({ token, skuId, value, onChange }: ClearanceBatchSelectProps) {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation('promotions')
   const [batches, setBatches] = useState<Batch[]>([])
   const [error, setError] = useState('')
 
@@ -37,7 +40,7 @@ export function ClearanceBatchSelect({ token, skuId, value, onChange }: Clearanc
     setError('')
     listBatches(token, skuId)
       .then(rows => { if (!cancelled) setBatches(rows) })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load batches') })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : t('batch.loadFailed')) })
     return () => { cancelled = true }
   }, [token, skuId])
 
@@ -48,15 +51,15 @@ export function ClearanceBatchSelect({ token, skuId, value, onChange }: Clearanc
 
   return (
     <div className="min-w-0">
-      <label htmlFor={`batch-${skuId}`} className="sr-only">Clearance batch</label>
+      <label htmlFor={`batch-${skuId}`} className="sr-only">{t('batch.label')}</label>
       <select
         id={`batch-${skuId}`}
         value={value ?? ''}
         onChange={e => onChange(e.target.value === '' ? null : e.target.value)}
         className="w-full px-2 py-2 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
       >
-        <option value="">Whole SKU (no batch)</option>
-        {options.map(b => <option key={b.id} value={b.id}>{batchLabel(b, formatDate)}</option>)}
+        <option value="">{t('batch.wholeSku')}</option>
+        {options.map(b => <option key={b.id} value={b.id}>{batchLabel(t, b, formatDate)}</option>)}
       </select>
       {error && <p className="text-2xs text-danger mt-1">{error}</p>}
     </div>

@@ -1,0 +1,156 @@
+{
+  "action": {
+    "freebie": "Gratis artikel",
+    "new_item": "Nieuw artikel",
+    "pack": "Ingepakt",
+    "refund": "Terugbetaald",
+    "substitute": "Vervangen"
+  },
+  "add": {
+    "freebie": "Gratis artikel",
+    "newItem": "Nieuw artikel",
+    "placeholder": "Scan of typ SKU/barcode",
+    "price": "Prijs",
+    "quantity": "Aantal",
+    "scanHelp": "Scan of typ de SKU/barcode van het product.",
+    "submit": "Aan order toevoegen",
+    "title": "Artikel toevoegen dat niet op de order staat"
+  },
+  "change": {
+    "addReplacement": "+ Nog een vervanging toevoegen",
+    "alreadyRecorded": "Al geregistreerd",
+    "confirmPack": "Inpakken bevestigen",
+    "confirmRefund": "Terugbetaling bevestigen",
+    "confirmReplace": "Vervanging bevestigen",
+    "covers": "Dekt (van origineel)",
+    "coversTotal": "Dekt {{covered}} van {{remaining}}",
+    "lineComplete": "Deze regel is compleet. Verwijder wat geregistreerd is om hem te vervangen.",
+    "modePack": "Inpakken",
+    "modeRefund": "Terugbetalen",
+    "modeReplace": "Vervangen",
+    "qtyAdded": "Aantal toegevoegd",
+    "quantity": "Aantal",
+    "reason": "Reden (optioneel)",
+    "refundHelp": "Kun je dit niet versturen en wil je niet vervangen? Betaal (een deel van) deze regel terug ({{quantity}}) — er wordt pas geld verplaatst als het inpakken klaar is.",
+    "refundQty": "Aantal terug te betalen",
+    "removeRow": "Deze rij verwijderen",
+    "removeScan": "{{scan}} verwijderen",
+    "replaceHelp": "Vervang door een of meer producten — de \"dekt\"-aantallen van de rijen moeten samen optellen tot wat er van deze regel over is ({{remaining}}).",
+    "replacementPlaceholder": "Scan of typ SKU/barcode van vervanging",
+    "returnToStock": "Oorspronkelijk aantal terug in voorraad"
+  },
+  "dialogs": {
+    "ok": "OK",
+    "resetting": "Resetten…",
+    "scanError": "Scanfout",
+    "startOverText": "Hiermee worden alle tot nu toe ingepakte artikelen van deze order verwijderd en begint de sessie opnieuw. Dit kan niet ongedaan worden gemaakt.",
+    "startOverTitle": "Opnieuw beginnen?"
+  },
+  "done": {
+    "backToOrders": "Terug naar orders",
+    "notFullyPacked": "Niet volledig ingepakt",
+    "packed": "#{{number}} ingepakt"
+  },
+  "errors": {
+    "addItem": "Kan artikel niet toevoegen",
+    "complete": "Kan inpakken niet afronden",
+    "loadLabel": "Kan label niet laden",
+    "loadSession": "Kan de inpaksessie niet laden",
+    "notOnOrder": "Artikel staat niet op deze order",
+    "recordPack": "Kan inpakken niet registreren",
+    "recordRefund": "Kan terugbetaling niet registreren",
+    "recordSubstitute": "Kan vervanging niet registreren",
+    "removeScan": "Kan scan niet verwijderen",
+    "reset": "Kan de inpaksessie niet resetten",
+    "scanNotRecognized": "Scan niet herkend",
+    "someoneElse": "Iemand anders pakt deze order in",
+    "start": "Kan inpakken niet starten",
+    "takenOver": "Een andere gebruiker heeft deze inpaksessie overgenomen",
+    "takeOver": "Overnemen mislukt"
+  },
+  "header": {
+    "addItem": "Artikel toevoegen",
+    "complete": "Afronden",
+    "createLabel": "Label maken",
+    "startOver": "Opnieuw beginnen"
+  },
+  "label": {
+    "create": "Verzendlabel maken",
+    "print": "Verzendlabel afdrukken",
+    "retryPrint": "Opnieuw afdrukken"
+  },
+  "line": {
+    "packed": "ingepakt"
+  },
+  "lock": {
+    "activity": {
+      "packing": "Inpakken",
+      "picking": "Orderpicken"
+    },
+    "hours": "{{hours}} u",
+    "hoursMinutes": "{{hours}} u {{minutes}} min",
+    "lessThanMinute": "<1 min",
+    "message": "{{name}} pakt deze order in{{since}} — alleen bekijken.",
+    "minutes": "{{minutes}} min",
+    "takeOver": "Overnemen",
+    "user": "Gebruiker {{id}}"
+  },
+  "page": {
+    "selectOrder": "Kies een order om te beginnen met inpakken"
+  },
+  "print": {
+    "items_one": "{{count}} artikel",
+    "items_many": "{{count}} artikelen",
+    "items_other": "{{count}} artikelen",
+    "noSku": "Geen SKU",
+    "nothingLeft": "Niets meer te picken voor deze orders.",
+    "orders": "Orders",
+    "orders_one": "{{count}} order",
+    "orders_many": "{{count}} orders",
+    "orders_other": "{{count}} orders",
+    "picked": "Gepickt",
+    "print": "Afdrukken",
+    "product": "Product",
+    "qty": "Aantal",
+    "title": "Picklijst"
+  },
+  "progress": {
+    "items": "{{packed}} / {{total}} artikelen",
+    "label": "Voortgang"
+  },
+  "queue": {
+    "addToPickList": "#{{number}} aan picklijst toevoegen",
+    "count_one": "{{count}} in te pakken",
+    "count_many": "{{count}} in te pakken",
+    "count_other": "{{count}} in te pakken",
+    "empty": "Geen orders om in te pakken",
+    "inProgress": "Bezig",
+    "notPicked": "Niet gepickt",
+    "pickList": "Picklijst",
+    "pickListCount": "Picklijst ({{n}})",
+    "search": "Orders zoeken...",
+    "selectAll": "Alle orders selecteren",
+    "takeOver": "Overnemen",
+    "takeOverOrder": "#{{number}} overnemen",
+    "title": "In te pakken orders"
+  },
+  "review": {
+    "allPacked": "Elke regel is volledig ingepakt.",
+    "back": "Terug naar inpakken",
+    "completing": "Afronden…",
+    "confirm": "Bevestigen en afronden",
+    "expectedPacked": "verwacht {{expected}} · ingepakt {{packed}}",
+    "notFullyPacked_one": "{{count}} regel is nog niet volledig ingepakt:",
+    "notFullyPacked_many": "{{count}} regels zijn nog niet volledig ingepakt:",
+    "notFullyPacked_other": "{{count}} regels zijn nog niet volledig ingepakt:",
+    "title": "Controleren voor afronden"
+  },
+  "scanInput": {
+    "placeholder": "Scan de barcode of typ en druk op Enter..."
+  },
+  "scanLog": {
+    "entry": "{{action}}{{name}} · aantal {{quantity}}",
+    "remove": "Scan verwijderen",
+    "title": "Deze sessie"
+  }
+}

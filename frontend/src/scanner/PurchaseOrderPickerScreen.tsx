@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { Search, LogOut, Package, ArrowLeft, Warehouse as WarehouseIcon } from 'lucide-react'
 import * as procurementApi from '../procurement/api'
 import * as suppliersApi from '../suppliers/api'
@@ -16,12 +18,22 @@ interface PurchaseOrderPickerScreenProps {
   onBack: () => void
 }
 
+// Only sent and partially received orders are listed for receiving.
+function poStatusLabel(status: string): string {
+  switch (status) {
+    case 'sent': return i18next.t('scanner:poPicker.status.sent')
+    case 'partially_received': return i18next.t('scanner:poPicker.status.partiallyReceived')
+    default: return status.replace('_', ' ')
+  }
+}
+
 function formatPrice(minorUnits: number, currency: string): string {
   return `${currency} ${(minorUnits / 100).toFixed(2)}`
 }
 
 export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, onBack }: PurchaseOrderPickerScreenProps) {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation(['scanner', 'common'])
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -41,11 +53,11 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
         setSuppliers(sups)
         setWarehouses(whs)
       })
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load purchase orders'))
+      .catch(err => setError(err instanceof Error ? err.message : t('errors.loadPurchaseOrders')))
       .finally(() => setLoading(false))
-  }, [token])
+  }, [token, t])
 
-  const supplierName = (id?: string | null) => suppliers.find(s => s.id === id)?.name ?? 'Unknown supplier'
+  const supplierName = (id?: string | null) => suppliers.find(s => s.id === id)?.name ?? t('poPicker.unknownSupplier')
 
   const filtered = purchaseOrders.filter(po =>
     query.trim() === '' || supplierName(po.supplier_id).toLowerCase().includes(query.toLowerCase()),
@@ -58,7 +70,7 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
       const booking = await api.startOrResumeBooking(token, po.id, warehouseId)
       onBookingStarted(booking.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start booking')
+      setError(err instanceof Error ? err.message : t('errors.startBooking'))
       setStartingId(null)
     }
   }
@@ -75,14 +87,14 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
     return (
       <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
         <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-          <button aria-label="Back" onClick={() => setPendingPO(null)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back">
+          <button aria-label={t('shared.back')} onClick={() => setPendingPO(null)} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('shared.back')}>
             <ArrowLeft size={18} className="text-gray-400" />
           </button>
-          <h1 className="text-base font-semibold">Pick a warehouse</h1>
+          <h1 className="text-base font-semibold">{t('poPicker.pickWarehouse')}</h1>
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
           <p className="text-xs text-gray-400">
-            {supplierName(pendingPO.supplier_id)} has no warehouse assigned yet -- pick one to start receiving.
+            {t('poPicker.noWarehouse', { supplier: supplierName(pendingPO.supplier_id) })}
           </p>
           {error && <p className="text-sm text-red-400">{error}</p>}
           {warehouses.map(w => (
@@ -96,7 +108,7 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
                 <WarehouseIcon size={16} className="text-gray-400" />
               </div>
               <p className="text-sm font-medium flex-1 truncate">{w.name}</p>
-              {startingId === pendingPO.id && <span className="text-xs text-accent shrink-0">Starting…</span>}
+              {startingId === pendingPO.id && <span className="text-xs text-accent shrink-0">{t('pickDone.starting')}</span>}
             </button>
           ))}
         </div>
@@ -107,11 +119,11 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button aria-label="Back to apps" onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
+        <button aria-label={t('shared.backToApps')} onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('shared.backToApps')}>
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
-        <h1 className="flex-1 text-base font-semibold">Select a purchase order</h1>
-        <button aria-label="Unpair" onClick={onLogout} className="p-2 rounded-lg hover:bg-night-800" title="Unpair">
+        <h1 className="flex-1 text-base font-semibold">{t('poPicker.title')}</h1>
+        <button aria-label={t('shared.unpair')} onClick={onLogout} className="p-2 rounded-lg hover:bg-night-800" title={t('shared.unpair')}>
           <LogOut size={16} className="text-gray-400" />
         </button>
       </div>
@@ -121,16 +133,16 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search by supplier…"
+            placeholder={t('poPicker.search')}
             className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
           />
         </div>
       </div>
       {error && <p className="mx-4 mb-2 text-sm text-red-400">{error}</p>}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
-        {loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
+        {loading && <p className="text-center text-sm text-gray-400 py-8">{t('common:status.loading')}</p>}
         {!loading && filtered.length === 0 && (
-          <p className="text-center text-sm text-gray-400 py-8">No purchase orders ready for receiving</p>
+          <p className="text-center text-sm text-gray-400 py-8">{t('poPicker.empty')}</p>
         )}
         {filtered.map(po => (
           <button
@@ -144,7 +156,7 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{supplierName(po.supplier_id)}</p>
-              <p className="text-xs text-gray-400 capitalize">{po.status.replace('_', ' ')}</p>
+              <p className="text-xs text-gray-400">{poStatusLabel(po.status)}</p>
               <p className="text-xs text-gray-400 flex items-center gap-1.5">
                 <span>#{po.id.slice(0, 8).toUpperCase()}</span>
                 <span>·</span>
@@ -152,7 +164,7 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
               </p>
             </div>
             <p className="text-xs font-medium text-gray-300 shrink-0">{formatPrice(po.total_minor_units, po.currency_code)}</p>
-            {startingId === po.id && <span className="text-xs text-accent shrink-0">Starting…</span>}
+            {startingId === po.id && <span className="text-xs text-accent shrink-0">{t('pickDone.starting')}</span>}
           </button>
         ))}
       </div>

@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useEffect, useState } from 'react'
 import * as settingsApi from '../settings/api'
 import type { PickingMode } from '../settings/types'
@@ -22,7 +23,7 @@ export function usePickingMode(token: string): UsePickingMode {
       .then(s => { if (!cancelled) setMode(s.picking_mode ?? 'scan') })
       .catch(err => {
         if (cancelled) return
-        setError(err instanceof Error ? err.message : 'Failed to load picking mode')
+        setError(err instanceof Error ? err.message : i18next.t('picking:errors.loadMode'))
         setMode('scan')
       })
     return () => { cancelled = true }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, ArrowRightLeft, Trash2, Edit3, PackageMinus, ClipboardList, Tag, History, Boxes, Scale } from 'lucide-react'
 import clsx from 'clsx'
+import { Trans, useTranslation } from 'react-i18next'
 import { useSkuActionRoute } from './useSkuActionRoute'
 import type { SkuAction } from './inventoryRoutes'
 import { useQuerySet } from '../routing/useQueryState'
@@ -29,6 +30,7 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
   onViewHistory: (sku: SKU) => void; onViewBatchHistory: (sku: SKU, batch: Batch) => void
 }) {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation(['inventory', 'common'])
   const { level, batches, loading, error, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, portionFromBulk, markDamagedOrLost } =
     useSKUStock(token, sku.id)
   // The open modal, and the batch row it's locked to, come from the URL
@@ -47,8 +49,8 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
   const rowScope: BatchScope | null = !route.row
     ? null
     : 'ledger' in route.row
-      ? { warehouseId: route.row.ledger, batchId: '', label: 'General ledger' }
-      : rowBatch && { warehouseId: rowBatch.warehouse_id, batchId: rowBatch.id, label: rowBatch.lot_number || 'Batch' }
+      ? { warehouseId: route.row.ledger, batchId: '', label: t('history.generalLedger') }
+      : rowBatch && { warehouseId: rowBatch.warehouse_id, batchId: rowBatch.id, label: rowBatch.lot_number || t('subject.batch') }
   const modal = !route.row || rowScope ? route.action : null
   const setModal = (action: SkuAction) => route.openAction(action)
   const closeModal = route.close
@@ -96,7 +98,7 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
       await removeBatch(id)
       onStockChanged()
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : 'Failed to delete batch')
+      setDeleteError(e instanceof Error ? e.message : t('sku.deleteFailed'))
     }
   }
 
@@ -111,49 +113,49 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
           <button
             type="button"
             onClick={() => setModal('price')}
-            title="Edit price"
+            title={t('sku.editPrice')}
             className="flex items-center gap-1 text-2xs text-ink-4 hover:text-accent"
           >
-            <Tag size={11} /> Price
+            <Tag size={11} /> {t('sku.price')}
           </button>
           <button
             type="button"
             onClick={() => onViewHistory(sku)}
-            title="View movement history"
+            title={t('sku.viewHistory')}
             className="flex items-center gap-1 text-2xs text-ink-4 hover:text-accent"
           >
-            <History size={11} /> History
+            <History size={11} /> {t('row.history')}
           </button>
           {level && (
             <span data-testid="stock-level" className="text-2xs text-ink-3">
-              Total: <strong className="text-ink">{formatSKUQuantity(sku, level.total)}</strong>
-              {' · '}Syncable: <strong className="text-ink">{formatSKUQuantity(sku, level.syncable)}</strong>
+              <Trans t={t} i18nKey="sku.levels" values={{ total: formatSKUQuantity(sku, level.total), syncable: formatSKUQuantity(sku, level.syncable) }}
+                components={{ total: <strong className="text-ink" />, syncable: <strong className="text-ink" /> }} />
             </span>
           )}
-          {loading && <span className="text-2xs text-ink-4">Loading…</span>}
+          {loading && <span className="text-2xs text-ink-4">{t('common:status.loading')}</span>}
         </div>
         <div className="flex items-center gap-1.5">
           <button type="button" onClick={() => setModal('adjust')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
-            <Plus size={11} /> Adjust
+            <Plus size={11} /> {t('sku.adjust')}
           </button>
           <button type="button" onClick={() => setModal('recount')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
-            <ClipboardList size={11} /> Recount
+            <ClipboardList size={11} /> {t('sku.recount')}
           </button>
           <button type="button" onClick={() => setModal('transfer')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
-            <ArrowRightLeft size={11} /> Transfer
+            <ArrowRightLeft size={11} /> {t('sku.transfer')}
           </button>
           {sku.case_of_sku_id && (
-            <button type="button" onClick={() => setModal('split-case')} title="Split sealed cases into individual units" className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
-              <Boxes size={11} /> Split case
+            <button type="button" onClick={() => setModal('split-case')} title={t('sku.splitCaseTitle')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
+              <Boxes size={11} /> {t('sku.splitCase')}
             </button>
           )}
           {sku.portioned_from_sku_id && (
-            <button type="button" onClick={() => setModal('portion')} title="Add a sellable item peeled off the linked weight pool" className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
-              <Scale size={11} /> Add item from weight pool
+            <button type="button" onClick={() => setModal('portion')} title={t('sku.portionTitle')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
+              <Scale size={11} /> {t('sku.portion')}
             </button>
           )}
           <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-danger hover:bg-hover">
-            <PackageMinus size={11} /> Damaged/lost
+            <PackageMinus size={11} /> {t('sku.damagedLost')}
           </button>
         </div>
       </div>
@@ -165,8 +167,8 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
         <table className="w-full text-2xs">
           <thead className="bg-fill">
             <tr>
-              {['Lot', 'Warehouse', 'Qty', 'Expiry', ''].map(h => (
-                <th key={h} className="px-2.5 py-1.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+              {[t('sku.colLot'), t('sku.colWarehouse'), t('sku.colQty'), t('sku.colExpiry'), ''].map((h, i) => (
+                <th key={i} className="px-2.5 py-1.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
@@ -175,14 +177,14 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
               <tr
                 key={b.is_general_ledger ? `general-${b.warehouse_id}` : b.id}
                 onClick={() => openRowAction(b)}
-                title="Click to adjust, recount, transfer, or mark damaged/lost"
+                title={t('sku.rowTitle')}
                 className={clsx(
                   'cursor-pointer dark:hover:bg-night-800 hover:bg-gray-100/80',
                   b.is_general_ledger && 'dark:bg-night-900/40 bg-gray-100/60',
                 )}
               >
                 <td className="px-2.5 py-1.5 font-mono text-ink-2">
-                  {b.is_general_ledger ? 'General ledger' : (b.lot_number || '—')}
+                  {b.is_general_ledger ? t('history.generalLedger') : (b.lot_number || '—')}
                 </td>
                 <td className="px-2.5 py-1.5 text-ink-3">{warehouses.find(w => w.id === b.warehouse_id)?.name ?? b.warehouse_id}</td>
                 <td className="px-2.5 py-1.5 font-mono text-ink-2">{b.quantity}</td>
@@ -199,13 +201,13 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
                 <td className="px-2.5 py-1.5" onClick={e => e.stopPropagation()}>
                   {!b.is_general_ledger && (
                     <div className="flex items-center justify-end gap-2">
-                      <button type="button" onClick={() => onViewBatchHistory(sku, b)} aria-label={`View movement history for batch ${b.lot_number}`} title="View movement history" className="text-ink-4 hover:text-accent">
+                      <button type="button" onClick={() => onViewBatchHistory(sku, b)} aria-label={t('sku.batchHistory', { lot: b.lot_number })} title={t('sku.viewHistory')} className="text-ink-4 hover:text-accent">
                         <History size={11} />
                       </button>
-                      <button type="button" onClick={() => route.openAction('edit-batch', { batch: b.id })} aria-label={`Edit batch ${b.lot_number}`} className="text-ink-4 hover:text-ink-2">
+                      <button type="button" onClick={() => route.openAction('edit-batch', { batch: b.id })} aria-label={t('sku.editBatch', { lot: b.lot_number })} className="text-ink-4 hover:text-ink-2">
                         <Edit3 size={11} />
                       </button>
-                      <button type="button" onClick={() => handleDeleteBatch(b.id)} aria-label={`Delete batch ${b.lot_number}`} className="text-ink-4 hover:text-danger">
+                      <button type="button" onClick={() => handleDeleteBatch(b.id)} aria-label={t('sku.deleteBatch', { lot: b.lot_number })} className="text-ink-4 hover:text-danger">
                         <Trash2 size={11} />
                       </button>
                     </div>
@@ -215,13 +217,13 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
             ))}
             {batches.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-2.5 py-3 text-center text-ink-4">No batches — all stock is in the general ledger.</td>
+                <td colSpan={5} className="px-2.5 py-3 text-center text-ink-4">{t('sku.noBatches')}</td>
               </tr>
             )}
             {batches.length > 0 && visibleBatches.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-2.5 py-3 text-center text-ink-4">
-                  All {zeroStockBatchCount} batch{zeroStockBatchCount === 1 ? '' : 'es'} for this SKU {zeroStockBatchCount === 1 ? 'has' : 'have'} zero stock.
+                  {t('sku.allZero', { count: zeroStockBatchCount })}
                 </td>
               </tr>
             )}
@@ -229,11 +231,11 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
         </table>
         <div className="px-2.5 py-1.5 border-t border-line flex items-center gap-3">
           <button type="button" onClick={() => setModal('new-batch')} className="text-2xs text-accent hover:text-accent/80">
-            + New batch
+            {t('sku.newBatch')}
           </button>
           {zeroStockBatchCount > 0 && (
             <button type="button" onClick={() => allBatches.toggle(sku.id)} className="text-2xs text-ink-4 hover:text-accent">
-              {showAllBatches ? 'Hide zero-stock batches' : `Show ${zeroStockBatchCount} zero-stock batch${zeroStockBatchCount === 1 ? '' : 'es'}`}
+              {showAllBatches ? t('sku.hideZero') : t('sku.showZero', { count: zeroStockBatchCount })}
             </button>
           )}
         </div>

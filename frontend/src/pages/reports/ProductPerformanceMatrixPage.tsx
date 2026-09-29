@@ -1,4 +1,6 @@
 import { useCallback } from 'react'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
@@ -7,15 +9,18 @@ import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 import { formatMoney } from '../../format/money'
 
-const QUADRANTS: { id: ProductPerformanceQuadrant; label: string; hint: string }[] = [
-  { id: 'stars', label: 'Stars', hint: 'High revenue, low margin — optimize pricing' },
-  { id: 'winners', label: 'Winners', hint: 'High revenue, high margin — push harder' },
-  { id: 'problems', label: 'Problems', hint: 'Low revenue, low margin — consider discontinuing' },
-  { id: 'hidden_gems', label: 'Hidden Gems', hint: 'Low revenue, high margin — promote' },
-]
+function quadrants(): { id: ProductPerformanceQuadrant; label: string; hint: string }[] {
+  return [
+    { id: 'stars', label: i18next.t('reports:matrix.stars'), hint: i18next.t('reports:matrix.starsHint') },
+    { id: 'winners', label: i18next.t('reports:matrix.winners'), hint: i18next.t('reports:matrix.winnersHint') },
+    { id: 'problems', label: i18next.t('reports:matrix.problems'), hint: i18next.t('reports:matrix.problemsHint') },
+    { id: 'hidden_gems', label: i18next.t('reports:matrix.hiddenGems'), hint: i18next.t('reports:matrix.hiddenGemsHint') },
+  ]
+}
 
 export default function ProductPerformanceMatrixPage() {
   const { token } = useAuth()
+  const { t } = useTranslation('reports')
   // In ?period= -- refresh and shared links keep the chosen range.
   const [period, setPeriod] = useReportPeriod()
   const getProductPerformanceMatrix = useCallback(reportsApi.getProductPerformanceMatrix, [])
@@ -23,20 +28,20 @@ export default function ProductPerformanceMatrixPage() {
   const currency = matrix?.currency_code ?? 'USD'
 
   return (
-    <ReportPageShell title="Product Performance Matrix" period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
+    <ReportPageShell title={t('matrix.title')} period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
       <ReportCard
-        title="Product Performance Matrix"
+        title={t('matrix.title')}
         description={
           matrix && matrix.rows.length > 0
-            ? `Split around this period's own median revenue (${formatMoney(matrix.median_revenue_minor_units, currency)}) and median margin (${(matrix.median_margin_basis_points / 100).toFixed(1)}%)`
-            : 'Selected period'
+            ? t('matrix.split', { revenue: formatMoney(matrix.median_revenue_minor_units, currency), margin: `${(matrix.median_margin_basis_points / 100).toFixed(1)}%` })
+            : t('selectedPeriod')
         }
       >
         {!matrix || matrix.rows.length === 0 ? (
-          <EmptyState>No SKUs with a known margin in this period</EmptyState>
+          <EmptyState>{t('matrix.empty')}</EmptyState>
         ) : (
           <div className="grid grid-cols-2 gap-3 p-4">
-            {QUADRANTS.map(q => {
+            {quadrants().map(q => {
               const rows = matrix.rows.filter(r => r.quadrant === q.id)
               return (
                 <div key={q.id} data-testid={`quadrant-${q.id}`} className="rounded-lg border border-line p-3">
@@ -46,7 +51,7 @@ export default function ProductPerformanceMatrixPage() {
                   </div>
                   <p className="text-2xs text-ink-4 mb-2">{q.hint}</p>
                   {rows.length === 0 ? (
-                    <p className="text-2xs text-ink-4">None</p>
+                    <p className="text-2xs text-ink-4">{t('none')}</p>
                   ) : (
                     <div className="space-y-1">
                       {rows.slice(0, 8).map((r: ProductPerformanceMatrixRow) => (

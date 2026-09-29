@@ -1,0 +1,113 @@
+{
+  "action": {
+    "freebie": "Brinde",
+    "new_item": "Item novo",
+    "pick": "Separado",
+    "refund": "Reembolsado",
+    "substitute": "Substituído"
+  },
+  "dialogs": {
+    "ok": "OK",
+    "resetting": "Reiniciando…",
+    "scanError": "Erro de leitura",
+    "startOverText": "Isso descarta todos os itens separados até agora neste pedido e reinicia a sessão. Não é possível desfazer.",
+    "startOverTitle": "Recomeçar?"
+  },
+  "done": {
+    "backToOrders": "Voltar aos pedidos",
+    "continue": "Continuar para embalagem",
+    "fulfilled": "#{{number}} marcado como atendido",
+    "notFullyPicked": "Não totalmente separado"
+  },
+  "errors": {
+    "alreadyPicked": "Já totalmente separado",
+    "barcodeUnknown": "Código de barras não reconhecido",
+    "complete": "Não foi possível concluir a separação",
+    "loadMode": "Não foi possível carregar o modo de separação",
+    "loadSession": "Não foi possível carregar a sessão de separação",
+    "markPicked": "Não foi possível marcar o pedido como separado",
+    "notOnOrder": "Item não está neste pedido",
+    "pause": "Não foi possível pausar",
+    "recordPick": "Não foi possível registrar a separação",
+    "removeScan": "Não foi possível remover a leitura",
+    "reset": "Não foi possível reiniciar a sessão de separação",
+    "start": "Não foi possível iniciar a separação",
+    "takenOver": "Outro usuário assumiu esta sessão de separação",
+    "takeOver": "Não foi possível assumir"
+  },
+  "header": {
+    "complete": "Concluir",
+    "pause": "Pausar",
+    "pausing": "Pausando…",
+    "startOver": "Recomeçar"
+  },
+  "item": {
+    "noSku": "Sem SKU"
+  },
+  "line": {
+    "picked": "separados",
+    "unlinked": "sem vínculo — escaneie para resolver"
+  },
+  "list": {
+    "itemsToPick": "Itens para separar",
+    "markedNotice": "#{{number}} marcado como separado — agora está na fila de embalagem.",
+    "marking": "Marcando…",
+    "markPicked": "Marcar como separado",
+    "selectOrder": "Selecione um pedido para ver o que separar"
+  },
+  "lock": {
+    "message": "{{name}} está separando este pedido{{since}} — somente visualização.",
+    "takeOver": "Assumir"
+  },
+  "page": {
+    "modeFailed": "Não foi possível carregar o modo de separação ({{error}}) — mostrando o modo de leitura."
+  },
+  "progress": {
+    "items": "{{picked}} / {{total}} itens",
+    "label": "Progresso"
+  },
+  "queue": {
+    "count_one": "{{count}} para separar",
+    "count_many": "{{count}} para separar",
+    "count_other": "{{count}} para separar",
+    "empty": "Nenhum pedido para separar",
+    "inPacking": "Em embalagem",
+    "inProgress": "Em andamento",
+    "noUnfulfilled": "Nenhum pedido pendente",
+    "search": "Buscar pedidos...",
+    "title": "Pedidos para separar"
+  },
+  "readOnly": {
+    "inPacking": "Este pedido está em embalagem — somente visualização",
+    "lock": "{{lock}} — somente visualização"
+  },
+  "review": {
+    "allPicked": "Todas as linhas foram totalmente separadas.",
+    "back": "Voltar à separação",
+    "backToScanning": "Voltar a escanear",
+    "completing": "Concluindo…",
+    "confirm": "Confirmar e concluir",
+    "expectedPicked": "esperado {{expected}} · separado {{picked}}",
+    "notFullyPicked_one": "{{count}} linha ainda não foi totalmente separada:",
+    "notFullyPicked_many": "{{count}} linhas ainda não foram totalmente separadas:",
+    "notFullyPicked_other": "{{count}} linhas ainda não foram totalmente separadas:",
+    "shipping": "Envio: {{method}}",
+    "title": "Revise antes de concluir"
+  },
+  "scan": {
+    "selectOrder": "Selecione um pedido para começar a separar"
+  },
+  "scanInput": {
+    "placeholder": "Escaneie o código de barras ou digite e pressione Enter..."
+  },
+  "scanLog": {
+    "entry": "{{action}} · qtd {{quantity}}",
+    "remove": "Remover leitura",
+    "title": "Nesta sessão"
+  },
+  "sheet": {
+    "confirm": "Confirmar separação",
+    "hint": "Sem estoque ou precisa substituir? Substituições e reembolsos são feitos na embalagem.",
+    "quantity": "Quantidade"
+  }
+}

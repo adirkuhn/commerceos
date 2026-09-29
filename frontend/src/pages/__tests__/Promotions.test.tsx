@@ -2,7 +2,8 @@
 import { screen, waitFor } from '@testing-library/react'
 import { act } from 'react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import i18next from 'i18next'
 import Promotions from '../Promotions'
 import { renderAt } from '../../test/renderAt'
 import type { Promotion, PromotionDetail } from '../../promotions/types'
@@ -82,8 +83,8 @@ describe('Promotions list', () => {
     renderAt(<Promotions />, '/promotions')
 
     expect(await screen.findByText('Summer Acai')).toBeInTheDocument()
-    expect(screen.getByText('percentage')).toBeInTheDocument()
-    expect(screen.getByText('active')).toBeInTheDocument()
+    expect(screen.getByText('Percentage')).toBeInTheDocument()
+    expect(screen.getByText('Active')).toBeInTheDocument()
   })
 
   it('filters by search', async () => {
@@ -370,5 +371,16 @@ describe('Promotions URLs (refresh + Back)', () => {
     const { router } = renderAt(<Promotions />, '/promotions')
     await userEvent.click(await screen.findByText('Summer Acai'))
     expect(router.state.location.pathname).toBe('/promotions/promo-1')
+  })
+})
+
+describe('in Brazilian Portuguese', () => {
+  afterEach(async () => { await i18next.changeLanguage('en') })
+
+  it('shows the empty state in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    renderAt(<Promotions />, '/promotions')
+
+    expect(await screen.findByText('Nenhuma promoção ainda')).toBeInTheDocument()
   })
 })

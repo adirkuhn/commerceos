@@ -1,0 +1,91 @@
+{
+  "detail": {
+    "amountSpent": "Amount spent",
+    "back": "Customers",
+    "billingAddress": "Billing address",
+    "contactInfo": "Contact information",
+    "created": "Customer created",
+    "edit": "Edit",
+    "editNotes": "Edit notes",
+    "failedNote": "Failed to save note",
+    "failedOrders": "Failed to load orders",
+    "lastOrder": "Last order placed",
+    "noActivity": "No activity yet",
+    "noNotes": "No notes",
+    "noOrders": "No orders yet",
+    "notes": "Notes",
+    "notFound": "Customer not found",
+    "orders": "Orders",
+    "placedOrder": "Placed order #{{number}} ({{total}})",
+    "sameAsShipping": "Same as shipping address",
+    "saveNote": "Save note",
+    "shippingAddress": "Shipping address",
+    "timeline": "Timeline",
+    "title": "Customer"
+  },
+  "edit": {
+    "back": "Customer",
+    "billing": {
+      "address1": "Billing address line 1",
+      "address2": "Billing address line 2",
+      "city": "Billing city",
+      "country": "Billing country",
+      "phone": "Billing phone",
+      "postcode": "Billing postcode",
+      "state": "Billing state",
+      "title": "Billing address"
+    },
+    "create": "Create customer",
+    "discard": "Discard",
+    "editTitle": "Edit customer",
+    "failed": "Failed to save customer",
+    "firstName": "First name",
+    "general": "General",
+    "lastName": "Last name",
+    "newTitle": "New customer",
+    "paying": "Paying customer",
+    "shipping": {
+      "address1": "Shipping address line 1",
+      "address2": "Shipping address line 2",
+      "city": "Shipping city",
+      "country": "Shipping country",
+      "phone": "Shipping phone",
+      "postcode": "Shipping postcode",
+      "state": "Shipping state",
+      "title": "Shipping address"
+    }
+  },
+  "errors": {
+    "unknown": "Unknown error"
+  },
+  "list": {
+    "add": "Add customer",
+    "colLocation": "Location",
+    "count_one": "{{count}} customer",
+    "count_other": "{{count}} customers",
+    "deleteConfirm": "Delete customer",
+    "deleteMessage": "This cannot be undone.",
+    "deleteTitle": "Delete customer \"{{name}}\"?",
+    "empty": "No customers yet",
+    "noOrders": "No orders yet",
+    "paying": "Paying",
+    "recordLabel": "Customer",
+    "search": "Search by name or email..."
+  },
+  "relative": {
+    "days_one": "{{count}} day ago",
+    "days_other": "{{count}} days ago",
+    "hours_one": "{{count}} hour ago",
+    "hours_other": "{{count}} hours ago",
+    "justNow": "Just now",
+    "minutes_one": "{{count}} minute ago",
+    "minutes_other": "{{count}} minutes ago",
+    "months_one": "{{count}} month ago",
+    "months_other": "{{count}} months ago",
+    "years_one": "{{count}} year ago",
+    "years_other": "{{count}} years ago"
+  },
+  "whatsapp": {
+    "title": "WhatsApp conversation"
+  }
+}

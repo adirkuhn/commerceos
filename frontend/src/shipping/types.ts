@@ -1,3 +1,5 @@
+import i18next from 'i18next'
+
 export interface APIResponse<T> {
   data: T
   error: { code: string; message: string } | null
@@ -17,14 +19,15 @@ export const CARRIERS = [
 
 // id 3 ("letter") is deprecated/unused by MyParcel -- intentionally
 // skipped here, same as backend domain/shipping.PackageType.
-export const PACKAGE_TYPES = [
-  { id: 1, label: 'Package' },
-  { id: 2, label: 'Mailbox package' },
-  { id: 4, label: 'Digital stamp' },
-  { id: 5, label: 'Pallet' },
-  { id: 6, label: 'Small package' },
-  { id: 7, label: 'Envelope' },
-] as const
+// Labels are getters so they're read in the current admin language.
+export const PACKAGE_TYPES: readonly { readonly id: number; readonly label: string }[] = [
+  { id: 1, get label() { return i18next.t('shipping:packageType.package') } },
+  { id: 2, get label() { return i18next.t('shipping:packageType.mailbox') } },
+  { id: 4, get label() { return i18next.t('shipping:packageType.digitalStamp') } },
+  { id: 5, get label() { return i18next.t('shipping:packageType.pallet') } },
+  { id: 6, get label() { return i18next.t('shipping:packageType.small') } },
+  { id: 7, get label() { return i18next.t('shipping:packageType.envelope') } },
+]
 
 export interface RecipientAddress {
   person: string

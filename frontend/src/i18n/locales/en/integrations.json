@@ -1,0 +1,322 @@
+{
+  "addLink": "Add link",
+  "aiParsing": {
+    "enable": "Enable AI-assisted parsing",
+    "intro": "When a message doesn't match a strict command (e.g. \"voce tem estoque do cha de limao?\"), the connected AI provider classifies it into stock/price/expiry/info and extracts the product — never a free-form chat reply, only strict classification.",
+    "noProvider": "No AI provider connected yet. Connect one under Settings → Integrations → AI first.",
+    "title": "WhatsApp AI-assisted parsing"
+  },
+  "bol": {
+    "clientId": "Client ID",
+    "clientSecret": "Client secret",
+    "configSaveFailed": "Failed to save configuration",
+    "configuration": "Configuration",
+    "configurationHint": "Sent on every offer this connection pushes to Bol.",
+    "connectIntro": "Paste the credentials from your Bol.com Retailer API portal. No redirect step -- Bol authenticates via client_credentials.",
+    "delivery": {
+      "days": "{{range}} days",
+      "days35": "3-5 days (default)",
+      "nextDay": "Next day, order by {{time}}",
+      "own": "My delivery promise",
+      "vvb": "Shipped via Bol (VVB)"
+    },
+    "deliveryPromise": "Delivery promise",
+    "fetch": "Fetch from Bol",
+    "fetchFailed": "Failed to fetch from Bol",
+    "fetching": "Fetching…",
+    "noOperators": "Bol returned no economic operators for this account -- enter the id manually.",
+    "operatorId": "Economic operator ID",
+    "operatorIdHint": "Your EU operator identifier, required on every offer.",
+    "operatorUuidHint": "A UUID from Bol's Partner Platform (GPSR/economic operator settings) -- not your KVK/VAT number.",
+    "ordersHint": "Import only -- CommerceOS never pushes orders back to Bol. Polls currently open orders every run.",
+    "saveConfiguration": "Save configuration",
+    "scheduleIntro": "Configure how often each type of data syncs between CommerceOS and Bol.com. Products/stock only push what's enrolled in your Bol sales channel -- configure enrollment under Sales Channels.",
+    "selectFromBol": "Select from Bol",
+    "selectOperator": "Select an operator…",
+    "stockHint": "Re-pushes every already-linked product's current price and stock -- Bol has no stock-only endpoint, so this runs the same push as Products, just on its own interval."
+  },
+  "browse": {
+    "email": "Email",
+    "title": "Browse integrations"
+  },
+  "card": {
+    "aiParsing": "AI parsing",
+    "aiParsingOn": "AI-assisted parsing on",
+    "configure": "Configure",
+    "deleteImported": "Delete imported",
+    "disconnect": "Disconnect",
+    "editCredentials": "Edit credentials",
+    "registerWebhook": "Register webhook",
+    "test": "Test",
+    "testing": "Testing…",
+    "testMode": "Test mode",
+    "testModeOn": "Test mode on — all messages go to {{phone}}",
+    "webhook": "Webhook"
+  },
+  "connect": {
+    "connecting": "Connecting…",
+    "failed": "Failed to connect",
+    "startFailed": "Failed to start connection",
+    "submit": "Connect",
+    "webhookSecretFailed": "Failed to save webhook secret"
+  },
+  "connection": "Connection",
+  "copied": "Copied",
+  "copy": "Copy",
+  "creating": "Creating…",
+  "credentials": {
+    "baseUrl": "Base URL",
+    "keepKey": "Leave blank to keep the current key",
+    "keyHint": "Never shown once saved -- leave blank unless you're rotating it.",
+    "title": "WhatsApp credentials"
+  },
+  "deleteImported": {
+    "and": "and",
+    "categories_one": "<strong>{{count}}</strong> now-empty category",
+    "categories_other": "<strong>{{count}}</strong> now-empty categories",
+    "deleted": "Deleted",
+    "deleting": "Deleting…",
+    "failed": "Delete failed",
+    "products_one": "<strong>{{count}}</strong> product",
+    "products_other": "<strong>{{count}}</strong> products",
+    "salesOrders_one": "<strong>{{count}}</strong> sales order",
+    "salesOrders_other": "<strong>{{count}}</strong> sales orders",
+    "title": "Delete imported products",
+    "typeToConfirm": "Type DELETE to confirm",
+    "warning": "This permanently deletes every product imported from <strong>{{store}}</strong> — including their variants, SKUs, stock history, and images. Categories left empty afterward are also deleted. This cannot be undone."
+  },
+  "deliveryUrl": "Delivery URL",
+  "direction": {
+    "export": "export",
+    "import": "import"
+  },
+  "done": "Done",
+  "email": {
+    "from": "From address",
+    "host": "SMTP host",
+    "noAuthHint": "Leave username/password blank for a relay that needs no auth.",
+    "password": "Password (optional)",
+    "port": "Port",
+    "username": "Username (optional)"
+  },
+  "entity": {
+    "categories": "Categories",
+    "orders": "Orders",
+    "ordersReconciliation": "Order reconciliation",
+    "products": "Products",
+    "stock": "Stock levels"
+  },
+  "fallback": {
+    "abandon": "Abandon",
+    "abandonAll": "Abandon all",
+    "abandonAllConfirm": "Abandon webhooks",
+    "abandonAllFailed": "Abandon all failed",
+    "abandonAllMessage": "They stay in the audit trail, but no retry is attempted.",
+    "abandonAllTitle_one": "Abandon all {{count}} pending webhook?",
+    "abandonAllTitle_other": "Abandon all {{count}} pending webhooks?",
+    "abandonFailed": "Abandon failed",
+    "abandoning": "Abandoning…",
+    "empty": "Nothing pending -- every webhook has been delivered.",
+    "eventId": "Event ID",
+    "intro": "Webhooks that couldn't reach the processing queue after 3 attempts -- saved here instead of lost. Retry re-attempts delivery now; Abandon discards it (kept for audit, not deleted).",
+    "provider": "Provider",
+    "received": "Received",
+    "retry": "Retry",
+    "retryFailed": "Retry failed",
+    "title": "Undelivered webhooks"
+  },
+  "generating": "Generating…",
+  "import": {
+    "currency": "Default currency",
+    "failed": "Import failed",
+    "importing": "Importing…",
+    "intro": "Imports every WooCommerce product not yet linked, along with its category. Existing categories are matched by name; missing ones are created.",
+    "selectCurrency": "Select a currency…",
+    "selectWarehouse": "Select a warehouse…",
+    "start": "Start import",
+    "started": "Import started — it's running in the background. You'll see a notification when it's done (check the bell icon, top right).",
+    "title": "Import products",
+    "warehouse": "Default warehouse ID",
+    "warehouseHint": "Imported stock quantities are attributed to this warehouse — WooCommerce has no warehouse concept."
+  },
+  "interval": {
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours",
+    "minutes_one": "{{count}} minute",
+    "minutes_other": "{{count}} minutes"
+  },
+  "noConnectionSelected": "No connection selected",
+  "overview": {
+    "emptyBody": "Connect a store to start syncing orders and inventory",
+    "emptyTitle": "No integrations connected",
+    "title": "Connected integrations"
+  },
+  "payment": {
+    "publishableKey": "Publishable key",
+    "publishableKeyHint": "Optional — required only to offer an embedded card form at checkout instead of a hosted payment link.",
+    "registerWebhook": "Connected! Register this URL as a webhook endpoint in {{dashboard}}, then paste the signing secret it gives you below.",
+    "revolutKey": "Merchant API secret key",
+    "revolutKeyHint": "From your Revolut Business account → Merchant API settings.",
+    "revolutWebhookHint": "Revolut Business → Merchant API → Webhooks",
+    "secretKey": "Secret key",
+    "secretSaved": "Webhook secret saved.",
+    "signingSecret": "{{provider}} webhook signing secret",
+    "skip": "Skip for now",
+    "stripeKeyHint": "From your Stripe Dashboard → Developers → API keys.",
+    "stripeWebhookHint": "Stripe Dashboard → Developers → Webhooks"
+  },
+  "providerWebhooks": {
+    "createFailed": "Failed to create subscription",
+    "empty": "No subscriptions registered yet.",
+    "intro": "What's actually registered at the provider, pointed at the delivery URL above. Create registers a new subscription for a topic instead of doing it by hand in the provider's own admin UI.",
+    "removeFailed": "Failed to remove subscription",
+    "title": "Provider webhook subscriptions",
+    "topic": "Topic",
+    "topicPlaceholder": "e.g. order.updated"
+  },
+  "removeLink": "Remove link",
+  "saveFailed": "Failed to save",
+  "schedule": {
+    "intervalAria": "{{entity}} {{direction}} interval",
+    "lastRun": "Last run: {{date}} ({{status}})",
+    "saveFailed": "Failed to save sync schedules",
+    "statusError": "error",
+    "statusSuccess": "success",
+    "statusUnknown": "unknown",
+    "switchAria": "{{entity}} {{direction}}",
+    "title": "Sync schedule"
+  },
+  "select": "Select…",
+  "status": {
+    "connected": "connected",
+    "error": "error"
+  },
+  "syncLog": {
+    "all": "All",
+    "changes": "Changes",
+    "channel": "Channel",
+    "direction": "Direction",
+    "dismiss": "Dismiss",
+    "dismissFailed": "Failed to dismiss sync",
+    "dismissing": "Dismissing…",
+    "empty": "No syncs yet",
+    "emptyAttention": "No syncs need attention — everything's resolved",
+    "import": "Channel → CommerceOS",
+    "listingCount_one": "{{count}} listing",
+    "listingCount_other": "{{count}} listings",
+    "needsAttention": "Needs attention",
+    "noChanges": "No changes",
+    "push": "CommerceOS → Channel",
+    "retryFailed": "Failed to retry sync",
+    "retrying": "Retrying…",
+    "syncCount_one": "{{count}} sync",
+    "syncCount_other": "{{count}} syncs",
+    "synced": "Synced",
+    "title": "Sync History"
+  },
+  "test": {
+    "failed": "Test failed",
+    "ok": "Connection OK"
+  },
+  "testMode": {
+    "enable": "Enable test mode",
+    "intro": "While enabled, every outbound WhatsApp message from this connection — replies, order/shipment notifications, automation rules — is redirected to the number below instead of the real customer. Nothing reaches a real customer until you turn this off.",
+    "phone": "Test phone number",
+    "phoneHint": "E.164, no leading '+' (e.g. 31612345678, not +31612345678).",
+    "title": "WhatsApp test mode"
+  },
+  "title": "Integrations",
+  "unknownError": "Unknown error",
+  "webhooksShortcut": {
+    "body": "Fan-out rules and every active provider subscription, in one place",
+    "title": "Webhooks"
+  },
+  "whatsapp": {
+    "apiKey": "API key",
+    "baseUrl": "Evolution API base URL",
+    "baseUrlHint": "Your own self-hosted Evolution API instance (unofficial WhatsApp gateway) — not an official WhatsApp Business API.",
+    "connectedPasteUrl": "Connected! Paste this URL into Evolution API's own webhook settings (messages.upsert event) — it's shown only once.",
+    "instanceName": "Instance name"
+  },
+  "whatsappWebhook": {
+    "failed": "Failed to regenerate webhook URL",
+    "intro": "This URL is shown once, at generation time — it isn't stored in a form you can view again. Regenerating replaces the old value immediately: update evolution-go's webhook settings (messages.upsert event) with the new one right after, or inbound messages stop reaching this connection.",
+    "newUrl": "New webhook URL",
+    "regenerate": "Regenerate webhook URL",
+    "regenerateAgain": "Regenerate again",
+    "title": "WhatsApp webhook URL"
+  },
+  "woo": {
+    "autoHint": "Redirects to your store to approve access. Requires your store to reach this server.",
+    "comingSoon": "Coming soon — not supported yet.",
+    "consumerKey": "Consumer key",
+    "consumerSecret": "Consumer secret",
+    "currencyAria": "Default currency (e.g. USD)",
+    "currencySaveFailed": "Failed to save currency",
+    "dangerZone": "Danger zone",
+    "dangerZoneBody": "Permanently delete every product this connection has ever imported — variants, SKUs, stock history, images, and any category left empty afterward.",
+    "defaultLocation": "Default location",
+    "fetchOrder": "Fetch order",
+    "fetchOrderFailed": "Failed to fetch order",
+    "fetchOrderIntro": "Import (or update) one known order right now by its WooCommerce order number, without waiting for the next scheduled sync -- useful for backfilling an order you already know is missing.",
+    "fetchOrderTitle": "Fetch a specific order",
+    "manualHint": "Generate under WooCommerce → Settings → Advanced → REST API.",
+    "modeAuto": "Connect automatically",
+    "modeManual": "Manual setup",
+    "noPreference": "No preference",
+    "orderImported": "Order {{id}} imported.",
+    "orderNumber": "Woo order number",
+    "orderNumberPlaceholder": "e.g. 1234",
+    "ordersHint": "Import only — CommerceOS never pushes orders back to Woo. The first run always does a full import; every run after that is incremental.",
+    "orderUpdated": "Order {{id}} updated.",
+    "orderUpToDate": "Order {{id}} already up to date.",
+    "reconciliationHint": "Re-checks the last 5 days of Woo orders on every run, independent of the Orders schedule above — catches anything that schedule ever missed. Already-imported orders are skipped, so this is safe to run daily.",
+    "saveCurrency": "Save currency",
+    "saved": "Saved.",
+    "scheduleIntro": "Configure how often each type of data syncs between CommerceOS and this WooCommerce store.",
+    "storeDefaults": "Store defaults",
+    "storeDefaultsIntro": "WooCommerce's product endpoint doesn't return a currency (it's a store-level setting) — set it once here, reused by both manual imports and the scheduled products/import job. Default location seeds each sync schedule row below until that row picks its own.",
+    "storeUrl": "Store URL",
+    "tabs": {
+      "categories": "Categories",
+      "sync": "Sync",
+      "taxes": "Taxes",
+      "webhooks": "Webhooks"
+    }
+  },
+  "wooCategories": {
+    "addFailed": "Failed to add category link",
+    "category": "Category",
+    "deleteFailed": "Failed to delete category link",
+    "empty": "No category links yet — push a product to auto-match, or add one below.",
+    "intro": "A CommerceOS category is auto-matched to a WooCommerce category with the same name the first time a product in it is pushed. Repoint or remove a link, or add one manually for a category that hasn't matched automatically.",
+    "linked": "Linked Woo category",
+    "loadFailed": "Failed to load WooCommerce categories",
+    "title": "WooCommerce categories",
+    "updateFailed": "Failed to update category link",
+    "wooCategory": "Woo category"
+  },
+  "wooTaxes": {
+    "addFailed": "Failed to add tax link",
+    "deleteFailed": "Failed to delete tax link",
+    "empty": "No WooCommerce taxes yet — run an import to pull them in, or add one below.",
+    "intro": "Every WooCommerce tax class seen on import shows up here, linked to a CommerceOS tax class. Repoint or remove a link, or add one manually for a Woo tax class that hasn't been imported yet.",
+    "linkedClass": "Linked tax class",
+    "loadFailed": "Failed to load WooCommerce taxes",
+    "standard": "Standard",
+    "taxClass": "Tax class",
+    "title": "WooCommerce taxes",
+    "updateFailed": "Failed to update tax link",
+    "wooClass": "Woo tax class"
+  },
+  "wooWebhooks": {
+    "failed": "Failed to generate webhook secret",
+    "generate": "Generate secret",
+    "intro": "Generate a secret, then configure it as this webhook's \"Secret\" when creating it under WooCommerce → Settings → Advanced → Webhooks. Regenerating replaces the old value immediately -- update WooCommerce's webhook config with the new one, or deliveries will start failing signature verification.",
+    "noSecret": "No secret generated yet -- webhooks from this connection can't be verified until you generate one.",
+    "notShownAgain": "This won't be shown again -- if you lose it, generate a new one and update WooCommerce.",
+    "regenerate": "Regenerate secret",
+    "secretOnce": "Secret (shown once -- copy it now)",
+    "title": "Webhook signature secret"
+  }
+}

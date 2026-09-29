@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Gift, Tag } from 'lucide-react'
 import { canTakeOverLocks } from '../packing/lockDisplay'
 import * as api from './api'
@@ -40,13 +42,14 @@ const PACKING_SESSION_API: ScanSessionApi<PackingSessionDetail> = {
   deleteScan: (token, id, scanId) => api.deletePackScan(token, id, scanId),
   reset: (token, id) => api.resetPackingSession(token, id),
   messages: {
-    loadFailed: 'Failed to load packing session',
-    lockLost: 'Another user has taken over this packing session',
-    resetFailed: 'Failed to reset packing session',
+    get loadFailed() { return i18next.t('scanner:errors.loadPackingSession') },
+    get lockLost() { return i18next.t('scanner:errors.packingLockLost') },
+    get resetFailed() { return i18next.t('scanner:errors.resetPackingSession') },
   },
 }
 
 export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: PackingScreenProps) {
+  const { t } = useTranslation(['scanner', 'common'])
   const session = useScanSession(token, sessionId, onAuthError, PACKING_SESSION_API)
   const { detail, error, setError, readOnly, codeInputRef, run } = session
   const completion = useSessionCompletion(
@@ -59,7 +62,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
   const [addItemOpen, setAddItemOpen] = useState(false)
 
   function stage(input: Parameters<typeof api.scanPackItem>[2]): Promise<boolean> {
-    return run(() => api.scanPackItem(token, sessionId, input), 'Scan failed')
+    return run(() => api.scanPackItem(token, sessionId, input), t('errors.scanFailed'))
   }
 
   // Unlike picking's two-step resolve-then-stage, scanPackItem resolves and
@@ -72,7 +75,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
     if (!scannedCode || scanErrorAlert) return
     setCode('')
     const ok = await stage({ code: scannedCode, quantity: 1 })
-    if (!ok) showScanError(error || 'Item not on this order')
+    if (!ok) showScanError(error || t('errors.notOnOrder'))
   }
 
   function handleCameraDecode(text: string) {
@@ -80,7 +83,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
     setCode(text)
     stage({ code: text, quantity: 1 }).then(ok => {
       setCode('')
-      if (!ok) showScanError('Item not on this order')
+      if (!ok) showScanError(t('errors.notOnOrder'))
     })
   }
 
@@ -120,23 +123,23 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button aria-label="Back" onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back">
+        <button aria-label={t('shared.back')} onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('shared.back')}>
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
-        <h1 className="flex-1 text-base font-semibold">Packing</h1>
+        <h1 className="flex-1 text-base font-semibold">{t('packScreen.title')}</h1>
         {label.myParcelConnection && !label.createdShipmentId && (
-          <button aria-label="Create label"
-            type="button" onClick={label.createLabel} disabled={readOnly} title="Create label"
+          <button aria-label={t('packScreen.createLabel')}
+            type="button" onClick={label.createLabel} disabled={readOnly} title={t('packScreen.createLabel')}
             className="min-h-11 px-3 -my-2 flex items-center gap-1.5 rounded-lg bg-night-800 border border-night-700 text-sm font-medium text-gray-200 disabled:opacity-50"
           >
-            <Tag size={16} /> Label
+            <Tag size={16} /> {t('packScreen.label')}
           </button>
         )}
         <button
           onClick={() => completion.setConfirmingFinish(true)} disabled={readOnly}
           className="px-4 min-h-11 -my-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
         >
-          Finish
+          {t('shared.finish')}
         </button>
       </div>
 
@@ -158,7 +161,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
       )}
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-        {session.loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
+        {session.loading && <p className="text-center text-sm text-gray-400 py-8">{t('common:status.loading')}</p>}
         {detail?.line_items.map(li => {
           const packedQty = packedByLineItem.get(li.id) ?? 0
           return (
@@ -178,7 +181,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
           onClick={() => setAddItemOpen(true)} disabled={readOnly}
           className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-night-700 px-3.5 py-3 text-sm text-accent hover:border-accent transition-colors"
         >
-          <Gift size={14} /> Add freebie or new item
+          <Gift size={14} /> {t('packScreen.addExtra')}
         </button>
       </div>
 
@@ -202,11 +205,11 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
           }}
           onSubstitute={lines => {
             setPackLine(null)
-            run(() => api.substitutePackLine(token, sessionId, { line_item_id: packLine.lineItem.id, lines }), 'Substitute failed')
+            run(() => api.substitutePackLine(token, sessionId, { line_item_id: packLine.lineItem.id, lines }), t('errors.substituteFailed'))
           }}
           onRefund={(quantity, reason) => {
             setPackLine(null)
-            run(() => api.refundPackLine(token, sessionId, { line_item_id: packLine.lineItem.id, quantity, reason }), 'Refund failed')
+            run(() => api.refundPackLine(token, sessionId, { line_item_id: packLine.lineItem.id, quantity, reason }), t('errors.refundFailed'))
           }}
         />
       )}

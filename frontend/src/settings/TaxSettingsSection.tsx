@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, Trash2 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
@@ -19,6 +20,7 @@ interface TaxClassFormState {
 
 export function TaxSettingsSection() {
   const { confirm, confirmDialog } = useConfirm()
+  const { t } = useTranslation(['settings', 'common'])
   const { token } = useAuth()
   const { settings, save } = useTenantSettings(token ?? '')
   const { classes, loading: classesLoading, error: classesError, create, update, remove } = useTaxClasses(token ?? '')
@@ -45,7 +47,7 @@ export function TaxSettingsSection() {
       await save({ ...toInput(settings), prices_include_tax: pricesIncludeTax, default_tax_country: defaultTaxCountry })
       setDefaultsSaved(true)
     } catch (err) {
-      setDefaultsError(err instanceof Error ? err.message : 'Failed to save tax defaults')
+      setDefaultsError(err instanceof Error ? err.message : t('tax.saveDefaultsFailed'))
     } finally {
       setSavingDefaults(false)
     }
@@ -84,19 +86,19 @@ export function TaxSettingsSection() {
       }
       closeClassForm()
     } catch (err) {
-      setClassFormError(err instanceof Error ? err.message : 'Failed to save tax class')
+      setClassFormError(err instanceof Error ? err.message : t('tax.saveClassFailed'))
     } finally {
       setClassSaving(false)
     }
   }
 
   async function handleDeleteClass(c: TaxClass) {
-    if (!(await confirm({ title: `Delete tax class "${c.name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete tax class', destructive: true }))) return
+    if (!(await confirm({ title: t('tax.deleteClassTitle', { name: c.name }), message: t('tax.cannotUndo'), confirmLabel: t('tax.deleteClass'), destructive: true }))) return
     setRowError('')
     try {
       await remove(c.id)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'Failed to delete tax class')
+      setRowError(err instanceof Error ? err.message : t('tax.deleteClassFailed'))
     }
   }
 
@@ -105,7 +107,7 @@ export function TaxSettingsSection() {
     try {
       await upsert({ tax_class_id: taxClassId, country, rate_basis_points: Math.round(parseFloat(ratePercent) * 100) })
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'Failed to save tax rate')
+      setRowError(err instanceof Error ? err.message : t('tax.saveRateFailed'))
     }
   }
 
@@ -114,26 +116,26 @@ export function TaxSettingsSection() {
     try {
       await removeRate(id)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'Failed to delete tax rate')
+      setRowError(err instanceof Error ? err.message : t('tax.deleteRateFailed'))
     }
   }
 
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h2 className="text-base font-semibold text-ink mb-1">Tax</h2>
-        <p className="text-xs text-ink-4">Tax classes and their per-country rates</p>
+        <h2 className="text-base font-semibold text-ink mb-1">{t('sections.tax')}</h2>
+        <p className="text-xs text-ink-4">{t('tax.subtitle')}</p>
       </div>
 
       <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-ink">Store defaults</h3>
+        <h3 className="text-sm font-semibold text-ink">{t('tax.storeDefaults')}</h3>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-ink-2">Prices include tax</span>
+          <span className="text-xs text-ink-2">{t('tax.pricesIncludeTax')}</span>
           <label className="relative flex items-center shrink-0 cursor-pointer">
             <input
               type="checkbox"
               role="switch"
-              aria-label="Prices include tax"
+              aria-label={t('tax.pricesIncludeTax')}
               checked={pricesIncludeTax}
               onChange={e => { setPricesIncludeTax(e.target.checked); setDefaultsSaved(false) }}
               className="sr-only peer"
@@ -144,7 +146,7 @@ export function TaxSettingsSection() {
         </div>
         <div className="max-w-[160px]">
           <label htmlFor="default-tax-country" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-            Default tax country
+            {t('tax.defaultCountry')}
           </label>
           <input
             id="default-tax-country"
@@ -155,29 +157,29 @@ export function TaxSettingsSection() {
           />
         </div>
         {defaultsError && <p className="text-xs text-danger">{defaultsError}</p>}
-        {defaultsSaved && <p className="text-xs text-success">Saved.</p>}
+        {defaultsSaved && <p className="text-xs text-success">{t('savedMessage')}</p>}
         <button
           onClick={handleSaveDefaults}
           disabled={savingDefaults}
           className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
         >
-          {savingDefaults ? 'Saving…' : 'Save tax defaults'}
+          {savingDefaults ? t('common:actions.saving') : t('tax.saveDefaults')}
         </button>
       </div>
 
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-ink">Tax classes</h3>
+        <h3 className="text-sm font-semibold text-ink">{t('tax.classes')}</h3>
         <button
           onClick={openCreateClass}
           className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
         >
-          Add tax class
+          {t('tax.addClass')}
         </button>
       </div>
       {classesError && <p className="text-xs text-danger">{classesError}</p>}
       {ratesError && <p className="text-xs text-danger">{ratesError}</p>}
       {rowError && <p className="text-xs text-danger">{rowError}</p>}
-      {classesLoading && <p className="text-xs text-ink-4">Loading…</p>}
+      {classesLoading && <p className="text-xs text-ink-4">{t('common:status.loading')}</p>}
 
       <div className="space-y-3">
         {classes.map(c => (
@@ -186,7 +188,7 @@ export function TaxSettingsSection() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-ink">{c.name}</span>
                 {c.is_default && (
-                  <span className="text-2xs px-2 py-0.5 rounded-full  bg-accent/10 text-accent">Default</span>
+                  <span className="text-2xs px-2 py-0.5 rounded-full  bg-accent/10 text-accent">{t('tax.default')}</span>
                 )}
               </div>
               <div className="flex gap-2">
@@ -194,13 +196,13 @@ export function TaxSettingsSection() {
                   onClick={() => openEditClass(c)}
                   className="py-1 px-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
                 >
-                  Edit
+                  {t('common:actions.edit')}
                 </button>
                 <button
                   onClick={() => handleDeleteClass(c)}
                   className="py-1 px-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-danger transition-colors"
                 >
-                  Delete
+                  {t('common:actions.delete')}
                 </button>
               </div>
             </div>
@@ -213,7 +215,7 @@ export function TaxSettingsSection() {
                     onClick={() => handleRemoveRate(r.id)}
                     className="text-2xs text-ink-4 hover:text-danger transition-colors flex items-center gap-1"
                   >
-                    <Trash2 size={11} /> Remove rate
+                    <Trash2 size={11} /> {t('tax.removeRate')}
                   </button>
                 </div>
               ))}
@@ -229,16 +231,16 @@ export function TaxSettingsSection() {
           <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-ink">
-                {editingClass ? 'Edit tax class' : 'Add tax class'}
+                {editingClass ? t('tax.editClass') : t('tax.addClass')}
               </h3>
-              <button onClick={closeClassForm} aria-label="Close">
+              <button onClick={closeClassForm} aria-label={t('common:actions.close')}>
                 <X size={14} className="text-ink-4" />
               </button>
             </div>
             <form onSubmit={handleClassSubmit} className="space-y-3">
               <div>
                 <label htmlFor="tax-class-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Name
+                  {t('common:fields.name')}
                 </label>
                 <input
                   id="tax-class-name"
@@ -251,12 +253,12 @@ export function TaxSettingsSection() {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-2xs text-ink-4 uppercase tracking-wider">Default tax class</span>
+                <span className="text-2xs text-ink-4 uppercase tracking-wider">{t('tax.defaultClass')}</span>
                 <label className="relative flex items-center shrink-0 cursor-pointer">
                   <input
                     type="checkbox"
                     role="switch"
-                    aria-label="Default tax class"
+                    aria-label={t('tax.defaultClass')}
                     checked={classForm.isDefault}
                     onChange={e => setClassForm(f => ({ ...f, isDefault: e.target.checked }))}
                     className="sr-only peer"
@@ -273,7 +275,7 @@ export function TaxSettingsSection() {
                 disabled={classSaving}
                 className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
-                {classSaving ? 'Saving…' : editingClass ? 'Save changes' : 'Add class'}
+                {classSaving ? t('common:actions.saving') : editingClass ? t('common:actions.saveChanges') : t('tax.addClassShort')}
               </button>
             </form>
           </div>
@@ -285,6 +287,7 @@ export function TaxSettingsSection() {
 }
 
 function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (taxClassId: string, country: string, ratePercent: string) => void }) {
+  const { t } = useTranslation('settings')
   const [country, setCountry] = useState('')
   const [ratePercent, setRatePercent] = useState('')
 
@@ -300,7 +303,7 @@ function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (tax
     >
       <div>
         <label htmlFor={`tax-rate-country-${taxClassId}`} className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-          Country
+          {t('tax.country')}
         </label>
         <input
           id={`tax-rate-country-${taxClassId}`}
@@ -312,7 +315,7 @@ function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (tax
       </div>
       <div>
         <label htmlFor={`tax-rate-percent-${taxClassId}`} className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-          Rate %
+          {t('tax.ratePercent')}
         </label>
         <input
           id={`tax-rate-percent-${taxClassId}`}
@@ -327,7 +330,7 @@ function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (tax
         type="submit"
         className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
       >
-        Add rate
+        {t('tax.addRate')}
       </button>
     </form>
   )

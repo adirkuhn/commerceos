@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Edit3, ArrowLeft } from 'lucide-react'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { WhatsAppConversationPanel } from './WhatsAppConversationPanel'
 import type { Customer, Address } from './types'
 import * as omsApi from '../oms/api'
@@ -17,14 +19,13 @@ function formatRelativeTime(date: Date): string {
   const diffMin = Math.round(diffSec / 60)
   const diffHour = Math.round(diffMin / 60)
   const diffDay = Math.round(diffHour / 24)
-  if (diffSec < 60) return 'Just now'
-  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`
-  if (diffHour < 24) return `${diffHour} hour${diffHour === 1 ? '' : 's'} ago`
-  if (diffDay < 30) return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`
+  if (diffSec < 60) return i18next.t('customers:relative.justNow')
+  if (diffMin < 60) return i18next.t('customers:relative.minutes', { count: diffMin })
+  if (diffHour < 24) return i18next.t('customers:relative.hours', { count: diffHour })
+  if (diffDay < 30) return i18next.t('customers:relative.days', { count: diffDay })
   const diffMonth = Math.round(diffDay / 30)
-  if (diffMonth < 12) return `${diffMonth} month${diffMonth === 1 ? '' : 's'} ago`
-  const diffYear = Math.round(diffMonth / 12)
-  return `${diffYear} year${diffYear === 1 ? '' : 's'} ago`
+  if (diffMonth < 12) return i18next.t('customers:relative.months', { count: diffMonth })
+  return i18next.t('customers:relative.years', { count: Math.round(diffMonth / 12) })
 }
 
 function AddressLines({ address }: { address?: Address }) {
@@ -64,12 +65,12 @@ interface CustomerTimelineEntry {
 function buildCustomerTimeline(customer: Customer, orders: SalesOrder[]): CustomerTimelineEntry[] {
   const entries: CustomerTimelineEntry[] = orders.map(o => ({
     id: `order-${o.id}`,
-    label: `Placed order #${o.number || o.external_order_id} (${formatMoney(o.total_minor_units, o.currency_code)})`,
+    label: i18next.t('customers:detail.placedOrder', { number: o.number || o.external_order_id, total: formatMoney(o.total_minor_units, o.currency_code) }),
     date: new Date(o.occurred_at),
   }))
   const createdDate = new Date(customer.date_created)
   if (!Number.isNaN(createdDate.getTime())) {
-    entries.push({ id: 'customer-created', label: 'Customer created', date: createdDate })
+    entries.push({ id: 'customer-created', label: i18next.t('customers:detail.created'), date: createdDate })
   }
   return entries.sort((a, b) => b.date.getTime() - a.date.getTime())
 }
@@ -85,6 +86,7 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
   onSaveNote: (note: string) => Promise<Customer>
 }) {
   const { formatDateTime } = useDateFormat()
+  const { t } = useTranslation(['customers', 'common'])
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [ordersTotal, setOrdersTotal] = useState(0)
   const [ordersError, setOrdersError] = useState('')
@@ -101,7 +103,7 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
       .catch(err => {
         setOrders([])
         setOrdersTotal(0)
-        setOrdersError(err instanceof Error ? err.message : 'Failed to load orders')
+        setOrdersError(err instanceof Error ? err.message : t('detail.failedOrders'))
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, customer?.id])
@@ -123,7 +125,7 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
       await onSaveNote(noteDraft)
       setEditingNote(false)
     } catch (err) {
-      setNoteError(err instanceof Error ? err.message : 'Failed to save note')
+      setNoteError(err instanceof Error ? err.message : t('detail.failedNote'))
     } finally {
       setSavingNote(false)
     }
@@ -146,10 +148,10 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Customers
+            <ArrowLeft size={11} /> {t('detail.back')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {customer ? fullName(customer) : 'Customer'}
+            {customer ? fullName(customer) : t('detail.title')}
           </h1>
         </div>
         {customer && (
@@ -157,15 +159,15 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
             onClick={onEdit}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
           >
-            <Edit3 size={13} /> Edit
+            <Edit3 size={13} /> {t('detail.edit')}
           </button>
         )}
       </div>
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto p-6 space-y-5">
-          {loading && !customer && <p className="text-xs text-ink-4">Loading…</p>}
-          {!loading && !customer && <p className="text-xs text-ink-4">Customer not found</p>}
+          {loading && !customer && <p className="text-xs text-ink-4">{t('common:status.loading')}</p>}
+          {!loading && !customer && <p className="text-xs text-ink-4">{t('detail.notFound')}</p>}
           {noteError && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{noteError}</p>}
           {ordersError && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{ordersError}</p>}
 
@@ -175,28 +177,28 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
               <div className="space-y-5 min-w-0">
                 <div className="grid grid-cols-3 gap-4">
                   <div className="rounded-xl border border-line p-4">
-                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Amount spent</p>
+                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.amountSpent')}</p>
                     <p className="text-lg font-semibold text-ink">{formatMoney(amountSpentMinorUnits, currency)}</p>
                   </div>
                   <Link
                     to={`/sales-orders?customer_id=${customer.id}`}
                     className="block rounded-xl border border-line p-4 hover:bg-hover/60 transition-colors"
                   >
-                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Orders</p>
+                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.orders')}</p>
                     <p className="text-lg font-semibold text-accent">{ordersTotal}</p>
                   </Link>
                   <div className="rounded-xl border border-line p-4">
-                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Last order placed</p>
+                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.lastOrder')}</p>
                     <p className="text-sm font-medium text-ink">
-                      {orders[0] ? formatRelativeTime(new Date(orders[0].occurred_at)) : 'No orders yet'}
+                      {orders[0] ? formatRelativeTime(new Date(orders[0].occurred_at)) : t('detail.noOrders')}
                     </p>
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-line p-4 space-y-2 text-xs">
-                  <p className="font-medium text-ink-2">Timeline</p>
+                  <p className="font-medium text-ink-2">{t('detail.timeline')}</p>
                   {timeline.length === 0 ? (
-                    <p className="text-ink-4">No activity yet</p>
+                    <p className="text-ink-4">{t('detail.noActivity')}</p>
                   ) : timeline.map(entry => (
                     <div key={entry.id} className="flex justify-between gap-3 text-ink-3">
                       <span className="text-ink">{entry.label}</span>
@@ -212,12 +214,12 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
               <div className="space-y-5 min-w-0">
                 <div className="rounded-xl border border-line p-4 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold text-ink">Notes</h3>
+                    <h3 className="text-xs font-semibold text-ink">{t('detail.notes')}</h3>
                     {!editingNote && (
                       <button
                         onClick={startEditingNote}
-                        title="Edit notes"
-                        aria-label="Edit notes"
+                        title={t('detail.editNotes')}
+                        aria-label={t('detail.editNotes')}
                         className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
                       >
                         <Edit3 size={12} className="text-ink-3" />
@@ -226,7 +228,7 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
                   </div>
                   {editingNote ? (
                     <div className="space-y-2">
-                      <label htmlFor="customer-note" className="sr-only">Notes</label>
+                      <label htmlFor="customer-note" className="sr-only">{t('detail.notes')}</label>
                       <textarea
                         id="customer-note"
                         value={noteDraft}
@@ -240,35 +242,35 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
                           disabled={savingNote}
                           className="px-2.5 py-1 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors disabled:opacity-50"
                         >
-                          Save note
+                          {t('detail.saveNote')}
                         </button>
                         <button
                           onClick={() => setEditingNote(false)}
                           disabled={savingNote}
                           className="px-2.5 py-1 rounded-lg border border-line text-xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50"
                         >
-                          Cancel
+                          {t('common:actions.cancel')}
                         </button>
                       </div>
                     </div>
                   ) : customer.customer_note ? (
                     <p className="text-ink whitespace-pre-wrap">{customer.customer_note}</p>
                   ) : (
-                    <p className="text-ink-4">No notes</p>
+                    <p className="text-ink-4">{t('detail.noNotes')}</p>
                   )}
                 </div>
 
                 <div className="rounded-xl border border-line p-4 space-y-3 text-xs">
-                  <h3 className="text-xs font-semibold text-ink">Contact information</h3>
+                  <h3 className="text-xs font-semibold text-ink">{t('detail.contactInfo')}</h3>
                   <p className="text-ink">{customer.email}</p>
                   <div>
-                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Shipping address</h4>
+                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.shippingAddress')}</h4>
                     <AddressLines address={customer.shipping} />
                   </div>
                   <div>
-                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">Billing address</h4>
+                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.billingAddress')}</h4>
                     {addressesEqual(customer.billing, customer.shipping) ? (
-                      <p className="text-ink-4">Same as shipping address</p>
+                      <p className="text-ink-4">{t('detail.sameAsShipping')}</p>
                     ) : (
                       <AddressLines address={customer.billing} />
                     )}

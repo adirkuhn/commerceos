@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
@@ -8,6 +9,7 @@ import { formatMoney } from '../../format/money'
 
 export default function CategoryPerformancePage() {
   const { token } = useAuth()
+  const { t } = useTranslation('reports')
   // In ?period= -- refresh and shared links keep the chosen range.
   const [period, setPeriod] = useReportPeriod()
   const getCategoryPerformanceReport = useCallback(reportsApi.getCategoryPerformanceReport, [])
@@ -16,15 +18,15 @@ export default function CategoryPerformancePage() {
   const categories = [...(categoryPerformance?.rows ?? [])].sort((a, b) => b.revenue_minor_units - a.revenue_minor_units)
 
   return (
-    <ReportPageShell title="Category Performance" period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
-      <ReportCard title="Revenue by category" description="Selected period">
+    <ReportPageShell title={t('category.title')} period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
+      <ReportCard title={t('category.card')} description={t('selectedPeriod')}>
         {categories.length === 0 ? (
-          <EmptyState>No category sales in this period</EmptyState>
+          <EmptyState>{t('category.empty')}</EmptyState>
         ) : (
           <table className="w-full text-xs">
             <thead>
               <tr className="dark:bg-night-900/50 bg-gray-50">
-                {['Category', 'Units', 'Orders', 'Revenue'].map(h => (
+                {[t('col.category'), t('col.units'), t('col.orders'), t('col.revenue')].map(h => (
                   <th key={h} className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{h}</th>
                 ))}
               </tr>

@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
@@ -7,6 +8,7 @@ import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 
 export default function StockoutRiskPage() {
   const { token } = useAuth()
+  const { t } = useTranslation('reports')
   // In ?period= -- refresh and shared links keep the chosen range.
   const [period, setPeriod] = useReportPeriod()
   const getStockoutRiskReport = useCallback(reportsApi.getStockoutRiskReport, [])
@@ -16,22 +18,22 @@ export default function StockoutRiskPage() {
     .sort((a, b) => (a.days_of_stock_remaining ?? 0) - (b.days_of_stock_remaining ?? 0))
 
   return (
-    <ReportPageShell title="Stockout Risk" period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
+    <ReportPageShell title={t('stockout.title')} period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
       <ReportCard
-        title="Stockout Risk"
-        description="SKUs projected to run out before a reorder placed today (14-day lead time) could arrive, ranked soonest-first"
+        title={t('stockout.title')}
+        description={t('stockout.desc')}
       >
         {atRisk.length === 0 ? (
-          <EmptyState>No SKUs at risk of stocking out</EmptyState>
+          <EmptyState>{t('stockout.empty')}</EmptyState>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="dark:bg-night-900/50 bg-gray-50">
-                  <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">Product</th>
-                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">Stock</th>
-                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">Days left</th>
-                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">Suggested reorder</th>
+                  <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{t('col.product')}</th>
+                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">{t('stockout.stock')}</th>
+                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">{t('stockout.daysLeft')}</th>
+                  <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">{t('stockout.reorder')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/50">

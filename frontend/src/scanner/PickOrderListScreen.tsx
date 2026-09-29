@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Lock } from 'lucide-react'
 import * as omsApi from '../oms/api'
 import { usePickingQueue } from '../oms/hooks/usePackingQueue'
@@ -25,6 +26,7 @@ export function PickOrderListScreen({ token, orderId, onDone, onBack }: PickOrde
   const [error, setError] = useState('')
   const [marking, setMarking] = useState(false)
   const queue = usePickingQueue(token)
+  const { t } = useTranslation(['scanner', 'common'])
   const nameFor = useMemberNames(token)
   const entry = queue.entries.find(e => e.sales_order.id === orderId)
   const inPacking = entry?.in_packing ?? false
@@ -33,9 +35,9 @@ export function PickOrderListScreen({ token, orderId, onDone, onBack }: PickOrde
     try {
       setDetail(await omsApi.getSalesOrder(token, orderId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load order')
+      setError(err instanceof Error ? err.message : t('errors.loadOrder'))
     }
-  }, [token, orderId])
+  }, [token, orderId, t])
 
   useEffect(() => { load() }, [load])
 
@@ -46,7 +48,7 @@ export function PickOrderListScreen({ token, orderId, onDone, onBack }: PickOrde
       await omsApi.markOrderPicked(token, orderId)
       onDone()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to mark order picked')
+      setError(err instanceof Error ? err.message : t('errors.markPicked'))
       setMarking(false)
     }
   }
@@ -56,29 +58,29 @@ export function PickOrderListScreen({ token, orderId, onDone, onBack }: PickOrde
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button aria-label="Back to orders" onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to orders">
+        <button aria-label={t('orderList.backToOrders')} onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('orderList.backToOrders')}>
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold">{detail ? `#${orderNumber(detail.sales_order)}` : 'Order'}</h1>
+          <h1 className="text-base font-semibold">{detail ? `#${orderNumber(detail.sales_order)}` : t('orderList.order')}</h1>
           {detail && <p className="text-xs text-gray-400 truncate">{customerName(detail.sales_order)}</p>}
         </div>
       </div>
       {inPacking && (
         <p role="status" className="flex items-center gap-2 px-4 py-2 border-b border-night-700 bg-amber-500/10 text-sm text-amber-200 shrink-0">
           <Lock size={14} className="shrink-0" />
-          {entry?.lock ? `${lockLabel(entry.lock, nameFor(entry.lock.user_id))} -- view only` : 'This order is in packing -- view only'}
+          {entry?.lock ? t('orderList.lockViewOnly', { lock: lockLabel(entry.lock, nameFor(entry.lock.user_id)) }) : t('orderList.inPackingViewOnly')}
         </p>
       )}
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        {!detail && !error && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
+        {!detail && !error && <p className="text-center text-sm text-gray-400 py-8">{t('common:status.loading')}</p>}
         {detail && (
-          <ul aria-label="Items to pick" className="space-y-2">
+          <ul aria-label={t('orderList.itemsToPick')} className="space-y-2">
             {items.map(li => (
               <li key={li.id} className="flex items-center gap-3 p-3.5 rounded-xl bg-night-800 border border-night-700">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{li.name}</p>
-                  <p className="text-xs text-gray-400 font-mono">{[li.sku_code, li.barcode].filter(Boolean).join(' · ') || 'No SKU'}</p>
+                  <p className="text-xs text-gray-400 font-mono">{[li.sku_code, li.barcode].filter(Boolean).join(' · ') || t('orderList.noSku')}</p>
                 </div>
                 <span className="text-base font-semibold shrink-0">× {quantityToPick(li)}</span>
               </li>
@@ -94,7 +96,7 @@ export function PickOrderListScreen({ token, orderId, onDone, onBack }: PickOrde
             disabled={!detail || marking}
             className="w-full min-h-11 py-3 rounded-xl bg-accent-solid text-white text-sm font-semibold disabled:opacity-50"
           >
-            {marking ? 'Marking…' : 'Mark as picked'}
+            {marking ? t('orderList.marking') : t('orderList.markPicked')}
           </button>
         </div>
       )}

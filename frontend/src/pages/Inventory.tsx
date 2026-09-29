@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Search, AlertTriangle, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { parseInventoryPath, inventoryPaths, INVENTORY_PATH } from '../inventory/inventoryRoutes'
@@ -40,6 +41,7 @@ export default function Inventory() {
 
 function InventoryPage() {
   const { token } = useAuth()
+  const { t } = useTranslation(['inventory', 'common'])
   // Search/page/stock filter (?q=&page=&stock=) and every full-screen view
   // (history, expiry review -- see inventoryRoutes) live in the URL, so a
   // refresh or Back keeps the user where they were.
@@ -114,15 +116,15 @@ function InventoryPage() {
           <input
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
-            placeholder="Search product..."
+            placeholder={t('list.searchPlaceholder')}
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <div className="flex items-center rounded-lg border border-line overflow-hidden shrink-0">
           {([
-            ['all', 'All'],
-            ['low', 'Low stock'],
-            ['out', 'Out of stock'],
+            ['all', t('list.filterAll')],
+            ['low', t('list.filterLow')],
+            ['out', t('list.filterOut')],
           ] as const).map(([value, label]) => (
             <button aria-pressed={stockFilter === value}
               key={value}
@@ -144,16 +146,16 @@ function InventoryPage() {
             onClick={() => open(inventoryPaths.expiry)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-2xs font-medium hover:dark:bg-red-500/20 hover:bg-red-100 transition-colors shrink-0"
           >
-            <AlertTriangle size={12} /> Expired batches ({expiredReview.batches.length})
+            <AlertTriangle size={12} /> {t('list.expiredBatches', { n: expiredReview.batches.length })}
           </button>
         )}
         <button
           onClick={() => open(`${inventoryPaths.expiry}?tab=discarded`)}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-raised border border-line text-ink-3 text-2xs font-medium hover:bg-hover transition-colors shrink-0"
         >
-          <Trash2 size={12} /> Damaged / lost / discarded
+          <Trash2 size={12} /> {t('list.discarded')}
         </button>
-        <span className="text-xs text-ink-4 ml-auto">{total} product{total === 1 ? '' : 's'}</span>
+        <span className="text-xs text-ink-4 ml-auto">{t('list.productCount', { count: total })}</span>
       </div>
 
       {error && (
@@ -168,19 +170,19 @@ function InventoryPage() {
             <tr>
               <th className="px-2 py-2.5 w-8" />
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Product</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Price</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Sale price</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Stock</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colProduct')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colPrice')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colSalePrice')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colStock')}</th>
               <th className="px-3 py-2.5 w-8" />
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
             )}
             {!loading && visibleProducts.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">No products found.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">{t('list.empty')}</td></tr>
             )}
             {/* A SKU action URL for a product not on this list page (shared
                 link, or the list moved on) still opens -- pinned on top. */}
@@ -219,12 +221,14 @@ function InventoryHistoryView({ token, view, warehouses, onClose }: {
   onClose: () => void
 }) {
   const target = useInventoryHistoryTarget(token, view)
+  const { t } = useTranslation('inventory')
   const data = target.data
   if (!data) {
     if (target.loading) return <RecordLoading />
     // A missing SKU/batch reports itself; anything else means the product
     // lookup (the first request) failed.
-    const subject = target.error === 'SKU not found' ? 'SKU' : target.error === 'Batch not found' ? 'Batch' : 'Product'
+    // (Matched on the error's own English text, which is never shown.)
+    const subject = target.error === 'SKU not found' ? t('subject.sku') : target.error === 'Batch not found' ? t('subject.batch') : t('subject.product')
     return <RecordNotFound label={subject} onBack={onClose} />
   }
   if (view.kind === 'batchHistory' && data.sku && data.batch) {

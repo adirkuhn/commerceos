@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Search, User, Trash2, Edit3 } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useCustomers } from '../customers/hooks/useCustomers'
@@ -29,6 +30,7 @@ function customerToInput(c: Customer): CustomerInput {
 }
 
 export default function Customers() {
+  const { t } = useTranslation(['customers', 'common'])
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { customers, loading, error, create, update, remove } = useCustomers(token ?? '')
@@ -67,12 +69,12 @@ export default function Customers() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleDelete(c: Customer) {
-    if (!(await confirm({ title: `Delete customer "${fullName(c)}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete customer', destructive: true }))) return
+    if (!(await confirm({ title: t('list.deleteTitle', { name: fullName(c) }), message: t('list.deleteMessage'), confirmLabel: t('list.deleteConfirm'), destructive: true }))) return
     setDeleteError('')
     try {
       await remove(c.id)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Unknown error')
+      setDeleteError(err instanceof Error ? err.message : t('errors.unknown'))
     }
   }
 
@@ -83,7 +85,7 @@ export default function Customers() {
     const existing = customers.find(c => c.id === openId) ?? null
     if (isEditing) {
       if (!existing) {
-        return loading ? <RecordLoading /> : <RecordNotFound label="Customer" onBack={closeEditor} />
+        return loading ? <RecordLoading /> : <RecordNotFound label={t('list.recordLabel')} onBack={closeEditor} />
       }
       return (
         <CustomerEditPage
@@ -115,7 +117,7 @@ export default function Customers() {
           <input
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
-            placeholder="Search by name or email..."
+            placeholder={t('list.search')}
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
@@ -124,14 +126,14 @@ export default function Customers() {
             onClick={() => navigate('/customers/new')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
           >
-            <Plus size={13} /> Add customer
+            <Plus size={13} /> {t('list.add')}
           </button>
         </div>
       </div>
 
       {/* Stats strip */}
       <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{filtered.length} customer{filtered.length === 1 ? '' : 's'}</span>
+        <span className="text-xs text-ink-4">{t('list.count', { count: filtered.length })}</span>
         {(error || deleteError) && <span className="text-xs text-danger ml-auto">{error || deleteError}</span>}
       </div>
 
@@ -141,18 +143,18 @@ export default function Customers() {
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Customer</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Location</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('common:fields.customer')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colLocation')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('common:fields.status')}</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
+              <tr><td colSpan={5} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-ink-4">No customers yet</td></tr>
+              <tr><td colSpan={5} className="px-4 py-6 text-center text-ink-4">{t('list.empty')}</td></tr>
             )}
             {paged.map(c => (
               <tr
@@ -177,22 +179,22 @@ export default function Customers() {
                     'px-2 py-0.5 rounded-full text-2xs font-medium',
                     c.is_paying_customer ? 'bg-green-500/15 text-success' : 'bg-gray-500/15 text-ink-4',
                   )}>
-                    {c.is_paying_customer ? 'Paying' : 'No orders yet'}
+                    {c.is_paying_customer ? t('list.paying') : t('list.noOrders')}
                   </span>
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button aria-label="Edit"
+                    <button aria-label={t('common:actions.edit')}
                       onClick={e => { e.stopPropagation(); openEditor(c.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Edit"
+                      title={t('common:actions.edit')}
                     >
                       <Edit3 size={12} className="text-ink-3" />
                     </button>
-                    <button aria-label="Delete"
+                    <button aria-label={t('common:actions.delete')}
                       onClick={e => { e.stopPropagation(); handleDelete(c) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Delete"
+                      title={t('common:actions.delete')}
                     >
                       <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>

@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { CompanyMember, MemberRole } from '../types'
 import * as api from '../api'
@@ -27,7 +28,7 @@ export function useCompanyMembers(token: string): UseCompanyMembersState & UseCo
     try {
       setMembers(await api.listMembers(token))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('iam:unknownError'))
     } finally {
       setLoading(false)
     }

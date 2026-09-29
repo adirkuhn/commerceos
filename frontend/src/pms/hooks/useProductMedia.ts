@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { Media } from '../types'
 import * as api from '../api'
@@ -33,7 +34,7 @@ export function useProductMedia(token: string, productId: string | null): UsePro
       const data = await api.listProductMedia(token, productId)
       setMedia(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('common:status.error'))
     } finally {
       setLoading(false)
     }
@@ -42,7 +43,7 @@ export function useProductMedia(token: string, productId: string | null): UsePro
   useEffect(() => { load() }, [load])
 
   const upload = useCallback(async (file: File, altText?: string): Promise<Media> => {
-    if (!productId) throw new Error('Save the product before uploading images')
+    if (!productId) throw new Error(i18next.t('pms:media.saveProductFirst'))
     const uploaded = await api.uploadProductMedia(token, productId, file, altText)
     setMedia(prev => [...prev, uploaded])
     return uploaded

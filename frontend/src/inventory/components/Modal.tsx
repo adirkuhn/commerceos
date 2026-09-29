@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Dialog } from '../../components/common/Dialog'
 
 // Generic modal shell + shared field styles -- used by every inventory
@@ -7,12 +8,13 @@ import { Dialog } from '../../components/common/Dialog'
 // lost/etc). Extracted out of pages/Inventory.tsx so each modal can live in
 // its own file instead of growing that already-large page further.
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const { t } = useTranslation('common')
   return (
     <Dialog onClose={onClose}>
       <div className="w-full max-w-sm rounded-xl bg-raised border border-line shadow-xl">
         <div className="flex items-center justify-between px-4 py-3 border-b border-line">
           <h3 className="text-sm font-semibold text-ink">{title}</h3>
-          <button type="button" onClick={onClose} aria-label="Close" className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
+          <button type="button" onClick={onClose} aria-label={t('actions.close')} className="p-1 -m-1 rounded text-ink-4 hover:text-ink-2 hover:bg-hover">
             <X size={16} />
           </button>
         </div>

@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { ExternalTaxClassLink, UpsertExternalTaxClassLinkInput } from '../types'
 import * as api from '../api'
@@ -27,7 +28,7 @@ export function useExternalTaxClassLinks(token: string): UseExternalTaxClassLink
       const data = await api.listExternalTaxClassLinks(token)
       setLinks(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('common:status.error'))
     } finally {
       setLoading(false)
     }

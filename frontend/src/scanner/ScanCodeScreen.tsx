@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Camera, type LucideIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { CameraScanner } from './CameraScanner'
 
 interface ScanCodeScreenProps {
@@ -19,9 +20,10 @@ interface ScanCodeScreenProps {
 // tablets with no dedicated scan engine. Both paths converge on the same
 // onSubmit.
 export function ScanCodeScreen({
-  icon: Icon, prompt, placeholder = 'Scan or type SKU / barcode…', submitLabel = 'Look up', loadingLabel = 'Looking up…',
+  icon: Icon, prompt, placeholder, submitLabel, loadingLabel,
   loading, error, onSubmit,
 }: ScanCodeScreenProps) {
+  const { t } = useTranslation('scanner')
   const [code, setCode] = useState('')
   const [cameraOpen, setCameraOpen] = useState(false)
 
@@ -54,7 +56,7 @@ export function ScanCodeScreen({
             autoFocus
             value={code}
             onChange={e => setCode(e.target.value)}
-            placeholder={placeholder}
+            placeholder={placeholder ?? t('scanCode.placeholder')}
             className="w-full px-4 py-4 text-center text-sm rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
           />
           {error && <p className="text-sm text-red-400">{error}</p>}
@@ -63,14 +65,14 @@ export function ScanCodeScreen({
             disabled={loading || code.trim().length === 0}
             className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {loading ? loadingLabel : submitLabel}
+            {loading ? (loadingLabel ?? t('scanCode.lookingUp')) : (submitLabel ?? t('scanCode.lookUp'))}
           </button>
           <button
             type="button"
             onClick={() => setCameraOpen(true)}
             className="w-full py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-300 text-xs font-medium flex items-center justify-center gap-1.5"
           >
-            <Camera size={13} /> Use camera
+            <Camera size={13} /> {t('shared.useCamera')}
           </button>
         </form>
       </div>

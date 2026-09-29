@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { SalesOrder, SalesOrderLineItem, Address } from '../../oms/types'
 import { useDateFormat } from '../../format/DateFormatProvider'
 import { SoldExpiryNote } from '../../oms/SoldExpiryNote'
@@ -22,25 +23,26 @@ interface PickingListPrintViewProps {
 // normal detail chrome.
 export function PickingListPrintView({ order, lineItems, onClose }: PickingListPrintViewProps) {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation(['orders', 'common'])
   useEffect(() => { window.print() }, [])
 
   return (
     <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-      <button aria-label="Close"
+      <button aria-label={t('common:actions.close')}
         onClick={onClose}
         className="print:hidden fixed top-4 right-4 w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"
-        title="Close"
+        title={t('common:actions.close')}
       >
         <X size={16} />
       </button>
       <div className="max-w-2xl mx-auto p-10 text-gray-900">
-        <h1 className="text-2xl font-bold mb-1">Picking list</h1>
+        <h1 className="text-2xl font-bold mb-1">{t('print.pickingList')}</h1>
         <p className="text-sm text-gray-600 mb-6">
-          Order #{order.number || order.external_order_id} · {formatDate(order.occurred_at)}
+          {t('print.orderLine', { number: order.number || order.external_order_id, date: formatDate(order.occurred_at) })}
         </p>
 
         <div className="mb-6 text-sm">
-          <p className="font-medium">Ship to</p>
+          <p className="font-medium">{t('print.shipTo')}</p>
           <p>{addressName(order.shipping)}</p>
           {order.shipping?.address_1 && <p>{order.shipping.address_1}</p>}
           {order.shipping?.address_2 && <p>{order.shipping.address_2}</p>}
@@ -50,10 +52,10 @@ export function PickingListPrintView({ order, lineItems, onClose }: PickingListP
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b-2 border-gray-900">
-              <th className="text-left py-2">Product</th>
-              <th className="text-left py-2">SKU</th>
-              <th className="text-right py-2">Qty</th>
-              <th className="text-left py-2 pl-4">Picked</th>
+              <th className="text-left py-2">{t('common:fields.product')}</th>
+              <th className="text-left py-2">{t('common:fields.sku')}</th>
+              <th className="text-right py-2">{t('detail.qty')}</th>
+              <th className="text-left py-2 pl-4">{t('print.picked')}</th>
             </tr>
           </thead>
           <tbody>
@@ -75,7 +77,7 @@ export function PickingListPrintView({ order, lineItems, onClose }: PickingListP
 
         {order.customer_note && (
           <div className="mt-6 text-sm">
-            <p className="font-medium">Note</p>
+            <p className="font-medium">{t('print.note')}</p>
             <p>{order.customer_note}</p>
           </div>
         )}

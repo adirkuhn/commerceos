@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import type { Batch, MovementType } from './types'
 import { Modal, inputClass, labelClass } from './components/Modal'
 
@@ -44,6 +45,7 @@ export function BatchFormModal({
   const [lotNumber, setLotNumber] = useState(batch?.lot_number ?? '')
   const [expiryDate, setExpiryDate] = useState(batch?.expiry_date ?? '')
   const [saving, setSaving] = useState(false)
+  const { t } = useTranslation(['inventory', 'common'])
   const [error, setError] = useState<string | null>(null)
 
   const submit = async () => {
@@ -53,36 +55,36 @@ export function BatchFormModal({
       await onSave({ warehouse_id: warehouseId, lot_number: lotNumber, expiry_date: expiryDate || null })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save batch')
+      setError(e instanceof Error ? e.message : t('modal.saveBatchFailed'))
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Modal title={batch ? 'Edit batch' : 'New batch'} onClose={onClose}>
+    <Modal title={batch ? t('modal.editBatch') : t('modal.newBatch')} onClose={onClose}>
       <div className="space-y-3">
         <div>
-          <label className={labelClass} htmlFor="batch-warehouse">Warehouse</label>
+          <label className={labelClass} htmlFor="batch-warehouse">{t('modal.warehouse')}</label>
           <select id="batch-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
             {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
         </div>
         <div>
-          <label className={labelClass} htmlFor="batch-lot">Lot number</label>
+          <label className={labelClass} htmlFor="batch-lot">{t('modal.lotNumber')}</label>
           <input id="batch-lot" value={lotNumber} onChange={e => setLotNumber(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass} htmlFor="batch-expiry">Expiry date (leave empty for no expiry)</label>
+          <label className={labelClass} htmlFor="batch-expiry">{t('modal.expiryOptional')}</label>
           <input id="batch-expiry" type="date" value={expiryDate ?? ''} onChange={e => setExpiryDate(e.target.value)} className={inputClass} />
         </div>
         {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
-            Cancel
+            {t('common:actions.cancel')}
           </button>
           <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50">
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('common:actions.saving') : t('common:actions.save')}
           </button>
         </div>
       </div>
@@ -107,12 +109,13 @@ export function AdjustStockModal({
   const [quantity, setQuantity] = useState('')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
+  const { t } = useTranslation(['inventory', 'common'])
   const [error, setError] = useState<string | null>(null)
 
   const submit = async () => {
     const n = parseInt(quantity, 10)
     if (Number.isNaN(n) || n === 0) {
-      setError('Enter a non-zero quantity')
+      setError(t('modal.enterNonZero'))
       return
     }
     setSaving(true)
@@ -122,61 +125,61 @@ export function AdjustStockModal({
       await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, type, quantity_delta: delta, reason })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to record movement')
+      setError(e instanceof Error ? e.message : t('modal.movementFailed'))
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Modal title="Adjust stock" onClose={onClose}>
+    <Modal title={t('modal.adjustTitle')} onClose={onClose}>
       <div className="space-y-3">
         <div>
-          <label className={labelClass} htmlFor="adjust-type">Type</label>
+          <label className={labelClass} htmlFor="adjust-type">{t('modal.type')}</label>
           <select id="adjust-type" value={type} onChange={e => setType(e.target.value as typeof type)} className={inputClass}>
-            <option value="receipt">Receipt (stock in)</option>
-            <option value="sale">Sale (stock out)</option>
-            <option value="adjustment">Adjustment (+/-)</option>
+            <option value="receipt">{t('modal.typeReceipt')}</option>
+            <option value="sale">{t('modal.typeSale')}</option>
+            <option value="adjustment">{t('modal.typeAdjustment')}</option>
           </select>
         </div>
         {scope ? (
-          <LockedField label="Warehouse" value={warehouses.find(w => w.id === scope.warehouseId)?.name ?? scope.warehouseId} />
+          <LockedField label={t('modal.warehouse')} value={warehouses.find(w => w.id === scope.warehouseId)?.name ?? scope.warehouseId} />
         ) : (
           <div>
-            <label className={labelClass} htmlFor="adjust-warehouse">Warehouse</label>
+            <label className={labelClass} htmlFor="adjust-warehouse">{t('modal.warehouse')}</label>
             <select id="adjust-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
               {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
         )}
         {scope ? (
-          <LockedField label="Batch" value={scope.label} />
+          <LockedField label={t('modal.batch')} value={scope.label} />
         ) : (
           <div>
-            <label className={labelClass} htmlFor="adjust-batch">Batch (leave empty for general ledger)</label>
+            <label className={labelClass} htmlFor="adjust-batch">{t('modal.batchOptional')}</label>
             <select id="adjust-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
-              <option value="">General ledger (no batch)</option>
+              <option value="">{t('modal.generalLedgerOption')}</option>
               {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
             </select>
           </div>
         )}
         <div>
           <label className={labelClass} htmlFor="adjust-qty">
-            Quantity {type === 'adjustment' ? '(use a minus sign to decrease)' : ''}
+            {type === 'adjustment' ? t('modal.quantityAdjustment') : t('modal.quantity')}
           </label>
           <input id="adjust-qty" type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass} htmlFor="adjust-reason">Reason (optional)</label>
+          <label className={labelClass} htmlFor="adjust-reason">{t('modal.reasonOptional')}</label>
           <input id="adjust-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
         {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
-            Cancel
+            {t('common:actions.cancel')}
           </button>
           <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50">
-            {saving ? 'Saving…' : 'Record'}
+            {saving ? t('common:actions.saving') : t('modal.record')}
           </button>
         </div>
       </div>
@@ -200,12 +203,13 @@ export function RecountModal({
   const [counted, setCounted] = useState('')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
+  const { t } = useTranslation(['inventory', 'common'])
   const [error, setError] = useState<string | null>(null)
 
   const submit = async () => {
     const n = parseInt(counted, 10)
     if (Number.isNaN(n) || n < 0) {
-      setError('Enter the counted quantity')
+      setError(t('modal.enterCounted'))
       return
     }
     setSaving(true)
@@ -214,51 +218,51 @@ export function RecountModal({
       await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, counted_quantity: n, reason })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to record recount')
+      setError(e instanceof Error ? e.message : t('modal.recountFailed'))
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Modal title="Recount stock" onClose={onClose}>
+    <Modal title={t('modal.recountTitle')} onClose={onClose}>
       <div className="space-y-3">
         {scope ? (
-          <LockedField label="Warehouse" value={warehouses.find(w => w.id === scope.warehouseId)?.name ?? scope.warehouseId} />
+          <LockedField label={t('modal.warehouse')} value={warehouses.find(w => w.id === scope.warehouseId)?.name ?? scope.warehouseId} />
         ) : (
           <div>
-            <label className={labelClass} htmlFor="recount-warehouse">Warehouse</label>
+            <label className={labelClass} htmlFor="recount-warehouse">{t('modal.warehouse')}</label>
             <select id="recount-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
               {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
         )}
         {scope ? (
-          <LockedField label="Batch" value={scope.label} />
+          <LockedField label={t('modal.batch')} value={scope.label} />
         ) : (
           <div>
-            <label className={labelClass} htmlFor="recount-batch">Batch (leave empty for general ledger)</label>
+            <label className={labelClass} htmlFor="recount-batch">{t('modal.batchOptional')}</label>
             <select id="recount-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
-              <option value="">General ledger (no batch)</option>
+              <option value="">{t('modal.generalLedgerOption')}</option>
               {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
             </select>
           </div>
         )}
         <div>
-          <label className={labelClass} htmlFor="recount-qty">Counted quantity</label>
+          <label className={labelClass} htmlFor="recount-qty">{t('modal.countedQuantity')}</label>
           <input id="recount-qty" type="number" min={0} value={counted} onChange={e => setCounted(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass} htmlFor="recount-reason">Reason (optional)</label>
+          <label className={labelClass} htmlFor="recount-reason">{t('modal.reasonOptional')}</label>
           <input id="recount-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
         {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
-            Cancel
+            {t('common:actions.cancel')}
           </button>
           <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50">
-            {saving ? 'Saving…' : 'Record'}
+            {saving ? t('common:actions.saving') : t('modal.record')}
           </button>
         </div>
       </div>

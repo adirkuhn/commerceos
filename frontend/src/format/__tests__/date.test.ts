@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import i18next from 'i18next'
 import { formatDate, formatDateTime, formatTime, formatMonthDay, formatMonthYear, parseDateFormat, DEFAULT_DATE_FORMAT } from '../date'
 
 const ams = (pattern: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD') => ({ pattern, timeZone: 'Europe/Amsterdam' })
@@ -94,5 +95,17 @@ describe('formatMonthDay / formatMonthYear (chart and report labels)', () => {
   it('renders a missing value as an em dash', () => {
     expect(formatMonthDay(null)).toBe('—')
     expect(formatMonthYear(undefined)).toBe('—')
+  })
+})
+
+describe('month names follow the UI language', () => {
+  it('uses pt-BR month abbreviations', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      expect(formatMonthDay('2026-09-03', ams('DD/MM/YYYY'))).toBe('3 Set')
+      expect(formatMonthYear('2026-12-01', ams('DD/MM/YYYY'))).toBe('Dez 2026')
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 })

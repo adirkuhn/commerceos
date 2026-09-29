@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { Group } from '../types'
 
 interface Props {
@@ -10,28 +11,29 @@ interface Props {
 }
 
 export function GroupList({ groups, loading, error, onSelect, onDelete, onCreateClick }: Props) {
-  if (loading) return <p className="text-xs text-ink-3">Loading groups...</p>
-  if (error) return <p className="text-xs text-danger">Error: {error}</p>
+  const { t } = useTranslation(['iam', 'common'])
+  if (loading) return <p className="text-xs text-ink-3">{t('groups.loading')}</p>
+  if (error) return <p className="text-xs text-danger">{t('errorPrefix', { error })}</p>
 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xs font-semibold text-ink">Groups</h2>
+        <h2 className="text-xs font-semibold text-ink">{t('groups.title')}</h2>
         <button
           onClick={onCreateClick}
           className="px-2.5 py-1 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover font-medium"
         >
-          + New Group
+          {t('groups.newButton')}
         </button>
       </div>
       {groups.length === 0 ? (
-        <p className="text-xs text-ink-4">No groups yet.</p>
+        <p className="text-xs text-ink-4">{t('groups.none')}</p>
       ) : (
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-line">
-              <th className="text-left py-2 font-medium text-ink-4 uppercase tracking-wider text-2xs">Name</th>
-              <th className="text-left py-2 font-medium text-ink-4 uppercase tracking-wider text-2xs">Description</th>
+              <th className="text-left py-2 font-medium text-ink-4 uppercase tracking-wider text-2xs">{t('common:fields.name')}</th>
+              <th className="text-left py-2 font-medium text-ink-4 uppercase tracking-wider text-2xs">{t('common:fields.description')}</th>
               <th className="py-2" />
             </tr>
           </thead>
@@ -49,7 +51,7 @@ export function GroupList({ groups, loading, error, onSelect, onDelete, onCreate
                 <td className="py-2 pr-2 text-ink-3">{group.description}</td>
                 <td className="py-2 text-right">
                   <button onClick={() => onDelete(group.id)} className="text-danger hover:text-red-300">
-                    Delete
+                    {t('common:actions.delete')}
                   </button>
                 </td>
               </tr>

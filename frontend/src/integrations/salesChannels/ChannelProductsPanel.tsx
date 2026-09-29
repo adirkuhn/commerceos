@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { ArrowLeft, Search } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import { useQueryPage, useQueryString } from '../../routing/useQueryState'
 import { useSalesChannelProducts } from '../hooks/useSalesChannelProducts'
 import type { SalesChannel, EnrollmentMode } from '../types'
 import type { UpdateSalesChannelPayload } from '../api'
 import Pagination from '../../components/common/Pagination'
-import { ENROLLMENT_LABELS, INTERNAL_TYPE } from './salesChannelConstants'
+import { INTERNAL_TYPE, enrollmentLabel } from './salesChannelConstants'
 import { PricingSection } from './PricingSection'
 
 const PER_PAGE = 20
@@ -28,6 +29,7 @@ interface ChannelProductsPanelProps {
 // this panel holding its own copy.
 export function ChannelProductsPanel({ channel, onClose, update, categories }: ChannelProductsPanelProps) {
   const { token } = useAuth()
+  const { t } = useTranslation(['channels', 'common'])
   const [page, setPage] = useQueryPage()
   const [searchParam, setSearch] = useQueryString('q', { resets: ['page'] })
   const search = searchParam ?? ''
@@ -53,7 +55,7 @@ export function ChannelProductsPanel({ channel, onClose, update, categories }: C
         active: channel.active,
       })
     } catch (err) {
-      setBulkError(err instanceof Error ? err.message : 'Failed to update enrollment rule')
+      setBulkError(err instanceof Error ? err.message : t('products.ruleFailed'))
     } finally {
       setBulkSaving(false)
     }
@@ -67,12 +69,12 @@ export function ChannelProductsPanel({ channel, onClose, update, categories }: C
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Sales channels
+            <ArrowLeft size={11} /> {t('title')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">{channel.name}</h1>
         </div>
         <span className="text-2xs px-2.5 py-1 rounded-full bg-raised border border-line text-ink-3">
-          {ENROLLMENT_LABELS[channel.enrollment_mode]}
+          {enrollmentLabel(channel.enrollment_mode)}
         </span>
       </div>
 
@@ -82,16 +84,16 @@ export function ChannelProductsPanel({ channel, onClose, update, categories }: C
           disabled={bulkSaving}
           className="px-3 py-1.5 rounded-lg bg-raised border border-line text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
         >
-          Add all
+          {t('products.addAll')}
         </button>
         <div className="flex items-center gap-1.5">
           <select
-            aria-label="Bulk add by category"
+            aria-label={t('products.bulkCategory')}
             value={bulkCategoryId}
             onChange={e => setBulkCategoryId(e.target.value)}
             className="px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
           >
-            <option value="">By category…</option>
+            <option value="">{t('products.byCategory')}</option>
             {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
           </select>
           <button
@@ -99,16 +101,16 @@ export function ChannelProductsPanel({ channel, onClose, update, categories }: C
             disabled={bulkSaving || !bulkCategoryId}
             className="px-3 py-1.5 rounded-lg bg-raised border border-line text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
           >
-            Apply
+            {t('common:actions.apply')}
           </button>
         </div>
         <div className="flex items-center gap-1.5">
           <input
             type="text"
-            aria-label="Bulk add by tag"
+            aria-label={t('products.bulkTag')}
             value={bulkTag}
             onChange={e => setBulkTag(e.target.value)}
-            placeholder="By tag…"
+            placeholder={t('products.byTag')}
             className="w-28 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
           />
           <button
@@ -116,7 +118,7 @@ export function ChannelProductsPanel({ channel, onClose, update, categories }: C
             disabled={bulkSaving || !bulkTag}
             className="px-3 py-1.5 rounded-lg bg-raised border border-line text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
           >
-            Apply
+            {t('common:actions.apply')}
           </button>
         </div>
         <button
@@ -124,7 +126,7 @@ export function ChannelProductsPanel({ channel, onClose, update, categories }: C
           disabled={bulkSaving}
           className="px-3 py-1.5 rounded-lg bg-raised border border-line text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50 transition-colors"
         >
-          Manual only
+          {t('enrollment.manual')}
         </button>
       </div>
       {bulkError && <p className="px-5 pt-2 text-xs text-danger shrink-0">{bulkError}</p>}
@@ -140,7 +142,7 @@ export function ChannelProductsPanel({ channel, onClose, update, categories }: C
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search products…"
+            placeholder={t('products.search')}
             className="w-full pl-8 pr-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
@@ -150,7 +152,7 @@ export function ChannelProductsPanel({ channel, onClose, update, categories }: C
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {!loading && items.length === 0 ? (
-          <p className="text-xs text-ink-4 text-center py-8">No products found.</p>
+          <p className="text-xs text-ink-4 text-center py-8">{t('products.none')}</p>
         ) : (
           <div className="bg-raised rounded-xl border border-line divide-y divide-line">
             {items.map(({ product, enrolled }) => (
@@ -170,7 +172,7 @@ export function ChannelProductsPanel({ channel, onClose, update, categories }: C
                       : 'bg-fill text-ink-3 hover:text-accent',
                   )}
                 >
-                  {enrolled ? 'Enrolled — remove' : 'Add'}
+                  {enrolled ? t('products.enrolledRemove') : t('common:actions.add')}
                 </button>
               </div>
             ))}

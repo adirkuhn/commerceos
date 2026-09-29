@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import i18next from 'i18next'
 import { getCompanyProfile, updateCompanyProfile } from './api'
 import type { CompanyProfile, CompanyProfileInput } from './types'
 
@@ -21,7 +22,7 @@ export function useCompanyProfile(token: string): CompanyProfileState {
     setLoading(true)
     getCompanyProfile(token)
       .then(p => { if (!cancelled) setProfile(p) })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : 'Could not load the company profile') })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : i18next.t('settings:company.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token])

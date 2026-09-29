@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Package, Trash2, Edit3 } from 'lucide-react'
 import clsx from 'clsx'
 import { SKU_STATUS_STYLES, formatPrice } from './productFormat'
@@ -19,6 +20,8 @@ interface VariantRowSummaryProps {
 // The always-visible line of a variant row: thumbnail, name/code, price,
 // status, stock, and edit/remove actions.
 export function VariantRowSummary({ variant, sku, selectedImage, canPickImage, onToggleImagePicker, onEdit, onRemove }: VariantRowSummaryProps) {
+  const { t } = useTranslation('pms')
+  const skuStatusLabel = { active: t('skuStatus.active'), inactive: t('skuStatus.inactive') }
   const thumbnailContent = selectedImage ? (
     <img src={selectedImage.url} alt={selectedImage.alt_text} className="w-full h-full object-cover" />
   ) : (
@@ -30,7 +33,7 @@ export function VariantRowSummary({ variant, sku, selectedImage, canPickImage, o
       {canPickImage ? (
         <button
           type="button"
-          aria-label={`${variant.name} image`}
+          aria-label={t('variant.imageAria', { name: variant.name })}
           onClick={onToggleImagePicker}
           className="w-10 h-10 rounded-lg dark:bg-night-800 bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden"
         >
@@ -44,7 +47,7 @@ export function VariantRowSummary({ variant, sku, selectedImage, canPickImage, o
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-ink truncate">{variant.name}</p>
         <p className="text-2xs font-mono text-ink-4 truncate">
-          {sku ? sku.sku_code : 'No SKU yet'}
+          {sku ? sku.sku_code : t('variant.noSkuYet')}
         </p>
       </div>
       {sku && sku.sale_price_minor_units != null ? (
@@ -56,7 +59,7 @@ export function VariantRowSummary({ variant, sku, selectedImage, canPickImage, o
             {formatPrice(sku.sale_price_minor_units, sku.currency_code)}
           </span>
           {sku.sale_end_date && (
-            <span className="text-2xs text-ink-4">until {sku.sale_end_date}</span>
+            <span className="text-2xs text-ink-4">{t('variant.until', { date: sku.sale_end_date })}</span>
           )}
         </span>
       ) : sku && (
@@ -66,21 +69,21 @@ export function VariantRowSummary({ variant, sku, selectedImage, canPickImage, o
       )}
       {sku && (
         <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize shrink-0', SKU_STATUS_STYLES[sku.status])}>
-          {sku.status}
+          {skuStatusLabel[sku.status]}
         </span>
       )}
       {sku && <StockBadge skuId={sku.id} />}
       <div className="flex items-center gap-0.5 shrink-0">
-        <button aria-label="Edit variant"
-          type="button" onClick={onEdit} title="Edit variant"
+        <button aria-label={t('variant.editVariant')}
+          type="button" onClick={onEdit} title={t('variant.editVariant')}
           className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
         >
           <Edit3 size={12} className="text-ink-3" />
         </button>
-        <button aria-label="Remove variant"
+        <button aria-label={t('variant.removeVariant')}
           type="button"
           onClick={onRemove}
-          title="Remove variant"
+          title={t('variant.removeVariant')}
           className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
         >
           <Trash2 size={12} className="text-ink-3 hover:text-danger" />

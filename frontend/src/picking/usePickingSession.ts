@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSessionLock } from '../fulfillment/useSessionLock'
@@ -49,7 +50,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
     try {
       setSession(await pickingApi.getPickingSession(token, sessionId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load picking session')
+      setError(err instanceof Error ? err.message : i18next.t('picking:errors.loadSession'))
     } finally {
       setSessionLoading(false)
     }
@@ -63,7 +64,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
     active: !!session && session.session.status !== 'completed',
     touch: id => pickingApi.touchPickingSession(token ?? '', id),
     release: id => pickingApi.releasePickingSessionLock(token ?? '', id),
-    onLost: () => setError('Another user has taken over this picking session'),
+    onLost: () => setError(i18next.t('picking:errors.takenOver')),
   })
   const readOnly = heldByOther !== null
 
@@ -74,7 +75,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
       await pickingApi.takeOverPickingSession(token, session.session.id)
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to take over')
+      setError(err instanceof Error ? err.message : i18next.t('picking:errors.takeOver'))
     }
   }
 
@@ -117,7 +118,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
       const newSession = await pickingApi.startOrResumePicking(token ?? '', order.id)
       if (showSession(newSession.id)) await loadSession(newSession.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start picking')
+      setError(err instanceof Error ? err.message : i18next.t('picking:errors.start'))
       setSessionLoading(false)
     }
   }
@@ -141,7 +142,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
       backToOrders()
       await refreshQueue()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to pause')
+      setError(err instanceof Error ? err.message : i18next.t('picking:errors.pause'))
     } finally {
       setPausing(false)
     }
@@ -161,7 +162,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
       onSelectionReset()
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reset picking session')
+      setError(err instanceof Error ? err.message : i18next.t('picking:errors.reset'))
     } finally {
       setResetting(false)
     }
@@ -187,7 +188,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
       setConfirmingFinish(false)
       await refreshQueue()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to complete picking')
+      setError(err instanceof Error ? err.message : i18next.t('picking:errors.complete'))
     } finally {
       setCompleting(false)
     }

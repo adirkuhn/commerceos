@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ChevronRight, ChevronDown, History, Image as ImageIcon } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { parseInventoryPath, INVENTORY_PATH } from './inventoryRoutes'
 import { useStackNavigation } from '../routing/useStackNavigation'
@@ -34,6 +35,7 @@ export function ProductStockRow({ token, productId, productName, productImageUrl
   onViewProductHistory: (productName: string, skus: SKU[]) => void
 }) {
   const { formatDate } = useDateFormat()
+  const { t } = useTranslation('inventory')
   // Expanded rows live in ?open= so a refresh, Back or a shared link keeps
   // them; a SKU action URL for this product (its modal) also expands it.
   const openRows = useQuerySet('open')
@@ -124,7 +126,7 @@ export function ProductStockRow({ token, productId, productName, productImageUrl
             <span className="flex items-center gap-1">
               <span className="text-xs font-medium text-success">{formatPrice(singleSKU.sale_price_minor_units, singleSKU.currency_code)}</span>
               {singleSKU.sale_end_date && (
-                <span className="text-2xs text-ink-4">until {formatDate(singleSKU.sale_end_date)}</span>
+                <span className="text-2xs text-ink-4">{t('row.saleUntil', { date: formatDate(singleSKU.sale_end_date) })}</span>
               )}
             </span>
           ) : (
@@ -147,21 +149,21 @@ export function ProductStockRow({ token, productId, productName, productImageUrl
           <button
             type="button"
             onClick={() => onViewProductHistory(productName, skus)}
-            aria-label="View full movement history"
-            title="View full movement history"
+            aria-label={t('row.viewHistory')}
+            title={t('row.viewHistory')}
             className="flex items-center gap-1 text-2xs text-ink-4 hover:text-accent"
           >
-            <History size={11} /> History
+            <History size={11} /> {t('row.history')}
           </button>
         </td>
       </tr>
       {expanded && (
         <tr>
           <td colSpan={7} className="p-0">
-            {loading && <p className="pl-8 py-3 text-xs text-ink-4">Loading SKUs…</p>}
-            {!loading && skus.length === 0 && <p className="pl-8 py-3 text-xs text-ink-4">No SKUs on this product yet.</p>}
+            {loading && <p className="pl-8 py-3 text-xs text-ink-4">{t('row.loadingSkus')}</p>}
+            {!loading && skus.length === 0 && <p className="pl-8 py-3 text-xs text-ink-4">{t('row.noSkus')}</p>}
             {!loading && detail && routeSkuId && !skus.some(s => s.id === routeSkuId) && (
-              <div className="py-4"><RecordNotFound label="SKU" onBack={() => navigateToList()} /></div>
+              <div className="py-4"><RecordNotFound label={t('subject.sku')} onBack={() => navigateToList()} /></div>
             )}
             {!loading && skus.map(sku => (
               <SKUStockPanel key={sku.id} token={token} productId={productId} sku={sku} variantName={variantNameBySKU[sku.id]} warehouses={warehouses} onSKUUpdated={refresh} onStockChanged={loadStock} onViewHistory={onViewHistory} onViewBatchHistory={onViewBatchHistory} />

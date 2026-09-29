@@ -1,4 +1,5 @@
 
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { usePickingMode } from '../picking/usePickingMode'
 import { PickingListMode } from '../picking/PickingListMode'
@@ -10,12 +11,13 @@ import { ScanPicking } from '../picking/ScanPicking'
 export default function Picking() {
   const { token } = useAuth()
   const { mode, error } = usePickingMode(token ?? '')
+  const { t } = useTranslation(['picking', 'common'])
   if (!token || mode === null) {
-    return <div className="flex h-full items-center justify-center text-sm text-ink-4">Loading…</div>
+    return <div className="flex h-full items-center justify-center text-sm text-ink-4">{t('common:status.loading')}</div>
   }
   return (
     <div className="flex flex-col h-full">
-      {error && <p role="alert" className="px-4 py-2 text-2xs text-danger border-b border-line">Couldn&apos;t load the picking mode ({error}) -- showing scan mode.</p>}
+      {error && <p role="alert" className="px-4 py-2 text-2xs text-danger border-b border-line">{t('page.modeFailed', { error })}</p>}
       <div className="flex-1 min-h-0">
         {mode === 'list' ? <PickingListMode token={token} /> : <ScanPicking />}
       </div>

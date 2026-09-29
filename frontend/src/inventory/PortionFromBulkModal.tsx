@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { Modal, inputClass, labelClass } from './components/Modal'
 import * as inventoryApi from './api'
 import type { Batch } from './types'
@@ -8,7 +10,7 @@ import { useDateFormat } from '../format/DateFormatProvider'
 function formatBatchOption(b: Batch, formatDate: (value: DateInput) => string): string {
   const label = b.lot_number || b.id
   if (!b.expiry_date) return label
-  return `${label} — exp ${formatDate(b.expiry_date)}`
+  return i18next.t('inventory:portion.batchOption', { lot: label, date: formatDate(b.expiry_date) })
 }
 
 // Portion one sellable item off a bulk weight pool (see
@@ -39,13 +41,14 @@ export function PortionFromBulkModal({
   const [weightGrams, setWeightGrams] = useState('')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
+  const { t } = useTranslation(['inventory', 'common'])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     inventoryApi.listBatches(token, bulkSkuId)
       .then(result => { if (!cancelled) setBatches(result) })
-      .catch(e => { if (!cancelled) setBatchesError(e instanceof Error ? e.message : 'Failed to load bulk pool batches') })
+      .catch(e => { if (!cancelled) setBatchesError(e instanceof Error ? e.message : t('portion.batchesFailed')) })
     return () => { cancelled = true }
   }, [token, bulkSkuId])
 
@@ -54,7 +57,7 @@ export function PortionFromBulkModal({
     if (weightGrams.trim() !== '') {
       const n = parseInt(weightGrams, 10)
       if (Number.isNaN(n) || n <= 0) {
-        setError('Enter a positive weight in grams, or leave blank to use the nominal weight')
+        setError(t('portion.enterWeight'))
         return
       }
       weight = n
@@ -65,29 +68,29 @@ export function PortionFromBulkModal({
       await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, weight_grams: weight, reason })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to portion from bulk stock')
+      setError(e instanceof Error ? e.message : t('portion.failed'))
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Modal title="Add item from weight pool" onClose={onClose}>
+    <Modal title={t('portion.title')} onClose={onClose}>
       <div className="space-y-3">
         <p className="text-2xs text-ink-4">
-          Peels one sellable unit off the linked weight pool. Repeatable as many times as you like.
+          {t('portion.hint')}
         </p>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className={labelClass} htmlFor="portion-warehouse">Warehouse</label>
+            <label className={labelClass} htmlFor="portion-warehouse">{t('modal.warehouse')}</label>
             <select id="portion-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
               {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
           <div>
-            <label className={labelClass} htmlFor="portion-batch">Bulk pool batch</label>
+            <label className={labelClass} htmlFor="portion-batch">{t('portion.batch')}</label>
             <select id="portion-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
-              <option value="">General ledger</option>
+              <option value="">{t('transfer.generalLedger')}</option>
               {batches.filter(b => !b.is_general_ledger).map(b => <option key={b.id} value={b.id}>{formatBatchOption(b, formatDate)}</option>)}
             </select>
             {batchesError && <p className="mt-1 text-2xs text-danger">{batchesError}</p>}
@@ -95,7 +98,7 @@ export function PortionFromBulkModal({
         </div>
         <div>
           <label className={labelClass} htmlFor="portion-weight">
-            Actual weight (grams){nominalWeightGrams != null && ` — defaults to ${nominalWeightGrams}g`}
+            {nominalWeightGrams != null ? t('portion.weightDefault', { grams: nominalWeightGrams }) : t('portion.weight')}
           </label>
           <input
             id="portion-weight" type="number" min={1} value={weightGrams} onChange={e => setWeightGrams(e.target.value)}
@@ -103,16 +106,16 @@ export function PortionFromBulkModal({
           />
         </div>
         <div>
-          <label className={labelClass} htmlFor="portion-reason">Reason (optional)</label>
+          <label className={labelClass} htmlFor="portion-reason">{t('modal.reasonOptional')}</label>
           <input id="portion-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
         </div>
         {error && <p className="text-2xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg text-ink-2 hover:bg-hover">
-            Cancel
+            {t('common:actions.cancel')}
           </button>
           <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50">
-            {saving ? 'Adding…' : 'Add item'}
+            {saving ? t('portion.adding') : t('portion.submit')}
           </button>
         </div>
       </div>

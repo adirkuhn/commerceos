@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { UpsertBolProductContentPayload } from '../integrations/api'
 
 export const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-focus'
@@ -41,11 +42,12 @@ export function ContentTextField({ id, label, value, onChange, multiline, hint }
 export function ContentSelectField({ id, label, value, onChange, options, hint }: {
   id: string; label: string; value: string; onChange: (v: string) => void; options: string[]; hint?: string
 }) {
+  const { t } = useTranslation('pms')
   return (
     <div>
       <label htmlFor={id} className={labelClass}>{label}</label>
       <select id={id} value={value} onChange={e => onChange(e.target.value)} className={inputClass}>
-        <option value="">-- not set --</option>
+        <option value="">{t('bolField.notSet')}</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
       {hint && <p className="text-2xs text-ink-4 mt-1">{hint}</p>}

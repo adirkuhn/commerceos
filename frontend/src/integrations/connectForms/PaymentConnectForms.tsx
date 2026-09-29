@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { PaymentWebhookState, RevolutConnectFormState, StripeConnectFormState } from '../hooks/useConnectForms'
 import { PaymentWebhookSetupStep } from '../PaymentWebhookSetupStep'
 import { ConnectFormFooter } from './ConnectFormFooter'
@@ -39,14 +40,15 @@ function hasWebhook(w: PaymentWebhookState): w is PaymentWebhookState & { webhoo
 }
 
 export function StripeConnectForm({ form, webhook, error, starting, onDone }: PaymentFormProps<StripeConnectFormState>) {
+  const { t } = useTranslation('integrations')
   if (hasWebhook(webhook)) {
-    return <WebhookStep webhook={webhook} providerLabel="Stripe" dashboardHint="Stripe Dashboard → Developers → Webhooks" onDone={onDone} />
+    return <WebhookStep webhook={webhook} providerLabel="Stripe" dashboardHint={t('payment.stripeWebhookHint')} onDone={onDone} />
   }
   return (
     <form onSubmit={form.connect} className="space-y-3">
       <div>
         <label htmlFor="stripe-secret-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-          Secret key
+          {t('payment.secretKey')}
         </label>
         <input
           id="stripe-secret-key"
@@ -55,27 +57,27 @@ export function StripeConnectForm({ form, webhook, error, starting, onDone }: Pa
           autoFocus
           value={form.secretKey}
           onChange={e => form.setSecretKey(e.target.value)}
-          placeholder="sk_live_..."
+          placeholder={'sk_live_...'}
           className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
         />
         <p className="mt-1.5 text-2xs text-ink-4">
-          From your Stripe Dashboard → Developers → API keys.
+          {t('payment.stripeKeyHint')}
         </p>
       </div>
       <div>
         <label htmlFor="stripe-publishable-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-          Publishable key
+          {t('payment.publishableKey')}
         </label>
         <input
           id="stripe-publishable-key"
           type="text"
           value={form.publishableKey}
           onChange={e => form.setPublishableKey(e.target.value)}
-          placeholder="pk_live_..."
+          placeholder={'pk_live_...'}
           className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
         />
         <p className="mt-1.5 text-2xs text-ink-4">
-          Optional — required only to offer an embedded card form at checkout instead of a hosted payment link.
+          {t('payment.publishableKeyHint')}
         </p>
       </div>
       <ConnectFormFooter error={error} starting={starting} />
@@ -84,14 +86,15 @@ export function StripeConnectForm({ form, webhook, error, starting, onDone }: Pa
 }
 
 export function RevolutConnectForm({ form, webhook, error, starting, onDone }: PaymentFormProps<RevolutConnectFormState>) {
+  const { t } = useTranslation('integrations')
   if (hasWebhook(webhook)) {
-    return <WebhookStep webhook={webhook} providerLabel="Revolut" dashboardHint="Revolut Business → Merchant API → Webhooks" onDone={onDone} />
+    return <WebhookStep webhook={webhook} providerLabel="Revolut" dashboardHint={t('payment.revolutWebhookHint')} onDone={onDone} />
   }
   return (
     <form onSubmit={form.connect} className="space-y-3">
       <div>
         <label htmlFor="revolut-api-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-          Merchant API secret key
+          {t('payment.revolutKey')}
         </label>
         <input
           id="revolut-api-key"
@@ -103,7 +106,7 @@ export function RevolutConnectForm({ form, webhook, error, starting, onDone }: P
           className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
         />
         <p className="mt-1.5 text-2xs text-ink-4">
-          From your Revolut Business account → Merchant API settings.
+          {t('payment.revolutKeyHint')}
         </p>
       </div>
       <ConnectFormFooter error={error} starting={starting} />

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { FormCard } from './FormCard'
 import { ScaleCodeAliasesEditor } from './SkuAliasEditors'
 import { normalizeScaleCodeInput } from './productFormat'
@@ -16,44 +17,42 @@ interface FlatSkuScaleBarcodeCardProps {
 // butcher/deli-scale packages.
 export function FlatSkuScaleBarcodeCard({ form, setField, currentSkuId }: FlatSkuScaleBarcodeCardProps) {
   const { scaleCode, pricingMode, pricePerKilo, currency } = form
+  const { t } = useTranslation('pms')
   return (
-    <FormCard
-      title="Weight-embedded barcode"
-      description="For a butcher/deli scale that prints a barcode with the package's weight baked in — every package gets a different full barcode, so scanning it is matched by this scale code instead."
-    >
+    <FormCard title={t('scale.title')} description={t('scale.description')}>
       <div>
-        <label htmlFor="product-scale-code" className={labelClass}>Scale code</label>
+        <label htmlFor="product-scale-code" className={labelClass}>{t('scale.code')}</label>
         <input
           id="product-scale-code"
-          type="text" placeholder="Not sold via a scale barcode" value={scaleCode}
+          type="text" placeholder={t('scale.codePlaceholder')} value={scaleCode}
           onChange={e => setField('scaleCode', normalizeScaleCodeInput(e.target.value))}
           maxLength={7} inputMode="numeric"
           className={inputClass}
         />
         <p className="text-2xs text-ink-4 mt-1">
-          The full code programmed into the scale for this product, including its prefix (e.g. 2900633) — type it exactly as shown on the scale, leave blank if it has a normal fixed barcode.
+          {t('scale.codeHint')}
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3 mt-2">
         <div>
-          <label htmlFor="product-pricing-mode" className={labelClass}>Pricing</label>
+          <label htmlFor="product-pricing-mode" className={labelClass}>{t('scale.pricing')}</label>
           <select
             id="product-pricing-mode" value={pricingMode}
             onChange={e => setField('pricingMode', e.target.value as SKUPricingMode)}
             className={inputClass}
           >
-            <option value="fixed">Fixed — same price per package (or a normal per-unit product)</option>
-            <option value="per_weight">Per kilo — price = rate × scanned weight</option>
+            <option value="fixed">{t('scale.fixed')}</option>
+            <option value="per_weight">{t('scale.perWeight')}</option>
           </select>
           {pricingMode === 'per_weight' && !scaleCode && (
             <p className="text-2xs text-warning mt-1">
-              Set a scale code above too — per-kilo pricing only applies once a package's weight can actually be scanned.
+              {t('scale.needCode')}
             </p>
           )}
         </div>
         {pricingMode === 'per_weight' && (
           <div>
-            <label htmlFor="product-price-per-kilo" className={labelClass}>Price per kilo ({currency})</label>
+            <label htmlFor="product-price-per-kilo" className={labelClass}>{t('scale.pricePerKilo', { currency })}</label>
             <input
               id="product-price-per-kilo"
               type="number" step="0.01" min="0" required value={pricePerKilo}

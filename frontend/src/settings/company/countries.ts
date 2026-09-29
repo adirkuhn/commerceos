@@ -1,6 +1,9 @@
+import i18next from 'i18next'
+
 // Countries offered in the company address picker: EU/EEA, the UK,
 // Switzerland and main trading partners. Names come from the browser
-// (Intl.DisplayNames), so there is no list of names to maintain.
+// (Intl.DisplayNames, in the admin language), so there is no list of names
+// to maintain.
 const CODES = [
   'AT', 'BE', 'BG', 'BR', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU',
   'IE', 'IS', 'IT', 'LI', 'LT', 'LU', 'LV', 'MT', 'NL', 'NO', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK', 'US',
@@ -8,7 +11,7 @@ const CODES = [
 
 function nameOf(code: string): string {
   try {
-    return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) ?? code
+    return new Intl.DisplayNames([i18next.language || 'en'], { type: 'region' }).of(code) ?? code
   } catch {
     return code
   }
@@ -24,5 +27,5 @@ export interface CountryOption {
 export function countryOptions(current = ''): CountryOption[] {
   const codes: string[] = [...CODES]
   if (current && !codes.includes(current)) codes.push(current)
-  return codes.map(code => ({ code, name: nameOf(code) })).sort((a, b) => a.name.localeCompare(b.name))
+  return codes.map(code => ({ code, name: nameOf(code) })).sort((a, b) => a.name.localeCompare(b.name, i18next.language || 'en'))
 }

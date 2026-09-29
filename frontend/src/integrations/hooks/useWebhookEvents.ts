@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { WebhookEvent } from '../types'
 import * as api from '../api'
@@ -31,7 +32,7 @@ export function useWebhookEvents(token: string, provider: string): UseWebhookEve
       const result = await api.listWebhookEvents(token, { provider: provider || undefined })
       setEvents(result)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('integrations:unknownError'))
     } finally {
       setLoading(false)
     }

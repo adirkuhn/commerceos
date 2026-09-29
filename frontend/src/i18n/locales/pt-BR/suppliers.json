@@ -1,0 +1,41 @@
+{
+  "add": "Adicionar fornecedor",
+  "back": "Fornecedores",
+  "badge": {
+    "active": "ativo",
+    "inactive": "inativo"
+  },
+  "colCountry": "País",
+  "colLeadTime": "Prazo de entrega",
+  "colStatus": "Status",
+  "colSupplier": "Fornecedor",
+  "confirmDelete": {
+    "confirm": "Excluir fornecedor",
+    "message": "Esta ação não pode ser desfeita.",
+    "title": "Excluir o fornecedor \"{{name}}\"?"
+  },
+  "count_one": "{{count}} fornecedor",
+  "count_many": "{{count}} fornecedores",
+  "count_other": "{{count}} fornecedores",
+  "country": "País",
+  "create": "Criar fornecedor",
+  "discard": "Descartar",
+  "edit": "Editar fornecedor",
+  "email": "E-mail",
+  "empty": "Nenhum fornecedor ainda",
+  "general": "Geral",
+  "leadTime": "Prazo de entrega (dias)",
+  "leadTimeDays": "{{days}} d",
+  "name": "Nome",
+  "new": "Novo fornecedor",
+  "notes": "Observações",
+  "phone": "Telefone",
+  "saveFailed": "Não foi possível salvar o fornecedor",
+  "searchPlaceholder": "Buscar por nome ou país...",
+  "status": {
+    "active": "Ativo",
+    "inactive": "Inativo"
+  },
+  "subject": "Fornecedor",
+  "unknownError": "Erro desconhecido"
+}

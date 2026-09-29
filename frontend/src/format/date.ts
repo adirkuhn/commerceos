@@ -1,3 +1,5 @@
+import i18next from 'i18next'
+
 const MISSING = '—'
 
 // The tenant's Settings → Localization → Date format. Every date shown in
@@ -92,7 +94,24 @@ export function formatTime(value: DateInput, settings: DateFormatSettings = DEFA
   return p ? `${p.hour}:${p.minute}` : MISSING
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+// Short month names in the admin language (read when formatting, so a
+// language switch applies at once).
+function monthShort(month: number): string {
+  switch (month) {
+    case 1: return i18next.t('ui:monthShort.jan')
+    case 2: return i18next.t('ui:monthShort.feb')
+    case 3: return i18next.t('ui:monthShort.mar')
+    case 4: return i18next.t('ui:monthShort.apr')
+    case 5: return i18next.t('ui:monthShort.may')
+    case 6: return i18next.t('ui:monthShort.jun')
+    case 7: return i18next.t('ui:monthShort.jul')
+    case 8: return i18next.t('ui:monthShort.aug')
+    case 9: return i18next.t('ui:monthShort.sep')
+    case 10: return i18next.t('ui:monthShort.oct')
+    case 11: return i18next.t('ui:monthShort.nov')
+    default: return i18next.t('ui:monthShort.dec')
+  }
+}
 
 // Short labels for charts and report periods ("3 Sep", "Sep 2026"): day
 // and month follow the tenant pattern's order (month first only for
@@ -101,7 +120,7 @@ export function formatMonthDay(value: DateInput, settings: DateFormatSettings = 
   const p = toParts(value, settings.timeZone)
   if (!p) return MISSING
   const day = String(Number(p.day))
-  const month = MONTHS[Number(p.month) - 1]
+  const month = monthShort(Number(p.month))
   return settings.pattern === 'MM/DD/YYYY' ? `${month} ${day}` : `${day} ${month}`
 }
 
@@ -110,5 +129,5 @@ export function formatMonthYear(
 ): string {
   const p = toParts(value, settings.timeZone)
   if (!p) return MISSING
-  return `${MONTHS[Number(p.month) - 1]} ${shortYear ? `'${p.year.slice(2)}` : p.year}`
+  return `${monthShort(Number(p.month))} ${shortYear ? `'${p.year.slice(2)}` : p.year}`
 }

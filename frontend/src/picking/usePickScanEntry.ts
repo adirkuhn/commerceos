@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useEffect, useRef, useState } from 'react'
 import * as pickingApi from '../scanner/api'
 import type { PickingSessionDetail } from '../scanner/types'
@@ -46,7 +47,7 @@ export function usePickScanEntry({ token, session, loadSession, setError, sheet 
         const pickedSoFar = pickedQuantityByLineItem(session.scans).get(li.id) ?? 0
         if (pickedSoFar >= li.quantity) {
           playErrorSound()
-          setScanErrorAlert('Already fully picked')
+          setScanErrorAlert(i18next.t('picking:errors.alreadyPicked'))
           return
         }
       }
@@ -62,7 +63,7 @@ export function usePickScanEntry({ token, session, loadSession, setError, sheet 
         await loadSession(session.session.id)
       } catch {
         playErrorSound()
-        setScanErrorAlert('Item not on this order')
+        setScanErrorAlert(i18next.t('picking:errors.notOnOrder'))
       }
     } catch {
       // Code didn't resolve to any known SKU at all -- must block the same
@@ -70,7 +71,7 @@ export function usePickScanEntry({ token, session, loadSession, setError, sheet 
       // above, not just show inline text a picker can scan straight past
       // (see PickingScreen.tsx's resolveAndRoute, which already blocks here).
       playErrorSound()
-      setScanErrorAlert('Barcode not recognized')
+      setScanErrorAlert(i18next.t('picking:errors.barcodeUnknown'))
     } finally {
       setBusy(false)
       codeRef.current?.focus()
@@ -93,7 +94,7 @@ export function usePickScanEntry({ token, session, loadSession, setError, sheet 
       sheet.close()
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to record pick')
+      setError(err instanceof Error ? err.message : i18next.t('picking:errors.recordPick'))
     } finally {
       setBusy(false)
       codeRef.current?.focus()
@@ -107,7 +108,7 @@ export function usePickScanEntry({ token, session, loadSession, setError, sheet 
       await pickingApi.deletePickScan(token, session.session.id, scanId)
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove scan')
+      setError(err instanceof Error ? err.message : i18next.t('picking:errors.removeScan'))
     }
   }
 

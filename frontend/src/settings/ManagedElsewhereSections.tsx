@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ExternalLink, ArrowRight } from 'lucide-react'
 import { RULES_PATH } from '../messagecenter/messageCenterPaths'
 
@@ -23,13 +24,14 @@ const linkClass = 'inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-acce
 // Sign-in, passwords, two-factor and sessions are lm2's (the identity
 // provider every CommerceOS login goes through).
 export function SecuritySection({ lm2Url }: { lm2Url: string }) {
+  const { t } = useTranslation('settings')
   return (
-    <Card title="Security" description="Sign-in and account protection">
+    <Card title={t('sections.security')} description={t('security.subtitle')}>
       <p className="text-sm text-ink-2">
-        Sign-in, passwords and two-factor authentication are managed in your lm2 account, the login used for CommerceOS.
+        {t('security.text')}
       </p>
       <a href={lm2Url} target="_blank" rel="noopener noreferrer" className={linkClass}>
-        Open lm2 <ExternalLink size={14} aria-hidden />
+        {t('security.open')} <ExternalLink size={14} aria-hidden />
       </a>
     </Card>
   )
@@ -38,13 +40,14 @@ export function SecuritySection({ lm2Url }: { lm2Url: string }) {
 // Automations are Message Center rules (event -> message), the one rule
 // engine CommerceOS has.
 export function AutomationSection() {
+  const { t } = useTranslation('settings')
   return (
-    <Card title="Automation" description="Rules that react to events">
+    <Card title={t('sections.automation')} description={t('automation.subtitle')}>
       <p className="text-sm text-ink-2">
-        Automations run from Message Center: choose an event, like an order shipping, and the message that goes out.
+        {t('automation.text')}
       </p>
       <Link to={RULES_PATH} className={linkClass}>
-        Open automation rules <ArrowRight size={14} aria-hidden />
+        {t('automation.open')} <ArrowRight size={14} aria-hidden />
       </Link>
     </Card>
   )

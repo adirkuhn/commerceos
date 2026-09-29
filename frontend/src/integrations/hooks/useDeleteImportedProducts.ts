@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState } from 'react'
 import * as api from '../api'
 import type { Connection, DeleteAllImportedProductsResult } from '../types'
@@ -22,7 +23,7 @@ export function useDeleteImportedProducts(token: string, connection: Connection 
       setResult(await api.deleteAllImportedProducts(token, connection.id))
       notifyProductsChanged()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Delete failed')
+      setError(err instanceof Error ? err.message : i18next.t('integrations:deleteImported.failed'))
     } finally {
       setDeleting(false)
     }

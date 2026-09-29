@@ -1,19 +1,21 @@
 import type { ReactNode } from 'react'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { dateRange, REPORTS_PERIODS, type ReportsPeriod } from '../../reports/period'
 import { useDateFormat } from '../../format/DateFormatProvider'
 
 export function ChangeBadge({ percent }: { percent: number | null }) {
+  const { t } = useTranslation('reports')
   if (percent === null) {
-    return <span className="text-xs text-ink-4">— vs prev period</span>
+    return <span className="text-xs text-ink-4">{t('shared.noPrev')}</span>
   }
   const up = percent >= 0
   return (
     <div className={clsx('flex items-center gap-1 text-xs font-medium', up ? 'text-success' : 'text-danger')}>
       {up ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
       <span>{`${up ? '+' : ''}${percent.toFixed(1)}%`}</span>
-      <span> vs prev period</span>
+      <span> {t('shared.vsPrev')}</span>
     </div>
   )
 }
@@ -72,6 +74,7 @@ export function DateRangeControl({
   onCustomFromChange: (value: string) => void
   onCustomToChange: (value: string) => void
 }) {
+  const { t } = useTranslation('reports')
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <div className="flex items-center gap-0.5 bg-raised border border-line rounded-lg p-0.5">
@@ -86,7 +89,7 @@ export function DateRangeControl({
                 : 'text-ink-3 hover:text-ink-2',
             )}
           >
-            {p === 'custom' ? 'Custom' : p}
+            {p === 'custom' ? t('shared.custom') : p}
           </button>
         ))}
       </div>
@@ -117,9 +120,10 @@ export function DateRangeControl({
 // switch -- Daily swaps the Profitability and Revenue by Channel cards
 // from whole-period aggregates to a per-day time series.
 export function ViewToggle({ showDaily, onChange }: { showDaily: boolean; onChange: (showDaily: boolean) => void }) {
+  const { t } = useTranslation('reports')
   return (
     <div className="flex items-center gap-0.5 bg-raised border border-line rounded-lg p-0.5">
-      {[{ value: false, label: 'Summary' }, { value: true, label: 'Daily' }].map(opt => (
+      {[{ value: false, label: t('shared.summary') }, { value: true, label: t('shared.daily') }].map(opt => (
         <button aria-pressed={showDaily === opt.value}
           key={opt.label}
           onClick={() => onChange(opt.value)}
@@ -152,6 +156,7 @@ interface ReportPageShellProps {
 // selector, loading/error banners, then the report's own content.
 export function ReportPageShell({ title, period, onPeriodChange, subtitle, loading, error, children }: ReportPageShellProps) {
   const { formatDate, settings } = useDateFormat()
+  const { t } = useTranslation(['reports', 'common'])
   const range = period ? dateRange(period, new Date(), settings.timeZone) : null
   return (
     <div className="p-5 space-y-5 overflow-auto h-full">
@@ -165,7 +170,7 @@ export function ReportPageShell({ title, period, onPeriodChange, subtitle, loadi
         {period && onPeriodChange && <PeriodSelector period={period} onChange={onPeriodChange} />}
       </div>
       {error && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}
-      {loading && <p className="text-xs text-ink-4">Loading…</p>}
+      {loading && <p className="text-xs text-ink-4">{t('common:status.loading')}</p>}
       {children}
     </div>
   )

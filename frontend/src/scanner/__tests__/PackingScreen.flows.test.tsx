@@ -129,7 +129,7 @@ describe('PackingScreen session actions', () => {
     await screen.findByText('Widget')
 
     await user.click(screen.getByRole('button', { name: 'Finish' }))
-    expect(await screen.findByText("1 line(s) aren't fully packed yet:")).toBeInTheDocument()
+    expect(await screen.findByText("1 line isn't fully packed yet:")).toBeInTheDocument()
     expect(screen.getByText('expected 2 · packed 0')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Back, scan more' }))
     expect(await screen.findByText('Packing')).toBeInTheDocument()
@@ -138,7 +138,7 @@ describe('PackingScreen session actions', () => {
     await user.click(await screen.findByRole('button', { name: 'Confirm & complete' }))
 
     expect(await screen.findByText('Order packed')).toBeInTheDocument()
-    expect(screen.getByText("1 line(s) weren't fully packed:")).toBeInTheDocument()
+    expect(screen.getByText("1 line wasn't fully packed:")).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Done' }))
     expect(onExit).toHaveBeenCalled()
   })

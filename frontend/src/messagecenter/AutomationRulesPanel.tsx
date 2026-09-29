@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Plus, Pencil, Trash2, X } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { RULES_PATH } from './messageCenterPaths'
@@ -10,22 +12,28 @@ import type { AutomationRule, Condition, Operator, TriggerSubject, MessageChanne
 import { Dialog } from '../components/common/Dialog'
 import { useConfirm } from '../components/common/useConfirm'
 
-const TRIGGER_LABELS: Record<TriggerSubject, string> = {
-  'pms.product.deleted': 'Product deleted',
-  'storefront.order.placed': 'Storefront order placed',
-  'pms.category.changed': 'Category changed',
-  'pms.product.changed': 'Product changed',
-  'payments.refund.manual_review_required': 'Refund needs manual review',
-  'payments.refund.issued': 'Refund issued',
-  'integrations.connection.connected': 'Integration connected',
-  'oms.sales_order.status_changed': 'Order status changed',
-  'inventory.stock.changed': 'Stock changed',
-  'shipping.shipment.fulfillment_signal': 'Shipment status update',
-}
+type T = TFunction<'messages'>
 
-const ALL_TRIGGERS = Object.keys(TRIGGER_LABELS) as TriggerSubject[]
+const triggerLabels = (t: T): Record<TriggerSubject, string> => ({
+  'pms.product.deleted': t('trigger.productDeleted'),
+  'storefront.order.placed': t('trigger.storefrontOrderPlaced'),
+  'pms.category.changed': t('trigger.categoryChanged'),
+  'pms.product.changed': t('trigger.productChanged'),
+  'payments.refund.manual_review_required': t('trigger.refundReview'),
+  'payments.refund.issued': t('trigger.refundIssued'),
+  'integrations.connection.connected': t('trigger.integrationConnected'),
+  'oms.sales_order.status_changed': t('trigger.orderStatusChanged'),
+  'inventory.stock.changed': t('trigger.stockChanged'),
+  'shipping.shipment.fulfillment_signal': t('trigger.shipmentUpdate'),
+})
+
+const ALL_TRIGGERS: TriggerSubject[] = [
+  'pms.product.deleted', 'storefront.order.placed', 'pms.category.changed', 'pms.product.changed',
+  'payments.refund.manual_review_required', 'payments.refund.issued', 'integrations.connection.connected',
+  'oms.sales_order.status_changed', 'inventory.stock.changed', 'shipping.shipment.fulfillment_signal',
+]
 const ALL_OPERATORS: Operator[] = ['eq', 'neq', 'in', 'gt', 'lt']
-const OPERATOR_LABELS: Record<Operator, string> = { eq: 'equals', neq: 'not equals', in: 'is one of', gt: '>', lt: '<' }
+const operatorLabels = (t: T): Record<Operator, string> => ({ eq: t('operator.eq'), neq: t('operator.neq'), in: t('operator.in'), gt: '>', lt: '<' })
 const ALL_CHANNELS: MessageChannel[] = ['email', 'sms', 'whatsapp']
 
 interface ConditionRow {
@@ -61,9 +69,9 @@ function rowToCondition(row: ConditionRow): Condition {
   return { field: row.field, operator: row.operator, value }
 }
 
-function conditionSummary(c: Condition): string {
+function conditionSummary(t: T, c: Condition): string {
   const value = Array.isArray(c.value) ? c.value.join(', ') : String(c.value)
-  return `${c.field} ${OPERATOR_LABELS[c.operator]} ${value}`
+  return `${c.field} ${operatorLabels(t)[c.operator]} ${value}`
 }
 
 function emptyForm(): FormState {
@@ -80,6 +88,10 @@ function toForm(r: AutomationRule): FormState {
 export default function AutomationRulesPanel() {
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
+  const { t } = useTranslation(['messages', 'common'])
+  const TRIGGER_LABELS = triggerLabels(t)
+  const OPERATOR_LABELS = operatorLabels(t)
+  const CHANNEL_LABELS: Record<MessageChannel, string> = { email: t('channel.email'), sms: t('channel.sms'), whatsapp: t('channel.whatsapp') }
   const { rules, loading, error, create, update, remove } = useAutomationRules(token ?? '')
   const { templates, loading: templatesLoading } = useMessageTemplates(token ?? '')
 
@@ -93,7 +105,7 @@ export default function AutomationRulesPanel() {
   const [actionError, setActionError] = useState('')
 
   function templateName(id: string): string {
-    return templates.find(t => t.id === id)?.name ?? id
+    return templates.find(tpl => tpl.id === id)?.name ?? id
   }
 
   // A new rule defaults to the first template, so it waits for templates.
@@ -134,19 +146,19 @@ export default function AutomationRulesPanel() {
       }
       closeForm()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Unknown error')
+      setFormError(err instanceof Error ? err.message : t('common:status.error'))
     } finally {
       setSaving(false)
     }
   }
 
   async function handleDelete(r: AutomationRule) {
-    if (!(await confirm({ title: `Delete rule "${r.name}"?`, message: 'This cannot be undone.', confirmLabel: 'Delete rule', destructive: true }))) return
+    if (!(await confirm({ title: t('rules.deleteTitle', { name: r.name }), message: t('rules.deleteMessage'), confirmLabel: t('rules.deleteConfirm'), destructive: true }))) return
     setActionError('')
     try {
       await remove(r.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Unknown error')
+      setActionError(err instanceof Error ? err.message : t('common:status.error'))
     }
   }
 
@@ -154,20 +166,20 @@ export default function AutomationRulesPanel() {
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <p className="text-xs text-ink-4">
-          When an event fires and every condition matches, the chosen template is sent.
+          {t('rules.intro')}
         </p>
         <button
           onClick={openCreate}
           disabled={templates.length === 0}
-          title={templates.length === 0 ? 'Create a message template first' : undefined}
+          title={templates.length === 0 ? t('rules.needTemplate') : undefined}
           className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
-          <Plus size={13} /> New rule
+          <Plus size={13} /> {t('rules.new')}
         </button>
       </div>
 
       <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{rules.length} rule{rules.length === 1 ? '' : 's'}</span>
+        <span className="text-xs text-ink-4">{t('rules.count', { count: rules.length })}</span>
         {(error || actionError) && <span className="text-xs text-danger ml-auto">{error || actionError}</span>}
       </div>
 
@@ -175,47 +187,47 @@ export default function AutomationRulesPanel() {
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Name</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Trigger</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Conditions</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Template</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('rules.colName')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('rules.colTrigger')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('rules.colConditions')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('rules.colTemplate')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('rules.colStatus')}</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
             )}
             {!loading && rules.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">No automation rules yet</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-ink-4">{t('rules.empty')}</td></tr>
             )}
             {rules.map(r => (
               <tr key={r.id} className="group hover:bg-hover/60 transition-colors">
                 <td className="px-3 py-2.5 font-medium text-ink">{r.name}</td>
                 <td className="px-3 py-2.5 text-ink-3">{TRIGGER_LABELS[r.trigger_subject]}</td>
                 <td className="px-3 py-2.5 text-ink-3">
-                  {r.conditions.length === 0 ? 'Always' : r.conditions.map(conditionSummary).join(' AND ')}
+                  {r.conditions.length === 0 ? t('rules.always') : r.conditions.map(c => conditionSummary(t, c)).join(t('rules.and'))}
                 </td>
                 <td className="px-3 py-2.5 text-ink-3">{templateName(r.template_id)}</td>
                 <td className="px-3 py-2.5">
                   <span className={r.enabled ? 'text-success' : 'text-ink-4'}>
-                    {r.enabled ? 'Enabled' : 'Disabled'}
+                    {r.enabled ? t('common:status.enabled') : t('common:status.disabled')}
                   </span>
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button aria-label="Edit"
+                    <button aria-label={t('common:actions.edit')}
                       onClick={() => openEdit(r)}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Edit"
+                      title={t('common:actions.edit')}
                     >
                       <Pencil size={12} className="text-ink-3" />
                     </button>
-                    <button aria-label="Delete"
+                    <button aria-label={t('common:actions.delete')}
                       onClick={() => handleDelete(r)}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
-                      title="Delete"
+                      title={t('common:actions.delete')}
                     >
                       <Trash2 size={12} className="text-ink-3 hover:text-danger" />
                     </button>
@@ -233,16 +245,16 @@ export default function AutomationRulesPanel() {
           <div className="relative w-full max-w-lg bg-raised rounded-xl shadow-2xl border border-line p-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-ink">
-                {editingRule ? 'Edit automation rule' : 'New automation rule'}
+                {editingRule ? t('rules.editTitle') : t('rules.newTitle')}
               </h3>
-              <button onClick={closeForm} aria-label="Close">
+              <button onClick={closeForm} aria-label={t('common:actions.close')}>
                 <X size={14} className="text-ink-4" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label htmlFor="rule-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Name
+                  {t('rules.name')}
                 </label>
                 <input
                   id="rule-name"
@@ -257,7 +269,7 @@ export default function AutomationRulesPanel() {
 
               <div>
                 <label htmlFor="rule-trigger" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  When this happens
+                  {t('rules.when')}
                 </label>
                 <select
                   id="rule-trigger"
@@ -265,8 +277,8 @@ export default function AutomationRulesPanel() {
                   onChange={e => setForm(f => ({ ...f, triggerSubject: e.target.value as TriggerSubject }))}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
-                  {ALL_TRIGGERS.map(t => (
-                    <option key={t} value={t}>{TRIGGER_LABELS[t]}</option>
+                  {ALL_TRIGGERS.map(tr => (
+                    <option key={tr} value={tr}>{TRIGGER_LABELS[tr]}</option>
                   ))}
                 </select>
               </div>
@@ -274,10 +286,10 @@ export default function AutomationRulesPanel() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-2xs text-ink-4 uppercase tracking-wider">
-                    And these conditions match (optional)
+                    {t('rules.conditions')}
                   </span>
                   <button type="button" onClick={addCondition} className="text-2xs text-accent hover:text-accent">
-                    + Add condition
+                    {t('rules.addCondition')}
                   </button>
                 </div>
                 <div className="space-y-1.5">
@@ -285,7 +297,7 @@ export default function AutomationRulesPanel() {
                     <div key={i} className="flex items-center gap-1.5">
                       <input
                         type="text"
-                        placeholder="field"
+                        placeholder={t('rules.field')}
                         value={c.field}
                         onChange={e => updateCondition(i, { field: e.target.value })}
                         className="w-24 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
@@ -301,12 +313,12 @@ export default function AutomationRulesPanel() {
                       </select>
                       <input
                         type="text"
-                        placeholder={c.operator === 'in' ? 'value1, value2' : 'value'}
+                        placeholder={c.operator === 'in' ? t('rules.values') : t('rules.value')}
                         value={c.valueText}
                         onChange={e => updateCondition(i, { valueText: e.target.value })}
                         className="flex-1 px-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                       />
-                      <button type="button" onClick={() => removeCondition(i)} aria-label="Remove condition">
+                      <button type="button" onClick={() => removeCondition(i)} aria-label={t('rules.removeCondition')}>
                         <X size={13} className="text-ink-4" />
                       </button>
                     </div>
@@ -316,7 +328,7 @@ export default function AutomationRulesPanel() {
 
               <div>
                 <label htmlFor="rule-template" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Send this template
+                  {t('rules.template')}
                 </label>
                 <select
                   id="rule-template"
@@ -325,16 +337,16 @@ export default function AutomationRulesPanel() {
                   onChange={e => setForm(f => ({ ...f, templateId: e.target.value }))}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
-                  <option value="" disabled>Select a template</option>
-                  {templates.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
+                  <option value="" disabled>{t('rules.selectTemplate')}</option>
+                  {templates.map(tpl => (
+                    <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
                   ))}
                 </select>
               </div>
 
               <div>
                 <label htmlFor="rule-channel-override" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  Channel override (optional)
+                  {t('rules.channelOverride')}
                 </label>
                 <select
                   id="rule-channel-override"
@@ -342,21 +354,21 @@ export default function AutomationRulesPanel() {
                   onChange={e => setForm(f => ({ ...f, channelOverride: e.target.value as MessageChannel | '' }))}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 >
-                  <option value="">Use template's own channels</option>
+                  <option value="">{t('rules.templateChannels')}</option>
                   {ALL_CHANNELS.map(ch => (
-                    <option key={ch} value={ch}>{ch}</option>
+                    <option key={ch} value={ch}>{CHANNEL_LABELS[ch]}</option>
                   ))}
                 </select>
               </div>
 
               {editingRule && (
                 <div className="flex items-center justify-between">
-                  <span className="text-2xs text-ink-4 uppercase tracking-wider">Enabled</span>
+                  <span className="text-2xs text-ink-4 uppercase tracking-wider">{t('rules.enabled')}</span>
                   <label className="relative flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"
                       role="switch"
-                      aria-label="Enabled"
+                      aria-label={t('rules.enabled')}
                       checked={form.enabled}
                       onChange={e => setForm(f => ({ ...f, enabled: e.target.checked }))}
                       className="sr-only peer"
@@ -376,7 +388,7 @@ export default function AutomationRulesPanel() {
                 disabled={saving}
                 className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
               >
-                {saving ? 'Saving…' : editingRule ? 'Save changes' : 'Create rule'}
+                {saving ? t('common:actions.saving') : editingRule ? t('common:actions.saveChanges') : t('rules.create')}
               </button>
             </form>
           </div>

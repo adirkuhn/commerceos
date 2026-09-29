@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import { Undo2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { SalesOrder } from '../oms/types'
 import { customerName, shippingAddressLine } from '../oms/salesOrderDisplay'
-import { UNKNOWN_CUSTOMER_LABEL } from './scannerLabels'
+import { unknownCustomerLabel } from './scannerLabels'
 
 // The order info band under a session screen's header: number, customer
 // and ship-to address, plus whatever extra lines the screen adds (billing,
@@ -13,7 +14,7 @@ export function ScanSessionOrderBand({ order, children }: { order: SalesOrder; c
       <div className="flex items-baseline gap-1.5 flex-wrap">
         <span className="text-base font-semibold">#{order.number || order.external_order_id}</span>
         <span className="text-gray-400">·</span>
-        <span className="text-base text-gray-300">{customerName(order, UNKNOWN_CUSTOMER_LABEL)}</span>
+        <span className="text-base text-gray-300">{customerName(order, unknownCustomerLabel())}</span>
       </div>
       {shippingAddressLine(order.shipping) && (
         <p className="text-sm text-gray-400 mt-0.5">{shippingAddressLine(order.shipping)}</p>
@@ -24,12 +25,13 @@ export function ScanSessionOrderBand({ order, children }: { order: SalesOrder; c
 }
 
 export function StartOverButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  const { t } = useTranslation('scanner')
   return (
     <button
       type="button" onClick={onClick} disabled={disabled}
       className="mt-0.5 -mb-2 py-2.5 flex items-center gap-1.5 text-sm text-red-400 disabled:opacity-50"
     >
-      <Undo2 size={12} /> Start over
+      <Undo2 size={12} /> {t('session.startOver')}
     </button>
   )
 }

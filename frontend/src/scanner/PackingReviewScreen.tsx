@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { ArrowLeft } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { SalesOrder } from '../oms/types'
 import type { MissingPackItem } from './types'
 import { ScanSessionOrderBand } from './ScanSessionOrderBand'
@@ -20,21 +21,22 @@ interface PackingReviewScreenProps {
 // "Review before finishing": what isn't fully packed yet, the label, and
 // the confirm button.
 export function PackingReviewScreen({ order, missing, error, finishing, labelButton, onBack, onConfirm, children }: PackingReviewScreenProps) {
+  const { t } = useTranslation('scanner')
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button aria-label="Back to packing" onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to packing">
+        <button aria-label={t('review.backToPacking')} onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('review.backToPacking')}>
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
-        <h1 className="flex-1 text-base font-semibold">Review before finishing</h1>
+        <h1 className="flex-1 text-base font-semibold">{t('review.title')}</h1>
       </div>
       <ScanSessionOrderBand order={order} />
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
         {missing.length === 0 ? (
-          <p className="text-center text-sm text-gray-400 py-8">Every line is fully packed.</p>
+          <p className="text-center text-sm text-gray-400 py-8">{t('review.allPacked')}</p>
         ) : (
           <>
-            <p className="text-sm text-amber-400">{missing.length} line(s) aren't fully packed yet:</p>
+            <p className="text-sm text-amber-400">{t('review.notFullyPacked', { count: missing.length })}</p>
             {missing.map(m => (
               <MissingLineCard key={m.line_item_id} activity="packing" name={m.name} expectedQty={m.expected_qty} actualQty={m.packed_qty} />
             ))}
@@ -49,10 +51,10 @@ export function PackingReviewScreen({ order, missing, error, finishing, labelBut
           disabled={finishing}
           className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
         >
-          {finishing ? 'Completing…' : 'Confirm & complete'}
+          {finishing ? t('review.completing') : t('review.confirm')}
         </button>
         <button onClick={onBack} className="w-full py-2.5 rounded-xl bg-night-800 text-gray-300 text-sm font-medium">
-          Back, scan more
+          {t('review.backScanMore')}
         </button>
       </div>
       {children}

@@ -1,0 +1,19 @@
+{
+  "list": {
+    "colCustomer": "Cliente",
+    "colDate": "Data",
+    "colProduct": "ID do produto",
+    "colRating": "Nota",
+    "colReview": "Avaliação",
+    "count_one": "{{count}} avaliação",
+    "count_many": "{{count}} avaliações",
+    "count_other": "{{count}} avaliações",
+    "deleteConfirm": "Excluir avaliação",
+    "deleteMessage": "Esta ação não pode ser desfeita.",
+    "deleteTitle": "Excluir a avaliação de \"{{name}}\"?",
+    "empty": "Nenhuma avaliação ainda",
+    "search": "Buscar por cliente, produto ou texto...",
+    "stars": "{{rating}} de 5 estrelas",
+    "verified": "Compra verificada"
+  }
+}

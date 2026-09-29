@@ -1,0 +1,322 @@
+{
+  "addLink": "Koppeling toevoegen",
+  "aiParsing": {
+    "enable": "AI-analyse inschakelen",
+    "intro": "Als een bericht niet overeenkomt met een vast commando (bijv. \"hebben jullie citroenthee op voorraad?\"), deelt de gekoppelde AI-provider het in als voorraad/prijs/houdbaarheid/info en haalt het product eruit — nooit een vrij chatantwoord, alleen strikte classificatie.",
+    "noProvider": "Nog geen AI-provider gekoppeld. Koppel er eerst een via Instellingen → Integraties → AI.",
+    "title": "WhatsApp-analyse met AI"
+  },
+  "bol": {
+    "clientId": "Client-ID",
+    "clientSecret": "Client secret",
+    "configSaveFailed": "Configuratie opslaan mislukt",
+    "configuration": "Configuratie",
+    "configurationHint": "Meegestuurd met elk aanbod dat deze koppeling naar Bol stuurt.",
+    "connectIntro": "Plak de inloggegevens uit je Bol.com Retailer API-portal. Geen doorverwijzing — Bol authenticeert via client_credentials.",
+    "delivery": {
+      "days": "{{range}} dagen",
+      "days35": "3-5 dagen (standaard)",
+      "nextDay": "Volgende dag, besteld voor {{time}}",
+      "own": "Mijn leverbelofte",
+      "vvb": "Verzonden via Bol (VVB)"
+    },
+    "deliveryPromise": "Leverbelofte",
+    "fetch": "Ophalen bij Bol",
+    "fetchFailed": "Ophalen bij Bol mislukt",
+    "fetching": "Ophalen…",
+    "noOperators": "Bol gaf geen economische operators terug voor dit account — vul het ID handmatig in.",
+    "operatorId": "ID economische operator",
+    "operatorIdHint": "Je EU-operator-ID, verplicht bij elk aanbod.",
+    "operatorUuidHint": "Een UUID uit het Partnerplatform van Bol (GPSR-/economische-operatorinstellingen) — niet je KVK- of btw-nummer.",
+    "ordersHint": "Alleen importeren — CommerceOS stuurt nooit bestellingen terug naar Bol. Haalt bij elke run de openstaande bestellingen op.",
+    "saveConfiguration": "Configuratie opslaan",
+    "scheduleIntro": "Stel in hoe vaak elk soort gegevens synchroniseert tussen CommerceOS en Bol.com. Producten/voorraad sturen alleen wat in je Bol-verkoopkanaal is opgenomen — stel de productselectie in onder Verkoopkanalen.",
+    "selectFromBol": "Kiezen uit Bol",
+    "selectOperator": "Kies een operator…",
+    "stockHint": "Stuurt de huidige prijs en voorraad van elk al gekoppeld product opnieuw — Bol heeft geen endpoint voor alleen voorraad, dus dit doet dezelfde push als Producten, alleen met een eigen interval."
+  },
+  "browse": {
+    "email": "E-mail",
+    "title": "Integraties bekijken"
+  },
+  "card": {
+    "aiParsing": "AI-analyse",
+    "aiParsingOn": "AI-analyse aan",
+    "configure": "Instellen",
+    "deleteImported": "Geïmporteerde verwijderen",
+    "disconnect": "Ontkoppelen",
+    "editCredentials": "Inloggegevens bewerken",
+    "registerWebhook": "Webhook registreren",
+    "test": "Testen",
+    "testing": "Testen…",
+    "testMode": "Testmodus",
+    "testModeOn": "Testmodus aan — alle berichten gaan naar {{phone}}",
+    "webhook": "Webhook"
+  },
+  "connect": {
+    "connecting": "Verbinden…",
+    "failed": "Verbinden mislukt",
+    "startFailed": "Koppeling starten mislukt",
+    "submit": "Verbinden",
+    "webhookSecretFailed": "Webhookgeheim opslaan mislukt"
+  },
+  "connection": "Koppeling",
+  "copied": "Gekopieerd",
+  "copy": "Kopiëren",
+  "creating": "Aanmaken…",
+  "credentials": {
+    "baseUrl": "Basis-URL",
+    "keepKey": "Leeg laten om de huidige sleutel te behouden",
+    "keyHint": "Wordt na opslaan nooit meer getoond — laat leeg tenzij je hem vervangt.",
+    "title": "WhatsApp-inloggegevens"
+  },
+  "deleteImported": {
+    "and": "en",
+    "categories_one": "<strong>{{count}}</strong> nu lege categorie",
+    "categories_other": "<strong>{{count}}</strong> nu lege categorieën",
+    "deleted": "Verwijderd:",
+    "deleting": "Verwijderen…",
+    "failed": "Verwijderen mislukt",
+    "products_one": "<strong>{{count}}</strong> product",
+    "products_other": "<strong>{{count}}</strong> producten",
+    "salesOrders_one": "<strong>{{count}}</strong> verkooporder",
+    "salesOrders_other": "<strong>{{count}}</strong> verkooporders",
+    "title": "Geïmporteerde producten verwijderen",
+    "typeToConfirm": "Typ DELETE om te bevestigen",
+    "warning": "Dit verwijdert definitief elk product dat is geïmporteerd uit <strong>{{store}}</strong> — inclusief varianten, SKU's, voorraadhistorie en afbeeldingen. Categorieën die daarna leeg zijn, worden ook verwijderd. Dit kan niet ongedaan worden gemaakt."
+  },
+  "deliveryUrl": "Afleverings-URL",
+  "direction": {
+    "export": "export",
+    "import": "import"
+  },
+  "done": "Klaar",
+  "email": {
+    "from": "Afzenderadres",
+    "host": "SMTP-server",
+    "noAuthHint": "Laat gebruikersnaam/wachtwoord leeg voor een relay zonder authenticatie.",
+    "password": "Wachtwoord (optioneel)",
+    "port": "Poort",
+    "username": "Gebruikersnaam (optioneel)"
+  },
+  "entity": {
+    "categories": "Categorieën",
+    "orders": "Bestellingen",
+    "ordersReconciliation": "Bestellingen afstemmen",
+    "products": "Producten",
+    "stock": "Voorraadniveaus"
+  },
+  "fallback": {
+    "abandon": "Verwerpen",
+    "abandonAll": "Alles verwerpen",
+    "abandonAllConfirm": "Webhooks verwerpen",
+    "abandonAllFailed": "Alles verwerpen mislukt",
+    "abandonAllMessage": "Ze blijven in het auditlogboek, maar er wordt niet opnieuw geprobeerd.",
+    "abandonAllTitle_one": "{{count}} wachtende webhook verwerpen?",
+    "abandonAllTitle_other": "Alle {{count}} wachtende webhooks verwerpen?",
+    "abandonFailed": "Verwerpen mislukt",
+    "abandoning": "Verwerpen…",
+    "empty": "Niets in de wacht — elke webhook is afgeleverd.",
+    "eventId": "Event-ID",
+    "intro": "Webhooks die na 3 pogingen de verwerkingswachtrij niet bereikten — hier bewaard in plaats van verloren. Opnieuw proberen levert nu opnieuw af; Verwerpen laat hem vallen (bewaard voor audit, niet verwijderd).",
+    "provider": "Provider",
+    "received": "Ontvangen",
+    "retry": "Opnieuw proberen",
+    "retryFailed": "Opnieuw proberen mislukt",
+    "title": "Niet-afgeleverde webhooks"
+  },
+  "generating": "Genereren…",
+  "import": {
+    "currency": "Standaardvaluta",
+    "failed": "Importeren mislukt",
+    "importing": "Importeren…",
+    "intro": "Importeert elk WooCommerce-product dat nog niet gekoppeld is, met zijn categorie. Bestaande categorieën worden op naam gekoppeld; ontbrekende worden aangemaakt.",
+    "selectCurrency": "Kies een valuta…",
+    "selectWarehouse": "Kies een magazijn…",
+    "start": "Import starten",
+    "started": "Import gestart — hij draait op de achtergrond. Je krijgt een melding als hij klaar is (zie het belletje rechtsboven).",
+    "title": "Producten importeren",
+    "warehouse": "Standaardmagazijn",
+    "warehouseHint": "Geïmporteerde voorraad wordt aan dit magazijn toegewezen — WooCommerce kent geen magazijnen."
+  },
+  "interval": {
+    "hours_one": "{{count}} uur",
+    "hours_other": "{{count}} uur",
+    "minutes_one": "{{count}} minuut",
+    "minutes_other": "{{count}} minuten"
+  },
+  "noConnectionSelected": "Geen koppeling geselecteerd",
+  "overview": {
+    "emptyBody": "Koppel een winkel om bestellingen en voorraad te synchroniseren",
+    "emptyTitle": "Geen integraties gekoppeld",
+    "title": "Gekoppelde integraties"
+  },
+  "payment": {
+    "publishableKey": "Publieke sleutel",
+    "publishableKeyHint": "Optioneel — alleen nodig om bij het afrekenen een ingebouwd kaartformulier aan te bieden in plaats van een gehoste betaallink.",
+    "registerWebhook": "Verbonden! Registreer deze URL als webhook-endpoint in {{dashboard}} en plak hieronder het ondertekeningsgeheim dat je krijgt.",
+    "revolutKey": "Geheime sleutel Merchant API",
+    "revolutKeyHint": "Uit je Revolut Business-account → Merchant API-instellingen.",
+    "revolutWebhookHint": "Revolut Business → Merchant API → Webhooks",
+    "secretKey": "Geheime sleutel",
+    "secretSaved": "Webhookgeheim opgeslagen.",
+    "signingSecret": "Ondertekeningsgeheim van {{provider}}-webhook",
+    "skip": "Voorlopig overslaan",
+    "stripeKeyHint": "Uit je Stripe Dashboard → Developers → API keys.",
+    "stripeWebhookHint": "Stripe Dashboard → Developers → Webhooks"
+  },
+  "providerWebhooks": {
+    "createFailed": "Abonnement aanmaken mislukt",
+    "empty": "Nog geen abonnementen geregistreerd.",
+    "intro": "Wat echt bij de provider geregistreerd staat, gericht op de afleverings-URL hierboven. Aanmaken registreert een nieuw abonnement voor een topic, zonder dat je het met de hand in het beheer van de provider hoeft te doen.",
+    "removeFailed": "Abonnement verwijderen mislukt",
+    "title": "Webhookabonnementen bij de provider",
+    "topic": "Topic",
+    "topicPlaceholder": "bijv. order.updated"
+  },
+  "removeLink": "Koppeling verwijderen",
+  "saveFailed": "Opslaan mislukt",
+  "schedule": {
+    "intervalAria": "Interval {{entity}} {{direction}}",
+    "lastRun": "Laatst uitgevoerd: {{date}} ({{status}})",
+    "saveFailed": "Synchronisatieschema’s opslaan mislukt",
+    "statusError": "fout",
+    "statusSuccess": "gelukt",
+    "statusUnknown": "onbekend",
+    "switchAria": "{{entity}} {{direction}}",
+    "title": "Synchronisatieschema"
+  },
+  "select": "Kies…",
+  "status": {
+    "connected": "gekoppeld",
+    "error": "fout"
+  },
+  "syncLog": {
+    "all": "Alle",
+    "changes": "Wijzigingen",
+    "channel": "Kanaal",
+    "direction": "Richting",
+    "dismiss": "Negeren",
+    "dismissFailed": "Synchronisatie negeren mislukt",
+    "dismissing": "Negeren…",
+    "empty": "Nog geen synchronisaties",
+    "emptyAttention": "Geen synchronisaties die aandacht vragen — alles is opgelost",
+    "import": "Kanaal → CommerceOS",
+    "listingCount_one": "{{count}} vermelding",
+    "listingCount_other": "{{count}} vermeldingen",
+    "needsAttention": "Vraagt aandacht",
+    "noChanges": "Geen wijzigingen",
+    "push": "CommerceOS → Kanaal",
+    "retryFailed": "Synchronisatie opnieuw proberen mislukt",
+    "retrying": "Opnieuw proberen…",
+    "syncCount_one": "{{count}} synchronisatie",
+    "syncCount_other": "{{count}} synchronisaties",
+    "synced": "Gesynchroniseerd",
+    "title": "Synchronisatiegeschiedenis"
+  },
+  "test": {
+    "failed": "Test mislukt",
+    "ok": "Koppeling OK"
+  },
+  "testMode": {
+    "enable": "Testmodus inschakelen",
+    "intro": "Zolang dit aan staat, gaat elk uitgaand WhatsApp-bericht van deze koppeling — antwoorden, bestel-/verzendmeldingen, automatiseringsregels — naar het nummer hieronder in plaats van naar de echte klant. Niets bereikt een echte klant tot je dit uitzet.",
+    "phone": "Testtelefoonnummer",
+    "phoneHint": "E.164, zonder '+' vooraan (bijv. 31612345678, niet +31612345678).",
+    "title": "WhatsApp-testmodus"
+  },
+  "title": "Integraties",
+  "unknownError": "Onbekende fout",
+  "webhooksShortcut": {
+    "body": "Doorstuurregels en alle actieve providerabonnementen op één plek",
+    "title": "Webhooks"
+  },
+  "whatsapp": {
+    "apiKey": "API-sleutel",
+    "baseUrl": "Basis-URL van Evolution API",
+    "baseUrlHint": "Je eigen zelf gehoste Evolution API-instantie (onofficiële WhatsApp-gateway) — geen officiële WhatsApp Business API.",
+    "connectedPasteUrl": "Verbonden! Plak deze URL in de webhookinstellingen van Evolution API zelf (event messages.upsert) — hij wordt maar één keer getoond.",
+    "instanceName": "Instantienaam"
+  },
+  "whatsappWebhook": {
+    "failed": "Nieuwe webhook-URL genereren mislukt",
+    "intro": "Deze URL wordt één keer getoond, bij het genereren — hij wordt niet zo opgeslagen dat je hem later nog kunt zien. Opnieuw genereren vervangt de oude waarde direct: werk meteen daarna de webhookinstellingen van evolution-go bij (event messages.upsert), anders komen inkomende berichten niet meer bij deze koppeling aan.",
+    "newUrl": "Nieuwe webhook-URL",
+    "regenerate": "Nieuwe webhook-URL genereren",
+    "regenerateAgain": "Opnieuw genereren",
+    "title": "WhatsApp-webhook-URL"
+  },
+  "woo": {
+    "autoHint": "Stuurt je door naar je winkel om toegang goed te keuren. Je winkel moet deze server kunnen bereiken.",
+    "comingSoon": "Binnenkort — nog niet ondersteund.",
+    "consumerKey": "Consumer key",
+    "consumerSecret": "Consumer secret",
+    "currencyAria": "Standaardvaluta (bijv. EUR)",
+    "currencySaveFailed": "Valuta opslaan mislukt",
+    "dangerZone": "Gevarenzone",
+    "dangerZoneBody": "Verwijder definitief elk product dat deze koppeling ooit heeft geïmporteerd — varianten, SKU's, voorraadhistorie, afbeeldingen en elke categorie die daarna leeg is.",
+    "defaultLocation": "Standaardlocatie",
+    "fetchOrder": "Bestelling ophalen",
+    "fetchOrderFailed": "Bestelling ophalen mislukt",
+    "fetchOrderIntro": "Importeer (of werk bij) nu één bekende bestelling op basis van het WooCommerce-bestelnummer, zonder op de volgende geplande synchronisatie te wachten — handig om een bestelling aan te vullen waarvan je weet dat hij ontbreekt.",
+    "fetchOrderTitle": "Een specifieke bestelling ophalen",
+    "manualHint": "Aanmaken via WooCommerce → Instellingen → Geavanceerd → REST API.",
+    "modeAuto": "Automatisch verbinden",
+    "modeManual": "Handmatig instellen",
+    "noPreference": "Geen voorkeur",
+    "orderImported": "Bestelling {{id}} geïmporteerd.",
+    "orderNumber": "Woo-bestelnummer",
+    "orderNumberPlaceholder": "bijv. 1234",
+    "ordersHint": "Alleen importeren — CommerceOS stuurt nooit bestellingen terug naar Woo. De eerste run doet altijd een volledige import; elke run daarna is incrementeel.",
+    "orderUpdated": "Bestelling {{id}} bijgewerkt.",
+    "orderUpToDate": "Bestelling {{id}} is al up-to-date.",
+    "reconciliationHint": "Controleert bij elke run de Woo-bestellingen van de laatste 5 dagen opnieuw, los van het schema voor Bestellingen hierboven — vangt alles op wat dat schema ooit miste. Al geïmporteerde bestellingen worden overgeslagen, dus dagelijks draaien is veilig.",
+    "saveCurrency": "Valuta opslaan",
+    "saved": "Opgeslagen.",
+    "scheduleIntro": "Stel in hoe vaak elk soort gegevens synchroniseert tussen CommerceOS en deze WooCommerce-winkel.",
+    "storeDefaults": "Winkelstandaarden",
+    "storeDefaultsIntro": "Het productendpoint van WooCommerce geeft geen valuta terug (dat is een winkelinstelling) — stel hem hier één keer in; hij wordt gebruikt door handmatige imports en de geplande productimport. De standaardlocatie vult elke rij van het synchronisatieschema hieronder tot die rij een eigen locatie kiest.",
+    "storeUrl": "Winkel-URL",
+    "tabs": {
+      "categories": "Categorieën",
+      "sync": "Synchronisatie",
+      "taxes": "Belastingen",
+      "webhooks": "Webhooks"
+    }
+  },
+  "wooCategories": {
+    "addFailed": "Categoriekoppeling toevoegen mislukt",
+    "category": "Categorie",
+    "deleteFailed": "Categoriekoppeling verwijderen mislukt",
+    "empty": "Nog geen categoriekoppelingen — verstuur een product om automatisch te koppelen, of voeg er hieronder een toe.",
+    "intro": "Een CommerceOS-categorie wordt automatisch gekoppeld aan een WooCommerce-categorie met dezelfde naam zodra er voor het eerst een product uit wordt verstuurd. Wijzig of verwijder een koppeling, of voeg er handmatig een toe voor een categorie die niet automatisch is gekoppeld.",
+    "linked": "Gekoppelde Woo-categorie",
+    "loadFailed": "WooCommerce-categorieën laden mislukt",
+    "title": "WooCommerce-categorieën",
+    "updateFailed": "Categoriekoppeling bijwerken mislukt",
+    "wooCategory": "Woo-categorie"
+  },
+  "wooTaxes": {
+    "addFailed": "Belastingkoppeling toevoegen mislukt",
+    "deleteFailed": "Belastingkoppeling verwijderen mislukt",
+    "empty": "Nog geen WooCommerce-belastingen — voer een import uit om ze op te halen, of voeg er hieronder een toe.",
+    "intro": "Elke WooCommerce-belastingklasse die bij een import is gezien, staat hier, gekoppeld aan een CommerceOS-belastingklasse. Wijzig of verwijder een koppeling, of voeg er handmatig een toe voor een Woo-belastingklasse die nog niet is geïmporteerd.",
+    "linkedClass": "Gekoppelde belastingklasse",
+    "loadFailed": "WooCommerce-belastingen laden mislukt",
+    "standard": "Standaard",
+    "taxClass": "Belastingklasse",
+    "title": "WooCommerce-belastingen",
+    "updateFailed": "Belastingkoppeling bijwerken mislukt",
+    "wooClass": "Woo-belastingklasse"
+  },
+  "wooWebhooks": {
+    "failed": "Webhookgeheim genereren mislukt",
+    "generate": "Geheim genereren",
+    "intro": "Genereer een geheim en stel het in als \"Secret\" van deze webhook wanneer je hem aanmaakt via WooCommerce → Instellingen → Geavanceerd → Webhooks. Opnieuw genereren vervangt de oude waarde direct — werk de webhookinstellingen van WooCommerce bij met de nieuwe, anders mislukt de handtekeningcontrole van leveringen.",
+    "noSecret": "Nog geen geheim gegenereerd — webhooks van deze koppeling kunnen pas worden gecontroleerd als je er een genereert.",
+    "notShownAgain": "Dit wordt niet opnieuw getoond — kwijt? Genereer een nieuw geheim en werk WooCommerce bij.",
+    "regenerate": "Nieuw geheim genereren",
+    "secretOnce": "Geheim (eenmalig getoond — kopieer het nu)",
+    "title": "Ondertekeningsgeheim van webhook"
+  }
+}

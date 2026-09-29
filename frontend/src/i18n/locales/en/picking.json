@@ -1,0 +1,113 @@
+{
+  "action": {
+    "freebie": "Freebie",
+    "new_item": "New item",
+    "pick": "Picked",
+    "refund": "Refunded",
+    "substitute": "Substituted"
+  },
+  "dialogs": {
+    "ok": "OK",
+    "resetting": "Resetting…",
+    "scanError": "Scan error",
+    "startOverText": "This discards every item picked so far on this order and starts the session fresh. This can't be undone.",
+    "startOverTitle": "Start over?"
+  },
+  "done": {
+    "backToOrders": "Back to orders",
+    "continue": "Continue to packing",
+    "fulfilled": "#{{number}} marked fulfilled",
+    "notFullyPicked": "Not fully picked"
+  },
+  "errors": {
+    "alreadyPicked": "Already fully picked",
+    "barcodeUnknown": "Barcode not recognized",
+    "complete": "Failed to complete picking",
+    "loadMode": "Failed to load picking mode",
+    "loadSession": "Failed to load picking session",
+    "markPicked": "Failed to mark order picked",
+    "notOnOrder": "Item not on this order",
+    "pause": "Failed to pause",
+    "recordPick": "Failed to record pick",
+    "removeScan": "Failed to remove scan",
+    "reset": "Failed to reset picking session",
+    "start": "Failed to start picking",
+    "takenOver": "Another user has taken over this picking session",
+    "takeOver": "Failed to take over"
+  },
+  "header": {
+    "complete": "Complete",
+    "pause": "Pause",
+    "pausing": "Pausing…",
+    "startOver": "Start over"
+  },
+  "item": {
+    "noSku": "No SKU"
+  },
+  "line": {
+    "picked": "picked",
+    "unlinked": "unlinked — scan to resolve"
+  },
+  "list": {
+    "itemsToPick": "Items to pick",
+    "markedNotice": "#{{number}} marked as picked -- it's now in the packing queue.",
+    "marking": "Marking…",
+    "markPicked": "Mark as picked",
+    "selectOrder": "Select an order to see what to pick"
+  },
+  "lock": {
+    "message": "{{name}} is picking this order{{since}} -- view only.",
+    "takeOver": "Take over"
+  },
+  "page": {
+    "modeFailed": "Couldn't load the picking mode ({{error}}) -- showing scan mode."
+  },
+  "progress": {
+    "items": "{{picked}} / {{total}} items",
+    "label": "Progress"
+  },
+  "queue": {
+    "count_one": "{{count}} to pick",
+    "count_many": "{{count}} to pick",
+    "count_other": "{{count}} to pick",
+    "empty": "No orders to pick",
+    "inPacking": "In packing",
+    "inProgress": "In progress",
+    "noUnfulfilled": "No unfulfilled orders",
+    "search": "Search orders...",
+    "title": "Orders to pick"
+  },
+  "readOnly": {
+    "inPacking": "This order is in packing -- view only",
+    "lock": "{{lock}} -- view only"
+  },
+  "review": {
+    "allPicked": "Every line is fully picked.",
+    "back": "Back to picking",
+    "backToScanning": "Back to scanning",
+    "completing": "Completing…",
+    "confirm": "Confirm & complete",
+    "expectedPicked": "expected {{expected}} · picked {{picked}}",
+    "notFullyPicked_one": "{{count}} line isn't fully picked yet:",
+    "notFullyPicked_many": "{{count}} lines aren't fully picked yet:",
+    "notFullyPicked_other": "{{count}} lines aren't fully picked yet:",
+    "shipping": "Shipping: {{method}}",
+    "title": "Review before completing"
+  },
+  "scan": {
+    "selectOrder": "Select an order to start picking"
+  },
+  "scanInput": {
+    "placeholder": "Scan barcode or type and press Enter..."
+  },
+  "scanLog": {
+    "entry": "{{action}} · qty {{quantity}}",
+    "remove": "Remove scan",
+    "title": "This session"
+  },
+  "sheet": {
+    "confirm": "Confirm pick",
+    "hint": "Out of stock or needs replacing? Substitutes and refunds happen in packing.",
+    "quantity": "Quantity"
+  }
+}

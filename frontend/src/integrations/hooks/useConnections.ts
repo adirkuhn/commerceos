@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { Connection } from '../types'
 import * as api from '../api'
@@ -29,7 +30,7 @@ export function useConnections(token: string): UseConnectionsState & UseConnecti
       const data = await api.listConnections(token)
       setConnections(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('integrations:unknownError'))
     } finally {
       setLoading(false)
     }

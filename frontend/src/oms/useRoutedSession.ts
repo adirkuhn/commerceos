@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useCallback, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import * as omsApi from './api'
@@ -68,7 +69,7 @@ export function useRoutedSession<D extends SessionDetailShape>(opts: RoutedSessi
           : (await omsApi.getSalesOrder(token, detail.session.sales_order_id)).sales_order
         if (current) latest.current.onLoaded(order, detail)
       } catch (err) {
-        if (current) latest.current.onError(err instanceof Error ? err.message : 'Failed to load session')
+        if (current) latest.current.onError(err instanceof Error ? err.message : i18next.t('orders:errors.loadSession'))
       }
     })()
     return () => { current = false }

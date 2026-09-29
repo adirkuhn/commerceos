@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { ArrowLeft, Package, Trash2, X, Camera as CameraIcon } from 'lucide-react'
@@ -53,6 +54,7 @@ export function DiscardApp({ token, onExit }: DiscardAppProps) {
 }
 
 function DiscardScanScreen({ token, onResolved, onExit }: { token: string; onResolved: (r: Resolved) => void; onExit: () => void }) {
+  const { t } = useTranslation('scanner')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [candidates, setCandidates] = useState<SKUCandidate[]>([])
@@ -78,7 +80,7 @@ function DiscardScanScreen({ token, onResolved, onExit }: { token: string; onRes
       } catch {
         // fall through to the original resolveBarcode error below
       }
-      setError(err instanceof Error ? err.message : 'Failed to resolve code')
+      setError(err instanceof Error ? err.message : t('errors.resolveCode'))
     } finally {
       setLoading(false)
     }
@@ -87,16 +89,16 @@ function DiscardScanScreen({ token, onResolved, onExit }: { token: string; onRes
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button aria-label="Back to apps" onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to apps">
+        <button aria-label={t('shared.backToApps')} onClick={onExit} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('shared.backToApps')}>
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
-        <h1 className="flex-1 text-base font-semibold">Discard</h1>
+        <h1 className="flex-1 text-base font-semibold">{t('discard.title')}</h1>
       </div>
       <div className="flex-1 flex flex-col overflow-y-auto">
-        <ScanCodeScreen icon={Trash2} prompt="Scan a barcode or type a SKU code" loading={loading} error={error} onSubmit={handleSubmit} />
+        <ScanCodeScreen icon={Trash2} prompt={t('shared.scanPrompt')} loading={loading} error={error} onSubmit={handleSubmit} />
         {candidates.length > 0 && (
           <div className="w-full max-w-xs mx-auto px-6 pb-6 space-y-1.5 shrink-0">
-            <p className="text-xs text-gray-400">Multiple matches -- pick one:</p>
+            <p className="text-xs text-gray-400">{t('shared.multipleMatches')}</p>
             {candidates.map(c => (
               <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => onResolved({ sku: c.sku, productName: c.productName })} />
             ))}
@@ -115,6 +117,7 @@ interface SelectedRow {
 }
 
 function DiscardSKUScreen({ token, sku, productName, onBack }: { token: string; sku: Resolved['sku']; productName: string; onBack: () => void }) {
+  const { t } = useTranslation(['scanner', 'common'])
   const { level, batches, loading, error, refresh } = useSKUStock(token, sku.id)
   const discardHook = useDiscardBatch(token)
   const [selectedRow, setSelectedRow] = useState<SelectedRow | null>(null)
@@ -123,7 +126,7 @@ function DiscardSKUScreen({ token, sku, productName, onBack }: { token: string; 
     setSelectedRow({
       warehouseId: b.warehouse_id,
       batchId: b.is_general_ledger ? null : b.id,
-      label: b.is_general_ledger ? 'General ledger' : (b.lot_number || 'Batch'),
+      label: b.is_general_ledger ? t('batch.generalLedger') : (b.lot_number || t('booking.batch')),
       quantity: b.quantity,
     })
   }
@@ -145,7 +148,7 @@ function DiscardSKUScreen({ token, sku, productName, onBack }: { token: string; 
   return (
     <div className="fixed inset-0 flex flex-col bg-night-950 text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-night-700 shrink-0">
-        <button aria-label="Back to scan" onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title="Back to scan">
+        <button aria-label={t('shared.backToScan')} onClick={onBack} className="w-11 h-11 -ml-3 -my-2 flex items-center justify-center rounded-lg shrink-0" title={t('shared.backToScan')}>
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <div className="flex-1 min-w-0">
@@ -153,16 +156,16 @@ function DiscardSKUScreen({ token, sku, productName, onBack }: { token: string; 
             <span>{productName}</span>{' '}
             <span className="text-xs font-normal text-gray-400">- <span>{sku.sku_code}</span></span>
           </h1>
-          {level && <p className="text-xs text-gray-400">Total stock: {level.total}</p>}
+          {level && <p className="text-xs text-gray-400">{t('shared.totalStock', { total: level.total })}</p>}
         </div>
       </div>
 
       {error && <p className="mx-4 mt-3 text-sm text-red-400">{error}</p>}
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-        {loading && <p className="text-center text-sm text-gray-400 py-8">Loading…</p>}
+        {loading && <p className="text-center text-sm text-gray-400 py-8">{t('common:status.loading')}</p>}
         {!loading && batches.length === 0 && (
-          <p className="text-center text-sm text-gray-400 py-8">No batches yet</p>
+          <p className="text-center text-sm text-gray-400 py-8">{t('shared.noBatches')}</p>
         )}
         {batches.map(b => (
           <button
@@ -175,8 +178,8 @@ function DiscardSKUScreen({ token, sku, productName, onBack }: { token: string; 
               <Package size={16} className="text-gray-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{b.is_general_ledger ? 'General ledger' : (b.lot_number || '—')}</p>
-              <p className="text-xs text-gray-400">{b.quantity} in stock</p>
+              <p className="text-sm font-medium truncate">{b.is_general_ledger ? t('batch.generalLedger') : (b.lot_number || '—')}</p>
+              <p className="text-xs text-gray-400">{t('shared.inStock', { quantity: b.quantity })}</p>
             </div>
           </button>
         ))}
@@ -202,6 +205,7 @@ function DiscardSheet({ row, submitting, error, onCancel, onConfirm }: {
   onCancel: () => void
   onConfirm: (quantity: number, reason: string, photo?: File) => void
 }) {
+  const { t } = useTranslation(['scanner', 'common'])
   const [quantity, setQuantity] = useState(String(row.quantity))
   const [reason, setReason] = useState('')
   const [photo, setPhoto] = useState<File | undefined>(undefined)
@@ -214,10 +218,10 @@ function DiscardSheet({ row, submitting, error, onCancel, onConfirm }: {
       <div className="w-full max-w-sm rounded-t-2xl bg-night-900 border-t border-night-700 max-h-[85vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold truncate">Discard {row.label}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{row.quantity} in stock</p>
+            <h2 className="text-sm font-semibold truncate">{t('discard.discardRow', { row: row.label })}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{t('shared.inStock', { quantity: row.quantity })}</p>
           </div>
-          <button aria-label="Close" onClick={onCancel} title="Close" className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
+          <button aria-label={t('common:actions.close')} onClick={onCancel} title={t('common:actions.close')} className="shrink-0 w-11 h-11 -mt-3 -mr-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-300">
             <X size={18} />
           </button>
         </div>
@@ -225,10 +229,10 @@ function DiscardSheet({ row, submitting, error, onCancel, onConfirm }: {
         <div className="p-5 space-y-4">
           {error && <p className="text-sm text-red-400">{error}</p>}
 
-          <QuantityStepper id="discard-qty" label="Quantity to discard" value={quantity} onChange={setQuantity} min={0} max={row.quantity} />
+          <QuantityStepper id="discard-qty" label={t('discard.qty')} value={quantity} onChange={setQuantity} min={0} max={row.quantity} />
 
           <div>
-            <label htmlFor="discard-reason" className="block text-xs text-gray-400 mb-1.5">Reason</label>
+            <label htmlFor="discard-reason" className="block text-xs text-gray-400 mb-1.5">{t('shared.reason')}</label>
             <input
               id="discard-reason" value={reason} onChange={e => setReason(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus"
@@ -236,10 +240,10 @@ function DiscardSheet({ row, submitting, error, onCancel, onConfirm }: {
           </div>
 
           <div>
-            <p className="block text-xs text-gray-400 mb-1.5">Photo (optional)</p>
+            <p className="block text-xs text-gray-400 mb-1.5">{t('discard.photo')}</p>
             <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-300 text-sm cursor-pointer">
               <CameraIcon size={15} className="shrink-0" />
-              <span className="truncate">{photo ? photo.name : 'Take or choose a photo'}</span>
+              <span className="truncate">{photo ? photo.name : t('discard.choosePhoto')}</span>
               <input
                 type="file" accept="image/*" capture="environment" className="hidden"
                 onChange={e => setPhoto(e.target.files?.[0] ?? undefined)}
@@ -252,7 +256,7 @@ function DiscardSheet({ row, submitting, error, onCancel, onConfirm }: {
             disabled={disabled}
             className="w-full py-3 rounded-xl bg-red-600 text-white font-semibold disabled:opacity-50"
           >
-            {submitting ? 'Discarding…' : 'Discard'}
+            {submitting ? t('discard.discarding') : t('discard.submit')}
           </button>
         </div>
       </div>

@@ -685,7 +685,7 @@ describe('ScannerApp booking screen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     expect(await screen.findByText('Booking complete')).toBeInTheDocument()
-    expect(screen.getByText(/weren't fully scanned/)).toBeInTheDocument()
+    expect(screen.getByText(/1 line wasn't fully scanned/)).toBeInTheDocument()
     expect(screen.getByText('Widget A')).toBeInTheDocument()
     expect(api.completeBooking).toHaveBeenCalledWith(expect.any(String), 'booking-1')
   })
@@ -906,7 +906,7 @@ describe('ScannerApp picking screen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirm & complete' }))
 
     expect(await screen.findByText('Order picked')).toBeInTheDocument()
-    expect(screen.getByText(/weren't fully picked/)).toBeInTheDocument()
+    expect(screen.getByText(/1 line wasn't fully picked/)).toBeInTheDocument()
     expect(api.completePicking).toHaveBeenCalledWith(expect.any(String), 'session-1', undefined)
   })
 

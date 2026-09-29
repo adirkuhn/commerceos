@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQueryEnum, useQueryString } from '../routing/useQueryState'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -54,6 +55,7 @@ const MERGE_CHOOSING = 'choose'
 
 export function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCategory, onCreate, onUpdate, onClose }: ProductEditorProps) {
   const { token, user } = useAuth()
+  const { t } = useTranslation('pms')
   const navigate = useNavigate()
   // ?merge=choose while picking the existing product, then ?merge=<its id>.
   const [mergeParam, setMergeParam] = useQueryString('merge', { history: 'push' })
@@ -85,7 +87,7 @@ export function ProductEditPage({ productId, categories, onCreateCategory, onUpd
       setField('categoryId', category.id)
       return true
     } catch (err) {
-      form.setFormError(err instanceof Error ? err.message : 'Failed to create category')
+      form.setFormError(err instanceof Error ? err.message : t('sidebar.createCategoryFailed'))
       return false
     }
   }
@@ -129,11 +131,11 @@ export function ProductEditPage({ productId, categories, onCreateCategory, onUpd
               <div className="lg:col-span-2 space-y-5">
                 <ProductDetailsCard fields={fields} setField={setField} showSlug={!!savedProductId} />
 
-                <FormCard title="Media">
+                <FormCard title={t('media.title')}>
                   {savedProductId ? (
                     <MediaSection productId={savedProductId} />
                   ) : (
-                    <p className="text-2xs text-ink-4">Save the product first, then add images.</p>
+                    <p className="text-2xs text-ink-4">{t('media.saveFirst')}</p>
                   )}
                 </FormCard>
 

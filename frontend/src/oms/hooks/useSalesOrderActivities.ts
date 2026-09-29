@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { SalesOrderActivity } from '../types'
 import * as api from '../api'
@@ -24,7 +25,7 @@ export function useSalesOrderActivities(token: string, salesOrderId: string | nu
       const result = await api.listSalesOrderActivities(token, salesOrderId)
       setActivities(result.activities)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
+      setError(e instanceof Error ? e.message : i18next.t('orders:errors.unknown'))
     } finally {
       setLoading(false)
     }

@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act } from 'react'
+import i18next from 'i18next'
 import SalesChannels from '../SalesChannels'
 import { renderAt } from '../../test/renderAt'
 
@@ -181,7 +182,7 @@ describe('Create sales channel', () => {
       expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', {
         name: 'B2C Store', type: 'internal', connectionId: null, enrollmentMode: 'all',
         enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, quantityBreaks: [],
-        defaultWarehouseId: 'wh-1', storefrontMode: 'headless', signInUrl: '',
+        defaultWarehouseId: 'wh-1', storefrontMode: 'headless', signInUrl: '', storefrontLocale: 'en',
       })
     })
   })
@@ -844,6 +845,59 @@ describe('Storefront mode', () => {
         storefrontMode: 'headless',
       }))
     })
+  })
+})
+
+describe('Storefront language', () => {
+  it('creates an Internal channel with the language its storefront speaks', async () => {
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'Loja', type: 'internal', connection_id: null, storefront_locale: 'pt-BR' }))
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(await screen.findByLabelText('Type'), 'internal')
+    expect(screen.getByLabelText('Storefront language')).toHaveValue('en')
+    await userEvent.type(screen.getByLabelText('Name'), 'Loja')
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
+    await userEvent.selectOptions(screen.getByLabelText('Storefront language'), 'pt-BR')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', expect.objectContaining({ type: 'internal', storefrontLocale: 'pt-BR' }))
+    })
+  })
+
+  it('prefills and saves the language when editing, and only Internal channels have one', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
+      sampleChannel(),
+      sampleChannel({ id: 'chan-int', name: 'Shop', type: 'internal', connection_id: null, default_warehouse_id: 'wh-1', storefront_locale: 'nl' }),
+    ])
+    vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', type: 'internal' }))
+    renderPage()
+    await screen.findByText('Shop')
+
+    const editButtons = screen.getAllByRole('button', { name: 'Edit' })
+    await userEvent.click(editButtons[editButtons.length - 1])
+    expect(await screen.findByLabelText('Storefront language')).toHaveValue('nl')
+    await userEvent.selectOptions(screen.getByLabelText('Storefront language'), 'en')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => {
+      expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-int', expect.objectContaining({ storefrontLocale: 'en' }))
+    })
+  })
+
+  it('shows the channel form in Portuguese when the admin language is pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      renderPage()
+      await screen.findByText('My Woo Store')
+      await userEvent.click(screen.getByRole('button', { name: 'Adicionar canal de vendas' }))
+      await userEvent.selectOptions(await screen.findByLabelText('Tipo'), 'internal')
+      expect(screen.getByLabelText('Idioma da loja')).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: 'Loja interna' })).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 })
 

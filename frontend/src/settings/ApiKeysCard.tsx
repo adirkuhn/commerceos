@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import * as integrationsApi from '../integrations/api'
 import type { SalesChannel } from '../integrations/types'
@@ -13,6 +14,7 @@ import type { ApiKey } from './types'
 // ProviderWebhooksPanel's list+create+delete shape.
 export function ApiKeysCard() {
   const { token } = useAuth()
+  const { t } = useTranslation(['settings', 'common'])
   const [keys, setKeys] = useState<ApiKey[]>([])
   const [channels, setChannels] = useState<SalesChannel[]>([])
   const [loading, setLoading] = useState(true)
@@ -31,10 +33,10 @@ export function ApiKeysCard() {
     let cancelled = false
     Promise.all([settingsApi.listApiKeys(token ?? ''), integrationsApi.listSalesChannels(token ?? '')])
       .then(([keysResult, channelsResult]) => { if (!cancelled) { setKeys(keysResult); setChannels(channelsResult) } })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load API keys') })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : t('apiKeys.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [token])
+  }, [token, t])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -48,15 +50,15 @@ export function ApiKeysCard() {
       setDescription('')
       setSalesChannelId('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create API key')
+      setError(err instanceof Error ? err.message : t('apiKeys.createFailed'))
     } finally {
       setCreating(false)
     }
   }
 
   function channelName(id: string | null): string {
-    if (!id) return 'All channels'
-    return channels.find(c => c.id === id)?.name ?? 'Unknown channel'
+    if (!id) return t('apiKeys.allChannels')
+    return channels.find(c => c.id === id)?.name ?? t('apiKeys.unknownChannel')
   }
 
   async function handleRevoke(id: string) {
@@ -66,7 +68,7 @@ export function ApiKeysCard() {
       await settingsApi.revokeApiKey(token ?? '', id)
       setKeys(prev => prev.map(k => (k.id === id ? { ...k, revoked_at: new Date().toISOString() } : k)))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to revoke API key')
+      setError(err instanceof Error ? err.message : t('apiKeys.revokeFailed'))
     } finally {
       setBusyId(null)
     }
@@ -87,17 +89,16 @@ export function ApiKeysCard() {
   return (
     <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
       <div>
-        <p className="text-xs font-medium text-ink">API keys</p>
+        <p className="text-xs font-medium text-ink">{t('apiKeys.title')}</p>
         <p className="text-2xs text-ink-4 mt-0.5">
-          Each key lets a storefront (e.g. the CommerceOS Sync WordPress plugin) call CommerceOS' cart recommendations
-          API. Name each key for the storefront it's for, so you can revoke just that one later without affecting others.
+          {t('apiKeys.help')}
         </p>
       </div>
 
       {justCreatedKey && (
         <div>
           <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-            New key (shown once -- copy it now)
+            {t('apiKeys.newKey')}
           </label>
           <div className="flex items-center gap-2">
             <code className="flex-1 px-3 py-2 text-2xs font-mono rounded-lg bg-sunken border border-line text-ink-2 overflow-x-auto whitespace-nowrap">
@@ -108,11 +109,11 @@ export function ApiKeysCard() {
               onClick={handleCopy}
               className="px-2.5 py-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors shrink-0"
             >
-              {copied ? 'Copied' : 'Copy'}
+              {copied ? t('apiKeys.copied') : t('apiKeys.copy')}
             </button>
           </div>
           <p className="mt-1.5 text-2xs text-warning">
-            This won't be shown again -- if you lose it, revoke it below and create a new one.
+            {t('apiKeys.shownOnce')}
           </p>
         </div>
       )}
@@ -122,34 +123,34 @@ export function ApiKeysCard() {
       <form onSubmit={handleCreate} className="flex items-end gap-2">
         <div className="flex-1">
           <label htmlFor="api-key-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-            Name
+            {t('common:fields.name')}
           </label>
           <input
             id="api-key-name" required value={name} onChange={e => setName(e.target.value)}
-            placeholder="e.g. Main storefront"
+            placeholder={t('apiKeys.namePlaceholder')}
             className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink"
           />
         </div>
         <div className="flex-1">
           <label htmlFor="api-key-description" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-            Description
+            {t('common:fields.description')}
           </label>
           <input
             id="api-key-description" value={description} onChange={e => setDescription(e.target.value)}
-            placeholder="Optional"
+            placeholder={t('apiKeys.optional')}
             className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink"
           />
         </div>
         {internalChannels.length > 0 && (
           <div className="flex-1">
             <label htmlFor="api-key-channel" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-              Sales channel
+              {t('apiKeys.salesChannel')}
             </label>
             <select
               id="api-key-channel" value={salesChannelId} onChange={e => setSalesChannelId(e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink"
             >
-              <option value="">All channels (tenant-wide)</option>
+              <option value="">{t('apiKeys.allChannelsTenant')}</option>
               {internalChannels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
@@ -158,23 +159,23 @@ export function ApiKeysCard() {
           type="submit" disabled={creating}
           className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
         >
-          {creating ? 'Creating…' : 'Create key'}
+          {creating ? t('apiKeys.creating') : t('apiKeys.create')}
         </button>
       </form>
 
       {loading ? (
-        <p className="text-xs text-ink-4">Loading…</p>
+        <p className="text-xs text-ink-4">{t('common:status.loading')}</p>
       ) : keys.length === 0 ? (
-        <p className="text-xs text-ink-4">No keys yet -- create one above.</p>
+        <p className="text-xs text-ink-4">{t('apiKeys.none')}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="text-left text-ink-4 border-b border-line">
-                <th className="py-2 pr-3 font-medium">Name</th>
-                <th className="py-2 pr-3 font-medium">Description</th>
-                <th className="py-2 pr-3 font-medium">Scope</th>
-                <th className="py-2 pr-3 font-medium">Status</th>
+                <th className="py-2 pr-3 font-medium">{t('common:fields.name')}</th>
+                <th className="py-2 pr-3 font-medium">{t('common:fields.description')}</th>
+                <th className="py-2 pr-3 font-medium">{t('apiKeys.scope')}</th>
+                <th className="py-2 pr-3 font-medium">{t('common:fields.status')}</th>
                 <th className="py-2 pr-3 font-medium"></th>
               </tr>
             </thead>
@@ -186,9 +187,9 @@ export function ApiKeysCard() {
                   <td className="py-2 pr-3 text-ink-3">{channelName(k.sales_channel_id)}</td>
                   <td className="py-2 pr-3">
                     {k.revoked_at ? (
-                      <span className="text-2xs text-ink-4">revoked</span>
+                      <span className="text-2xs text-ink-4">{t('apiKeys.revoked')}</span>
                     ) : (
-                      <span className="text-2xs text-success bg-green-500/15 px-2 py-0.5 rounded-full">active</span>
+                      <span className="text-2xs text-success bg-green-500/15 px-2 py-0.5 rounded-full">{t('apiKeys.active')}</span>
                     )}
                   </td>
                   <td className="py-2 pr-3">
@@ -198,7 +199,7 @@ export function ApiKeysCard() {
                         disabled={busyId === k.id}
                         className="px-2 py-1 rounded bg-fill text-ink-3 hover:text-danger disabled:opacity-50 transition-colors"
                       >
-                        Revoke
+                        {t('apiKeys.revoke')}
                       </button>
                     )}
                   </td>

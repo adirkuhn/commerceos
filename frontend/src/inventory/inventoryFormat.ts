@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import type { SKU } from '../pms/types'
 import type { MovementType } from './types'
 
@@ -45,8 +46,17 @@ export function isExpiringSoon(iso?: string | null, withinDays = 30): boolean {
 // deliberately not an inline table in the expanded row, to keep that
 // compact) ────────────────────────────────────────────────────────────────
 
-export const MOVEMENT_TYPE_LABEL: Record<MovementType, string> = {
-  receipt: 'Receipt', sale: 'Sale', adjustment: 'Adjustment',
-  transfer_out: 'Transfer out', transfer_in: 'Transfer in', damaged: 'Damaged', lost: 'Lost',
-  split_out: 'Case split (out)', split_in: 'Case split (in)',
+export function movementTypeLabel(type: MovementType): string {
+  switch (type) {
+    case 'receipt': return i18next.t('inventory:movementType.receipt')
+    case 'sale': return i18next.t('inventory:movementType.sale')
+    case 'adjustment': return i18next.t('inventory:movementType.adjustment')
+    case 'transfer_out': return i18next.t('inventory:movementType.transfer_out')
+    case 'transfer_in': return i18next.t('inventory:movementType.transfer_in')
+    case 'damaged': return i18next.t('inventory:movementType.damaged')
+    case 'lost': return i18next.t('inventory:movementType.lost')
+    case 'split_out': return i18next.t('inventory:movementType.split_out')
+    case 'split_in': return i18next.t('inventory:movementType.split_in')
+    default: return type
+  }
 }

@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
@@ -10,6 +11,7 @@ import { useDateFormat } from '../../format/DateFormatProvider'
 export default function CustomerCohortsPage() {
   const { formatMonthYear } = useDateFormat()
   const { token } = useAuth()
+  const { t } = useTranslation('reports')
   // In ?period= -- refresh and shared links keep the chosen range.
   const [period, setPeriod] = useReportPeriod()
   const getCustomerCohortsReport = useCallback(reportsApi.getCustomerCohortsReport, [])
@@ -20,23 +22,23 @@ export default function CustomerCohortsPage() {
   const cohortMonthColumns = Array.from({ length: maxMonthsSinceCohort + 1 }, (_, i) => i)
 
   return (
-    <ReportPageShell title="Customer Cohorts" period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
+    <ReportPageShell title={t('cohorts.title')} period={period} onPeriodChange={setPeriod} loading={loading} error={error}>
       <ReportCard
-        title="Customer Cohorts"
-        description="Cohorts by month of each customer's first-ever order in this period, retention by month since acquisition"
+        title={t('cohorts.title')}
+        description={t('cohorts.desc')}
       >
         {cohorts.length === 0 ? (
-          <EmptyState>No new customers acquired in this period</EmptyState>
+          <EmptyState>{t('cohorts.empty')}</EmptyState>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="dark:bg-night-900/50 bg-gray-50">
-                  <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">Cohort</th>
-                  <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">Size</th>
+                  <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{t('cohorts.cohort')}</th>
+                  <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{t('cohorts.size')}</th>
                   {cohortMonthColumns.map(m => (
                     <th key={m} className="px-3 py-2 text-center text-2xs font-medium text-ink-4 uppercase whitespace-nowrap">
-                      Month {m}
+                      {t('cohorts.month', { number: m })}
                     </th>
                   ))}
                 </tr>
@@ -57,7 +59,7 @@ export default function CustomerCohortsPage() {
                         }
                         const ratePercent = cell.retention_rate_basis_points / 100
                         return (
-                          <td key={m} className="px-3 py-2 text-center" title={`${cell.retained_customers} customer(s), ${formatMoney(cell.revenue_minor_units, currency)}`}>
+                          <td key={m} className="px-3 py-2 text-center" title={t('cohorts.cell', { count: cell.retained_customers, revenue: formatMoney(cell.revenue_minor_units, currency) })}>
                             <span
                               className="inline-block px-2 py-0.5 rounded text-2xs font-medium text-white"
                               style={{ backgroundColor: `rgba(37, 99, 235, ${Math.min(1, Math.max(0.15, ratePercent / 100))})` }}

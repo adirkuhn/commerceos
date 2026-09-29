@@ -1,4 +1,5 @@
 import { Printer, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface LabelOpenedNoticeProps {
   onPrint: () => void
@@ -12,17 +13,18 @@ interface LabelOpenedNoticeProps {
 // call, works even though that tab now shows the browser's native PDF
 // viewer rather than a page of ours).
 export function LabelOpenedNotice({ onPrint, onDismiss }: LabelOpenedNoticeProps) {
+  const { t } = useTranslation('shipping')
   return (
     <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg bg-raised border border-line shadow-lg px-4 py-3">
-      <p className="text-xs text-ink-2">Label opened in a new tab</p>
+      <p className="text-xs text-ink-2">{t('notice.opened')}</p>
       <button
         type="button" onClick={onPrint}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover transition-colors"
       >
-        <Printer size={13} /> Print
+        <Printer size={13} /> {t('notice.print')}
       </button>
       <button
-        type="button" onClick={onDismiss} aria-label="Dismiss"
+        type="button" onClick={onDismiss} aria-label={t('notice.dismiss')}
         className="text-ink-4 hover:text-ink-2"
       >
         <X size={14} />

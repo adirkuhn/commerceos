@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PackageSearch, ChevronDown, ChevronRight } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
@@ -22,6 +23,7 @@ const PAGE_SIZE = 20
 export default function UnmatchedSkus() {
   const { formatDateTime } = useDateFormat()
   const { token } = useAuth()
+  const { t } = useTranslation(['pms', 'common'])
   // In the URL (?page=) so refresh and Back keep it.
   const [page, setPage] = useQueryPage()
   const { salesOrders, total, loading, error, refresh } = useSalesOrders(token ?? '', {
@@ -33,18 +35,18 @@ export default function UnmatchedSkus() {
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <PackageSearch size={14} className="text-warning" />
-        <h1 className="text-sm font-semibold text-ink">Unmatched SKUs</h1>
+        <h1 className="text-sm font-semibold text-ink">{t('unmatched.title')}</h1>
       </div>
 
       <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{total} order{total === 1 ? '' : 's'} with an unmatched line item</span>
+        <span className="text-xs text-ink-4">{t('unmatched.count', { count: total })}</span>
         {error && <span className="text-xs text-danger ml-auto">{error}</span>}
       </div>
 
       <div className="flex-1 overflow-auto">
-        {loading && <p className="px-5 py-6 text-center text-xs text-ink-4">Loading…</p>}
+        {loading && <p className="px-5 py-6 text-center text-xs text-ink-4">{t('common:status.loading')}</p>}
         {!loading && salesOrders.length === 0 && (
-          <p className="px-5 py-6 text-center text-xs text-ink-4">No unmatched SKUs — everything's linked</p>
+          <p className="px-5 py-6 text-center text-xs text-ink-4">{t('unmatched.empty')}</p>
         )}
         <div className="divide-y divide-line/60">
           {salesOrders.map(o => (
@@ -74,6 +76,8 @@ export default function UnmatchedSkus() {
 
 function UnmatchedLineItems({ salesOrderId, onLinked }: { salesOrderId: string; onLinked: () => void }) {
   const { token } = useAuth()
+  const { t } = useTranslation('pms')
+  const noSku = t('unmatched.none')
   const { detail, loading, error, refresh } = useSalesOrderDetail(token ?? '', salesOrderId)
   const [pickerForLineItemId, setPickerForLineItemId] = useState<string | null>(null)
   const [linkingId, setLinkingId] = useState<string | null>(null)
@@ -88,7 +92,7 @@ function UnmatchedLineItems({ salesOrderId, onLinked }: { salesOrderId: string; 
       await refresh()
       onLinked()
     } catch (err) {
-      setLinkError(err instanceof Error ? err.message : 'Failed to link SKU')
+      setLinkError(err instanceof Error ? err.message : t('unmatched.linkFailed'))
     } finally {
       setLinkingId(null)
     }
@@ -98,10 +102,10 @@ function UnmatchedLineItems({ salesOrderId, onLinked }: { salesOrderId: string; 
 
   return (
     <div className="px-5 pb-3 pl-9">
-      {loading && <p className="text-xs text-ink-4">Loading line items…</p>}
+      {loading && <p className="text-xs text-ink-4">{t('unmatched.loadingLines')}</p>}
       {(error || linkError) && <p className="text-xs text-danger">{error || linkError}</p>}
       {!loading && unmatched.length === 0 && (
-        <p className="text-xs text-ink-4">No unmatched line items remain on this order</p>
+        <p className="text-xs text-ink-4">{t('unmatched.noneLeft')}</p>
       )}
       <div className="space-y-2">
         {unmatched.map(li => (
@@ -109,14 +113,14 @@ function UnmatchedLineItems({ salesOrderId, onLinked }: { salesOrderId: string; 
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs text-ink">{li.name}</p>
-                <p className="text-2xs text-ink-4">Woo SKU: {li.sku_code || '(none)'} · Qty {li.quantity}</p>
+                <p className="text-2xs text-ink-4">{t('unmatched.lineInfo', { sku: li.sku_code || noSku, qty: li.quantity })}</p>
               </div>
               <button
                 onClick={() => setPickerForLineItemId(id => (id === li.id ? null : li.id))}
                 disabled={linkingId === li.id}
                 className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors shrink-0"
               >
-                {linkingId === li.id ? 'Linking…' : 'Link to product'}
+                {linkingId === li.id ? t('unmatched.linking') : t('unmatched.link')}
               </button>
             </div>
             {pickerForLineItemId === li.id && (

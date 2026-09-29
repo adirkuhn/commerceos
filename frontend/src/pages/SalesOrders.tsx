@@ -3,12 +3,15 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { idFromPath } from '../routes'
 import { ShoppingCart, Plus, ChevronUp, ChevronDown, X } from 'lucide-react'
 import clsx from 'clsx'
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import type { SalesOrderStatus, SalesOrderSource, SalesOrderSortField, SortDirection } from '../oms/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_OPTIONS, customerName } from '../oms/salesOrderDisplay'
+import { salesOrderStatusLabel } from '../oms/statusLabel'
 import { CreateSalesOrderPage } from '../oms/CreateSalesOrderPage'
 import { SalesOrderDetailPage } from '../oms/SalesOrderDetailPage'
 import { formatMoney } from '../format/money'
@@ -19,11 +22,11 @@ const PAGE_SIZE = 20
 // SOURCE_FILTER_OPTIONS: 'manual' reads as "Internal" here -- POS/manual/
 // bol/woocommerce is the wire vocabulary (see SalesOrderSource), Internal is
 // the label staff actually recognize for a manually-created order.
-const SOURCE_FILTER_OPTIONS: { value: SalesOrderSource; label: string }[] = [
+const sourceFilterOptions = (): { value: SalesOrderSource; label: string }[] => [
   { value: 'pos', label: 'POS' },
   { value: 'woocommerce', label: 'WOO' },
   { value: 'bol', label: 'Bol' },
-  { value: 'manual', label: 'Internal' },
+  { value: 'manual', label: i18next.t('orders:list.sourceInternal') },
   { value: 'whatsapp', label: 'WhatsApp' },
 ]
 
@@ -68,6 +71,7 @@ function SortableTh({ field, label, sortBy, sortDir, onSort, align = 'left' }: {
 
 export default function SalesOrders() {
   const { formatDateTime } = useDateFormat()
+  const { t } = useTranslation(['orders', 'common'])
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   // Filters/sort/page are seeded from the URL on first render and kept in
@@ -180,7 +184,7 @@ export default function SalesOrders() {
   async function applyBulkChange() {
     if (!bulkStatus && !bulkFulfilled) return
     const count = checkedIds.size
-    if (!(await confirm({ title: `Apply this change to ${count} order${count === 1 ? '' : 's'}?`, confirmLabel: 'Apply change' }))) return
+    if (!(await confirm({ title: t('list.bulkConfirm', { count }), confirmLabel: t('list.bulkApply') }))) return
     setBulkApplying(true)
     setBulkError('')
     try {
@@ -192,14 +196,14 @@ export default function SalesOrders() {
       if (result.failed.length > 0) {
         // Leave the bar (and the still-checked ids) up so the error stays
         // visible -- clearing here would hide which orders failed.
-        setBulkError(`${result.updated.length} updated, ${result.failed.length} failed: ${result.failed.map(f => f.error).join('; ')}`)
+        setBulkError(t('list.bulkPartial', { updated: result.updated.length, failed: result.failed.length, errors: result.failed.map(f => f.error).join('; ') }))
       } else {
         setCheckedIds(new Set())
         setBulkStatus('')
         setBulkFulfilled('')
       }
     } catch (err) {
-      setBulkError(err instanceof Error ? err.message : 'Failed to apply bulk change')
+      setBulkError(err instanceof Error ? err.message : t('list.bulkFailed'))
     } finally {
       setBulkApplying(false)
     }
@@ -250,15 +254,15 @@ export default function SalesOrders() {
           onClick={() => navigate('/sales-orders/new')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
         >
-          <Plus size={13} /> New sales order
+          <Plus size={13} /> {t('list.newOrder')}
         </button>
       </div>
 
       {/* Stats strip */}
       <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4 whitespace-nowrap">{total} sales order{total === 1 ? '' : 's'}</span>
-        <div className="flex items-center gap-1.5" role="group" aria-label="Filter by channel">
-          {SOURCE_FILTER_OPTIONS.map(({ value, label }) => (
+        <span className="text-xs text-ink-4 whitespace-nowrap">{t('list.count', { count: total })}</span>
+        <div className="flex items-center gap-1.5" role="group" aria-label={t('list.filterChannel')}>
+          {sourceFilterOptions().map(({ value, label }) => (
             <button
               key={value}
               onClick={() => toggleSourceFilter(value)}
@@ -279,7 +283,7 @@ export default function SalesOrders() {
 
       {/* Status + substatus filter strip */}
       <div className="flex items-center flex-wrap gap-3 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <div className="flex items-center flex-wrap gap-1.5" role="group" aria-label="Filter by status">
+        <div className="flex items-center flex-wrap gap-1.5" role="group" aria-label={t('list.filterStatus')}>
           {STATUS_OPTIONS.map(s => (
             <button
               key={s}
@@ -292,23 +296,23 @@ export default function SalesOrders() {
                   : 'dark:bg-night-800 bg-gray-50 text-ink-3 hover:bg-hover',
               )}
             >
-              {s}
+              {salesOrderStatusLabel(s)}
             </button>
           ))}
         </div>
         <select
-          aria-label="Filter by fulfilled substatus" value={fulfilledFilter}
+          aria-label={t('list.filterFulfilled')} value={fulfilledFilter}
           onChange={e => changeFulfilledFilter(e.target.value as '' | 'true' | 'false')}
           className="px-2 py-1.5 text-xs rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
         >
-          <option value="">Any fulfillment</option>
-          <option value="true">Only fulfilled</option>
-          <option value="false">Only unfulfilled</option>
+          <option value="">{t('list.anyFulfillment')}</option>
+          <option value="true">{t('list.onlyFulfilled')}</option>
+          <option value="false">{t('list.onlyUnfulfilled')}</option>
         </select>
         {customerId && (
           <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-accent/15 text-accent">
-            Filtered to one customer
-            <button type="button" onClick={() => setCustomerId(null)} aria-label="Clear customer filter" className="hover:opacity-70">
+            {t('list.oneCustomer')}
+            <button type="button" onClick={() => setCustomerId(null)} aria-label={t('list.clearCustomer')} className="hover:opacity-70">
               <X size={12} />
             </button>
           </span>
@@ -318,7 +322,7 @@ export default function SalesOrders() {
             type="button" onClick={clearFilters}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-ink-3 hover:text-ink transition-colors ml-auto"
           >
-            <X size={12} /> Clear filters
+            <X size={12} /> {t('list.clearFilters')}
           </button>
         )}
       </div>
@@ -326,35 +330,35 @@ export default function SalesOrders() {
       {/* Bulk action bar */}
       {checkedIds.size > 0 && (
         <div className="flex items-center gap-3 px-5 py-2.5 border-b border-line dark:bg-night-800 bg-accent/10 shrink-0">
-          <span className="text-xs font-medium text-ink-2">{checkedIds.size} selected</span>
+          <span className="text-xs font-medium text-ink-2">{t('list.selected', { count: checkedIds.size })}</span>
           <select
-            aria-label="Bulk change status" value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} disabled={bulkApplying}
+            aria-label={t('list.bulkStatus')} value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} disabled={bulkApplying}
             className="px-2 py-1 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60 disabled:opacity-50"
           >
-            <option value="">Status…</option>
-            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            <option value="">{t('list.statusPlaceholder')}</option>
+            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{salesOrderStatusLabel(s)}</option>)}
           </select>
           <select
-            aria-label="Bulk change fulfilled" value={bulkFulfilled} onChange={e => setBulkFulfilled(e.target.value)} disabled={bulkApplying}
+            aria-label={t('list.bulkFulfilled')} value={bulkFulfilled} onChange={e => setBulkFulfilled(e.target.value)} disabled={bulkApplying}
             className="px-2 py-1 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60 disabled:opacity-50"
           >
-            <option value="">Fulfilled…</option>
-            <option value="true">Fulfilled</option>
-            <option value="false">Unfulfilled</option>
+            <option value="">{t('list.fulfilledPlaceholder')}</option>
+            <option value="true">{t('list.fulfilled')}</option>
+            <option value="false">{t('list.unfulfilled')}</option>
           </select>
           <button
             onClick={applyBulkChange}
             disabled={bulkApplying || (!bulkStatus && !bulkFulfilled)}
             className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {bulkApplying ? 'Applying…' : 'Apply'}
+            {bulkApplying ? t('list.applying') : t('common:actions.apply')}
           </button>
           <button
             onClick={() => { setCheckedIds(new Set()); setBulkStatus(''); setBulkFulfilled(''); setBulkError('') }}
             disabled={bulkApplying}
             className="text-xs font-medium text-ink-3 hover:text-ink-2 disabled:opacity-50"
           >
-            Clear
+            {t('common:actions.clear')}
           </button>
           {bulkError && <span className="text-xs text-danger ml-auto">{bulkError}</span>}
         </div>
@@ -367,25 +371,25 @@ export default function SalesOrders() {
             <tr>
               <th className="px-3 py-2.5 w-8">
                 <input
-                  type="checkbox" aria-label="Select all orders on this page"
+                  type="checkbox" aria-label={t('list.selectAll')}
                   checked={allOnPageChecked} onChange={toggleAllOnPage}
                   className="rounded border dark:border-night-700 border-gray-300"
                 />
               </th>
               <th className="px-2 py-2.5 w-8" />
-              <SortableTh field="occurred_at" label="Order" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-              <SortableTh field="customer" label="Customer" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-              <SortableTh field="source" label="Source" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-              <SortableTh field="status" label="Status" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-              <SortableTh field="total" label="Total" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} align="right" />
+              <SortableTh field="occurred_at" label={t('list.colOrder')} sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh field="customer" label={t('common:fields.customer')} sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh field="source" label={t('list.colSource')} sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh field="status" label={t('common:fields.status')} sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh field="total" label={t('common:fields.total')} sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} align="right" />
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {loading && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
             )}
             {!loading && salesOrders.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">No sales orders yet</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">{t('list.empty')}</td></tr>
             )}
             {salesOrders.map(o => (
               <tr
@@ -395,7 +399,7 @@ export default function SalesOrders() {
               >
                 <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
                   <input
-                    type="checkbox" aria-label={`Select order #${o.number || o.external_order_id}`}
+                    type="checkbox" aria-label={t('list.selectOrder', { number: o.number || o.external_order_id })}
                     checked={checkedIds.has(o.id)} onChange={() => toggleOne(o.id)}
                     className="rounded border dark:border-night-700 border-gray-300"
                   />
@@ -414,17 +418,17 @@ export default function SalesOrders() {
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium', STATUS_COLORS[o.status])}>
-                      {o.status}
+                      {salesOrderStatusLabel(o.status)}
                     </span>
                     <span className={clsx(
                       'px-2 py-0.5 rounded-full text-2xs font-medium',
                       o.fulfilled ? 'bg-green-500/15 text-success' : 'bg-gray-500/15 text-ink-4',
                     )}>
-                      {o.fulfilled ? 'Fulfilled' : 'Unfulfilled'}
+                      {o.fulfilled ? t('list.fulfilled') : t('list.unfulfilled')}
                     </span>
                     {(o.needs_stock_review || o.needs_sku_review) && (
                       <span className="px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-500/15 text-warning">
-                        Needs review
+                        {t('list.needsReview')}
                       </span>
                     )}
                   </div>

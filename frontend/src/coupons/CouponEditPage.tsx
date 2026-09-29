@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -15,6 +16,7 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
 // already currency-agnostic).
 function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
   const { token } = useAuth()
+  const { t } = useTranslation(['coupons', 'common'])
   const [amounts, setAmounts] = useState<CouponCurrencyAmount[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -27,7 +29,7 @@ function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
     setLoading(true)
     couponsApi.listCouponCurrencyAmounts(token, couponId)
       .then(setAmounts)
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load currency overrides'))
+      .catch(err => setError(err instanceof Error ? err.message : t('overrides.loadFailed')))
       .finally(() => setLoading(false))
   }, [token, couponId])
 
@@ -45,7 +47,7 @@ function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
       setAmounts(prev => (prev.some(a => a.currency_code === result.currency_code) ? prev.map(a => (a.currency_code === result.currency_code ? result : a)) : [...prev, result]))
       setNewAmount('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save currency override')
+      setError(err instanceof Error ? err.message : t('overrides.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -58,26 +60,26 @@ function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
       await couponsApi.deleteCouponCurrencyAmount(token, couponId, currencyCode)
       setAmounts(prev => prev.filter(a => a.currency_code !== currencyCode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete currency override')
+      setError(err instanceof Error ? err.message : t('overrides.deleteFailed'))
     }
   }
 
   return (
     <div className="rounded-xl border border-line p-4 space-y-3">
       <div>
-        <h3 className="text-xs font-semibold text-ink">Currency overrides</h3>
+        <h3 className="text-xs font-semibold text-ink">{t('overrides.title')}</h3>
         <p className="text-2xs text-ink-4 mt-0.5">
-          Set an exact amount off for a channel running in another currency, instead of the auto-converted rate.
+          {t('overrides.intro')}
         </p>
       </div>
-      {loading && <p className="text-xs text-ink-4">Loading…</p>}
+      {loading && <p className="text-xs text-ink-4">{t('common:status.loading')}</p>}
       {amounts.length > 0 && (
         <div className="space-y-1.5">
           {amounts.map(a => (
             <div key={a.currency_code} className="flex items-center justify-between text-xs text-ink-2">
-              <span>{a.currency_code}: {(a.amount_minor_units / 100).toFixed(2)} off</span>
+              <span>{t('overrides.amountOff', { currency: a.currency_code, amount: (a.amount_minor_units / 100).toFixed(2) })}</span>
               <button type="button" onClick={() => handleDelete(a.currency_code)} className="text-2xs text-ink-4 hover:text-danger transition-colors">
-                Delete
+                {t('common:actions.delete')}
               </button>
             </div>
           ))}
@@ -85,16 +87,16 @@ function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
       )}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor="coupon-currency-override-currency" className={labelClass}>Currency</label>
+          <label htmlFor="coupon-currency-override-currency" className={labelClass}>{t('overrides.currency')}</label>
           <select id="coupon-currency-override-currency" value={newCurrency} onChange={e => setNewCurrency(e.target.value)} className={inputClass}>
             {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
-          <label htmlFor="coupon-currency-override-amount" className={labelClass}>Override amount</label>
+          <label htmlFor="coupon-currency-override-amount" className={labelClass}>{t('overrides.amount')}</label>
           <input
             id="coupon-currency-override-amount"
-            type="number" min="0" step="0.01" placeholder="e.g. 5.00" value={newAmount}
+            type="number" min="0" step="0.01" placeholder={t('overrides.amountPlaceholder')} value={newAmount}
             onChange={e => setNewAmount(e.target.value)}
             className={inputClass}
           />
@@ -106,7 +108,7 @@ function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
         disabled={saving || !newAmount}
         className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
       >
-        {saving ? 'Saving…' : 'Add / update'}
+        {saving ? t('common:actions.saving') : t('overrides.save')}
       </button>
       {error && <p className="text-xs text-danger">{error}</p>}
     </div>
@@ -123,6 +125,7 @@ interface CouponEditPageProps {
 }
 
 export function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEditPageProps) {
+  const { t } = useTranslation(['coupons', 'common'])
   const [code, setCode] = useState(coupon?.code ?? '')
   const [discountType, setDiscountType] = useState<DiscountType>(coupon?.discount_type ?? 'percent')
   // Displayed in the units a human types -- percent (e.g. "10" for 10%) or
@@ -141,7 +144,7 @@ export function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEd
     setFormError('')
     const parsedValue = parseFloat(discountValue)
     if (isNaN(parsedValue) || parsedValue <= 0) {
-      setFormError('Discount value must be a positive number')
+      setFormError(t('edit.valueInvalid'))
       return
     }
     setSaving(true)
@@ -162,7 +165,7 @@ export function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEd
       }
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to save coupon')
+      setFormError(err instanceof Error ? err.message : t('edit.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -179,10 +182,10 @@ export function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEd
             onClick={onClose}
             className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Coupons
+            <ArrowLeft size={11} /> {t('edit.back')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {coupon ? coupon.code : 'New coupon'}
+            {coupon ? coupon.code : t('edit.new')}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -190,13 +193,13 @@ export function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEd
             type="button" onClick={onClose}
             className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
           >
-            Discard
+            {t('edit.discard')}
           </button>
           <button
             type="submit" form="coupon-form" disabled={saving || !code.trim()}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : coupon ? 'Save' : 'Create coupon'}
+            {saving ? t('common:actions.saving') : coupon ? t('common:actions.save') : t('edit.create')}
           </button>
         </div>
       </div>
@@ -206,14 +209,14 @@ export function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEd
           <form id="coupon-form" onSubmit={handleSave} className="space-y-5">
             <div className="rounded-xl border border-line p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-ink">General</h3>
+                <h3 className="text-xs font-semibold text-ink">{t('edit.general')}</h3>
                 <label className="flex items-center gap-1.5 text-2xs text-ink-3">
                   <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} />
-                  Active
+                  {t('edit.active')}
                 </label>
               </div>
               <div>
-                <label htmlFor="coupon-code" className={labelClass}>Code</label>
+                <label htmlFor="coupon-code" className={labelClass}>{t('edit.code')}</label>
                 <input
                   id="coupon-code"
                   type="text" required autoFocus value={code}
@@ -223,32 +226,32 @@ export function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEd
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="coupon-discount-type" className={labelClass}>Discount type</label>
+                  <label htmlFor="coupon-discount-type" className={labelClass}>{t('edit.discountType')}</label>
                   <select
                     id="coupon-discount-type"
                     value={discountType} onChange={e => setDiscountType(e.target.value as DiscountType)}
                     className={inputClass}
                   >
-                    <option value="percent">Percent</option>
-                    <option value="fixed">Fixed amount</option>
+                    <option value="percent">{t('edit.percent')}</option>
+                    <option value="fixed">{t('edit.fixed')}</option>
                   </select>
                 </div>
                 <div>
                   <label htmlFor="coupon-discount-value" className={labelClass}>
-                    {discountType === 'percent' ? 'Percent off' : 'Amount off'}
+                    {discountType === 'percent' ? t('edit.percentOff') : t('edit.amountOff')}
                   </label>
                   <input
                     id="coupon-discount-value"
                     type="number" min="0" step="0.01" required value={discountValue}
                     onChange={e => setDiscountValue(e.target.value)}
-                    placeholder={discountType === 'percent' ? 'e.g. 10' : 'e.g. 5.00'}
+                    placeholder={discountType === 'percent' ? t('edit.percentPlaceholder') : t('edit.amountPlaceholder')}
                     className={inputClass}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="coupon-min-subtotal" className={labelClass}>Min. subtotal (optional)</label>
+                  <label htmlFor="coupon-min-subtotal" className={labelClass}>{t('edit.minSubtotal')}</label>
                   <input
                     id="coupon-min-subtotal"
                     type="number" min="0" step="0.01" value={minSubtotal}
@@ -257,7 +260,7 @@ export function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEd
                   />
                 </div>
                 <div>
-                  <label htmlFor="coupon-usage-limit" className={labelClass}>Usage limit (optional)</label>
+                  <label htmlFor="coupon-usage-limit" className={labelClass}>{t('edit.usageLimit')}</label>
                   <input
                     id="coupon-usage-limit"
                     type="number" min="1" step="1" value={usageLimit}
@@ -267,7 +270,7 @@ export function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEd
                 </div>
               </div>
               <div>
-                <label htmlFor="coupon-expires" className={labelClass}>Expires at (optional)</label>
+                <label htmlFor="coupon-expires" className={labelClass}>{t('edit.expires')}</label>
                 <input
                   id="coupon-expires"
                   type="datetime-local" value={expiresAt} onChange={e => setExpiresAt(e.target.value)}
@@ -275,7 +278,7 @@ export function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEd
                 />
               </div>
               {coupon && (
-                <p className="text-2xs text-ink-4">Used {coupon.times_used} time{coupon.times_used === 1 ? '' : 's'}</p>
+                <p className="text-2xs text-ink-4">{t('edit.used', { count: coupon.times_used })}</p>
               )}
               {formError && (
                 <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>

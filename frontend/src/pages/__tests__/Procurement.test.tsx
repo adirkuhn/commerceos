@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { act } from 'react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import i18next from 'i18next'
 import Procurement from '../Procurement'
 import { renderAt } from '../../test/renderAt'
 import type { PurchaseOrder, PurchaseOrderDetail, PurchaseOrderLineItem } from '../../procurement/types'
@@ -184,6 +185,16 @@ describe('Purchase orders list', () => {
   it('shows an empty state when there are no purchase orders', async () => {
     renderAt(<Procurement />, '/procurement')
     expect(await screen.findByText('No purchase orders yet')).toBeInTheDocument()
+  })
+
+  it('renders its texts in pt-BR', async () => {
+    await i18next.changeLanguage('pt-BR')
+    try {
+      renderAt(<Procurement />, '/procurement')
+      expect(await screen.findByText('Nenhum pedido de compra ainda')).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 
   it('lists purchase orders resolving supplier and warehouse names', async () => {

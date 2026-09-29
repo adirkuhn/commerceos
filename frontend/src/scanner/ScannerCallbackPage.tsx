@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { storeScannerSession } from './useScannerAuth'
 
 // Google-login counterpart to ClaimScreen's pairing-code flow -- lands here
@@ -7,6 +8,7 @@ import { storeScannerSession } from './useScannerAuth'
 // into the scanner's own storage (storeScannerSession) instead of
 // ../auth/AuthContext's, and returns to /scanner instead of /.
 export function ScannerCallbackPage() {
+  const { t } = useTranslation('scanner')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -15,24 +17,24 @@ export function ScannerCallbackPage() {
     const refreshToken = params.get('refresh_token')
 
     if (!token || !refreshToken) {
-      setError('No token received from authentication server.')
+      setError(t('callback.noToken'))
       return
     }
     if (token.split('.').length !== 3) {
-      setError('Malformed token received.')
+      setError(t('callback.malformed'))
       return
     }
 
     storeScannerSession(token, refreshToken)
     window.location.replace('/scanner')
-  }, [])
+  }, [t])
 
   if (error) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-night-950 p-6 text-center">
         <div>
           <p className="text-sm text-red-400">{error}</p>
-          <a href="/scanner" className="mt-2 inline-block text-sm text-accent">Back to pairing</a>
+          <a href="/scanner" className="mt-2 inline-block text-sm text-accent">{t('callback.backToPairing')}</a>
         </div>
       </div>
     )
@@ -40,7 +42,7 @@ export function ScannerCallbackPage() {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-night-950">
-      <p className="text-sm text-gray-300">Signing you in…</p>
+      <p className="text-sm text-gray-300">{t('callback.signingIn')}</p>
     </div>
   )
 }

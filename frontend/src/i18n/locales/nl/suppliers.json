@@ -1,0 +1,41 @@
+{
+  "add": "Leverancier toevoegen",
+  "back": "Leveranciers",
+  "badge": {
+    "active": "actief",
+    "inactive": "inactief"
+  },
+  "colCountry": "Land",
+  "colLeadTime": "Levertijd",
+  "colStatus": "Status",
+  "colSupplier": "Leverancier",
+  "confirmDelete": {
+    "confirm": "Leverancier verwijderen",
+    "message": "Dit kan niet ongedaan worden gemaakt.",
+    "title": "Leverancier \"{{name}}\" verwijderen?"
+  },
+  "count_one": "{{count}} leverancier",
+  "count_many": "{{count}} leveranciers",
+  "count_other": "{{count}} leveranciers",
+  "country": "Land",
+  "create": "Leverancier aanmaken",
+  "discard": "Annuleren",
+  "edit": "Leverancier bewerken",
+  "email": "E-mail",
+  "empty": "Nog geen leveranciers",
+  "general": "Algemeen",
+  "leadTime": "Levertijd (dagen)",
+  "leadTimeDays": "{{days}} d",
+  "name": "Naam",
+  "new": "Nieuwe leverancier",
+  "notes": "Notities",
+  "phone": "Telefoon",
+  "saveFailed": "Leverancier kon niet worden opgeslagen",
+  "searchPlaceholder": "Zoeken op naam of land...",
+  "status": {
+    "active": "Actief",
+    "inactive": "Inactief"
+  },
+  "subject": "Leverancier",
+  "unknownError": "Onbekende fout"
+}

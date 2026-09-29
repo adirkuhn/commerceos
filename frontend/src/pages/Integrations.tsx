@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useApp } from '../context/AppContext'
 import { useConnections } from '../integrations/hooks/useConnections'
@@ -23,6 +24,7 @@ import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus
 import { canManageWebhooks } from '../integrations/integrationsPageHelpers'
 
 export default function Integrations() {
+  const { t } = useTranslation('integrations')
   const { token, user } = useAuth()
   const authToken = token ?? ''
   const { connections, loading, error, refresh, disconnect } = useConnections(authToken)
@@ -67,7 +69,7 @@ export default function Integrations() {
   }
 
   if (routeConnectionId && !routeConnection) {
-    return loading ? <RecordLoading /> : <RecordNotFound label="Connection" onBack={route.close} />
+    return loading ? <RecordLoading /> : <RecordNotFound label={t('connection')} onBack={route.close} />
   }
 
   if (configuringConnection) {
