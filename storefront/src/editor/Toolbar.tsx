@@ -1,4 +1,5 @@
 import type { Editor } from 'grapesjs'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DocumentSummary } from '../core/document'
 import { DEVICES, type DeviceId } from './useGrapesEditor'
@@ -20,6 +21,8 @@ interface Props {
   onSave: () => void
   onPreview: () => void
   onPublish: () => void
+  /** Extra controls after the page picker (the texts' language). */
+  children?: ReactNode
 }
 
 const btn = 'px-3 py-1.5 rounded-md text-sm font-medium disabled:opacity-40'
@@ -51,6 +54,7 @@ export function Toolbar(p: Props) {
           </optgroup>
         ))}
       </select>
+      {p.children}
 
       <div className="flex rounded-md border border-neutral-300" role="group" aria-label={t('toolbar.previewSize')}>
         {DEVICES.map(d => (

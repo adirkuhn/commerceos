@@ -27,8 +27,10 @@ function CanvasStoreInfo({ services, children }: { services: EditorServices; chi
   const settings = useSyncExternalStore(services.settings.subscribe, services.settings.snapshot)
   const assets = useSyncExternalStore(services.assets.subscribe, services.assets.snapshot)
   const { data: store } = useQuery(storeQuery(services.store))
-  // Components preview in the store's own language.
-  const locale = resolveLocale(store?.locale)
+  const contentLocale = useSyncExternalStore(services.contentLocale.subscribe, services.contentLocale.snapshot)
+  // Components preview in the store's own language -- or the one whose
+  // texts are being edited.
+  const locale = contentLocale || resolveLocale(store?.locale)
   const i18n = useMemo(() => createI18n(locale), [locale])
   return (
     <I18nextProvider i18n={i18n}>
@@ -42,13 +44,14 @@ function CanvasStoreInfo({ services, children }: { services: EditorServices; chi
 export function CanvasProviders({ services, children }: { services: EditorServices; children: ReactNode }) {
   const assets = useSyncExternalStore(services.assets.subscribe, services.assets.snapshot)
   const preview = useSyncExternalStore(services.preview.subscribe, services.preview.snapshot)
+  const contentLocale = useSyncExternalStore(services.contentLocale.subscribe, services.contentLocale.snapshot)
   let content = children
   if (preview.product) content = <ProductProvider key={preview.product.id} product={preview.product}>{content}</ProductProvider>
   if (preview.listing) content = <ListingProvider value={preview.listing}>{content}</ListingProvider>
   return (
     <QueryClientProvider client={services.queryClient}>
       <ApiProvider api={services.store}>
-        <RenderProvider value={{ mode: 'editor', assets, storePath: p => `/store/${services.channelId}/${p}` }}>
+        <RenderProvider value={{ mode: 'editor', assets, storePath: p => `/store/${services.channelId}/${p}`, contentLocale: contentLocale || undefined }}>
           <CanvasStoreInfo services={services}>
             <ComponentBoundary nodeId="canvas" fallback={<DataFailed />}>
               <Suspense fallback={<Loading />}>{content}</Suspense>

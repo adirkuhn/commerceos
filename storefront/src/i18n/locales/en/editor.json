@@ -483,8 +483,11 @@
     "delete": "Delete",
     "duplicate": "Duplicate",
     "noSettings": "This component has no settings.",
+    "nothingToTranslate": "This component has no texts to translate.",
     "selectParent": "Select parent",
-    "style": "Style"
+    "style": "Style",
+    "translatingNote": "Shared by every language: switch to the default language to change the other settings.",
+    "untranslated": "Not translated yet"
   },
   "layout": {
     "canvas": "Canvas",
@@ -774,6 +777,7 @@
     }
   },
   "toolbar": {
+    "defaultLanguage": "{{language}} (default)",
     "devices": {
       "desktop": "Desktop",
       "mobile": "Mobile",
@@ -788,6 +792,7 @@
     "save": "Save",
     "sectionGroups": "Header & footer",
     "templates": "Templates",
+    "textsIn": "Texts in",
     "undo": "Undo",
     "unsavedChanges": "Unsaved changes"
   }

@@ -483,8 +483,11 @@
     "delete": "Verwijderen",
     "duplicate": "Dupliceren",
     "noSettings": "Dit onderdeel heeft geen instellingen.",
+    "nothingToTranslate": "Dit onderdeel heeft geen teksten om te vertalen.",
     "selectParent": "Bovenliggend selecteren",
-    "style": "Stijl"
+    "style": "Stijl",
+    "translatingNote": "Gedeeld door alle talen: schakel naar de standaardtaal om de andere instellingen te wijzigen.",
+    "untranslated": "Nog niet vertaald"
   },
   "layout": {
     "canvas": "Canvas",
@@ -774,6 +777,7 @@
     }
   },
   "toolbar": {
+    "defaultLanguage": "{{language}} (standaard)",
     "devices": {
       "desktop": "Desktop",
       "mobile": "Mobiel",
@@ -788,6 +792,7 @@
     "save": "Opslaan",
     "sectionGroups": "Header en footer",
     "templates": "Sjablonen",
+    "textsIn": "Teksten in",
     "undo": "Ongedaan maken",
     "unsavedChanges": "Niet-opgeslagen wijzigingen"
   }

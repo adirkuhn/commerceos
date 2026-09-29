@@ -50,3 +50,25 @@ describe('serializer', () => {
     expect(fromGrapes(wrapper).children![0]).toEqual({ id: 'c', type: 'container' })
   })
 })
+
+describe('serializer translations', () => {
+  const translated: ThemeNode = { id: 'root', type: 'root', children: [
+    { id: 'h1', type: 'heading', props: { text: 'Olá', level: 1 }, translations: { en: { text: 'Hello' } } },
+  ] }
+
+  it('round-trips a node\'s translations', () => {
+    const [h] = toGrapes(translated, registry)
+    expect(h.cosTranslations).toEqual({ en: { text: 'Hello' } })
+    const wrapper: GrapesComponentLike = { get: () => undefined, components: () => toGrapes(translated, registry).map(fake) }
+    expect(fromGrapes(wrapper)).toEqual(translated)
+  })
+
+  it('drops blank translations, so the default text shows', () => {
+    const [h] = toGrapes(translated, registry)
+    h.cosTranslations = { en: { text: '' }, nl: { text: 'Hallo' } }
+    const wrapper: GrapesComponentLike = { get: () => undefined, components: () => [fake(h)] }
+    expect(fromGrapes(wrapper).children![0].translations).toEqual({ nl: { text: 'Hallo' } })
+    h.cosTranslations = { en: { text: '' } }
+    expect(fromGrapes({ get: () => undefined, components: () => [fake(h)] }).children![0].translations).toBeUndefined()
+  })
+})

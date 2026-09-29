@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from 'react'
+import { useEffect, useReducer, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Component, Editor } from 'grapesjs'
 import { registry } from '../../components/registry'
@@ -9,6 +9,10 @@ import { StyleForm } from './StyleForm'
 import { SettingsPanel } from './SettingsPanel'
 import { breakpointFor } from './styleControls'
 import { useEditorLabels } from '../i18n/useEditorLabels'
+import { useEditorServices } from '../services'
+
+type Translations = Record<string, Record<string, unknown>>
+const translationsOf = (c: Component): Translations => (c.get('cosTranslations') ?? {}) as Translations
 
 interface Props {
   editor: Editor
@@ -27,6 +31,8 @@ export function Inspector({ editor, device, settings, onSaveSettings, savingSett
   const [tab, setTab] = useState<'content' | 'style'>('content')
   const { t } = useTranslation('editor')
   const labels = useEditorLabels()
+  const services = useEditorServices()
+  const contentLocale = useSyncExternalStore(services.contentLocale.subscribe, services.contentLocale.snapshot)
 
   useEffect(() => {
     const onSelect = () => setSelected(editor.getSelected())
@@ -72,7 +78,11 @@ export function Inspector({ editor, device, settings, onSaveSettings, savingSett
         ))}
       </div>
       {tab === 'content' ? (
-        <PropsForm def={def} props={selected.get('cosProps') ?? {}} onChange={next => selected.set('cosProps', next)} />
+        <PropsForm def={def} props={selected.get('cosProps') ?? {}} onChange={next => selected.set('cosProps', next)}
+          translating={contentLocale ? {
+            translation: translationsOf(selected)[contentLocale] ?? {},
+            onChange: next => selected.set('cosTranslations', { ...translationsOf(selected), [contentLocale]: next }),
+          } : undefined} />
       ) : (
         <StyleForm groups={def.styleGroups} style={(selected.get('cosStyle') ?? {}) as NodeStyle} breakpoint={breakpointFor(device)}
           onChange={next => selected.set('cosStyle', next)} />

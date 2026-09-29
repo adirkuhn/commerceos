@@ -483,8 +483,11 @@
     "delete": "Excluir",
     "duplicate": "Duplicar",
     "noSettings": "Este componente não tem configurações.",
+    "nothingToTranslate": "Este componente não tem textos para traduzir.",
     "selectParent": "Selecionar o pai",
-    "style": "Estilo"
+    "style": "Estilo",
+    "translatingNote": "Compartilhado por todos os idiomas: mude para o idioma padrão para alterar as outras configurações.",
+    "untranslated": "Ainda não traduzido"
   },
   "layout": {
     "canvas": "Tela",
@@ -774,6 +777,7 @@
     }
   },
   "toolbar": {
+    "defaultLanguage": "{{language}} (padrão)",
     "devices": {
       "desktop": "Computador",
       "mobile": "Celular",
@@ -788,6 +792,7 @@
     "save": "Salvar",
     "sectionGroups": "Cabeçalho e rodapé",
     "templates": "Modelos",
+    "textsIn": "Textos em",
     "undo": "Desfazer",
     "unsavedChanges": "Alterações não salvas"
   }

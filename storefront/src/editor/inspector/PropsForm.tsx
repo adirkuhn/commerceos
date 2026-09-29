@@ -9,6 +9,7 @@ import { SocialLinksField } from './SocialLinksField'
 import type { SocialLink } from '../../components/site/social'
 import { AssetPicker, CategorySelect, CollectionSelect, CollectionsPicker, ProductPicker, ProductsPicker } from './pickers'
 import { RichTextField } from './RichTextField'
+import { isTranslatable } from '../../components/translatable'
 
 type Props = Record<string, unknown>
 
@@ -44,14 +45,30 @@ function NoSettings() {
   return <p className="text-xs text-neutral-500">{t('inspector.noSettings')}</p>
 }
 
+/** Editing one language other than the store's default: only texts, kept
+ *  in the node's translation for that language. */
+export interface Translating {
+  translation: Props
+  onChange: (next: Props) => void
+}
+
 /** The component's own settings, built from its definition. */
-export function PropsForm({ def, props, onChange }: { def: ComponentDefinition; props: Props; onChange: (next: Props) => void }) {
+export function PropsForm({ def, props, onChange, translating }: { def: ComponentDefinition; props: Props; onChange: (next: Props) => void; translating?: Translating }) {
+  const { t } = useTranslation('editor')
   const entries = Object.entries(def.props) as [string, PropField][]
-  const visible = entries.filter(([name]) => def.showField?.[name]?.(props as never) ?? true)
-  if (!visible.length) return <NoSettings />
+  const shown = entries.filter(([name]) => def.showField?.[name]?.(props as never) ?? true)
+  const visible = translating ? shown.filter(([, field]) => isTranslatable(field)) : shown
+  if (!visible.length) return translating ? <p className="text-xs text-neutral-500">{t('inspector.nothingToTranslate')}</p> : <NoSettings />
   return (
     <div className="flex flex-col gap-3">
-      {visible.map(([name, field]) => (
+      {translating && <p className="text-xs text-neutral-500">{t('inspector.translatingNote')}</p>}
+      {visible.map(([name, field]) => translating ? (
+        <div key={name}>
+          <FieldFor def={def} name={name} field={field} value={translating.translation[name] ?? props[name]}
+            onChange={v => translating.onChange({ ...translating.translation, [name]: v })} />
+          {!(name in translating.translation) && <p className="mt-1 text-2xs text-amber-700">{t('inspector.untranslated')}</p>}
+        </div>
+      ) : (
         <FieldFor key={name} def={def} name={name} field={field} value={props[name]} onChange={v => onChange({ ...props, [name]: v })} />
       ))}
     </div>

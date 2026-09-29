@@ -13,6 +13,7 @@ export interface GrapesDefinition {
   classes?: string[]
   cosId: string
   cosProps?: Record<string, unknown>
+  cosTranslations?: Translations
   cosStyle?: NodeStyle
   components?: GrapesDefinition[]
 }
@@ -33,6 +34,7 @@ export function toGrapes(root: ThemeNode, registry: ComponentRegistry): GrapesDe
       ...(el ? { tagName: el.tag, classes: [...el.className.split(' '), nodeClass(n.id)] } : {}),
       cosId: n.id,
       cosProps: props,
+      ...(n.translations ? { cosTranslations: n.translations } : {}),
       cosStyle: n.style ?? {},
       components: (n.children ?? []).map(convert),
     }
@@ -56,6 +58,19 @@ function cleanStyle(style: NodeStyle | undefined): NodeStyle | undefined {
   return isEmpty(out) ? undefined : out
 }
 
+type Translations = NonNullable<ThemeNode['translations']>
+
+/** A blank translated text means "use the default language" -- left out. */
+function cleanTranslations(tr: Translations | undefined): Translations | undefined {
+  if (!tr) return undefined
+  const out: Translations = {}
+  for (const [locale, props] of Object.entries(tr)) {
+    const kept = Object.fromEntries(Object.entries(props).filter(([, v]) => v !== '' && v !== undefined))
+    if (!isEmpty(kept)) out[locale] = kept
+  }
+  return isEmpty(out) ? undefined : out
+}
+
 /** Reads the canvas back into a document root. Duplicate ids (a copied
  *  component keeps its source's id) are replaced so every node stays unique. */
 export function fromGrapes(wrapper: GrapesComponentLike, makeId: () => string = newNodeId): ThemeNode {
@@ -67,6 +82,8 @@ export function fromGrapes(wrapper: GrapesComponentLike, makeId: () => string = 
     const node: ThemeNode = { id, type: c.get('type') as string }
     const props = c.get('cosProps') as Record<string, unknown> | undefined
     if (!isEmpty(props)) node.props = props
+    const translations = cleanTranslations(c.get('cosTranslations') as Translations | undefined)
+    if (translations) node.translations = translations
     const style = cleanStyle(c.get('cosStyle') as NodeStyle | undefined)
     if (style) node.style = style
     const kids = childrenOf(c).map(convert)

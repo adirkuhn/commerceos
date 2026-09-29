@@ -6,6 +6,7 @@ import type { AssetStore } from './assetStore'
 import type { PreviewStore } from './previewStore'
 import type { ThemeSettings } from '../core/document'
 import type { ValueStore } from './valueStore'
+import type { Locale } from '../i18n/locale'
 
 // Everything the editor UI and canvas talk to, injected once at the top.
 export interface EditorServices {
@@ -19,6 +20,9 @@ export interface EditorServices {
   settings: ValueStore<ThemeSettings>
   queryClient: QueryClient
   channelId: string
+  /** The language merchant texts are edited (and previewed) in; "" is the
+   *  store's default. */
+  contentLocale: ValueStore<Locale | ''>
 }
 
 const Ctx = createContext<EditorServices | null>(null)

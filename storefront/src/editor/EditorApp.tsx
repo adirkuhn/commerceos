@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { QueryClient } from '@tanstack/react-query'
 import 'grapesjs/dist/css/grapes.min.css'
@@ -16,6 +16,10 @@ import { syncCanvasStyles } from './grapes/canvasStyles'
 import { Inspector } from './inspector/Inspector'
 import { EditorServicesProvider, type EditorServices } from './services'
 import { Toolbar } from './Toolbar'
+import { ContentLanguageSelect } from './ContentLanguageSelect'
+import { storeQuery } from '../runtime/page/queries'
+import { storeLanguages, type StoreLanguages } from '../runtime/storeLocale'
+import type { Locale } from '../i18n/locale'
 import { useDraft } from './useDraft'
 import { useEditorLabels } from './i18n/useEditorLabels'
 import { DEVICES, useGrapesEditor, type DeviceId } from './useGrapesEditor'
@@ -33,10 +37,13 @@ export function EditorApp({ api, apiBase }: { api: EditorAPI; apiBase: string })
   const [settingsStore] = useState(() => new ValueStore(defaultSettings()))
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 60_000 } } }))
   const [channelId, setChannelId] = useState('')
+  const [contentLocale] = useState(() => new ValueStore<Locale | ''>(''))
+  const textsIn = useSyncExternalStore(contentLocale.subscribe, contentLocale.snapshot)
+  const [languages, setLanguages] = useState<StoreLanguages>()
 
   const services: EditorServices | undefined = useMemo(() => channelId
-    ? { api, assets, preview, settings: settingsStore, queryClient, channelId, store: new StorefrontAPI({ baseURL: apiBase, storeKey: channelId }) }
-    : undefined, [api, apiBase, assets, preview, settingsStore, queryClient, channelId])
+    ? { api, assets, preview, settings: settingsStore, queryClient, channelId, contentLocale, store: new StorefrontAPI({ baseURL: apiBase, storeKey: channelId }) }
+    : undefined, [api, apiBase, assets, preview, settingsStore, queryClient, channelId, contentLocale])
 
   const wrap = useCallback((el: ReactElement) => (services ? <CanvasProviders services={services}>{el}</CanvasProviders> : el), [services])
   const mounts = useCallback(() => ({ canvas: canvasRef.current, blocks: blocksRef.current, layers: layersRef.current }), [])
@@ -50,6 +57,16 @@ export function EditorApp({ api, apiBase }: { api: EditorAPI; apiBase: string })
   const settings = useMemo(() => draft?.version.settings ?? defaultSettings(), [draft?.version.settings])
 
   useEffect(() => settingsStore.set(settings), [settingsStore, settings])
+
+  // The languages the store offers decide which texts can be translated.
+  useEffect(() => {
+    if (!services) return
+    let cancelled = false
+    queryClient.fetchQuery(storeQuery(services.store))
+      .then(store => { if (!cancelled) setLanguages(storeLanguages(store)) })
+      .catch((e: unknown) => console.warn('editor: store languages unavailable', e))
+    return () => { cancelled = true }
+  }, [services, queryClient])
 
   useEffect(() => {
     if (!draft) return
@@ -80,7 +97,9 @@ export function EditorApp({ api, apiBase }: { api: EditorAPI; apiBase: string })
           themeName={draft?.theme.name ?? t('layout.themeFallback')} documents={draft?.documents ?? []} doc={doc} onDoc={setDoc}
           editor={editor} device={device} onDevice={setDevice} dirty={dirty} status={status}
           onSave={() => void save()} onPreview={() => void openPreview(preview.snapshot().product?.slug)} onPublish={() => void publish()}
-        />
+        >
+          <ContentLanguageSelect languages={languages} value={textsIn} onChange={l => contentLocale.set(l)} />
+        </Toolbar>
         {services && <PreviewBar kind={previewData.kind} error={previewData.error} onProduct={previewData.chooseProduct} onCollection={previewData.chooseCollection} />}
         <div className="flex min-h-0 flex-1">
           <aside className="w-64 shrink-0 overflow-y-auto border-r border-neutral-200 bg-white" aria-label={t('layout.componentsAndLayers')}>

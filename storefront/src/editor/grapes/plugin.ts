@@ -6,6 +6,7 @@ import { rendererFor } from '../../components/renderers'
 import { nodeClass } from '../../core/style'
 import { newNodeId } from './ids'
 import { ReactMounts } from './reactMount'
+import { CanvasNode } from './CanvasNode'
 import type { EditorLabels } from '../i18n/labels'
 
 // Teaches GrapesJS the CommerceOS components: one component type and one
@@ -30,8 +31,8 @@ function registerType(editor: Editor, registry: ComponentRegistry, def: Componen
     const Renderer = rendererFor(String(model.get('type')))
     if (!Renderer) return
     const id = String(model.get('cosId'))
-    mounts.render(model, host, opts.wrap(createElement(Renderer, {
-      node: { id, type: String(model.get('type')) }, props: model.get('cosProps') ?? {}, className: nodeClass(id),
+    mounts.render(model, host, opts.wrap(createElement(CanvasNode, {
+      Renderer, node: { id, type: String(model.get('type')), props: model.get('cosProps') ?? {}, translations: model.get('cosTranslations') },
     })))
   }
 
@@ -67,7 +68,7 @@ function registerType(editor: Editor, registry: ComponentRegistry, def: Componen
     view: def.container ? {} : {
       init(this: { listenTo: (o: unknown, e: string, f: () => void) => void; model: Component; el: HTMLElement }) {
         // Prop edits re-render the React tree in place, not the whole view.
-        this.listenTo(this.model, 'change:cosProps change:cosId', () => renderReact(this.el, this.model))
+        this.listenTo(this.model, 'change:cosProps change:cosTranslations change:cosId', () => renderReact(this.el, this.model))
       },
       onRender({ el, model }: { el: HTMLElement; model: Component }) {
         renderReact(el, model)

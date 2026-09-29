@@ -27,7 +27,7 @@ function services(): EditorServices {
   store.listProducts = async () => ({ items: [], total: 0 })
   return {
     api: new EditorAPI({ baseURL: 'x', token: 't' }), store, assets: new AssetStore(), preview: new PreviewStore(),
-    settings: new ValueStore(defaultSettings()), queryClient: new QueryClient(), channelId: 'chan',
+    settings: new ValueStore(defaultSettings()), queryClient: new QueryClient(), channelId: 'chan', contentLocale: new ValueStore<'' | 'en' | 'pt-BR' | 'nl'>(''),
   }
 }
 
