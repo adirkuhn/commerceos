@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +10,7 @@ import (
 
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/locale"
 )
 
 func TestCreateSalesChannel_storefrontLocaleDefaultsToEnglish(t *testing.T) {
@@ -57,4 +59,36 @@ func TestUpdateSalesChannel_storefrontLocale_omittedKeeps_valueSets(t *testing.T
 	assert.Equal(t, channelsDomain.StorefrontLocalePortuguese, set.StorefrontLocale)
 	_, err = update("xx")
 	assert.ErrorIs(t, err, channelsDomain.ErrInvalidStorefrontLocale)
+}
+
+func newCreateChannelUCWithCompany(t *testing.T, txs int, repo *stubSalesChannelRepo, company *stubTenantSettings) *appchannels.CreateSalesChannelUseCase {
+	return appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, txs), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, company)
+}
+
+func TestCreateSalesChannel_storefrontLocaleDefaultsToTheCompanyLanguage(t *testing.T) {
+	repo := &stubSalesChannelRepo{}
+	ch, err := newCreateChannelUCWithCompany(t, 1, repo, &stubTenantSettings{language: locale.Portuguese}).Execute(context.Background(), appchannels.CreateSalesChannelInput{
+		Name: "Loja", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, channelsDomain.StorefrontLocalePortuguese, ch.StorefrontLocale)
+}
+
+func TestCreateSalesChannel_chosenStorefrontLocaleBeatsTheCompanyLanguage(t *testing.T) {
+	repo := &stubSalesChannelRepo{}
+	ch, err := newCreateChannelUCWithCompany(t, 1, repo, &stubTenantSettings{language: locale.Portuguese}).Execute(context.Background(), appchannels.CreateSalesChannelInput{
+		Name: "Winkel", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
+		StorefrontLocale: channelsDomain.StorefrontLocaleDutch,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, channelsDomain.StorefrontLocaleDutch, ch.StorefrontLocale)
+}
+
+func TestCreateSalesChannel_companySettingsErrorFailsTheCreate(t *testing.T) {
+	repo := &stubSalesChannelRepo{}
+	_, err := newCreateChannelUCWithCompany(t, 1, repo, &stubTenantSettings{err: errors.New("db down")}).Execute(context.Background(), appchannels.CreateSalesChannelInput{
+		Name: "Shop", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
+	})
+	require.Error(t, err)
+	assert.Empty(t, repo.created)
 }

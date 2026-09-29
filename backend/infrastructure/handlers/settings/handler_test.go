@@ -17,6 +17,7 @@ import (
 	appapikeys "github.com/adirkuhn/commerceos/application/apikeys"
 	appsettings "github.com/adirkuhn/commerceos/application/settings"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 )
@@ -53,7 +54,7 @@ func (s *stubUpdateTenantSettings) Execute(_ context.Context, in appsettings.Upd
 		return s.out, nil
 	}
 	return &settingsDomain.TenantSettings{
-		DefaultCurrency: in.DefaultCurrency, Timezone: in.Timezone, DateFormat: settingsDomain.DateFormat(in.DateFormat), Language: in.Language,
+		DefaultCurrency: in.DefaultCurrency, Timezone: in.Timezone, DateFormat: settingsDomain.DateFormat(in.DateFormat), Language: locale.Locale(in.Language),
 		PricesIncludeTax: in.PricesIncludeTax, DefaultTaxCountry: in.DefaultTaxCountry,
 	}, nil
 }
@@ -276,4 +277,21 @@ func TestUpdateTenantSettingsHandler_invalidDateFormatIsUnprocessable(t *testing
 	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", map[string]any{"date_format": "D.M.YY"})
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpdateTenantSettingsHandler_unsupportedLanguageIsUnprocessable(t *testing.T) {
+	update := &stubUpdateTenantSettings{err: locale.ErrUnsupported}
+	h := newTestHandler(&stubGetTenantSettings{}, update)
+
+	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", map[string]any{"language": "pt-BR"})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestGetTenantSettingsHandler_neverSavedLanguageReadsAsEnglish(t *testing.T) {
+	h := newTestHandler(&stubGetTenantSettings{out: &settingsDomain.TenantSettings{}}, &stubUpdateTenantSettings{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/settings/tenant", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"language":"en"`)
 }

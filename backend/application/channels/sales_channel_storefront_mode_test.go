@@ -12,7 +12,7 @@ import (
 )
 
 func newCreateChannelUC(t *testing.T, txs int, repo *stubSalesChannelRepo) *appchannels.CreateSalesChannelUseCase {
-	return appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, txs), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	return appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, txs), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 }
 
 func TestCreateSalesChannel_defaultsStorefrontModeToHeadless(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	inventoryDomain "github.com/adirkuhn/commerceos/domain/inventory"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -18,6 +19,13 @@ import (
 // confirm a given DefaultWarehouseID is real before saving it.
 type warehouseExistenceChecker interface {
 	FindByID(ctx context.Context, id string) (*inventoryDomain.Warehouse, error)
+}
+
+// companySettingsReader is settings.Repository narrowed to point of use: a
+// new channel's storefront speaks the company language unless told
+// otherwise.
+type companySettingsReader interface {
+	Get(ctx context.Context) (*settingsDomain.TenantSettings, error)
 }
 
 type CreateSalesChannelInput struct {
@@ -43,7 +51,7 @@ type CreateSalesChannelInput struct {
 	StorefrontMode channelsDomain.StorefrontMode
 	// SignInURL, nil or blank meaning none -- see channels.ResolveSignInURL.
 	SignInURL *string
-	// StorefrontLocale, "" meaning English -- see channels.StorefrontLocale.
+	// StorefrontLocale, "" meaning the company language (settings.TenantSettings.Language).
 	StorefrontLocale channelsDomain.StorefrontLocale
 }
 
@@ -84,13 +92,14 @@ type CreateSalesChannelUseCase struct {
 	connRepo      integrationsDomain.ConnectionRepository
 	fxRepo        fxDomain.ExchangeRateRepository
 	warehouseRepo warehouseExistenceChecker
+	company       companySettingsReader
 }
 
 func NewCreateSalesChannelUseCase(
 	db *gorm.DB, repo channelsDomain.SalesChannelRepository, connRepo integrationsDomain.ConnectionRepository,
-	fxRepo fxDomain.ExchangeRateRepository, warehouseRepo warehouseExistenceChecker,
+	fxRepo fxDomain.ExchangeRateRepository, warehouseRepo warehouseExistenceChecker, company companySettingsReader,
 ) *CreateSalesChannelUseCase {
-	return &CreateSalesChannelUseCase{db: db, repo: repo, connRepo: connRepo, fxRepo: fxRepo, warehouseRepo: warehouseRepo}
+	return &CreateSalesChannelUseCase{db: db, repo: repo, connRepo: connRepo, fxRepo: fxRepo, warehouseRepo: warehouseRepo, company: company}
 }
 
 func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSalesChannelInput) (*channelsDomain.SalesChannel, error) {
@@ -139,6 +148,13 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 			if _, err := uc.warehouseRepo.FindByID(ctx, *in.DefaultWarehouseID); err != nil {
 				return err
 			}
+		}
+		if in.StorefrontLocale == "" {
+			settings, err := uc.company.Get(ctx)
+			if err != nil {
+				return err
+			}
+			storefrontLocale = settings.Language.OrDefault()
 		}
 		now := time.Now()
 		channel = channelsDomain.SalesChannel{

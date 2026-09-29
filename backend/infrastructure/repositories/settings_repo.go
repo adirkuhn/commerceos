@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/adirkuhn/commerceos/domain/locale"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/internal/txctx"
 )
@@ -70,7 +71,7 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 	}
 	m := tenantSettingsModel{
 		TenantID: s.TenantID, DefaultCurrency: s.DefaultCurrency, Timezone: s.Timezone,
-		DateFormat: string(s.DateFormat), Language: s.Language, PricesIncludeTax: s.PricesIncludeTax,
+		DateFormat: string(s.DateFormat), Language: string(s.Language.OrDefault()), PricesIncludeTax: s.PricesIncludeTax,
 		DefaultTaxCountry: s.DefaultTaxCountry, InventorySyncRulesEnabled: s.InventorySyncRulesEnabled,
 		BatchExpiryThresholdDays:       s.BatchExpiryThresholdDays,
 		DefaultTargetMarkupBasisPoints: s.DefaultTargetMarkupBasisPoints,
@@ -108,7 +109,7 @@ func toTenantSettingsDomain(m tenantSettingsModel) (*settingsDomain.TenantSettin
 	}
 	return &settingsDomain.TenantSettings{
 		TenantID: m.TenantID, DefaultCurrency: m.DefaultCurrency, Timezone: m.Timezone,
-		DateFormat: dateFormat, Language: m.Language, PricesIncludeTax: m.PricesIncludeTax,
+		DateFormat: dateFormat, Language: locale.Locale(m.Language), PricesIncludeTax: m.PricesIncludeTax,
 		DefaultTaxCountry: m.DefaultTaxCountry, InventorySyncRulesEnabled: m.InventorySyncRulesEnabled,
 		BatchExpiryThresholdDays:       m.BatchExpiryThresholdDays,
 		DefaultTargetMarkupBasisPoints: m.DefaultTargetMarkupBasisPoints,

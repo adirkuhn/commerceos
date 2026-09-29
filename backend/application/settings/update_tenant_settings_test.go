@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	appsettings "github.com/adirkuhn/commerceos/application/settings"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -34,7 +35,7 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 	require.Equal(t, "USD", result.DefaultCurrency)
 	require.Equal(t, "Europe/Amsterdam", result.Timezone)
 	require.Equal(t, settingsDomain.DateFormatDayMonthYear, result.DateFormat)
-	require.Equal(t, "en", result.Language)
+	require.Equal(t, locale.English, result.Language)
 	require.True(t, result.PricesIncludeTax)
 	require.Equal(t, "NL", result.DefaultTaxCountry)
 	require.True(t, result.InventorySyncRulesEnabled)
@@ -205,5 +206,35 @@ func TestUpdateTenantSettings_rejectsUnknownDateFormat(t *testing.T) {
 	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{DateFormat: "D.M.YY"})
 
 	require.ErrorIs(t, err, settingsDomain.ErrInvalidDateFormat)
+	require.Empty(t, repo.upserted)
+}
+
+func TestUpdateTenantSettings_languageDefaultsToEnglish(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "EUR"})
+
+	require.NoError(t, err)
+	require.Equal(t, locale.English, result.Language)
+}
+
+func TestUpdateTenantSettings_keepsSupportedLanguage(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{Language: "pt-BR"})
+
+	require.NoError(t, err)
+	require.Equal(t, locale.Portuguese, result.Language)
+}
+
+func TestUpdateTenantSettings_rejectsUnsupportedLanguage(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{Language: "de"})
+
+	require.ErrorIs(t, err, locale.ErrUnsupported)
 	require.Empty(t, repo.upserted)
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/adirkuhn/commerceos/domain/locale"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -121,4 +122,25 @@ func TestTenantSettingsRepo_Integration_UpsertRoundTripsInventorySyncRuleFields(
 	require.NoError(t, err)
 	require.False(t, found.InventorySyncRulesEnabled)
 	require.Equal(t, 0, found.BatchExpiryThresholdDays)
+}
+
+func TestTenantSettingsRepo_Integration_UpsertRoundTripsLanguage(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	repo := repositories.NewTenantSettingsRepo(db)
+	save := func(l locale.Locale) locale.Locale {
+		var found *settingsDomain.TenantSettings
+		require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			if err := repo.Upsert(ctx, &settingsDomain.TenantSettings{TenantID: tenantID, Language: l, UpdatedAt: time.Now()}); err != nil {
+				return err
+			}
+			var err error
+			found, err = repo.Get(ctx)
+			return err
+		}))
+		return found.Language
+	}
+
+	require.Equal(t, locale.Portuguese, save(locale.Portuguese))
+	require.Equal(t, locale.English, save(""), "unset is stored as English")
 }

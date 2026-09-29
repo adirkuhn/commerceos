@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/locale"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"io"
 	"testing"
 	"time"
@@ -1486,3 +1488,17 @@ func (s *stubChannelsExternalTaxClassLinkRepo) List(_ context.Context) ([]taxDom
 	return out, nil
 }
 func (s *stubChannelsExternalTaxClassLinkRepo) Delete(_ context.Context, _ string) error { return nil }
+
+// stubTenantSettings is the company settings a new channel's defaults come
+// from.
+type stubTenantSettings struct {
+	language locale.Locale
+	err      error
+}
+
+func (s *stubTenantSettings) Get(_ context.Context) (*settingsDomain.TenantSettings, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &settingsDomain.TenantSettings{Language: s.language}, nil
+}

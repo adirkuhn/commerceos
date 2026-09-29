@@ -1722,7 +1722,7 @@ components:
           description: Omitted means headless.
         storefront_locale:
           allOf: [{ $ref: '#/components/schemas/StorefrontLocale' }]
-          description: Omitted means English.
+          description: Omitted means the company language (tenant settings `language`).
         sign_in_url:
           type: string
           maxLength: 2000

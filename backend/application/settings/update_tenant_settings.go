@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/domain/locale"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -63,6 +64,11 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 		return nil, fmt.Errorf("updateTenantSettings: %w", err)
 	}
 
+	language, err := locale.Resolve(locale.Locale(in.Language))
+	if err != nil {
+		return nil, fmt.Errorf("updateTenantSettings: %w", err)
+	}
+
 	var result settingsDomain.TenantSettings
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		result = settingsDomain.TenantSettings{
@@ -70,7 +76,7 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 			DefaultCurrency:                in.DefaultCurrency,
 			Timezone:                       in.Timezone,
 			DateFormat:                     dateFormat,
-			Language:                       in.Language,
+			Language:                       language,
 			PricesIncludeTax:               in.PricesIncludeTax,
 			DefaultTaxCountry:              in.DefaultTaxCountry,
 			InventorySyncRulesEnabled:      in.InventorySyncRulesEnabled,

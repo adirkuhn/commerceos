@@ -399,7 +399,7 @@ func Register(
 		appintegrations.NewConnectAIProviderUseCase(db, aiConnRepo, encryptionSecret),
 		appintegrations.NewDisconnectAIConnectionUseCase(db, aiConnRepo),
 		appchannels.NewListSalesChannelsUseCase(db, salesChannelRepo),
-		appchannels.NewCreateSalesChannelUseCase(db, salesChannelRepo, connRepo, exchangeRateRepo, channelWarehouseRepo),
+		appchannels.NewCreateSalesChannelUseCase(db, salesChannelRepo, connRepo, exchangeRateRepo, channelWarehouseRepo, repositories.NewTenantSettingsRepo(db)),
 		appchannels.NewUpdateSalesChannelUseCase(db, salesChannelRepo, connRepo, channelWarehouseRepo),
 		appchannels.NewSetSalesChannelPaymentMethodUseCase(db, salesChannelRepo, connRepo),
 		appchannels.NewDeleteSalesChannelUseCase(db, salesChannelRepo),

@@ -33,3 +33,11 @@ func Resolve(requested Locale) (Locale, error) {
 	}
 	return requested, nil
 }
+
+// OrDefault is the language itself, or English when unset.
+func (l Locale) OrDefault() Locale {
+	if l == "" {
+		return English
+	}
+	return l
+}

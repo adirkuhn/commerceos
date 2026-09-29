@@ -14,6 +14,7 @@ import (
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	appsettings "github.com/adirkuhn/commerceos/application/settings"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -107,7 +108,7 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 		DefaultCurrency:                strPtrOr(req.DefaultCurrency),
 		Timezone:                       strPtrOr(req.Timezone),
 		DateFormat:                     dateFormatOr(req.DateFormat),
-		Language:                       strPtrOr(req.Language),
+		Language:                       languageOr(req.Language),
 		PricesIncludeTax:               req.PricesIncludeTax != nil && *req.PricesIncludeTax,
 		DefaultTaxCountry:              strPtrOr(req.DefaultTaxCountry),
 		InventorySyncRulesEnabled:      req.InventorySyncRulesEnabled != nil && *req.InventorySyncRulesEnabled,
@@ -180,7 +181,7 @@ func toGenTenantSettings(s settingsDomain.TenantSettings) gensettings.TenantSett
 		DefaultCurrency:                s.DefaultCurrency,
 		Timezone:                       s.Timezone,
 		DateFormat:                     gensettings.DateFormat(s.DateFormat),
-		Language:                       s.Language,
+		Language:                       gensettings.Language(s.Language.OrDefault()),
 		PricesIncludeTax:               s.PricesIncludeTax,
 		DefaultTaxCountry:              s.DefaultTaxCountry,
 		InventorySyncRulesEnabled:      s.InventorySyncRulesEnabled,
@@ -226,7 +227,7 @@ func mapError(c *gin.Context, err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsLookbackDays) || errors.Is(err, settingsDomain.ErrInvalidPickingMode) || errors.Is(err, settingsDomain.ErrInvalidTimezone) || errors.Is(err, settingsDomain.ErrInvalidDateFormat) || errors.Is(err, apikeysDomain.ErrNameRequired) {
+	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsLookbackDays) || errors.Is(err, settingsDomain.ErrInvalidPickingMode) || errors.Is(err, settingsDomain.ErrInvalidTimezone) || errors.Is(err, settingsDomain.ErrInvalidDateFormat) || errors.Is(err, locale.ErrUnsupported) || errors.Is(err, apikeysDomain.ErrNameRequired) {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return err
 	}
@@ -240,6 +241,13 @@ func mapError(c *gin.Context, err error) error {
 }
 
 func dateFormatOr(p *gensettings.DateFormat) string {
+	if p == nil {
+		return ""
+	}
+	return string(*p)
+}
+
+func languageOr(p *gensettings.Language) string {
 	if p == nil {
 		return ""
 	}

@@ -19,7 +19,7 @@ func TestCreateSalesChannel_woocommerce_success(t *testing.T) {
 	connID := "conn-1"
 	repo := &stubSalesChannelRepo{}
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	channel, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "My Store", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID,
@@ -36,7 +36,7 @@ func TestCreateSalesChannel_bol_success(t *testing.T) {
 	connID := "conn-bol-1"
 	repo := &stubSalesChannelRepo{}
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderBol}}
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	channel, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "BOL", Type: channelsDomain.ChannelTypeBol, ConnectionID: &connID,
@@ -58,7 +58,7 @@ func TestCreateSalesChannel_bol_success(t *testing.T) {
 func TestCreateSalesChannel_rejectsTypeConnectionMismatch(t *testing.T) {
 	connID := "conn-bol-1"
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderBol}}
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), &stubSalesChannelRepo{}, connRepo, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), &stubSalesChannelRepo{}, connRepo, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "BOL", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID,
@@ -69,7 +69,7 @@ func TestCreateSalesChannel_rejectsTypeConnectionMismatch(t *testing.T) {
 }
 
 func TestCreateSalesChannel_rejectsInvalidType(t *testing.T) {
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "X", Type: channelsDomain.ChannelType("shopify"), EnrollmentMode: channelsDomain.EnrollmentModeAll,
@@ -80,7 +80,7 @@ func TestCreateSalesChannel_rejectsInvalidType(t *testing.T) {
 
 func TestCreateSalesChannel_rejectsInvalidEnrollmentMode(t *testing.T) {
 	connID := "conn-1"
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "X", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID,
@@ -91,7 +91,7 @@ func TestCreateSalesChannel_rejectsInvalidEnrollmentMode(t *testing.T) {
 }
 
 func TestCreateSalesChannel_requiresConnectionForWooCommerce(t *testing.T) {
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "X", Type: channelsDomain.ChannelTypeWooCommerce, EnrollmentMode: channelsDomain.EnrollmentModeAll,
@@ -102,7 +102,7 @@ func TestCreateSalesChannel_requiresConnectionForWooCommerce(t *testing.T) {
 
 func TestCreateSalesChannel_requiresCategoryForCategoryMode(t *testing.T) {
 	connID := "conn-1"
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "X", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID,
@@ -114,7 +114,7 @@ func TestCreateSalesChannel_requiresCategoryForCategoryMode(t *testing.T) {
 
 func TestCreateSalesChannel_requiresTagForTagMode(t *testing.T) {
 	connID := "conn-1"
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "X", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID,
@@ -127,7 +127,7 @@ func TestCreateSalesChannel_requiresTagForTagMode(t *testing.T) {
 func TestCreateSalesChannel_internal_withPriceAdjustment_success(t *testing.T) {
 	repo := &stubSalesChannelRepo{}
 	discount := 2000
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	channel, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
@@ -140,7 +140,7 @@ func TestCreateSalesChannel_internal_withPriceAdjustment_success(t *testing.T) {
 }
 
 func TestCreateSalesChannel_rejectsPriceAdjustmentOutOfRange(t *testing.T) {
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 	tooHigh := 10001
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
@@ -152,7 +152,7 @@ func TestCreateSalesChannel_rejectsPriceAdjustmentOutOfRange(t *testing.T) {
 }
 
 func TestCreateSalesChannel_rejectsNegativePriceAdjustment(t *testing.T) {
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 	negative := -1
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
@@ -165,7 +165,7 @@ func TestCreateSalesChannel_rejectsNegativePriceAdjustment(t *testing.T) {
 
 func TestCreateSalesChannel_savesQuantityBreaks(t *testing.T) {
 	repo := &stubSalesChannelRepo{}
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	channel, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
@@ -179,7 +179,7 @@ func TestCreateSalesChannel_savesQuantityBreaks(t *testing.T) {
 }
 
 func TestCreateSalesChannel_rejectsQuantityBreakWithZeroMinQuantity(t *testing.T) {
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
@@ -190,7 +190,7 @@ func TestCreateSalesChannel_rejectsQuantityBreakWithZeroMinQuantity(t *testing.T
 }
 
 func TestCreateSalesChannel_rejectsQuantityBreakDiscountOutOfRange(t *testing.T) {
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
@@ -201,7 +201,7 @@ func TestCreateSalesChannel_rejectsQuantityBreakDiscountOutOfRange(t *testing.T)
 }
 
 func TestCreateSalesChannel_rejectsDuplicateMinQuantityAcrossBreaks(t *testing.T) {
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
@@ -217,7 +217,7 @@ func TestCreateSalesChannel_rejectsDuplicateMinQuantityAcrossBreaks(t *testing.T
 func TestCreateSalesChannel_propagatesConnectionNotFound(t *testing.T) {
 	connID := "missing"
 	connRepo := &stubConnectionRepo{findErr: integrationsDomain.ErrConnectionNotFound}
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), &stubSalesChannelRepo{}, connRepo, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), &stubSalesChannelRepo{}, connRepo, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "X", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID,
@@ -229,7 +229,7 @@ func TestCreateSalesChannel_propagatesConnectionNotFound(t *testing.T) {
 }
 
 func TestCreateSalesChannel_rejectsInvalidCurrencyCode(t *testing.T) {
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
@@ -240,7 +240,7 @@ func TestCreateSalesChannel_rejectsInvalidCurrencyCode(t *testing.T) {
 }
 
 func TestCreateSalesChannel_rejectsNonDefaultCurrencyWithNoExchangeRate(t *testing.T) {
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
@@ -253,7 +253,7 @@ func TestCreateSalesChannel_rejectsNonDefaultCurrencyWithNoExchangeRate(t *testi
 func TestCreateSalesChannel_acceptsNonDefaultCurrencyWithAnExchangeRate(t *testing.T) {
 	repo := &stubSalesChannelRepo{}
 	fxRepo := &stubExchangeRateRepo{byCurrency: map[string]fxDomain.ExchangeRate{"USD": {CurrencyCode: "USD", RateBasisPoints: 10876}}}
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{}, fxRepo, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{}, fxRepo, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	channel, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "US Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
@@ -266,7 +266,7 @@ func TestCreateSalesChannel_acceptsNonDefaultCurrencyWithAnExchangeRate(t *testi
 
 func TestCreateSalesChannel_emptyCurrencyCodeNeedsNoExchangeRate(t *testing.T) {
 	repo := &stubSalesChannelRepo{}
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	channel, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "Default Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
@@ -280,7 +280,7 @@ func TestCreateSalesChannel_acceptsARealDefaultWarehouse(t *testing.T) {
 	repo := &stubSalesChannelRepo{}
 	whID := "wh-1"
 	warehouseRepo := &stubWarehouseExistenceChecker{byID: map[string]invDomain.Warehouse{whID: {ID: whID, Name: "Main DC"}}}
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, warehouseRepo)
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, warehouseRepo, &stubTenantSettings{})
 
 	channel, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "B2C Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
@@ -294,7 +294,7 @@ func TestCreateSalesChannel_acceptsARealDefaultWarehouse(t *testing.T) {
 
 func TestCreateSalesChannel_rejectsAnUnknownDefaultWarehouse(t *testing.T) {
 	whID := "missing-wh"
-	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{})
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), &stubSalesChannelRepo{}, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
 		Name: "B2C Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,

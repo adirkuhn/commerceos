@@ -47,9 +47,13 @@ func TestGetProductBySlug_delegatesWithTheID(t *testing.T) {
 	assert.ErrorIs(t, err, storefrontDomain.ErrProductNotAvailable)
 }
 
-type stubSettingsRepo struct{ s *settingsDomain.TenantSettings }
+type stubSettingsRepo struct {
+	s *settingsDomain.TenantSettings
+}
 
-func (s stubSettingsRepo) Get(context.Context) (*settingsDomain.TenantSettings, error) { return s.s, nil }
+func (s stubSettingsRepo) Get(context.Context) (*settingsDomain.TenantSettings, error) {
+	return s.s, nil
+}
 
 func TestGetStoreInfo(t *testing.T) {
 	ch := internalChannel("channel-1")

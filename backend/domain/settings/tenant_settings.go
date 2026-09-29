@@ -1,6 +1,10 @@
 package settings
 
-import "time"
+import (
+	"time"
+
+	"github.com/adirkuhn/commerceos/domain/locale"
+)
 
 // TenantSettings holds tenant-wide localization defaults. A tenant with no
 // row yet is represented by a zero-value TenantSettings (empty strings) —
@@ -10,7 +14,10 @@ type TenantSettings struct {
 	DefaultCurrency string
 	Timezone        string
 	DateFormat      DateFormat
-	Language        string
+	// Language is the company default: the admin language for users who
+	// picked none, and the storefront language new sales channels start
+	// with. "" on a never-saved tenant means English.
+	Language locale.Locale
 	// PricesIncludeTax and DefaultTaxCountry configure how SKU prices and
 	// manually-created Sales Orders are taxed -- see domain/tax.TaxClass.
 	// Like every other field here, the zero value (false / "") on a

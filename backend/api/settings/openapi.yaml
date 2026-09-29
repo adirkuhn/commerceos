@@ -200,6 +200,15 @@ components:
         backend writes). A never-saved tenant reads as DD/MM/YYYY. Any
         other value is rejected with 422.
 
+    Language:
+      type: string
+      enum: [en, pt-BR, nl]
+      description: >-
+        Company default language: the admin language for users who have not
+        picked one, and the storefront language new sales channels start
+        with. A never-saved tenant reads as en. Any other value is rejected
+        with 422.
+
     TenantSettings:
       type: object
       required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, recommendations_min_support, recommendations_lookback_days, picking_mode, updated_at]
@@ -208,7 +217,7 @@ components:
         default_currency: { type: string }
         timezone: { type: string }
         date_format: { $ref: '#/components/schemas/DateFormat' }
-        language: { type: string }
+        language: { $ref: '#/components/schemas/Language' }
         prices_include_tax:
           type: boolean
           description: Whether SKU prices are entered tax-inclusive (true) or tax-exclusive (false).
@@ -277,7 +286,7 @@ components:
             Reports and the dashboard bucket days, weeks, months and weekdays
             in this zone. An unknown zone is rejected with 422.
         date_format: { $ref: '#/components/schemas/DateFormat' }
-        language: { type: string }
+        language: { $ref: '#/components/schemas/Language' }
         prices_include_tax: { type: boolean }
         default_tax_country: { type: string }
         inventory_sync_rules_enabled: { type: boolean }
