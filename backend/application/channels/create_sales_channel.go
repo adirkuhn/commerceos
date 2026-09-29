@@ -53,6 +53,9 @@ type CreateSalesChannelInput struct {
 	SignInURL *string
 	// StorefrontLocale, "" meaning the company language (settings.TenantSettings.Language).
 	StorefrontLocale channelsDomain.StorefrontLocale
+	// StorefrontLocales, the other languages shoppers can switch to (the
+	// default is always offered) -- see channels.ResolveStorefrontLocales.
+	StorefrontLocales []channelsDomain.StorefrontLocale
 }
 
 // validateSalesChannelInput is shared by Create and Update -- same field
@@ -117,6 +120,9 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 	if err != nil {
 		return nil, fmt.Errorf("createSalesChannel: %w", err)
 	}
+	if err := channelsDomain.ValidateStorefrontLocales(in.StorefrontLocales); err != nil {
+		return nil, fmt.Errorf("createSalesChannel: %w", err)
+	}
 	var signInURL *string
 	if in.SignInURL != nil {
 		if signInURL, err = channelsDomain.ResolveSignInURL(in.Type, *in.SignInURL); err != nil {
@@ -156,6 +162,10 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 			}
 			storefrontLocale = settings.Language.OrDefault()
 		}
+		storefrontLocales, err := channelsDomain.ResolveStorefrontLocales(storefrontLocale, in.StorefrontLocales)
+		if err != nil {
+			return err
+		}
 		now := time.Now()
 		channel = channelsDomain.SalesChannel{
 			TenantID: tenant.IDFromContext(ctx), Name: in.Name, Type: in.Type, ConnectionID: in.ConnectionID,
@@ -167,6 +177,7 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 			StorefrontMode:             storefrontMode,
 			SignInURL:                  signInURL,
 			StorefrontLocale:           storefrontLocale,
+			StorefrontLocales:          storefrontLocales,
 			Active:                     true, CreatedAt: now, UpdatedAt: now,
 		}
 		return uc.repo.Create(ctx, &channel)

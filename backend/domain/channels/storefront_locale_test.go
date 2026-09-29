@@ -25,3 +25,35 @@ func TestResolveStorefrontLocale(t *testing.T) {
 		assert.ErrorIs(t, err, channels.ErrInvalidStorefrontLocale, string(bad))
 	}
 }
+
+func TestResolveStorefrontLocales_defaultComesFirstAndEachLanguageOnce(t *testing.T) {
+	got, err := channels.ResolveStorefrontLocales(channels.StorefrontLocalePortuguese,
+		[]channels.StorefrontLocale{channels.StorefrontLocaleDutch, channels.StorefrontLocalePortuguese, channels.StorefrontLocaleDutch})
+
+	require.NoError(t, err)
+	require.Equal(t, []channels.StorefrontLocale{channels.StorefrontLocalePortuguese, channels.StorefrontLocaleDutch}, got)
+}
+
+func TestResolveStorefrontLocales_noOthersIsJustTheDefault(t *testing.T) {
+	got, err := channels.ResolveStorefrontLocales(channels.StorefrontLocaleEnglish, nil)
+
+	require.NoError(t, err)
+	require.Equal(t, []channels.StorefrontLocale{channels.StorefrontLocaleEnglish}, got)
+}
+
+func TestResolveStorefrontLocales_rejectsUnsupportedLanguage(t *testing.T) {
+	_, err := channels.ResolveStorefrontLocales(channels.StorefrontLocaleEnglish, []channels.StorefrontLocale{"de"})
+
+	require.ErrorIs(t, err, channels.ErrInvalidStorefrontLocale)
+}
+
+func TestSalesChannel_OfferedStorefrontLocales(t *testing.T) {
+	legacy := channels.SalesChannel{StorefrontLocale: channels.StorefrontLocaleDutch}
+	require.Equal(t, []channels.StorefrontLocale{channels.StorefrontLocaleDutch}, legacy.OfferedStorefrontLocales(), "a channel saved before languages were a list offers its one language")
+
+	multi := channels.SalesChannel{StorefrontLocale: channels.StorefrontLocaleEnglish,
+		StorefrontLocales: []channels.StorefrontLocale{channels.StorefrontLocaleEnglish, channels.StorefrontLocalePortuguese}}
+	require.Equal(t, []channels.StorefrontLocale{channels.StorefrontLocaleEnglish, channels.StorefrontLocalePortuguese}, multi.OfferedStorefrontLocales())
+
+	require.Equal(t, []channels.StorefrontLocale{channels.StorefrontLocaleEnglish}, channels.SalesChannel{}.OfferedStorefrontLocales())
+}

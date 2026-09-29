@@ -318,3 +318,38 @@ func TestSalesChannelRepo_Integration_StorefrontLocaleRoundTripsAndIsChecked(t *
 	})
 	assert.ErrorContains(t, err, "sales_channels_storefront_locale_check")
 }
+
+func TestSalesChannelRepo_Integration_StorefrontLocalesRoundTripAndAreChecked(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewSalesChannelRepo(db)
+	en, pt, nl := channelsDomain.StorefrontLocaleEnglish, channelsDomain.StorefrontLocalePortuguese, channelsDomain.StorefrontLocaleDutch
+
+	var ch channelsDomain.SalesChannel
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		ch = channelsDomain.SalesChannel{
+			TenantID: tenant.IDFromContext(ctx), Name: "Loja", Type: channelsDomain.ChannelTypeInternal,
+			EnrollmentMode: channelsDomain.EnrollmentModeAll, StorefrontLocale: pt,
+			StorefrontLocales: []channelsDomain.StorefrontLocale{pt, en},
+			Active:            true, CreatedAt: now, UpdatedAt: now,
+		}
+		return repo.Create(ctx, &ch)
+	}))
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		found, err := repo.FindByID(ctx, ch.ID)
+		require.NoError(t, err)
+		assert.Equal(t, []channelsDomain.StorefrontLocale{pt, en}, found.StorefrontLocales)
+		found.StorefrontLocales = []channelsDomain.StorefrontLocale{pt, nl, en}
+		require.NoError(t, repo.Update(ctx, found))
+		again, err := repo.FindByID(ctx, ch.ID)
+		require.NoError(t, err)
+		assert.Equal(t, []channelsDomain.StorefrontLocale{pt, nl, en}, again.StorefrontLocales)
+		return nil
+	}))
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		tx, _ := txctx.FromContext(ctx)
+		return tx.Exec(`UPDATE sales_channels SET storefront_locales = '["en", "de"]' WHERE id = ?`, ch.ID).Error
+	})
+	assert.ErrorContains(t, err, "sales_channels_storefront_locales_check")
+}

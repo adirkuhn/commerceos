@@ -59,11 +59,14 @@ func TestGetStoreInfo(t *testing.T) {
 	ch := internalChannel("channel-1")
 	ch.Name = "My Shop"
 	channels := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": ch}}
-	uc := appstorefront.NewGetStoreInfoUseCase(newMockGormDB(t, 2), channels, stubSettingsRepo{s: &settingsDomain.TenantSettings{DefaultCurrency: "EUR"}})
+	uc := appstorefront.NewGetStoreInfoUseCase(newMockGormDB(t, 3), channels, stubSettingsRepo{s: &settingsDomain.TenantSettings{DefaultCurrency: "EUR"}})
 
 	info, err := uc.Execute(context.Background(), "channel-1")
 	require.NoError(t, err)
-	assert.Equal(t, appstorefront.StoreInfo{Name: "My Shop", CurrencyCode: "EUR", Locale: channelsDomain.StorefrontLocaleEnglish}, *info, "no language set reads as English")
+	assert.Equal(t, appstorefront.StoreInfo{
+		Name: "My Shop", CurrencyCode: "EUR", Locale: channelsDomain.StorefrontLocaleEnglish,
+		Locales: []channelsDomain.StorefrontLocale{channelsDomain.StorefrontLocaleEnglish},
+	}, *info, "no language set reads as English")
 
 	ch.CurrencyCode = "GBP"
 	ch.StorefrontLocale = channelsDomain.StorefrontLocalePortuguese
@@ -72,4 +75,11 @@ func TestGetStoreInfo(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "GBP", info.CurrencyCode, "a channel's own currency wins")
 	assert.Equal(t, channelsDomain.StorefrontLocalePortuguese, info.Locale)
+	assert.Equal(t, []channelsDomain.StorefrontLocale{channelsDomain.StorefrontLocalePortuguese}, info.Locales)
+
+	ch.StorefrontLocales = []channelsDomain.StorefrontLocale{channelsDomain.StorefrontLocalePortuguese, channelsDomain.StorefrontLocaleDutch}
+	channels.byID["channel-1"] = ch
+	info, err = uc.Execute(context.Background(), "channel-1")
+	require.NoError(t, err)
+	assert.Equal(t, []channelsDomain.StorefrontLocale{channelsDomain.StorefrontLocalePortuguese, channelsDomain.StorefrontLocaleDutch}, info.Locales, "shoppers can switch to every offered language")
 }

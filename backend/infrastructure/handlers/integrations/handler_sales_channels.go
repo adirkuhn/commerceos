@@ -44,9 +44,10 @@ func (h *Handler) CreateSalesChannel(c *gin.Context) {
 		EnrollmentTag: tag, PriceAdjustmentBasisPoints: req.PriceAdjustmentBasisPoints,
 		QuantityBreaks: toDomainQuantityBreaks(req.QuantityBreaks),
 		CurrencyCode:   currencyCode, DefaultWarehouseID: req.DefaultWarehouseId,
-		StorefrontMode:   toDomainStorefrontMode(req.StorefrontMode),
-		SignInURL:        req.SignInUrl,
-		StorefrontLocale: toDomainStorefrontLocale(req.StorefrontLocale),
+		StorefrontMode:    toDomainStorefrontMode(req.StorefrontMode),
+		SignInURL:         req.SignInUrl,
+		StorefrontLocale:  toDomainStorefrontLocale(req.StorefrontLocale),
+		StorefrontLocales: toDomainStorefrontLocales(req.StorefrontLocales),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -73,6 +74,7 @@ func (h *Handler) UpdateSalesChannel(c *gin.Context, id genintegrations.Id) {
 		StorefrontMode:     toDomainStorefrontMode(req.StorefrontMode),
 		SignInURL:          req.SignInUrl,
 		StorefrontLocale:   toDomainStorefrontLocale(req.StorefrontLocale),
+		StorefrontLocales:  toDomainStorefrontLocalesPtr(req.StorefrontLocales),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -155,6 +157,7 @@ func toGenSalesChannel(c channelsDomain.SalesChannel) genintegrations.SalesChann
 		StorefrontMode:             genintegrations.StorefrontMode(c.StorefrontMode),
 		SignInUrl:                  c.SignInURL,
 		StorefrontLocale:           genStorefrontLocale(c.StorefrontLocale),
+		StorefrontLocales:          genStorefrontLocales(c.OfferedStorefrontLocales()),
 		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if c.EnrollmentTag != "" {
@@ -217,5 +220,34 @@ func genStorefrontLocale(l channelsDomain.StorefrontLocale) *genintegrations.Sto
 		return nil
 	}
 	out := genintegrations.StorefrontLocale(l)
+	return &out
+}
+
+func toDomainStorefrontLocales(ls *genintegrations.StorefrontLocales) []channelsDomain.StorefrontLocale {
+	if ls == nil {
+		return nil
+	}
+	out := make([]channelsDomain.StorefrontLocale, len(*ls))
+	for i, l := range *ls {
+		out[i] = channelsDomain.StorefrontLocale(l)
+	}
+	return out
+}
+
+// toDomainStorefrontLocalesPtr keeps "omitted" (nil) apart from an empty
+// list on update.
+func toDomainStorefrontLocalesPtr(ls *genintegrations.StorefrontLocales) *[]channelsDomain.StorefrontLocale {
+	if ls == nil {
+		return nil
+	}
+	out := toDomainStorefrontLocales(ls)
+	return &out
+}
+
+func genStorefrontLocales(ls []channelsDomain.StorefrontLocale) *genintegrations.StorefrontLocales {
+	out := make(genintegrations.StorefrontLocales, len(ls))
+	for i, l := range ls {
+		out[i] = genintegrations.StorefrontLocale(l)
+	}
 	return &out
 }

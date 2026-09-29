@@ -146,8 +146,14 @@ type SalesChannel struct {
 	// SignInURL is a headless storefront's page that completes shopper
 	// sign-in (see ResolveSignInURL); nil when not configured.
 	SignInURL *string
-	// StorefrontLocale -- see StorefrontLocale's own doc comment.
+	// StorefrontLocale -- see StorefrontLocale's own doc comment. The
+	// storefront's default language.
 	StorefrontLocale StorefrontLocale
+	// StorefrontLocales is every language the storefront offers, default
+	// first (see ResolveStorefrontLocales); read it through
+	// OfferedStorefrontLocales, which also covers channels saved before
+	// this list existed.
+	StorefrontLocales []StorefrontLocale
 	Active           bool
 	CreatedAt        time.Time
 	UpdatedAt        time.Time

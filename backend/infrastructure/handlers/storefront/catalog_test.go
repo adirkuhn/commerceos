@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
+	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	"github.com/adirkuhn/commerceos/domain/collections"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
@@ -95,7 +96,7 @@ func catalogRouter(s *catalogStub) *gin.Engine {
 			return &appstorefront.ProductDetail{}, s.err
 		}),
 		GetStoreInfo: storeF(func(context.Context, string) (*appstorefront.StoreInfo, error) {
-			return &appstorefront.StoreInfo{Name: "My Shop", CurrencyCode: "EUR", Locale: "pt-BR"}, s.err
+			return &appstorefront.StoreInfo{Name: "My Shop", CurrencyCode: "EUR", Locale: "pt-BR", Locales: []channelsDomain.StorefrontLocale{"pt-BR", "nl"}}, s.err
 		}),
 		GetSitemap: sitemapF(func(context.Context, string) (*appstorefront.Sitemap, error) {
 			at := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
@@ -149,6 +150,7 @@ func TestCatalog_productBySlugAndStore(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"currency_code":"EUR"`)
 	assert.Contains(t, w.Body.String(), `"locale":"pt-BR"`)
+	assert.Contains(t, w.Body.String(), `"locales":["pt-BR","nl"]`)
 }
 
 func TestCatalog_sitemap(t *testing.T) {

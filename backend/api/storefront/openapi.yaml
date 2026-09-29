@@ -1254,14 +1254,18 @@ components:
         error: { nullable: true }
     StorefrontStore:
       type: object
-      required: [name, currency_code, locale]
+      required: [name, currency_code, locale, locales]
       properties:
         name: { type: string }
         currency_code: { type: string }
         locale:
           type: string
           enum: [en, pt-BR, nl]
-          description: The storefront's language (built-in texts, price and date formatting).
+          description: The storefront's default language (built-in texts, price and date formatting).
+        locales:
+          type: array
+          items: { type: string, enum: [en, pt-BR, nl] }
+          description: Every language shoppers can switch the storefront to, the default (locale) first.
     SitemapLink:
       type: object
       required: [slug, updated_at]

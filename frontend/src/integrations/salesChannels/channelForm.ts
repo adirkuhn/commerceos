@@ -23,15 +23,18 @@ export interface ChannelFormState {
   // Headless 'internal' channels: the merchant's page that completes
   // shopper sign-in ("" = none). Themed stores use their hosted /login.
   signInUrl: string
-  // 'internal' channels: the language the storefront speaks to shoppers.
-  storefrontLocale: StorefrontLocale
+  // 'internal' channels: the storefront's default language ("" = the
+  // company language, new channels only) and the others shoppers can
+  // switch to.
+  storefrontLocale: StorefrontLocale | ''
+  storefrontLocales: StorefrontLocale[]
 }
 
 export function emptyForm(): ChannelFormState {
   return {
     name: '', channelType: 'woocommerce', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '',
     enrollmentTag: '', active: true, defaultWarehouseId: '', channelWarehouseId: '', paymentConnectionId: '',
-    currencyCode: '', storefrontMode: 'headless', signInUrl: '', storefrontLocale: 'en',
+    currencyCode: '', storefrontMode: 'headless', signInUrl: '', storefrontLocale: '', storefrontLocales: [],
   }
 }
 
@@ -56,5 +59,6 @@ export function toForm(channel: SalesChannel, connections: Connection[]): Channe
     storefrontMode: channel.storefront_mode ?? 'headless',
     signInUrl: channel.sign_in_url ?? '',
     storefrontLocale: channel.storefront_locale ?? 'en',
+    storefrontLocales: (channel.storefront_locales ?? []).filter(l => l !== (channel.storefront_locale ?? 'en')),
   }
 }

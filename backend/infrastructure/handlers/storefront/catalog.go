@@ -122,7 +122,13 @@ func (h *Handler) GetStorefrontStore(c *gin.Context) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, genstorefront.StorefrontStore{Name: info.Name, CurrencyCode: info.CurrencyCode, Locale: genstorefront.StorefrontStoreLocale(info.Locale)})
+	locales := make([]genstorefront.StorefrontStoreLocales, len(info.Locales))
+	for i, l := range info.Locales {
+		locales[i] = genstorefront.StorefrontStoreLocales(l)
+	}
+	middleware.OK(c, genstorefront.StorefrontStore{
+		Name: info.Name, CurrencyCode: info.CurrencyCode, Locale: genstorefront.StorefrontStoreLocale(info.Locale), Locales: locales,
+	})
 }
 
 func (h *Handler) GetStorefrontSitemap(c *gin.Context) {

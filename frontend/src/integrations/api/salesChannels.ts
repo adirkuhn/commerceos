@@ -28,6 +28,8 @@ export interface SalesChannelPayload {
   signInUrl?: string
   // 'internal' channels only; omitted means English.
   storefrontLocale?: StorefrontLocale
+  // Other languages shoppers can switch to; the default is always offered.
+  storefrontLocales?: StorefrontLocale[]
 }
 
 export function createSalesChannel(token: string, payload: SalesChannelPayload): Promise<SalesChannel> {
@@ -49,6 +51,7 @@ export function createSalesChannel(token: string, payload: SalesChannelPayload):
         storefront_mode: payload.storefrontMode,
         sign_in_url: payload.signInUrl || undefined,
         storefront_locale: payload.storefrontLocale,
+        storefront_locales: payload.storefrontLocales,
       }),
     },
     token,
@@ -71,6 +74,8 @@ export interface UpdateSalesChannelPayload {
   signInUrl?: string
   // Omitted keeps the channel's current language.
   storefrontLocale?: StorefrontLocale
+  // Omitted keeps the offered languages.
+  storefrontLocales?: StorefrontLocale[]
 }
 
 export function updateSalesChannel(token: string, id: string, payload: UpdateSalesChannelPayload): Promise<SalesChannel> {
@@ -91,6 +96,7 @@ export function updateSalesChannel(token: string, id: string, payload: UpdateSal
         storefront_mode: payload.storefrontMode,
         sign_in_url: payload.signInUrl,
         storefront_locale: payload.storefrontLocale,
+        storefront_locales: payload.storefrontLocales,
       }),
     },
     token,

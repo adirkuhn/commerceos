@@ -1611,6 +1611,15 @@ components:
       enum: [en, pt-BR, nl]
       description: Language the channel's storefront uses for its built-in texts and price/date formatting.
 
+    StorefrontLocales:
+      type: array
+      items: { $ref: '#/components/schemas/StorefrontLocale' }
+      maxItems: 3
+      description: >-
+        Languages shoppers can switch the storefront to. The default
+        (storefront_locale) is always offered and listed first; listing it
+        here too is allowed. Any other language is rejected with 422.
+
     StorefrontMode:
       type: string
       enum: [headless, theme]
@@ -1667,6 +1676,9 @@ components:
             bigger discount instead of the channel's flat rate."
         storefront_mode: { $ref: '#/components/schemas/StorefrontMode' }
         storefront_locale: { $ref: '#/components/schemas/StorefrontLocale' }
+        storefront_locales:
+          allOf: [{ $ref: '#/components/schemas/StorefrontLocales' }]
+          description: Every language the storefront offers, the default first.
         sign_in_url:
           type: string
           nullable: true
@@ -1723,6 +1735,9 @@ components:
         storefront_locale:
           allOf: [{ $ref: '#/components/schemas/StorefrontLocale' }]
           description: Omitted means the company language (tenant settings `language`).
+        storefront_locales:
+          allOf: [{ $ref: '#/components/schemas/StorefrontLocales' }]
+          description: Omitted offers only the default language.
         sign_in_url:
           type: string
           maxLength: 2000
@@ -1753,6 +1768,11 @@ components:
         storefront_locale:
           allOf: [{ $ref: '#/components/schemas/StorefrontLocale' }]
           description: Omitted keeps the channel's current language.
+        storefront_locales:
+          allOf: [{ $ref: '#/components/schemas/StorefrontLocales' }]
+          description: >-
+            Omitted keeps the offered languages. A new default language
+            (storefront_locale) is always offered.
         sign_in_url:
           type: string
           maxLength: 2000

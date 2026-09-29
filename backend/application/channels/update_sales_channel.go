@@ -38,7 +38,10 @@ type UpdateSalesChannelInput struct {
 	SignInURL *string
 	// StorefrontLocale, "" meaning "keep the current language".
 	StorefrontLocale channelsDomain.StorefrontLocale
-	Active           bool
+	// StorefrontLocales, nil meaning "keep", replaces the other languages
+	// shoppers can switch to -- see channels.ResolveStorefrontLocales.
+	StorefrontLocales *[]channelsDomain.StorefrontLocale
+	Active            bool
 }
 
 type UpdateSalesChannelUseCase struct {
@@ -77,6 +80,14 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 				return err
 			}
 		}
+		others := existing.OfferedStorefrontLocales()
+		if in.StorefrontLocales != nil {
+			others = *in.StorefrontLocales
+		}
+		storefrontLocales, err := channelsDomain.ResolveStorefrontLocales(storefrontLocale, others)
+		if err != nil {
+			return err
+		}
 		signInURL := existing.SignInURL
 		if in.SignInURL != nil {
 			if signInURL, err = channelsDomain.ResolveSignInURL(existing.Type, *in.SignInURL); err != nil {
@@ -108,6 +119,7 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 		existing.StorefrontMode = storefrontMode
 		existing.SignInURL = signInURL
 		existing.StorefrontLocale = storefrontLocale
+		existing.StorefrontLocales = storefrontLocales
 		existing.Active = in.Active
 		existing.UpdatedAt = time.Now()
 		if err := uc.repo.Update(ctx, existing); err != nil {

@@ -47,6 +47,31 @@ func (b *salesChannelQuantityBreaks) Scan(value any) error {
 	return json.Unmarshal(raw, (*[]channelsDomain.QuantityBreak)(b))
 }
 
+// salesChannelLocales is the JSONB list of languages a storefront offers.
+type salesChannelLocales []channelsDomain.StorefrontLocale
+
+func (l salesChannelLocales) Value() (driver.Value, error) {
+	if len(l) == 0 {
+		return "[]", nil
+	}
+	out, err := json.Marshal([]channelsDomain.StorefrontLocale(l))
+	return string(out), err
+}
+
+func (l *salesChannelLocales) Scan(value any) error {
+	switch v := value.(type) {
+	case nil:
+		*l = nil
+		return nil
+	case []byte:
+		return json.Unmarshal(v, (*[]channelsDomain.StorefrontLocale)(l))
+	case string:
+		return json.Unmarshal([]byte(v), (*[]channelsDomain.StorefrontLocale)(l))
+	default:
+		return fmt.Errorf("salesChannelLocales.Scan: unsupported type %T", value)
+	}
+}
+
 type salesChannelModel struct {
 	ID                         string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	TenantID                   string `gorm:"not null;type:uuid"`
@@ -64,6 +89,7 @@ type salesChannelModel struct {
 	StorefrontMode             string                     `gorm:"column:storefront_mode;not null;default:'headless'"`
 	SignInURL                  *string                    `gorm:"column:sign_in_url"`
 	StorefrontLocale           string                     `gorm:"column:storefront_locale;not null;default:'en'"`
+	StorefrontLocales          salesChannelLocales        `gorm:"column:storefront_locales;type:jsonb;not null;default:'[]'"`
 	Active                     bool                       `gorm:"not null;default:true"`
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
@@ -99,6 +125,7 @@ func (r *SalesChannelRepo) Create(ctx context.Context, c *channelsDomain.SalesCh
 		StorefrontMode:             storefrontModeOrHeadless(c.StorefrontMode),
 		SignInURL:                  c.SignInURL,
 		StorefrontLocale:           storefrontLocaleOrEnglish(c.StorefrontLocale),
+		StorefrontLocales:          salesChannelLocales(c.StorefrontLocales),
 		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -155,6 +182,7 @@ func (r *SalesChannelRepo) Update(ctx context.Context, c *channelsDomain.SalesCh
 			"storefront_mode":               storefrontModeOrHeadless(c.StorefrontMode),
 			"sign_in_url":                   c.SignInURL,
 			"storefront_locale":             storefrontLocaleOrEnglish(c.StorefrontLocale),
+			"storefront_locales":            salesChannelLocales(c.StorefrontLocales),
 			"active":                        c.Active, "updated_at": c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("salesChannelRepo.Update: %w", err)
@@ -185,6 +213,7 @@ func toSalesChannelDomain(m salesChannelModel) *channelsDomain.SalesChannel {
 		StorefrontMode:             channelsDomain.StorefrontMode(m.StorefrontMode),
 		SignInURL:                  m.SignInURL,
 		StorefrontLocale:           channelsDomain.StorefrontLocale(m.StorefrontLocale),
+		StorefrontLocales:          []channelsDomain.StorefrontLocale(m.StorefrontLocales),
 		Active:                     m.Active, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

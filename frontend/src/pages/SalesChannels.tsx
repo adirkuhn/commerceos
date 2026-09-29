@@ -19,6 +19,7 @@ import { Dialog } from '../components/common/Dialog'
 import { CHANNEL_TYPES, CONNECTION_REQUIRED_TYPES, ENROLLMENT_MODES, INTERNAL_TYPE, PAYMENT_CAPABLE_TYPES, WAREHOUSE_REQUIRED_TYPES, apiBaseURL, capitalize, enrollmentLabel, headlessApiEndpoints, typeLabel } from '../integrations/salesChannels/salesChannelConstants'
 import { ChannelFormState, emptyForm, toForm } from '../integrations/salesChannels/channelForm'
 import StorefrontModeField from '../integrations/salesChannels/StorefrontModeField'
+import StorefrontLanguagesField from '../integrations/salesChannels/StorefrontLanguagesField'
 import { ThemesPanel } from '../themes/ThemesPanel'
 import { ChannelProductsPanel } from '../integrations/salesChannels/ChannelProductsPanel'
 
@@ -108,7 +109,8 @@ export default function SalesChannels() {
         defaultWarehouseId: WAREHOUSE_REQUIRED_TYPES.includes(channelType) ? (form.channelWarehouseId || null) : undefined,
         storefrontMode: channelType === INTERNAL_TYPE ? form.storefrontMode : undefined,
         signInUrl: channelType === INTERNAL_TYPE ? form.signInUrl.trim() : undefined,
-        storefrontLocale: channelType === INTERNAL_TYPE ? form.storefrontLocale : undefined,
+        storefrontLocale: channelType === INTERNAL_TYPE ? form.storefrontLocale || undefined : undefined,
+        storefrontLocales: channelType === INTERNAL_TYPE ? form.storefrontLocales : undefined,
       }
       if (editingChannel) {
         await update(editingChannel.id, { ...shared, active: form.active } satisfies UpdateSalesChannelPayload)
@@ -397,7 +399,12 @@ export default function SalesChannels() {
                 <StorefrontModeField
                   value={form.storefrontMode} onChange={storefrontMode => setForm(f => ({ ...f, storefrontMode }))}
                   signInUrl={form.signInUrl} onSignInUrlChange={signInUrl => setForm(f => ({ ...f, signInUrl }))}
+                />
+              )}
+              {(editingChannel ? editingChannel.type : form.channelType) === INTERNAL_TYPE && (
+                <StorefrontLanguagesField
                   locale={form.storefrontLocale} onLocaleChange={storefrontLocale => setForm(f => ({ ...f, storefrontLocale }))}
+                  others={form.storefrontLocales} onOthersChange={storefrontLocales => setForm(f => ({ ...f, storefrontLocales }))}
                 />
               )}
               <div>

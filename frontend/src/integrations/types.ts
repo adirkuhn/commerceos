@@ -277,6 +277,8 @@ export interface SalesChannel {
   default_warehouse_id?: string | null
   storefront_mode?: StorefrontMode
   storefront_locale?: StorefrontLocale
+  // Every language the storefront offers, the default first.
+  storefront_locales?: StorefrontLocale[]
   // Headless internal channels: page that completes shopper sign-in.
   sign_in_url?: string | null
   active: boolean

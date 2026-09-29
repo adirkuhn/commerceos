@@ -182,8 +182,30 @@ describe('Create sales channel', () => {
       expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', {
         name: 'B2C Store', type: 'internal', connectionId: null, enrollmentMode: 'all',
         enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, quantityBreaks: [],
-        defaultWarehouseId: 'wh-1', storefrontMode: 'headless', signInUrl: '', storefrontLocale: 'en',
+        defaultWarehouseId: 'wh-1', storefrontMode: 'headless', signInUrl: '', storefrontLocale: undefined, storefrontLocales: [],
       })
+    })
+  })
+
+  it('a new store speaks the company language unless told otherwise, and can offer more languages', async () => {
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'Loja', type: 'internal', connection_id: null }))
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(await screen.findByLabelText('Type'), 'internal')
+    expect(screen.getByLabelText('Storefront language')).toHaveValue('')
+    await userEvent.type(screen.getByLabelText('Name'), 'Loja')
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
+    await userEvent.selectOptions(screen.getByLabelText('Storefront language'), 'pt-BR')
+    expect(screen.queryByRole('checkbox', { name: 'Português (Brasil)' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('checkbox', { name: 'English' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', expect.objectContaining({
+        storefrontLocale: 'pt-BR', storefrontLocales: ['en'],
+      }))
     })
   })
 
@@ -856,7 +878,7 @@ describe('Storefront language', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
     await userEvent.selectOptions(await screen.findByLabelText('Type'), 'internal')
-    expect(screen.getByLabelText('Storefront language')).toHaveValue('en')
+    expect(screen.getByLabelText('Storefront language')).toHaveValue('')
     await userEvent.type(screen.getByLabelText('Name'), 'Loja')
     await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
     await userEvent.selectOptions(screen.getByLabelText('Storefront language'), 'pt-BR')
@@ -870,7 +892,7 @@ describe('Storefront language', () => {
   it('prefills and saves the language when editing, and only Internal channels have one', async () => {
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
       sampleChannel(),
-      sampleChannel({ id: 'chan-int', name: 'Shop', type: 'internal', connection_id: null, default_warehouse_id: 'wh-1', storefront_locale: 'nl' }),
+      sampleChannel({ id: 'chan-int', name: 'Shop', type: 'internal', connection_id: null, default_warehouse_id: 'wh-1', storefront_locale: 'nl', storefront_locales: ['nl', 'pt-BR'] }),
     ])
     vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', type: 'internal' }))
     renderPage()
@@ -879,10 +901,13 @@ describe('Storefront language', () => {
     const editButtons = screen.getAllByRole('button', { name: 'Edit' })
     await userEvent.click(editButtons[editButtons.length - 1])
     expect(await screen.findByLabelText('Storefront language')).toHaveValue('nl')
+    expect(screen.getByRole('checkbox', { name: 'Português (Brasil)' })).toBeChecked()
+    expect(screen.queryByRole('option', { name: /Company language/ })).not.toBeInTheDocument()
     await userEvent.selectOptions(screen.getByLabelText('Storefront language'), 'en')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Nederlands' }))
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => {
-      expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-int', expect.objectContaining({ storefrontLocale: 'en' }))
+      expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-int', expect.objectContaining({ storefrontLocale: 'en', storefrontLocales: ['pt-BR', 'nl'] }))
     })
   })
 
