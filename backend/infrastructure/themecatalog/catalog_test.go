@@ -106,11 +106,13 @@ func TestFromSpec_newComponentsGuardLinksAndImages(t *testing.T) {
 
 // A new theme must be publishable as created: every preset document has
 // to satisfy the contract (incl. required components like Add to cart).
-func TestDefaultPresetValidatesAgainstTheContract(t *testing.T) {
+func TestEveryPresetValidatesAgainstTheContract(t *testing.T) {
 	c := load(t)
-	docs, err := theme.PresetDocuments(theme.PresetDefault)
-	require.NoError(t, err)
-	for _, d := range docs {
-		assert.NoError(t, theme.ValidateTree(d, c), "%s %s", d.Kind, d.Key)
+	for _, key := range theme.PresetKeys() {
+		docs, err := theme.PresetDocuments(key)
+		require.NoError(t, err, key)
+		for _, d := range docs {
+			assert.NoError(t, theme.ValidateTree(d, c), "%s: %s %s", key, d.Kind, d.Key)
+		}
 	}
 }

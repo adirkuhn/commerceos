@@ -408,7 +408,11 @@ components:
       properties:
         sales_channel_id: { type: string, format: uuid }
         name: { type: string, minLength: 1, maxLength: 120 }
-        preset_key: { type: string, enum: [default], default: default }
+        preset_key:
+          type: string
+          enum: [default, mercado]
+          default: default
+          description: "default: a general-purpose store. mercado: a grocery / market store (category menu, product rows with discount badges and add to cart)."
     RenameThemeRequest:
       type: object
       required: [name]

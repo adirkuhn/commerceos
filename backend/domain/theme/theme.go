@@ -12,11 +12,15 @@ import (
 
 const maxNameLength = 120
 
-// PresetDefault is the only built-in starting point today; presets decide
-// which documents and settings a new theme's first draft starts with.
-const PresetDefault = "default"
-
-var presets = map[string]bool{PresetDefault: true}
+// Presets decide which documents and settings a new theme's first draft
+// starts with (see preset.go).
+const (
+	// PresetDefault is a general-purpose store.
+	PresetDefault = "default"
+	// PresetMercado is a grocery / market layout: category menu, rows of
+	// products with discount badges and add to cart.
+	PresetMercado = "mercado"
+)
 
 // Theme is one design of a sales channel's storefront. A channel can keep
 // several (a theme library); at most one is live. PublishedVersionID is the
@@ -39,7 +43,7 @@ func NewTheme(tenantID, salesChannelID, name, presetKey string, now time.Time) (
 	if err != nil {
 		return Theme{}, err
 	}
-	if !presets[presetKey] {
+	if _, ok := presetRegistry[presetKey]; !ok {
 		return Theme{}, ErrUnknownPreset
 	}
 	return Theme{

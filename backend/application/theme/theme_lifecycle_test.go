@@ -114,3 +114,18 @@ func TestDeleteTheme_deletesAndRaisesEvent(t *testing.T) {
 	assert.Equal(t, []string{th.ID}, w.themes.deleted)
 	assert.Contains(t, w.outbox.subjects, "storefront.theme.deleted")
 }
+
+func TestCreateTheme_startsFromThePresetsSettingsAndDocuments(t *testing.T) {
+	w := newWorld(t)
+
+	th, err := apptheme.NewCreateThemeUseCase(w.deps).Execute(tenantCtx(), apptheme.CreateThemeInput{
+		SalesChannelID: "chan-1", Name: "Market", PresetKey: theme.PresetMercado, UserID: "user-1",
+	})
+
+	require.NoError(t, err)
+	draft := w.draft(t, th.ID)
+	want, _ := theme.PresetSettings(theme.PresetMercado)
+	assert.Equal(t, want, draft.Settings)
+	preset, _ := theme.PresetDocuments(theme.PresetMercado)
+	assert.Len(t, w.docs.forVersion(draft.ID), len(preset))
+}

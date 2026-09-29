@@ -37,10 +37,14 @@ func (uc *CreateThemeUseCase) Execute(ctx context.Context, in CreateThemeInput) 
 		if err != nil {
 			return err
 		}
+		settings, err := theme.PresetSettings(in.PresetKey)
+		if err != nil {
+			return err
+		}
 		if err := uc.deps.Themes.Create(ctx, &th); err != nil {
 			return err
 		}
-		draft := theme.NewDraftVersion(th, 1, theme.DefaultSettings(), in.UserID, now)
+		draft := theme.NewDraftVersion(th, 1, settings, in.UserID, now)
 		if err := uc.deps.Versions.Create(ctx, &draft); err != nil {
 			return err
 		}

@@ -1,23 +1,63 @@
 package theme
 
-// PresetDocuments returns the documents a new theme's first draft starts
-// with. The default preset gives every template a working layout -- the
-// commerce components each page needs -- and empty header/footer/other
-// pages to design from. A test checks every preset document against the
-// component contract, so a new theme is always publishable.
+import "sort"
+
+// A preset is what a new theme starts from: its documents (every template
+// with a working layout, header and footer) and its settings. A test checks
+// every preset's documents against the component contract, so a new theme
+// is always publishable.
+type preset struct {
+	documents func() []Document
+	settings  func() Settings
+}
+
+var presetRegistry = map[string]preset{
+	PresetDefault: {documents: defaultDocuments, settings: DefaultSettings},
+	PresetMercado: {documents: mercadoDocuments, settings: mercadoSettings},
+}
+
+// PresetKeys lists the presets, sorted.
+func PresetKeys() []string {
+	keys := make([]string, 0, len(presetRegistry))
+	for k := range presetRegistry {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func PresetDocuments(presetKey string) ([]Document, error) {
-	if !presets[presetKey] {
+	p, ok := presetRegistry[presetKey]
+	if !ok {
 		return nil, ErrUnknownPreset
 	}
+	return p.documents(), nil
+}
+
+func PresetSettings(presetKey string) (Settings, error) {
+	p, ok := presetRegistry[presetKey]
+	if !ok {
+		return Settings{}, ErrUnknownPreset
+	}
+	return p.settings(), nil
+}
+
+// templatesFrom builds every template document, taking each one's layout
+// from template(key).
+func templatesFrom(template func(key string) Node) []Document {
 	var docs []Document
 	for _, key := range templateKeys {
-		docs = append(docs, Document{Kind: KindTemplate, Key: key, Root: defaultTemplate(key)})
+		docs = append(docs, Document{Kind: KindTemplate, Key: key, Root: template(key)})
 	}
-	docs = append(docs,
+	return docs
+}
+
+// defaultDocuments: a general-purpose store.
+func defaultDocuments() []Document {
+	return append(templatesFrom(defaultTemplate),
 		Document{Kind: KindSectionGroup, Key: "header", Root: defaultHeader()},
 		Document{Kind: KindSectionGroup, Key: "footer", Root: defaultFooter()},
 	)
-	return docs, nil
 }
 
 func n(id, typ string, props map[string]any, children ...Node) Node {
