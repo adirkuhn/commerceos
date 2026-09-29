@@ -66,7 +66,8 @@
     "recommendations": "Toont producten die vaak samen met dit product worden gekocht.",
     "reviews": "Toont reviews van het product van deze pagina.",
     "wishlist": "Producten die de klant heeft bewaard.",
-    "wishlistButton": "Bewaart het product van deze pagina."
+    "wishlistButton": "Bewaart het product van deze pagina.",
+    "socialLinks": "Voeg je sociale-medialinks toe in de instellingen."
   },
   "listing": {
     "all": "Alle",
@@ -144,5 +145,11 @@
   "wishlist": {
     "empty": "Nog niets bewaard.",
     "title": "Bewaarde producten"
+  },
+  "social": {
+    "label": "Sociale media",
+    "maps": "Kaart",
+    "email": "E-mail",
+    "phone": "Telefoon"
   }
 }

@@ -66,7 +66,8 @@
     "recommendations": "Mostra produtos comprados junto com este.",
     "reviews": "Mostra as avaliações do produto desta página.",
     "wishlist": "Produtos que o cliente salvou.",
-    "wishlistButton": "Salva o produto desta página."
+    "wishlistButton": "Salva o produto desta página.",
+    "socialLinks": "Adicione os links das suas redes sociais nas configurações."
   },
   "listing": {
     "all": "Todos",
@@ -145,5 +146,11 @@
   "wishlist": {
     "empty": "Nada salvo ainda.",
     "title": "Produtos salvos"
+  },
+  "social": {
+    "label": "Redes sociais",
+    "maps": "Mapa",
+    "email": "E-mail",
+    "phone": "Telefone"
   }
 }

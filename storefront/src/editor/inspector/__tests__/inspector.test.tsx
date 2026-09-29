@@ -157,3 +157,16 @@ describe('AssetLibrary', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('only JPEG'))
   })
 })
+
+describe('social links field', () => {
+  it('adds, picks the network and sets the link', async () => {
+    render(<Stateful type="social-links" />, { wrapper: wrap(services()) })
+    const items = () => JSON.parse(screen.getByTestId('props').textContent!).items
+    await userEvent.click(screen.getByRole('button', { name: 'Add link' }))
+    await userEvent.selectOptions(screen.getByLabelText('Link 2 network'), 'maps')
+    const target = screen.getByLabelText('Link 2 goes to')
+    await userEvent.clear(target)
+    await userEvent.type(target, 'https://maps.google.com/?q=x')
+    expect(items()[1]).toEqual({ network: 'maps', link: 'https://maps.google.com/?q=x' })
+  })
+})

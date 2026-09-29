@@ -1020,6 +1020,22 @@ components:
       x-commerceos-component: { type: site-logo }
       properties:
         size: { type: string, enum: [sm, md, lg] }
+    SocialLink:
+      type: object
+      required: [network, link]
+      additionalProperties: false
+      properties:
+        network: { type: string, enum: [whatsapp, instagram, facebook, tiktok, youtube, x, maps, email, phone] }
+        link: { $ref: '#/components/schemas/SafeLink' }
+    SocialLinksProps:
+      type: object
+      required: [items]
+      additionalProperties: false
+      x-commerceos-component: { type: social-links }
+      properties:
+        items: { type: array, maxItems: 8, items: { $ref: '#/components/schemas/SocialLink' } }
+        show_labels: { type: boolean }
+        size: { type: string, enum: [sm, md, lg] }
     NavigationLink:
       type: object
       required: [label, link]

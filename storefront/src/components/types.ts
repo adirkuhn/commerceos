@@ -29,6 +29,7 @@ export type PropField =
   | { kind: 'collection'; label: string }
   | { kind: 'collections'; label: string; max: number }
   | { kind: 'links'; label: string; max: number }
+  | { kind: 'socialLinks'; label: string; max: number }
   | { kind: 'product'; label: string }
   | { kind: 'products'; label: string; max: number }
   | { kind: 'hidden' }

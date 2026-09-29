@@ -383,6 +383,22 @@
         "size": "Size"
       }
     },
+    "social-links": {
+      "description": "Icons linking to your WhatsApp, Instagram, Facebook, map location and more.",
+      "name": "Social links",
+      "options": {
+        "size": {
+          "lg": "Large",
+          "md": "Medium",
+          "sm": "Small"
+        }
+      },
+      "props": {
+        "items": "Links",
+        "show_labels": "Show names next to icons",
+        "size": "Icon size"
+      }
+    },
     "spacer": {
       "description": "Empty vertical space between components.",
       "name": "Spacer",
@@ -573,6 +589,12 @@
     "title": "Theme settings",
     "typography": "Typography",
     "useGoogle": "Use Google Fonts (loads fonts from Google)"
+  },
+  "socialLinks": {
+    "add": "Add link",
+    "chosenOf": "{{chosen}} of {{max}}",
+    "network": "Link {{number}} network",
+    "target": "Link {{number}} goes to"
   },
   "status": {
     "cantSave": "Can’t save: {{message}}",

@@ -17,6 +17,7 @@ import {
 import { breadcrumbs, collectionFilters, collectionHeader, collectionProducts, pagination } from './commerce/listing'
 import { cartItems, cartSummary, checkoutButton } from './cart/cart'
 import { accountLink, cartLink, navigationMenu, searchBox, siteLogo } from './site/site'
+import { socialLinks } from './site/social'
 import { banner, collectionList, hero, newsletterSignup } from './marketing/marketing'
 import { accountOverview, loginForm, wishlistButton, wishlistItems } from './customer/customer'
 import { checkoutForm, orderStatus } from './checkout/checkout'
@@ -30,7 +31,7 @@ const definitions = [
   productReviews, productRecommendations,
   collectionHeader, collectionProducts, collectionFilters, pagination, breadcrumbs,
   cartItems, cartSummary, checkoutButton,
-  siteLogo, navigationMenu, cartLink, searchBox, accountLink,
+  siteLogo, navigationMenu, cartLink, searchBox, accountLink, socialLinks,
   hero, banner, collectionList, newsletterSignup,
   loginForm, accountOverview, wishlistItems, wishlistButton,
   checkoutForm, orderStatus,

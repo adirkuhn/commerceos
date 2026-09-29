@@ -216,3 +216,18 @@ describe('product tile', () => {
     expect(screen.getByRole('button', { name: 'Sold out' })).toBeDisabled()
   })
 })
+
+describe('social links', () => {
+  it('links to each network with an accessible name, dropping unsafe links', () => {
+    const Social = R('social-links')
+    setup(<Social node={node('social-links')} props={{ size: 'md', show_labels: false, items: [
+      { network: 'whatsapp', link: 'https://wa.me/31640140482' },
+      { network: 'maps', link: 'https://maps.google.com/?q=Purmerplein+28A' },
+      { network: 'instagram', link: 'javascript:alert(1)' },
+    ] }} className="" />)
+    expect(screen.getByRole('link', { name: 'WhatsApp' })).toHaveAttribute('href', 'https://wa.me/31640140482')
+    expect(screen.getByRole('link', { name: 'WhatsApp' })).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(screen.getByRole('link', { name: 'Map' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Instagram' })).toBeNull()
+  })
+})

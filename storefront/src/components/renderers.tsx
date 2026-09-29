@@ -15,6 +15,7 @@ import {
 import { ProductRecommendationsView, ProductReviewsView } from './commerce/ProductExtrasViews'
 import { BreadcrumbsView, CollectionFiltersView, CollectionHeaderView, CollectionProductsView, PaginationView } from './commerce/ListingViews'
 import { CartItemsView, CartSummaryView, CheckoutButtonView } from './cart/CartViews'
+import { SocialLinksView } from './site/SocialLinksView'
 import { AccountLinkView, CartLinkView, NavigationMenuView, SearchBoxView, SiteLogoView } from './site/SiteViews'
 import { BannerView, CollectionListView, HeroView, NewsletterSignupView } from './marketing/MarketingViews'
 import { AccountOverviewView, LoginFormView, WishlistButtonView, WishlistItemsView } from './customer/CustomerViews'
@@ -87,6 +88,7 @@ const renderers: Record<string, Renderer> = {
   'navigation-menu': typed(NavigationMenuView),
   'cart-link': typed(CartLinkView),
   'search-box': typed(SearchBoxView),
+  'social-links': typed(SocialLinksView),
   'account-link': typed(AccountLinkView),
   hero: typed(HeroView),
   banner: typed(BannerView),

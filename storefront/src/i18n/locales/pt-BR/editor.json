@@ -383,6 +383,22 @@
         "size": "Tamanho"
       }
     },
+    "social-links": {
+      "name": "Redes sociais",
+      "description": "Ícones com links para seu WhatsApp, Instagram, Facebook, localização no mapa e mais.",
+      "options": {
+        "size": {
+          "sm": "Pequeno",
+          "md": "Médio",
+          "lg": "Grande"
+        }
+      },
+      "props": {
+        "items": "Links",
+        "show_labels": "Mostrar nomes ao lado dos ícones",
+        "size": "Tamanho dos ícones"
+      }
+    },
     "spacer": {
       "description": "Espaço vertical vazio entre componentes.",
       "name": "Espaçador",
@@ -755,5 +771,11 @@
     "templates": "Modelos",
     "undo": "Desfazer",
     "unsavedChanges": "Alterações não salvas"
+  },
+  "socialLinks": {
+    "network": "Rede do link {{number}}",
+    "target": "Destino do link {{number}}",
+    "add": "Adicionar link",
+    "chosenOf": "{{chosen}} de {{max}}"
   }
 }

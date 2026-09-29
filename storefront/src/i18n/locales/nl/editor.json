@@ -383,6 +383,22 @@
         "size": "Grootte"
       }
     },
+    "social-links": {
+      "name": "Sociale links",
+      "description": "Iconen met links naar je WhatsApp, Instagram, Facebook, locatie op de kaart en meer.",
+      "options": {
+        "size": {
+          "sm": "Klein",
+          "md": "Middel",
+          "lg": "Groot"
+        }
+      },
+      "props": {
+        "items": "Links",
+        "show_labels": "Namen naast iconen tonen",
+        "size": "Icoongrootte"
+      }
+    },
     "spacer": {
       "description": "Lege verticale ruimte tussen onderdelen.",
       "name": "Witruimte",
@@ -755,5 +771,11 @@
     "templates": "Sjablonen",
     "undo": "Ongedaan maken",
     "unsavedChanges": "Niet-opgeslagen wijzigingen"
+  },
+  "socialLinks": {
+    "network": "Netwerk van link {{number}}",
+    "target": "Link {{number}} gaat naar",
+    "add": "Link toevoegen",
+    "chosenOf": "{{chosen}} van {{max}}"
   }
 }

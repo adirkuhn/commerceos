@@ -546,6 +546,22 @@
       "required_props": []
     },
     {
+      "type": "social-links",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "items",
+        "show_labels",
+        "size"
+      ],
+      "required_props": [
+        "items"
+      ]
+    },
+    {
       "type": "spacer",
       "container": false,
       "allowed_children": [],

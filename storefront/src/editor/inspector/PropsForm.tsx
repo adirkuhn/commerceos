@@ -5,6 +5,8 @@ import type { RichText } from '../../core/richText'
 import { LinkField, NumberField, SelectField, TextField, ToggleField } from './fields'
 import type { NavLink } from '../../components/site/site'
 import { LinksField } from './LinksField'
+import { SocialLinksField } from './SocialLinksField'
+import type { SocialLink } from '../../components/site/social'
 import { AssetPicker, CategorySelect, CollectionSelect, CollectionsPicker, ProductPicker, ProductsPicker } from './pickers'
 import { RichTextField } from './RichTextField'
 
@@ -28,6 +30,7 @@ function FieldFor({ def, name, field, value, onChange }: { def: ComponentDefinit
     case 'products': return <ProductsPicker label={label} value={(value as string[]) ?? []} max={field.max} onChange={onChange} />
     case 'collections': return <CollectionsPicker label={label} value={(value as string[]) ?? []} max={field.max} onChange={onChange} />
     case 'links': return <LinksField label={label} value={(value as NavLink[]) ?? []} max={field.max} onChange={onChange} />
+    case 'socialLinks': return <SocialLinksField label={label} value={(value as SocialLink[]) ?? []} max={field.max} onChange={onChange} />
     default: {
       const unknownKind: never = field
       console.warn('editor: no field for prop', name, unknownKind)
