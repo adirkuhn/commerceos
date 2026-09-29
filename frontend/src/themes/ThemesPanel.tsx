@@ -51,10 +51,10 @@ export function ThemesPanel({ channel, onClose }: Props) {
     // Open the tab now, inside the click, or the browser blocks the popup.
     const win = window.open('', '_blank')
     try {
-      const session = await createThemeSession(token ?? '', theme.id, 'edit')
+      const session = await createThemeSession(token ?? '', theme.id, 'edit', currentLocale())
       if (win) {
         win.opener = null
-        win.location.href = editorURL(session.token, currentLocale())
+        win.location.href = editorURL(session.token)
       }
     } catch (err) {
       win?.close()

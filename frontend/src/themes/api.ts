@@ -46,6 +46,7 @@ export async function rollbackTheme(token: string, id: string, versionId: string
   return (await request<Theme>(`/themes/${id}/rollback`, { method: 'POST', body: JSON.stringify({ version_id: versionId }) }, token)).data!
 }
 
-export async function createThemeSession(token: string, id: string, purpose: SessionPurpose): Promise<SessionToken> {
-  return (await request<SessionToken>(`/themes/${id}/sessions`, { method: 'POST', body: JSON.stringify({ purpose }) }, token)).data!
+/** locale: the merchant's language -- the editor opened with this session speaks it. */
+export async function createThemeSession(token: string, id: string, purpose: SessionPurpose, locale?: string): Promise<SessionToken> {
+  return (await request<SessionToken>(`/themes/${id}/sessions`, { method: 'POST', body: JSON.stringify({ purpose, locale }) }, token)).data!
 }

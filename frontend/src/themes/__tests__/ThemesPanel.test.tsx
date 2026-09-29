@@ -67,8 +67,8 @@ describe('ThemesPanel', () => {
 
     await userEvent.click(within(within(list).getAllByRole('listitem')[1]).getByRole('button', { name: /Customize/ }))
 
-    await waitFor(() => expect(win.location.href).toBe('https://api.commerceos.dev.localhost/store/editor#session=sess&lang=en'))
-    expect(api.createThemeSession).toHaveBeenCalledWith('tok', 't1', 'edit')
+    await waitFor(() => expect(win.location.href).toBe('https://api.commerceos.dev.localhost/store/editor#session=sess'))
+    expect(api.createThemeSession).toHaveBeenCalledWith('tok', 't1', 'edit', 'en')
     expect(win.opener).toBeNull()
   })
 

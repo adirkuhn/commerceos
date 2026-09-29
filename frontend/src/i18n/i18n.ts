@@ -3,18 +3,20 @@ import { initReactI18next } from 'react-i18next'
 import { DEFAULT_LOCALE, resolveLocale, type Locale } from './locale'
 import { NAMESPACES, resources } from './resources'
 
-// The admin's one i18next instance. The language is the signed-in user's
-// choice, kept in this browser; first visit follows the browser language.
+// The admin's one i18next instance. The language is the user's choice, kept
+// in a cookie; first visit follows the browser language.
 
-const STORAGE_KEY = 'cos-admin-language'
+export const LANGUAGE_COOKIE = 'cos_lang'
+const ONE_YEAR = 60 * 60 * 24 * 365
 
 function storedLocale(): Locale | undefined {
-  try {
-    const v = window.localStorage.getItem(STORAGE_KEY)
-    return v ? resolveLocale(v) : undefined
-  } catch {
-    return undefined
-  }
+  const match = document.cookie.match(new RegExp(`(?:^|; )${LANGUAGE_COOKIE}=([^;]*)`))
+  return match ? resolveLocale(decodeURIComponent(match[1])) : undefined
+}
+
+function rememberLocale(locale: Locale) {
+  const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+  document.cookie = `${LANGUAGE_COOKIE}=${encodeURIComponent(locale)}; Path=/; Max-Age=${ONE_YEAR}; SameSite=Lax${secure}`
 }
 
 export function initialLocale(): Locale {
@@ -38,15 +40,11 @@ export function initI18n(locale: Locale = initialLocale()) {
   return i18next
 }
 
-/** Switches the admin language now and remembers it in this browser. */
+/** Switches the admin language now and remembers it (cookie). */
 export async function setLanguage(locale: Locale) {
   await i18next.changeLanguage(locale)
   document.documentElement.lang = locale
-  try {
-    window.localStorage.setItem(STORAGE_KEY, locale)
-  } catch {
-    // not remembered; still switched for this visit
-  }
+  rememberLocale(locale)
 }
 
 export const currentLocale = (): Locale => resolveLocale(i18next.language)

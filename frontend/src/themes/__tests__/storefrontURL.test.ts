@@ -10,6 +10,6 @@ describe('storefront URLs', () => {
 
   it('builds store and editor links', () => {
     expect(storeURL('chan-1', 'https://api.example')).toBe('https://api.example/store/chan-1/')
-    expect(editorURL('a+b', 'pt-BR', 'https://api.example')).toBe('https://api.example/store/editor#session=a%2Bb&lang=pt-BR')
+    expect(editorURL('a+b', 'https://api.example')).toBe('https://api.example/store/editor#session=a%2Bb')
   })
 })
