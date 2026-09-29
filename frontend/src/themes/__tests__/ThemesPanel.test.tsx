@@ -55,8 +55,20 @@ describe('ThemesPanel', () => {
     await userEvent.type(screen.getByLabelText('New theme name'), 'Winter')
     await userEvent.click(screen.getByRole('button', { name: /Create theme/ }))
 
-    await waitFor(() => expect(api.createTheme).toHaveBeenCalledWith('tok', 'chan-1', 'Winter'))
+    await waitFor(() => expect(api.createTheme).toHaveBeenCalledWith('tok', 'chan-1', 'Winter', 'default'))
     expect(api.listThemes).toHaveBeenCalledTimes(2)
+  })
+
+  it('creates a theme from the Market (grocery) preset', async () => {
+    vi.mocked(api.createTheme).mockResolvedValue(theme({ id: 't3', name: 'Mercadinho' }))
+    renderPanel()
+    await screen.findByRole('list', { name: 'Themes' })
+
+    await userEvent.type(screen.getByLabelText('New theme name'), 'Mercadinho')
+    await userEvent.selectOptions(screen.getByLabelText('Start from'), 'mercado')
+    await userEvent.click(screen.getByRole('button', { name: /Create theme/ }))
+
+    await waitFor(() => expect(api.createTheme).toHaveBeenCalledWith('tok', 'chan-1', 'Mercadinho', 'mercado'))
   })
 
   it('opens the editor with a fresh edit session in the URL fragment', async () => {

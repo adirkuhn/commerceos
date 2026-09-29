@@ -34,6 +34,11 @@
   "loading": "Carregando temas…",
   "newThemeName": "Nome do novo tema",
   "notLive": "Fora do ar",
+  "preset": {
+    "label": "Começar a partir de",
+    "default": "Loja geral",
+    "mercado": "Mercado (supermercado)"
+  },
   "title": "Temas · {{channel}}",
   "updated": "Atualizado em {{date}}",
   "versions": "Versões",

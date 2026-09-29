@@ -21,10 +21,10 @@ describe('theme api', () => {
 
   it('creates a theme', async () => {
     const f = stubFetch({ data: { id: 't1' }, error: null }, 201)
-    await api.createTheme('tok', 'chan-1', 'Autumn')
+    await api.createTheme('tok', 'chan-1', 'Autumn', 'mercado')
     const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/theme/themes')
-    expect(JSON.parse(String(init.body))).toEqual({ sales_channel_id: 'chan-1', name: 'Autumn' })
+    expect(JSON.parse(String(init.body))).toEqual({ sales_channel_id: 'chan-1', name: 'Autumn', preset_key: 'mercado' })
   })
 
   it('mints an edit session', async () => {

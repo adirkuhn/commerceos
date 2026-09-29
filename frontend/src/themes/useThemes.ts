@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import i18next from 'i18next'
 import * as api from './api'
-import type { Theme } from './types'
+import type { Theme, ThemePreset } from './types'
 
 export function useThemes(token: string, salesChannelId: string) {
   const [themes, setThemes] = useState<Theme[]>([])
@@ -24,8 +24,8 @@ export function useThemes(token: string, salesChannelId: string) {
     void refresh()
   }, [refresh])
 
-  const create = async (name: string) => {
-    const t = await api.createTheme(token, salesChannelId, name)
+  const create = async (name: string, preset: ThemePreset = 'default') => {
+    const t = await api.createTheme(token, salesChannelId, name, preset)
     await refresh()
     return t
   }

@@ -34,6 +34,11 @@
   "loading": "Thema’s laden…",
   "newThemeName": "Naam van nieuw thema",
   "notLive": "Niet live",
+  "preset": {
+    "label": "Beginnen met",
+    "default": "Algemene winkel",
+    "mercado": "Markt (supermarkt)"
+  },
   "title": "Thema’s · {{channel}}",
   "updated": "Bijgewerkt op {{date}}",
   "versions": "Versies",

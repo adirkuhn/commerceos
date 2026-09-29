@@ -11,7 +11,7 @@ import { editorURL, storeURL } from './storefrontURL'
 import { currentLocale } from '../i18n/i18n'
 import { useThemes } from './useThemes'
 import { VersionHistory } from './VersionHistory'
-import type { Theme, VersionSummary } from './types'
+import type { Theme, ThemePreset, VersionSummary } from './types'
 
 interface Props {
   channel: SalesChannel
@@ -29,6 +29,7 @@ export function ThemesPanel({ channel, onClose }: Props) {
   const { confirm, confirmDialog } = useConfirm()
   const { formatDate } = useDateFormat()
   const [name, setName] = useState('')
+  const [preset, setPreset] = useState<ThemePreset>('default')
   const [creating, setCreating] = useState(false)
   const [actionError, setActionError] = useState('')
   const hasLive = themes.some(t => t.is_live)
@@ -39,7 +40,7 @@ export function ThemesPanel({ channel, onClose }: Props) {
     setCreating(true)
     setActionError('')
     try {
-      await create(name.trim())
+      await create(name.trim(), preset)
       setName('')
     } catch (err) {
       setActionError(err instanceof Error ? err.message : t('errors.create'))
@@ -110,11 +111,17 @@ export function ThemesPanel({ channel, onClose }: Props) {
         </p>
       )}
 
-      <form onSubmit={handleCreate} className="flex gap-2 max-w-md">
+      <form onSubmit={handleCreate} className="flex flex-wrap gap-2 max-w-xl">
         <label htmlFor="new-theme-name" className="sr-only">{t('newThemeName')}</label>
         <input id="new-theme-name" value={name} onChange={e => setName(e.target.value)} maxLength={120}
           placeholder={t('newThemeName')}
           className="flex-1 px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus" />
+        <label htmlFor="new-theme-preset" className="sr-only">{t('preset.label')}</label>
+        <select id="new-theme-preset" value={preset} onChange={e => setPreset(e.target.value as ThemePreset)}
+          className="px-2 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus">
+          <option value="default">{t('preset.default')}</option>
+          <option value="mercado">{t('preset.mercado')}</option>
+        </select>
         <button type="submit" disabled={creating || !name.trim() || channel.storefront_mode !== 'theme'}
           className="flex items-center gap-1 px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium disabled:opacity-50">
           <Plus size={12} /> {creating ? t('creating') : t('create')}

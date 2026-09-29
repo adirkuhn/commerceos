@@ -1,4 +1,4 @@
-import type { SessionPurpose, SessionToken, Theme, VersionSummary } from './types'
+import type { SessionPurpose, SessionToken, Theme, ThemePreset, VersionSummary } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/theme`
@@ -26,8 +26,9 @@ export async function listThemes(token: string, salesChannelId: string, page = 1
   return { items: body.data ?? [], total: body.total ?? 0 }
 }
 
-export async function createTheme(token: string, salesChannelId: string, name: string): Promise<Theme> {
-  return (await request<Theme>('/themes', { method: 'POST', body: JSON.stringify({ sales_channel_id: salesChannelId, name }) }, token)).data!
+/** presetKey: what the theme starts from (see ThemePreset). */
+export async function createTheme(token: string, salesChannelId: string, name: string, presetKey: ThemePreset = 'default'): Promise<Theme> {
+  return (await request<Theme>('/themes', { method: 'POST', body: JSON.stringify({ sales_channel_id: salesChannelId, name, preset_key: presetKey }) }, token)).data!
 }
 
 export async function renameTheme(token: string, id: string, name: string): Promise<Theme> {

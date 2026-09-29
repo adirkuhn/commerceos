@@ -34,6 +34,11 @@
   "loading": "Loading themes…",
   "newThemeName": "New theme name",
   "notLive": "Not live",
+  "preset": {
+    "label": "Start from",
+    "default": "General store",
+    "mercado": "Market (grocery)"
+  },
   "title": "Themes · {{channel}}",
   "updated": "Updated {{date}}",
   "versions": "Versions",
