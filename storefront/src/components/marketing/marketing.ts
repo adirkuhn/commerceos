@@ -62,6 +62,6 @@ export const newsletterSignup: ComponentDefinition<NewsletterSignupProps> = {
     button_label: { kind: 'text', label: 'Button label', maxLength: 40 },
     consent_label: { kind: 'text', label: 'Consent text', maxLength: 200, multiline: true },
   },
-  defaults: { title: 'Stay in the loop', text: '', button_label: 'Subscribe', consent_label: 'I would like to receive emails from this store. I can unsubscribe at any time.' },
+  defaults: { title: 'Stay in the loop', text: '', button_label: '', consent_label: '' },
   styleGroups: ['colors', 'spacing', 'visibility'],
 }

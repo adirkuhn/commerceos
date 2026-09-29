@@ -61,7 +61,7 @@ export const addToCart: ComponentDefinition<AddToCartProps> = {
     label: { kind: 'text', label: 'Label', maxLength: 60 },
     sold_out_label: { kind: 'text', label: 'Label when sold out', maxLength: 60 },
   },
-  defaults: { label: 'Add to cart', sold_out_label: 'Sold out' },
+  defaults: { label: '', sold_out_label: '' },
   requiredIn: ['product'],
   editor: { removable: false, copyable: false, draggable: true },
   styleGroups: ['spacing', 'layout', 'visibility'],

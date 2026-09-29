@@ -10,7 +10,7 @@ export const loginForm: ComponentDefinition<LoginFormProps> = {
   ...base, type: 'login-form', name: 'Sign-in form', category: 'customer', icon: 'login',
   description: 'Passwordless sign-in: shoppers get a sign-in link by email.',
   props: { title: { kind: 'text', label: 'Title', maxLength: 120 }, button_label: { kind: 'text', label: 'Button label', maxLength: 40 } },
-  defaults: { title: 'Sign in', button_label: 'Email me a sign-in link' },
+  defaults: { title: 'Sign in', button_label: '' },
   requiredIn: ['login'], editor: { removable: false, copyable: false, draggable: true },
   styleGroups: ['spacing', 'visibility'],
 }
@@ -30,7 +30,7 @@ export const wishlistItems: ComponentDefinition<WishlistItemsProps> = {
   ...base, type: 'wishlist-items', name: 'Wishlist', category: 'customer', icon: 'heart',
   description: 'Products the shopper saved.',
   props: { empty_message: { kind: 'text', label: 'Message when empty', maxLength: 200 } },
-  defaults: { empty_message: 'Nothing saved yet.' },
+  defaults: { empty_message: '' },
   requiredIn: ['wishlist'], editor: { removable: false, copyable: false, draggable: true },
   styleGroups: ['spacing', 'visibility'],
 }
@@ -40,6 +40,6 @@ export const wishlistButton: ComponentDefinition<WishlistButtonProps> = {
   ...base, dataContext: 'product', type: 'wishlist-button', name: 'Wishlist button', category: 'customer', icon: 'heart',
   description: 'Saves the product to the shopper\'s wishlist.',
   props: { add_label: { kind: 'text', label: 'Label', maxLength: 40 }, remove_label: { kind: 'text', label: 'Label when saved', maxLength: 40 } },
-  defaults: { add_label: 'Save to wishlist', remove_label: 'Saved' },
+  defaults: { add_label: '', remove_label: '' },
   styleGroups: ['spacing', 'visibility'],
 }

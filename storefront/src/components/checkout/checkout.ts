@@ -5,7 +5,7 @@ export const checkoutForm: ComponentDefinition<CheckoutFormProps> = {
   type: 'checkout-form', name: 'Checkout form', category: 'cart', icon: 'card',
   description: 'Contact, address, delivery choice and payment. Every checkout page needs one.',
   props: { button_label: { kind: 'text', label: 'Button label', maxLength: 40 } },
-  defaults: { button_label: 'Place order' },
+  defaults: { button_label: '' },
   container: false, allowedChildren: [], allowedParents: [], dataContext: 'cart', requiredIn: ['checkout'],
   editor: { removable: false, copyable: false, draggable: true },
   styleGroups: ['spacing', 'visibility'],

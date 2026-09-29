@@ -34,7 +34,7 @@ export const cartLink: ComponentDefinition<CartLinkProps> = {
   ...base, dataContext: 'cart', type: 'cart-link', name: 'Cart link', category: 'navigation', icon: 'cart',
   description: 'Link to the cart, with how many items are in it.',
   props: { label: { kind: 'text', label: 'Label', maxLength: 30 }, show_count: { kind: 'toggle', label: 'Show item count' } },
-  defaults: { label: 'Cart', show_count: true },
+  defaults: { label: '', show_count: true },
   styleGroups: ['typography', 'spacing', 'visibility'],
 }
 
@@ -43,7 +43,7 @@ export const searchBox: ComponentDefinition<SearchBoxProps> = {
   ...base, type: 'search-box', name: 'Search box', category: 'navigation', icon: 'search',
   description: 'Lets shoppers search your products.',
   props: { placeholder: { kind: 'text', label: 'Placeholder', maxLength: 60 } },
-  defaults: { placeholder: 'Search products' },
+  defaults: { placeholder: '' },
   styleGroups: ['spacing', 'layout', 'visibility'],
 }
 
@@ -52,6 +52,6 @@ export const accountLink: ComponentDefinition<AccountLinkProps> = {
   ...base, dataContext: 'customer', type: 'account-link', name: 'Account link', category: 'navigation', icon: 'user',
   description: 'Sign in, or go to the account when signed in.',
   props: { login_label: { kind: 'text', label: 'Signed-out label', maxLength: 30 }, account_label: { kind: 'text', label: 'Signed-in label', maxLength: 30 } },
-  defaults: { login_label: 'Sign in', account_label: 'Account' },
+  defaults: { login_label: '', account_label: '' },
   styleGroups: ['typography', 'spacing', 'visibility'],
 }

@@ -93,13 +93,14 @@
   },
   "newsletter": {
     "checkInbox": "Quase lá: confira seu e-mail e confirme sua inscrição.",
-    "confirmed": "Inscrição confirmada. Obrigado por assinar nossa newsletter!",
     "confirmFailed": "Este link de confirmação expirou ou já foi usado. Inscreva-se de novo para receber outro.",
+    "confirmed": "Inscrição confirmada. Obrigado por assinar nossa newsletter!",
     "confirming": "Confirmando sua inscrição…",
+    "consent": "Quero receber e-mails desta loja. Posso cancelar a inscrição a qualquer momento.",
     "subscribe": "Inscrever-se",
     "title": "Newsletter",
-    "unsubscribed": "Sua inscrição foi cancelada. Você não receberá mais nossa newsletter.",
     "unsubscribeFailed": "Este link de cancelamento não é válido. Se ainda receber nossos e-mails, use o link do mais recente.",
+    "unsubscribed": "Sua inscrição foi cancelada. Você não receberá mais nossa newsletter.",
     "unsubscribing": "Cancelando inscrição…"
   },
   "order": {

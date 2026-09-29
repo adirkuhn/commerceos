@@ -57,6 +57,6 @@ export const breadcrumbs: ComponentDefinition<BreadcrumbsProps> = {
   ...base, dataContext: '', type: 'breadcrumbs', name: 'Breadcrumbs', category: 'navigation', icon: 'chevrons',
   description: 'Shows where the shopper is: Home › Collection › Product.',
   props: { home_label: { kind: 'text', label: 'Home label', maxLength: 40 } },
-  defaults: { home_label: 'Home' },
+  defaults: { home_label: '' },
   styleGroups: ['typography', 'spacing', 'visibility'],
 }

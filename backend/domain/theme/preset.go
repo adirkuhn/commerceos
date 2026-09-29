@@ -93,7 +93,7 @@ func defaultTemplate(key string) Node {
 				n("promo", "banner", map[string]any{"text": "Free shipping on orders over €50", "link_label": "Learn more", "link": "/pages/shipping"})),
 			n("newsletter-section", "section", nil,
 				n("newsletter", "newsletter-signup", map[string]any{"title": "Stay in the loop", "text": "News and offers, straight to your inbox.",
-					"button_label": "Subscribe", "consent_label": "I'd like to receive emails from this store. I can unsubscribe at any time."})),
+					"button_label": "", "consent_label": ""})),
 		)
 	case "product":
 		return root(
@@ -106,8 +106,8 @@ func defaultTemplate(key string) Node {
 						n("product-price", "product-price", map[string]any{"show_compare_at": true}),
 						n("product-variants", "variant-selector", map[string]any{"style": "buttons"}),
 						n("product-qty", "quantity-selector", nil),
-						n("product-add", "add-to-cart", map[string]any{"label": "Add to cart", "sold_out_label": "Sold out"}),
-						n("product-wish", "wishlist-button", map[string]any{"add_label": "Save to wishlist", "remove_label": "Saved"}),
+						n("product-add", "add-to-cart", map[string]any{"label": "", "sold_out_label": ""}),
+						n("product-wish", "wishlist-button", map[string]any{"add_label": "", "remove_label": ""}),
 						n("product-desc", "product-description", nil),
 					),
 				),
@@ -133,26 +133,26 @@ func defaultTemplate(key string) Node {
 		return root(n("cart-main", "section", nil,
 			heading("cart-title", "Your cart", 1),
 			n("cart-cols", "columns", map[string]any{"stack_on": "tablet"},
-				n("cart-lines", "column", map[string]any{"span": 2}, n("cart-items", "cart-items", map[string]any{"empty_message": "Your cart is empty."})),
+				n("cart-lines", "column", map[string]any{"span": 2}, n("cart-items", "cart-items", map[string]any{"empty_message": ""})),
 				n("cart-side", "column", nil,
 					n("cart-summary", "cart-summary", map[string]any{"show_coupon": true}),
-					n("cart-checkout", "checkout-button", map[string]any{"label": "Checkout"}),
+					n("cart-checkout", "checkout-button", map[string]any{"label": ""}),
 				),
 			),
 		))
 	case "checkout":
 		return root(n("checkout-main", "section", nil, heading("checkout-title", "Checkout", 1),
-			n("checkout-form", "checkout-form", map[string]any{"button_label": "Place order"})))
+			n("checkout-form", "checkout-form", map[string]any{"button_label": ""})))
 	case "order-confirmation":
 		return root(n("order-main", "section", nil, n("order-status", "order-status", map[string]any{"title": "Thank you for your order"})))
 	case "login":
-		return root(n("login-main", "section", nil, n("login-form", "login-form", map[string]any{"title": "Sign in", "button_label": "Email me a sign-in link"})))
+		return root(n("login-main", "section", nil, n("login-form", "login-form", map[string]any{"title": "Sign in", "button_label": ""})))
 	case "account":
 		return root(n("account-main", "section", nil, heading("account-title", "Your account", 1),
 			n("account-overview", "account-overview", map[string]any{"show_orders": true})))
 	case "wishlist":
 		return root(n("wishlist-main", "section", nil, heading("wishlist-title", "Your wishlist", 1),
-			n("wishlist-items", "wishlist-items", map[string]any{"empty_message": "Nothing saved yet."})))
+			n("wishlist-items", "wishlist-items", map[string]any{"empty_message": ""})))
 	case "not-found":
 		return root(n("nf", "section", nil,
 			heading("nf-title", "Page not found", 1),
@@ -172,9 +172,9 @@ func defaultHeader() Node {
 				"items":       []any{map[string]any{"label": "Home", "link": "/"}, map[string]any{"label": "Search", "link": "/search?q="}},
 			})),
 			n("header-actions", "column", nil,
-				n("search", "search-box", map[string]any{"placeholder": "Search products"}),
-				n("account", "account-link", map[string]any{"login_label": "Sign in", "account_label": "Account"}),
-				n("cart", "cart-link", map[string]any{"label": "Cart", "show_count": true}),
+				n("search", "search-box", map[string]any{"placeholder": ""}),
+				n("account", "account-link", map[string]any{"login_label": "", "account_label": ""}),
+				n("cart", "cart-link", map[string]any{"label": "", "show_count": true}),
 			),
 		),
 	))

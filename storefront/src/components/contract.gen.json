@@ -40,9 +40,7 @@
         "label",
         "sold_out_label"
       ],
-      "required_props": [
-        "label"
-      ]
+      "required_props": []
     },
     {
       "type": "banner",
@@ -139,9 +137,7 @@
       "props": [
         "label"
       ],
-      "required_props": [
-        "label"
-      ]
+      "required_props": []
     },
     {
       "type": "checkout-form",
@@ -352,10 +348,7 @@
         "text",
         "title"
       ],
-      "required_props": [
-        "button_label",
-        "consent_label"
-      ]
+      "required_props": []
     },
     {
       "type": "order-status",

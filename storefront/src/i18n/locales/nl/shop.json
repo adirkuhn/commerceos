@@ -92,13 +92,14 @@
   },
   "newsletter": {
     "checkInbox": "Bijna klaar: kijk in je inbox en bevestig je inschrijving.",
-    "confirmed": "Je bent ingeschreven. Bedankt voor je aanmelding!",
     "confirmFailed": "Deze bevestigingslink is verlopen of al gebruikt. Schrijf je opnieuw in voor een nieuwe.",
+    "confirmed": "Je bent ingeschreven. Bedankt voor je aanmelding!",
     "confirming": "Je inschrijving wordt bevestigd…",
+    "consent": "Ik wil e-mails van deze winkel ontvangen. Ik kan me op elk moment afmelden.",
     "subscribe": "Inschrijven",
     "title": "Nieuwsbrief",
-    "unsubscribed": "Je bent uitgeschreven. Je ontvangt onze nieuwsbrief niet meer.",
     "unsubscribeFailed": "Deze uitschrijflink is niet geldig. Krijg je nog e-mails, gebruik dan de link in de meest recente.",
+    "unsubscribed": "Je bent uitgeschreven. Je ontvangt onze nieuwsbrief niet meer.",
     "unsubscribing": "Uitschrijven…"
   },
   "order": {

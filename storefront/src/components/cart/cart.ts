@@ -13,7 +13,7 @@ export const cartItems: ComponentDefinition<CartItemsProps> = {
   ...base, type: 'cart-items', name: 'Cart items', category: 'cart', icon: 'list',
   description: 'The products in the cart, with quantities the shopper can change.',
   props: { empty_message: { kind: 'text', label: 'Message when empty', maxLength: 200 } },
-  defaults: { empty_message: 'Your cart is empty.' },
+  defaults: { empty_message: '' },
   requiredIn: ['cart'],
   editor: { removable: false, copyable: false, draggable: true },
   styleGroups: ['spacing', 'visibility'],
@@ -33,6 +33,6 @@ export const checkoutButton: ComponentDefinition<CheckoutButtonProps> = {
   ...base, type: 'checkout-button', name: 'Checkout button', category: 'cart', icon: 'button',
   description: 'Takes the shopper to checkout. Disabled while the cart is empty.',
   props: { label: { kind: 'text', label: 'Label', maxLength: 60 } },
-  defaults: { label: 'Checkout' },
+  defaults: { label: '' },
   styleGroups: ['spacing', 'layout', 'visibility'],
 }

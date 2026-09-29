@@ -100,7 +100,7 @@ export function NewsletterSignupView({ node, props, className }: RendererProps<N
             <button type="submit" className="cos-button cos-button-primary" disabled={state === 'busy' || !consent}>{props.button_label || t('newsletter.subscribe')}</button>
           </div>
           <label className="cos-consent">
-            <input type="checkbox" required checked={consent} onChange={e => setConsent(e.target.checked)} /> {props.consent_label}
+            <input type="checkbox" required checked={consent} onChange={e => setConsent(e.target.checked)} /> {props.consent_label || t('newsletter.consent')}
           </label>
           {state === 'error' && <p role="alert" className="cos-error">{error}</p>}
         </form>

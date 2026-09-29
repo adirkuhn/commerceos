@@ -92,13 +92,14 @@
   },
   "newsletter": {
     "checkInbox": "Almost done: check your inbox and confirm your subscription.",
-    "confirmed": "You’re subscribed. Thanks for joining our newsletter!",
     "confirmFailed": "This confirmation link has expired or was already used. Sign up again to get a new one.",
+    "confirmed": "You’re subscribed. Thanks for joining our newsletter!",
     "confirming": "Confirming your subscription…",
+    "consent": "I'd like to receive emails from this store. I can unsubscribe at any time.",
     "subscribe": "Subscribe",
     "title": "Newsletter",
-    "unsubscribed": "You’ve been unsubscribed. You won’t get our newsletter anymore.",
     "unsubscribeFailed": "This unsubscribe link is not valid. If you still get our emails, use the link in the latest one.",
+    "unsubscribed": "You’ve been unsubscribed. You won’t get our newsletter anymore.",
     "unsubscribing": "Unsubscribing…"
   },
   "order": {
