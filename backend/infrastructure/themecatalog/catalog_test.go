@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/themecatalog"
 )
@@ -109,10 +110,12 @@ func TestFromSpec_newComponentsGuardLinksAndImages(t *testing.T) {
 func TestEveryPresetValidatesAgainstTheContract(t *testing.T) {
 	c := load(t)
 	for _, key := range theme.PresetKeys() {
-		docs, err := theme.PresetDocuments(key)
-		require.NoError(t, err, key)
-		for _, d := range docs {
-			assert.NoError(t, theme.ValidateTree(d, c), "%s: %s %s", key, d.Kind, d.Key)
+		for _, lang := range []locale.Locale{locale.English, locale.Portuguese, locale.Dutch} {
+			docs, err := theme.PresetDocuments(key, lang)
+			require.NoError(t, err, key)
+			for _, d := range docs {
+				assert.NoError(t, theme.ValidateTree(d, c), "%s (%s): %s %s", key, lang, d.Kind, d.Key)
+			}
 		}
 	}
 }

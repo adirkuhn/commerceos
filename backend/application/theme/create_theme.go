@@ -25,7 +25,8 @@ func NewCreateThemeUseCase(deps Deps) *CreateThemeUseCase { return &CreateThemeU
 func (uc *CreateThemeUseCase) Execute(ctx context.Context, in CreateThemeInput) (*theme.Theme, error) {
 	var created theme.Theme
 	err := tenant.WithTenant(ctx, uc.deps.DB, func(ctx context.Context) error {
-		if _, err := uc.deps.requireThemedChannel(ctx, in.SalesChannelID); err != nil {
+		channel, err := uc.deps.requireThemedChannel(ctx, in.SalesChannelID)
+		if err != nil {
 			return err
 		}
 		now := uc.deps.Now()
@@ -33,7 +34,8 @@ func (uc *CreateThemeUseCase) Execute(ctx context.Context, in CreateThemeInput) 
 		if err != nil {
 			return err
 		}
-		docs, err := theme.PresetDocuments(in.PresetKey)
+		// The first draft starts in the store's language.
+		docs, err := theme.PresetDocuments(in.PresetKey, channel.StorefrontLocale)
 		if err != nil {
 			return err
 		}

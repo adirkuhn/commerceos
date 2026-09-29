@@ -1,6 +1,7 @@
 package theme_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,6 +9,7 @@ import (
 
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 )
 
@@ -23,7 +25,7 @@ func TestCreateTheme_createsDraftWithPresetDocumentsAndRaisesEvent(t *testing.T)
 	assert.Equal(t, 1, draft.Number)
 	assert.Equal(t, "user-1", draft.CreatedBy)
 	assert.Equal(t, theme.DefaultSettings(), draft.Settings)
-	preset, _ := theme.PresetDocuments(theme.PresetDefault)
+	preset, _ := theme.PresetDocuments(theme.PresetDefault, locale.English)
 	assert.Len(t, w.docs.forVersion(draft.ID), len(preset))
 	assert.Equal(t, []string{"storefront.theme.created"}, w.outbox.subjects)
 }
@@ -126,6 +128,25 @@ func TestCreateTheme_startsFromThePresetsSettingsAndDocuments(t *testing.T) {
 	draft := w.draft(t, th.ID)
 	want, _ := theme.PresetSettings(theme.PresetMercado)
 	assert.Equal(t, want, draft.Settings)
-	preset, _ := theme.PresetDocuments(theme.PresetMercado)
+	preset, _ := theme.PresetDocuments(theme.PresetMercado, locale.English)
 	assert.Len(t, w.docs.forVersion(draft.ID), len(preset))
+}
+
+func TestCreateTheme_startsInTheStoresLanguage(t *testing.T) {
+	w := newWorld(t)
+	ch := w.channels.byID["chan-1"]
+	ch.StorefrontLocale = locale.Portuguese
+	w.channels.byID["chan-1"] = ch
+
+	th := w.createTheme(t)
+
+	var home *theme.Document
+	for _, d := range w.docs.forVersion(w.draft(t, th.ID).ID) {
+		if d.Key == "home" {
+			d := d
+			home = &d
+		}
+	}
+	require.NotNil(t, home)
+	assert.Contains(t, fmt.Sprint(home.Root), "Bem-vindo à nossa loja")
 }

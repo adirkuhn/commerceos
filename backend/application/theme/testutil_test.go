@@ -15,6 +15,7 @@ import (
 
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -440,7 +441,7 @@ func testCatalogRules(t *testing.T) []theme.ComponentRule {
 		{Type: "image"},
 	}
 	known := map[string]bool{"section": true, "heading": true, "image": true}
-	docs, err := theme.PresetDocuments(theme.PresetDefault)
+	docs, err := theme.PresetDocuments(theme.PresetDefault, locale.English)
 	require.NoError(t, err)
 	var visit func(n theme.Node)
 	visit = func(n theme.Node) {

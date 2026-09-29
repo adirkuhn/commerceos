@@ -1,6 +1,10 @@
 package theme
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/adirkuhn/commerceos/domain/locale"
+)
 
 // A preset is what a new theme starts from: its documents (every template
 // with a working layout, header and footer) and its settings. A test checks
@@ -26,12 +30,14 @@ func PresetKeys() []string {
 	return keys
 }
 
-func PresetDocuments(presetKey string) ([]Document, error) {
+// PresetDocuments is a preset's documents with their texts in the given
+// language (English, the source, for unknown languages).
+func PresetDocuments(presetKey string, lang locale.Locale) ([]Document, error) {
 	p, ok := presetRegistry[presetKey]
 	if !ok {
 		return nil, ErrUnknownPreset
 	}
-	return p.documents(), nil
+	return localizeDocuments(p.documents(), lang), nil
 }
 
 func PresetSettings(presetKey string) (Settings, error) {

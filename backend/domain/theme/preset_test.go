@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 )
 
@@ -15,7 +16,7 @@ func TestPresets_haveValidSettingsAndAPageForEveryTemplate(t *testing.T) {
 		s, err := theme.PresetSettings(key)
 		require.NoError(t, err, key)
 		assert.NoError(t, s.Validate(), key)
-		docs, err := theme.PresetDocuments(key)
+		docs, err := theme.PresetDocuments(key, locale.English)
 		require.NoError(t, err, key)
 		keys := map[string]bool{}
 		for _, d := range docs {
@@ -32,7 +33,7 @@ func TestPresets_haveValidSettingsAndAPageForEveryTemplate(t *testing.T) {
 // Mercado is a grocery layout: a category menu, rows of products on the
 // home page with prices, discount badges and add to cart.
 func TestMercadoPreset_isAGroceryStorefront(t *testing.T) {
-	docs, err := theme.PresetDocuments(theme.PresetMercado)
+	docs, err := theme.PresetDocuments(theme.PresetMercado, locale.English)
 	require.NoError(t, err)
 	byKey := map[string]theme.Document{}
 	for _, d := range docs {

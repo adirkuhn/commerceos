@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 )
 
@@ -78,7 +79,7 @@ func TestPreview_readsDraftWithoutTouchingLive(t *testing.T) {
 	live, err := apptheme.NewGetPublishedDocumentUseCase(w.deps).Execute(tenantCtx(), "chan-1", published.ID, theme.KindTemplate, "home")
 	require.NoError(t, err)
 	assert.NotEqual(t, headingTree("Draft"), live.Root, "live storefront unchanged")
-	preset, _ := theme.PresetDocuments(theme.PresetDefault)
+	preset, _ := theme.PresetDocuments(theme.PresetDefault, locale.English)
 	for _, d := range preset {
 		if d.Kind == theme.KindTemplate && d.Key == "home" {
 			assert.Equal(t, d.Root, live.Root)
