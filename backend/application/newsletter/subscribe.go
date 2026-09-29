@@ -3,7 +3,7 @@ package newsletter
 import (
 	"context"
 	"fmt"
-	"html"
+	"github.com/adirkuhn/commerceos/application/shopperemail"
 
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	"github.com/adirkuhn/commerceos/domain/newsletter"
@@ -36,7 +36,7 @@ func (uc *SubscribeUseCase) Execute(ctx context.Context, in SubscribeInput) erro
 		return fmt.Errorf("subscribe: token: %w", err)
 	}
 	var send *newsletter.Subscriber
-	var storeName string
+	var store Store
 	err = tenant.WithTenant(ctx, uc.deps.DB, func(ctx context.Context) error {
 		now := uc.deps.Now()
 		existing, err := uc.deps.Repo.FindByEmail(ctx, email)
@@ -61,7 +61,7 @@ func (uc *SubscribeUseCase) Execute(ctx context.Context, in SubscribeInput) erro
 			send = existing
 		}
 		if send != nil {
-			storeName, err = uc.deps.Stores.StoreName(ctx, in.SalesChannelID)
+			store, err = uc.deps.Stores.Store(ctx, in.SalesChannelID)
 		}
 		return err
 	})
@@ -71,23 +71,14 @@ func (uc *SubscribeUseCase) Execute(ctx context.Context, in SubscribeInput) erro
 	if send == nil {
 		return nil
 	}
-	if err := uc.deps.Mailer.Send(ctx, confirmationEmail(storeName, email,
+	if err := uc.deps.Mailer.Send(ctx, confirmationEmail(store, email,
 		uc.deps.ConfirmURL(in.SalesChannelID, token), uc.deps.UnsubscribeURL(in.SalesChannelID, send.UnsubscribeToken))); err != nil {
 		return fmt.Errorf("subscribe: send confirmation: %w", err)
 	}
 	return nil
 }
 
-func confirmationEmail(storeName, to, confirmURL, unsubscribeURL string) messaging.Message {
-	name := html.EscapeString(storeName)
-	return messaging.Message{
-		Channel: messaging.ChannelEmail,
-		To:      to,
-		Subject: fmt.Sprintf("Confirm your subscription to %s", storeName),
-		HTMLBody: fmt.Sprintf(`<p>Please confirm you'd like to receive emails from %s.</p>`+
-			`<p><a href="%s">Yes, subscribe me</a></p>`+
-			`<p>If you didn't sign up, ignore this email -- you won't be subscribed. The link works for 7 days.</p>`+
-			`<p style="font-size:12px;color:#666"><a href="%s">Unsubscribe</a></p>`,
-			name, html.EscapeString(confirmURL), html.EscapeString(unsubscribeURL)),
-	}
+func confirmationEmail(store Store, to, confirmURL, unsubscribeURL string) messaging.Message {
+	subject, body := shopperemail.NewsletterConfirmation(store.Locale, store.Name, confirmURL, unsubscribeURL)
+	return messaging.Message{Channel: messaging.ChannelEmail, To: to, Subject: subject, HTMLBody: body}
 }

@@ -1,0 +1,14 @@
+{
+  "newsletterConfirm": {
+    "button": "Yes, subscribe me",
+    "ignore": "If you didn't sign up, ignore this email -- you won't be subscribed. The link works for 7 days.",
+    "intro": "Please confirm you'd like to receive emails from {{store}}.",
+    "subject": "Confirm your subscription to {{store}}",
+    "unsubscribe": "Unsubscribe"
+  },
+  "signIn": {
+    "button": "Sign in",
+    "intro": "Click the link below to sign in. It expires in 15 minutes and can only be used once.",
+    "subject": "Your sign-in link"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "newsletterConfirm": {
+    "button": "Ja, schrijf me in",
+    "ignore": "Heb je je niet aangemeld? Negeer dan deze e-mail -- je wordt niet ingeschreven. De link werkt 7 dagen.",
+    "intro": "Bevestig dat je e-mails van {{store}} wilt ontvangen.",
+    "subject": "Bevestig je inschrijving bij {{store}}",
+    "unsubscribe": "Uitschrijven"
+  },
+  "signIn": {
+    "button": "Inloggen",
+    "intro": "Klik op de link hieronder om in te loggen. Hij verloopt na 15 minuten en werkt maar één keer.",
+    "subject": "Je inloglink"
+  }
+}

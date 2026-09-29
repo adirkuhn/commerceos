@@ -44,18 +44,18 @@ func (m tenantMailer) Send(ctx context.Context, msg messaging.Message) error {
 	return client.Send(ctx, msg)
 }
 
-// channelStoreNamer names a store after its sales channel (called inside a
-// tenant transaction).
-type channelStoreNamer struct {
+// channelStores describes a store by its sales channel: name and shopper
+// language (called inside a tenant transaction).
+type channelStores struct {
 	channels *repositories.SalesChannelRepo
 }
 
-func (n channelStoreNamer) StoreName(ctx context.Context, salesChannelID string) (string, error) {
+func (n channelStores) Store(ctx context.Context, salesChannelID string) (appnewsletter.Store, error) {
 	ch, err := n.channels.FindByID(ctx, salesChannelID)
 	if err != nil {
-		return "", err
+		return appnewsletter.Store{}, err
 	}
-	return ch.Name, nil
+	return appnewsletter.Store{Name: ch.Name, Locale: ch.StorefrontLocale}, nil
 }
 
 func newToken() (string, error) {
@@ -78,7 +78,7 @@ func NewDeps(db *gorm.DB, encryptionSecret string, platformEmail messaging.Clien
 	return appnewsletter.Deps{
 		DB: db, Repo: repositories.NewNewsletterRepo(db), Outbox: repositories.NewOutboxRepository(db),
 		Mailer: tenantMailer{db: db, conns: repositories.NewConnectionRepo(db), secret: encryptionSecret, fallback: platformEmail},
-		Stores: channelStoreNamer{channels: repositories.NewSalesChannelRepo(db)},
+		Stores: channelStores{channels: repositories.NewSalesChannelRepo(db)},
 		Now:    time.Now, NewToken: newToken,
 		ConfirmURL: link("confirm"), UnsubscribeURL: link("unsubscribe"),
 	}

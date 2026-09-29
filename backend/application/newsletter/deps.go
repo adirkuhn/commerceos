@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"time"
 
 	"gorm.io/gorm"
@@ -23,8 +24,15 @@ type mailer interface {
 	Send(ctx context.Context, msg messaging.Message) error
 }
 
-type storeNamer interface {
-	StoreName(ctx context.Context, salesChannelID string) (string, error)
+// Store is what the confirmation email says about the store: its name
+// and the language it speaks to shoppers.
+type Store struct {
+	Name   string
+	Locale locale.Locale
+}
+
+type storeFinder interface {
+	Store(ctx context.Context, salesChannelID string) (Store, error)
 }
 
 type outboxEnqueuer interface {
@@ -35,7 +43,7 @@ type Deps struct {
 	DB       *gorm.DB
 	Repo     newsletter.Repository
 	Mailer   mailer
-	Stores   storeNamer
+	Stores   storeFinder
 	Outbox   outboxEnqueuer
 	Now      func() time.Time
 	NewToken func() (string, error)

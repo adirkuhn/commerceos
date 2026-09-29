@@ -3,7 +3,7 @@ package storefront
 import (
 	"context"
 	"fmt"
-	"html"
+	"github.com/adirkuhn/commerceos/application/shopperemail"
 	"strings"
 	"time"
 
@@ -120,15 +120,8 @@ func (uc *RequestMagicLinkUseCase) Execute(ctx context.Context, in RequestMagicL
 	// Sending email is external I/O -- deliberately outside every
 	// transaction above, same "never do external I/O inside
 	// tenant.WithTenant" rule this codebase applies to NATS publishes.
-	msg := messaging.Message{
-		Channel: messaging.ChannelEmail,
-		To:      email,
-		Subject: "Your sign-in link",
-		HTMLBody: fmt.Sprintf(
-			`<p>Click the link below to sign in. It expires in 15 minutes and can only be used once.</p><p><a href="%s">Sign in</a></p>`,
-			html.EscapeString(link),
-		),
-	}
+	subject, body := shopperemail.SignIn(channel.StorefrontLocale, link)
+	msg := messaging.Message{Channel: messaging.ChannelEmail, To: email, Subject: subject, HTMLBody: body}
 	if err := uc.emailClient.Send(ctx, msg); err != nil {
 		return fmt.Errorf("requestMagicLink: %w", err)
 	}

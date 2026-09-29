@@ -1,0 +1,14 @@
+{
+  "newsletterConfirm": {
+    "button": "Sim, quero me inscrever",
+    "ignore": "Se você não se inscreveu, ignore este e-mail -- você não será inscrito. O link vale por 7 dias.",
+    "intro": "Confirme que você quer receber e-mails de {{store}}.",
+    "subject": "Confirme sua inscrição em {{store}}",
+    "unsubscribe": "Cancelar inscrição"
+  },
+  "signIn": {
+    "button": "Entrar",
+    "intro": "Clique no link abaixo para entrar. Ele expira em 15 minutos e só pode ser usado uma vez.",
+    "subject": "Seu link de acesso"
+  }
+}

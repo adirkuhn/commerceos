@@ -106,3 +106,16 @@ func TestRequestMagicLink_propagatesEmailSendFailure(t *testing.T) {
 
 	require.Error(t, err)
 }
+
+func TestRequestMagicLink_emailIsInTheStoreLanguage(t *testing.T) {
+	channel := headlessChannel("channel-1", "https://loja.example/entrar")
+	channel.StorefrontLocale = channelsDomain.StorefrontLocalePortuguese
+	emailClient := &fakeEmailClient{}
+	uc := newMagicLinkUC(t, 2, map[string]channelsDomain.SalesChannel{"channel-1": channel},
+		&fakeCustomerRepo{byEmail: map[string]customersDomain.Customer{"ana@example.com": {ID: "c1"}}}, &fakeCustomerCreator{}, &fakeMagicLinkTokenRepo{}, emailClient)
+
+	require.NoError(t, uc.Execute(context.Background(), appstorefront.RequestMagicLinkInput{SalesChannelID: "channel-1", Email: "ana@example.com"}))
+
+	require.Equal(t, "Seu link de acesso", emailClient.sent[0].Subject)
+	require.Contains(t, emailClient.sent[0].HTMLBody, ">Entrar</a>")
+}

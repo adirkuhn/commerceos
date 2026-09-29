@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 
 	appnewsletter "github.com/adirkuhn/commerceos/application/newsletter"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	"github.com/adirkuhn/commerceos/domain/newsletter"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -105,9 +106,11 @@ func (f *fakeOutbox) Enqueue(_ context.Context, s, _ string, _ []byte, _ time.Ti
 	return nil
 }
 
-type fakeStores struct{}
+type fakeStores struct{ locale locale.Locale }
 
-func (fakeStores) StoreName(_ context.Context, _ string) (string, error) { return "Ann's <Shop>", nil }
+func (f fakeStores) Store(_ context.Context, _ string) (appnewsletter.Store, error) {
+	return appnewsletter.Store{Name: "Ann's <Shop>", Locale: f.locale}, nil
+}
 
 type world struct {
 	deps   appnewsletter.Deps
@@ -237,4 +240,15 @@ func TestExport_neutralisesSpreadsheetFormulas(t *testing.T) {
 	var csv strings.Builder
 	require.NoError(t, appnewsletter.NewExportSubscribersUseCase(w.deps).Execute(ctx, &csv))
 	assert.Contains(t, csv.String(), "'=cmd@x.io")
+}
+
+func TestSubscribe_confirmationIsInTheStoreLanguage(t *testing.T) {
+	w := newWorld(t)
+	w.deps.Stores = fakeStores{locale: locale.Portuguese}
+
+	require.NoError(t, subscribe(w, "ana@example.com"))
+
+	m := w.mail.sent[0]
+	assert.Equal(t, "Confirme sua inscrição em Ann's <Shop>", m.Subject)
+	assert.Contains(t, m.HTMLBody, "Sim, quero me inscrever")
 }
