@@ -7,6 +7,7 @@ import (
 
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 )
@@ -152,6 +153,7 @@ func (h *Handler) CreateThemeSession(c *gin.Context, themeID gentheme.ThemeId) {
 	}
 	h.createSession(c, apptheme.CreateSessionInput{
 		ThemeID: themeID.String(), UserID: claims.UserID, Role: string(claims.Role), Purpose: theme.SessionPurpose(req.Purpose),
+		Locale: sessionLocale(req.Locale),
 	})
 }
 
@@ -161,4 +163,11 @@ func (h *Handler) createSession(c *gin.Context, in apptheme.CreateSessionInput) 
 		return
 	}
 	c.JSON(http.StatusCreated, middleware.APIResponse{Data: gentheme.SessionToken{Token: tok.Token, ExpiresAt: tok.ExpiresAt}})
+}
+
+func sessionLocale(l *gentheme.Locale) locale.Locale {
+	if l == nil {
+		return ""
+	}
+	return locale.Locale(*l)
 }

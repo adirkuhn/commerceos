@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -14,6 +15,8 @@ type CreateSessionInput struct {
 	UserID  string
 	Role    string
 	Purpose theme.SessionPurpose
+	// Locale is the merchant's language ("" means English).
+	Locale locale.Locale
 }
 
 // SessionToken is the only time the raw token exists outside the
@@ -46,7 +49,7 @@ func (uc *CreateSessionUseCase) Execute(ctx context.Context, in CreateSessionInp
 		if _, err := uc.deps.requireThemedChannel(ctx, th.SalesChannelID); err != nil {
 			return err
 		}
-		s, err := theme.NewSession(th.TenantID, th.ID, in.UserID, in.Role, in.Purpose, raw, uc.deps.Now())
+		s, err := theme.NewSession(th.TenantID, th.ID, in.UserID, in.Role, in.Purpose, in.Locale, raw, uc.deps.Now())
 		if err != nil {
 			return err
 		}

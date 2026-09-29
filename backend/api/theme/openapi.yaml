@@ -432,12 +432,18 @@ components:
     SessionPurpose:
       type: string
       enum: [edit, preview]
+    Locale:
+      type: string
+      enum: [en, pt-BR, nl]
     CreateSessionRequest:
       type: object
       required: [purpose]
       additionalProperties: false
       properties:
         purpose: { $ref: '#/components/schemas/SessionPurpose' }
+        locale:
+          allOf: [{ $ref: '#/components/schemas/Locale' }]
+          description: The merchant's language; the editor speaks it. Omitted means English.
     SessionToken:
       type: object
       required: [token, expires_at]
@@ -629,7 +635,7 @@ components:
 
     Draft:
       type: object
-      required: [theme, version, documents, sales_channel_id]
+      required: [theme, version, documents, sales_channel_id, locale]
       properties:
         theme: { $ref: '#/components/schemas/Theme' }
         version: { $ref: '#/components/schemas/Version' }
@@ -639,6 +645,9 @@ components:
           type: string
           format: uuid
           description: Doubles as the channel's storefront key, so the editor canvas can load live catalog data.
+        locale:
+          allOf: [{ $ref: '#/components/schemas/Locale' }]
+          description: The language of the merchant who opened the edit session (the editor's own texts).
     DraftResponse:
       type: object
       properties:

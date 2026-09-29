@@ -18,6 +18,7 @@ import (
 
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	themehandler "github.com/adirkuhn/commerceos/infrastructure/handlers/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
@@ -288,6 +289,14 @@ func TestAdmin_createSessionUsesCallerIdentity(t *testing.T) {
 	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
 	assert.Equal(t, "raw-token", decode(t, w)["data"].(map[string]any)["token"])
 	assert.Equal(t, apptheme.CreateSessionInput{ThemeID: themeID, UserID: "user-1", Role: "customer_admin", Purpose: theme.PurposeEdit}, s.gotSession)
+}
+
+// The merchant's language goes into the session (never the editor URL).
+func TestAdmin_createSessionCarriesTheMerchantLanguage(t *testing.T) {
+	s := &stub{}
+	w := do(newRouter(t, s), http.MethodPost, "/api/v1/theme/themes/"+themeID+"/sessions", `{"purpose":"edit","locale":"pt-BR"}`, jwtFor(t, middleware.RoleCustomerAdmin))
+	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	assert.Equal(t, locale.Portuguese, s.gotSession.Locale)
 }
 
 func TestAdmin_getThemeIncludesDraftRevision(t *testing.T) {

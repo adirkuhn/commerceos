@@ -8,12 +8,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
 func editSession() *theme.Session {
-	return &theme.Session{ThemeID: themeID, TenantID: "tenant-1", UserID: "user-1", Purpose: theme.PurposeEdit}
+	return &theme.Session{ThemeID: themeID, TenantID: "tenant-1", UserID: "user-1", Purpose: theme.PurposeEdit, Locale: locale.Dutch}
 }
 
 // ── editor ──
@@ -33,6 +34,7 @@ func TestEditor_openDraftRunsAsTheSessionTenant(t *testing.T) {
 	data := decode(t, w)["data"].(map[string]any)
 	assert.Equal(t, channelID, data["sales_channel_id"])
 	assert.EqualValues(t, 3, data["version"].(map[string]any)["revision"])
+	assert.Equal(t, "nl", data["locale"], "the editor speaks the language its session was opened in")
 	assert.Equal(t, "tenant-1", tenant.IDFromContext(s.gotCtx))
 }
 

@@ -7,6 +7,7 @@ import (
 
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 )
@@ -23,7 +24,14 @@ func (h *Handler) OpenDraft(c *gin.Context) {
 	if fail(c, err) {
 		return
 	}
-	middleware.OK(c, toGenDraft(*view))
+	draft := toGenDraft(*view)
+	// Sessions from before languages existed read as English.
+	lang, _ := locale.Resolve(s.Locale)
+	if lang == "" {
+		lang = locale.English
+	}
+	draft.Locale = gentheme.Locale(lang)
+	middleware.OK(c, draft)
 }
 
 func (h *Handler) SaveDraftSettings(c *gin.Context) {

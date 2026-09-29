@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -238,7 +239,7 @@ func TestThemeRepos_Integration_sessionsResolveByHashAcrossTenants(t *testing.T)
 	th, _, _ := seedTheme(t, ctx, db, r, createInternalChannel(t, ctx, db))
 
 	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		s, err := theme.NewSession(th.TenantID, th.ID, "user-1", "customer_admin", theme.PurposeEdit, "raw", time.Now())
+		s, err := theme.NewSession(th.TenantID, th.ID, "user-1", "customer_admin", theme.PurposeEdit, locale.Dutch, "raw", time.Now())
 		if err != nil {
 			return err
 		}
@@ -250,6 +251,7 @@ func TestThemeRepos_Integration_sessionsResolveByHashAcrossTenants(t *testing.T)
 		require.NoError(t, err)
 		require.NotNil(t, s)
 		assert.Equal(t, th.ID, s.ThemeID)
+		assert.Equal(t, locale.Dutch, s.Locale)
 
 		none, err := r.sessions.FindByTokenHash(ctx, theme.HashToken("other"))
 		require.NoError(t, err)

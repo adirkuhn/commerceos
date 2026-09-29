@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/txctx"
 )
@@ -174,6 +175,7 @@ type themeSessionModel struct {
 	UserID    string
 	Role      string
 	Purpose   string
+	Locale    string `gorm:"column:locale"`
 	TokenHash string
 	ExpiresAt time.Time
 	RevokedAt *time.Time
@@ -194,7 +196,7 @@ func (r *ThemeSessionRepo) Create(ctx context.Context, s *theme.Session) error {
 		return err
 	}
 	m := themeSessionModel{
-		TenantID: s.TenantID, ThemeID: s.ThemeID, UserID: s.UserID, Role: s.Role, Purpose: string(s.Purpose),
+		TenantID: s.TenantID, ThemeID: s.ThemeID, UserID: s.UserID, Role: s.Role, Purpose: string(s.Purpose), Locale: string(s.Locale),
 		TokenHash: s.TokenHash, ExpiresAt: s.ExpiresAt, RevokedAt: s.RevokedAt, CreatedAt: s.CreatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -219,7 +221,7 @@ func (r *ThemeSessionRepo) FindByTokenHash(ctx context.Context, tokenHash string
 	m := rows[0]
 	return &theme.Session{
 		ID: m.ID, TenantID: m.TenantID, ThemeID: m.ThemeID, UserID: m.UserID, Role: m.Role,
-		Purpose: theme.SessionPurpose(m.Purpose), TokenHash: m.TokenHash, ExpiresAt: m.ExpiresAt,
+		Purpose: theme.SessionPurpose(m.Purpose), Locale: locale.Locale(m.Locale), TokenHash: m.TokenHash, ExpiresAt: m.ExpiresAt,
 		RevokedAt: m.RevokedAt, CreatedAt: m.CreatedAt,
 	}, nil
 }

@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"time"
+
+	"github.com/adirkuhn/commerceos/domain/locale"
 )
 
 type SessionPurpose string
@@ -25,19 +27,26 @@ const (
 // Session is a short-lived bearer credential scoped to one theme. Only the
 // token's hash is stored, so a database leak can't be replayed.
 type Session struct {
-	ID        string
-	TenantID  string
-	ThemeID   string
-	UserID    string
-	Role      string
-	Purpose   SessionPurpose
+	ID       string
+	TenantID string
+	ThemeID  string
+	UserID   string
+	Role     string
+	Purpose  SessionPurpose
+	// Locale is the language of the merchant who opened the session; the
+	// editor speaks it.
+	Locale    locale.Locale
 	TokenHash string
 	ExpiresAt time.Time
 	RevokedAt *time.Time
 	CreatedAt time.Time
 }
 
-func NewSession(tenantID, themeID, userID, role string, purpose SessionPurpose, rawToken string, now time.Time) (Session, error) {
+func NewSession(tenantID, themeID, userID, role string, purpose SessionPurpose, lang locale.Locale, rawToken string, now time.Time) (Session, error) {
+	lang, err := locale.Resolve(lang)
+	if err != nil {
+		return Session{}, err
+	}
 	var ttl time.Duration
 	switch purpose {
 	case PurposeEdit:
@@ -48,7 +57,7 @@ func NewSession(tenantID, themeID, userID, role string, purpose SessionPurpose, 
 		return Session{}, ErrInvalidSessionPurpose
 	}
 	return Session{
-		TenantID: tenantID, ThemeID: themeID, UserID: userID, Role: role, Purpose: purpose,
+		TenantID: tenantID, ThemeID: themeID, UserID: userID, Role: role, Purpose: purpose, Locale: lang,
 		TokenHash: HashToken(rawToken), ExpiresAt: now.Add(ttl), CreatedAt: now,
 	}, nil
 }

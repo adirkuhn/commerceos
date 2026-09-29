@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 )
@@ -25,7 +26,7 @@ var (
 		theme.ErrInvalidThemeName, theme.ErrUnknownPreset, theme.ErrInvalidDocumentKind, theme.ErrInvalidDocumentKey,
 		theme.ErrInvalidDocumentTitle, theme.ErrInvalidDocument, theme.ErrInvalidStyle, theme.ErrInvalidSettings,
 		theme.ErrInvalidSessionPurpose, theme.ErrVersionNotSealed, theme.ErrVersionNotInTheme, theme.ErrDocumentNotDeletable,
-		theme.ErrUnsupportedAssetType, theme.ErrAssetTooLarge, theme.ErrInvalidAssetAlt,
+		theme.ErrUnsupportedAssetType, theme.ErrAssetTooLarge, theme.ErrInvalidAssetAlt, locale.ErrUnsupported,
 	}
 )
 
