@@ -1606,6 +1606,11 @@ components:
       type: string
       enum: [all, category, tag, manual]
 
+    StorefrontLocale:
+      type: string
+      enum: [en, pt-BR, nl]
+      description: Language the channel's storefront uses for its built-in texts and price/date formatting.
+
     StorefrontMode:
       type: string
       enum: [headless, theme]
@@ -1661,6 +1666,7 @@ components:
             price_adjustment_basis_points -- "buy N+ of one SKU, get this
             bigger discount instead of the channel's flat rate."
         storefront_mode: { $ref: '#/components/schemas/StorefrontMode' }
+        storefront_locale: { $ref: '#/components/schemas/StorefrontLocale' }
         sign_in_url:
           type: string
           nullable: true
@@ -1714,6 +1720,9 @@ components:
         storefront_mode:
           allOf: [{ $ref: '#/components/schemas/StorefrontMode' }]
           description: Omitted means headless.
+        storefront_locale:
+          allOf: [{ $ref: '#/components/schemas/StorefrontLocale' }]
+          description: Omitted means English.
         sign_in_url:
           type: string
           maxLength: 2000
@@ -1741,6 +1750,9 @@ components:
         storefront_mode:
           allOf: [{ $ref: '#/components/schemas/StorefrontMode' }]
           description: Omitted keeps the channel's current mode.
+        storefront_locale:
+          allOf: [{ $ref: '#/components/schemas/StorefrontLocale' }]
+          description: Omitted keeps the channel's current language.
         sign_in_url:
           type: string
           maxLength: 2000

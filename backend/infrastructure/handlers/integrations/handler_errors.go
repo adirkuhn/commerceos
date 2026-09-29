@@ -60,6 +60,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, channelsDomain.ErrInvalidStorefrontMode),
 		errors.Is(err, channelsDomain.ErrThemedStorefrontRequiresInternal),
 		errors.Is(err, channelsDomain.ErrInvalidSignInURL),
+		errors.Is(err, channelsDomain.ErrInvalidStorefrontLocale),
 		errors.Is(err, channelsDomain.ErrSignInURLRequiresInternal),
 		errors.Is(err, channelsDomain.ErrConnectionRequired),
 		errors.Is(err, channelsDomain.ErrEnrollmentCategoryRequired),

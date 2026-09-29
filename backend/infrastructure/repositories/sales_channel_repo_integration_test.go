@@ -256,8 +256,8 @@ func TestSalesChannelRepo_Integration_SignInURLRoundTripsAndIsInternalOnly(t *te
 	assert.ErrorContains(t, err, "sales_channels_sign_in_url_requires_internal_check")
 }
 
-// '' means "the tenant's default currency". The column used to be CHAR(3),
-// which Postgres pads: '' came back as "   ", looked like a currency, and
+// ” means "the tenant's default currency". The column used to be CHAR(3),
+// which Postgres pads: ” came back as "   ", looked like a currency, and
 // every product listing on the channel failed its price lookup.
 func TestSalesChannelRepo_Integration_BlankCurrencyReadsBackBlank(t *testing.T) {
 	db := newIntegrationDB(t)
@@ -284,4 +284,37 @@ func TestSalesChannelRepo_Integration_BlankCurrencyReadsBackBlank(t *testing.T) 
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func TestSalesChannelRepo_Integration_StorefrontLocaleRoundTripsAndIsChecked(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewSalesChannelRepo(db)
+
+	var ch channelsDomain.SalesChannel
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		ch = channelsDomain.SalesChannel{
+			TenantID: tenant.IDFromContext(ctx), Name: "Loja", Type: channelsDomain.ChannelTypeInternal,
+			EnrollmentMode: channelsDomain.EnrollmentModeAll, StorefrontLocale: channelsDomain.StorefrontLocalePortuguese,
+			Active: true, CreatedAt: now, UpdatedAt: now,
+		}
+		return repo.Create(ctx, &ch)
+	}))
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		found, err := repo.FindByID(ctx, ch.ID)
+		require.NoError(t, err)
+		assert.Equal(t, channelsDomain.StorefrontLocalePortuguese, found.StorefrontLocale)
+		found.StorefrontLocale = channelsDomain.StorefrontLocaleDutch
+		require.NoError(t, repo.Update(ctx, found))
+		again, err := repo.FindByID(ctx, ch.ID)
+		require.NoError(t, err)
+		assert.Equal(t, channelsDomain.StorefrontLocaleDutch, again.StorefrontLocale)
+		return nil
+	}))
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		tx, _ := txctx.FromContext(ctx)
+		return tx.Exec(`UPDATE sales_channels SET storefront_locale = 'de' WHERE id = ?`, ch.ID).Error
+	})
+	assert.ErrorContains(t, err, "sales_channels_storefront_locale_check")
 }

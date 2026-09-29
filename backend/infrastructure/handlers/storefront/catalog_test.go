@@ -95,7 +95,7 @@ func catalogRouter(s *catalogStub) *gin.Engine {
 			return &appstorefront.ProductDetail{}, s.err
 		}),
 		GetStoreInfo: storeF(func(context.Context, string) (*appstorefront.StoreInfo, error) {
-			return &appstorefront.StoreInfo{Name: "My Shop", CurrencyCode: "EUR"}, s.err
+			return &appstorefront.StoreInfo{Name: "My Shop", CurrencyCode: "EUR", Locale: "pt-BR"}, s.err
 		}),
 		GetSitemap: sitemapF(func(context.Context, string) (*appstorefront.Sitemap, error) {
 			at := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
@@ -148,6 +148,7 @@ func TestCatalog_productBySlugAndStore(t *testing.T) {
 	w = doRequest(catalogRouter(s), http.MethodGet, "/api/v1/storefront/v1/store", "", "key")
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"currency_code":"EUR"`)
+	assert.Contains(t, w.Body.String(), `"locale":"pt-BR"`)
 }
 
 func TestCatalog_sitemap(t *testing.T) {

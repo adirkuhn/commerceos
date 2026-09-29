@@ -524,7 +524,7 @@ paths:
   /storefront/v1/store:
     get:
       operationId: getStorefrontStore
-      summary: The calling channel's store name and selling currency
+      summary: The calling channel's store name, selling currency and language
       responses:
         '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/StorefrontStoreResponse' } } } }
         '401': { $ref: '#/components/responses/Error' }
@@ -1248,10 +1248,14 @@ components:
         error: { nullable: true }
     StorefrontStore:
       type: object
-      required: [name, currency_code]
+      required: [name, currency_code, locale]
       properties:
         name: { type: string }
         currency_code: { type: string }
+        locale:
+          type: string
+          enum: [en, pt-BR, nl]
+          description: The storefront's language (built-in texts, price and date formatting).
     SitemapLink:
       type: object
       required: [slug, updated_at]

@@ -43,6 +43,8 @@ type CreateSalesChannelInput struct {
 	StorefrontMode channelsDomain.StorefrontMode
 	// SignInURL, nil or blank meaning none -- see channels.ResolveSignInURL.
 	SignInURL *string
+	// StorefrontLocale, "" meaning English -- see channels.StorefrontLocale.
+	StorefrontLocale channelsDomain.StorefrontLocale
 }
 
 // validateSalesChannelInput is shared by Create and Update -- same field
@@ -102,6 +104,10 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 	if err != nil {
 		return nil, fmt.Errorf("createSalesChannel: %w", err)
 	}
+	storefrontLocale, err := channelsDomain.ResolveStorefrontLocale(in.StorefrontLocale)
+	if err != nil {
+		return nil, fmt.Errorf("createSalesChannel: %w", err)
+	}
 	var signInURL *string
 	if in.SignInURL != nil {
 		if signInURL, err = channelsDomain.ResolveSignInURL(in.Type, *in.SignInURL); err != nil {
@@ -144,6 +150,7 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 			DefaultWarehouseID:         in.DefaultWarehouseID,
 			StorefrontMode:             storefrontMode,
 			SignInURL:                  signInURL,
+			StorefrontLocale:           storefrontLocale,
 			Active:                     true, CreatedAt: now, UpdatedAt: now,
 		}
 		return uc.repo.Create(ctx, &channel)

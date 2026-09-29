@@ -36,7 +36,9 @@ type UpdateSalesChannelInput struct {
 	// SignInURL: nil keeps the current page, blank clears it -- see
 	// channels.ResolveSignInURL.
 	SignInURL *string
-	Active    bool
+	// StorefrontLocale, "" meaning "keep the current language".
+	StorefrontLocale channelsDomain.StorefrontLocale
+	Active           bool
 }
 
 type UpdateSalesChannelUseCase struct {
@@ -66,6 +68,12 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 		storefrontMode := existing.StorefrontMode
 		if in.StorefrontMode != "" {
 			if storefrontMode, err = channelsDomain.ResolveStorefrontMode(existing.Type, in.StorefrontMode); err != nil {
+				return err
+			}
+		}
+		storefrontLocale := existing.StorefrontLocale
+		if in.StorefrontLocale != "" {
+			if storefrontLocale, err = channelsDomain.ResolveStorefrontLocale(in.StorefrontLocale); err != nil {
 				return err
 			}
 		}
@@ -99,6 +107,7 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 		existing.DefaultWarehouseID = in.DefaultWarehouseID
 		existing.StorefrontMode = storefrontMode
 		existing.SignInURL = signInURL
+		existing.StorefrontLocale = storefrontLocale
 		existing.Active = in.Active
 		existing.UpdatedAt = time.Now()
 		if err := uc.repo.Update(ctx, existing); err != nil {

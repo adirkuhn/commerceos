@@ -59,11 +59,13 @@ func TestGetStoreInfo(t *testing.T) {
 
 	info, err := uc.Execute(context.Background(), "channel-1")
 	require.NoError(t, err)
-	assert.Equal(t, appstorefront.StoreInfo{Name: "My Shop", CurrencyCode: "EUR"}, *info)
+	assert.Equal(t, appstorefront.StoreInfo{Name: "My Shop", CurrencyCode: "EUR", Locale: channelsDomain.StorefrontLocaleEnglish}, *info, "no language set reads as English")
 
 	ch.CurrencyCode = "GBP"
+	ch.StorefrontLocale = channelsDomain.StorefrontLocalePortuguese
 	channels.byID["channel-1"] = ch
 	info, err = uc.Execute(context.Background(), "channel-1")
 	require.NoError(t, err)
 	assert.Equal(t, "GBP", info.CurrencyCode, "a channel's own currency wins")
+	assert.Equal(t, channelsDomain.StorefrontLocalePortuguese, info.Locale)
 }

@@ -146,9 +146,11 @@ type SalesChannel struct {
 	// SignInURL is a headless storefront's page that completes shopper
 	// sign-in (see ResolveSignInURL); nil when not configured.
 	SignInURL *string
-	Active    bool
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	// StorefrontLocale -- see StorefrontLocale's own doc comment.
+	StorefrontLocale StorefrontLocale
+	Active           bool
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // QuantityBreak is one "at this quantity or more, this bigger discount"

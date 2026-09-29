@@ -15,6 +15,7 @@ import (
 type StoreInfo struct {
 	Name         string
 	CurrencyCode string
+	Locale       channelsDomain.StorefrontLocale
 }
 
 type tenantSettingsGetter interface {
@@ -38,7 +39,11 @@ func (uc *GetStoreInfoUseCase) Execute(ctx context.Context, salesChannelID strin
 		if err != nil {
 			return err
 		}
-		out = StoreInfo{Name: ch.Name, CurrencyCode: ch.CurrencyCode}
+		locale, err := channelsDomain.ResolveStorefrontLocale(ch.StorefrontLocale)
+		if err != nil {
+			return err
+		}
+		out = StoreInfo{Name: ch.Name, CurrencyCode: ch.CurrencyCode, Locale: locale}
 		if out.CurrencyCode == "" {
 			s, err := uc.settings.Get(ctx)
 			if err != nil {

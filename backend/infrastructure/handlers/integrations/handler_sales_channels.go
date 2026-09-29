@@ -44,8 +44,9 @@ func (h *Handler) CreateSalesChannel(c *gin.Context) {
 		EnrollmentTag: tag, PriceAdjustmentBasisPoints: req.PriceAdjustmentBasisPoints,
 		QuantityBreaks: toDomainQuantityBreaks(req.QuantityBreaks),
 		CurrencyCode:   currencyCode, DefaultWarehouseID: req.DefaultWarehouseId,
-		StorefrontMode: toDomainStorefrontMode(req.StorefrontMode),
-		SignInURL:      req.SignInUrl,
+		StorefrontMode:   toDomainStorefrontMode(req.StorefrontMode),
+		SignInURL:        req.SignInUrl,
+		StorefrontLocale: toDomainStorefrontLocale(req.StorefrontLocale),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -71,6 +72,7 @@ func (h *Handler) UpdateSalesChannel(c *gin.Context, id genintegrations.Id) {
 		DefaultWarehouseID: req.DefaultWarehouseId,
 		StorefrontMode:     toDomainStorefrontMode(req.StorefrontMode),
 		SignInURL:          req.SignInUrl,
+		StorefrontLocale:   toDomainStorefrontLocale(req.StorefrontLocale),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -152,6 +154,7 @@ func toGenSalesChannel(c channelsDomain.SalesChannel) genintegrations.SalesChann
 		DefaultWarehouseId:         c.DefaultWarehouseID,
 		StorefrontMode:             genintegrations.StorefrontMode(c.StorefrontMode),
 		SignInUrl:                  c.SignInURL,
+		StorefrontLocale:           genStorefrontLocale(c.StorefrontLocale),
 		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if c.EnrollmentTag != "" {
@@ -198,4 +201,21 @@ func toGenSalesChannelProduct(p pmsDomain.Product) genintegrations.SalesChannelP
 		resp.Tags = &tags
 	}
 	return resp
+}
+
+// toDomainStorefrontLocale maps an omitted language to "" -- English on
+// create, "keep current" on update.
+func toDomainStorefrontLocale(l *genintegrations.StorefrontLocale) channelsDomain.StorefrontLocale {
+	if l == nil {
+		return ""
+	}
+	return channelsDomain.StorefrontLocale(*l)
+}
+
+func genStorefrontLocale(l channelsDomain.StorefrontLocale) *genintegrations.StorefrontLocale {
+	if l == "" {
+		return nil
+	}
+	out := genintegrations.StorefrontLocale(l)
+	return &out
 }

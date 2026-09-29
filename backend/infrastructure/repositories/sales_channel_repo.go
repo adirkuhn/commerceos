@@ -63,6 +63,7 @@ type salesChannelModel struct {
 	DefaultWarehouseID         *string                    `gorm:"column:default_warehouse_id;type:uuid"`
 	StorefrontMode             string                     `gorm:"column:storefront_mode;not null;default:'headless'"`
 	SignInURL                  *string                    `gorm:"column:sign_in_url"`
+	StorefrontLocale           string                     `gorm:"column:storefront_locale;not null;default:'en'"`
 	Active                     bool                       `gorm:"not null;default:true"`
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
@@ -97,6 +98,7 @@ func (r *SalesChannelRepo) Create(ctx context.Context, c *channelsDomain.SalesCh
 		DefaultWarehouseID:         c.DefaultWarehouseID,
 		StorefrontMode:             storefrontModeOrHeadless(c.StorefrontMode),
 		SignInURL:                  c.SignInURL,
+		StorefrontLocale:           storefrontLocaleOrEnglish(c.StorefrontLocale),
 		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -152,6 +154,7 @@ func (r *SalesChannelRepo) Update(ctx context.Context, c *channelsDomain.SalesCh
 			"default_warehouse_id":          c.DefaultWarehouseID,
 			"storefront_mode":               storefrontModeOrHeadless(c.StorefrontMode),
 			"sign_in_url":                   c.SignInURL,
+			"storefront_locale":             storefrontLocaleOrEnglish(c.StorefrontLocale),
 			"active":                        c.Active, "updated_at": c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("salesChannelRepo.Update: %w", err)
@@ -181,6 +184,7 @@ func toSalesChannelDomain(m salesChannelModel) *channelsDomain.SalesChannel {
 		DefaultWarehouseID:         m.DefaultWarehouseID,
 		StorefrontMode:             channelsDomain.StorefrontMode(m.StorefrontMode),
 		SignInURL:                  m.SignInURL,
+		StorefrontLocale:           channelsDomain.StorefrontLocale(m.StorefrontLocale),
 		Active:                     m.Active, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }
@@ -284,4 +288,11 @@ func toSalesChannelProductOverrideDomain(m salesChannelProductOverrideModel) *ch
 	return &channelsDomain.SalesChannelProductOverride{
 		ID: m.ID, TenantID: m.TenantID, ChannelID: m.ChannelID, ProductID: m.ProductID, Included: m.Included, CreatedAt: m.CreatedAt,
 	}
+}
+
+func storefrontLocaleOrEnglish(l channelsDomain.StorefrontLocale) string {
+	if l == "" {
+		return string(channelsDomain.StorefrontLocaleEnglish)
+	}
+	return string(l)
 }
