@@ -7,6 +7,7 @@ import (
 
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 )
 
@@ -128,11 +129,12 @@ func fromGenSEO(s *gentheme.SEO) theme.SEO {
 // nodeJSON is the wire shape of a node; converting through it avoids
 // mapping every one of the generated StyleValues pointer fields by hand.
 type nodeJSON struct {
-	ID       string         `json:"id"`
-	Type     string         `json:"type"`
-	Props    map[string]any `json:"props,omitempty"`
-	Style    *styleJSON     `json:"style,omitempty"`
-	Children []nodeJSON     `json:"children,omitempty"`
+	ID           string                           `json:"id"`
+	Type         string                           `json:"type"`
+	Props        map[string]any                   `json:"props,omitempty"`
+	Translations map[locale.Locale]map[string]any `json:"translations,omitempty"`
+	Style        *styleJSON                       `json:"style,omitempty"`
+	Children     []nodeJSON                       `json:"children,omitempty"`
 }
 
 type styleJSON struct {
@@ -142,7 +144,7 @@ type styleJSON struct {
 }
 
 func toNodeJSON(n theme.Node) nodeJSON {
-	out := nodeJSON{ID: n.ID, Type: n.Type, Props: n.Props}
+	out := nodeJSON{ID: n.ID, Type: n.Type, Props: n.Props, Translations: n.Translations}
 	if len(n.Style.Base)+len(n.Style.Tablet)+len(n.Style.Mobile) > 0 {
 		out.Style = &styleJSON{Base: n.Style.Base, Tablet: n.Style.Tablet, Mobile: n.Style.Mobile}
 	}
@@ -153,7 +155,7 @@ func toNodeJSON(n theme.Node) nodeJSON {
 }
 
 func (n nodeJSON) toDomain() theme.Node {
-	out := theme.Node{ID: n.ID, Type: n.Type, Props: n.Props}
+	out := theme.Node{ID: n.ID, Type: n.Type, Props: n.Props, Translations: n.Translations}
 	if n.Style != nil {
 		out.Style = theme.NodeStyle{Base: n.Style.Base, Tablet: n.Style.Tablet, Mobile: n.Style.Mobile}
 	}

@@ -11,7 +11,11 @@
         "account_label",
         "login_label"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "account_label",
+        "login_label"
+      ]
     },
     {
       "type": "account-overview",
@@ -25,7 +29,8 @@
       "props": [
         "show_orders"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "add-to-cart",
@@ -40,7 +45,11 @@
         "label",
         "sold_out_label"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "label",
+        "sold_out_label"
+      ]
     },
     {
       "type": "banner",
@@ -56,6 +65,10 @@
       ],
       "required_props": [
         "text"
+      ],
+      "translatable_props": [
+        "link_label",
+        "text"
       ]
     },
     {
@@ -68,7 +81,10 @@
       "props": [
         "home_label"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "home_label"
+      ]
     },
     {
       "type": "button",
@@ -86,6 +102,9 @@
       "required_props": [
         "label",
         "link"
+      ],
+      "translatable_props": [
+        "label"
       ]
     },
     {
@@ -100,7 +119,10 @@
       "props": [
         "empty_message"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "empty_message"
+      ]
     },
     {
       "type": "cart-link",
@@ -113,7 +135,10 @@
         "label",
         "show_count"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "label"
+      ]
     },
     {
       "type": "cart-summary",
@@ -125,7 +150,8 @@
       "props": [
         "show_coupon"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "checkout-button",
@@ -137,7 +163,10 @@
       "props": [
         "label"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "label"
+      ]
     },
     {
       "type": "checkout-form",
@@ -151,7 +180,10 @@
       "props": [
         "button_label"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "button_label"
+      ]
     },
     {
       "type": "collection-filters",
@@ -163,7 +195,10 @@
       "props": [
         "title"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "title"
+      ]
     },
     {
       "type": "collection-header",
@@ -176,7 +211,8 @@
         "show_description",
         "show_image"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "collection-list",
@@ -192,7 +228,8 @@
       ],
       "required_props": [
         "source"
-      ]
+      ],
+      "translatable_props": []
     },
     {
       "type": "collection-products",
@@ -212,7 +249,8 @@
         "show_price",
         "show_stock"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "column",
@@ -226,7 +264,8 @@
       "props": [
         "span"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "columns",
@@ -240,7 +279,8 @@
       "props": [
         "stack_on"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "container",
@@ -250,7 +290,8 @@
       "data_context": "",
       "required_in": [],
       "props": [],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "heading",
@@ -265,6 +306,9 @@
       ],
       "required_props": [
         "level",
+        "text"
+      ],
+      "translatable_props": [
         "text"
       ]
     },
@@ -286,6 +330,11 @@
       ],
       "required_props": [
         "title"
+      ],
+      "translatable_props": [
+        "button_label",
+        "subtitle",
+        "title"
       ]
     },
     {
@@ -303,6 +352,9 @@
       ],
       "required_props": [
         "image"
+      ],
+      "translatable_props": [
+        "alt"
       ]
     },
     {
@@ -315,7 +367,8 @@
       "props": [
         "display"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "login-form",
@@ -330,7 +383,11 @@
         "button_label",
         "title"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "button_label",
+        "title"
+      ]
     },
     {
       "type": "navigation-menu",
@@ -344,6 +401,9 @@
         "orientation"
       ],
       "required_props": [
+        "items"
+      ],
+      "translatable_props": [
         "items"
       ]
     },
@@ -360,7 +420,13 @@
         "text",
         "title"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "button_label",
+        "consent_label",
+        "text",
+        "title"
+      ]
     },
     {
       "type": "order-status",
@@ -374,7 +440,10 @@
       "props": [
         "title"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "title"
+      ]
     },
     {
       "type": "pagination",
@@ -384,7 +453,8 @@
       "data_context": "collection",
       "required_in": [],
       "props": [],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "product-card",
@@ -402,7 +472,8 @@
       ],
       "required_props": [
         "product_id"
-      ]
+      ],
+      "translatable_props": []
     },
     {
       "type": "product-description",
@@ -412,7 +483,8 @@
       "data_context": "product",
       "required_in": [],
       "props": [],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "product-gallery",
@@ -424,7 +496,8 @@
       "props": [
         "layout"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "product-grid",
@@ -448,7 +521,8 @@
       "required_props": [
         "limit",
         "source"
-      ]
+      ],
+      "translatable_props": []
     },
     {
       "type": "product-price",
@@ -460,7 +534,8 @@
       "props": [
         "show_compare_at"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "product-recommendations",
@@ -473,7 +548,10 @@
         "limit",
         "title"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "title"
+      ]
     },
     {
       "type": "product-reviews",
@@ -486,7 +564,10 @@
         "limit",
         "title"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "title"
+      ]
     },
     {
       "type": "product-title",
@@ -498,7 +579,8 @@
       "props": [
         "level"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "quantity-selector",
@@ -510,7 +592,8 @@
       "props": [
         "max"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "search-box",
@@ -522,7 +605,10 @@
       "props": [
         "placeholder"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "placeholder"
+      ]
     },
     {
       "type": "section",
@@ -536,7 +622,8 @@
       "props": [
         "full_width"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "site-logo",
@@ -548,7 +635,8 @@
       "props": [
         "size"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "social-links",
@@ -564,7 +652,8 @@
       ],
       "required_props": [
         "items"
-      ]
+      ],
+      "translatable_props": []
     },
     {
       "type": "spacer",
@@ -578,7 +667,8 @@
       ],
       "required_props": [
         "size"
-      ]
+      ],
+      "translatable_props": []
     },
     {
       "type": "text",
@@ -592,6 +682,9 @@
       ],
       "required_props": [
         "content"
+      ],
+      "translatable_props": [
+        "content"
       ]
     },
     {
@@ -604,7 +697,8 @@
       "props": [
         "style"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": []
     },
     {
       "type": "wishlist-button",
@@ -617,7 +711,11 @@
         "add_label",
         "remove_label"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "add_label",
+        "remove_label"
+      ]
     },
     {
       "type": "wishlist-items",
@@ -631,7 +729,10 @@
       "props": [
         "empty_message"
       ],
-      "required_props": []
+      "required_props": [],
+      "translatable_props": [
+        "empty_message"
+      ]
     }
   ],
   "style_properties": [

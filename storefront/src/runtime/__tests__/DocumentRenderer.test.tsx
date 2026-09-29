@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { DocumentRenderer } from '../DocumentRenderer'
+import { RenderProvider } from '../RenderContext'
 import type { ThemeNode } from '../../core/document'
 
 const tree: ThemeNode = {
@@ -31,5 +32,16 @@ describe('DocumentRenderer', () => {
   it('renders nothing for an empty document', () => {
     const { container } = render(<DocumentRenderer root={{ id: 'root', type: 'root' }} />)
     expect(container.textContent).toBe('')
+  })
+
+  it('shows a node\'s translation in the language being read, the default text otherwise', () => {
+    const translated: ThemeNode = { id: 'root', type: 'root', children: [{ id: 's', type: 'section', children: [
+      { id: 'h', type: 'heading', props: { text: 'Bem-vindo', level: 2 }, translations: { en: { text: 'Welcome' } } },
+    ] }] }
+    const inEnglish = render(<RenderProvider value={{ contentLocale: 'en' }}><DocumentRenderer root={translated} /></RenderProvider>)
+    expect(inEnglish.container.querySelector('h2')?.textContent).toBe('Welcome')
+    inEnglish.unmount()
+    const inDutch = render(<RenderProvider value={{ contentLocale: 'nl' }}><DocumentRenderer root={translated} /></RenderProvider>)
+    expect(inDutch.container.querySelector('h2')?.textContent).toBe('Bem-vindo')
   })
 })

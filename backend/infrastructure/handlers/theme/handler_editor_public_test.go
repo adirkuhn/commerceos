@@ -40,7 +40,7 @@ func TestEditor_openDraftRunsAsTheSessionTenant(t *testing.T) {
 
 func TestEditor_saveDocumentMapsTreeAndRevision(t *testing.T) {
 	s := &stub{session: editSession()}
-	body := `{"expected_revision":3,"root":{"id":"root","type":"root","children":[{"id":"h","type":"heading","props":{"text":"Hi","level":1},"style":{"mobile":{"font_size":"xl"}}}]}}`
+	body := `{"expected_revision":3,"root":{"id":"root","type":"root","children":[{"id":"h","type":"heading","props":{"text":"Hi","level":1},"translations":{"nl":{"text":"Hoi"}},"style":{"mobile":{"font_size":"xl"}}}]}}`
 
 	w := do(newRouter(t, s), http.MethodPut, "/api/v1/theme-editor/draft/documents/template/home", body, "good")
 
@@ -49,6 +49,7 @@ func TestEditor_saveDocumentMapsTreeAndRevision(t *testing.T) {
 	assert.Equal(t, theme.KindTemplate, s.gotSave.Kind)
 	h := s.gotSave.Root.Children[0]
 	assert.Equal(t, "Hi", h.Props["text"])
+	assert.Equal(t, "Hoi", h.Translations[locale.Dutch]["text"])
 	assert.Equal(t, "xl", h.Style.Mobile["font_size"])
 	assert.EqualValues(t, 4, decode(t, w)["data"].(map[string]any)["revision"])
 }

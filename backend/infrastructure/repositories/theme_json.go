@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 )
 
@@ -39,11 +40,12 @@ func (j *jsonb[T]) Scan(value any) error {
 // format only changes on purpose.
 
 type themeNodeJSON struct {
-	ID       string          `json:"id"`
-	Type     string          `json:"type"`
-	Props    map[string]any  `json:"props,omitempty"`
-	Style    themeStyleJSON  `json:"style,omitempty"`
-	Children []themeNodeJSON `json:"children,omitempty"`
+	ID           string                           `json:"id"`
+	Type         string                           `json:"type"`
+	Props        map[string]any                   `json:"props,omitempty"`
+	Translations map[locale.Locale]map[string]any `json:"translations,omitempty"`
+	Style        themeStyleJSON                   `json:"style,omitempty"`
+	Children     []themeNodeJSON                  `json:"children,omitempty"`
 }
 
 type themeStyleJSON struct {
@@ -54,7 +56,7 @@ type themeStyleJSON struct {
 
 func toNodeJSON(n theme.Node) themeNodeJSON {
 	out := themeNodeJSON{
-		ID: n.ID, Type: n.Type, Props: n.Props,
+		ID: n.ID, Type: n.Type, Props: n.Props, Translations: n.Translations,
 		Style: themeStyleJSON{Base: n.Style.Base, Tablet: n.Style.Tablet, Mobile: n.Style.Mobile},
 	}
 	for _, c := range n.Children {
@@ -65,7 +67,7 @@ func toNodeJSON(n theme.Node) themeNodeJSON {
 
 func (n themeNodeJSON) toDomain() theme.Node {
 	out := theme.Node{
-		ID: n.ID, Type: n.Type, Props: n.Props,
+		ID: n.ID, Type: n.Type, Props: n.Props, Translations: n.Translations,
 		Style: theme.NodeStyle{Base: n.Style.Base, Tablet: n.Style.Tablet, Mobile: n.Style.Mobile},
 	}
 	for _, c := range n.Children {

@@ -14,6 +14,9 @@ export interface RenderEnv {
   assets: AssetMap
   /** Absolute path of a store page, e.g. storePath('products/red-shoes'). */
   storePath: (path: string) => string
+  /** The language merchant texts show in when it isn't the store's
+   *  default (node translations); undefined = the default. */
+  contentLocale?: string
   /** Full page load of another URL (store page or payment provider). */
   navigate: (url: string, opts?: { replace?: boolean }) => void
 }

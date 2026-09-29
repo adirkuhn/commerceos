@@ -3,6 +3,9 @@ package theme
 import (
 	"fmt"
 	"regexp"
+	"slices"
+
+	"github.com/adirkuhn/commerceos/domain/locale"
 )
 
 // RootType is the implicit container at the top of every document.
@@ -19,11 +22,31 @@ var nodeIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 // validated against the OpenAPI contract; the domain only owns structure
 // and styles.
 type Node struct {
-	ID       string
-	Type     string
-	Props    map[string]any
-	Style    NodeStyle
-	Children []Node
+	ID    string
+	Type  string
+	Props map[string]any
+	// Translations overrides translatable props (ComponentRule.Translatable)
+	// per language; Props are the store's default language. A prop missing
+	// here shows its default-language value.
+	Translations map[locale.Locale]map[string]any
+	Style        NodeStyle
+	Children     []Node
+}
+
+// PropsIn is the node's props as shoppers reading l see them.
+func (n Node) PropsIn(l locale.Locale) map[string]any {
+	tr := n.Translations[l]
+	if len(tr) == 0 {
+		return n.Props
+	}
+	out := make(map[string]any, len(n.Props)+len(tr))
+	for k, v := range n.Props {
+		out[k] = v
+	}
+	for k, v := range tr {
+		out[k] = v
+	}
+	return out
 }
 
 func EmptyRoot() Node { return Node{ID: "root", Type: RootType} }
@@ -44,6 +67,9 @@ type ComponentRule struct {
 	// RequiredIn lists template keys that must contain this component
 	// (e.g. checkout needs the checkout form).
 	RequiredIn []string
+	// Translatable lists the props (merchant-written texts) a node may
+	// translate per language -- see Node.Translations.
+	Translatable []string
 	// ValidateProps checks the component's props; nil accepts any. The
 	// backend plugs in the OpenAPI contract's per-component props schema.
 	ValidateProps func(props map[string]any) error
@@ -135,6 +161,9 @@ func (w *walker) walk(n Node, parent *ComponentRule, depth int) error {
 			return &DocumentError{NodeID: n.ID, Reason: err.Error()}
 		}
 	}
+	if err := validateTranslations(n, rule); err != nil {
+		return err
+	}
 	if !rule.Container && len(n.Children) > 0 {
 		return &DocumentError{NodeID: n.ID, Reason: fmt.Sprintf("%q cannot contain components", n.Type)}
 	}
@@ -176,4 +205,26 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// validateTranslations: each language is one CommerceOS speaks, only
+// translatable props are translated, and the props each language ends up
+// with are as valid as the default ones.
+func validateTranslations(n Node, rule ComponentRule) error {
+	for l, tr := range n.Translations {
+		if !l.Valid() {
+			return &DocumentError{NodeID: n.ID, Reason: fmt.Sprintf("translation language %q is not supported", l)}
+		}
+		for prop := range tr {
+			if !slices.Contains(rule.Translatable, prop) {
+				return &DocumentError{NodeID: n.ID, Reason: fmt.Sprintf("%q of %q cannot be translated", prop, n.Type)}
+			}
+		}
+		if rule.ValidateProps != nil {
+			if err := rule.ValidateProps(n.PropsIn(l)); err != nil {
+				return &DocumentError{NodeID: n.ID, Reason: fmt.Sprintf("%s translation: %s", l, err)}
+			}
+		}
+	}
+	return nil
 }

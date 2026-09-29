@@ -119,3 +119,20 @@ func TestEveryPresetValidatesAgainstTheContract(t *testing.T) {
 		}
 	}
 }
+
+func TestFromSpec_translationsFollowTheContract(t *testing.T) {
+	c := load(t)
+	heading, _ := c.Rule("heading")
+	assert.Equal(t, []string{"text"}, heading.Translatable)
+	menu, _ := c.Rule("navigation-menu")
+	assert.Equal(t, []string{"items"}, menu.Translatable)
+
+	page := func(tr map[locale.Locale]map[string]any) theme.Document {
+		return theme.Document{Kind: theme.KindPage, Key: "about", Root: theme.Node{ID: "root", Type: theme.RootType, Children: []theme.Node{
+			{ID: "s", Type: "section", Children: []theme.Node{{ID: "h", Type: "heading", Props: map[string]any{"text": "Olá", "level": 1}, Translations: tr}}},
+		}}}
+	}
+	assert.NoError(t, theme.ValidateTree(page(map[locale.Locale]map[string]any{locale.English: {"text": "Hello"}}), c))
+	assert.Error(t, theme.ValidateTree(page(map[locale.Locale]map[string]any{locale.English: {"level": 2}}), c), "level is layout, not text")
+	assert.Error(t, theme.ValidateTree(page(map[locale.Locale]map[string]any{locale.English: {"text": 7}}), c), "a translation is validated like the prop")
+}

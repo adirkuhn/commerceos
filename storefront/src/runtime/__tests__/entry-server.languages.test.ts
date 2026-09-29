@@ -102,3 +102,17 @@ describe('a store in several languages', () => {
     expect(out.body).toContain('<loc>https://shop.test/store/k/nl/</loc>')
   })
 })
+
+describe('translated merchant texts', () => {
+  it('show in the language being read, and the default text where none was written', async () => {
+    const home = docs.home
+    docs.home = tree([{ id: 'hd', type: 'heading', props: { text: 'Bem-vindo', level: 1 }, translations: { en: { text: 'Welcome' } } }])
+    try {
+      expect((await render({ ...base, url: '/store/k/en/', fetch: backend() })).html).toContain('Welcome')
+      expect((await render({ ...base, url: '/store/k/nl/', fetch: backend() })).html).toContain('Bem-vindo')
+      expect((await render({ ...base, url: '/store/k/', fetch: backend() })).html).toContain('Bem-vindo')
+    } finally {
+      docs.home = home
+    }
+  })
+})

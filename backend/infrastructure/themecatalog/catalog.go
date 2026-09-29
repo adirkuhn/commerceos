@@ -23,6 +23,8 @@ type extension struct {
 	AllowedParents  []string `json:"allowed_parents"`
 	DataContext     string   `json:"data_context"`
 	RequiredIn      []string `json:"required_in"`
+	// Translatable: props (merchant texts) a node may translate per language.
+	Translatable []string `json:"translatable"`
 }
 
 func FromSpec(spec *openapi3.T) (*theme.Catalog, error) {
@@ -43,10 +45,15 @@ func FromSpec(spec *openapi3.T) (*theme.Catalog, error) {
 		if err != nil {
 			return nil, fmt.Errorf("themecatalog: %s: %w", name, err)
 		}
+		for _, p := range ext.Translatable {
+			if _, ok := schema.Properties[p]; !ok {
+				return nil, fmt.Errorf("themecatalog: %s: translatable prop %q is not a property", name, p)
+			}
+		}
 		rules = append(rules, theme.ComponentRule{
 			Type: ext.Type, Container: ext.Container, AllowedChildren: ext.AllowedChildren,
 			AllowedParents: ext.AllowedParents, DataContext: theme.DataContext(ext.DataContext),
-			RequiredIn: ext.RequiredIn, ValidateProps: propsValidator(schema),
+			RequiredIn: ext.RequiredIn, Translatable: ext.Translatable, ValidateProps: propsValidator(schema),
 		})
 	}
 	return theme.NewCatalog(rules)

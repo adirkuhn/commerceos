@@ -129,7 +129,7 @@ export function StorePage({ path, storeKey, query = new URLSearchParams() }: { p
   return (
     <I18nextProvider i18n={i18n}>
     <StoreLanguageProvider value={language}>
-    <RenderProvider value={{ mode: 'live', storePath }}>
+    <RenderProvider value={{ mode: 'live', storePath, contentLocale: locale === langs.defaultLocale ? undefined : locale }}>
       <StoreInfoProvider value={{ name: store?.name ?? '', settings: theme.settings, assets: theme.assets ?? {} }}>
         <CustomerProvider api={api} storeKey={storeKey}>
           <WishlistProvider api={api} storeKey={storeKey}>

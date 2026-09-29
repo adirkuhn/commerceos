@@ -26,6 +26,9 @@ export interface ThemeNode {
   id: string
   type: string
   props?: Record<string, unknown>
+  /** Per-language overrides of translatable props; props are the store's
+   *  default language (see components/translatable.ts). */
+  translations?: Record<string, Record<string, unknown>>
   style?: NodeStyle
   children?: ThemeNode[]
 }

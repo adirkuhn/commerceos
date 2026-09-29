@@ -3,9 +3,11 @@ import { ComponentBoundary } from '../components/ComponentBoundary'
 import type { ThemeNode } from '../core/document'
 import { compileDocumentStyles, nodeClass } from '../core/style'
 import { rendererFor } from '../components/renderers'
+import { propsIn } from '../components/translatable'
 import { RenderProvider, useRenderEnv, type AssetMap } from './RenderContext'
 
 function RenderNode({ node }: { node: ThemeNode }) {
+  const { contentLocale } = useRenderEnv()
   const Renderer = rendererFor(node.type)
   if (!Renderer) {
     // A component retired after this version was published: skip it
@@ -16,7 +18,7 @@ function RenderNode({ node }: { node: ThemeNode }) {
   return (
     <ComponentBoundary nodeId={node.id}>
       <Suspense fallback={null}>
-        <Renderer node={node} props={node.props ?? {}} className={nodeClass(node.id)}>
+        <Renderer node={node} props={propsIn(node, contentLocale)} className={nodeClass(node.id)}>
           {node.children?.map(child => <RenderNode key={child.id} node={child} />)}
         </Renderer>
       </Suspense>

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import contract from '../contract.gen.json'
 import { registry } from '../registry'
+import { translatableProps } from '../translatable'
 
 // contract.gen.json is exported from backend/api/theme/openapi.yaml (see
 // backend/cmd/export-theme-catalog). The backend validates saved documents
@@ -20,6 +21,7 @@ describe('component registry matches the backend contract', () => {
     expect(def.dataContext).toBe(c.data_context)
     expect([...def.requiredIn].sort()).toEqual(c.required_in)
     expect(Object.keys(def.props).sort()).toEqual(c.props)
+    expect(translatableProps(def).sort(), `${def.type} translatable props`).toEqual(c.translatable_props)
     for (const p of c.required_props) expect(def.defaults, `${def.type}.${p} default`).toHaveProperty(p)
   })
 })

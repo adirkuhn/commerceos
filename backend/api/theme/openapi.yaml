@@ -550,6 +550,15 @@ components:
         id: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
         type: { type: string, minLength: 1, maxLength: 64 }
         props: { type: object, additionalProperties: true }
+        translations:
+          type: object
+          description: >
+            Per-language overrides of the component's translatable props
+            (x-commerceos-component translatable), keyed by language. props
+            are the store's default language; a prop missing here shows the
+            default. Each language's resulting props are validated like
+            props; any other language or prop is rejected with 422.
+          additionalProperties: { type: object, additionalProperties: true }
         style: { $ref: '#/components/schemas/NodeStyle' }
         children: { type: array, items: { $ref: '#/components/schemas/ThemeNode' } }
 
@@ -802,6 +811,7 @@ components:
       additionalProperties: false
       x-commerceos-component:
         type: heading
+        translatable: [text]
       properties:
         text: { type: string, maxLength: 300 }
         level: { type: integer, minimum: 1, maximum: 6 }
@@ -811,6 +821,7 @@ components:
       additionalProperties: false
       x-commerceos-component:
         type: text
+        translatable: [content]
       properties:
         content: { $ref: '#/components/schemas/RichText' }
     AssetReference:
@@ -854,6 +865,7 @@ components:
       additionalProperties: false
       x-commerceos-component:
         type: image
+        translatable: [alt]
       properties:
         image: { $ref: '#/components/schemas/AssetReference' }
         alt: { type: string, maxLength: 250, description: Overrides the image's own description. }
@@ -865,6 +877,7 @@ components:
       additionalProperties: false
       x-commerceos-component:
         type: button
+        translatable: [label]
       properties:
         label: { type: string, minLength: 1, maxLength: 80 }
         link: { $ref: '#/components/schemas/SafeLink' }
@@ -937,7 +950,7 @@ components:
     AddToCartProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: add-to-cart, data_context: product, required_in: [product] }
+      x-commerceos-component: { type: add-to-cart, data_context: product, required_in: [product], translatable: [label, sold_out_label] }
       properties:
         label: { type: string, maxLength: 60, description: Blank uses the store language's default. }
         sold_out_label: { type: string, maxLength: 60 }
@@ -949,14 +962,14 @@ components:
     ProductReviewsProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: product-reviews, data_context: product }
+      x-commerceos-component: { type: product-reviews, data_context: product, translatable: [title] }
       properties:
         title: { type: string, maxLength: 120 }
         limit: { type: integer, minimum: 1, maximum: 50 }
     ProductRecommendationsProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: product-recommendations, data_context: product }
+      x-commerceos-component: { type: product-recommendations, data_context: product, translatable: [title] }
       properties:
         title: { type: string, maxLength: 120 }
         limit: { type: integer, minimum: 1, maximum: 12 }
@@ -982,7 +995,7 @@ components:
     CollectionFiltersProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: collection-filters, data_context: collection }
+      x-commerceos-component: { type: collection-filters, data_context: collection, translatable: [title] }
       properties:
         title: { type: string, maxLength: 60 }
     PaginationProps:
@@ -993,14 +1006,14 @@ components:
     BreadcrumbsProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: breadcrumbs }
+      x-commerceos-component: { type: breadcrumbs, translatable: [home_label] }
       properties:
         home_label: { type: string, maxLength: 40 }
     # Cart (per-shopper; available everywhere)
     CartItemsProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: cart-items, data_context: cart, required_in: [cart] }
+      x-commerceos-component: { type: cart-items, data_context: cart, required_in: [cart], translatable: [empty_message] }
       properties:
         empty_message: { type: string, maxLength: 200 }
     CartSummaryProps:
@@ -1012,7 +1025,7 @@ components:
     CheckoutButtonProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: checkout-button, data_context: cart }
+      x-commerceos-component: { type: checkout-button, data_context: cart, translatable: [label] }
       properties:
         label: { type: string, maxLength: 60, description: Blank uses the store language's default. }
     # Header and navigation
@@ -1049,21 +1062,21 @@ components:
       type: object
       required: [items]
       additionalProperties: false
-      x-commerceos-component: { type: navigation-menu }
+      x-commerceos-component: { type: navigation-menu, translatable: [items] }
       properties:
         items: { type: array, maxItems: 12, items: { $ref: '#/components/schemas/NavigationLink' } }
         orientation: { type: string, enum: [horizontal, vertical] }
     CartLinkProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: cart-link, data_context: cart }
+      x-commerceos-component: { type: cart-link, data_context: cart, translatable: [label] }
       properties:
         label: { type: string, maxLength: 30 }
         show_count: { type: boolean }
     SearchBoxProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: search-box }
+      x-commerceos-component: { type: search-box, translatable: [placeholder] }
       properties:
         placeholder: { type: string, maxLength: 60 }
     LanguageSwitcherProps:
@@ -1079,7 +1092,7 @@ components:
     AccountLinkProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: account-link, data_context: customer }
+      x-commerceos-component: { type: account-link, data_context: customer, translatable: [login_label, account_label] }
       properties:
         login_label: { type: string, maxLength: 30 }
         account_label: { type: string, maxLength: 30 }
@@ -1088,7 +1101,7 @@ components:
       type: object
       required: [title]
       additionalProperties: false
-      x-commerceos-component: { type: hero }
+      x-commerceos-component: { type: hero, translatable: [title, subtitle, button_label] }
       properties:
         title: { type: string, minLength: 1, maxLength: 120 }
         subtitle: { type: string, maxLength: 300 }
@@ -1101,7 +1114,7 @@ components:
       type: object
       required: [text]
       additionalProperties: false
-      x-commerceos-component: { type: banner }
+      x-commerceos-component: { type: banner, translatable: [text, link_label] }
       properties:
         text: { type: string, minLength: 1, maxLength: 200 }
         link_label: { type: string, maxLength: 60 }
@@ -1118,7 +1131,7 @@ components:
     NewsletterSignupProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: newsletter-signup }
+      x-commerceos-component: { type: newsletter-signup, translatable: [title, text, button_label, consent_label] }
       properties:
         title: { type: string, maxLength: 120 }
         text: { type: string, maxLength: 300 }
@@ -1128,7 +1141,7 @@ components:
     LoginFormProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: login-form, data_context: customer, required_in: [login] }
+      x-commerceos-component: { type: login-form, data_context: customer, required_in: [login], translatable: [title, button_label] }
       properties:
         title: { type: string, maxLength: 120 }
         button_label: { type: string, maxLength: 40 }
@@ -1141,13 +1154,13 @@ components:
     WishlistItemsProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: wishlist-items, data_context: customer, required_in: [wishlist] }
+      x-commerceos-component: { type: wishlist-items, data_context: customer, required_in: [wishlist], translatable: [empty_message] }
       properties:
         empty_message: { type: string, maxLength: 200 }
     WishlistButtonProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: wishlist-button, data_context: product }
+      x-commerceos-component: { type: wishlist-button, data_context: product, translatable: [add_label, remove_label] }
       properties:
         add_label: { type: string, maxLength: 40 }
         remove_label: { type: string, maxLength: 40 }
@@ -1155,12 +1168,12 @@ components:
     CheckoutFormProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: checkout-form, data_context: cart, required_in: [checkout] }
+      x-commerceos-component: { type: checkout-form, data_context: cart, required_in: [checkout], translatable: [button_label] }
       properties:
         button_label: { type: string, maxLength: 40 }
     OrderStatusProps:
       type: object
       additionalProperties: false
-      x-commerceos-component: { type: order-status, data_context: order, required_in: [order-confirmation] }
+      x-commerceos-component: { type: order-status, data_context: order, required_in: [order-confirmation], translatable: [title] }
       properties:
         title: { type: string, maxLength: 120 }

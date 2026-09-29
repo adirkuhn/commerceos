@@ -21,6 +21,8 @@ type ExportedComponent struct {
 	RequiredIn      []string `json:"required_in"`
 	Props           []string `json:"props"`
 	RequiredProps   []string `json:"required_props"`
+	// TranslatableProps may differ per language (node translations).
+	TranslatableProps []string `json:"translatable_props"`
 }
 
 type Export struct {
@@ -58,7 +60,7 @@ func ExportJSON(spec *openapi3.T) ([]byte, error) {
 		out.Components = append(out.Components, ExportedComponent{
 			Type: ext.Type, Container: ext.Container, AllowedChildren: nonNil(ext.AllowedChildren),
 			AllowedParents: nonNil(ext.AllowedParents), DataContext: ext.DataContext, RequiredIn: nonNil(ext.RequiredIn),
-			Props: props, RequiredProps: required,
+			Props: props, RequiredProps: required, TranslatableProps: sortedCopy(ext.Translatable),
 		})
 	}
 	out.StyleProperties = theme.StyleProperties()
@@ -75,4 +77,10 @@ func nonNil(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+func sortedCopy(s []string) []string {
+	out := append([]string{}, s...)
+	sort.Strings(out)
+	return out
 }
