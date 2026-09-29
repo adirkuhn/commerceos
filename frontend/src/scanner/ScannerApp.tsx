@@ -12,6 +12,7 @@ import { BookingRoute, PackSessionRoute, PickOrderRoute, PickSessionRoute } from
 import { scannerPaths } from './scannerRoutes'
 import { useStackNavigation } from '../routing/useStackNavigation'
 import { DateFormatProvider } from '../format/DateFormatProvider'
+import { CompanyLanguage } from '../i18n/CompanyLanguage'
 
 const APP_PATHS: Record<ScannerAppID, string> = {
   'receive-po': scannerPaths.receive,
@@ -52,6 +53,7 @@ function ScannerAppContent() {
 
   return (
     <DateFormatProvider token={token}>
+      <CompanyLanguage token={token} />
       <Routes>
         <Route index element={<AppLauncher onSelect={app => open(APP_PATHS[app])} onLogout={clearToken} />} />
 

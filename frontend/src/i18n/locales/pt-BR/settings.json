@@ -139,12 +139,7 @@
     "dateFormat": "Formato de data",
     "defaultCurrency": "Moeda padrão",
     "language": "Idioma",
-    "languages": {
-      "de": "Alemão (DE)",
-      "en": "Inglês (EN)",
-      "fr": "Francês (FR)",
-      "nl": "Holandês (NL)"
-    },
+    "languageHelp": "O idioma do painel para usuários que não escolheram um, e o idioma inicial das novas lojas virtuais.",
     "subtitle": "Moeda, fuso horário, formatos de data",
     "timezone": "Fuso horário",
     "title": "Localização"

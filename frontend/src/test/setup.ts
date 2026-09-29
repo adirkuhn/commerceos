@@ -1,10 +1,15 @@
 import '@testing-library/jest-dom/vitest'
 import { afterAll, afterEach } from 'vitest'
 import { cleanup, configure } from '@testing-library/react'
+import i18next from 'i18next'
 import { initI18n } from '../i18n/i18n'
 
-// Tests render the admin in English unless they switch language.
+// Tests render the admin in English unless they switch language -- and a
+// switch (by a test, or by saving a company language) ends with the test.
 initI18n('en')
+afterEach(async () => {
+  if (i18next.language !== 'en') await i18next.changeLanguage('en')
+})
 
 // findBy*/waitFor default to 1s. Pages now navigate through a data router
 // (view state lives in the URL), whose updates commit in a React

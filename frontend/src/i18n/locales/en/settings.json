@@ -137,12 +137,7 @@
     "dateFormat": "Date format",
     "defaultCurrency": "Default currency",
     "language": "Language",
-    "languages": {
-      "de": "German (DE)",
-      "en": "English (EN)",
-      "fr": "French (FR)",
-      "nl": "Dutch (NL)"
-    },
+    "languageHelp": "The admin's language for users who haven't picked one, and the language new storefronts start in.",
     "subtitle": "Currency, timezone, date formats",
     "timezone": "Timezone",
     "title": "Localization"

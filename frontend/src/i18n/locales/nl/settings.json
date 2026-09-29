@@ -137,12 +137,7 @@
     "dateFormat": "Datumnotatie",
     "defaultCurrency": "Standaardvaluta",
     "language": "Taal",
-    "languages": {
-      "de": "Duits (DE)",
-      "en": "Engels (EN)",
-      "fr": "Frans (FR)",
-      "nl": "Nederlands (NL)"
-    },
+    "languageHelp": "De taal van de admin voor gebruikers die er zelf geen kozen, en de taal waarmee nieuwe webwinkels starten.",
     "subtitle": "Valuta, tijdzone, datumnotatie",
     "timezone": "Tijdzone",
     "title": "Lokalisatie"

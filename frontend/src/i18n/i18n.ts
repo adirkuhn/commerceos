@@ -4,7 +4,8 @@ import { DEFAULT_LOCALE, resolveLocale, type Locale } from './locale'
 import { NAMESPACES, resources } from './resources'
 
 // The admin's one i18next instance. The language is the user's choice, kept
-// in a cookie; first visit follows the browser language.
+// in a cookie; without one it is the company language (Settings →
+// Localization), and the browser language until that has loaded.
 
 export const LANGUAGE_COOKIE = 'cos_lang'
 const ONE_YEAR = 60 * 60 * 24 * 365
@@ -45,6 +46,17 @@ export async function setLanguage(locale: Locale) {
   await i18next.changeLanguage(locale)
   document.documentElement.lang = locale
   rememberLocale(locale)
+}
+
+/**
+ * Follows the company language unless the user picked their own. Not
+ * remembered: a later company change applies again.
+ */
+export async function applyCompanyLanguage(tag: string) {
+  if (!tag || storedLocale()) return
+  const locale = resolveLocale(tag)
+  await i18next.changeLanguage(locale)
+  document.documentElement.lang = locale
 }
 
 export const currentLocale = (): Locale => resolveLocale(i18next.language)

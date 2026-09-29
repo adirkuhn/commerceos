@@ -9,6 +9,7 @@ import { isScannerPath, SCANNER_BASE } from './scanner/scannerRoutes'
 import { ScannerCallbackPage } from './scanner/ScannerCallbackPage'
 import { AppProvider } from './context/AppContext'
 import { DateFormatProvider } from './format/DateFormatProvider'
+import { CompanyLanguage } from './i18n/CompanyLanguage'
 import Sidebar from './components/layout/Sidebar'
 import Topbar from './components/layout/Topbar'
 import CommandPalette from './components/layout/CommandPalette'
@@ -93,6 +94,7 @@ export function AppShell() {
 
   return (
     <AppProvider>
+      <CompanyLanguage token={token ?? ''} />
       <DateFormatProvider token={token ?? ''}>
         <AppContent />
       </DateFormatProvider>

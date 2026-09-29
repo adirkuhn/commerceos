@@ -7,6 +7,8 @@ import { CURRENCY_CODES, currencyOptions } from './currencyOptions'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { toInput } from './tenantSettingsInput'
 import { useConfirm } from '../components/common/useConfirm'
+import { applyCompanyLanguage } from '../i18n/i18n'
+import { DEFAULT_LOCALE, LOCALE_NAMES, LOCALES } from '../i18n/locale'
 
 // ── Localization settings section ─────────────────────────────────────────────
 
@@ -23,24 +25,19 @@ const DATE_FORMAT_OPTIONS = [
   { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' },
 ]
 
-const LANGUAGE_CODES = ['en', 'nl', 'de', 'fr']
+// Named in each language itself, like any language picker.
+const LANGUAGE_OPTIONS = LOCALES.map(l => ({ value: l, label: LOCALE_NAMES[l] }))
 
 export function LocalizationSettingsSection() {
   const { token } = useAuth()
   const { settings, loading, error, save } = useTenantSettings(token ?? '')
   const applyDateFormat = useApplyDateFormatSettings()
   const { t } = useTranslation(['settings', 'common'])
-  const languageOptions = [
-    { value: 'en', label: t('localization.languages.en') },
-    { value: 'nl', label: t('localization.languages.nl') },
-    { value: 'de', label: t('localization.languages.de') },
-    { value: 'fr', label: t('localization.languages.fr') },
-  ]
 
   const [defaultCurrency, setDefaultCurrency] = useState<string>(CURRENCY_CODES[0])
   const [timezone, setTimezone] = useState(TIMEZONE_OPTIONS[0].value)
   const [dateFormat, setDateFormat] = useState(DATE_FORMAT_OPTIONS[0].value)
-  const [language, setLanguage] = useState(LANGUAGE_CODES[0])
+  const [language, setLanguage] = useState<string>(DEFAULT_LOCALE)
   const [hydrated, setHydrated] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -59,7 +56,9 @@ export function LocalizationSettingsSection() {
     setSaveError('')
     setSaved(false)
     try {
-      applyDateFormat(await save({ ...toInput(settings), default_currency: defaultCurrency, timezone, date_format: dateFormat, language }))
+      const next = await save({ ...toInput(settings), default_currency: defaultCurrency, timezone, date_format: dateFormat, language })
+      applyDateFormat(next)
+      await applyCompanyLanguage(next.language)
       setSaved(true)
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : t('saveFailed'))
@@ -68,11 +67,11 @@ export function LocalizationSettingsSection() {
     }
   }
 
-  const fields: { id: string; label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }[] = [
+  const fields: { id: string; label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; help?: string }[] = [
     { id: 'localization-currency', label: t('localization.defaultCurrency'), value: defaultCurrency, onChange: setDefaultCurrency, options: currencyOptions() },
     { id: 'localization-timezone', label: t('localization.timezone'), value: timezone, onChange: setTimezone, options: TIMEZONE_OPTIONS },
     { id: 'localization-date-format', label: t('localization.dateFormat'), value: dateFormat, onChange: setDateFormat, options: DATE_FORMAT_OPTIONS },
-    { id: 'localization-language', label: t('localization.language'), value: language, onChange: setLanguage, options: languageOptions },
+    { id: 'localization-language', label: t('localization.language'), value: language, onChange: setLanguage, options: LANGUAGE_OPTIONS, help: t('localization.languageHelp') },
   ]
 
   return (
@@ -83,7 +82,7 @@ export function LocalizationSettingsSection() {
       </div>
       {loading && <p className="text-xs text-ink-4">{t('common:status.loading')}</p>}
       <div className="space-y-4">
-        {fields.map(({ id, label, value, onChange, options }) => (
+        {fields.map(({ id, label, value, onChange, options, help }) => (
           <div key={id}>
             <label htmlFor={id} className="block text-xs font-medium text-ink-2 mb-1.5">{label}</label>
             <select
@@ -94,6 +93,7 @@ export function LocalizationSettingsSection() {
             >
               {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
+            {help && <p className="mt-1 text-2xs text-ink-4">{help}</p>}
           </div>
         ))}
       </div>

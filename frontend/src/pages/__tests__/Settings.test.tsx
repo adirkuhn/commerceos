@@ -999,7 +999,7 @@ describe('Settings > Localization', () => {
 
   it('prefills fields from saved settings', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
-      tenant_id: 'tenant-1', default_currency: 'USD', timezone: 'America/New_York', date_format: 'MM/DD/YYYY', language: 'fr',
+      tenant_id: 'tenant-1', default_currency: 'USD', timezone: 'America/New_York', date_format: 'MM/DD/YYYY', language: 'pt-BR',
       prices_include_tax: false, default_tax_country: '',
       inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0,
       updated_at: '2026-07-26T00:00:00Z',
@@ -1011,7 +1011,7 @@ describe('Settings > Localization', () => {
     await waitFor(() => expect(screen.getByLabelText('Default currency')).toHaveValue('USD'))
     expect(screen.getByLabelText('Timezone')).toHaveValue('America/New_York')
     expect(screen.getByLabelText('Date format')).toHaveValue('MM/DD/YYYY')
-    expect(screen.getByLabelText('Language')).toHaveValue('fr')
+    expect(screen.getByLabelText('Language')).toHaveValue('pt-BR')
   })
 
   it('Save Changes calls updateTenantSettings with all four fields and shows confirmation', async () => {
@@ -1037,7 +1037,8 @@ describe('Settings > Localization', () => {
       prices_include_tax: false, default_tax_country: '',
       inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0,
     }))
-    expect(await screen.findByText('Saved.')).toBeInTheDocument()
+    // Nobody picked a personal language here, so the admin follows the company's.
+    expect(await screen.findByText('Opgeslagen.')).toBeInTheDocument()
   })
 
   it('Save Changes preserves already-saved tax settings instead of wiping them', async () => {
