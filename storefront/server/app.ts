@@ -10,6 +10,7 @@ export interface RenderInput {
   fetch?: typeof fetch
   publicOrigin?: string
   acceptLanguage?: string
+  cookie?: string
 }
 
 export interface RenderOutput {
@@ -18,6 +19,7 @@ export interface RenderOutput {
   html: string
   state: string
   lang: string
+  redirect?: string
 }
 
 export interface SitemapInput {
@@ -86,13 +88,16 @@ export function createHandler(deps: HandlerDeps) {
         const previewToken = previewTokenFrom(req.headers.cookie)
         const page = await deps.render({
           url, apiBaseURL: deps.config.apiInternalURL, publicApiBaseURL: deps.config.apiPublicURL, previewToken, fetch: deps.fetch,
-          publicOrigin: deps.config.publicOrigin, acceptLanguage: req.headers['accept-language'],
+          publicOrigin: deps.config.publicOrigin, acceptLanguage: req.headers['accept-language'], cookie: req.headers.cookie,
         })
+        if (page.redirect) return send(res, 302, '', { Location: page.redirect, 'Cache-Control': 'no-store', Vary: 'Cookie' })
         const html = injectPage(await deps.pageTemplate(url), page)
         return send(res, page.status, html, {
           'Content-Type': 'text/html; charset=utf-8',
           // Pages are rendered per request; theme data is cached upstream.
           'Cache-Control': previewToken ? 'no-store' : 'no-cache',
+          // Plain URLs open in the shopper's remembered language.
+          Vary: 'Cookie',
         })
       }
 

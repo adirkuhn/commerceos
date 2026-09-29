@@ -220,6 +220,19 @@
         "link": "Link"
       }
     },
+    "language-switcher": {
+      "description": "Permite que os clientes alternem entre os idiomas que sua loja oferece.",
+      "name": "Seletor de idioma",
+      "options": {
+        "display": {
+          "codes": "Códigos curtos (EN, PT)",
+          "names": "Nomes dos idiomas"
+        }
+      },
+      "props": {
+        "display": "Mostrar"
+      }
+    },
     "login-form": {
       "description": "Acesso sem senha: o cliente recebe um link de acesso por e-mail.",
       "name": "Formulário de acesso",
@@ -384,13 +397,13 @@
       }
     },
     "social-links": {
-      "name": "Redes sociais",
       "description": "Ícones com links para seu WhatsApp, Instagram, Facebook, localização no mapa e mais.",
+      "name": "Redes sociais",
       "options": {
         "size": {
-          "sm": "Pequeno",
+          "lg": "Grande",
           "md": "Médio",
-          "lg": "Grande"
+          "sm": "Pequeno"
         }
       },
       "props": {
@@ -590,6 +603,12 @@
     "typography": "Tipografia",
     "useGoogle": "Usar Google Fonts (carrega as fontes do Google)"
   },
+  "socialLinks": {
+    "add": "Adicionar link",
+    "chosenOf": "{{chosen}} de {{max}}",
+    "network": "Rede do link {{number}}",
+    "target": "Destino do link {{number}}"
+  },
   "status": {
     "cantSave": "Não foi possível salvar: {{message}}",
     "conflict": "Este rascunho foi alterado em outro lugar. Recarregue o editor para ver a versão mais recente.",
@@ -771,11 +790,5 @@
     "templates": "Modelos",
     "undo": "Desfazer",
     "unsavedChanges": "Alterações não salvas"
-  },
-  "socialLinks": {
-    "network": "Rede do link {{number}}",
-    "target": "Destino do link {{number}}",
-    "add": "Adicionar link",
-    "chosenOf": "{{chosen}} de {{max}}"
   }
 }

@@ -1066,6 +1066,16 @@ components:
       x-commerceos-component: { type: search-box }
       properties:
         placeholder: { type: string, maxLength: 60 }
+    LanguageSwitcherProps:
+      type: object
+      additionalProperties: false
+      x-commerceos-component: { type: language-switcher }
+      description: >-
+        Links to the current page in each language the store offers
+        (sales channel storefront_locales). Shows nothing while the store
+        offers one language.
+      properties:
+        display: { type: string, enum: [names, codes] }
     AccountLinkProps:
       type: object
       additionalProperties: false

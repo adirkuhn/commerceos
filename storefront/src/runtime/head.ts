@@ -15,6 +15,8 @@ export interface HeadInput {
   /** Absolute URL of the store's home page. */
   homeURL?: string
   rating?: { average: number; count: number }
+  /** This page in every language the store offers (hreflang). */
+  alternates?: { hreflang: string; href: string }[]
 }
 
 const escapeHTML = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
@@ -53,6 +55,9 @@ export function buildHead(input: HeadInput): string {
   if (page.route.builtin) parts.push('<meta name="referrer" content="no-referrer">')
   if (index) {
     if (canonical) parts.push(`<link rel="canonical" href="${escapeHTML(canonical)}">`)
+    if ((input.alternates?.length ?? 0) > 1) {
+      for (const a of input.alternates ?? []) parts.push(`<link rel="alternate" hreflang="${escapeHTML(a.hreflang)}" href="${escapeHTML(a.href)}">`)
+    }
     parts.push(
       meta('property', 'og:type', page.product ? 'product' : 'website'),
       meta('property', 'og:title', title),

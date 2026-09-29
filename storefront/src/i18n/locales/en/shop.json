@@ -56,6 +56,7 @@
     "chooseImage": "Choose an image",
     "chooseProduct": "Choose a product in the settings.",
     "dataFailed": "This component’s store data couldn’t be loaded.",
+    "languageSwitcher": "Shows when your store offers more than one language (sales channel settings).",
     "listing": "Shows the collection or search this page is about.",
     "loading": "Loading…",
     "noProductsYet": "No products to show yet. Pick a category or products in the settings.",
@@ -65,9 +66,9 @@
     "publishCollection": "Publish a collection to show it here.",
     "recommendations": "Shows products often bought with this one.",
     "reviews": "Shows reviews of the product this page is about.",
+    "socialLinks": "Add your social media links in the settings.",
     "wishlist": "Products the shopper saved.",
-    "wishlistButton": "Saves the product this page is about.",
-    "socialLinks": "Add your social media links in the settings."
+    "wishlistButton": "Saves the product this page is about."
   },
   "listing": {
     "all": "All",
@@ -86,20 +87,21 @@
     "cartItems_one": "{{count}} item",
     "cartItems_other": "{{count}} items",
     "home": "Home",
+    "language": "Language",
     "menu": "Menu",
     "search": "Search",
     "signIn": "Sign in"
   },
   "newsletter": {
     "checkInbox": "Almost done: check your inbox and confirm your subscription.",
-    "confirmFailed": "This confirmation link has expired or was already used. Sign up again to get a new one.",
     "confirmed": "You’re subscribed. Thanks for joining our newsletter!",
+    "confirmFailed": "This confirmation link has expired or was already used. Sign up again to get a new one.",
     "confirming": "Confirming your subscription…",
     "consent": "I'd like to receive emails from this store. I can unsubscribe at any time.",
     "subscribe": "Subscribe",
     "title": "Newsletter",
-    "unsubscribeFailed": "This unsubscribe link is not valid. If you still get our emails, use the link in the latest one.",
     "unsubscribed": "You’ve been unsubscribed. You won’t get our newsletter anymore.",
+    "unsubscribeFailed": "This unsubscribe link is not valid. If you still get our emails, use the link in the latest one.",
     "unsubscribing": "Unsubscribing…"
   },
   "order": {
@@ -139,6 +141,12 @@
     "soldOut": "Sold out",
     "was": "Was"
   },
+  "social": {
+    "email": "Email",
+    "label": "Social media",
+    "maps": "Map",
+    "phone": "Phone"
+  },
   "store": {
     "unavailableText": "Please check the address or come back later.",
     "unavailableTitle": "This store is not available"
@@ -146,11 +154,5 @@
   "wishlist": {
     "empty": "Nothing saved yet.",
     "title": "Saved products"
-  },
-  "social": {
-    "label": "Social media",
-    "maps": "Map",
-    "email": "Email",
-    "phone": "Phone"
   }
 }

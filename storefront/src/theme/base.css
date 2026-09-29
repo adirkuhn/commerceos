@@ -121,6 +121,9 @@ body {
   .cos-nav-vertical ul { flex-direction: column; gap: var(--space-xs); }
   .cos-nav a, .cos-account-link, .cos-cart-link { color: inherit; text-decoration: none; }
   .cos-nav a:hover, .cos-account-link:hover, .cos-cart-link:hover { color: var(--color-primary); }
+  .cos-language-switcher ul { display: flex; gap: var(--space-sm); list-style: none; margin: 0; padding: 0; }
+  .cos-language-switcher a { color: inherit; text-decoration: none; opacity: 0.7; }
+  .cos-language-switcher a:hover, .cos-language-switcher a[aria-current] { opacity: 1; color: var(--color-primary); }
   .cos-cart-link { display: inline-flex; align-items: center; gap: var(--space-xs); }
   .cos-count { min-width: 1.25rem; padding: 0 0.375rem; border-radius: 999px; background: var(--color-primary); color: #fff; font-size: var(--text-sm); text-align: center; }
   .cos-social { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }

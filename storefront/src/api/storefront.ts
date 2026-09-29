@@ -112,8 +112,10 @@ export interface Collection {
 export interface StoreInfo {
   name: string
   currency_code: string
-  /** The storefront's language (en | pt-BR | nl). */
+  /** The storefront's default language (en | pt-BR | nl). */
   locale?: string
+  /** Every language shoppers can switch to, the default first. */
+  locales?: string[]
 }
 
 export interface CartItem {

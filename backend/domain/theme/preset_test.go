@@ -65,3 +65,17 @@ func find(n theme.Node, typ string) []theme.Node {
 	}
 	return out
 }
+
+// Every preset header carries a language switcher; it shows only once the
+// store offers more than one language.
+func TestPresets_headerHasALanguageSwitcher(t *testing.T) {
+	for _, key := range theme.PresetKeys() {
+		docs, err := theme.PresetDocuments(key, locale.English)
+		require.NoError(t, err)
+		for _, d := range docs {
+			if d.Kind == theme.KindSectionGroup && d.Key == "header" {
+				assert.NotEmpty(t, find(d.Root, "language-switcher"), key)
+			}
+		}
+	}
+}

@@ -56,6 +56,7 @@
     "chooseImage": "Kies een afbeelding",
     "chooseProduct": "Kies een product in de instellingen.",
     "dataFailed": "De winkelgegevens van dit onderdeel konden niet worden geladen.",
+    "languageSwitcher": "Verschijnt wanneer je winkel meer dan één taal aanbiedt (instellingen van het verkoopkanaal).",
     "listing": "Toont de collectie of zoekopdracht van deze pagina.",
     "loading": "Laden…",
     "noProductsYet": "Nog geen producten. Kies een categorie of producten in de instellingen.",
@@ -65,9 +66,9 @@
     "publishCollection": "Publiceer een collectie om die hier te tonen.",
     "recommendations": "Toont producten die vaak samen met dit product worden gekocht.",
     "reviews": "Toont reviews van het product van deze pagina.",
+    "socialLinks": "Voeg je sociale-medialinks toe in de instellingen.",
     "wishlist": "Producten die de klant heeft bewaard.",
-    "wishlistButton": "Bewaart het product van deze pagina.",
-    "socialLinks": "Voeg je sociale-medialinks toe in de instellingen."
+    "wishlistButton": "Bewaart het product van deze pagina."
   },
   "listing": {
     "all": "Alle",
@@ -86,20 +87,21 @@
     "cartItems_one": "{{count}} artikel",
     "cartItems_other": "{{count}} artikelen",
     "home": "Home",
+    "language": "Taal",
     "menu": "Menu",
     "search": "Zoeken",
     "signIn": "Inloggen"
   },
   "newsletter": {
     "checkInbox": "Bijna klaar: kijk in je inbox en bevestig je inschrijving.",
-    "confirmFailed": "Deze bevestigingslink is verlopen of al gebruikt. Schrijf je opnieuw in voor een nieuwe.",
     "confirmed": "Je bent ingeschreven. Bedankt voor je aanmelding!",
+    "confirmFailed": "Deze bevestigingslink is verlopen of al gebruikt. Schrijf je opnieuw in voor een nieuwe.",
     "confirming": "Je inschrijving wordt bevestigd…",
     "consent": "Ik wil e-mails van deze winkel ontvangen. Ik kan me op elk moment afmelden.",
     "subscribe": "Inschrijven",
     "title": "Nieuwsbrief",
-    "unsubscribeFailed": "Deze uitschrijflink is niet geldig. Krijg je nog e-mails, gebruik dan de link in de meest recente.",
     "unsubscribed": "Je bent uitgeschreven. Je ontvangt onze nieuwsbrief niet meer.",
+    "unsubscribeFailed": "Deze uitschrijflink is niet geldig. Krijg je nog e-mails, gebruik dan de link in de meest recente.",
     "unsubscribing": "Uitschrijven…"
   },
   "order": {
@@ -139,6 +141,12 @@
     "soldOut": "Uitverkocht",
     "was": "Was"
   },
+  "social": {
+    "email": "E-mail",
+    "label": "Sociale media",
+    "maps": "Kaart",
+    "phone": "Telefoon"
+  },
   "store": {
     "unavailableText": "Controleer het adres of kom later terug.",
     "unavailableTitle": "Deze winkel is niet beschikbaar"
@@ -146,11 +154,5 @@
   "wishlist": {
     "empty": "Nog niets bewaard.",
     "title": "Bewaarde producten"
-  },
-  "social": {
-    "label": "Sociale media",
-    "maps": "Kaart",
-    "email": "E-mail",
-    "phone": "Telefoon"
   }
 }

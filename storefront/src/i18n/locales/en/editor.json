@@ -220,6 +220,19 @@
         "link": "Link"
       }
     },
+    "language-switcher": {
+      "description": "Lets shoppers switch between the languages your store offers.",
+      "name": "Language switcher",
+      "options": {
+        "display": {
+          "codes": "Short codes (EN, PT)",
+          "names": "Language names"
+        }
+      },
+      "props": {
+        "display": "Show"
+      }
+    },
     "login-form": {
       "description": "Passwordless sign-in: shoppers get a sign-in link by email.",
       "name": "Sign-in form",

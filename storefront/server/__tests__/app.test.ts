@@ -70,6 +70,22 @@ describe('storefront server', () => {
     expect(deps.render).toHaveBeenCalledWith(expect.objectContaining({ previewToken: 'pv' }))
   })
 
+  it("sends a returning shopper to their language and hands the renderer the request's cookies", async () => {
+    const render = vi.fn(async () => ({ status: 302, redirect: '/store/key-1/nl/', head: '', html: '', state: '', lang: 'nl' }))
+    const { deps, get } = await start({ render })
+    const res = await get('/store/key-1/', { headers: { Cookie: 'cos_shop_lang=nl' } })
+
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe('/store/key-1/nl/')
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    expect(deps.render).toHaveBeenCalledWith(expect.objectContaining({ cookie: 'cos_shop_lang=nl' }))
+  })
+
+  it('store pages vary by cookie (the remembered language decides plain URLs)', async () => {
+    const { get } = await start()
+    expect((await get('/store/key-1/')).headers.get('vary')).toBe('Cookie')
+  })
+
   it('turns a preview link into a cookie and a clean redirect', async () => {
     const { get } = await start()
     const res = await get('/store/key-1/?preview=pv')

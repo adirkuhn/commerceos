@@ -16,6 +16,7 @@ import { ProductRecommendationsView, ProductReviewsView } from './commerce/Produ
 import { BreadcrumbsView, CollectionFiltersView, CollectionHeaderView, CollectionProductsView, PaginationView } from './commerce/ListingViews'
 import { CartItemsView, CartSummaryView, CheckoutButtonView } from './cart/CartViews'
 import { SocialLinksView } from './site/SocialLinksView'
+import { LanguageSwitcherView } from './site/LanguageSwitcherView'
 import { AccountLinkView, CartLinkView, NavigationMenuView, SearchBoxView, SiteLogoView } from './site/SiteViews'
 import { BannerView, CollectionListView, HeroView, NewsletterSignupView } from './marketing/MarketingViews'
 import { AccountOverviewView, LoginFormView, WishlistButtonView, WishlistItemsView } from './customer/CustomerViews'
@@ -89,6 +90,7 @@ const renderers: Record<string, Renderer> = {
   'cart-link': typed(CartLinkView),
   'search-box': typed(SearchBoxView),
   'social-links': typed(SocialLinksView),
+  'language-switcher': typed(LanguageSwitcherView),
   'account-link': typed(AccountLinkView),
   hero: typed(HeroView),
   banner: typed(BannerView),

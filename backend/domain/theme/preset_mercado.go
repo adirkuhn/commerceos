@@ -84,6 +84,7 @@ func mercadoHeader() Node {
 				n("header-brand", "column", nil, n("logo", "site-logo", map[string]any{"size": "lg"})),
 				n("header-search", "column", map[string]any{"span": 2}, n("search", "search-box", map[string]any{"placeholder": ""})),
 				n("header-actions", "column", nil,
+					n("languages", "language-switcher", map[string]any{"display": "codes"}),
 					n("account", "account-link", map[string]any{"login_label": "", "account_label": ""}),
 					n("wishlist-link", "navigation-menu", map[string]any{"orientation": "horizontal",
 						"items": []any{map[string]any{"label": "Wishlist", "link": "/wishlist"}}}),

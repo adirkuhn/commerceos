@@ -179,6 +179,7 @@ func defaultHeader() Node {
 			})),
 			n("header-actions", "column", nil,
 				n("search", "search-box", map[string]any{"placeholder": ""}),
+				n("languages", "language-switcher", map[string]any{"display": "codes"}),
 				n("account", "account-link", map[string]any{"login_label": "", "account_label": ""}),
 				n("cart", "cart-link", map[string]any{"label": "", "show_count": true}),
 			),

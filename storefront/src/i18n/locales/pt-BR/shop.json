@@ -56,6 +56,7 @@
     "chooseImage": "Escolha uma imagem",
     "chooseProduct": "Escolha um produto nas configurações.",
     "dataFailed": "Não foi possível carregar os dados da loja deste componente.",
+    "languageSwitcher": "Aparece quando sua loja oferece mais de um idioma (configurações do canal de vendas).",
     "listing": "Mostra a coleção ou a busca desta página.",
     "loading": "Carregando…",
     "noProductsYet": "Ainda não há produtos. Escolha uma categoria ou produtos nas configurações.",
@@ -65,9 +66,9 @@
     "publishCollection": "Publique uma coleção para mostrá-la aqui.",
     "recommendations": "Mostra produtos comprados junto com este.",
     "reviews": "Mostra as avaliações do produto desta página.",
+    "socialLinks": "Adicione os links das suas redes sociais nas configurações.",
     "wishlist": "Produtos que o cliente salvou.",
-    "wishlistButton": "Salva o produto desta página.",
-    "socialLinks": "Adicione os links das suas redes sociais nas configurações."
+    "wishlistButton": "Salva o produto desta página."
   },
   "listing": {
     "all": "Todos",
@@ -87,20 +88,21 @@
     "cartItems_many": "{{count}} itens",
     "cartItems_other": "{{count}} itens",
     "home": "Início",
+    "language": "Idioma",
     "menu": "Menu",
     "search": "Buscar",
     "signIn": "Entrar"
   },
   "newsletter": {
     "checkInbox": "Quase lá: confira seu e-mail e confirme sua inscrição.",
-    "confirmFailed": "Este link de confirmação expirou ou já foi usado. Inscreva-se de novo para receber outro.",
     "confirmed": "Inscrição confirmada. Obrigado por assinar nossa newsletter!",
+    "confirmFailed": "Este link de confirmação expirou ou já foi usado. Inscreva-se de novo para receber outro.",
     "confirming": "Confirmando sua inscrição…",
     "consent": "Quero receber e-mails desta loja. Posso cancelar a inscrição a qualquer momento.",
     "subscribe": "Inscrever-se",
     "title": "Newsletter",
-    "unsubscribeFailed": "Este link de cancelamento não é válido. Se ainda receber nossos e-mails, use o link do mais recente.",
     "unsubscribed": "Sua inscrição foi cancelada. Você não receberá mais nossa newsletter.",
+    "unsubscribeFailed": "Este link de cancelamento não é válido. Se ainda receber nossos e-mails, use o link do mais recente.",
     "unsubscribing": "Cancelando inscrição…"
   },
   "order": {
@@ -140,6 +142,12 @@
     "soldOut": "Esgotado",
     "was": "De"
   },
+  "social": {
+    "email": "E-mail",
+    "label": "Redes sociais",
+    "maps": "Mapa",
+    "phone": "Telefone"
+  },
   "store": {
     "unavailableText": "Confira o endereço ou volte mais tarde.",
     "unavailableTitle": "Esta loja não está disponível"
@@ -147,11 +155,5 @@
   "wishlist": {
     "empty": "Nada salvo ainda.",
     "title": "Produtos salvos"
-  },
-  "social": {
-    "label": "Redes sociais",
-    "maps": "Mapa",
-    "email": "E-mail",
-    "phone": "Telefone"
   }
 }

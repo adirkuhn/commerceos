@@ -1,15 +1,18 @@
 import type { SitemapData } from '../api/storefront'
 import type { StorefrontTheme } from '../core/document'
+import type { StoreLanguages } from './storeLocale'
 
 // The store's sitemap.xml: home, the live theme's pages, then the
-// backend's collections and products (which carry when they changed).
+// backend's collections and products (which carry when they changed) --
+// each in every language the store offers.
 
 const escapeXML = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]!)
 
-export function sitemapXML(origin: string, storeKey: string, theme: StorefrontTheme, data: SitemapData): string {
-  const base = `${origin.replace(/\/+$/, '')}/store/${encodeURIComponent(storeKey)}/`
-  const url = (path: string, lastmod?: string) =>
-    `<url><loc>${escapeXML(base + path)}</loc>${lastmod ? `<lastmod>${escapeXML(lastmod)}</lastmod>` : ''}</url>`
+export function sitemapXML(origin: string, storeKey: string, theme: StorefrontTheme, data: SitemapData, langs?: StoreLanguages): string {
+  const store = `${origin.replace(/\/+$/, '')}/store/${encodeURIComponent(storeKey)}/`
+  const bases = (langs?.offered ?? []).filter(l => l !== langs?.defaultLocale).map(l => `${store}${l}/`)
+  const url = (path: string, lastmod?: string) => [store, ...bases].map(base =>
+    `<url><loc>${escapeXML(base + path)}</loc>${lastmod ? `<lastmod>${escapeXML(lastmod)}</lastmod>` : ''}</url>`).join('\n')
   const entries = [
     url(''),
     ...theme.documents.filter(d => d.kind === 'page').map(d => url(`pages/${encodeURIComponent(d.key)}`)),

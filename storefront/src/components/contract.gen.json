@@ -306,6 +306,18 @@
       ]
     },
     {
+      "type": "language-switcher",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "display"
+      ],
+      "required_props": []
+    },
+    {
       "type": "login-form",
       "container": false,
       "allowed_children": [],

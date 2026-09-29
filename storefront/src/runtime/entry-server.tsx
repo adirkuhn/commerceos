@@ -17,7 +17,8 @@ import { canonicalURL } from './seo'
 import { sitemapXML } from './sitemap'
 import { createI18n } from '../i18n/createI18n'
 import { loadShopLocale } from '../i18n/resources'
-import { resolveLocale } from '../i18n/locale'
+import { resolveLocale, type Locale } from '../i18n/locale'
+import { localeFromCookie, splitLocale, storeLanguages, storePathFor } from './storeLocale'
 
 export const BASENAME = '/store'
 
@@ -34,6 +35,8 @@ export interface RenderOptions {
   acceptLanguage?: string
   /** Origin shoppers reach the store on (canonical URLs, structured data). */
   publicOrigin?: string
+  /** The request's Cookie header (the shopper's remembered language). */
+  cookie?: string
 }
 
 export interface RenderResult {
@@ -43,6 +46,8 @@ export interface RenderResult {
   state: string
   /** The page language, for <html lang>. */
   lang: string
+  /** Send the shopper here instead (302): their remembered language. */
+  redirect?: string
 }
 
 
@@ -88,18 +93,26 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
     return unavailable(status, opts.acceptLanguage)
   }
 
-  const query = new URL(opts.url, 'http://x').searchParams
-  const page = await resolvePageData(qc, api, theme, parsed.path, query)
+  const requested = new URL(opts.url, 'http://x')
+  const query = requested.searchParams
+  const store = await qc.fetchQuery(storeQuery(api))
+  const langs = storeLanguages(store)
+  const { locale, path, prefixed } = splitLocale(parsed.path, langs)
+  const remembered = prefixed ? undefined : localeFromCookie(opts.cookie, langs)
+  if (remembered && remembered !== locale) {
+    return { status: 302, redirect: storePathFor(parsed.storeKey, remembered, langs)(path.replace(/^\/+/, '') + requested.search), head: '', html: '', state: '', lang: remembered }
+  }
+
+  const page = await resolvePageData(qc, api, theme, path, query)
   const route = page.route
   const regions = [['section_group', 'header'], ['section_group', 'footer']] as const
-  const [main, regionDocs, store] = await Promise.all([
+  const [main, regionDocs] = await Promise.all([
     route.builtin ? undefined : qc.fetchQuery(documentQuery(api, theme, route.kind, route.key)),
     Promise.all(regions.filter(([k, key]) => hasDocument(theme, k, key)).map(([k, key]) => qc.fetchQuery(documentQuery(api, theme, k, key)))),
-    qc.fetchQuery(storeQuery(api)),
   ])
   const docs = main ? [main, ...regionDocs] : regionDocs
   // The page renders synchronously: its language's texts must be loaded first.
-  await loadShopLocale(resolveLocale(store?.locale))
+  await loadShopLocale(locale)
   // Catalog data the components show. A failed fetch is left out of the
   // cache; that component renders nothing rather than failing the page.
   await Promise.all(docs.flatMap(d => dataQueriesFor(d.root, api, { product: page.product })).map(q => qc.prefetchQuery(q)))
@@ -114,13 +127,20 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
     </QueryClientProvider>,
   )
 
+  // A page's address in one language: /{lang}/… unless it is the default.
+  const localized = (l: Locale, p: string) => (l === langs.defaultLocale ? p : `/${l}${p}`)
+  const urlIn = (l: Locale) => canonicalURL(opts.publicOrigin, parsed.storeKey, localized(l, path), query, route)
+  const alternates = opts.publicOrigin
+    ? [...langs.offered.map(l => ({ hreflang: l, href: urlIn(l)! })), { hreflang: 'x-default', href: urlIn(langs.defaultLocale)! }]
+    : undefined
   return {
     status: route.notFound ? 404 : 200,
-    lang: resolveLocale(store?.locale),
+    lang: locale,
     head: buildHead({
       theme, doc: main, page, preview: theme.preview || Boolean(opts.previewToken), storeName: store?.name ?? '',
-      canonical: canonicalURL(opts.publicOrigin, parsed.storeKey, parsed.path, query, route),
-      homeURL: canonicalURL(opts.publicOrigin, parsed.storeKey, '/', new URLSearchParams(), route),
+      canonical: urlIn(locale),
+      homeURL: canonicalURL(opts.publicOrigin, parsed.storeKey, localized(locale, '/'), new URLSearchParams(), route),
+      alternates,
       rating: page.product ? cachedRating(qc, page.product.id) : undefined,
     }),
     html,
@@ -144,8 +164,8 @@ export async function renderSitemap(opts: SitemapOptions): Promise<{ status: num
   if (!opts.publicOrigin) return { status: 404, body: '' }
   const api = new StorefrontAPI({ baseURL: opts.apiBaseURL, storeKey: opts.storeKey, fetch: opts.fetch })
   try {
-    const [theme, data] = await Promise.all([api.getTheme(), api.getSitemap()])
-    return { status: 200, body: sitemapXML(opts.publicOrigin, opts.storeKey, theme, data) }
+    const [theme, data, store] = await Promise.all([api.getTheme(), api.getSitemap(), api.getStore().catch(() => null)])
+    return { status: 200, body: sitemapXML(opts.publicOrigin, opts.storeKey, theme, data, storeLanguages(store)) }
   } catch (err) {
     if (err instanceof ApiError && [401, 404, 422].includes(err.status)) return { status: 404, body: '' }
     throw err

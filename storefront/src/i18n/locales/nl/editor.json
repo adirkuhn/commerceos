@@ -220,6 +220,19 @@
         "link": "Link"
       }
     },
+    "language-switcher": {
+      "description": "Laat klanten wisselen tussen de talen die je winkel aanbiedt.",
+      "name": "Taalkeuze",
+      "options": {
+        "display": {
+          "codes": "Korte codes (EN, PT)",
+          "names": "Taalnamen"
+        }
+      },
+      "props": {
+        "display": "Tonen"
+      }
+    },
     "login-form": {
       "description": "Inloggen zonder wachtwoord: klanten krijgen een inloglink per e-mail.",
       "name": "Inlogformulier",
@@ -384,13 +397,13 @@
       }
     },
     "social-links": {
-      "name": "Sociale links",
       "description": "Iconen met links naar je WhatsApp, Instagram, Facebook, locatie op de kaart en meer.",
+      "name": "Sociale links",
       "options": {
         "size": {
-          "sm": "Klein",
+          "lg": "Groot",
           "md": "Middel",
-          "lg": "Groot"
+          "sm": "Klein"
         }
       },
       "props": {
@@ -590,6 +603,12 @@
     "typography": "Typografie",
     "useGoogle": "Google Fonts gebruiken (laadt lettertypen van Google)"
   },
+  "socialLinks": {
+    "add": "Link toevoegen",
+    "chosenOf": "{{chosen}} van {{max}}",
+    "network": "Netwerk van link {{number}}",
+    "target": "Link {{number}} gaat naar"
+  },
   "status": {
     "cantSave": "Kan niet opslaan: {{message}}",
     "conflict": "Dit concept is ergens anders gewijzigd. Laad de editor opnieuw voor de nieuwste versie.",
@@ -771,11 +790,5 @@
     "templates": "Sjablonen",
     "undo": "Ongedaan maken",
     "unsavedChanges": "Niet-opgeslagen wijzigingen"
-  },
-  "socialLinks": {
-    "network": "Netwerk van link {{number}}",
-    "target": "Link {{number}} gaat naar",
-    "add": "Link toevoegen",
-    "chosenOf": "{{chosen}} van {{max}}"
   }
 }

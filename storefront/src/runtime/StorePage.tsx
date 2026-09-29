@@ -19,6 +19,8 @@ import { StoreInfoProvider } from './page/StoreContext'
 import { WishlistProvider } from './page/WishlistContext'
 import { collectionPageQuery, listingQuery, productPageQuery, storeQuery } from './page/queries'
 import { NewsletterPage } from './builtin/NewsletterPage'
+import { StoreLanguageProvider } from './page/StoreLanguageContext'
+import { splitLocale, storeLanguages, storePathFor } from './storeLocale'
 import { listingParamsFor } from './page/routeData'
 
 export { documentFor }
@@ -116,12 +118,17 @@ export function StorePage({ path, storeKey, query = new URLSearchParams() }: { p
   const api = useStorefrontAPI()
   const { data: theme } = useSuspenseQuery(themeQuery(api))
   const { data: store } = useSuspenseQuery(storeQuery(api))
-  const route = documentFor(theme, path)
-  const storePath = (p: string) => `/store/${encodeURIComponent(storeKey)}/${p}`
-  const locale = resolveLocale(store?.locale)
+  const langs = storeLanguages(store)
+  const { locale, path: pagePath } = splitLocale(path, langs)
+  const route = documentFor(theme, pagePath)
+  const storePath = storePathFor(storeKey, locale, langs)
+  const qs = query.toString()
+  const here = pagePath.replace(/^\/+/, '') + (qs ? `?${qs}` : '')
+  const language = { storeKey, locale, offered: langs.offered, hrefFor: (l: Locale) => storePathFor(storeKey, l, langs)(here) }
   const i18n = useMemo(() => createI18n(locale), [locale])
   return (
     <I18nextProvider i18n={i18n}>
+    <StoreLanguageProvider value={language}>
     <RenderProvider value={{ mode: 'live', storePath }}>
       <StoreInfoProvider value={{ name: store?.name ?? '', settings: theme.settings, assets: theme.assets ?? {} }}>
         <CustomerProvider api={api} storeKey={storeKey}>
@@ -133,6 +140,7 @@ export function StorePage({ path, storeKey, query = new URLSearchParams() }: { p
         </CustomerProvider>
       </StoreInfoProvider>
     </RenderProvider>
+    </StoreLanguageProvider>
     </I18nextProvider>
   )
 }
