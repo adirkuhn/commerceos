@@ -383,6 +383,15 @@
     "general": "Algemeen",
     "woocommerce": "WooCommerce"
   },
+  "translations": {
+    "description": "Beschrijving",
+    "help": "Naam en beschrijving in de andere talen van de winkel. Leeg gelaten zien klanten de tekst in het {{language}}.",
+    "name": "Naam",
+    "save": "Vertalingen opslaan",
+    "saveFailed": "De vertalingen konden niet worden opgeslagen.",
+    "saved": "Vertalingen opgeslagen.",
+    "title": "Vertalingen"
+  },
   "unmatched": {
     "count_one": "{{count}} bestelling met een niet-gekoppelde regel",
     "count_other": "{{count}} bestellingen met een niet-gekoppelde regel",

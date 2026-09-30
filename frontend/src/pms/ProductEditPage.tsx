@@ -18,6 +18,7 @@ import { skuPassThroughPayload } from './skuPayloads'
 import { EDITOR_TABS, ProductEditorTabs, type EditorTab } from './ProductEditorTabs'
 import { ProductEditHeader } from './ProductEditHeader'
 import { ProductDetailsCard } from './ProductDetailsCard'
+import { ProductTranslationsCard } from './ProductTranslationsCard'
 import { ProductVariantsCard } from './ProductVariantsCard'
 import { ProductSidebar } from './ProductSidebar'
 import { FlatSkuPricingCard } from './FlatSkuPricingCard'
@@ -138,6 +139,8 @@ export function ProductEditPage({ productId, categories, onCreateCategory, onUpd
                     <p className="text-2xs text-ink-4">{t('media.saveFirst')}</p>
                   )}
                 </FormCard>
+
+                {detail.detail?.product && <ProductTranslationsCard product={detail.detail.product} />}
 
                 {savedProductId && <ProductHistoryCard productId={savedProductId} />}
 

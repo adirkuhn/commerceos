@@ -26,7 +26,15 @@ export interface Category {
   updated_at: string
 }
 
+/** A product's shopper-facing texts in one language. */
+export interface ProductTexts {
+  name?: string
+  description?: string
+}
+
 export interface Product {
+  /** Name/description per language other than the company one. */
+  translations?: Record<string, ProductTexts>
   id: string
   tenant_id: string
   category_id?: string | null

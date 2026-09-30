@@ -1,4 +1,5 @@
 import type {
+  ProductTexts,
   Category, Product, ProductDetail, Variant, SKU, Media, ResolveBarcodeResult,
   CreateCategoryPayload, UpdateCategoryPayload,
   CreateProductPayload, UpdateProductPayload,
@@ -97,6 +98,11 @@ export function getProduct(token: string, id: string): Promise<ProductDetail> {
 
 export function updateProduct(token: string, id: string, payload: UpdateProductPayload): Promise<Product> {
   return request<Product>(`${base()}/products/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }, token)
+}
+
+// Replaces the product's name/description in the store's other languages.
+export function setProductTranslations(token: string, id: string, translations: Record<string, ProductTexts>): Promise<Product> {
+  return request<Product>(`${base()}/products/${id}/translations`, { method: 'PUT', body: JSON.stringify({ translations }) }, token)
 }
 
 export function deleteProduct(token: string, id: string): Promise<null> {

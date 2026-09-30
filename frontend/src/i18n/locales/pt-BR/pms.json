@@ -386,6 +386,15 @@
     "general": "Geral",
     "woocommerce": "WooCommerce"
   },
+  "translations": {
+    "description": "Descrição",
+    "help": "Nome e descrição nos outros idiomas da loja. Em branco, os clientes veem o texto em {{language}}.",
+    "name": "Nome",
+    "save": "Salvar traduções",
+    "saveFailed": "Não foi possível salvar as traduções.",
+    "saved": "Traduções salvas.",
+    "title": "Traduções"
+  },
   "unmatched": {
     "count_one": "{{count}} pedido com um item sem vínculo",
     "count_many": "{{count}} pedidos com um item sem vínculo",

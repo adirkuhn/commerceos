@@ -383,6 +383,15 @@
     "general": "General",
     "woocommerce": "WooCommerce"
   },
+  "translations": {
+    "description": "Description",
+    "help": "Name and description in the store’s other languages. Left blank, shoppers see the {{language}} text.",
+    "name": "Name",
+    "save": "Save translations",
+    "saveFailed": "Could not save the translations.",
+    "saved": "Translations saved.",
+    "title": "Translations"
+  },
   "unmatched": {
     "count_one": "{{count}} order with an unmatched line item",
     "count_other": "{{count}} orders with an unmatched line item",
