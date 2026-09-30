@@ -77,13 +77,13 @@ func (h *Handler) ListStorefrontCollections(c *gin.Context, params genstorefront
 	}
 	data := make([]genstorefront.StorefrontCollection, len(list))
 	for i, col := range list {
-		data[i] = toGenCollection(col)
+		data[i] = toGenCollection(col.In(shopLocale(params.Locale)))
 	}
 	t := int(total)
 	c.JSON(http.StatusOK, genstorefront.StorefrontCollectionListResponse{Data: &data, Total: &t})
 }
 
-func (h *Handler) GetStorefrontCollection(c *gin.Context, slug string) {
+func (h *Handler) GetStorefrontCollection(c *gin.Context, slug string, params genstorefront.GetStorefrontCollectionParams) {
 	resolved, ok := h.authenticateChannel(c)
 	if !ok {
 		return
@@ -95,10 +95,10 @@ func (h *Handler) GetStorefrontCollection(c *gin.Context, slug string) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, toGenCollection(*col))
+	middleware.OK(c, toGenCollection(col.In(shopLocale(params.Locale))))
 }
 
-func (h *Handler) GetStorefrontProductBySlug(c *gin.Context, slug string) {
+func (h *Handler) GetStorefrontProductBySlug(c *gin.Context, slug string, params genstorefront.GetStorefrontProductBySlugParams) {
 	resolved, ok := h.authenticateChannel(c)
 	if !ok {
 		return
@@ -110,7 +110,7 @@ func (h *Handler) GetStorefrontProductBySlug(c *gin.Context, slug string) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, toGenProductDetail(*detail))
+	middleware.OK(c, toGenProductDetail(detail.In(shopLocale(params.Locale))))
 }
 
 func (h *Handler) GetStorefrontStore(c *gin.Context) {

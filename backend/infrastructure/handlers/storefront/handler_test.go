@@ -18,6 +18,7 @@ import (
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	reviewsDomain "github.com/adirkuhn/commerceos/domain/reviews"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
@@ -1122,4 +1123,19 @@ func TestCheckoutCartHandler_cardPaymentMismatchIs422(t *testing.T) {
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts/cart-token-1/checkout", body, "test-key")
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestListStorefrontProductsHandler_namesInTheShoppersLanguage(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	list := &stubListProducts{out: &appstorefront.ListProductsResult{Total: 1, Products: []appstorefront.ProductSummary{{
+		Product: pmsDomain.Product{ID: "p1", Name: "Pão de queijo", Slug: "pao-de-queijo",
+			Translations: map[locale.Locale]pmsDomain.ProductTexts{locale.English: {Name: "Cheese bread"}}},
+	}}}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, list, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/products?locale=en", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Contains(t, w.Body.String(), `"name":"Cheese bread"`)
+	assert.Contains(t, w.Body.String(), `"slug":"pao-de-queijo"`, "links stay the same in every language")
 }

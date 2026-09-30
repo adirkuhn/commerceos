@@ -13,6 +13,7 @@ import (
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	"github.com/adirkuhn/commerceos/domain/collections"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
@@ -76,6 +77,7 @@ func sampleCollection() appstorefront.StorefrontCollection {
 	url := "https://cdn/c.jpg"
 	c := appstorefront.StorefrontCollection{ImageURL: &url}
 	c.ID, c.Name, c.Slug = colID, "Summer", "summer"
+	c.Translations = map[locale.Locale]collections.Texts{locale.Portuguese: {Name: "Verão"}}
 	return c
 }
 
@@ -93,7 +95,8 @@ func catalogRouter(s *catalogStub) *gin.Engine {
 		}),
 		GetProductBySlug: bySlugF(func(_ context.Context, _, slug string) (*appstorefront.ProductDetail, error) {
 			s.gotSlug = slug
-			return &appstorefront.ProductDetail{}, s.err
+			return &appstorefront.ProductDetail{Product: pmsDomain.Product{Name: "Red shoes",
+				Translations: map[locale.Locale]pmsDomain.ProductTexts{locale.Dutch: {Name: "Rode schoenen"}}}}, s.err
 		}),
 		GetStoreInfo: storeF(func(context.Context, string) (*appstorefront.StoreInfo, error) {
 			return &appstorefront.StoreInfo{Name: "My Shop", CurrencyCode: "EUR", Locale: "pt-BR", Locales: []channelsDomain.StorefrontLocale{"pt-BR", "nl"}}, s.err
@@ -162,4 +165,19 @@ func TestCatalog_sitemap(t *testing.T) {
 	w = doRequest(catalogRouter(&catalogStub{err: storefrontDomain.ErrNoInternalChannel}), http.MethodGet, "/api/v1/storefront/v1/sitemap", "", "key")
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	assert.Equal(t, http.StatusUnauthorized, doRequest(catalogRouter(&catalogStub{}), http.MethodGet, "/api/v1/storefront/v1/sitemap", "", "").Code)
+}
+
+func TestCatalog_textsInTheShoppersLanguage(t *testing.T) {
+	s := &catalogStub{}
+	w := doRequest(catalogRouter(s), http.MethodGet, "/api/v1/storefront/v1/collections/by-slug/summer?locale=pt-BR", "", "key")
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Contains(t, w.Body.String(), `"name":"Verão"`)
+
+	w = doRequest(catalogRouter(s), http.MethodGet, "/api/v1/storefront/v1/collections?locale=pt-BR", "", "key")
+	assert.Contains(t, w.Body.String(), `"name":"Verão"`)
+
+	w = doRequest(catalogRouter(s), http.MethodGet, "/api/v1/storefront/v1/products/by-slug/red-shoes?locale=nl", "", "key")
+	assert.Contains(t, w.Body.String(), `"name":"Rode schoenen"`)
+	w = doRequest(catalogRouter(s), http.MethodGet, "/api/v1/storefront/v1/products/by-slug/red-shoes", "", "key")
+	assert.Contains(t, w.Body.String(), `"name":"Red shoes"`, "no language: the default texts")
 }

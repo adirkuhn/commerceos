@@ -436,6 +436,7 @@ paths:
         distinguishable from one that simply doesn't exist (see
         getStorefrontProduct's 404 for the same rule on a single product).
       parameters:
+        - $ref: '#/components/parameters/Locale'
         - name: category_id
           in: query
           schema: { type: string }
@@ -493,6 +494,7 @@ paths:
       operationId: getStorefrontProductBySlug
       summary: One enrolled product by its URL slug (same rules as getStorefrontProduct)
       parameters:
+        - $ref: '#/components/parameters/Locale'
         - { name: slug, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
       responses:
         '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/StorefrontProductResponse' } } } }
@@ -504,6 +506,7 @@ paths:
       operationId: listStorefrontCollections
       summary: The tenant's published collections, by name
       parameters:
+        - $ref: '#/components/parameters/Locale'
         - { name: page, in: query, schema: { type: integer, minimum: 1 } }
         - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
       responses:
@@ -515,6 +518,7 @@ paths:
       operationId: getStorefrontCollection
       summary: One published collection by its URL slug
       parameters:
+        - $ref: '#/components/parameters/Locale'
         - { name: slug, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 64 } }
       responses:
         '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/StorefrontCollectionResponse' } } } }
@@ -589,6 +593,7 @@ paths:
       operationId: getStorefrontProduct
       summary: Fetch one enrolled product's full variant/SKU/image detail
       parameters:
+        - $ref: '#/components/parameters/Locale'
         - name: id
           in: path
           required: true
@@ -617,6 +622,7 @@ paths:
         every candidate has since been deactivated/unenrolled), not an
         error.
       parameters:
+        - $ref: '#/components/parameters/Locale'
         - name: id
           in: path
           required: true
@@ -744,6 +750,17 @@ paths:
 
 components:
   parameters:
+    Locale:
+      name: locale
+      in: query
+      required: false
+      description: >
+        The language the shopper reads the store in: product and collection
+        names/descriptions come back translated where the merchant wrote a
+        translation, else in the store's default language. Omitted means the
+        default language.
+      schema: { $ref: '#/components/schemas/ShopLocale' }
+
     CartToken:
       name: token
       in: path
@@ -771,6 +788,9 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
+    ShopLocale:
+      type: string
+      enum: [en, pt-BR, nl]
     CartLine:
       type: object
       required: [sku_code, quantity]

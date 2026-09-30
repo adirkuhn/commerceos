@@ -8,6 +8,7 @@ import (
 
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -50,7 +51,7 @@ func (h *Handler) ListStorefrontProducts(c *gin.Context, params genstorefront.Li
 	}
 	items := make([]genstorefront.StorefrontProductSummary, len(result.Products))
 	for i, p := range result.Products {
-		items[i] = toGenProductSummary(p)
+		items[i] = toGenProductSummary(p.In(shopLocale(params.Locale)))
 	}
 	facets := make([]genstorefront.StorefrontCategoryFacet, len(result.CategoryFacets))
 	for i, f := range result.CategoryFacets {
@@ -64,7 +65,7 @@ func (h *Handler) ListStorefrontProducts(c *gin.Context, params genstorefront.Li
 	}{Items: items, Total: total, CategoryFacets: facets})
 }
 
-func (h *Handler) GetStorefrontProduct(c *gin.Context, id string) {
+func (h *Handler) GetStorefrontProduct(c *gin.Context, id string, params genstorefront.GetStorefrontProductParams) {
 	resolved, ok := h.authenticateChannel(c)
 	if !ok {
 		return
@@ -81,10 +82,10 @@ func (h *Handler) GetStorefrontProduct(c *gin.Context, id string) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, toGenProductDetail(*detail))
+	middleware.OK(c, toGenProductDetail(detail.In(shopLocale(params.Locale))))
 }
 
-func (h *Handler) GetStorefrontProductRecommendations(c *gin.Context, id string) {
+func (h *Handler) GetStorefrontProductRecommendations(c *gin.Context, id string, params genstorefront.GetStorefrontProductRecommendationsParams) {
 	resolved, ok := h.authenticateChannel(c)
 	if !ok {
 		return
@@ -96,7 +97,7 @@ func (h *Handler) GetStorefrontProductRecommendations(c *gin.Context, id string)
 	}
 	items := make([]genstorefront.StorefrontProductSummary, len(summaries))
 	for i, p := range summaries {
-		items[i] = toGenProductSummary(p)
+		items[i] = toGenProductSummary(p.In(shopLocale(params.Locale)))
 	}
 	middleware.OK(c, items)
 }
@@ -151,4 +152,13 @@ func strPtrOr(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// shopLocale is the language the shopper reads the store in; "" (omitted)
+// keeps the default-language texts.
+func shopLocale(l *genstorefront.ShopLocale) locale.Locale {
+	if l == nil {
+		return ""
+	}
+	return locale.Locale(*l)
 }
