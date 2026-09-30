@@ -16,6 +16,7 @@ if (stateEl?.textContent) void loadShopLocale(resolveLocale(document.documentEle
   const state = JSON.parse(stateEl.textContent) as PageState
   const api = new StorefrontAPI({
     baseURL: state.config.publicApiBaseURL, storeKey: state.config.storeKey, previewToken: state.config.previewToken,
+    locale: state.config.locale,
   })
   const qc = new QueryClient({ defaultOptions: { queries: { retry: 1 } } })
   hydrateRoot(

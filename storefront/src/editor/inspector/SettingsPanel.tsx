@@ -27,6 +27,7 @@ export function SettingsPanel({ settings, onSave, saving }: { settings: ThemeSet
     primary: t('settings.colors.primary'), secondary: t('settings.colors.secondary'), accent: t('settings.colors.accent'),
     text: t('settings.colors.text'), muted: t('settings.colors.muted'), background: t('settings.colors.background'), surface: t('settings.colors.surface'),
   }
+  const styleNames: Record<NonNullable<ThemeSettings['style']>, string> = { default: t('settings.styles.default'), supermarket: t('settings.styles.supermarket') }
   const corners: Record<ThemeSettings['buttons']['radius'], string> = {
     none: t('settings.corners.none'), sm: t('settings.corners.sm'), md: t('settings.corners.md'), lg: t('settings.corners.lg'), full: t('settings.corners.full'),
   }
@@ -34,7 +35,7 @@ export function SettingsPanel({ settings, onSave, saving }: { settings: ThemeSet
   return (
     <div className="flex flex-col gap-5">
       <h2 className="font-semibold">{t('settings.title')}</h2>
-      <SelectField label={t('settings.style')} value={draft.style ?? 'default'} options={THEME_STYLES.map(v => ({ value: v, label: t(`settings.styles.${v}`) }))}
+      <SelectField label={t('settings.style')} value={draft.style ?? 'default'} options={THEME_STYLES.map(v => ({ value: v, label: styleNames[v] }))}
         onChange={v => setDraft(d => ({ ...d, style: v as ThemeSettings['style'] }))} />
       <section className="flex flex-col gap-2" aria-label={t('settings.brand')}>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{t('settings.brand')}</h3>

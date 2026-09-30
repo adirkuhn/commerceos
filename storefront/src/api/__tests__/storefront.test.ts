@@ -51,6 +51,25 @@ describe('StorefrontAPI', () => {
     expect(f.mock.calls[1][0]).toBe('https://api.test/api/v1/storefront/v1/products?product_ids=a%2Cb&per_page=12')
   })
 
+  it('asks for catalog texts in the shopper\u2019s language when it isn\u2019t the default', async () => {
+    const f = fakeFetch({ data: { items: [], total: 0 }, error: null })
+    const api = new StorefrontAPI({ baseURL: 'https://api.test/api/v1', storeKey: 'k', locale: 'pt-BR', fetch: f })
+    await api.listProducts({ search: 'pão' })
+    await api.getProductBySlug('red shoes')
+    await api.getRecommendations('p1')
+    await api.listCollections()
+    await api.getCollection('summer')
+    await api.getStore()
+    expect(f.mock.calls.map(c => String(c[0]).replace('https://api.test/api/v1/storefront/v1', ''))).toEqual([
+      '/products?search=p%C3%A3o&per_page=12&locale=pt-BR',
+      '/products/by-slug/red%20shoes?locale=pt-BR',
+      '/products/p1/recommendations?locale=pt-BR',
+      '/collections?per_page=100&locale=pt-BR',
+      '/collections/by-slug/summer?locale=pt-BR',
+      '/store',
+    ])
+  })
+
   it('turns error envelopes into ApiError with status and code', async () => {
     const f = fakeFetch({ data: null, error: { code: 'NOT_FOUND', message: 'no live theme' } }, 404)
     const err = await new StorefrontAPI({ baseURL: 'https://api.test/api/v1', storeKey: 'k', fetch: f }).getTheme().catch(e => e)

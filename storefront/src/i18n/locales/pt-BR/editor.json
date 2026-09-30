@@ -610,6 +610,10 @@
       "sm": "Pequeno"
     },
     "style": "Estilo",
+    "styles": {
+      "default": "Padrão",
+      "supermarket": "Supermercado"
+    },
     "textSize": "Tamanho do texto",
     "title": "Configurações do tema",
     "typography": "Tipografia",

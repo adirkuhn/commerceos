@@ -610,6 +610,10 @@
       "sm": "Klein"
     },
     "style": "Stijl",
+    "styles": {
+      "default": "Standaard",
+      "supermarket": "Supermarkt"
+    },
     "textSize": "Tekstgrootte",
     "title": "Thema-instellingen",
     "typography": "Typografie",

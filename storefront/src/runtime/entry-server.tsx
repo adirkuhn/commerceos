@@ -103,7 +103,9 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
     return { status: 302, redirect: storePathFor(parsed.storeKey, remembered, langs)(path.replace(/^\/+/, '') + requested.search), head: '', html: '', state: '', lang: remembered }
   }
 
-  const page = await resolvePageData(qc, api, theme, path, query)
+  // Catalog texts (product/collection names) come in the page's language.
+  const shopApi = api.inLocale(locale === langs.defaultLocale ? undefined : locale)
+  const page = await resolvePageData(qc, shopApi, theme, path, query)
   const route = page.route
   const regions = [['section_group', 'header'], ['section_group', 'footer']] as const
   const [main, regionDocs] = await Promise.all([
@@ -115,11 +117,11 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
   await loadShopLocale(locale)
   // Catalog data the components show. A failed fetch is left out of the
   // cache; that component renders nothing rather than failing the page.
-  await Promise.all(docs.flatMap(d => dataQueriesFor(d.root, api, { product: page.product })).map(q => qc.prefetchQuery(q)))
+  await Promise.all(docs.flatMap(d => dataQueriesFor(d.root, shopApi, { product: page.product })).map(q => qc.prefetchQuery(q)))
 
   const html = renderToString(
     <QueryClientProvider client={qc}>
-      <ApiProvider api={api}>
+      <ApiProvider api={shopApi}>
         <StaticRouter location={((u: URL) => u.pathname + u.search)(new URL(opts.url, 'http://x'))} basename={BASENAME}>
           <App />
         </StaticRouter>
@@ -146,7 +148,10 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
     html,
     state: serializeState({
       dehydrated: dehydrate(qc),
-      config: { publicApiBaseURL: opts.publicApiBaseURL, storeKey: parsed.storeKey, previewToken: opts.previewToken },
+      config: {
+        publicApiBaseURL: opts.publicApiBaseURL, storeKey: parsed.storeKey, previewToken: opts.previewToken,
+        ...(locale === langs.defaultLocale ? {} : { locale }),
+      },
     }),
   }
 }

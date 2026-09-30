@@ -132,3 +132,19 @@ describe('translated page texts', () => {
     }
   })
 })
+
+describe('translated catalog texts', () => {
+  it('asks the backend for products in the language being read, and hands that language to the browser', async () => {
+    const f = backend()
+    const out = await render({ ...base, url: '/store/k/en/products/red-shoes', fetch: f })
+    const urls = f.mock.calls.map(c => String(c[0]))
+    expect(urls).toContain('http://backend/api/v1/storefront/v1/products/by-slug/red-shoes?locale=en')
+    expect(out.state).toContain('"locale":"en"')
+  })
+
+  it('asks for the default texts on plain URLs', async () => {
+    const f = backend()
+    await render({ ...base, url: '/store/k/products/red-shoes', fetch: f })
+    expect(f.mock.calls.map(c => String(c[0]))).toContain('http://backend/api/v1/storefront/v1/products/by-slug/red-shoes')
+  })
+})

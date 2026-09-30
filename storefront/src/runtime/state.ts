@@ -3,7 +3,7 @@ import type { DehydratedState } from '@tanstack/react-query'
 // What the server hands to the browser for hydration (embedded as JSON).
 export interface PageState {
   dehydrated: DehydratedState
-  config: { publicApiBaseURL: string; storeKey: string; previewToken?: string }
+  config: { publicApiBaseURL: string; storeKey: string; previewToken?: string; locale?: string }
 }
 
 export const STATE_ELEMENT_ID = 'cos-state'

@@ -18,6 +18,9 @@ export interface StorefrontAPIConfig {
   storeKey: string
   /** Preview-session token: the draft is shown instead of the live theme. */
   previewToken?: string
+  /** The shopper's language when it isn't the store's default: product
+   *  and collection texts come back translated. */
+  locale?: string
   fetch?: typeof fetch
 }
 
@@ -221,6 +224,16 @@ export class StorefrontAPI {
     this.cfg = cfg
   }
 
+  /** A copy asking for catalog texts in another language ("" = default). */
+  inLocale(locale: string | undefined): StorefrontAPI {
+    return locale === this.cfg.locale ? this : new StorefrontAPI({ ...this.cfg, locale: locale || undefined })
+  }
+
+  private localized(path: string): string {
+    if (!this.cfg.locale) return path
+    return `${path}${path.includes('?') ? '&' : '?'}locale=${encodeURIComponent(this.cfg.locale)}`
+  }
+
   get previewing(): boolean {
     return Boolean(this.cfg.previewToken)
   }
@@ -245,15 +258,16 @@ export class StorefrontAPI {
     if (q.search) params.set('search', q.search)
     if (q.page && q.page > 1) params.set('page', String(q.page))
     params.set('per_page', String(q.perPage ?? 12))
+    if (this.cfg.locale) params.set('locale', this.cfg.locale)
     return this.get(`/storefront/v1/products?${params}`)
   }
 
   getProductBySlug(slug: string): Promise<ProductDetail> {
-    return this.get(`/storefront/v1/products/by-slug/${encodeURIComponent(slug)}`)
+    return this.get(this.localized(`/storefront/v1/products/by-slug/${encodeURIComponent(slug)}`))
   }
 
   getRecommendations(productId: string): Promise<ProductSummary[]> {
-    return this.get(`/storefront/v1/products/${encodeURIComponent(productId)}/recommendations`)
+    return this.get(this.localized(`/storefront/v1/products/${encodeURIComponent(productId)}/recommendations`))
   }
 
   listReviews(productId: string, perPage = 10): Promise<ReviewList> {
@@ -261,11 +275,11 @@ export class StorefrontAPI {
   }
 
   listCollections(): Promise<Collection[]> {
-    return this.get('/storefront/v1/collections?per_page=100')
+    return this.get(this.localized('/storefront/v1/collections?per_page=100'))
   }
 
   getCollection(slug: string): Promise<Collection> {
-    return this.get(`/storefront/v1/collections/by-slug/${encodeURIComponent(slug)}`)
+    return this.get(this.localized(`/storefront/v1/collections/by-slug/${encodeURIComponent(slug)}`))
   }
 
   getSitemap(): Promise<SitemapData> {
