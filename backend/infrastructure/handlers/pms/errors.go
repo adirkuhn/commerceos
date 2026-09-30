@@ -42,6 +42,7 @@ func mapError(c *gin.Context, err error) error {
 		middleware.Fail(c, http.StatusConflict, "PRODUCT_HAS_HISTORY", err.Error())
 	case errors.Is(err, pmsDomain.ErrVariantsNotEnabled),
 		errors.Is(err, pmsDomain.ErrInvalidSlug),
+		errors.Is(err, pmsDomain.ErrInvalidProductTranslation),
 		errors.Is(err, pmsDomain.ErrVirtualSKUCannotHaveDimensions),
 		errors.Is(err, pmsDomain.ErrSalePriceExceedsPrice),
 		errors.Is(err, pmsDomain.ErrSaleEndDateRequiresSalePrice),

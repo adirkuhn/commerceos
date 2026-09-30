@@ -164,6 +164,7 @@ func toGenProduct(p pmsDomain.Product) genpms.Product {
 		HasVariants:                 p.HasVariants,
 		SyncVariantsAsWooVariations: &syncVariantsAsWooVariations,
 		Tags:                        p.Tags,
+		Translations:                toGenProductTranslations(p.Translations),
 		CreatedAt:                   p.CreatedAt,
 		UpdatedAt:                   p.UpdatedAt,
 	}

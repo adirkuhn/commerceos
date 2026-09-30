@@ -169,6 +169,34 @@ paths:
         '409':
           $ref: '#/components/responses/Error'
 
+  /pms/products/{id}/translations:
+    put:
+      operationId: setProductTranslations
+      summary: Replace a product's name/description in the store's other languages
+      description: >
+        Separate from updateProduct, so product updates (the admin form,
+        channel imports) never touch translations. Blank texts are dropped
+        (the shop then shows the default-language text). An unsupported
+        language or over-long text is rejected with 422.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductTranslationsRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
   /pms/products/{id}/merge-preview:
     post:
       operationId: previewProductMerge
@@ -905,6 +933,7 @@ components:
         name: { type: string }
         slug: { type: string }
         description: { type: string }
+        translations: { $ref: '#/components/schemas/ProductTranslations' }
         status: { $ref: '#/components/schemas/ProductStatus' }
         has_variants:
           type: boolean
@@ -1417,6 +1446,22 @@ components:
           type: array
           items: { type: string }
 
+    ProductTexts:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, maxLength: 255 }
+        description: { type: string, maxLength: 20000 }
+    ProductTranslations:
+      type: object
+      description: A product's texts per language (en, pt-BR, nl); the product's own name/description are the company language.
+      additionalProperties: { $ref: '#/components/schemas/ProductTexts' }
+    ProductTranslationsRequest:
+      type: object
+      required: [translations]
+      additionalProperties: false
+      properties:
+        translations: { $ref: '#/components/schemas/ProductTranslations' }
     UpdateProductRequest:
       type: object
       required: [name, status]

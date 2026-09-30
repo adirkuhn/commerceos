@@ -173,6 +173,7 @@ type Handler struct {
 	createScaleCodeAlias   createScaleCodeAliasUC
 	deleteScaleCodeAlias   deleteScaleCodeAliasUC
 	merge                  ProductMergeUseCases
+	setTranslations        setProductTranslationsUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -216,6 +217,7 @@ func NewHandler(
 	deleteScaleCodeAlias deleteScaleCodeAliasUC,
 	correctCost correctCostUC,
 	merge ProductMergeUseCases,
+	setTranslations setProductTranslationsUC,
 ) *Handler {
 	return &Handler{
 		listBarcodeAliases:     listBarcodeAliases,
@@ -257,6 +259,7 @@ func NewHandler(
 		resolveBarcode:         resolveBarcode,
 		correctCost:            correctCost,
 		merge:                  merge,
+		setTranslations:        setTranslations,
 	}
 }
 
@@ -342,6 +345,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 				Outbox:             outboxRepo,
 			}),
 		},
+		apppms.NewSetProductTranslationsUseCase(db, productRepo, outboxRepo),
 	)
 	genpms.RegisterHandlers(rg, h)
 }
