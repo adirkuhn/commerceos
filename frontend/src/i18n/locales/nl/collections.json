@@ -2,6 +2,7 @@
   "edit": {
     "back": "Terug naar collecties",
     "description": "Omschrijving",
+    "inLanguage": "{{field}} ({{language}})",
     "manual": "Ik kies de producten",
     "name": "Naam",
     "new": "Nieuwe collectie",
@@ -14,6 +15,7 @@
     "seoTitlePlaceholder": "Titel (standaard de naam)",
     "smart": "Automatisch, op basis van voorwaarden",
     "sort": "Producten sorteren",
+    "translations": "Vertalingen",
     "url": "URL",
     "visible": "Zichtbaar in winkels"
   },

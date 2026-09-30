@@ -14,6 +14,14 @@ export interface CollectionRule {
   days?: number
 }
 
+/** A collection's shopper-facing texts in one language. */
+export interface CollectionTexts {
+  name?: string
+  description?: string
+  seo_title?: string
+  seo_description?: string
+}
+
 export interface CollectionInput {
   name: string
   slug: string
@@ -25,9 +33,12 @@ export interface CollectionInput {
   rules?: CollectionRule[]
   sort: CollectionSort
   published?: boolean
+  /** Texts per language other than the company one. */
+  translations?: Record<string, CollectionTexts>
 }
 
-export interface Collection extends Required<Omit<CollectionInput, 'match' | 'rules' | 'published'>> {
+export interface Collection extends Required<Omit<CollectionInput, 'match' | 'rules' | 'published' | 'translations'>> {
+  translations?: Record<string, CollectionTexts>
   id: string
   match: CollectionMatch
   rules: CollectionRule[]

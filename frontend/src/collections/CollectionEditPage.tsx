@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { TranslationsFieldset } from './TranslationsFieldset'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { ArrowLeft } from 'lucide-react'
@@ -118,6 +119,8 @@ export function CollectionEditPage({ collection, onSave, onClose, onSaved }: Pro
           <input aria-label={t('edit.seoTitle')} placeholder={t('edit.seoTitlePlaceholder')} className={inputClass} value={input.seo_title ?? ''} maxLength={70} onChange={e => set({ seo_title: e.target.value })} />
           <textarea aria-label={t('edit.seoDescription')} placeholder={t('edit.seoDescriptionPlaceholder')} className={inputClass} value={input.seo_description ?? ''} maxLength={320} onChange={e => set({ seo_description: e.target.value })} />
         </fieldset>
+        <TranslationsFieldset value={input.translations ?? {}} onChange={translations => set({ translations })}
+          fallback={{ name: input.name, description: input.description ?? '', seo_title: input.seo_title ?? '', seo_description: input.seo_description ?? '' }} />
       </div>
     </form>
   )

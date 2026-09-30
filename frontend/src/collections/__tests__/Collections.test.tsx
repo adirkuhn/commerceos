@@ -7,6 +7,7 @@ import Collections from '../../pages/Collections'
 import { renderAt } from '../../test/renderAt'
 import type { Collection } from '../types'
 
+vi.mock('../../settings/api', () => ({ getTenantSettings: vi.fn(async () => ({ language: 'en' })), updateTenantSettings: vi.fn() }))
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ token: 'tok' }) }))
 vi.mock('../api', () => ({
   listCollections: vi.fn(), getCollection: vi.fn(), createCollection: vi.fn(), updateCollection: vi.fn(),

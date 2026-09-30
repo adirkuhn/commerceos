@@ -2,6 +2,7 @@
   "edit": {
     "back": "Back to collections",
     "description": "Description",
+    "inLanguage": "{{field}} ({{language}})",
     "manual": "I pick the products",
     "name": "Name",
     "new": "New collection",
@@ -14,6 +15,7 @@
     "seoTitlePlaceholder": "Title (defaults to the name)",
     "smart": "Automatically, by conditions",
     "sort": "Sort products",
+    "translations": "Translations",
     "url": "URL",
     "visible": "Visible in stores"
   },

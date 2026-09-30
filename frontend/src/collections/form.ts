@@ -15,6 +15,7 @@ export function toInput(c: Collection): CollectionInput {
   return {
     name: c.name, slug: c.slug, description: c.description, seo_title: c.seo_title, seo_description: c.seo_description,
     type: c.type, match: c.match, rules: c.rules, sort: c.sort, published: c.published,
+    ...(c.translations ? { translations: c.translations } : {}),
   }
 }
 
