@@ -17,6 +17,7 @@ export function HeroView({ node, props, className }: RendererProps<HeroProps>) {
     <div className={`cos-hero cos-hero-${height} cos-hero-${props.align === 'left' ? 'left' : 'center'} ${className}`} data-node={node.id}
       style={image ? { backgroundImage: `url("${encodeURI(image.url).replace(/"/g, '%22')}")` } : undefined}>
       <div className="cos-hero-content">
+        {props.badge && <span className="cos-hero-badge">{props.badge}</span>}
         <h1 className="cos-heading">{props.title}</h1>
         {props.subtitle && <p>{props.subtitle}</p>}
         {props.button_label && href && (

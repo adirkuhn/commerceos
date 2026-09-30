@@ -196,6 +196,7 @@
       },
       "props": {
         "align": "Alinhamento",
+        "badge": "Etiqueta acima do título",
         "button_label": "Texto do botão",
         "button_link": "Link do botão",
         "height": "Altura",
@@ -608,6 +609,7 @@
       "md": "Médio",
       "sm": "Pequeno"
     },
+    "style": "Estilo",
     "textSize": "Tamanho do texto",
     "title": "Configurações do tema",
     "typography": "Tipografia",

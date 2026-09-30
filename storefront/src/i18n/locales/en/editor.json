@@ -196,6 +196,7 @@
       },
       "props": {
         "align": "Alignment",
+        "badge": "Label above the title",
         "button_label": "Button label",
         "button_link": "Button link",
         "height": "Height",
@@ -608,6 +609,7 @@
       "md": "Medium",
       "sm": "Small"
     },
+    "style": "Style",
     "textSize": "Text size",
     "title": "Theme settings",
     "typography": "Typography",

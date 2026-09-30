@@ -24,6 +24,7 @@ func TestSettings_Validate(t *testing.T) {
 		"button radius":        func(s *theme.Settings) { s.Buttons.Radius = "huge" },
 		"header layout":        func(s *theme.Settings) { s.Header.Layout = "floating" },
 		"logo not uuid":        func(s *theme.Settings) { v := "logo.png"; s.Brand.LogoAssetID = &v },
+		"unknown style":        func(s *theme.Settings) { s.Style = "brutalist" },
 	}
 	for name, m := range mutate {
 		s := theme.DefaultSettings()

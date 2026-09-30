@@ -73,6 +73,8 @@ export interface DocumentSummary {
 export type SpacingScale = 'none' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl'
 
 export interface ThemeSettings {
+  /** The look every component takes (theme/styles); absent = default. */
+  style?: 'default' | 'supermarket'
   brand: { logo_asset_id?: string | null; favicon_asset_id?: string | null }
   colors: { primary: string; secondary: string; background: string; surface: string; text: string; muted: string; accent: string }
   typography: { source: 'system' | 'google'; heading_font: string; body_font: string; scale: 'sm' | 'md' | 'lg' }

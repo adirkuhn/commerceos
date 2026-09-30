@@ -18,6 +18,7 @@ const TEXT_STEPS: Record<string, number> = { xs: 0.75, sm: 0.875, base: 1, lg: 1
 
 export function defaultSettings(): ThemeSettings {
   return {
+    style: 'default',
     brand: {},
     colors: { primary: '#1f3fbf', secondary: '#0f172a', background: '#ffffff', surface: '#f6f7f9', text: '#111827', muted: '#6b7280', accent: '#e4572e' },
     typography: { source: 'system', heading_font: 'system-sans', body_font: 'system-sans', scale: 'md' },

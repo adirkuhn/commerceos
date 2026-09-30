@@ -77,6 +77,8 @@ func TestFreshPreset_isAGroceryStorefront(t *testing.T) {
 	s, err := theme.PresetSettings(theme.PresetFresh)
 	require.NoError(t, err)
 	assert.Equal(t, "#0aad0a", s.Colors.Primary)
+	assert.Equal(t, theme.StyleSupermarket, s.Style, "dressed like the supermarket template")
+	assert.Equal(t, "Inter", s.Typography.BodyFont)
 }
 
 func find(n theme.Node, typ string) []theme.Node {

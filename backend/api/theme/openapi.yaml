@@ -713,6 +713,14 @@ components:
       required: [brand, colors, typography, layout, buttons, product, header, footer]
       additionalProperties: false
       properties:
+        style:
+          type: string
+          enum: [default, supermarket]
+          description: >-
+            The look every component takes. default: the storefront's own.
+            supermarket: a classic online supermarket (bordered product
+            cards with a green hover, compact buttons, pill badges, grey
+            footer). Omitted means default.
         brand:
           type: object
           additionalProperties: false
@@ -1117,8 +1125,9 @@ components:
       type: object
       required: [title]
       additionalProperties: false
-      x-commerceos-component: { type: hero, translatable: [title, subtitle, button_label] }
+      x-commerceos-component: { type: hero, translatable: [badge, title, subtitle, button_label] }
       properties:
+        badge: { type: string, maxLength: 60, description: Small highlighted label above the title (e.g. a sale). }
         title: { type: string, minLength: 1, maxLength: 120 }
         subtitle: { type: string, maxLength: 300 }
         image: { $ref: '#/components/schemas/AssetReference' }

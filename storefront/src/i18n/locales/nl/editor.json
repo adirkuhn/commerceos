@@ -196,6 +196,7 @@
       },
       "props": {
         "align": "Uitlijning",
+        "badge": "Label boven de titel",
         "button_label": "Knoptekst",
         "button_link": "Knoplink",
         "height": "Hoogte",
@@ -608,6 +609,7 @@
       "md": "Normaal",
       "sm": "Klein"
     },
+    "style": "Stijl",
     "textSize": "Tekstgrootte",
     "title": "Thema-instellingen",
     "typography": "Typografie",

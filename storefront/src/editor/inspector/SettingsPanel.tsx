@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { THEME_STYLES } from '../../theme/styles'
 import { useTranslation } from 'react-i18next'
 import type { ThemeSettings } from '../../core/document'
 import { NumberField, SelectField, TextField, ToggleField } from './fields'
@@ -13,7 +14,7 @@ const assetId = (ref: string) => ref.replace(/^asset:/, '') || null
 export function SettingsPanel({ settings, onSave, saving }: { settings: ThemeSettings; onSave: (s: ThemeSettings) => void; saving: boolean }) {
   const [draft, setDraft] = useState(settings)
   useEffect(() => setDraft(settings), [settings])
-  const set = <K extends keyof ThemeSettings>(key: K, value: Partial<ThemeSettings[K]>) =>
+  const set = <K extends Exclude<keyof ThemeSettings, 'style'>>(key: K, value: Partial<ThemeSettings[K]>) =>
     setDraft(d => ({ ...d, [key]: { ...d[key], ...value } }))
   const changed = JSON.stringify(draft) !== JSON.stringify(settings)
   const google = draft.typography.source === 'google'
@@ -33,6 +34,8 @@ export function SettingsPanel({ settings, onSave, saving }: { settings: ThemeSet
   return (
     <div className="flex flex-col gap-5">
       <h2 className="font-semibold">{t('settings.title')}</h2>
+      <SelectField label={t('settings.style')} value={draft.style ?? 'default'} options={THEME_STYLES.map(v => ({ value: v, label: t(`settings.styles.${v}`) }))}
+        onChange={v => setDraft(d => ({ ...d, style: v as ThemeSettings['style'] }))} />
       <section className="flex flex-col gap-2" aria-label={t('settings.brand')}>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{t('settings.brand')}</h3>
         <AssetPicker label={t('settings.logo')} value={assetRef(draft.brand.logo_asset_id)} onChange={r => set('brand', { logo_asset_id: assetId(r) })} />

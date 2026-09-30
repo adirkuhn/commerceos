@@ -321,6 +321,7 @@
       "required_in": [],
       "props": [
         "align",
+        "badge",
         "button_label",
         "button_link",
         "height",
@@ -332,6 +333,7 @@
         "title"
       ],
       "translatable_props": [
+        "badge",
         "button_label",
         "subtitle",
         "title"

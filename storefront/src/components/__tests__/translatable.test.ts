@@ -4,7 +4,7 @@ import { registry } from '../registry'
 
 describe('translatable props', () => {
   it('are a component\'s merchant texts: text, rich text and link lists', () => {
-    expect(translatableProps(registry.get('hero')!)).toEqual(['title', 'subtitle', 'button_label'])
+    expect(translatableProps(registry.get('hero')!)).toEqual(['badge', 'title', 'subtitle', 'button_label'])
     expect(translatableProps(registry.get('navigation-menu')!)).toEqual(['items'])
     expect(translatableProps(registry.get('spacer')!)).toEqual([])
   })

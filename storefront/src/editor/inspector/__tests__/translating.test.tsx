@@ -27,7 +27,7 @@ describe('PropsForm while translating', () => {
     expect(screen.getByLabelText('Text')).toHaveValue('Produtos do Brasil')
     expect(screen.queryByLabelText('Alignment')).toBeNull()
     expect(screen.getByText('Shared by every language: switch to the default language to change the other settings.')).toBeInTheDocument()
-    expect(screen.getAllByText('Not translated yet')).toHaveLength(2)
+    expect(screen.getAllByText('Not translated yet')).toHaveLength(3)
 
     await userEvent.clear(screen.getByLabelText('Text'))
     await userEvent.type(screen.getByLabelText('Text'), 'From Brazil')

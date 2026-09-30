@@ -1,5 +1,6 @@
 import type { StorefrontTheme, ThemeDocument } from '../core/document'
 import { fontStylesheetURL, settingsToCSS } from '../core/settings'
+import { styleCSS } from '../theme/styles'
 import type { PageData } from './page/routeData'
 import { breadcrumbJsonLd, indexable, jsonLdScript, organizationJsonLd, productJsonLd } from './seo'
 
@@ -72,6 +73,6 @@ export function buildHead(input: HeadInput): string {
   if (favicon) parts.push(`<link rel="icon" href="${escapeHTML(favicon.url)}">`)
   const fonts = fontStylesheetURL(theme.settings)
   if (fonts) parts.push('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>', `<link rel="stylesheet" href="${escapeHTML(fonts)}">`)
-  parts.push(`<style>${settingsToCSS(theme.settings)}</style>`)
+  parts.push(`<style>${settingsToCSS(theme.settings)}${styleCSS(theme.settings)}</style>`)
   return parts.filter(Boolean).join('')
 }

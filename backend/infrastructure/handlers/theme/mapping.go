@@ -237,6 +237,11 @@ func toGenSettings(s theme.Settings) gentheme.ThemeSettings {
 	g.Product.ImageRatio = gentheme.ThemeSettingsProductImageRatio(s.Product.ImageRatio)
 	g.Header.Layout, g.Header.Sticky = gentheme.ThemeSettingsHeaderLayout(s.Header.Layout), s.Header.Sticky
 	g.Footer.Layout = gentheme.ThemeSettingsFooterLayout(s.Footer.Layout)
+	style := gentheme.ThemeSettingsStyle(theme.StyleDefault)
+	if s.Style != "" {
+		style = gentheme.ThemeSettingsStyle(s.Style)
+	}
+	g.Style = &style
 	return g
 }
 
@@ -256,5 +261,13 @@ func fromGenSettings(g gentheme.ThemeSettings) theme.Settings {
 		Product: theme.ProductSettings{GridColumns: g.Product.GridColumns, ImageRatio: string(g.Product.ImageRatio)},
 		Header:  theme.HeaderSettings{Layout: string(g.Header.Layout), Sticky: g.Header.Sticky},
 		Footer:  theme.FooterSettings{Layout: string(g.Footer.Layout)},
+		Style:   styleOr(g.Style),
 	}
+}
+
+func styleOr(s *gentheme.ThemeSettingsStyle) string {
+	if s == nil {
+		return theme.StyleDefault
+	}
+	return string(*s)
 }

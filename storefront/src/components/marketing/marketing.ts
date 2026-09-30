@@ -6,13 +6,14 @@ const base = {
 }
 
 export interface HeroProps {
-  title: string; subtitle: string; image: string; button_label: string; button_link: string
+  badge: string; title: string; subtitle: string; image: string; button_label: string; button_link: string
   align: 'left' | 'center'; height: 'md' | 'lg' | 'screen'
 }
 export const hero: ComponentDefinition<HeroProps> = {
   ...base, type: 'hero', name: 'Hero', category: 'content', icon: 'image',
   description: 'A big welcome: picture, title, text and a button.',
   props: {
+    badge: { kind: 'text', label: 'Label above the title', maxLength: 60 },
     title: { kind: 'text', label: 'Title', maxLength: 120 },
     subtitle: { kind: 'text', label: 'Text', maxLength: 300, multiline: true },
     image: { kind: 'asset', label: 'Background picture' },
@@ -21,7 +22,7 @@ export const hero: ComponentDefinition<HeroProps> = {
     align: { kind: 'select', label: 'Alignment', options: [{ value: 'center', label: 'Centred' }, { value: 'left', label: 'Left' }] },
     height: { kind: 'select', label: 'Height', options: [{ value: 'md', label: 'Medium' }, { value: 'lg', label: 'Tall' }, { value: 'screen', label: 'Full screen' }] },
   },
-  defaults: { title: 'Welcome', subtitle: '', image: '', button_label: 'Shop now', button_link: '/', align: 'center', height: 'lg' },
+  defaults: { badge: '', title: 'Welcome', subtitle: '', image: '', button_label: 'Shop now', button_link: '/', align: 'center', height: 'lg' },
   styleGroups: ['colors', 'spacing', 'visibility'],
 }
 

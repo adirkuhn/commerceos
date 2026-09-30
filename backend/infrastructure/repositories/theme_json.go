@@ -108,6 +108,7 @@ type themeSEOJSON struct {
 }
 
 type themeSettingsJSON struct {
+	Style string `json:"style,omitempty"`
 	Brand struct {
 		LogoAssetID    *string `json:"logo_asset_id,omitempty"`
 		FaviconAssetID *string `json:"favicon_asset_id,omitempty"`
@@ -162,6 +163,7 @@ func toSettingsJSON(s theme.Settings) themeSettingsJSON {
 	j.Product.GridColumns, j.Product.ImageRatio = s.Product.GridColumns, s.Product.ImageRatio
 	j.Header.Layout, j.Header.Sticky = s.Header.Layout, s.Header.Sticky
 	j.Footer.Layout = s.Footer.Layout
+	j.Style = s.Style
 	return j
 }
 
@@ -181,5 +183,6 @@ func (j themeSettingsJSON) toDomain() theme.Settings {
 		Product: theme.ProductSettings{GridColumns: j.Product.GridColumns, ImageRatio: j.Product.ImageRatio},
 		Header:  theme.HeaderSettings{Layout: j.Header.Layout, Sticky: j.Header.Sticky},
 		Footer:  theme.FooterSettings{Layout: j.Footer.Layout},
+		Style:   j.Style,
 	}
 }

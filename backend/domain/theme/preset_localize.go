@@ -34,7 +34,7 @@ var presetTranslations = func() map[locale.Locale]map[string]string {
 }()
 
 // Props whose value is text a shopper reads.
-var textProps = []string{"text", "title", "subtitle", "label", "button_label", "link_label", "placeholder", "empty_message", "home_label", "consent_label"}
+var textProps = []string{"text", "badge", "title", "subtitle", "label", "button_label", "link_label", "placeholder", "empty_message", "home_label", "consent_label"}
 
 // HasPresetTranslation reports whether an English preset text has a
 // translation in the language.

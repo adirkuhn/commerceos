@@ -25,6 +25,9 @@ var (
 // Settings are a theme version's global design choices; components read
 // them (as CSS custom properties) instead of hard-coding colours or fonts.
 type Settings struct {
+	// Style is the look every component takes (see Style*): the same
+	// components, dressed by a different stylesheet.
+	Style      string
 	Brand      BrandSettings
 	Colors     ColorSettings
 	Typography TypographySettings
@@ -74,8 +77,17 @@ type FooterSettings struct {
 	Layout string
 }
 
+// Styles: StyleDefault is the storefront's own look; StyleSupermarket
+// dresses components like a classic online supermarket (bordered cards
+// with a green hover, compact buttons, pill badges, grey footer).
+const (
+	StyleDefault     = "default"
+	StyleSupermarket = "supermarket"
+)
+
 func DefaultSettings() Settings {
 	return Settings{
+		Style: StyleDefault,
 		Colors: ColorSettings{
 			Primary: "#1f3fbf", Secondary: "#0f172a", Background: "#ffffff", Surface: "#f6f7f9",
 			Text: "#111827", Muted: "#6b7280", Accent: "#e4572e",
@@ -94,6 +106,7 @@ func (s Settings) Validate() error {
 		field string
 		ok    bool
 	}{
+		{"style", enum("", StyleDefault, StyleSupermarket)(s.Style)},
 		{"brand.logo_asset_id", optionalUUID(s.Brand.LogoAssetID)},
 		{"brand.favicon_asset_id", optionalUUID(s.Brand.FaviconAssetID)},
 		{"colors.primary", hexColor.MatchString(s.Colors.Primary)},

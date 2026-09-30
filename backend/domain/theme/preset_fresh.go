@@ -8,9 +8,11 @@ func freshSettings() Settings {
 	s := DefaultSettings()
 	s.Colors = ColorSettings{
 		Primary: "#0aad0a", Secondary: "#001e2b", Background: "#ffffff", Surface: "#f0f3f2",
-		Text: "#001e2b", Muted: "#5c6c75", Accent: "#eabc49",
+		Text: "#001e2b", Muted: "#5c6c75", Accent: "#ffc107",
 	}
-	s.Buttons = ButtonSettings{Radius: "md", Size: "md", Style: "solid"}
+	s.Style = StyleSupermarket
+	s.Typography = TypographySettings{Source: FontSourceGoogle, HeadingFont: "Inter", BodyFont: "Inter", Scale: "sm"}
+	s.Buttons = ButtonSettings{Radius: "sm", Size: "sm", Style: "solid"}
 	s.Product = ProductSettings{GridColumns: 5, ImageRatio: "1:1"}
 	s.Header.Sticky = true
 	return s
@@ -34,13 +36,13 @@ func promo(id, title, text string) Node {
 	return card(n(id, "column", nil,
 		heading(id+"-title", title, 3),
 		paragraph(id+"-text", text),
-		n(id+"-button", "button", map[string]any{"label": "Shop now", "link": "/search?q=", "variant": "primary"}),
+		n(id+"-button", "button", map[string]any{"label": "Shop now", "link": "/search?q=", "variant": "secondary"}),
 	))
 }
 
 // promise is one of the service promises under the products.
 func promise(id, title, text string) Node {
-	return n(id, "column", nil, heading(id+"-title", title, 3), paragraph(id+"-text", text))
+	return n(id, "column", nil, heading(id+"-title", title, 5), paragraph(id+"-text", text))
 }
 
 func freshTemplate(key string) Node {
@@ -48,7 +50,7 @@ func freshTemplate(key string) Node {
 	case "home":
 		return root(
 			n("hero-section", "section", nil,
-				card(n("hero", "hero", map[string]any{"title": "Fresh groceries, delivered today",
+				card(n("hero", "hero", map[string]any{"badge": "Opening sale: 50% off", "title": "Fresh groceries, delivered today",
 					"subtitle":     "Opening sale: up to 50% off fruit, vegetables and more.",
 					"button_label": "Shop now", "button_link": "/search?q=", "align": "left", "height": "md"}))),
 			n("promos-section", "section", nil,
@@ -58,7 +60,7 @@ func freshTemplate(key string) Node {
 					promo("promo-pantry", "Pantry staples", "Stock up and save on the basics."),
 				)),
 			n("categories-section", "section", nil,
-				heading("categories-title", "Shop popular categories", 2),
+				heading("categories-title", "Shop popular categories", 3),
 				n("categories", "collection-list", map[string]any{"source": "all", "limit": 12}),
 			),
 			n("banners-section", "section", nil,
@@ -66,8 +68,8 @@ func freshTemplate(key string) Node {
 					promo("banner-fruit", "Fruits & vegetables", "Get up to 30% off."),
 					promo("banner-buns", "Freshly baked buns", "Get up to 25% off."),
 				)),
-			productRow("best", "Daily best sells", "/search?q="),
-			productRow("popular", "Popular products", "/search?q="),
+			freshProductRow("best", "Daily best sells"),
+			freshProductRow("popular", "Popular products"),
 			n("promises-section", "section", nil,
 				n("promises", "columns", map[string]any{"stack_on": "tablet"},
 					promise("promise-delivery", "Fast delivery", "Your order at your door within hours."),
@@ -123,7 +125,7 @@ func freshFooter() Node {
 				paragraph("footer-about-text", "Fresh groceries and everyday essentials, delivered to your door."),
 			),
 			n("footer-categories", "column", nil,
-				heading("footer-categories-title", "Categories", 3),
+				heading("footer-categories-title", "Categories", 6),
 				n("footer-categories-menu", "navigation-menu", map[string]any{"orientation": "vertical", "items": []any{
 					map[string]any{"label": "Fruits & vegetables", "link": "/search?q="},
 					map[string]any{"label": "Dairy & eggs", "link": "/search?q="},
@@ -132,7 +134,7 @@ func freshFooter() Node {
 				}}),
 			),
 			n("footer-shoppers", "column", nil,
-				heading("footer-shoppers-title", "For shoppers", 3),
+				heading("footer-shoppers-title", "For shoppers", 6),
 				n("footer-shoppers-menu", "navigation-menu", map[string]any{"orientation": "vertical", "items": []any{
 					map[string]any{"label": "My account", "link": "/account"},
 					map[string]any{"label": "Wishlist", "link": "/wishlist"},
@@ -142,7 +144,7 @@ func freshFooter() Node {
 				}}),
 			),
 			n("footer-social", "column", nil,
-				heading("footer-social-title", "Follow us", 3),
+				heading("footer-social-title", "Follow us", 6),
 				n("social", "social-links", map[string]any{"size": "md", "show_labels": false, "items": []any{
 					map[string]any{"network": "instagram", "link": "https://instagram.com/"},
 					map[string]any{"network": "facebook", "link": "https://facebook.com/"},
@@ -151,4 +153,16 @@ func freshFooter() Node {
 			),
 		),
 	))
+}
+
+// freshProductRow is a titled grid of product cards with price and an
+// "Add" button, like the template's (no stock line).
+func freshProductRow(id, title string) Node {
+	return n(id, "section", nil,
+		heading(id+"-title", title, 3),
+		n(id+"-grid", "product-grid", map[string]any{
+			"source": "all", "limit": 10, "columns": 5,
+			"show_price": true, "show_discount": true, "show_stock": false, "show_add_to_cart": true,
+		}),
+	)
 }
