@@ -7,6 +7,8 @@ import { EditorApiError, type Draft, type EditorAPI } from './api'
 import { fromGrapes, toGrapes } from './grapes/serializer'
 import type { AssetStore } from './assetStore'
 import { editorLocale } from './editorLocale'
+import { documentSaveBody } from './saveBody'
+import type { PageTexts } from './inspector/PageTextsForm'
 
 export interface DocRef {
   kind: DocumentKind
@@ -47,6 +49,18 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
   // next draft, and that load must not wipe "Published version N".
   const afterLoad = useRef<Status>()
   const snapshot = () => (editor ? JSON.stringify(fromGrapes(editor.getWrapper()!)) : '')
+  // The open document's own texts (title, SEO, their translations), saved
+  // with its tree.
+  const [texts, setTextsState] = useState<PageTexts>({ title: '', seo: {} })
+  const textsRef = useRef(texts)
+  const textsBaseline = useRef('')
+  const textsChanged = () => JSON.stringify(textsRef.current) !== textsBaseline.current
+  const canvasChanged = () => baseline.current !== '' && snapshot() !== baseline.current
+  const setTexts = (next: PageTexts) => {
+    textsRef.current = next
+    setTextsState(next)
+    setDirty(canvasChanged() || textsChanged())
+  }
   const { t, i18n } = useTranslation('editor')
   const [status, setStatus] = useState<Status>({ kind: 'busy', label: t('status.loadingTheme') })
 
@@ -89,6 +103,10 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
     api.getDocument(doc.kind, doc.key).then(d => {
       if (cancelled) return
       assets.merge(d.assets)
+      const loaded: PageTexts = { title: d.title, seo: d.seo ?? {}, ...(d.translations ? { translations: d.translations } : {}) }
+      textsRef.current = loaded
+      setTextsState(loaded)
+      textsBaseline.current = JSON.stringify(loaded)
       editor.setComponents(toGrapes(d.root, registry) as never)
       editor.UndoManager.clear()
       baseline.current = snapshot()
@@ -96,7 +114,7 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
       setStatus(afterLoad.current ?? { kind: 'idle' })
       afterLoad.current = undefined
     }, fail)
-    const markDirty = () => setDirty(baseline.current !== '' && snapshot() !== baseline.current)
+    const markDirty = () => setDirty(canvasChanged() || textsChanged())
     editor.on('update', markDirty)
     return () => {
       cancelled = true
@@ -110,9 +128,10 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
     setStatus({ kind: 'busy', label: t('status.saving') })
     try {
       const root = fromGrapes(editor.getWrapper()!)
-      const res = await api.saveDocument(doc.kind, doc.key, { expected_revision: revision, root })
+      const res = await api.saveDocument(doc.kind, doc.key, documentSaveBody(doc.kind, revision, root, textsRef.current))
       setRevision(res.revision)
       baseline.current = JSON.stringify(root)
+      textsBaseline.current = JSON.stringify(textsRef.current)
       setDirty(false)
       setStatus({ kind: 'ok', message: t('status.saved') })
       return res.revision
@@ -163,5 +182,5 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
     }
   }
 
-  return { draft, doc, setDoc, dirty, status, save, publish, preview, saveSettings, savingSettings }
+  return { draft, doc, setDoc, dirty, status, save, publish, preview, saveSettings, savingSettings, texts, setTexts }
 }

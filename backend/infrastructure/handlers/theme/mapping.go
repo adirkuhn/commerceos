@@ -98,8 +98,8 @@ func toGenDocumentView(v apptheme.DocumentView) gentheme.Document {
 	return d
 }
 
-func toGenDocument(d theme.Document) gentheme.Document {
-	title, desc := d.SEO.Title, d.SEO.Description
+func toGenSEO(s theme.SEO) gentheme.SEO {
+	title, desc := s.Title, s.Description
 	seo := gentheme.SEO{}
 	if title != "" {
 		seo.Title = &title
@@ -107,9 +107,45 @@ func toGenDocument(d theme.Document) gentheme.Document {
 	if desc != "" {
 		seo.Description = &desc
 	}
-	return gentheme.Document{
-		Kind: gentheme.DocumentKind(d.Kind), Key: d.Key, Title: d.Title, Seo: seo, Root: toGenNode(d.Root),
+	return seo
+}
+
+func toGenDocument(d theme.Document) gentheme.Document {
+	out := gentheme.Document{
+		Kind: gentheme.DocumentKind(d.Kind), Key: d.Key, Title: d.Title, Seo: toGenSEO(d.SEO), Root: toGenNode(d.Root),
 	}
+	if len(d.Translations) > 0 {
+		tr := make(gentheme.DocumentTranslations, len(d.Translations))
+		for l, t := range d.Translations {
+			texts := gentheme.DocumentTexts{}
+			if t.Title != "" {
+				title := t.Title
+				texts.Title = &title
+			}
+			if t.SEO != (theme.SEO{}) {
+				seo := toGenSEO(t.SEO)
+				texts.Seo = &seo
+			}
+			tr[string(l)] = texts
+		}
+		out.Translations = &tr
+	}
+	return out
+}
+
+func fromGenDocumentTranslations(tr *gentheme.DocumentTranslations) map[locale.Locale]theme.DocumentTexts {
+	if tr == nil {
+		return nil
+	}
+	out := make(map[locale.Locale]theme.DocumentTexts, len(*tr))
+	for l, t := range *tr {
+		texts := theme.DocumentTexts{SEO: fromGenSEO(t.Seo)}
+		if t.Title != nil {
+			texts.Title = *t.Title
+		}
+		out[locale.Locale(l)] = texts
+	}
+	return out
 }
 
 func fromGenSEO(s *gentheme.SEO) theme.SEO {

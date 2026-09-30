@@ -524,6 +524,13 @@
     "text": "Vá em Canais de venda → sua loja → Temas e escolha Personalizar.",
     "title": "Abra o editor pelo CommerceOS"
   },
+  "page": {
+    "heading": "Esta página",
+    "seoDescription": "Descrição para buscadores",
+    "seoHelp": "Exibido pelos buscadores e quando a página é compartilhada. Salvo com a página.",
+    "seoTitle": "Título para buscadores",
+    "title": "Título da página"
+  },
   "pickers": {
     "addCollection": "Adicionar uma coleção…",
     "allCollectionsAdded": "Todas as coleções já foram adicionadas",

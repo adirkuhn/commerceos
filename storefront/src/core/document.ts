@@ -45,11 +45,20 @@ export interface AssetRef {
   alt: string
 }
 
+/** A document's merchant texts in one language. */
+export interface DocumentTexts {
+  /** Pages only. */
+  title?: string
+  seo?: SEO
+}
+
 export interface ThemeDocument {
   kind: DocumentKind
   key: string
   title: string
   seo: SEO
+  /** Title/SEO in the store's other languages, keyed by language. */
+  translations?: Record<string, DocumentTexts>
   root: ThemeNode
   /** Images the document refers to ("asset:<id>"), keyed by id. */
   assets?: Record<string, AssetRef>
@@ -84,3 +93,15 @@ export interface StorefrontTheme {
 }
 
 export const ROOT_TYPE = 'root'
+
+/** The document as read in one language: its translated title/SEO over the
+ *  default-language ones (blank = the default). */
+export function documentIn<D extends ThemeDocument>(doc: D, locale: string | undefined): D {
+  const tr = locale ? doc.translations?.[locale] : undefined
+  if (!tr) return doc
+  return {
+    ...doc,
+    title: tr.title || doc.title,
+    seo: { title: tr.seo?.title || doc.seo?.title, description: tr.seo?.description || doc.seo?.description },
+  }
+}

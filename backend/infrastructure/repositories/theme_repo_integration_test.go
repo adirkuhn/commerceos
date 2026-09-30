@@ -64,7 +64,8 @@ func seedTheme(t *testing.T, ctx context.Context, db *gorm.DB, r themeRepos, cha
 		if err := r.versions.Create(ctx, &v); err != nil {
 			return err
 		}
-		d = theme.Document{TenantID: th.TenantID, VersionID: v.ID, Kind: theme.KindTemplate, Key: "home", Root: sampleTree()}
+		d = theme.Document{TenantID: th.TenantID, VersionID: v.ID, Kind: theme.KindTemplate, Key: "home", Root: sampleTree(),
+			Translations: map[locale.Locale]theme.DocumentTexts{locale.Dutch: {SEO: theme.SEO{Title: "Winkel"}}}}
 		return r.docs.Create(ctx, &d)
 	}))
 	return th, v, d
@@ -101,6 +102,7 @@ func TestThemeRepos_Integration_roundTripThemeVersionAndDocument(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, d.ID, doc.ID)
 		assert.Equal(t, sampleTree(), doc.Root)
+		assert.Equal(t, "Winkel", doc.Translations[locale.Dutch].SEO.Title)
 
 		list, err := r.docs.List(ctx, v.ID)
 		require.NoError(t, err)
@@ -162,7 +164,7 @@ func TestThemeRepos_Integration_copyAllClonesDocumentsIntoNextDraft(t *testing.T
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()
 	r := newThemeRepos(db)
-	th, v, _ := seedTheme(t, ctx, db, r, createInternalChannel(t, ctx, db))
+	th, v, d := seedTheme(t, ctx, db, r, createInternalChannel(t, ctx, db))
 
 	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		if err := theme.Publish(&th, &v, v.Revision, "", time.Now()); err != nil {
@@ -181,6 +183,7 @@ func TestThemeRepos_Integration_copyAllClonesDocumentsIntoNextDraft(t *testing.T
 		copied, err := r.docs.Find(ctx, next.ID, theme.KindTemplate, "home")
 		require.NoError(t, err)
 		assert.Equal(t, sampleTree(), copied.Root)
+		assert.Equal(t, d.Translations, copied.Translations, "translations are copied too")
 
 		copied.Root.Children = nil
 		require.NoError(t, r.docs.Update(ctx, copied), "the new draft's copy is editable")

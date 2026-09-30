@@ -2,11 +2,12 @@ import { useEffect, useReducer, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Component, Editor } from 'grapesjs'
 import { registry } from '../../components/registry'
-import type { NodeStyle, ThemeSettings } from '../../core/document'
+import type { DocumentKind, NodeStyle, ThemeSettings } from '../../core/document'
 import type { DeviceId } from '../useGrapesEditor'
 import { PropsForm } from './PropsForm'
 import { StyleForm } from './StyleForm'
 import { SettingsPanel } from './SettingsPanel'
+import { PageTextsForm, type PageTexts } from './PageTextsForm'
 import { breakpointFor } from './styleControls'
 import { useEditorLabels } from '../i18n/useEditorLabels'
 import { useEditorServices } from '../services'
@@ -20,12 +21,14 @@ interface Props {
   settings: ThemeSettings
   onSaveSettings: (s: ThemeSettings) => void
   savingSettings: boolean
+  /** The open document's own texts, shown with the theme settings. */
+  page: { kind: DocumentKind; texts: PageTexts; onChange: (t: PageTexts) => void }
 }
 
 /** Right-hand panel: the selected component's settings and styles, or the
  *  theme settings when nothing is selected. Every change goes through the
  *  component model, so GrapesJS undo/redo covers it. */
-export function Inspector({ editor, device, settings, onSaveSettings, savingSettings }: Props) {
+export function Inspector({ editor, device, settings, onSaveSettings, savingSettings, page }: Props) {
   const [selected, setSelected] = useState<Component | undefined>(editor.getSelected())
   const [, rerender] = useReducer((n: number) => n + 1, 0)
   const [tab, setTab] = useState<'content' | 'style'>('content')
@@ -49,7 +52,12 @@ export function Inspector({ editor, device, settings, onSaveSettings, savingSett
 
   const def = selected ? registry.get(String(selected.get('type'))) : undefined
   if (!selected || !def) {
-    return <SettingsPanel settings={settings} onSave={onSaveSettings} saving={savingSettings} />
+    return (
+      <div className="flex flex-col gap-4">
+        <PageTextsForm kind={page.kind} texts={page.texts} locale={contentLocale} onChange={page.onChange} />
+        <SettingsPanel settings={settings} onSave={onSaveSettings} saving={savingSettings} />
+      </div>
+    )
   }
 
   const parent = selected.parent()

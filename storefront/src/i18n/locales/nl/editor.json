@@ -524,6 +524,13 @@
     "text": "Ga naar Verkoopkanalen → je winkel → Thema’s en kies Aanpassen.",
     "title": "Open de editor vanuit CommerceOS"
   },
+  "page": {
+    "heading": "Deze pagina",
+    "seoDescription": "Beschrijving voor zoekmachines",
+    "seoHelp": "Getoond door zoekmachines en bij het delen van de pagina. Wordt met de pagina opgeslagen.",
+    "seoTitle": "Titel voor zoekmachines",
+    "title": "Paginatitel"
+  },
   "pickers": {
     "addCollection": "Collectie toevoegen…",
     "allCollectionsAdded": "Alle collecties zijn toegevoegd",

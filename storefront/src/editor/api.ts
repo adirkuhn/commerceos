@@ -1,5 +1,5 @@
 import { ApiError } from '../api/storefront'
-import type { AssetRef, DocumentKind, SEO, ThemeDocument, ThemeNode, ThemeSettings, DocumentSummary } from '../core/document'
+import type { AssetRef, DocumentKind, DocumentTexts, SEO, ThemeDocument, ThemeNode, ThemeSettings, DocumentSummary } from '../core/document'
 
 export interface DraftVersion {
   id: string
@@ -69,7 +69,7 @@ export class EditorAPI {
     return this.call('GET', `/theme-editor/draft/documents/${kind}/${encodeURIComponent(key)}`)
   }
 
-  saveDocument(kind: DocumentKind, key: string, body: { expected_revision: number; root: ThemeNode; title?: string; seo?: SEO }): Promise<DraftWrite> {
+  saveDocument(kind: DocumentKind, key: string, body: { expected_revision: number; root: ThemeNode; title?: string; seo?: SEO; translations?: Record<string, DocumentTexts> }): Promise<DraftWrite> {
     return this.call('PUT', `/theme-editor/draft/documents/${kind}/${encodeURIComponent(key)}`, body)
   }
 

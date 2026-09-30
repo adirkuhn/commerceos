@@ -20,7 +20,9 @@ type themeDocumentModel struct {
 	Title     string
 	SEO       jsonb[themeSEOJSON]  `gorm:"column:seo;type:jsonb"`
 	Tree      jsonb[themeNodeJSON] `gorm:"type:jsonb"`
-	UpdatedAt time.Time
+	// Translations: title/SEO per language (see theme.Document.Translations).
+	Translations jsonb[themeDocTranslationsJSON] `gorm:"type:jsonb"`
+	UpdatedAt    time.Time
 }
 
 func (themeDocumentModel) TableName() string { return "theme_documents" }
@@ -29,6 +31,7 @@ func (m themeDocumentModel) toDomain() theme.Document {
 	return theme.Document{
 		ID: m.ID, TenantID: m.TenantID, VersionID: m.VersionID, Kind: theme.DocumentKind(m.Kind), Key: m.Key,
 		Title: m.Title, SEO: theme.SEO{Title: m.SEO.V.Title, Description: m.SEO.V.Description}, Root: m.Tree.V.toDomain(),
+		Translations: m.Translations.V.toDomain(),
 	}
 }
 
@@ -46,7 +49,8 @@ func (r *ThemeDocumentRepo) Create(ctx context.Context, d *theme.Document) error
 	m := themeDocumentModel{
 		TenantID: d.TenantID, VersionID: d.VersionID, Kind: string(d.Kind), Key: d.Key, Title: d.Title,
 		SEO:  jsonb[themeSEOJSON]{V: themeSEOJSON{Title: d.SEO.Title, Description: d.SEO.Description}},
-		Tree: jsonb[themeNodeJSON]{V: toNodeJSON(d.Root)}, UpdatedAt: time.Now(),
+		Tree: jsonb[themeNodeJSON]{V: toNodeJSON(d.Root)}, Translations: jsonb[themeDocTranslationsJSON]{V: toDocTranslationsJSON(d.Translations)},
+		UpdatedAt: time.Now(),
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("themeDocumentRepo.Create: %w", err)
@@ -60,8 +64,8 @@ func (r *ThemeDocumentRepo) CopyAll(ctx context.Context, fromVersionID, toVersio
 	if err != nil {
 		return err
 	}
-	if err := tx.Exec(`INSERT INTO theme_documents (tenant_id, version_id, kind, key, title, seo, tree, updated_at)
-		SELECT tenant_id, ?, kind, key, title, seo, tree, NOW() FROM theme_documents WHERE version_id = ?`,
+	if err := tx.Exec(`INSERT INTO theme_documents (tenant_id, version_id, kind, key, title, seo, translations, tree, updated_at)
+		SELECT tenant_id, ?, kind, key, title, seo, translations, tree, NOW() FROM theme_documents WHERE version_id = ?`,
 		toVersionID, fromVersionID).Error; err != nil {
 		return fmt.Errorf("themeDocumentRepo.CopyAll: %w", err)
 	}
@@ -90,7 +94,7 @@ func (r *ThemeDocumentRepo) List(ctx context.Context, versionID string) ([]theme
 		return nil, err
 	}
 	var rows []themeDocumentModel
-	if err := tx.Select("id", "tenant_id", "version_id", "kind", "key", "title", "seo", "updated_at").
+	if err := tx.Select("id", "tenant_id", "version_id", "kind", "key", "title", "seo", "translations", "updated_at").
 		Where("version_id = ?", versionID).Order("kind, key").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("themeDocumentRepo.List: %w", err)
 	}
@@ -107,10 +111,11 @@ func (r *ThemeDocumentRepo) Update(ctx context.Context, d *theme.Document) error
 		return err
 	}
 	if err := tx.Model(&themeDocumentModel{}).Where("id = ?", d.ID).Updates(map[string]any{
-		"title":      d.Title,
-		"seo":        jsonb[themeSEOJSON]{V: themeSEOJSON{Title: d.SEO.Title, Description: d.SEO.Description}},
-		"tree":       jsonb[themeNodeJSON]{V: toNodeJSON(d.Root)},
-		"updated_at": time.Now(),
+		"title":        d.Title,
+		"seo":          jsonb[themeSEOJSON]{V: themeSEOJSON{Title: d.SEO.Title, Description: d.SEO.Description}},
+		"tree":         jsonb[themeNodeJSON]{V: toNodeJSON(d.Root)},
+		"translations": jsonb[themeDocTranslationsJSON]{V: toDocTranslationsJSON(d.Translations)},
+		"updated_at":   time.Now(),
 	}).Error; err != nil {
 		return fmt.Errorf("themeDocumentRepo.Update: %w", err)
 	}

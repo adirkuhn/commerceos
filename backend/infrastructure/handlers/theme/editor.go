@@ -86,7 +86,7 @@ func (h *Handler) SaveDraftDocument(c *gin.Context, kind gentheme.DocumentKindPa
 	}
 	w, err := h.uc.SaveDraftDocument.Execute(c.Request.Context(), apptheme.SaveDraftDocumentInput{
 		ThemeID: s.ThemeID, ExpectedRevision: req.ExpectedRevision, Kind: theme.DocumentKind(kind), Key: key,
-		Title: title, SEO: fromGenSEO(req.Seo), Root: root,
+		Title: title, SEO: fromGenSEO(req.Seo), Translations: fromGenDocumentTranslations(req.Translations), Root: root,
 	})
 	if fail(c, err) {
 		return

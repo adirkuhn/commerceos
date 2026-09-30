@@ -524,6 +524,13 @@
     "text": "Go to Sales channels → your store → Themes, and choose Customize.",
     "title": "Open the editor from CommerceOS"
   },
+  "page": {
+    "heading": "This page",
+    "seoDescription": "Search engine description",
+    "seoHelp": "Shown by search engines and when the page is shared. Saved with the page.",
+    "seoTitle": "Search engine title",
+    "title": "Page title"
+  },
   "pickers": {
     "addCollection": "Add a collection…",
     "allCollectionsAdded": "All collections added",

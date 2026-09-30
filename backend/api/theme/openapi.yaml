@@ -522,6 +522,20 @@ components:
       properties:
         title: { type: string, maxLength: 70 }
         description: { type: string, maxLength: 320 }
+    DocumentTexts:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, maxLength: 120, description: Pages only. }
+        seo: { $ref: '#/components/schemas/SEO' }
+    DocumentTranslations:
+      type: object
+      description: >
+        The document's title (pages) and SEO texts in the store's other
+        languages, keyed by language (en, pt-BR, nl). A blank text shows the
+        default-language one. Other languages, or a title on a template,
+        are rejected with 422.
+      additionalProperties: { $ref: '#/components/schemas/DocumentTexts' }
     Document:
       type: object
       required: [kind, key, title, seo, root]
@@ -530,6 +544,7 @@ components:
         key: { type: string }
         title: { type: string }
         seo: { $ref: '#/components/schemas/SEO' }
+        translations: { $ref: '#/components/schemas/DocumentTranslations' }
         root: { $ref: '#/components/schemas/ThemeNode' }
         assets: { $ref: '#/components/schemas/AssetRefs' }
     DocumentResponse:
@@ -616,6 +631,7 @@ components:
         expected_revision: { type: integer, minimum: 1 }
         title: { type: string, maxLength: 120, description: Pages only (required there). }
         seo: { $ref: '#/components/schemas/SEO' }
+        translations: { $ref: '#/components/schemas/DocumentTranslations' }
         root: { $ref: '#/components/schemas/ThemeNode' }
     CreatePageRequest:
       type: object

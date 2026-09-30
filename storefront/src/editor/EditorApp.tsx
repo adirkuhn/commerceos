@@ -51,7 +51,7 @@ export function EditorApp({ api, apiBase }: { api: EditorAPI; apiBase: string })
   // session's language, which its blocks and layer names are created in.
   const [sessionReady, setSessionReady] = useState(false)
   const editor = useGrapesEditor(mounts, wrap, labels, sessionReady)
-  const { draft, doc, setDoc, dirty, status, save, publish, preview: openPreview, saveSettings, savingSettings } = useDraft(api, editor, assets)
+  const { draft, doc, setDoc, dirty, status, save, publish, preview: openPreview, saveSettings, savingSettings, texts, setTexts } = useDraft(api, editor, assets)
   const [device, setDevice] = useState<DeviceId>('desktop')
   const previewData = usePreviewData(services?.store, preview, doc)
   const settings = useMemo(() => draft?.version.settings ?? defaultSettings(), [draft?.version.settings])
@@ -111,7 +111,8 @@ export function EditorApp({ api, apiBase }: { api: EditorAPI; apiBase: string })
           <main className="min-w-0 flex-1" aria-label={t('layout.canvas')}><div ref={canvasRef} className="h-full" /></main>
           <aside className="w-80 shrink-0 overflow-y-auto border-l border-neutral-200 bg-white p-4" aria-label={t('layout.inspector')}>
             {editor && services && (
-              <Inspector editor={editor} device={device} settings={settings} onSaveSettings={s => void saveSettings(s)} savingSettings={savingSettings} />
+              <Inspector editor={editor} device={device} settings={settings} onSaveSettings={s => void saveSettings(s)} savingSettings={savingSettings}
+                page={{ kind: doc.kind, texts, onChange: setTexts }} />
             )}
           </aside>
         </div>

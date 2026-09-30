@@ -47,7 +47,7 @@ func sampleVersion(state theme.VersionState) theme.Version {
 func sampleDoc() theme.Document {
 	return theme.Document{Kind: theme.KindTemplate, Key: "home", Root: theme.Node{ID: "root", Type: theme.RootType, Children: []theme.Node{
 		{ID: "s1", Type: "section", Style: theme.NodeStyle{Base: map[string]string{"padding_y": "xl"}}},
-	}}}
+	}}, Translations: map[locale.Locale]theme.DocumentTexts{locale.Dutch: {SEO: theme.SEO{Title: "Winkel"}}}}
 }
 
 // stub is one configurable fake satisfying every use-case port the handler

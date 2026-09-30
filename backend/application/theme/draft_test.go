@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 )
 
@@ -125,4 +126,28 @@ func TestPages_createSaveAndDelete(t *testing.T) {
 	assert.Equal(t, 3, rev)
 	_, err = w.docs.Find(tenantCtx(), w.draft(t, th.ID).ID, theme.KindPage, "about")
 	assert.ErrorIs(t, err, theme.ErrDocumentNotFound)
+}
+
+func TestSaveDraftDocument_keepsPageTextTranslations(t *testing.T) {
+	w := newWorld(t)
+	th := w.createTheme(t)
+	uc := apptheme.NewSaveDraftDocumentUseCase(w.deps)
+
+	res, err := uc.Execute(tenantCtx(), apptheme.SaveDraftDocumentInput{
+		ThemeID: th.ID, ExpectedRevision: 1, Kind: theme.KindTemplate, Key: "home", Root: headingTree("Olá"),
+		SEO:          theme.SEO{Title: "Loja"},
+		Translations: map[locale.Locale]theme.DocumentTexts{locale.English: {SEO: theme.SEO{Title: " Shop "}}, locale.Dutch: {}},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, map[locale.Locale]theme.DocumentTexts{locale.English: {SEO: theme.SEO{Title: "Shop"}}}, res.Document.Translations)
+
+	got, err := apptheme.NewGetDraftDocumentUseCase(w.deps).Execute(tenantCtx(), th.ID, theme.KindTemplate, "home")
+	require.NoError(t, err)
+	assert.Equal(t, "Shop", got.Translations[locale.English].SEO.Title)
+
+	_, err = uc.Execute(tenantCtx(), apptheme.SaveDraftDocumentInput{
+		ThemeID: th.ID, ExpectedRevision: 2, Kind: theme.KindTemplate, Key: "home", Root: headingTree("Olá"),
+		Translations: map[locale.Locale]theme.DocumentTexts{locale.English: {Title: "Home"}},
+	})
+	assert.ErrorIs(t, err, theme.ErrInvalidDocumentTranslation)
 }

@@ -18,6 +18,8 @@ const docs: Record<string, unknown> = {
   'order-confirmation': tree([{ id: 'os', type: 'order-status', props: { title: 'Thanks!' } }]),
 }
 
+const docMeta: Record<string, object> = {}
+
 const productDetail = {
   id: 'p1', name: 'Red shoes', slug: 'red-shoes', description: 'Comfy shoes for walking', category_id: null, tags: [], images: [],
   variants: [{ id: 'v1', name: 'Default', skus: [{ id: 's1', sku_code: 'RS', price_minor_units: 5000, currency_code: 'EUR', stock_quantity: 2 }] }],
@@ -34,7 +36,7 @@ function backend() {
     if (p === '/sitemap') return ok({ products: [{ slug: 'red-shoes', updated_at: '2026-09-01T00:00:00Z' }], collections: [] })
     if (p === '/store') return ok({ name: 'Loja', currency_code: 'EUR', locale: 'pt-BR', locales: ['pt-BR', 'en', 'nl'] })
     const doc = /^\/theme\/versions\/v1\/documents\/template\/(.+)$/.exec(p)
-    if (doc) return ok({ kind: 'template', key: doc[1], title: '', seo: {}, root: docs[doc[1]] })
+    if (doc) return ok({ kind: 'template', key: doc[1], title: '', seo: {}, root: docs[doc[1]], ...docMeta[doc[1]] })
     if (p === '/products/by-slug/red-shoes') return ok(productDetail)
     if (p.startsWith('/products/by-slug/')) return missing()
     if (p === '/products/p1/reviews') return ok({ reviews: [], summary: { average: 0, count: 0 } })
@@ -113,6 +115,20 @@ describe('translated merchant texts', () => {
       expect((await render({ ...base, url: '/store/k/', fetch: backend() })).html).toContain('Bem-vindo')
     } finally {
       docs.home = home
+    }
+  })
+})
+
+describe('translated page texts', () => {
+  it('title and description the page in the language being read', async () => {
+    docMeta.home = { seo: { title: 'Loja', description: 'Produtos do Brasil' }, translations: { en: { seo: { title: 'Shop' } } } }
+    try {
+      const en = await render({ ...base, url: '/store/k/en/', fetch: backend() })
+      expect(en.head).toContain('<title>Shop</title>')
+      expect(en.head).toContain('content="Produtos do Brasil"')
+      expect((await render({ ...base, url: '/store/k/nl/', fetch: backend() })).head).toContain('<title>Loja</title>')
+    } finally {
+      delete docMeta.home
     }
   })
 })

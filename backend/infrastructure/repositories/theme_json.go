@@ -76,6 +76,32 @@ func (n themeNodeJSON) toDomain() theme.Node {
 	return out
 }
 
+type themeDocTextsJSON struct {
+	Title string       `json:"title,omitempty"`
+	SEO   themeSEOJSON `json:"seo,omitempty"`
+}
+
+type themeDocTranslationsJSON map[locale.Locale]themeDocTextsJSON
+
+func toDocTranslationsJSON(tr map[locale.Locale]theme.DocumentTexts) themeDocTranslationsJSON {
+	out := themeDocTranslationsJSON{}
+	for l, t := range tr {
+		out[l] = themeDocTextsJSON{Title: t.Title, SEO: themeSEOJSON{Title: t.SEO.Title, Description: t.SEO.Description}}
+	}
+	return out
+}
+
+func (j themeDocTranslationsJSON) toDomain() map[locale.Locale]theme.DocumentTexts {
+	if len(j) == 0 {
+		return nil
+	}
+	out := make(map[locale.Locale]theme.DocumentTexts, len(j))
+	for l, t := range j {
+		out[l] = theme.DocumentTexts{Title: t.Title, SEO: theme.SEO{Title: t.SEO.Title, Description: t.SEO.Description}}
+	}
+	return out
+}
+
 type themeSEOJSON struct {
 	Title       string `json:"title,omitempty"`
 	Description string `json:"description,omitempty"`

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -17,7 +18,9 @@ type SaveDraftDocumentInput struct {
 	// groups have no title.
 	Title string
 	SEO   theme.SEO
-	Root  theme.Node
+	// Translations: the title/SEO in the store's other languages.
+	Translations map[locale.Locale]theme.DocumentTexts
+	Root         theme.Node
 }
 
 // DraftWrite is a changed document plus the draft's new revision, which the
@@ -49,7 +52,11 @@ func (uc *SaveDraftDocumentUseCase) Execute(ctx context.Context, in SaveDraftDoc
 				return err
 			}
 		}
-		doc.SEO, doc.Root = in.SEO, in.Root
+		translations, err := theme.ValidDocumentTranslations(doc.Kind, in.Translations)
+		if err != nil {
+			return err
+		}
+		doc.SEO, doc.Translations, doc.Root = in.SEO, translations, in.Root
 		if err := theme.ValidateTree(*doc, uc.deps.Catalog); err != nil {
 			return err
 		}

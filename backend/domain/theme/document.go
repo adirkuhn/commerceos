@@ -1,9 +1,12 @@
 package theme
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/adirkuhn/commerceos/domain/locale"
 )
 
 type DocumentKind string
@@ -44,7 +47,16 @@ type Document struct {
 	Key       string
 	Title     string
 	SEO       SEO
-	Root      Node
+	// Translations are the title (pages) and SEO texts in the store's other
+	// languages; a blank one shows the default-language text.
+	Translations map[locale.Locale]DocumentTexts
+	Root         Node
+}
+
+// DocumentTexts is a document's merchant texts in one language.
+type DocumentTexts struct {
+	Title string
+	SEO   SEO
 }
 
 type SEO struct {
@@ -128,4 +140,35 @@ func ContextAvailable(kind DocumentKind, key string, ctx DataContext) bool {
 		return true
 	}
 	return kind == KindTemplate && routeContexts[key] == ctx
+}
+
+const (
+	maxSEOTitleLength       = 70
+	maxSEODescriptionLength = 320
+)
+
+// ValidDocumentTranslations trims the translated texts, drops languages
+// with none, and checks the languages and lengths. Only pages have a title.
+func ValidDocumentTranslations(kind DocumentKind, tr map[locale.Locale]DocumentTexts) (map[locale.Locale]DocumentTexts, error) {
+	out := map[locale.Locale]DocumentTexts{}
+	for l, texts := range tr {
+		if !l.Valid() {
+			return nil, fmt.Errorf("%w: language %q is not supported", ErrInvalidDocumentTranslation, l)
+		}
+		texts = DocumentTexts{Title: strings.TrimSpace(texts.Title), SEO: SEO{Title: strings.TrimSpace(texts.SEO.Title), Description: strings.TrimSpace(texts.SEO.Description)}}
+		switch {
+		case texts.Title != "" && kind != KindPage:
+			return nil, fmt.Errorf("%w: only pages have a title", ErrInvalidDocumentTranslation)
+		case utf8.RuneCountInString(texts.Title) > maxNameLength:
+			return nil, fmt.Errorf("%w: title longer than %d characters", ErrInvalidDocumentTranslation, maxNameLength)
+		case utf8.RuneCountInString(texts.SEO.Title) > maxSEOTitleLength:
+			return nil, fmt.Errorf("%w: SEO title longer than %d characters", ErrInvalidDocumentTranslation, maxSEOTitleLength)
+		case utf8.RuneCountInString(texts.SEO.Description) > maxSEODescriptionLength:
+			return nil, fmt.Errorf("%w: SEO description longer than %d characters", ErrInvalidDocumentTranslation, maxSEODescriptionLength)
+		}
+		if texts != (DocumentTexts{}) {
+			out[l] = texts
+		}
+	}
+	return out, nil
 }

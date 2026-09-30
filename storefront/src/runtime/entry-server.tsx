@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider, dehydrate } from '@tanstack/react-que
 import { StaticRouter } from 'react-router-dom'
 import { ApiError, StorefrontAPI } from '../api/storefront'
 import type { ReviewList } from '../api/storefront'
-import type { StorefrontTheme } from '../core/document'
+import { documentIn, type StorefrontTheme } from '../core/document'
 import { ApiProvider } from '../api/ApiContext'
 import { App } from './App'
 import { documentQuery, hasDocument, themeQuery } from './queries'
@@ -137,7 +137,7 @@ export async function render(opts: RenderOptions): Promise<RenderResult> {
     status: route.notFound ? 404 : 200,
     lang: locale,
     head: buildHead({
-      theme, doc: main, page, preview: theme.preview || Boolean(opts.previewToken), storeName: store?.name ?? '',
+      theme, doc: main && documentIn(main, locale === langs.defaultLocale ? undefined : locale), page, preview: theme.preview || Boolean(opts.previewToken), storeName: store?.name ?? '',
       canonical: urlIn(locale),
       homeURL: canonicalURL(opts.publicOrigin, parsed.storeKey, localized(locale, '/'), new URLSearchParams(), route),
       alternates,
