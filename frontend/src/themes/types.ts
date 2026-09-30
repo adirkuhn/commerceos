@@ -4,7 +4,7 @@ export type VersionState = 'draft' | 'sealed'
 export type SessionPurpose = 'edit' | 'preview'
 
 /** Starting points for a new theme (backend theme presets). */
-export const THEME_PRESETS = ['default', 'mercado'] as const
+export const THEME_PRESETS = ['default', 'mercado', 'fresh'] as const
 export type ThemePreset = (typeof THEME_PRESETS)[number]
 
 export interface Theme {

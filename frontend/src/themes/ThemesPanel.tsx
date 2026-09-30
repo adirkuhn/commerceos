@@ -121,6 +121,7 @@ export function ThemesPanel({ channel, onClose }: Props) {
           className="px-2 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus">
           <option value="default">{t('preset.default')}</option>
           <option value="mercado">{t('preset.mercado')}</option>
+          <option value="fresh">{t('preset.fresh')}</option>
         </select>
         <button type="submit" disabled={creating || !name.trim() || channel.storefront_mode !== 'theme'}
           className="flex items-center gap-1 px-3 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium disabled:opacity-50">

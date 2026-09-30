@@ -410,9 +410,9 @@ components:
         name: { type: string, minLength: 1, maxLength: 120 }
         preset_key:
           type: string
-          enum: [default, mercado]
+          enum: [default, mercado, fresh]
           default: default
-          description: "default: a general-purpose store. mercado: a grocery / market store (category menu, product rows with discount badges and add to cart)."
+          description: "default: a general-purpose store. mercado: a grocery / market store (category menu, product rows with discount badges and add to cart). fresh: an online supermarket (hero, promo cards, category tiles, product rows, service promises; no sliders)."
     RenameThemeRequest:
       type: object
       required: [name]

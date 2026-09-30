@@ -35,8 +35,9 @@
   "newThemeName": "Naam van nieuw thema",
   "notLive": "Niet live",
   "preset": {
-    "label": "Beginnen met",
     "default": "Algemene winkel",
+    "fresh": "Supermarkt (verse boodschappen)",
+    "label": "Beginnen met",
     "mercado": "Markt (supermarkt)"
   },
   "title": "Thema’s · {{channel}}",

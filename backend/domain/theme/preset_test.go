@@ -11,7 +11,7 @@ import (
 )
 
 func TestPresets_haveValidSettingsAndAPageForEveryTemplate(t *testing.T) {
-	require.ElementsMatch(t, []string{theme.PresetDefault, theme.PresetMercado}, theme.PresetKeys())
+	require.ElementsMatch(t, []string{theme.PresetDefault, theme.PresetMercado, theme.PresetFresh}, theme.PresetKeys())
 	for _, key := range theme.PresetKeys() {
 		s, err := theme.PresetSettings(key)
 		require.NoError(t, err, key)
@@ -53,6 +53,30 @@ func TestMercadoPreset_isAGroceryStorefront(t *testing.T) {
 	assert.NotEmpty(t, find(byKey["footer"].Root, "social-links"))
 	s, _ := theme.PresetSettings(theme.PresetMercado)
 	assert.NotEqual(t, theme.DefaultSettings().Colors, s.Colors)
+}
+
+// Fresh is a grocery layout modelled on a classic online supermarket:
+// hero, promo cards, category tiles, product rows and service promises --
+// no sliders or animations.
+func TestFreshPreset_isAGroceryStorefront(t *testing.T) {
+	docs, err := theme.PresetDocuments(theme.PresetFresh, locale.English)
+	require.NoError(t, err)
+	byKey := map[string]theme.Document{}
+	for _, d := range docs {
+		byKey[d.Key] = d
+	}
+	home := byKey["home"].Root
+	assert.NotEmpty(t, find(home, "hero"))
+	assert.NotEmpty(t, find(home, "collection-list"), "popular categories")
+	assert.GreaterOrEqual(t, len(find(home, "product-grid")), 2)
+	assert.GreaterOrEqual(t, len(find(home, "button")), 5, "promo cards and banners lead to the shop")
+	header := byKey["header"].Root
+	assert.NotEmpty(t, find(header, "search-box"))
+	assert.NotEmpty(t, find(header, "cart-link"))
+	assert.NotEmpty(t, find(byKey["footer"].Root, "social-links"))
+	s, err := theme.PresetSettings(theme.PresetFresh)
+	require.NoError(t, err)
+	assert.Equal(t, "#0aad0a", s.Colors.Primary)
 }
 
 func find(n theme.Node, typ string) []theme.Node {

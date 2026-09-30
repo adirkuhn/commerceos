@@ -18,6 +18,7 @@ type preset struct {
 var presetRegistry = map[string]preset{
 	PresetDefault: {documents: defaultDocuments, settings: DefaultSettings},
 	PresetMercado: {documents: mercadoDocuments, settings: mercadoSettings},
+	PresetFresh:   {documents: freshDocuments, settings: freshSettings},
 }
 
 // PresetKeys lists the presets, sorted.

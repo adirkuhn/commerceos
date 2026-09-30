@@ -71,6 +71,18 @@ describe('ThemesPanel', () => {
     await waitFor(() => expect(api.createTheme).toHaveBeenCalledWith('tok', 'chan-1', 'Mercadinho', 'mercado'))
   })
 
+  it('creates a theme from the Supermarket preset', async () => {
+    vi.mocked(api.createTheme).mockResolvedValue(theme({ id: 't4', name: 'Verde' }))
+    renderPanel()
+    await screen.findByRole('list', { name: 'Themes' })
+
+    await userEvent.type(screen.getByLabelText('New theme name'), 'Verde')
+    await userEvent.selectOptions(screen.getByLabelText('Start from'), 'Supermarket (fresh groceries)')
+    await userEvent.click(screen.getByRole('button', { name: /Create theme/ }))
+
+    await waitFor(() => expect(api.createTheme).toHaveBeenCalledWith('tok', 'chan-1', 'Verde', 'fresh'))
+  })
+
   it('opens the editor with a fresh edit session in the URL fragment', async () => {
     const win = { opener: {}, location: { href: '' }, close: vi.fn() }
     vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window)

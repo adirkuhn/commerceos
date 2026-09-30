@@ -35,8 +35,9 @@
   "newThemeName": "New theme name",
   "notLive": "Not live",
   "preset": {
-    "label": "Start from",
     "default": "General store",
+    "fresh": "Supermarket (fresh groceries)",
+    "label": "Start from",
     "mercado": "Market (grocery)"
   },
   "title": "Themes · {{channel}}",

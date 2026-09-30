@@ -20,6 +20,9 @@ const (
 	// PresetMercado is a grocery / market layout: category menu, rows of
 	// products with discount badges and add to cart.
 	PresetMercado = "mercado"
+	// PresetFresh is an online supermarket: hero, promo cards, category
+	// tiles, product rows and service promises.
+	PresetFresh = "fresh"
 )
 
 // Theme is one design of a sales channel's storefront. A channel can keep
