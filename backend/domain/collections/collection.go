@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/adirkuhn/commerceos/domain/locale"
 )
 
 var (
@@ -95,6 +97,33 @@ type Draft struct {
 	Rules          []Rule
 	Sort           Sort
 	Published      bool
+	// Translations are the texts in the store's other languages; the
+	// fields above are the company language. A blank text shows that one.
+	Translations map[locale.Locale]Texts
+}
+
+// Texts is a collection's shopper-facing texts in one language.
+type Texts struct {
+	Name, Description, SEOTitle, SEODescription string
+}
+
+// In is the collection as shoppers reading l see it.
+func (c Collection) In(l locale.Locale) Collection {
+	t, ok := c.Translations[l]
+	if !ok {
+		return c
+	}
+	for _, f := range []struct {
+		dst *string
+		src string
+	}{
+		{&c.Name, t.Name}, {&c.Description, t.Description}, {&c.SEOTitle, t.SEOTitle}, {&c.SEODescription, t.SEODescription},
+	} {
+		if f.src != "" {
+			*f.dst = f.src
+		}
+	}
+	return c
 }
 
 type Collection struct {
@@ -141,6 +170,11 @@ func validate(d Draft) (Draft, error) {
 	if utf8.RuneCountInString(d.SEOTitle) > maxSEOTitle || utf8.RuneCountInString(d.SEODescription) > maxSEODescription {
 		return d, invalid("search engine title/description is too long")
 	}
+	translations, err := validTranslations(d.Translations)
+	if err != nil {
+		return d, err
+	}
+	d.Translations = translations
 	switch d.Sort {
 	case SortManual, SortNameAsc, SortPriceAsc, SortPriceDesc, SortNewest:
 	default:
@@ -210,4 +244,27 @@ func ValidateManualProducts(ids []string) error {
 		seen[id] = true
 	}
 	return nil
+}
+
+func validTranslations(tr map[locale.Locale]Texts) (map[locale.Locale]Texts, error) {
+	out := map[locale.Locale]Texts{}
+	for l, t := range tr {
+		if !l.Valid() {
+			return nil, invalid("translation language %q is not supported", l)
+		}
+		t = Texts{Name: strings.TrimSpace(t.Name), Description: strings.TrimSpace(t.Description),
+			SEOTitle: strings.TrimSpace(t.SEOTitle), SEODescription: strings.TrimSpace(t.SEODescription)}
+		switch {
+		case utf8.RuneCountInString(t.Name) > maxNameLength:
+			return nil, invalid("%s name must be at most %d characters", l, maxNameLength)
+		case utf8.RuneCountInString(t.Description) > maxDescription:
+			return nil, invalid("%s description is too long", l)
+		case utf8.RuneCountInString(t.SEOTitle) > maxSEOTitle || utf8.RuneCountInString(t.SEODescription) > maxSEODescription:
+			return nil, invalid("%s search engine title/description is too long", l)
+		}
+		if t != (Texts{}) {
+			out[l] = t
+		}
+	}
+	return out, nil
 }

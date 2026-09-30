@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/adirkuhn/commerceos/domain/collections"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -137,11 +138,13 @@ func TestCollectionRepo_Integration_manualCrudAndOrder(t *testing.T) {
 		assert.Equal(t, []string{f.cap, f.draft, f.red}, ids)
 
 		got.Published = true
+		got.Translations = map[locale.Locale]collections.Texts{locale.English: {Name: "Our picks", SEOTitle: "Picks"}}
 		require.NoError(t, repo.Update(ctx, got))
 		pub, total, err := repo.List(ctx, true, 10, 0)
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), total)
 		assert.True(t, pub[0].Published)
+		assert.Equal(t, "Our picks", pub[0].Translations[locale.English].Name)
 
 		require.NoError(t, repo.Delete(ctx, c.ID))
 		_, err = repo.FindByID(ctx, c.ID)

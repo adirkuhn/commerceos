@@ -16,6 +16,7 @@ import (
 
 	appcollections "github.com/adirkuhn/commerceos/application/collections"
 	"github.com/adirkuhn/commerceos/domain/collections"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	handler "github.com/adirkuhn/commerceos/infrastructure/handlers/collections"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 )
@@ -37,7 +38,8 @@ type stub struct {
 func (s *stub) sample() collections.Collection {
 	c := collections.Collection{ID: colID, CreatedAt: time.Unix(0, 0), UpdatedAt: time.Unix(0, 0)}
 	c.Draft = collections.Draft{Name: "Sale", Slug: "sale", Type: collections.TypeSmart, Match: collections.MatchAny, Sort: collections.SortNewest,
-		Rules: []collections.Rule{{Field: collections.FieldAddedWithinDays, Days: 30}}}
+		Rules:        []collections.Rule{{Field: collections.FieldAddedWithinDays, Days: 30}},
+		Translations: map[locale.Locale]collections.Texts{locale.English: {Name: "Deals"}}}
 	return c
 }
 
@@ -170,4 +172,15 @@ func TestCollections_setProductsReturnsTheCollection(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Equal(t, []string{prodID}, s.gotIDs)
 	assert.Contains(t, w.Body.String(), prodID)
+}
+
+func TestCollections_createPassesTranslations(t *testing.T) {
+	s := &stub{}
+	body := `{"name":"Verão","slug":"verao","type":"manual","sort":"manual",
+		"translations":{"en":{"name":"Summer","seo_title":"Summer deals"}}}`
+	w := do(router(s), http.MethodPost, "/api/v1/collections", body, token(t, middleware.RoleCustomerOwner))
+
+	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	assert.Equal(t, collections.Texts{Name: "Summer", SEOTitle: "Summer deals"}, s.gotDraft.Translations[locale.English])
+	assert.Contains(t, w.Body.String(), `"translations":{"en":{"name":"Deals"}}`)
 }

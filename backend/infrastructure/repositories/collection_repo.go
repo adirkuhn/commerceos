@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/adirkuhn/commerceos/domain/collections"
+	"github.com/adirkuhn/commerceos/domain/locale"
 )
 
 type collectionRuleJSON struct {
@@ -20,6 +21,32 @@ type collectionRuleJSON struct {
 	MinMinorUnits        *int64 `json:"min_minor_units,omitempty"`
 	MaxMinorUnits        *int64 `json:"max_minor_units,omitempty"`
 	Days                 int    `json:"days,omitempty"`
+}
+
+type collectionTextsJSON struct {
+	Name           string `json:"name,omitempty"`
+	Description    string `json:"description,omitempty"`
+	SEOTitle       string `json:"seo_title,omitempty"`
+	SEODescription string `json:"seo_description,omitempty"`
+}
+
+func toCollectionTextsJSON(tr map[locale.Locale]collections.Texts) map[locale.Locale]collectionTextsJSON {
+	out := map[locale.Locale]collectionTextsJSON{}
+	for l, t := range tr {
+		out[l] = collectionTextsJSON{Name: t.Name, Description: t.Description, SEOTitle: t.SEOTitle, SEODescription: t.SEODescription}
+	}
+	return out
+}
+
+func fromCollectionTextsJSON(tr map[locale.Locale]collectionTextsJSON) map[locale.Locale]collections.Texts {
+	if len(tr) == 0 {
+		return nil
+	}
+	out := make(map[locale.Locale]collections.Texts, len(tr))
+	for l, t := range tr {
+		out[l] = collections.Texts{Name: t.Name, Description: t.Description, SEOTitle: t.SEOTitle, SEODescription: t.SEODescription}
+	}
+	return out
 }
 
 type collectionModel struct {
@@ -36,6 +63,7 @@ type collectionModel struct {
 	Rules          jsonb[[]collectionRuleJSON] `gorm:"type:jsonb"`
 	Sort           string
 	Published      bool
+	Translations   jsonb[map[locale.Locale]collectionTextsJSON] `gorm:"type:jsonb"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -56,7 +84,8 @@ func toCollectionModel(c collections.Collection) collectionModel {
 		ID: c.ID, TenantID: c.TenantID, Name: c.Name, Slug: c.Slug, Description: c.Description, ImageAssetID: c.ImageAssetID,
 		SEOTitle: c.SEOTitle, SEODescription: c.SEODescription, Type: string(c.Type), Match: match,
 		Rules: jsonb[[]collectionRuleJSON]{V: rules}, Sort: string(c.Sort), Published: c.Published,
-		CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
+		Translations: jsonb[map[locale.Locale]collectionTextsJSON]{V: toCollectionTextsJSON(c.Translations)},
+		CreatedAt:    c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 }
 
@@ -70,7 +99,7 @@ func (m collectionModel) toDomain() collections.Collection {
 	c.Draft = collections.Draft{
 		Name: m.Name, Slug: m.Slug, Description: m.Description, ImageAssetID: m.ImageAssetID, SEOTitle: m.SEOTitle,
 		SEODescription: m.SEODescription, Type: collections.Type(m.Type), Match: collections.Match(m.Match), Rules: rules,
-		Sort: collections.Sort(m.Sort), Published: m.Published,
+		Sort: collections.Sort(m.Sort), Published: m.Published, Translations: fromCollectionTextsJSON(m.Translations.V),
 	}
 	if c.Type == collections.TypeManual {
 		c.Rules = nil
@@ -163,7 +192,7 @@ func (r *CollectionRepo) Update(ctx context.Context, c *collections.Collection) 
 	if err := tx.Model(&collectionModel{}).Where("id = ?", c.ID).Updates(map[string]any{
 		"name": m.Name, "slug": m.Slug, "description": m.Description, "image_asset_id": m.ImageAssetID,
 		"seo_title": m.SEOTitle, "seo_description": m.SEODescription, "type": m.Type, "match": m.Match,
-		"rules": m.Rules, "sort": m.Sort, "published": m.Published, "updated_at": m.UpdatedAt,
+		"rules": m.Rules, "sort": m.Sort, "published": m.Published, "translations": m.Translations, "updated_at": m.UpdatedAt,
 	}).Error; err != nil {
 		return fmt.Errorf("collectionRepo.Update: %w", slugConflict(err))
 	}

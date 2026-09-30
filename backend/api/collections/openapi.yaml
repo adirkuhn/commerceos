@@ -107,6 +107,22 @@ components:
         max_minor_units: { type: integer, format: int64, minimum: 0, nullable: true }
         days: { type: integer, minimum: 1, maximum: 3650 }
 
+    CollectionTexts:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, maxLength: 120 }
+        description: { type: string, maxLength: 5000 }
+        seo_title: { type: string, maxLength: 70 }
+        seo_description: { type: string, maxLength: 320 }
+    CollectionTranslations:
+      type: object
+      description: >
+        The collection's texts per language (en, pt-BR, nl); its own texts
+        are the company language. Blank texts are dropped (shoppers then see
+        the default); another language is rejected with 422.
+      additionalProperties: { $ref: '#/components/schemas/CollectionTexts' }
+
     CollectionInput:
       type: object
       required: [name, slug, type, sort]
@@ -123,6 +139,7 @@ components:
         rules: { type: array, maxItems: 10, items: { $ref: '#/components/schemas/CollectionRule' } }
         sort: { $ref: '#/components/schemas/CollectionSort' }
         published: { type: boolean }
+        translations: { $ref: '#/components/schemas/CollectionTranslations' }
 
     Collection:
       type: object
@@ -140,6 +157,7 @@ components:
         rules: { type: array, items: { $ref: '#/components/schemas/CollectionRule' } }
         sort: { $ref: '#/components/schemas/CollectionSort' }
         published: { type: boolean }
+        translations: { $ref: '#/components/schemas/CollectionTranslations' }
         product_ids:
           type: array
           description: Manual collections only, in order.

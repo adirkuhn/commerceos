@@ -127,8 +127,11 @@ type Collection struct {
 	SeoTitle       string                `json:"seo_title"`
 	Slug           string                `json:"slug"`
 	Sort           CollectionSort        `json:"sort"`
-	Type           CollectionType        `json:"type"`
-	UpdatedAt      time.Time             `json:"updated_at"`
+
+	// Translations The collection's texts per language (en, pt-BR, nl); its own texts are the company language. Blank texts are dropped (shoppers then see the default); another language is rejected with 422.
+	Translations *CollectionTranslations `json:"translations,omitempty"`
+	Type         CollectionType          `json:"type"`
+	UpdatedAt    time.Time               `json:"updated_at"`
 }
 
 // CollectionInput defines model for CollectionInput.
@@ -143,7 +146,10 @@ type CollectionInput struct {
 	SeoTitle       *string             `json:"seo_title,omitempty"`
 	Slug           string              `json:"slug"`
 	Sort           CollectionSort      `json:"sort"`
-	Type           CollectionType      `json:"type"`
+
+	// Translations The collection's texts per language (en, pt-BR, nl); its own texts are the company language. Blank texts are dropped (shoppers then see the default); another language is rejected with 422.
+	Translations *CollectionTranslations `json:"translations,omitempty"`
+	Type         CollectionType          `json:"type"`
 }
 
 // CollectionListResponse defines model for CollectionListResponse.
@@ -179,6 +185,17 @@ type CollectionRuleField string
 
 // CollectionSort defines model for CollectionSort.
 type CollectionSort string
+
+// CollectionTexts defines model for CollectionTexts.
+type CollectionTexts struct {
+	Description    *string `json:"description,omitempty"`
+	Name           *string `json:"name,omitempty"`
+	SeoDescription *string `json:"seo_description,omitempty"`
+	SeoTitle       *string `json:"seo_title,omitempty"`
+}
+
+// CollectionTranslations The collection's texts per language (en, pt-BR, nl); its own texts are the company language. Blank texts are dropped (shoppers then see the default); another language is rejected with 422.
+type CollectionTranslations map[string]CollectionTexts
 
 // CollectionType defines model for CollectionType.
 type CollectionType string
@@ -440,30 +457,32 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
