@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/adirkuhn/commerceos/domain/locale"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/txctx"
 )
@@ -26,8 +28,10 @@ type productModel struct {
 	HasVariants                 bool        `gorm:"not null"`
 	Tags                        stringSlice `gorm:"type:jsonb;not null;default:'[]'"`
 	SyncVariantsAsWooVariations bool        `gorm:"column:sync_variants_as_woo_variations;not null;default:false"`
-	CreatedAt                   time.Time
-	UpdatedAt                   time.Time
+	// Translations is written only by SetTranslations (Update leaves it).
+	Translations productTranslations `gorm:"type:jsonb;not null;default:'{}'"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 func (productModel) TableName() string { return "products" }
@@ -169,6 +173,7 @@ func applyProductFilter(q *gorm.DB, filter pmsDomain.ProductFilter, includeAndCa
 		pattern = "%" + *filter.Search + "%"
 		q = q.Where(
 			"unaccent(name) ILIKE unaccent(?) OR unaccent(slug) ILIKE unaccent(?) OR "+
+				"EXISTS (SELECT 1 FROM jsonb_each(products.translations) tr WHERE unaccent(tr.value->>'name') ILIKE unaccent(?)) OR "+
 				"similarity(immutable_unaccent(name), immutable_unaccent(?)) > ? OR EXISTS ("+
 				"SELECT 1 FROM skus s JOIN variants v ON v.id = s.variant_id "+
 				"WHERE v.product_id = products.id AND ("+
@@ -177,7 +182,7 @@ func applyProductFilter(q *gorm.DB, filter pmsDomain.ProductFilter, includeAndCa
 				"EXISTS (SELECT 1 FROM scale_code_aliases sca WHERE sca.sku_id = s.id AND sca.code ILIKE ?)"+
 				")"+
 				")",
-			pattern, pattern, *filter.Search, fuzzySearchSimilarityThreshold, pattern, pattern, pattern, pattern, pattern,
+			pattern, pattern, pattern, *filter.Search, fuzzySearchSimilarityThreshold, pattern, pattern, pattern, pattern, pattern,
 		)
 	}
 	if filter.UpdatedAfter != nil {
@@ -369,6 +374,22 @@ func (r *ProductRepo) Update(ctx context.Context, p *pmsDomain.Product) error {
 	return nil
 }
 
+// SetTranslations replaces a product's translations, touching nothing else.
+func (r *ProductRepo) SetTranslations(ctx context.Context, productID string, tr map[locale.Locale]pmsDomain.ProductTexts) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	res := tx.Model(&productModel{}).Where("id = ?", productID).Update("translations", toProductTranslations(tr))
+	if res.Error != nil {
+		return fmt.Errorf("productRepo.SetTranslations: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return pmsDomain.ErrProductNotFound
+	}
+	return nil
+}
+
 func (r *ProductRepo) Delete(ctx context.Context, id string) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -395,7 +416,57 @@ func toProductDomain(m productModel) *pmsDomain.Product {
 		HasVariants:                 m.HasVariants,
 		Tags:                        []string(m.Tags),
 		SyncVariantsAsWooVariations: m.SyncVariantsAsWooVariations,
+		Translations:                m.Translations.toDomain(),
 		CreatedAt:                   m.CreatedAt,
 		UpdatedAt:                   m.UpdatedAt,
+	}
+}
+
+type productTextsJSON struct {
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// productTranslations is the JSONB translations column.
+type productTranslations map[locale.Locale]productTextsJSON
+
+func toProductTranslations(tr map[locale.Locale]pmsDomain.ProductTexts) productTranslations {
+	out := productTranslations{}
+	for l, t := range tr {
+		out[l] = productTextsJSON{Name: t.Name, Description: t.Description}
+	}
+	return out
+}
+
+func (p productTranslations) toDomain() map[locale.Locale]pmsDomain.ProductTexts {
+	if len(p) == 0 {
+		return nil
+	}
+	out := make(map[locale.Locale]pmsDomain.ProductTexts, len(p))
+	for l, t := range p {
+		out[l] = pmsDomain.ProductTexts{Name: t.Name, Description: t.Description}
+	}
+	return out
+}
+
+func (p productTranslations) Value() (driver.Value, error) {
+	if len(p) == 0 {
+		return "{}", nil
+	}
+	b, err := json.Marshal(map[locale.Locale]productTextsJSON(p))
+	return string(b), err
+}
+
+func (p *productTranslations) Scan(value any) error {
+	switch v := value.(type) {
+	case nil:
+		*p = nil
+		return nil
+	case []byte:
+		return json.Unmarshal(v, (*map[locale.Locale]productTextsJSON)(p))
+	case string:
+		return json.Unmarshal([]byte(v), (*map[locale.Locale]productTextsJSON)(p))
+	default:
+		return fmt.Errorf("productTranslations.Scan: unsupported type %T", value)
 	}
 }

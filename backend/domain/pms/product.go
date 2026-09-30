@@ -1,6 +1,10 @@
 package pms
 
-import "time"
+import (
+	"time"
+
+	"github.com/adirkuhn/commerceos/domain/locale"
+)
 
 type ProductStatus string
 
@@ -36,8 +40,11 @@ type Product struct {
 	// shape when it detects this flag no longer matches what's actually on
 	// the channel.
 	SyncVariantsAsWooVariations bool
-	CreatedAt                   time.Time
-	UpdatedAt                   time.Time
+	// Translations are the name/description in the store's other
+	// languages (see ProductTexts); set only by SetProductTranslationsUseCase.
+	Translations map[locale.Locale]ProductTexts
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // IsSyncableToChannels is false for Draft/Archived -- a channel push (create
