@@ -175,21 +175,23 @@ func defaultTemplate(key string) Node {
 }
 
 func defaultHeader() Node {
-	return root(n("header-bar", "section", nil,
-		n("header-cols", "columns", map[string]any{"stack_on": "never"},
-			n("header-brand", "column", nil, n("logo", "site-logo", map[string]any{"size": "md"})),
-			n("header-nav", "column", map[string]any{"span": 2}, n("menu", "navigation-menu", map[string]any{
-				"orientation": "horizontal",
-				"items":       []any{map[string]any{"label": "Home", "link": "/"}, map[string]any{"label": "Search", "link": "/search?q="}},
-			})),
-			n("header-actions", "column", nil,
-				n("search", "search-box", map[string]any{"placeholder": ""}),
-				n("languages", "language-switcher", map[string]any{"display": "codes"}),
-				n("account", "account-link", map[string]any{"login_label": "", "account_label": ""}),
-				n("cart", "cart-link", map[string]any{"label": "", "show_count": true}),
+	return root(
+		n("header-bar", "section", nil,
+			n("header-cols", "columns", map[string]any{"stack_on": "mobile"},
+				n("header-brand", "column", nil, n("logo", "site-logo", map[string]any{"size": "md"})),
+				n("header-search", "column", map[string]any{"span": 2}, n("search", "search-box", map[string]any{"placeholder": ""})),
+				n("header-actions", "column", nil,
+					n("languages", "language-switcher", map[string]any{"display": "codes"}),
+					n("account", "account-link", map[string]any{"login_label": "", "account_label": ""}),
+					n("cart", "cart-link", map[string]any{"label": "", "show_count": true}),
+				),
 			),
 		),
-	))
+		n("header-nav", "section", nil, n("menu", "navigation-menu", map[string]any{
+			"orientation": "horizontal",
+			"items":       []any{map[string]any{"label": "Home", "link": "/"}, map[string]any{"label": "Search", "link": "/search?q="}},
+		})),
+	)
 }
 
 func defaultFooter() Node {

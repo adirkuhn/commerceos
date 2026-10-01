@@ -14,8 +14,10 @@ export function CartItemsView({ node, props, className }: RendererProps<CartItem
   if (env.mode === 'editor' && !cart?.cart?.items.length) {
     return <div className={`cos-placeholder ${className}`} data-node={node.id}>{t('hint.cart')}</div>
   }
-  if (!cart?.cart) return <div className={`cos-cart-items ${className}`} data-node={node.id} aria-busy="true" />
-  if (!cart.cart.items.length) return <p className={`cos-muted ${className}`} data-node={node.id}>{props.empty_message || t('cart.empty')}</p>
+  if (!cart?.cart) return <div className={`cos-cart-items ${className}`} data-node={node.id} aria-busy="true"><p className="cos-muted">{t('hint.loading')}</p></div>
+  if (!cart.cart.items.length) {
+    return <p className={`cos-muted ${className}`} data-node={node.id}>{props.empty_message || t('cart.empty')} <a href={env.storePath('')}>{t('common.continueShopping')}</a></p>
+  }
   return (
     <ul className={`cos-cart-items ${className}`} data-node={node.id} aria-label={t('cart.items')}>
       {cart.cart.items.map(item => (

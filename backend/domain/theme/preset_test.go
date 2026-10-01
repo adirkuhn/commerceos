@@ -79,7 +79,7 @@ func TestFreshPreset_isAGroceryStorefront(t *testing.T) {
 	assert.NotEmpty(t, find(byKey["footer"].Root, "social-links"))
 	s, err := theme.PresetSettings(theme.PresetFresh)
 	require.NoError(t, err)
-	assert.Equal(t, "#0aad0a", s.Colors.Primary)
+	assert.Equal(t, "#088a08", s.Colors.Primary, "the template green, darkened to 4.5:1 for white text")
 	assert.Equal(t, theme.StyleSupermarket, s.Style, "dressed like the supermarket template")
 	assert.Equal(t, "Inter", s.Typography.BodyFont)
 }

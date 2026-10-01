@@ -78,7 +78,7 @@ export function CheckoutFormView({ node, props, className }: RendererProps<Check
   if (env.mode === 'editor') {
     return <div className={`cos-placeholder ${className}`} data-node={node.id}>{t('hint.checkout')}</div>
   }
-  if (!cart?.cart) return <div className={className} data-node={node.id} aria-busy="true" />
+  if (!cart?.cart) return <div className={className} data-node={node.id} aria-busy="true"><p className="cos-muted">{t('hint.loading')}</p></div>
   if (!cart.cart.items.length) {
     return <p className={className} data-node={node.id}>{t('cart.empty')} <a href={env.storePath('')}>{t('common.continueShopping')}</a></p>
   }

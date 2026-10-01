@@ -1,4 +1,5 @@
 import type { ThemeSettings } from './document'
+import { readableOn, textSafe } from './contrast'
 
 // Theme settings become CSS custom properties on :root; components read
 // the variables, so a settings change restyles everything consistently.
@@ -40,6 +41,13 @@ export function settingsToCSS(s: ThemeSettings): string {
   const vars: [string, string][] = []
   for (const [name, value] of Object.entries(s.colors)) {
     if (HEX.test(value)) vars.push([`--color-${name}`, value])
+  }
+  // Readable text on fills and text-safe variants, so a light brand colour
+  // never produces unreadable buttons, badges or sale prices.
+  const c = s.colors
+  if ([c.primary, c.secondary, c.accent, c.background].every(v => HEX.test(v))) {
+    vars.push(['--color-on-primary', readableOn(c.primary)], ['--color-on-secondary', readableOn(c.secondary)], ['--color-on-accent', readableOn(c.accent)])
+    vars.push(['--color-primary-text', textSafe(c.primary, c.background)], ['--color-accent-text', textSafe(c.accent, c.background)])
   }
   vars.push(['--font-heading', fontStack(s.typography.heading_font, s.typography.source)])
   vars.push(['--font-body', fontStack(s.typography.body_font, s.typography.source)])

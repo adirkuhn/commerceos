@@ -13,7 +13,7 @@ import { ProductTile } from './ProductTile'
 function Stars({ rating }: { rating: number }) {
   const full = Math.round(rating)
   const { t } = useTranslation()
-  return <span className="cos-stars" aria-label={t('product.rating', { rating: rating.toFixed(1) })}>{'★'.repeat(full)}{'☆'.repeat(5 - full)}</span>
+  return <span className="cos-stars" role="img" aria-label={t('product.rating', { rating: rating.toFixed(1) })}>{'★'.repeat(full)}{'☆'.repeat(5 - full)}</span>
 }
 
 function Reviews({ productId, props, nodeId, className }: { productId: string; props: ProductReviewsProps; nodeId: string; className: string }) {

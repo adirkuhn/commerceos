@@ -12,7 +12,7 @@ func freshSettings() Settings {
 	s := DefaultSettings()
 	s.Style = StyleSupermarket
 	s.Colors = ColorSettings{
-		Primary: "#0aad0a", Secondary: "#001e2b", Background: "#ffffff", Surface: "#f0f3f2",
+		Primary: "#088a08", Secondary: "#001e2b", Background: "#ffffff", Surface: "#f0f3f2",
 		Text: "#001e2b", Muted: "#5c6c75", Accent: "#ffc107",
 	}
 	s.Typography = TypographySettings{Source: FontSourceGoogle, HeadingFont: "Inter", BodyFont: "Inter", Scale: "sm"}
@@ -21,6 +21,9 @@ func freshSettings() Settings {
 	s.Header.Sticky = true
 	return s
 }
+
+// The template's green is #0aad0a; white text on it is only 3.0:1, so the
+// preset uses the template's own hover shade (#088a08, 4.5:1).
 
 // freshImages are the template's pictures, shipped with the preset.
 var freshImages = []PresetImage{
@@ -139,7 +142,7 @@ func freshTemplate(key string) Node {
 func freshHeader() Node {
 	return root(
 		n("header-top", "section", nil,
-			n("header-top-cols", "columns", map[string]any{"stack_on": "never"},
+			n("header-top-cols", "columns", map[string]any{"stack_on": "mobile"},
 				n("header-top-text", "column", map[string]any{"span": 3}, paragraph("deals", "Super value deals - Save more with coupons")),
 				n("header-actions", "column", nil,
 					n("languages", "language-switcher", map[string]any{"display": "codes"}),
