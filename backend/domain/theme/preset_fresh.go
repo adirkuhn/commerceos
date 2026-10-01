@@ -22,6 +22,27 @@ func freshSettings() Settings {
 	return s
 }
 
+// freshImages are the template's pictures, shipped with the preset.
+var freshImages = []PresetImage{
+	{Name: "hero", Filename: "supermarket-hero.jpg", Alt: "Smiling shopper with a bag of fresh vegetables"},
+	{Name: "offer-produce", Filename: "supermarket-fruits-vegetables.png", Alt: "Bag of fresh fruit and vegetables"},
+	{Name: "offer-bakery", Filename: "supermarket-baked-buns.jpg", Alt: "Basket of freshly baked bread"},
+	{Name: "promo-coffee", Filename: "supermarket-coffee-beans.jpg", Alt: "Roasted coffee beans"},
+	{Name: "logo", Filename: "supermarket-logo.png", Alt: "Fresh Cart"},
+	{Name: "category-dairy-bread-eggs", Filename: "category-dairy-bread-eggs.png", Alt: "Dairy, bread and eggs"},
+	{Name: "category-fruits-vegetables", Filename: "category-fruits-vegetables.png", Alt: "Fruits and vegetables"},
+	{Name: "category-snack-munchies", Filename: "category-snack-munchies.png", Alt: "Snacks and munchies"},
+	{Name: "category-bakery-biscuits", Filename: "category-bakery-biscuits.png", Alt: "Bakery and biscuits"},
+	{Name: "category-instant-food", Filename: "category-instant-food.png", Alt: "Instant food"},
+	{Name: "category-tea-coffee-drinks", Filename: "category-tea-coffee-drinks.png", Alt: "Tea, coffee and drinks"},
+	{Name: "category-cold-drinks-juices", Filename: "category-cold-drinks-juices.png", Alt: "Cold drinks and juices"},
+	{Name: "category-chicken-meat-fish", Filename: "category-chicken-meat-fish.png", Alt: "Chicken, meat and fish"},
+	{Name: "category-baby-care", Filename: "category-baby-care.png", Alt: "Baby care"},
+	{Name: "category-cleaning-essentials", Filename: "category-cleaning-essentials.png", Alt: "Cleaning essentials"},
+	{Name: "category-pet-care", Filename: "category-pet-care.png", Alt: "Pet care"},
+	{Name: "category-atta-rice-dal", Filename: "category-atta-rice-dal.png", Alt: "Flour, rice and lentils"},
+}
+
 func freshDocuments() []Document {
 	return append(templatesFrom(freshTemplate),
 		Document{Kind: KindSectionGroup, Key: "header", Root: freshHeader()},
@@ -34,24 +55,26 @@ func styled(node Node, base map[string]string) Node {
 	return node
 }
 
-// offer is a banner card: title, a line of text and a "Shop now" button,
-// on the surface colour (a picture can be set as its background).
-func offer(id, title, text, variant string) Node {
+// offer is a banner card: title, a line of text and a "Shop now" button
+// over a picture (the surface colour without one).
+func offer(id, image, title, text, variant string) Node {
 	return styled(n(id, "column", nil,
 		heading(id+"-title", title, 3),
 		paragraph(id+"-text", text),
 		n(id+"-button", "button", map[string]any{"label": "Shop now", "link": "/search?q=", "variant": variant}),
-	), map[string]string{"background_color": "surface", "border_radius": "md", "padding_x": "lg", "padding_y": "xl", "gap": "sm"})
+	), map[string]string{"background_color": "surface", "background_image": presetImage(image), "background_size": "cover",
+		"background_position": "center", "border_radius": "md", "padding_x": "lg", "padding_y": "xl", "gap": "sm"})
 }
 
 // darkOffer is an offer on the navy secondary colour with white text.
-func darkOffer(id, title, text string) Node {
+func darkOffer(id, image, title, text string) Node {
 	white := map[string]string{"color": "background"}
 	return styled(n(id, "column", nil,
 		styled(heading(id+"-title", title, 3), white),
 		styled(paragraph(id+"-text", text), white),
 		n(id+"-button", "button", map[string]any{"label": "Shop now", "link": "/search?q=", "variant": "primary"}),
-	), map[string]string{"background_color": "secondary", "border_radius": "md", "padding_x": "lg", "padding_y": "xl", "gap": "sm"})
+	), map[string]string{"background_color": "secondary", "background_image": presetImage(image), "background_size": "cover",
+		"background_position": "center", "border_radius": "md", "padding_x": "lg", "padding_y": "xl", "gap": "sm"})
 }
 
 // promise is one of the bordered service promises: icon, title, text.
@@ -76,7 +99,7 @@ func freshTemplate(key string) Node {
 	case "home":
 		return root(
 			n("hero-section", "section", nil,
-				n("hero", "hero", map[string]any{"badge": "Opening sale: 50% off", "title": "Supermarket daily fresh grocery",
+				n("hero", "hero", map[string]any{"image": presetImage("hero"), "badge": "Opening sale: 50% off", "title": "Supermarket daily fresh grocery",
 					"subtitle":     "A new way of grocery shopping, with convenient home delivery.",
 					"button_label": "Shop now", "button_link": "/search?q=", "align": "left", "height": "lg"})),
 			n("categories-section", "section", nil,
@@ -85,8 +108,8 @@ func freshTemplate(key string) Node {
 			),
 			n("offers-section", "section", nil,
 				n("offers", "columns", map[string]any{"stack_on": "tablet"},
-					offer("offer-produce", "Fruits & vegetables", "Get up to 30% off.", "secondary"),
-					offer("offer-bakery", "Freshly baked buns", "Get up to 25% off.", "secondary"),
+					offer("offer-produce", "offer-produce", "Fruits & vegetables", "Get up to 30% off.", "secondary"),
+					offer("offer-bakery", "offer-bakery", "Freshly baked buns", "Get up to 25% off.", "secondary"),
 				)),
 			n("popular-section", "section", nil,
 				heading("popular-title", "Popular products", 3),
@@ -95,7 +118,7 @@ func freshTemplate(key string) Node {
 			n("best-section", "section", nil,
 				heading("best-title", "Daily best sells", 3),
 				n("best-cols", "columns", map[string]any{"stack_on": "tablet"},
-					darkOffer("best-promo", "100% organic coffee beans.", "Get the best deal before close."),
+					darkOffer("best-promo", "promo-coffee", "100% organic coffee beans.", "Get the best deal before close."),
 					n("best-products", "column", map[string]any{"span": 3}, freshGrid("best-grid", 3, 3, "full")),
 				),
 			),

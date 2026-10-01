@@ -12,6 +12,7 @@ import (
 	appapikeys "github.com/adirkuhn/commerceos/application/apikeys"
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
 	"github.com/adirkuhn/commerceos/domain/theme"
+	"github.com/adirkuhn/commerceos/infrastructure/presetimages"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/themecatalog"
 )
@@ -32,7 +33,7 @@ func NewUseCases(db *gorm.DB, storage theme.AssetStorage) (UseCases, error) {
 		DB: db, Channels: channels, Themes: repositories.NewThemeRepo(db), Versions: repositories.NewThemeVersionRepo(db),
 		Docs: repositories.NewThemeDocumentRepo(db), Sessions: repositories.NewThemeSessionRepo(db),
 		Outbox: repositories.NewOutboxRepository(db), Catalog: catalog, NewToken: newToken, Now: time.Now,
-		Assets: repositories.NewThemeAssetRepo(db), Storage: storage,
+		Assets: repositories.NewThemeAssetRepo(db), Storage: storage, PresetImages: presetimages.Files{},
 	}
 	return UseCases{
 		ListThemes: apptheme.NewListThemesUseCase(d), CreateTheme: apptheme.NewCreateThemeUseCase(d),

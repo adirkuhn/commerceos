@@ -23,8 +23,23 @@ type CreateThemeUseCase struct{ deps Deps }
 func NewCreateThemeUseCase(deps Deps) *CreateThemeUseCase { return &CreateThemeUseCase{deps: deps} }
 
 func (uc *CreateThemeUseCase) Execute(ctx context.Context, in CreateThemeInput) (*theme.Theme, error) {
+	// Fail fast before adding pictures for a theme that can't be created.
+	if err := tenant.WithTenant(ctx, uc.deps.DB, func(ctx context.Context) error {
+		if _, err := uc.deps.requireThemedChannel(ctx, in.SalesChannelID); err != nil {
+			return err
+		}
+		_, err := theme.NewTheme(tenant.IDFromContext(ctx), in.SalesChannelID, in.Name, in.PresetKey, uc.deps.Now())
+		return err
+	}); err != nil {
+		return nil, fmt.Errorf("createTheme: %w", err)
+	}
+	imageIDs, err := uc.deps.addPresetImages(ctx, in.PresetKey, in.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("createTheme: %w", err)
+	}
+
 	var created theme.Theme
-	err := tenant.WithTenant(ctx, uc.deps.DB, func(ctx context.Context) error {
+	err = tenant.WithTenant(ctx, uc.deps.DB, func(ctx context.Context) error {
 		channel, err := uc.deps.requireThemedChannel(ctx, in.SalesChannelID)
 		if err != nil {
 			return err
@@ -43,6 +58,7 @@ func (uc *CreateThemeUseCase) Execute(ctx context.Context, in CreateThemeInput) 
 		if err != nil {
 			return err
 		}
+		theme.BindPresetImages(docs, &settings, theme.PresetLogo(in.PresetKey), imageIDs)
 		if err := uc.deps.Themes.Create(ctx, &th); err != nil {
 			return err
 		}

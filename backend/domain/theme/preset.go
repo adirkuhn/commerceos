@@ -13,12 +13,16 @@ import (
 type preset struct {
 	documents func() []Document
 	settings  func() Settings
+	// images the documents refer to (see preset_images.go); logo names the
+	// one used as the brand logo.
+	images []PresetImage
+	logo   string
 }
 
 var presetRegistry = map[string]preset{
 	PresetDefault: {documents: defaultDocuments, settings: DefaultSettings},
 	PresetMercado: {documents: mercadoDocuments, settings: mercadoSettings},
-	PresetFresh:   {documents: freshDocuments, settings: freshSettings},
+	PresetFresh:   {documents: freshDocuments, settings: freshSettings, images: freshImages, logo: "logo"},
 }
 
 // PresetKeys lists the presets, sorted.

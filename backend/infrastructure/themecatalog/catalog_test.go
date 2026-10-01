@@ -113,6 +113,14 @@ func TestEveryPresetValidatesAgainstTheContract(t *testing.T) {
 		for _, lang := range []locale.Locale{locale.English, locale.Portuguese, locale.Dutch} {
 			docs, err := theme.PresetDocuments(key, lang)
 			require.NoError(t, err, key)
+			// As CreateTheme does: every preset picture becomes a library asset.
+			settings, _ := theme.PresetSettings(key)
+			ids := map[string]string{}
+			for _, img := range theme.PresetImages(key) {
+				ids[img.Name] = "11111111-1111-4111-8111-111111111111"
+			}
+			theme.BindPresetImages(docs, &settings, theme.PresetLogo(key), ids)
+			require.NoError(t, settings.Validate(), key)
 			for _, d := range docs {
 				assert.NoError(t, theme.ValidateTree(d, c), "%s (%s): %s %s", key, lang, d.Kind, d.Key)
 			}

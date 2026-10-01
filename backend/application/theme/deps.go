@@ -39,6 +39,9 @@ type Deps struct {
 	Catalog  *theme.Catalog
 	Assets   theme.AssetRepository
 	Storage  theme.AssetStorage
+	// PresetImages serves the pictures presets ship with; nil leaves new
+	// themes without them.
+	PresetImages presetImageReader
 	// NewToken returns a fresh, unguessable bearer token.
 	NewToken func() (string, error)
 	Now      func() time.Time
