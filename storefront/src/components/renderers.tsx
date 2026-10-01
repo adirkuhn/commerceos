@@ -5,6 +5,7 @@ import type { HeadingProps } from './content/heading'
 import type { TextProps } from './content/text'
 import { RichTextView } from './content/RichTextView'
 import type { SpacerProps } from './content/spacer'
+import { IconView } from './content/IconView'
 import { ImageView } from './content/ImageView'
 import { ButtonView } from './content/ButtonView'
 import { ProductGridView } from './commerce/ProductGridView'
@@ -64,6 +65,7 @@ const renderers: Record<string, Renderer> = {
   heading: typed(HeadingRenderer),
   text: typed(TextRenderer),
   spacer: typed(SpacerRenderer),
+  icon: typed(IconView),
   image: typed(ImageView),
   button: typed(ButtonView),
   'product-grid': typed(ProductGridView),

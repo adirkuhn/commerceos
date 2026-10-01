@@ -68,8 +68,11 @@ func TestFreshPreset_isAGroceryStorefront(t *testing.T) {
 	home := byKey["home"].Root
 	assert.NotEmpty(t, find(home, "hero"))
 	assert.NotEmpty(t, find(home, "collection-list"), "popular categories")
-	assert.GreaterOrEqual(t, len(find(home, "product-grid")), 2)
-	assert.GreaterOrEqual(t, len(find(home, "button")), 5, "promo cards and banners lead to the shop")
+	grids := find(home, "product-grid")
+	require.Len(t, grids, 2, "popular products and daily best sells")
+	assert.Equal(t, "compact", grids[0].Props["add_button"], "popular products: small + Add beside the price")
+	assert.Equal(t, true, grids[0].Props["show_category"])
+	assert.Len(t, find(home, "icon"), 4, "four service promises with icons")
 	header := byKey["header"].Root
 	assert.NotEmpty(t, find(header, "search-box"))
 	assert.NotEmpty(t, find(header, "cart-link"))

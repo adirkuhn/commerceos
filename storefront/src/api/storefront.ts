@@ -38,6 +38,8 @@ export interface ProductSummary {
   sku_code?: string | null
   sku_count?: number
   in_stock?: boolean
+  /** Filled in by the storefront (not the API) for tiles that show it. */
+  category_name?: string
 }
 
 export interface CategoryFacet {

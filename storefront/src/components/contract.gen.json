@@ -340,6 +340,22 @@
       ]
     },
     {
+      "type": "icon",
+      "container": false,
+      "allowed_children": [],
+      "allowed_parents": [],
+      "data_context": "",
+      "required_in": [],
+      "props": [
+        "name",
+        "size"
+      ],
+      "required_props": [
+        "name"
+      ],
+      "translatable_props": []
+    },
+    {
       "type": "image",
       "container": false,
       "allowed_children": [],
@@ -509,12 +525,14 @@
       "data_context": "",
       "required_in": [],
       "props": [
+        "add_button",
         "category_id",
         "collection_id",
         "columns",
         "limit",
         "product_ids",
         "show_add_to_cart",
+        "show_category",
         "show_discount",
         "show_price",
         "show_stock",

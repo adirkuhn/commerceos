@@ -10,7 +10,7 @@ describe('theme styles', () => {
     expect(styleCSS({})).toBe('')
     const css = styleCSS({ style: 'supermarket' })
     expect(css).toContain('.cos-product-tile:hover { border-color: var(--color-primary); box-shadow: 0 5px 12px rgba(0, 0, 0, 0.12); }')
-    expect(css).toContain('.cos-footer { background: #f0f3f2; padding: 4rem 0; }')
+    expect(css).toContain('.cos-footer { background: #f0f3f2; padding: 4rem 0 3rem; }')
   })
 
   it('nothing animates in the supermarket style', () => {

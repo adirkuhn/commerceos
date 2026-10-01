@@ -11,6 +11,8 @@ export interface ProductGridProps {
   show_add_to_cart: boolean
   show_stock: boolean
   show_discount: boolean
+  show_category: boolean
+  add_button: 'full' | 'compact'
 }
 
 export const productGrid: ComponentDefinition<ProductGridProps> = {
@@ -36,8 +38,10 @@ export const productGrid: ComponentDefinition<ProductGridProps> = {
     show_discount: { kind: 'toggle', label: 'Show discount badges' },
     show_stock: { kind: 'toggle', label: 'Show stock status' },
     show_add_to_cart: { kind: 'toggle', label: 'Show add to cart' },
+    add_button: { kind: 'select', label: 'Add to cart button', options: [{ value: 'full', label: 'Wide, under the product' }, { value: 'compact', label: 'Small, beside the price' }] },
+    show_category: { kind: 'toggle', label: 'Show category' },
   },
-  defaults: { source: 'all', category_id: '', collection_id: '', product_ids: [], limit: 8, columns: 0, show_price: true, show_add_to_cart: false, show_stock: false, show_discount: true },
+  defaults: { source: 'all', category_id: '', collection_id: '', product_ids: [], limit: 8, columns: 0, show_price: true, show_add_to_cart: false, show_stock: false, show_discount: true, show_category: false, add_button: 'full' },
   showField: {
     category_id: p => p.source === 'category',
     collection_id: p => p.source === 'collection',

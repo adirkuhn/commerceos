@@ -205,6 +205,35 @@
         "title": "Titel"
       }
     },
+    "icon": {
+      "description": "Een eenvoudig lijnicoon in je hoofdkleur, bijvoorbeeld boven een servicebelofte.",
+      "name": "Icoon",
+      "options": {
+        "name": {
+          "box": "Doos",
+          "clock": "Klok",
+          "gift": "Cadeau",
+          "heart": "Hart",
+          "leaf": "Blad",
+          "phone": "Telefoon",
+          "refresh": "Retouren",
+          "shield": "Schild",
+          "smile": "Glimlach",
+          "star": "Ster",
+          "tag": "Prijskaartje",
+          "truck": "Bezorgwagen"
+        },
+        "size": {
+          "lg": "Groot",
+          "md": "Middel",
+          "sm": "Klein"
+        }
+      },
+      "props": {
+        "name": "Icoon",
+        "size": "Grootte"
+      }
+    },
     "image": {
       "description": "Een afbeelding uit je mediabibliotheek, eventueel met een link.",
       "name": "Afbeelding",
@@ -309,6 +338,10 @@
       "description": "Producten uit je catalogus: alle, één categorie of een eigen selectie.",
       "name": "Productraster",
       "options": {
+        "add_button": {
+          "compact": "Klein, naast de prijs",
+          "full": "Breed, onder het product"
+        },
         "columns": {
           "0": "Standaard van het thema"
         },
@@ -320,12 +353,14 @@
         }
       },
       "props": {
+        "add_button": "Knop in winkelwagen",
         "category_id": "Categorie",
         "collection_id": "Collectie",
         "columns": "Kolommen",
         "limit": "Hoeveel",
         "product_ids": "Producten",
         "show_add_to_cart": "Knop \"In winkelwagen\" tonen",
+        "show_category": "Categorie tonen",
         "show_discount": "Kortingslabels tonen",
         "show_price": "Prijzen tonen",
         "show_stock": "Voorraadstatus tonen",

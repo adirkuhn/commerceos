@@ -205,6 +205,35 @@
         "title": "Title"
       }
     },
+    "icon": {
+      "description": "A simple line icon in your primary colour, e.g. above a service promise.",
+      "name": "Icon",
+      "options": {
+        "name": {
+          "box": "Box",
+          "clock": "Clock",
+          "gift": "Gift",
+          "heart": "Heart",
+          "leaf": "Leaf",
+          "phone": "Phone",
+          "refresh": "Returns",
+          "shield": "Shield",
+          "smile": "Smile",
+          "star": "Star",
+          "tag": "Price tag",
+          "truck": "Delivery truck"
+        },
+        "size": {
+          "lg": "Large",
+          "md": "Medium",
+          "sm": "Small"
+        }
+      },
+      "props": {
+        "name": "Icon",
+        "size": "Size"
+      }
+    },
     "image": {
       "description": "A picture from your media library, optionally linked.",
       "name": "Image",
@@ -309,6 +338,10 @@
       "description": "Products from your catalog: all, one category, or ones you pick.",
       "name": "Product grid",
       "options": {
+        "add_button": {
+          "compact": "Small, beside the price",
+          "full": "Wide, under the product"
+        },
         "columns": {
           "0": "Theme default"
         },
@@ -320,12 +353,14 @@
         }
       },
       "props": {
+        "add_button": "Add to cart button",
         "category_id": "Category",
         "collection_id": "Collection",
         "columns": "Columns",
         "limit": "How many",
         "product_ids": "Products",
         "show_add_to_cart": "Show add to cart",
+        "show_category": "Show category",
         "show_discount": "Show discount badges",
         "show_price": "Show prices",
         "show_stock": "Show stock status",

@@ -6,6 +6,7 @@ import { text } from './content/text'
 import { columns } from './layout/columns'
 import { column } from './layout/column'
 import { spacer } from './content/spacer'
+import { icon } from './content/icon'
 import { image } from './content/image'
 import { button } from './content/button'
 import { productGrid } from './commerce/productGrid'
@@ -27,7 +28,7 @@ import { checkoutForm, orderStatus } from './checkout/checkout'
 // here (plus its renderer in renderers.tsx and its props schema in the
 // backend contract) is all it takes.
 const definitions = [
-  section, container, columns, column, heading, text, image, button, spacer, productGrid, productCard,
+  section, container, columns, column, heading, text, image, button, spacer, icon, productGrid, productCard,
   productGallery, productTitle, productPrice, variantSelector, quantitySelector, addToCart, productDescription,
   productReviews, productRecommendations,
   collectionHeader, collectionProducts, collectionFilters, pagination, breadcrumbs,

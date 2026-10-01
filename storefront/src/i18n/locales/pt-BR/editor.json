@@ -205,6 +205,35 @@
         "title": "Título"
       }
     },
+    "icon": {
+      "description": "Um ícone de linha simples na sua cor principal, por exemplo acima de uma vantagem da loja.",
+      "name": "Ícone",
+      "options": {
+        "name": {
+          "box": "Caixa",
+          "clock": "Relógio",
+          "gift": "Presente",
+          "heart": "Coração",
+          "leaf": "Folha",
+          "phone": "Telefone",
+          "refresh": "Devoluções",
+          "shield": "Escudo",
+          "smile": "Sorriso",
+          "star": "Estrela",
+          "tag": "Etiqueta de preço",
+          "truck": "Caminhão de entrega"
+        },
+        "size": {
+          "lg": "Grande",
+          "md": "Médio",
+          "sm": "Pequeno"
+        }
+      },
+      "props": {
+        "name": "Ícone",
+        "size": "Tamanho"
+      }
+    },
     "image": {
       "description": "Uma imagem da sua biblioteca de mídia, com link opcional.",
       "name": "Imagem",
@@ -309,6 +338,10 @@
       "description": "Produtos do seu catálogo: todos, uma categoria ou os que você escolher.",
       "name": "Grade de produtos",
       "options": {
+        "add_button": {
+          "compact": "Pequeno, ao lado do preço",
+          "full": "Largo, abaixo do produto"
+        },
         "columns": {
           "0": "Padrão do tema"
         },
@@ -320,12 +353,14 @@
         }
       },
       "props": {
+        "add_button": "Botão de adicionar ao carrinho",
         "category_id": "Categoria",
         "collection_id": "Coleção",
         "columns": "Colunas",
         "limit": "Quantidade",
         "product_ids": "Produtos",
         "show_add_to_cart": "Mostrar botão de adicionar ao carrinho",
+        "show_category": "Mostrar categoria",
         "show_discount": "Mostrar selos de desconto",
         "show_price": "Mostrar preços",
         "show_stock": "Mostrar disponibilidade",

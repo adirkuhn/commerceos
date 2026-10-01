@@ -11,6 +11,10 @@ export interface TileOptions {
   showDiscount?: boolean
   showStock?: boolean
   showAddToCart?: boolean
+  /** The product's category above its name (needs category_name). */
+  showCategory?: boolean
+  /** full: wide button under the tile; compact: small "+ Add" by the price. */
+  addButton?: 'full' | 'compact'
 }
 
 /** Whole-percent discount of a sale price, e.g. 38 for 500 → 310. */
@@ -22,7 +26,7 @@ export function percentOff(price: number | null | undefined, sale: number | null
 
 /** One product in a grid or card: picture, name, price, linking to its
  *  page; optionally a discount badge, stock status and add to cart. */
-export function ProductTile({ product, showPrice, showDiscount = false, showStock = false, showAddToCart = false }: { product: ProductSummary } & TileOptions) {
+export function ProductTile({ product, showPrice, showDiscount = false, showStock = false, showAddToCart = false, showCategory = false, addButton = 'full' }: { product: ProductSummary } & TileOptions) {
   const env = useRenderEnv()
   const cart = useCart()
   const { t } = useTranslation()
@@ -41,12 +45,13 @@ export function ProductTile({ product, showPrice, showDiscount = false, showStoc
   }
 
   return (
-    <div className="cos-product-tile">
+    <div className={addButton === 'compact' ? 'cos-product-tile cos-tile-compact' : 'cos-product-tile'}>
       <a className="cos-product-link" href={href} {...inert}>
         <div className="cos-product-image">
           {product.image_url ? <img src={product.image_url} alt="" loading="lazy" /> : <span aria-hidden="true" />}
           {showDiscount && onSale && <span className="cos-badge-discount">{t('product.percentOff', { percent: discount })}</span>}
         </div>
+        {showCategory && product.category_name && <span className="cos-product-category">{product.category_name}</span>}
         <span className="cos-product-name">{product.name}</span>
         {showPrice && product.price_minor_units != null && (
           <span className="cos-product-price">
@@ -69,7 +74,7 @@ export function ProductTile({ product, showPrice, showDiscount = false, showStoc
           <button type="button" className="cos-button cos-button-outline cos-tile-action" disabled>{t('product.soldOut')}</button>
         ) : product.sku_code ? (
           <button type="button" className="cos-button cos-button-primary cos-tile-action" disabled={cart?.busy} onClick={() => void add()} {...inert}>
-            {added && !cart?.busy ? t('product.added') : t('product.addToCart')}
+            {added && !cart?.busy ? t('product.added') : addButton === 'compact' ? <><span aria-hidden="true">+{'\u00a0'}</span>{t('product.add')}</> : t('product.addToCart')}
           </button>
         ) : (
           <a className="cos-button cos-button-outline cos-tile-action" href={href} {...inert}>{t('product.chooseOptions')}</a>

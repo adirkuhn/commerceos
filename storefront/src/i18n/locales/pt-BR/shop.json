@@ -123,6 +123,7 @@
     "shipped": "Enviado"
   },
   "product": {
+    "add": "Adicionar",
     "added": "Adicionado ao carrinho.",
     "addToCart": "Adicionar ao carrinho",
     "chooseOptions": "Escolher opções",

@@ -1,4 +1,12 @@
-@tailwind base;
+/* Cascade layers, lowest first: the Tailwind reset, component base styles,
+   then a theme style's stylesheet (theme/styles). Anything unlayered -- per
+   node styles and Tailwind utilities -- wins over all of them. The reset
+   must be layered too: unlayered, it would override every layered rule
+   (heading sizes, borders, button colours). */
+@layer cos-reset, cos-components, cos-style;
+@layer cos-reset {
+  @tailwind base;
+}
 
 /* Design scale the style vocabulary maps onto. Colour, font and layout
    variables come from the theme settings (core/settings.ts). */
@@ -62,6 +70,11 @@ body {
   .cos-in-stock { color: var(--color-primary); }
   .cos-out-of-stock { color: var(--color-muted); }
   .cos-tile-action { width: 100%; margin-top: auto; }
+  .cos-tile-compact .cos-tile-action { width: auto; align-self: flex-end; padding: 0.375rem 0.75rem; }
+  .cos-product-category { font-size: var(--text-sm); color: var(--color-muted); }
+  .cos-icon { display: inline-flex; color: var(--color-primary); }
+  .cos-icon svg { width: 100%; height: 100%; }
+  .cos-icon-sm { width: 1.5rem; height: 1.5rem; } .cos-icon-md { width: 2.5rem; height: 2.5rem; } .cos-icon-lg { width: 3.5rem; height: 3.5rem; }
   .cos-product-image img { width: 100%; height: 100%; object-fit: cover; }
   .cos-product-name { font-weight: 500; }
   .cos-product-price { color: var(--color-muted); }

@@ -122,6 +122,7 @@
     "shipped": "Shipped"
   },
   "product": {
+    "add": "Add",
     "added": "Added to your cart.",
     "addToCart": "Add to cart",
     "chooseOptions": "Choose options",

@@ -928,6 +928,8 @@ components:
         show_add_to_cart: { type: boolean, description: Add-to-cart button on tiles (single-SKU products; others link to their page). }
         show_stock: { type: boolean, description: In stock / sold out on tiles. }
         show_discount: { type: boolean, description: Percentage-off badge on products on sale. }
+        show_category: { type: boolean, description: The product's category above its name. }
+        add_button: { type: string, enum: [full, compact], description: 'full: a wide add-to-cart button under the tile; compact: a small "+ Add" beside the price.' }
     ProductCardProps:
       type: object
       required: [product_id]
@@ -1103,6 +1105,15 @@ components:
       x-commerceos-component: { type: search-box, translatable: [placeholder] }
       properties:
         placeholder: { type: string, maxLength: 60 }
+    IconProps:
+      type: object
+      required: [name]
+      additionalProperties: false
+      x-commerceos-component: { type: icon }
+      description: A simple line icon in the theme's primary colour (e.g. above a service promise).
+      properties:
+        name: { type: string, enum: [refresh, box, gift, clock, truck, leaf, heart, star, shield, phone, tag, smile] }
+        size: { type: string, enum: [sm, md, lg] }
     LanguageSwitcherProps:
       type: object
       additionalProperties: false

@@ -24,13 +24,15 @@ export function productGridQuery(api: StorefrontAPI, p: ProductGridProps) {
   const empty = (p.source === 'products' && ids.length === 0) || (p.source === 'category' && !p.category_id)
     || (p.source === 'collection' && !p.collection_id)
   return queryOptions({
-    queryKey: ['products', q],
+    queryKey: ['products', q, Boolean(p.show_category)],
     queryFn: async () => {
       if (empty) return EMPTY
-      const list = await api.listProducts(q)
-      if (p.source !== 'products') return list
+      const [list, categories] = await Promise.all([api.listProducts(q), p.show_category ? api.listCategories() : undefined])
+      const names = new Map((categories ?? []).map(c => [c.id, c.name]))
+      const items = list.items.map(i => (i.category_id && names.has(i.category_id) ? { ...i, category_name: names.get(i.category_id) } : i))
+      if (p.source !== 'products') return { ...list, items }
       // Keep the merchant's chosen order.
-      const byId = new Map(list.items.map(i => [i.id, i]))
+      const byId = new Map(items.map(i => [i.id, i]))
       return { ...list, items: ids.map(id => byId.get(id)).filter(i => i !== undefined) }
     },
     staleTime: STALE,
