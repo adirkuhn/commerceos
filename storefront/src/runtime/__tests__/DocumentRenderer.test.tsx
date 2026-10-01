@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
+import { renderToString } from 'react-dom/server'
 import { DocumentRenderer } from '../DocumentRenderer'
 import { RenderProvider } from '../RenderContext'
 import type { ThemeNode } from '../../core/document'
@@ -43,5 +44,21 @@ describe('DocumentRenderer', () => {
     inEnglish.unmount()
     const inDutch = render(<RenderProvider value={{ contentLocale: 'nl' }}><DocumentRenderer root={translated} /></RenderProvider>)
     expect(inDutch.container.querySelector('h2')?.textContent).toBe('Bem-vindo')
+  })
+
+  // React escapes text inside <style>: url("…") became url(&quot;…&quot;)
+  // and query strings got &amp;, so no background image ever showed.
+  it('server-renders background images as valid CSS', () => {
+    const id = '0b0c7d1e-6f7a-4b8c-9d0e-1f2a3b4c5d6e'
+    const doc: ThemeNode = { id: 'root', type: 'root', children: [{ id: 's', type: 'section', style: { base: { background_image: `asset:${id}` } } }] }
+    const html = renderToString(<DocumentRenderer root={doc} assets={{ [id]: { url: 'https://cdn.test/a.jpg?w=1&h=2', width: 1, height: 1, alt: '' } }} />)
+    expect(html).toContain('background-image:url("https://cdn.test/a.jpg?w=1&h=2")')
+  })
+
+  it('never lets a value close the style element', () => {
+    const id = '0b0c7d1e-6f7a-4b8c-9d0e-1f2a3b4c5d6e'
+    const doc: ThemeNode = { id: 'root', type: 'root', children: [{ id: 's', type: 'section', style: { base: { background_image: `asset:${id}` } } }] }
+    const html = renderToString(<DocumentRenderer root={doc} assets={{ [id]: { url: 'https://x.test/</style><script>alert(1)</script>', width: 1, height: 1, alt: '' } }} />)
+    expect(html).not.toContain('</style><script>')
   })
 })

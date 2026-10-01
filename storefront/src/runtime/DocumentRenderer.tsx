@@ -29,7 +29,9 @@ function RenderNode({ node }: { node: ThemeNode }) {
 function Styles({ root }: { root: ThemeNode }) {
   const { assets } = useRenderEnv()
   const css = useMemo(() => compileDocumentStyles(root, { resolveAsset: id => assets[id]?.url }), [root, assets])
-  return css ? <style>{css}</style> : null
+  // Raw text: React would HTML-escape it (url(&quot;…&quot;), &amp;) and
+  // break the CSS. "<" is CSS-escaped so nothing can close the element.
+  return css ? <style dangerouslySetInnerHTML={{ __html: css.replace(/</g, '\\3c ') }} /> : null
 }
 
 /** Renders one theme document: its component tree plus its compiled styles. */
