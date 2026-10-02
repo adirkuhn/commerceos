@@ -180,6 +180,14 @@ export function useProductEditForm({ token, productId, tenantSettings, onCreate,
     }
   }
 
+  // Splitting a simple product's weight pool into packages switches it to
+  // variants mode server-side (one package variant per weight) -- mirror
+  // that here and reload, so the page shows the new variants.
+  const handlePackagesCreated = () => {
+    setVariantsMode(true)
+    detail.refresh()
+  }
+
   return {
     savedProductId, detail, existing,
     fields, setField,
@@ -188,5 +196,6 @@ export function useProductEditForm({ token, productId, tenantSettings, onCreate,
     singleVariant, currentSku, showFlatSKU,
     saving, formError, setFormError, handleSave,
     enablingVariants, enableVariantsError, handleEnableVariants,
+    handlePackagesCreated,
   }
 }

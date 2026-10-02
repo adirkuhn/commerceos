@@ -1,5 +1,5 @@
 import { useState, useRef, type ReactNode } from 'react'
-import { Plus, ArrowRightLeft, PackageMinus, ClipboardList, Boxes } from 'lucide-react'
+import { Plus, ArrowRightLeft, PackageMinus, ClipboardList, Boxes, Scale } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import type { SKU } from '../pms/types'
@@ -107,11 +107,13 @@ export function NewBatchModal({ warehouses, onSave, onClose, onCreated }: {
 // one hands off to that same modal, pre-locked to this row (see
 // BatchScope); Cancel here just closes without picking anything. Split
 // case is only offered for a SKU configured as a case of another SKU.
-type BatchRowAction = 'adjust' | 'recount' | 'transfer' | 'split-case' | 'damaged-lost'
+type BatchRowAction = 'adjust' | 'recount' | 'transfer' | 'split-case' | 'split-packages' | 'damaged-lost'
 
-export function BatchRowActionModal({ scope, canSplitCase = false, onChoose, onClose }: {
+export function BatchRowActionModal({ scope, canSplitCase = false, canSplitPackages = false, onChoose, onClose }: {
   scope: BatchScope
   canSplitCase?: boolean
+  // A scale-sold weight pool's lot can be split into packages.
+  canSplitPackages?: boolean
   onChoose: (action: BatchRowAction) => void
   onClose: () => void
 }) {
@@ -121,6 +123,7 @@ export function BatchRowActionModal({ scope, canSplitCase = false, onChoose, onC
     { key: 'recount', label: t('rowAction.recount'), icon: <ClipboardList size={13} /> },
     { key: 'transfer', label: t('rowAction.transfer'), icon: <ArrowRightLeft size={13} /> },
     ...(canSplitCase ? [{ key: 'split-case' as const, label: t('rowAction.splitCase'), icon: <Boxes size={13} /> }] : []),
+    ...(canSplitPackages ? [{ key: 'split-packages' as const, label: t('rowAction.splitPackages'), icon: <Scale size={13} /> }] : []),
     { key: 'damaged-lost', label: t('rowAction.damagedLost'), icon: <PackageMinus size={13} />, danger: true },
   ]
   return (

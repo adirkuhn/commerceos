@@ -149,7 +149,8 @@
     "damagedLost": "Damaged / lost",
     "recount": "Recount",
     "splitCase": "Split case into units",
-    "transfer": "Transfer"
+    "transfer": "Transfer",
+    "splitPackages": "Split into packages"
   },
   "sku": {
     "adjust": "Adjust",
@@ -181,7 +182,9 @@
     "splitCase": "Split case",
     "splitCaseTitle": "Split sealed cases into individual units",
     "transfer": "Transfer",
-    "viewHistory": "View movement history"
+    "viewHistory": "View movement history",
+    "splitPackages": "Split into packages",
+    "splitPackagesTitle": "Weigh packages off this weight pool and turn them into sellable variants"
   },
   "split": {
     "casesToSplit": "Cases to split",

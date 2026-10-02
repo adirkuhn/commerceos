@@ -181,7 +181,10 @@ export function ProductEditPage({ productId, categories, onCreateCategory, onUpd
                 )}
 
                 {showFlatSKU && (
-                  <FlatSkuWeightPoolCard form={sku} patch={patchSku} currentSkuId={currentSku?.id ?? null} />
+                  <FlatSkuWeightPoolCard
+                    form={sku} patch={patchSku} currentSkuId={currentSku?.id ?? null}
+                    token={token ?? ''} savedSku={currentSku} onPackagesCreated={form.handlePackagesCreated}
+                  />
                 )}
 
                 {showFlatSKU && (

@@ -384,31 +384,44 @@ export interface Media {
   created_at: string
 }
 
-// ── Bulk weight portions ("type a list of weights") ─────────────────────────
+// ── Weight packages ("split this lot into packages") ───────────────────────
+// Contract: backend/api/weightportions/openapi.yaml
 
-export interface BulkAddWeightPortionsInput {
+export interface WeightPackageLine {
+  weight_grams: number
+  quantity: number
+}
+
+export interface PackWeightPortionsInput {
   warehouse_id: string
-  // Which lot of the bulk SKU these packages are drawn from -- null/omitted
-  // means general (un-lotted) bulk stock, no expiry carried forward onto
-  // the new packages.
+  // Which lot of the bulk SKU these packages come from -- its lot number
+  // and expiry are carried onto each package SKU. null/omitted means
+  // general (un-lotted) bulk stock, no expiry carried forward.
   bulk_batch_id?: string | null
-  weights_grams: number[]
-  // Defaults to the bulk SKU's own code on the backend when omitted.
+  // Repeated weights are merged into one line by the backend.
+  lines: WeightPackageLine[]
+  // Prefix for newly created package SKU codes; defaults to the bulk
+  // SKU's own code on the backend when omitted.
   sku_code_prefix?: string
   reason?: string
 }
 
-export interface CreatedPortionedSKU {
-  id: string
+export interface PackedWeightLine {
+  sku_id: string
   sku_code: string
   barcode: string
   price_minor_units: number
   currency_code: string
   weight_grams: number
+  // Packages added to this SKU's stock by this call.
+  quantity: number
+  // true when the package SKU was created by this call, false when an
+  // existing one was restocked.
+  created: boolean
 }
 
-export interface BulkAddWeightPortionsResult {
-  created: CreatedPortionedSKU[]
+export interface PackWeightPortionsResult {
+  lines: PackedWeightLine[]
 }
 
 export interface APIError {

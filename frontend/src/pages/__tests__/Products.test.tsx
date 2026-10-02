@@ -56,7 +56,7 @@ vi.mock('../../pms/api', () => ({
   listScaleCodeAliases: vi.fn(() => Promise.resolve([])),
   createScaleCodeAlias: vi.fn(),
   deleteScaleCodeAlias: vi.fn(),
-  bulkAddWeightPortions: vi.fn(),
+  packWeightPortions: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -916,7 +916,7 @@ describe('weight pool for a variant-mode product (VariantRow)', () => {
     })))
   })
 
-  it('a weight pool SKU with per-weight pricing and a scale code shows "Bulk add by weight", opening the modal on click', async () => {
+  it('a weight pool SKU with per-weight pricing and a scale code shows "Split into packages", opening the modal on click', async () => {
     const poolSku = {
       ...baseSku, unit_type: 'kilo' as const, scale_code: '2994721',
       pricing_mode: 'per_weight' as const, price_per_kilo_minor_units: 29990,
@@ -931,13 +931,13 @@ describe('weight pool for a variant-mode product (VariantRow)', () => {
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('Carne Seca')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Bulk add by weight' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Split into packages' }))
 
-    expect(await screen.findByText('Bulk add by weight', { selector: 'h3' })).toBeInTheDocument()
+    expect(await screen.findByText('Split into packages', { selector: 'h3' })).toBeInTheDocument()
     await waitFor(() => expect(inventoryApi.listBatches).toHaveBeenCalledWith('test-token', 'sku-1'))
   })
 
-  it('a weight pool SKU with no scale code does not show "Bulk add by weight" -- nothing to barcode packages with yet', async () => {
+  it('a weight pool SKU with no scale code does not show "Split into packages" -- nothing to barcode packages with yet', async () => {
     const poolSkuNoScaleCode = { ...baseSku, unit_type: 'kilo' as const, pricing_mode: 'per_weight' as const, price_per_kilo_minor_units: 29990 }
     const detail: ProductDetail = {
       product: product({ has_variants: true }),
@@ -950,7 +950,7 @@ describe('weight pool for a variant-mode product (VariantRow)', () => {
     await screen.findByText('Carne Seca')
 
     expect(screen.getByText('Weight pool')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Bulk add by weight' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Split into packages' })).not.toBeInTheDocument()
   })
 })
 

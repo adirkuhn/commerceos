@@ -36,6 +36,10 @@ vi.mock('../api', () => ({
   listScaleCodeAliases: vi.fn(() => Promise.resolve([])),
 }))
 
+vi.mock('../../inventory/api', () => ({
+  getSKUStockLevel: vi.fn((_token: string, skuId: string) => Promise.resolve({ sku_id: skuId, total: 0, syncable: 0 })),
+}))
+
 vi.mock('../../integrations/api', () => ({
   listConnections: vi.fn(),
   resyncProductToChannels: vi.fn(),
@@ -55,6 +59,18 @@ vi.mock('../../tax/api', () => ({
 vi.mock('../ProductBolTab', () => ({
   ProductBolTab: ({ onSaveBarcode }: { onSaveBarcode: SaveBarcode }) => (
     <button type="button" onClick={() => { void onSaveBarcode('sku-1', '8712345678906') }}>fake bol save barcode</button>
+  ),
+}))
+
+// The split modal's own UI is covered by SplitIntoPackagesModal.test.tsx --
+// here only the card's open/close wiring and the page's reaction matter.
+vi.mock('../SplitIntoPackagesModal', () => ({
+  SplitIntoPackagesModal: ({ bulkSkuId, onPacked, onClose }: { bulkSkuId: string; onPacked: () => void; onClose: () => void }) => (
+    <div>
+      <span>split modal for {bulkSkuId}</span>
+      <button type="button" onClick={onPacked}>fake pack</button>
+      <button type="button" onClick={onClose}>fake close</button>
+    </div>
   ),
 }))
 
@@ -252,5 +268,61 @@ describe('new product currency', () => {
   it('seeds the flat SKU currency from the tenant default', async () => {
     renderPage({ productId: null })
     await waitFor(() => expect(screen.getByLabelText('Currency')).toHaveValue('EUR'))
+  })
+})
+
+describe('Weight pool card: split into packages (flat SKU)', () => {
+  const pool: Partial<SKU> = {
+    unit_type: 'kilo', pricing_mode: 'per_weight', scale_code: '2994721', price_per_kilo_minor_units: 29990, currency_code: 'EUR',
+  }
+
+  it('offers the split for a saved scale-sold weight pool', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detailWith(pool))
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Split into packages' }))
+
+    expect(screen.getByText('split modal for sku-1')).toBeInTheDocument()
+  })
+
+  it('does not offer it for a weight pool with no scale code yet', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detailWith({ ...pool, scale_code: null }))
+    renderPage()
+
+    await screen.findByText('Weight pool')
+    expect(screen.queryByRole('button', { name: 'Split into packages' })).not.toBeInTheDocument()
+  })
+
+  it('after packing, closing the modal reloads the product and switches to its variants', async () => {
+    const before = detailWith(pool)
+    const after: ProductDetail = {
+      product: { ...product, has_variants: true },
+      variants: [
+        before.variants[0],
+        { id: 'var-380', tenant_id: 't1', product_id: 'prod-1', name: '~380g', position: 1, created_at: '', updated_at: '',
+          skus: [{ ...sku, id: 'sku-380', variant_id: 'var-380', sku_code: 'TSHIRT-1-380G', portioned_from_sku_id: 'sku-1' }] },
+      ],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValueOnce(before).mockResolvedValue(after)
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Split into packages' }))
+    await userEvent.click(screen.getByRole('button', { name: 'fake pack' }))
+    expect(screen.getByText('split modal for sku-1')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'fake close' }))
+
+    expect(await screen.findByText('~380g')).toBeInTheDocument()
+    await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalledTimes(2))
+  })
+
+  it('closing without packing changes nothing', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detailWith(pool))
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Split into packages' }))
+    await userEvent.click(screen.getByRole('button', { name: 'fake close' }))
+
+    expect(screen.getByRole('button', { name: 'Split into packages' })).toBeInTheDocument()
+    expect(pmsApi.getProduct).toHaveBeenCalledTimes(1)
   })
 })

@@ -149,7 +149,8 @@
     "damagedLost": "Beschadigd / verloren",
     "recount": "Hertellen",
     "splitCase": "Doos opsplitsen in stuks",
-    "transfer": "Overboeken"
+    "transfer": "Overboeken",
+    "splitPackages": "Verdelen in pakketten"
   },
   "sku": {
     "adjust": "Corrigeren",
@@ -181,7 +182,9 @@
     "splitCase": "Doos opsplitsen",
     "splitCaseTitle": "Gesloten dozen opsplitsen in losse stuks",
     "transfer": "Overboeken",
-    "viewHistory": "Mutatiegeschiedenis bekijken"
+    "viewHistory": "Mutatiegeschiedenis bekijken",
+    "splitPackages": "Verdelen in pakketten",
+    "splitPackagesTitle": "Weeg pakketten af van deze gewichtspool en maak er verkoopbare varianten van"
   },
   "split": {
     "casesToSplit": "Dozen om op te splitsen",

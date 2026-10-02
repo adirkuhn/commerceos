@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { BulkAddWeightPortionsModal } from './BulkAddWeightPortionsModal'
+import { SplitIntoPackagesModal } from './SplitIntoPackagesModal'
+import { isScaleSoldWeightPool } from './weightPackages'
 import { CaseOfSKUPicker } from './VariantsSection'
 import { skuPassThroughPayload } from './skuPayloads'
 import type { SKU, SKUUnitType, UpdateSKUPayload } from './types'
@@ -17,7 +18,7 @@ interface VariantSkuWeightPoolControlsProps {
 
 // An existing variant SKU's weight-pool link: make/turn off a pool, link
 // to/unlink from one, and bulk-add weighed portions from a scale-priced
-// pool. Edits save immediately -- there's no batched "Save" step for an
+// pool into packages. Edits save immediately -- there's no batched "Save" step for an
 // already-created variant's SKU, unlike the flat single-SKU form on the
 // product's General tab.
 export function VariantSkuWeightPoolControls({ token, sku, updateSKU, onPortionsCreated, trailing }: VariantSkuWeightPoolControlsProps) {
@@ -25,7 +26,7 @@ export function VariantSkuWeightPoolControls({ token, sku, updateSKU, onPortions
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkError, setBulkError] = useState('')
   const [existingPortionPickerOpen, setExistingPortionPickerOpen] = useState(false)
-  const [bulkAddOpen, setBulkAddOpen] = useState(false)
+  const [splitOpen, setSplitOpen] = useState(false)
 
   const saveBulkPool = async (next: { unitType: SKUUnitType; portionedFromSkuId: string | null }) => {
     setBulkError('')
@@ -49,9 +50,9 @@ export function VariantSkuWeightPoolControls({ token, sku, updateSKU, onPortions
             <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: 'unit', portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
               {t('variant.turnOff')}
             </button>
-            {sku.pricing_mode === 'per_weight' && sku.scale_code && sku.price_per_kilo_minor_units != null && (
-              <button type="button" onClick={() => setBulkAddOpen(true)} className="text-accent hover:text-accent/80 transition-colors">
-                {t('variant.bulkAdd')}
+            {isScaleSoldWeightPool(sku) && (
+              <button type="button" onClick={() => setSplitOpen(true)} className="text-accent hover:text-accent/80 transition-colors">
+                {t('split.open')}
               </button>
             )}
           </span>
@@ -82,11 +83,11 @@ export function VariantSkuWeightPoolControls({ token, sku, updateSKU, onPortions
           onClose={() => setExistingPortionPickerOpen(false)}
         />
       )}
-      {bulkAddOpen && sku.price_per_kilo_minor_units != null && (
-        <BulkAddWeightPortionsModal
+      {splitOpen && sku.price_per_kilo_minor_units != null && (
+        <SplitIntoPackagesModal
           token={token} bulkSkuId={sku.id}
           pricePerKiloMinorUnits={sku.price_per_kilo_minor_units} currencyCode={sku.currency_code}
-          onCreated={onPortionsCreated} onClose={() => setBulkAddOpen(false)}
+          onPacked={onPortionsCreated} onClose={() => setSplitOpen(false)}
         />
       )}
       {bulkError && <p className="text-2xs text-danger">{bulkError}</p>}

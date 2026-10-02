@@ -354,3 +354,27 @@ describe('deleteMedia', () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(`${BASE}/media/m1`, expect.objectContaining({ method: 'DELETE' }))
   })
 })
+
+describe('packWeightPortions', () => {
+  it('POSTs the package lines to the bulk SKU\'s weight-packages endpoint', async () => {
+    const result = { lines: [{
+      sku_id: 's1', sku_code: 'CARNE-SECA-380G', barcode: '2994721003804', price_minor_units: 11396,
+      currency_code: 'EUR', weight_grams: 380, quantity: 10, created: true,
+    }] }
+    mockFetch(result)
+    const input = { warehouse_id: 'w1', bulk_batch_id: 'b1', lines: [{ weight_grams: 380, quantity: 10 }] }
+
+    await expect(api.packWeightPortions(TOKEN, 'sku-bulk-1', input)).resolves.toEqual(result)
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(url).toBe(`${BASE}/skus/sku-bulk-1/weight-packages`)
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(init?.body as string)).toEqual(input)
+  })
+
+  it('surfaces the server\'s error message', async () => {
+    mockFetchError('INVALID_REQUEST', 'insufficient stock')
+    await expect(api.packWeightPortions(TOKEN, 'sku-bulk-1', { warehouse_id: 'w1', lines: [{ weight_grams: 380, quantity: 1 }] }))
+      .rejects.toThrow('insufficient stock')
+  })
+})

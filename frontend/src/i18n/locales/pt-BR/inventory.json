@@ -149,7 +149,8 @@
     "damagedLost": "Danificado / perdido",
     "recount": "Recontar",
     "splitCase": "Desmembrar caixa em unidades",
-    "transfer": "Transferir"
+    "transfer": "Transferir",
+    "splitPackages": "Dividir em pacotes"
   },
   "sku": {
     "adjust": "Ajustar",
@@ -181,7 +182,9 @@
     "splitCase": "Desmembrar caixa",
     "splitCaseTitle": "Desmembrar caixas fechadas em unidades",
     "transfer": "Transferir",
-    "viewHistory": "Ver histórico de movimentações"
+    "viewHistory": "Ver histórico de movimentações",
+    "splitPackages": "Dividir em pacotes",
+    "splitPackagesTitle": "Pese pacotes deste pool de peso e transforme-os em variantes vendáveis"
   },
   "split": {
     "casesToSplit": "Caixas a desmembrar",

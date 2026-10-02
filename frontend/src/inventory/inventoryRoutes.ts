@@ -17,7 +17,7 @@ export const INVENTORY_PATH = '/inventory'
 // Modals a SKU panel can open. 'choose' is the batch-row chooser (needs a
 // batch scope); 'edit-batch' needs ?batch=.
 export const SKU_ACTIONS = [
-  'adjust', 'recount', 'transfer', 'split-case', 'portion', 'damaged-lost', 'new-batch', 'price', 'choose', 'edit-batch',
+  'adjust', 'recount', 'transfer', 'split-case', 'portion', 'split-packages', 'damaged-lost', 'new-batch', 'price', 'choose', 'edit-batch',
 ] as const
 export type SkuAction = typeof SKU_ACTIONS[number]
 

@@ -10,6 +10,8 @@ import * as pmsApi from '../pms/api'
 import type { SKU } from '../pms/types'
 import type { Batch } from './types'
 import { PortionFromBulkModal } from './PortionFromBulkModal'
+import { SplitIntoPackagesModal } from '../pms/SplitIntoPackagesModal'
+import { isScaleSoldWeightPool } from '../pms/weightPackages'
 import { AdjustStockModal, BatchFormModal, BatchScope, RecountModal } from './BatchStockModals'
 import { formatSKUQuantity, isExpired, isExpiringSoon, parseOptionalPriceToMinorUnits, parsePriceToMinorUnits } from './inventoryFormat'
 import { BatchRowActionModal, NewBatchModal, PriceModal } from './BatchActionModals'
@@ -37,6 +39,19 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
   // (see useSkuActionRoute), as does "show zero-stock batches"
   // (?allBatches=) -- a refresh or Back keeps or closes them like pages.
   const route = useSkuActionRoute(productId, sku.id)
+  const canSplitPackages = isScaleSoldWeightPool(sku)
+  // Packing adds package variants to this product, so its SKU list needs
+  // a full reload (onSKUUpdated) -- deferred until the split modal closes,
+  // since that reload remounts this panel and would drop the modal's
+  // "Packages created" summary.
+  const [packedSinceOpen, setPackedSinceOpen] = useState(false)
+  const closeSplit = () => {
+    route.close()
+    if (packedSinceOpen) {
+      setPackedSinceOpen(false)
+      onSKUUpdated()
+    }
+  }
   const allBatches = useQuerySet('allBatches')
   const showAllBatches = allBatches.has(sku.id)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -154,6 +169,11 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
               <Scale size={11} /> {t('sku.portion')}
             </button>
           )}
+          {canSplitPackages && (
+            <button type="button" onClick={() => setModal('split-packages')} title={t('sku.splitPackagesTitle')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
+              <Scale size={11} /> {t('sku.splitPackages')}
+            </button>
+          )}
           <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-danger hover:bg-hover">
             <PackageMinus size={11} /> {t('sku.damagedLost')}
           </button>
@@ -242,7 +262,7 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
       </div>
 
       {modal === 'choose' && rowScope && (
-        <BatchRowActionModal scope={rowScope} canSplitCase={!!sku.case_of_sku_id} onChoose={route.switchAction} onClose={closeModal} />
+        <BatchRowActionModal scope={rowScope} canSplitCase={!!sku.case_of_sku_id} canSplitPackages={canSplitPackages} onChoose={route.switchAction} onClose={closeModal} />
       )}
       {modal === 'adjust' && (
         <AdjustStockModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
@@ -264,6 +284,12 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
         <PortionFromBulkModal
           token={token} bulkSkuId={sku.portioned_from_sku_id} warehouses={warehouses} nominalWeightGrams={sku.weight_grams}
           onClose={closeModal} onSave={input => portionFromBulk(input).then(() => onStockChanged())}
+        />
+      )}
+      {modal === 'split-packages' && canSplitPackages && sku.price_per_kilo_minor_units != null && (
+        <SplitIntoPackagesModal
+          token={token} bulkSkuId={sku.id} pricePerKiloMinorUnits={sku.price_per_kilo_minor_units} currencyCode={sku.currency_code}
+          initialScope={rowScope ?? undefined} onPacked={() => { setPackedSinceOpen(true); onStockChanged() }} onClose={closeSplit}
         />
       )}
       {modal === 'damaged-lost' && (

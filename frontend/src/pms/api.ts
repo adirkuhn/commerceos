@@ -10,7 +10,7 @@ import type {
   SKUCurrencyPrice, UpsertSKUCurrencyPriceInput,
   BarcodeAlias, CreateBarcodeAliasPayload,
   ScaleCodeAlias, CreateScaleCodeAliasPayload,
-  BulkAddWeightPortionsInput, BulkAddWeightPortionsResult,
+  PackWeightPortionsInput, PackWeightPortionsResult,
   ProductMergeRequest, ProductMergePreview, ProductMergeResult,
   APIResponse,
 } from './types'
@@ -276,10 +276,10 @@ export function deleteMedia(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/media/${id}`, { method: 'DELETE' }, token)
 }
 
-// ── Bulk weight portions ─────────────────────────────────────────────────────
+// ── Weight packages ──────────────────────────────────────────────────────────
 
-export function bulkAddWeightPortions(token: string, bulkSkuId: string, input: BulkAddWeightPortionsInput): Promise<BulkAddWeightPortionsResult> {
-  return request<BulkAddWeightPortionsResult>(`${base()}/skus/${bulkSkuId}/bulk-weight-portions`, { method: 'POST', body: JSON.stringify(input) }, token)
+export function packWeightPortions(token: string, bulkSkuId: string, input: PackWeightPortionsInput): Promise<PackWeightPortionsResult> {
+  return request<PackWeightPortionsResult>(`${base()}/skus/${bulkSkuId}/weight-packages`, { method: 'POST', body: JSON.stringify(input) }, token)
 }
 
 // ── Product merge ────────────────────────────────────────────────────────────

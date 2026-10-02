@@ -19,6 +19,7 @@ vi.mock('../../pms/api', () => ({
   listProducts: vi.fn(),
   getProduct: vi.fn(),
   updateSKU: vi.fn(),
+  packWeightPortions: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -818,6 +819,67 @@ describe('Clicking a batch row opens a scoped action window', () => {
       expect(inventoryApi.transferStock).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
         from_warehouse_id: 'wh-1', from_batch_id: 'batch-1', quantity: 3,
       }))
+    })
+  })
+
+  it('does not offer Split into packages for an ordinary SKU', async () => {
+    const user = userEvent.setup()
+    renderAt(<Inventory />, '/inventory')
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+
+    expect(screen.queryByRole('button', { name: /Split into packages/i })).not.toBeInTheDocument()
+  })
+
+  describe('Split into packages (scale-sold weight pool)', () => {
+    const poolSku = { ...sku, unit_type: 'kilo' as const, pricing_mode: 'per_weight' as const, scale_code: '2994721', price_per_kilo_minor_units: 29990 }
+
+    beforeEach(() => {
+      vi.mocked(pmsApi.getProduct).mockResolvedValue({ product, variants: [{ ...detail.variants[0], skus: [poolSku] }] })
+      // A weight pool's stock is in grams -- 5 kg left in LOT-1.
+      vi.mocked(inventoryApi.listBatches).mockResolvedValue([{ ...batch, quantity: 5000 }])
+      vi.mocked(pmsApi.packWeightPortions).mockResolvedValue({ lines: [
+        { sku_id: 'sku-380', sku_code: 'WIDGET-1-380G', barcode: 'x', price_minor_units: 11396, currency_code: 'USD', weight_grams: 380, quantity: 2, created: true },
+      ] })
+    })
+
+    it('packs from the toolbar, then reloads the product once the summary is closed', async () => {
+      const user = userEvent.setup()
+      renderAt(<Inventory />, '/inventory')
+      await user.click(await screen.findByText('Widget'))
+      await screen.findByText('WIDGET-1')
+      const loadsBefore = vi.mocked(pmsApi.getProduct).mock.calls.length
+
+      await user.click(screen.getByRole('button', { name: /Split into packages/i }))
+      const modal = (await screen.findByText('Split into packages', { selector: 'h3' })).closest('div')!.parentElement!
+      await within(modal).findByRole('option', { name: /LOT-1/ })
+      await user.clear(within(modal).getByLabelText('Packages'))
+      await user.type(within(modal).getByLabelText('Packages'), '2')
+      await user.type(within(modal).getByLabelText('Weight (g)'), '380{Enter}')
+      await user.click(within(modal).getByRole('button', { name: 'Create packages' }))
+
+      await waitFor(() => expect(pmsApi.packWeightPortions).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        lines: [{ weight_grams: 380, quantity: 2 }],
+      })))
+      const summary = (await screen.findByText('Packages created', { selector: 'h3' })).closest('div')!.parentElement!
+      expect(vi.mocked(pmsApi.getProduct).mock.calls.length).toBe(loadsBefore)
+
+      await user.click(within(summary).getAllByRole('button', { name: 'Close' }).slice(-1)[0])
+      await waitFor(() => expect(vi.mocked(pmsApi.getProduct).mock.calls.length).toBeGreaterThan(loadsBefore))
+    })
+
+    it('is offered in the lot-row chooser, preselecting that lot', async () => {
+      const user = userEvent.setup()
+      renderAt(<Inventory />, '/inventory')
+      await user.click(await screen.findByText('Widget'))
+      await user.click(await screen.findByText('LOT-1'))
+      const chooser = (await screen.findByText('LOT-1', { selector: 'h3' })).closest('div')!.parentElement!
+
+      await user.click(within(chooser).getByRole('button', { name: 'Split into packages' }))
+
+      const modal = (await screen.findByText('Split into packages', { selector: 'h3' })).closest('div')!.parentElement!
+      await within(modal).findByRole('option', { name: /LOT-1/ })
+      expect((within(modal).getByLabelText('From lot') as HTMLSelectElement).value).toBe('wh-1|batch-1')
     })
   })
 
