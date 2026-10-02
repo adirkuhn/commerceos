@@ -278,6 +278,7 @@ func toGenAddress(a omsDomain.Address) genoms.Address {
 func toGenSalesOrder(o omsDomain.SalesOrder) genoms.SalesOrder {
 	billing := toGenAddress(o.Billing)
 	shipping := toGenAddress(o.Shipping)
+	paymentReference := o.PaymentReference()
 	return genoms.SalesOrder{
 		Id: o.ID, Source: genoms.SalesOrderSource(o.Source), ExternalOrderId: o.ExternalOrderID, Number: &o.Number, OrderKey: &o.OrderKey,
 		Status: genoms.SalesOrderStatus(o.Status), WarehouseId: o.WarehouseID, CustomerId: o.CustomerID,
@@ -286,6 +287,8 @@ func toGenSalesOrder(o omsDomain.SalesOrder) genoms.SalesOrder {
 		TaxTotalMinorUnits: &o.TaxTotalMinorUnits, TotalMinorUnits: o.TotalMinorUnits,
 		PaymentMethod: &o.PaymentMethod, PaymentMethodTitle: &o.PaymentMethodTitle,
 		ShippingMethod: &o.ShippingMethod, ShippingMethodTitle: &o.ShippingMethodTitle, TransactionId: &o.TransactionID,
+		PaymentProvider: &o.PaymentProvider, PaymentExternalId: &o.PaymentExternalID,
+		PaymentStatus: genoms.PaymentStatus(o.PaymentStatus()), PaymentReference: &paymentReference,
 		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted, OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt,
 		NeedsStockReview: &o.NeedsStockReview, NeedsSkuReview: &o.NeedsSKUReview, Fulfilled: &o.Fulfilled,
 		Packed: &o.Packed,

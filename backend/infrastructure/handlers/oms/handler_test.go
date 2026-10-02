@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -1194,4 +1195,31 @@ func TestCompletePicking_threadsResolutionsFromRequestBody(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Contains(t, complete.gotIn.Resolutions, "scan-1")
 	assert.Equal(t, appoms.StockShortfallWithItem, complete.gotIn.Resolutions["scan-1"])
+}
+
+func TestGetSalesOrder_includesPaymentInformation(t *testing.T) {
+	paid := time.Date(2026, 10, 2, 14, 31, 0, 0, time.UTC)
+	get := &stubGetSalesOrder{out: &appoms.GetSalesOrderResult{SalesOrder: omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing, PaymentMethodTitle: "Credit card",
+		PaymentProvider: "stripe", PaymentExternalID: "pi_456", DatePaid: &paid,
+	}}}
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, get, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "GET", "/api/v1/sales-orders/so-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, `"payment_status":"paid"`)
+	assert.Contains(t, body, `"payment_reference":"pi_456"`, "falls back to the provider id when the channel sent no transaction id")
+	assert.Contains(t, body, `"payment_provider":"stripe"`)
+	assert.Contains(t, body, `"payment_external_id":"pi_456"`)
+}
+
+func TestListSalesOrders_includesPaymentStatus(t *testing.T) {
+	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{
+		SalesOrders: []omsDomain.SalesOrder{{ID: "so-1", Status: omsDomain.SalesOrderStatusPending}},
+		Total:       1,
+	}}
+	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "GET", "/api/v1/sales-orders", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"payment_status":"awaiting_payment"`)
 }

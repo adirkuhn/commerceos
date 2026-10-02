@@ -1035,9 +1035,18 @@ components:
       type: string
       enum: [pos, manual, woocommerce, bol, whatsapp]
 
+    PaymentStatus:
+      type: string
+      enum: [awaiting_payment, awaiting_confirmation, paid, failed, refunded, partially_refunded, cancelled_unpaid]
+      description: >-
+        Whether the order's payment succeeded -- derived from status and
+        date_paid (domain/oms.SalesOrder.PaymentStatus), never stored.
+        awaiting_confirmation is an on-hold order paid offline (bank
+        transfer, SEPA) the store must confirm.
+
     SalesOrder:
       type: object
-      required: [id, source, external_order_id, status, warehouse_id, currency_code, total_minor_units, occurred_at, created_at]
+      required: [id, source, external_order_id, status, payment_status, warehouse_id, currency_code, total_minor_units, occurred_at, created_at]
       properties:
         id: { type: string }
         source: { $ref: '#/components/schemas/SalesOrderSource' }
@@ -1072,6 +1081,13 @@ components:
             That provider's own checkout-session/order id -- what a refund
             (see RefundLineItemRequest) is issued against. Empty whenever
             payment_provider is.
+        payment_status: { $ref: '#/components/schemas/PaymentStatus' }
+        payment_reference:
+          type: string
+          description: >-
+            The id to look the payment up by: transaction_id when the
+            channel sent one, else payment_external_id. Empty when neither
+            is known (e.g. bol.com, cash).
         date_paid: { type: string, format: date-time, nullable: true }
         date_completed: { type: string, format: date-time, nullable: true }
         occurred_at: { type: string, format: date-time }
