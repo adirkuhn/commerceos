@@ -144,7 +144,26 @@
     "doneNew": "+{{quantity}} · nieuw",
     "doneRestocked": "+{{quantity}} · aangevuld",
     "addMore": "Meer verdelen",
-    "packageName": "~{{weight}}g"
+    "packageName": "~{{weight}}g",
+    "linkOpen": "Bestaande pakketten koppelen",
+    "linkTitle": "Bestaande pakketten koppelen",
+    "linkIntro": "Deze varianten dragen al het weegschaallabel van deze pool. Koppelen maakt ze tot zijn pakketten: \"Verdelen in pakketten\" vult ze aan in plaats van duplicaten te maken. Hun Woo-vermeldingen en barcodes blijven.",
+    "linkLoading": "Pakketten zoeken…",
+    "linkNone": "Geen ongekoppelde pakketten gevonden.",
+    "linkPriceChanged": "had prijs per gewicht → {{price}}",
+    "linkSkippedTitle": "Niet gekoppeld",
+    "linkSkip": {
+      "not_a_scale_label": "geen weegschaallabel",
+      "other_scale_code": "andere weegschaalcode",
+      "linked_to_another_pool": "al in een andere pool",
+      "several_skus": "variant heeft meerdere SKU's"
+    },
+    "linkConfirm_one": "{{count}} pakket koppelen",
+    "linkConfirm_other": "{{count}} pakketten koppelen",
+    "linking": "Koppelen…",
+    "linkDone_one": "{{count}} pakket gekoppeld.",
+    "linkDone_other": "{{count}} pakketten gekoppeld.",
+    "linkFailed": "Pakketten koppelen mislukt"
   },
   "casePack": {
     "caseOf": "Doos met <b>{{label}}</b>",

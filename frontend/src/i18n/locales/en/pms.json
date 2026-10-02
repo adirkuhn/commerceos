@@ -144,7 +144,26 @@
     "doneNew": "+{{quantity}} · new",
     "doneRestocked": "+{{quantity}} · restocked",
     "addMore": "Split more",
-    "packageName": "~{{weight}}g"
+    "packageName": "~{{weight}}g",
+    "linkOpen": "Link existing packages",
+    "linkTitle": "Link existing packages",
+    "linkIntro": "These variants already carry this pool's scale label. Linking makes them its packages: \"Split into packages\" will restock them instead of creating duplicates. Their Woo listings and barcodes stay.",
+    "linkLoading": "Looking for packages…",
+    "linkNone": "No unlinked packages found.",
+    "linkPriceChanged": "was priced per weight → {{price}}",
+    "linkSkippedTitle": "Not linked",
+    "linkSkip": {
+      "not_a_scale_label": "not a scale label",
+      "other_scale_code": "another scale code",
+      "linked_to_another_pool": "already in another pool",
+      "several_skus": "variant has several SKUs"
+    },
+    "linkConfirm_one": "Link {{count}} package",
+    "linkConfirm_other": "Link {{count}} packages",
+    "linking": "Linking…",
+    "linkDone_one": "{{count}} package linked.",
+    "linkDone_other": "{{count}} packages linked.",
+    "linkFailed": "Linking packages failed"
   },
   "casePack": {
     "caseOf": "Case of <b>{{label}}</b>",

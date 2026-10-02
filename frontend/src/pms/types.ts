@@ -420,6 +420,32 @@ export interface PackedWeightLine {
   created: boolean
 }
 
+export type LinkSkipReason = 'not_a_scale_label' | 'other_scale_code' | 'linked_to_another_pool' | 'several_skus'
+
+export interface LinkedWeightPackage {
+  sku_id: string
+  sku_code: string
+  variant_name: string
+  weight_grams: number
+  // The package's price after linking; price_changed when a per-weight
+  // package got its fixed price.
+  price_minor_units: number
+  price_changed: boolean
+}
+
+export interface SkippedWeightPackage {
+  sku_id: string
+  sku_code: string
+  variant_name: string
+  reason: LinkSkipReason
+}
+
+export interface LinkExistingWeightPackagesResult {
+  linked: LinkedWeightPackage[]
+  skipped: SkippedWeightPackage[]
+  errors: string[]
+}
+
 export interface PackWeightPortionsResult {
   lines: PackedWeightLine[]
 }

@@ -144,7 +144,26 @@
     "doneNew": "+{{quantity}} · novo",
     "doneRestocked": "+{{quantity}} · reabastecido",
     "addMore": "Dividir mais",
-    "packageName": "~{{weight}}g"
+    "packageName": "~{{weight}}g",
+    "linkOpen": "Vincular pacotes existentes",
+    "linkTitle": "Vincular pacotes existentes",
+    "linkIntro": "Estas variantes já têm a etiqueta de balança deste pool. Vincular as torna seus pacotes: \"Dividir em pacotes\" vai reabastecê-las em vez de criar duplicatas. Os anúncios no Woo e os códigos de barras continuam.",
+    "linkLoading": "Procurando pacotes…",
+    "linkNone": "Nenhum pacote sem vínculo encontrado.",
+    "linkPriceChanged": "tinha preço por peso → {{price}}",
+    "linkSkippedTitle": "Não vinculados",
+    "linkSkip": {
+      "not_a_scale_label": "não é etiqueta de balança",
+      "other_scale_code": "outro código de balança",
+      "linked_to_another_pool": "já está em outro pool",
+      "several_skus": "variante tem vários SKUs"
+    },
+    "linkConfirm_one": "Vincular {{count}} pacote",
+    "linkConfirm_other": "Vincular {{count}} pacotes",
+    "linking": "Vinculando…",
+    "linkDone_one": "{{count}} pacote vinculado.",
+    "linkDone_other": "{{count}} pacotes vinculados.",
+    "linkFailed": "Falha ao vincular pacotes"
   },
   "casePack": {
     "caseOf": "Caixa de <b>{{label}}</b>",

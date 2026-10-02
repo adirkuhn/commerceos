@@ -10,7 +10,7 @@ import type {
   SKUCurrencyPrice, UpsertSKUCurrencyPriceInput,
   BarcodeAlias, CreateBarcodeAliasPayload,
   ScaleCodeAlias, CreateScaleCodeAliasPayload,
-  PackWeightPortionsInput, PackWeightPortionsResult,
+  PackWeightPortionsInput, PackWeightPortionsResult, LinkExistingWeightPackagesResult,
   ProductMergeRequest, ProductMergePreview, ProductMergeResult,
   APIResponse,
 } from './types'
@@ -277,6 +277,10 @@ export function deleteMedia(token: string, id: string): Promise<null> {
 }
 
 // ── Weight packages ──────────────────────────────────────────────────────────
+
+export function linkExistingWeightPackages(token: string, bulkSkuId: string, dryRun: boolean): Promise<LinkExistingWeightPackagesResult> {
+  return request<LinkExistingWeightPackagesResult>(`${base()}/skus/${bulkSkuId}/weight-packages/link-existing`, { method: 'POST', body: JSON.stringify({ dry_run: dryRun }) }, token)
+}
 
 export function packWeightPortions(token: string, bulkSkuId: string, input: PackWeightPortionsInput): Promise<PackWeightPortionsResult> {
   return request<PackWeightPortionsResult>(`${base()}/skus/${bulkSkuId}/weight-packages`, { method: 'POST', body: JSON.stringify(input) }, token)

@@ -57,6 +57,7 @@ vi.mock('../../pms/api', () => ({
   createScaleCodeAlias: vi.fn(),
   deleteScaleCodeAlias: vi.fn(),
   packWeightPortions: vi.fn(),
+  linkExistingWeightPackages: vi.fn(() => Promise.resolve({ linked: [], skipped: [], errors: [] })),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -935,6 +936,26 @@ describe('weight pool for a variant-mode product (VariantRow)', () => {
 
     expect(await screen.findByText('Split into packages', { selector: 'h3' })).toBeInTheDocument()
     await waitFor(() => expect(inventoryApi.listBatches).toHaveBeenCalledWith('test-token', 'sku-1'))
+  })
+
+  it('a scale-sold weight pool SKU offers "Link existing packages", previewing on open', async () => {
+    const poolSku = {
+      ...baseSku, unit_type: 'kilo' as const, scale_code: '2994721',
+      pricing_mode: 'per_weight' as const, price_per_kilo_minor_units: 29990,
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: 'por kilo', skus: [poolSku] }],
+    })
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('por kilo')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Link existing packages' }))
+
+    expect(await screen.findByText('Link existing packages', { selector: 'h3' })).toBeInTheDocument()
+    await waitFor(() => expect(pmsApi.linkExistingWeightPackages).toHaveBeenCalledWith('test-token', 'sku-1', true))
   })
 
   it('a weight pool SKU with no scale code does not show "Split into packages" -- nothing to barcode packages with yet', async () => {

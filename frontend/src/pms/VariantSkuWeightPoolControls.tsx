@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { SplitIntoPackagesModal } from './SplitIntoPackagesModal'
+import { LinkExistingPackagesModal } from './LinkExistingPackagesModal'
 import { isScaleSoldWeightPool } from './weightPackages'
 import { CaseOfSKUPicker } from './VariantsSection'
 import { skuPassThroughPayload } from './skuPayloads'
@@ -27,6 +28,7 @@ export function VariantSkuWeightPoolControls({ token, sku, updateSKU, onPortions
   const [bulkError, setBulkError] = useState('')
   const [existingPortionPickerOpen, setExistingPortionPickerOpen] = useState(false)
   const [splitOpen, setSplitOpen] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
 
   const saveBulkPool = async (next: { unitType: SKUUnitType; portionedFromSkuId: string | null }) => {
     setBulkError('')
@@ -51,9 +53,14 @@ export function VariantSkuWeightPoolControls({ token, sku, updateSKU, onPortions
               {t('variant.turnOff')}
             </button>
             {isScaleSoldWeightPool(sku) && (
-              <button type="button" onClick={() => setSplitOpen(true)} className="text-accent hover:text-accent/80 transition-colors">
-                {t('split.open')}
-              </button>
+              <>
+                <button type="button" onClick={() => setSplitOpen(true)} className="text-accent hover:text-accent/80 transition-colors">
+                  {t('split.open')}
+                </button>
+                <button type="button" onClick={() => setLinkOpen(true)} className="text-accent hover:text-accent/80 transition-colors">
+                  {t('split.linkOpen')}
+                </button>
+              </>
             )}
           </span>
         ) : sku.portioned_from_sku_id ? (
@@ -88,6 +95,12 @@ export function VariantSkuWeightPoolControls({ token, sku, updateSKU, onPortions
           token={token} bulkSkuId={sku.id}
           pricePerKiloMinorUnits={sku.price_per_kilo_minor_units} currencyCode={sku.currency_code}
           onPacked={onPortionsCreated} onClose={() => setSplitOpen(false)}
+        />
+      )}
+      {linkOpen && (
+        <LinkExistingPackagesModal
+          token={token} bulkSkuId={sku.id} currencyCode={sku.currency_code}
+          onLinked={onPortionsCreated} onClose={() => setLinkOpen(false)}
         />
       )}
       {bulkError && <p className="text-2xs text-danger">{bulkError}</p>}
