@@ -10,12 +10,14 @@ import (
 
 func TestSalesOrderStatus_IsPickable(t *testing.T) {
 	for _, s := range []omsDomain.SalesOrderStatus{
-		omsDomain.SalesOrderStatusPending, omsDomain.SalesOrderStatusProcessing, omsDomain.SalesOrderStatusOnHold,
+		omsDomain.SalesOrderStatusProcessing, omsDomain.SalesOrderStatusOnHold,
 	} {
 		assert.True(t, s.IsPickable(), s)
 	}
+	// Pending = payment not received yet (WooCommerce's "Pending payment"):
+	// never offered for picking or packing.
 	for _, s := range []omsDomain.SalesOrderStatus{
-		omsDomain.SalesOrderStatusShipped, omsDomain.SalesOrderStatusCompleted, omsDomain.SalesOrderStatusCancelled,
+		omsDomain.SalesOrderStatusPending, omsDomain.SalesOrderStatusShipped, omsDomain.SalesOrderStatusCompleted, omsDomain.SalesOrderStatusCancelled,
 		omsDomain.SalesOrderStatusRefunded, omsDomain.SalesOrderStatusFailed, omsDomain.SalesOrderStatusPartiallyRefunded,
 	} {
 		assert.False(t, s.IsPickable(), s)
@@ -26,7 +28,7 @@ func TestPickableStatuses_matchesIsPickable(t *testing.T) {
 	for _, s := range omsDomain.PickableStatuses() {
 		assert.True(t, s.IsPickable(), s)
 	}
-	assert.Len(t, omsDomain.PickableStatuses(), 3)
+	assert.Len(t, omsDomain.PickableStatuses(), 2)
 }
 
 func TestCanStartPacking(t *testing.T) {
@@ -37,7 +39,8 @@ func TestCanStartPacking(t *testing.T) {
 	}{
 		{"picked order", omsDomain.SalesOrder{Fulfilled: true, Status: omsDomain.SalesOrderStatusProcessing}, nil},
 		{"unpicked order in pickable status skips picking", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusProcessing}, nil},
-		{"unpicked pending order", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusPending}, nil},
+		{"unpaid (pending) order", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusPending}, omsDomain.ErrOrderNotPackable},
+		{"picked but unpaid (pending) order", omsDomain.SalesOrder{Fulfilled: true, Status: omsDomain.SalesOrderStatusPending}, omsDomain.ErrOrderNotPackable},
 		{"already packed", omsDomain.SalesOrder{Fulfilled: true, Packed: true, Status: omsDomain.SalesOrderStatusProcessing}, omsDomain.ErrOrderAlreadyPacked},
 		{"unpicked terminal-status order", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusCancelled}, omsDomain.ErrOrderNotPackable},
 		{"picked but completed", omsDomain.SalesOrder{Fulfilled: true, Status: omsDomain.SalesOrderStatusCompleted}, omsDomain.ErrOrderNotPackable},
@@ -112,6 +115,7 @@ func TestCanMarkPicked(t *testing.T) {
 		{"already picked", omsDomain.SalesOrder{Fulfilled: true, Status: omsDomain.SalesOrderStatusProcessing}, false, omsDomain.ErrOrderAlreadyFulfilled},
 		{"packing in progress", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusProcessing}, true, omsDomain.ErrOrderPackingInProgress},
 		{"cancelled order", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusCancelled}, false, omsDomain.ErrOrderNotPickable},
+		{"unpaid (pending) order", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusPending}, false, omsDomain.ErrOrderNotPickable},
 		{"point-of-sale order", omsDomain.SalesOrder{Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing}, false, omsDomain.ErrPOSOrderNotFulfillable},
 	}
 	for _, tc := range cases {

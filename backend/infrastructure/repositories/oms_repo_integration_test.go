@@ -1276,7 +1276,8 @@ func TestSalesOrderRepo_Integration_ListFiltersByAwaitingPacking(t *testing.T) {
 			id        *string
 		}{
 			{"rtp-picked", omsDomain.SalesOrderStatusProcessing, true, false, "", &pickedID},
-			{"rtp-unpicked", omsDomain.SalesOrderStatusPending, false, false, "", &unpickedID},
+			{"rtp-unpicked", omsDomain.SalesOrderStatusProcessing, false, false, "", &unpickedID},
+			{"rtp-unpaid-pending", omsDomain.SalesOrderStatusPending, false, false, "", nil},
 			{"rtp-picking-completed", omsDomain.SalesOrderStatusProcessing, false, false, omsDomain.PickingSessionStatusCompleted, &finishedPickingID},
 			{"rtp-packed", omsDomain.SalesOrderStatusProcessing, true, true, "", nil},
 			{"rtp-cancelled-unpicked", omsDomain.SalesOrderStatusCancelled, false, false, "", nil},
@@ -2560,6 +2561,7 @@ func TestSalesOrderRepo_Integration_ListFiltersByAwaitingPicking(t *testing.T) {
 			{"awp-unpicked", omsDomain.SalesOrderSourceWooCommerce, omsDomain.SalesOrderStatusProcessing, false},
 			{"awp-picked", omsDomain.SalesOrderSourceWooCommerce, omsDomain.SalesOrderStatusProcessing, true},
 			{"awp-cancelled", omsDomain.SalesOrderSourceWooCommerce, omsDomain.SalesOrderStatusCancelled, false},
+			{"awp-unpaid-pending", omsDomain.SalesOrderSourceWooCommerce, omsDomain.SalesOrderStatusPending, false},
 			{"awp-pos", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusProcessing, false},
 		}
 		for _, s := range specs {

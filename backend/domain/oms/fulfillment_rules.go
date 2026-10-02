@@ -3,10 +3,14 @@ package oms
 // IsPickable reports whether an order in this status may still be
 // physically collected from the shelves -- the statuses the picking queue
 // offers, and the ones packing accepts for an order that skipped the
-// picking module entirely (see SalesOrder.CanStartPacking).
+// picking module entirely (see SalesOrder.CanStartPacking). Pending is
+// excluded: it's WooCommerce's "Pending payment" -- no payment received
+// yet, so nothing is shipped until it moves to Processing. OnHold stays
+// pickable: stock is already reduced and the store confirms the payment
+// itself (e.g. a bank transfer).
 func (s SalesOrderStatus) IsPickable() bool {
 	switch s {
-	case SalesOrderStatusPending, SalesOrderStatusProcessing, SalesOrderStatusOnHold:
+	case SalesOrderStatusProcessing, SalesOrderStatusOnHold:
 		return true
 	default:
 		return false
@@ -17,7 +21,7 @@ func (s SalesOrderStatus) IsPickable() bool {
 // that need the set itself (a repository's SQL filter), so the rule lives
 // in one place.
 func PickableStatuses() []SalesOrderStatus {
-	return []SalesOrderStatus{SalesOrderStatusPending, SalesOrderStatusProcessing, SalesOrderStatusOnHold}
+	return []SalesOrderStatus{SalesOrderStatusProcessing, SalesOrderStatusOnHold}
 }
 
 // IsFulfillable reports whether orders from this source go through picking

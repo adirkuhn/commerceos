@@ -145,8 +145,8 @@ paths:
       operationId: listPickingQueue
       summary: >
         Picking screens' order queue -- every order still to be picked
-        (not yet picked, pending/processing/on-hold, not a point-of-sale
-        sale). Each entry carries who is actively working it (lock) and
+        (not yet picked, processing/on-hold -- never pending, which is
+        unpaid -- not a point-of-sale sale). Each entry carries who is actively working it (lock) and
         whether packing has it (in_packing: someone is packing it, or
         packing already recorded something) -- such orders are shown as a
         read-only item list.
@@ -170,9 +170,9 @@ paths:
       operationId: listPackingQueue
       summary: >
         Packing screens' order queue -- every order not yet packed that is
-        still pending/processing/on-hold, picked or not (picking is
-        optional). Completed/shipped/cancelled orders and point-of-sale
-        sales never appear. Each entry carries who is actively working the order
+        still processing/on-hold, picked or not (picking is optional).
+        Pending (unpaid), completed/shipped/cancelled orders and
+        point-of-sale sales never appear. Each entry carries who is actively working the order
         right now (lock), if anyone: the UI shows those read-only to
         everyone else. A lock whose holder sent no heartbeat for 2 minutes
         is stale and not reported.
@@ -413,8 +413,8 @@ paths:
         list and waits in the packing queue. An open scan-mode picking
         session on the order is closed (abandoned) under the same takeover
         rules as packing. Logged to the order's activity feed. Rejected
-        (422) if the order is already picked/packed or no longer
-        pending/processing/on-hold; 409 if it is being packed, or someone
+        (422) if the order is already picked/packed or not
+        processing/on-hold (a pending order is unpaid); 409 if it is being packed, or someone
         else is actively scan-picking it (admins may take over).
       parameters:
         - $ref: '#/components/parameters/id'
