@@ -72,8 +72,10 @@ func TestLinkExistingWeightPackages_linksEachScaleLabelledVariantWithItsWeight(t
 	require.NotNil(t, in.WeightGrams)
 	assert.Equal(t, int64(380), *in.WeightGrams)
 	assert.Equal(t, pmsDomain.SKUUnitTypeUnit, in.UnitType)
-	assert.Equal(t, int64(1150), in.PriceMinorUnits, "a fixed price you set by hand is kept")
-	assert.False(t, result.Linked[0].PriceChanged)
+	// One rule for every package: price per kilo x weight, rounded down to
+	// an x9 price -- a hand-set 11.50 becomes 299.90/kg x 380g = 113.89.
+	assert.Equal(t, int64(11389), in.PriceMinorUnits)
+	assert.True(t, result.Linked[0].PriceChanged)
 	assert.Equal(t, "2994721003809", in.Barcode, "barcode and everything else pass through untouched")
 	assert.Empty(t, result.Skipped)
 }
@@ -92,10 +94,21 @@ func TestLinkExistingWeightPackages_givesAPerWeightPackageItsFixedPrice(t *testi
 	in := updater.calls[0]
 	assert.Equal(t, pmsDomain.SKUPricingModeFixed, in.PricingMode)
 	assert.Nil(t, in.PricePerKiloMinorUnits)
-	// 29990/kg * 528g = 15834.72 -> 15835
-	assert.Equal(t, int64(15835), in.PriceMinorUnits)
+	// 299.90/kg * 528g = 158.35 -> 158.29
+	assert.Equal(t, int64(15829), in.PriceMinorUnits)
 	assert.True(t, result.Linked[0].PriceChanged)
-	assert.Equal(t, int64(15835), result.Linked[0].PriceMinorUnits)
+	assert.Equal(t, int64(15829), result.Linked[0].PriceMinorUnits)
+}
+
+func TestLinkExistingWeightPackages_aPackageAlreadyAtTheRulePriceIsUnchanged(t *testing.T) {
+	f := linkFixture()
+	f.addHandMadePackage("sku-380", "~ 380g", "2994721003809", pmsDomain.SKUPricingModeFixed, 11389)
+	updater := &fakeSKUUpdater{}
+
+	result, err := f.linkUseCase(t, updater).Execute(context.Background(), apppms.LinkExistingWeightPackagesInput{BulkSKUID: "sku-bulk-1"})
+
+	require.NoError(t, err)
+	assert.False(t, result.Linked[0].PriceChanged)
 }
 
 func TestLinkExistingWeightPackages_readsTheWeightFromTheSKUCodeWhenTheBarcodeIsBlank(t *testing.T) {

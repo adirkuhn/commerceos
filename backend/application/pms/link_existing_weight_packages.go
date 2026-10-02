@@ -34,8 +34,9 @@ type LinkedWeightPackage struct {
 	SKU         pmsDomain.SKU
 	VariantName string
 	WeightGrams int64
-	// PriceMinorUnits is the package's price after linking; PriceChanged
-	// is true when a per-weight package was given its fixed price.
+	// PriceMinorUnits is the package's price after linking -- always the
+	// pool's rule price (pmsDomain.PackagePriceMinorUnits); PriceChanged
+	// says it differs from what the package had.
 	PriceMinorUnits int64
 	PriceChanged    bool
 }
@@ -62,7 +63,7 @@ type skuUpdaterForLink interface {
 // before the weight pool existed -- variants of the pool's product whose
 // single SKU carries the pool's scale label (e.g. "~ 380g", barcode
 // 2994721003809) -- as the pool's packages: PortionedFromSKUID set, weight
-// read from the label, priced fixed. From then on "Split into packages"
+// read from the label, priced by the pool's rule. From then on "Split into packages"
 // restocks them (see PackWeightPortionsUseCase) instead of creating
 // duplicates, and their existing channel listings and barcodes stay.
 type LinkExistingWeightPackagesUseCase struct {
@@ -149,10 +150,8 @@ func classifyPackageCandidates(bulk pmsDomain.SKU, variantName string, skus []pm
 			skip(s, reason)
 			continue
 		}
-		price, changed := s.PriceMinorUnits, false
-		if s.PricingMode == pmsDomain.SKUPricingModePerWeight {
-			price, changed = lineTotalForScannedWeight(bulk, weight), true
-		}
+		price := pmsDomain.PackagePriceMinorUnits(*bulk.PricePerKiloMinorUnits, weight)
+		changed := price != s.PriceMinorUnits || s.PricingMode != pmsDomain.SKUPricingModeFixed
 		result.Linked = append(result.Linked, LinkedWeightPackage{
 			SKU: s, VariantName: variantName, WeightGrams: weight, PriceMinorUnits: price, PriceChanged: changed,
 		})

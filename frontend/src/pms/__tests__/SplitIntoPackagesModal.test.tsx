@@ -88,8 +88,8 @@ describe('SplitIntoPackagesModal', () => {
 
     expect(screen.getByText('12 × 380g')).toBeInTheDocument()
     expect(screen.getByText('1 × 430g')).toBeInTheDocument()
-    // 29990/kg * 380g = 11396 -> EUR 113.96 each
-    expect(screen.getByText(/113\.96/)).toBeInTheDocument()
+    // 299.90/kg x 380g = 113.96 -> rounded down to EUR 113.89 each
+    expect(screen.getByText(/113\.89/)).toBeInTheDocument()
     expect(screen.getByText(/2 weights · 13 packages · 4\.99 kg of 5\.00 kg/)).toBeInTheDocument()
   })
 

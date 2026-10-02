@@ -6,11 +6,14 @@ export interface PackageLine {
   quantity: number
 }
 
-// Same "round-half-up to the nearest minor unit" the backend applies
-// (lineTotalForScannedWeight) -- display only, the package SKU's real
-// price always comes from the server.
+// Mirrors the backend's domain/pms.PackagePriceMinorUnits: price per kilo
+// x weight, rounded down to a price ending in 9 (never above the scale
+// label's own price) -- display only, the package SKU's real price always
+// comes from the server.
 export function packagePriceMinorUnits(pricePerKiloMinorUnits: number, weightGrams: number): number {
-  return Math.floor((pricePerKiloMinorUnits * weightGrams + 500) / 1000)
+  const exact = Math.floor((pricePerKiloMinorUnits * weightGrams + 500) / 1000)
+  if (exact < 9) return exact
+  return exact - ((exact + 1) % 10)
 }
 
 function isPositiveWhole(n: number): boolean {

@@ -271,8 +271,9 @@ func TestPackWeightPortions_createsOneSKUPerDistinctWeightStockedWithItsQuantity
 	assert.Equal(t, pmsDomain.SKUPricingModeFixed, sku380.PricingMode)
 	require.NotNil(t, sku380.PortionedFromSKUID)
 	assert.Equal(t, "sku-bulk-1", *sku380.PortionedFromSKUID)
-	// 29990/kg * 380g / 1000 = 11396.2 -> 11396, same rounding as checkout.
-	assert.Equal(t, int64(11396), sku380.PriceMinorUnits)
+	// 299.90/kg * 380g = 113.96 -> rounded down to 113.89 (see
+	// pmsDomain.PackagePriceMinorUnits).
+	assert.Equal(t, int64(11389), sku380.PriceMinorUnits)
 	decoded, err := pmsDomain.DecodeWeightEmbeddedBarcode(sku380.Barcode)
 	require.NoError(t, err)
 	assert.Equal(t, "2994721", decoded.ScaleCode)

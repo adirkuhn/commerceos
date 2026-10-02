@@ -105,8 +105,8 @@ type PackWeightPortionsDeps struct {
 // PackWeightPortionsUseCase turns weighed packages into sellable stock.
 // Each distinct weight gets its own variant ("~380g") on the bulk SKU's
 // product holding exactly one package SKU (UnitType=unit,
-// PricingMode=fixed, PortionedFromSKUID = the bulk pool, priced from the
-// bulk's PricePerKiloMinorUnits, barcoded via
+// PricingMode=fixed, PortionedFromSKUID = the bulk pool, priced by
+// pmsDomain.PackagePriceMinorUnits from the bulk's rate, barcoded via
 // pms.EncodeWeightEmbeddedBarcode -- the exact label the scale prints for
 // that weight), stocked with that line's quantity. One SKU per variant is
 // what every sales-channel push requires (see application/channels'
@@ -358,7 +358,7 @@ func (uc *PackWeightPortionsUseCase) createPackage(ctx context.Context, src *pac
 	bulk := src.bulkSKU
 	return uc.deps.CreateSKU.Execute(ctx, CreateSKUInput{
 		VariantID: variant.ID, SKUCode: fmt.Sprintf("%s-%dG", codePrefix, weight), Barcode: barcode,
-		PriceMinorUnits: lineTotalForScannedWeight(bulk, weight), CurrencyCode: bulk.CurrencyCode, WeightGrams: &w,
+		PriceMinorUnits: pmsDomain.PackagePriceMinorUnits(*bulk.PricePerKiloMinorUnits, weight), CurrencyCode: bulk.CurrencyCode, WeightGrams: &w,
 		UnitType: pmsDomain.SKUUnitTypeUnit, PortionedFromSKUID: &bulk.ID,
 		PricingMode: pmsDomain.SKUPricingModeFixed, Status: pmsDomain.SKUStatusActive,
 	})

@@ -2,13 +2,15 @@ import { describe, it, expect } from 'vitest'
 import { addPackageLine, formatKg, isScaleSoldWeightPool, packagePriceMinorUnits, summarizePackages } from '../weightPackages'
 
 describe('packagePriceMinorUnits', () => {
-  it('rounds half up to the nearest minor unit, same as the backend', () => {
-    // 29990/kg * 380g = 11396.2 -> 11396
-    expect(packagePriceMinorUnits(29990, 380)).toBe(11396)
-    // 29990/kg * 404g = 12115.96 -> 12116
-    expect(packagePriceMinorUnits(29990, 404)).toBe(12116)
-    // exactly .5 rounds up: 1000/kg * 0.5g... 1/kg * 500g = 0.5 -> 1
-    expect(packagePriceMinorUnits(1, 500)).toBe(1)
+  it('rounds down to a price ending in 9, same rule as the backend', () => {
+    // 29.99/kg x 380g = 11.40 -> 11.39
+    expect(packagePriceMinorUnits(2999, 380)).toBe(1139)
+    // 32.99/kg x 380g = 12.54 -> 12.49
+    expect(packagePriceMinorUnits(3299, 380)).toBe(1249)
+    // already ends in 9
+    expect(packagePriceMinorUnits(1000, 1249)).toBe(1249)
+    // too small to round: stays exact
+    expect(packagePriceMinorUnits(100, 50)).toBe(5)
   })
 })
 

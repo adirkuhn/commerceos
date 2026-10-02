@@ -7,7 +7,9 @@ info:
     into sellable packages: "1 x 430g, 4 x 540g, 10 x 380g". Each distinct
     weight becomes its own variant ("~380g") on the bulk SKU's product with
     one package SKU -- what every sales channel push needs, so a simple
-    product is switched to variants mode first -- auto-priced from the bulk's price-per-kilo and
+    product is switched to variants mode first -- priced at the pool's
+    price per kilo x weight, rounded down to a price ending in 9 (never
+    above the scale label's own price; domain/pms.PackagePriceMinorUnits), and
     barcoded with the GS1 weight-embedded EAN-13 the scale prints for that
     weight (see domain/pms.EncodeWeightEmbeddedBarcode); a weight that
     already has a package SKU off this pool is restocked instead of
@@ -60,7 +62,8 @@ paths:
         Every other variant of the pool's product whose single SKU carries
         the pool's scale label (barcode or SKU code, e.g. 2994721003809 =
         380g) is linked to the pool with its weight read from the label and
-        a fixed price (a per-weight package gets its computed price). Split
+        the pool's package price (price per kilo x weight, rounded down to a
+        price ending in 9) -- replacing any price set by hand. Split
         into packages then restocks them instead of duplicating them. With
         dry_run nothing changes -- the response previews what would.
       parameters:
@@ -172,7 +175,7 @@ components:
         variant_name: { type: string }
         weight_grams: { type: integer }
         price_minor_units: { type: integer, description: The package's price after linking. }
-        price_changed: { type: boolean, description: true when a per-weight package got its fixed price. }
+        price_changed: { type: boolean, description: true when linking changes the package's price. }
 
     SkippedWeightPackage:
       type: object
