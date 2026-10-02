@@ -117,6 +117,7 @@ func TestPackWeightPortionsHandler_mapsDomainErrors(t *testing.T) {
 	}{
 		"sku not found":      {pmsDomain.ErrSKUNotFound, http.StatusNotFound},
 		"batch not found":    {invDomain.ErrBatchNotFound, http.StatusNotFound},
+		"duplicate sku code": {pmsDomain.ErrDuplicateSKUCode, http.StatusUnprocessableEntity},
 		"not a weight pool":  {pmsDomain.ErrBulkSKUNotWeightPool, http.StatusUnprocessableEntity},
 		"not enough in lot":  {invDomain.ErrInsufficientStock, http.StatusUnprocessableEntity},
 		"lot of another sku": {invDomain.ErrBatchDoesNotBelongToSKU, http.StatusUnprocessableEntity},

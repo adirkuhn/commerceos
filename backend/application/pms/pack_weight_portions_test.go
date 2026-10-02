@@ -33,6 +33,86 @@ func (f *fakeBatchReader) ListBySKU(_ context.Context, skuID string) ([]invDomai
 	return f.bySKU[skuID], nil
 }
 
+// fakePackCatalog is an in-memory product -> variants -> SKUs tree serving
+// the use case's SKU/variant/product reader ports.
+type fakePackCatalog struct {
+	products map[string]pmsDomain.Product
+	variants []pmsDomain.Variant
+	skus     []pmsDomain.SKU
+}
+
+func (c *fakePackCatalog) FindSKU(id string) (*pmsDomain.SKU, error) {
+	for _, s := range c.skus {
+		if s.ID == id {
+			return &s, nil
+		}
+	}
+	return nil, pmsDomain.ErrSKUNotFound
+}
+
+type fakePackSKUs struct{ *fakePackCatalog }
+
+func (f fakePackSKUs) FindByID(_ context.Context, id string) (*pmsDomain.SKU, error) {
+	return f.FindSKU(id)
+}
+func (f fakePackSKUs) ListByVariant(_ context.Context, variantID string) ([]pmsDomain.SKU, error) {
+	var out []pmsDomain.SKU
+	for _, s := range f.skus {
+		if s.VariantID == variantID {
+			out = append(out, s)
+		}
+	}
+	return out, nil
+}
+
+type fakePackVariants struct{ *fakePackCatalog }
+
+func (f fakePackVariants) FindByID(_ context.Context, id string) (*pmsDomain.Variant, error) {
+	for _, v := range f.variants {
+		if v.ID == id {
+			return &v, nil
+		}
+	}
+	return nil, pmsDomain.ErrVariantNotFound
+}
+func (f fakePackVariants) ListByProduct(_ context.Context, productID string) ([]pmsDomain.Variant, error) {
+	var out []pmsDomain.Variant
+	for _, v := range f.variants {
+		if v.ProductID == productID {
+			out = append(out, v)
+		}
+	}
+	return out, nil
+}
+
+type fakePackProducts struct{ *fakePackCatalog }
+
+func (f fakePackProducts) FindByID(_ context.Context, id string) (*pmsDomain.Product, error) {
+	p, ok := f.products[id]
+	if !ok {
+		return nil, pmsDomain.ErrProductNotFound
+	}
+	return &p, nil
+}
+
+type fakeVariantCreator struct {
+	created []apppms.CreateVariantInput
+}
+
+func (f *fakeVariantCreator) Execute(_ context.Context, in apppms.CreateVariantInput) (*pmsDomain.Variant, error) {
+	f.created = append(f.created, in)
+	return &pmsDomain.Variant{ID: fmt.Sprintf("variant-new-%d", len(f.created)), ProductID: in.ProductID, Name: in.Name, Position: in.Position}, nil
+}
+
+type fakeProductUpdater struct {
+	calls []apppms.UpdateProductInput
+}
+
+func (f *fakeProductUpdater) Execute(_ context.Context, in apppms.UpdateProductInput) (*pmsDomain.Product, error) {
+	f.calls = append(f.calls, in)
+	return &pmsDomain.Product{ID: in.ID, HasVariants: in.HasVariants}, nil
+}
+
 type fakeSKUCreator struct {
 	created []apppms.CreateSKUInput
 	err     error
@@ -95,30 +175,61 @@ func weightPoolBulkSKU() pmsDomain.SKU {
 	}
 }
 
-func ptrSKU(s pmsDomain.SKU) *pmsDomain.SKU { return &s }
-
 type packFixture struct {
-	skuRepo      *stubSKURepo
-	batches      *fakeBatchReader
-	skuCreator   *fakeSKUCreator
-	batchCreator *fakeBatchCreator
-	portioner    *fakePortioner
-	stock        *fakeScopedStock
+	catalog        *fakePackCatalog
+	batches        *fakeBatchReader
+	variantCreator *fakeVariantCreator
+	productUpdater *fakeProductUpdater
+	skuCreator     *fakeSKUCreator
+	batchCreator   *fakeBatchCreator
+	portioner      *fakePortioner
+	stock          *fakeScopedStock
 }
 
+// newPackFixture is the Carne Seca product already in variants mode, its
+// only variant holding the bulk weight-pool SKU.
 func newPackFixture() *packFixture {
 	return &packFixture{
-		skuRepo:      &stubSKURepo{findByIDResult: ptrSKU(weightPoolBulkSKU())},
-		batches:      &fakeBatchReader{byID: map[string]invDomain.Batch{}, bySKU: map[string][]invDomain.Batch{}},
-		skuCreator:   &fakeSKUCreator{},
-		batchCreator: &fakeBatchCreator{},
-		portioner:    &fakePortioner{},
-		stock:        &fakeScopedStock{grams: 50000},
+		catalog: &fakePackCatalog{
+			products: map[string]pmsDomain.Product{"product-1": {
+				ID: "product-1", Name: "Carne Seca", Status: pmsDomain.ProductStatusActive, HasVariants: true,
+			}},
+			variants: []pmsDomain.Variant{{ID: "variant-1", ProductID: "product-1", Name: "Bulk"}},
+			skus:     []pmsDomain.SKU{weightPoolBulkSKU()},
+		},
+		batches:        &fakeBatchReader{byID: map[string]invDomain.Batch{}, bySKU: map[string][]invDomain.Batch{}},
+		variantCreator: &fakeVariantCreator{},
+		productUpdater: &fakeProductUpdater{},
+		skuCreator:     &fakeSKUCreator{},
+		batchCreator:   &fakeBatchCreator{},
+		portioner:      &fakePortioner{},
+		stock:          &fakeScopedStock{grams: 50000},
 	}
 }
 
+// addPackage puts an existing package SKU off the bulk pool on its own
+// variant, the way this use case creates them.
+func (f *packFixture) addPackage(skuID string, weight int64) {
+	variantID := "variant-of-" + skuID
+	bulkID := "sku-bulk-1"
+	w := weight
+	f.catalog.variants = append(f.catalog.variants, pmsDomain.Variant{ID: variantID, ProductID: "product-1", Name: fmt.Sprintf("~%dg", weight)})
+	f.catalog.skus = append(f.catalog.skus, pmsDomain.SKU{
+		ID: skuID, VariantID: variantID, SKUCode: fmt.Sprintf("CARNE-SECA-%dG", weight), WeightGrams: &w,
+		UnitType: pmsDomain.SKUUnitTypeUnit, PortionedFromSKUID: &bulkID, Status: pmsDomain.SKUStatusActive,
+	})
+}
+
+func (f *packFixture) setBulk(mutate func(*pmsDomain.SKU)) {
+	mutate(&f.catalog.skus[0])
+}
+
 func (f *packFixture) useCase(t *testing.T) *apppms.PackWeightPortionsUseCase {
-	return apppms.NewPackWeightPortionsUseCase(newMockGormDBN(t, 10), f.skuRepo, f.batches, f.skuCreator, f.batchCreator, f.portioner, f.stock)
+	return apppms.NewPackWeightPortionsUseCase(newMockGormDBN(t, 10), apppms.PackWeightPortionsDeps{
+		SKUs: fakePackSKUs{f.catalog}, Variants: fakePackVariants{f.catalog}, Products: fakePackProducts{f.catalog},
+		Batches: f.batches, CreateVariant: f.variantCreator, EnableVariants: f.productUpdater,
+		CreateSKU: f.skuCreator, CreateBatch: f.batchCreator, Portion: f.portioner, Stock: f.stock,
+	})
 }
 
 func lines(pairs ...int64) []apppms.WeightPackageLine {
@@ -148,7 +259,13 @@ func TestPackWeightPortions_createsOneSKUPerDistinctWeightStockedWithItsQuantity
 	assert.True(t, result.Lines[3].Created)
 	assert.Equal(t, int64(10), result.Lines[3].Quantity)
 
+	require.Len(t, f.variantCreator.created, 4, "each package weight is its own variant -- channels push one SKU per variant")
+	assert.Equal(t, "~380g", f.variantCreator.created[3].Name)
+	assert.Equal(t, "product-1", f.variantCreator.created[3].ProductID)
+	assert.Empty(t, f.productUpdater.calls, "already in variants mode")
+
 	sku380 := f.skuCreator.created[3]
+	assert.Equal(t, "variant-new-4", sku380.VariantID)
 	assert.Equal(t, "CARNE-SECA-380G", sku380.SKUCode)
 	assert.Equal(t, pmsDomain.SKUUnitTypeUnit, sku380.UnitType)
 	assert.Equal(t, pmsDomain.SKUPricingModeFixed, sku380.PricingMode)
@@ -176,21 +293,13 @@ func TestPackWeightPortions_mergesRepeatedWeightsIntoOneLine(t *testing.T) {
 	assert.Equal(t, int64(5), result.Lines[0].Quantity)
 }
 
-func TestPackWeightPortions_restocksTheExistingPortionSKUForAWeight(t *testing.T) {
+func TestPackWeightPortions_restocksTheExistingPackageSKUForAWeight(t *testing.T) {
 	f := newPackFixture()
-	w := int64(380)
-	bulkID := "sku-bulk-1"
-	existing := pmsDomain.SKU{
-		ID: "sku-existing-380", VariantID: "variant-1", SKUCode: "CARNE-SECA-380G", WeightGrams: &w,
-		UnitType: pmsDomain.SKUUnitTypeUnit, PortionedFromSKUID: &bulkID, Status: pmsDomain.SKUStatusActive,
-	}
-	otherW := int64(380)
-	otherBulk := "sku-other-bulk"
-	f.skuRepo.listByVariantResult = []pmsDomain.SKU{
-		weightPoolBulkSKU(),
-		{ID: "sku-other-pool-380", WeightGrams: &otherW, PortionedFromSKUID: &otherBulk},
-		existing,
-	}
+	f.addPackage("sku-existing-380", 380)
+	// Same weight, but portioned off a different pool -- not a match.
+	otherW, otherBulk := int64(380), "sku-other-bulk"
+	f.catalog.variants = append(f.catalog.variants, pmsDomain.Variant{ID: "variant-other", ProductID: "product-1"})
+	f.catalog.skus = append(f.catalog.skus, pmsDomain.SKU{ID: "sku-other-pool-380", VariantID: "variant-other", WeightGrams: &otherW, PortionedFromSKUID: &otherBulk})
 
 	result, err := f.useCase(t).Execute(context.Background(), apppms.PackWeightPortionsInput{
 		BulkSKUID: "sku-bulk-1", WarehouseID: "warehouse-1", Lines: lines(3, 380),
@@ -198,10 +307,30 @@ func TestPackWeightPortions_restocksTheExistingPortionSKUForAWeight(t *testing.T
 
 	require.NoError(t, err)
 	assert.Empty(t, f.skuCreator.created)
+	assert.Empty(t, f.variantCreator.created)
 	require.Len(t, f.portioner.calls, 1)
 	assert.Equal(t, "sku-existing-380", f.portioner.calls[0].TargetSKUID)
 	assert.False(t, result.Lines[0].Created)
 	assert.Equal(t, "sku-existing-380", result.Lines[0].SKU.ID)
+}
+
+// TestPackWeightPortions_ignoresAPackageSharingThePoolsOwnVariant: the
+// previous tool created package SKUs on the bulk SKU's own variant, which
+// no sales channel can push (one SKU per variant) -- never restock those.
+func TestPackWeightPortions_ignoresAPackageSharingThePoolsOwnVariant(t *testing.T) {
+	f := newPackFixture()
+	w, bulkID := int64(380), "sku-bulk-1"
+	f.catalog.skus = append(f.catalog.skus, pmsDomain.SKU{
+		ID: "sku-legacy-380", VariantID: "variant-1", SKUCode: "OLD-380G", WeightGrams: &w, PortionedFromSKUID: &bulkID, Status: pmsDomain.SKUStatusActive,
+	})
+
+	result, err := f.useCase(t).Execute(context.Background(), apppms.PackWeightPortionsInput{
+		BulkSKUID: "sku-bulk-1", WarehouseID: "warehouse-1", Lines: lines(1, 380),
+	})
+
+	require.NoError(t, err)
+	require.Len(t, f.skuCreator.created, 1)
+	assert.True(t, result.Lines[0].Created)
 }
 
 func TestPackWeightPortions_carriesTheLotsExpiryOntoANewPackageBatch(t *testing.T) {
@@ -230,9 +359,7 @@ func TestPackWeightPortions_reusesTheExistingPackageBatchForTheSameLot(t *testin
 	expiry := time.Date(2030, 10, 10, 0, 0, 0, 0, time.UTC)
 	sameDay := time.Date(2030, 10, 10, 0, 0, 0, 0, time.UTC)
 	f.batches.byID["batch-lot-1"] = invDomain.Batch{ID: "batch-lot-1", SKUID: "sku-bulk-1", LotNumber: "LOT-1", ExpiryDate: &expiry}
-	w := int64(380)
-	bulkID := "sku-bulk-1"
-	f.skuRepo.listByVariantResult = []pmsDomain.SKU{{ID: "sku-existing-380", WeightGrams: &w, PortionedFromSKUID: &bulkID, Status: pmsDomain.SKUStatusActive}}
+	f.addPackage("sku-existing-380", 380)
 	f.batches.bySKU["sku-existing-380"] = []invDomain.Batch{
 		{ID: "batch-other-wh", SKUID: "sku-existing-380", WarehouseID: "warehouse-2", LotNumber: "LOT-1", ExpiryDate: &sameDay, Status: invDomain.BatchStatusActive},
 		{ID: "batch-pkg-lot-1", SKUID: "sku-existing-380", WarehouseID: "warehouse-1", LotNumber: "LOT-1", ExpiryDate: &sameDay, Status: invDomain.BatchStatusActive},
@@ -312,9 +439,7 @@ func TestPackWeightPortions_rejectsSourceThatIsNotAScaleSoldWeightPool(t *testin
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newPackFixture()
-			bulk := weightPoolBulkSKU()
-			mutate(&bulk)
-			f.skuRepo.findByIDResult = &bulk
+			f.setBulk(mutate)
 			_, err := f.useCase(t).Execute(context.Background(), apppms.PackWeightPortionsInput{
 				BulkSKUID: "sku-bulk-1", WarehouseID: "warehouse-1", Lines: lines(1, 404),
 			})
@@ -344,4 +469,54 @@ func TestPackWeightPortions_honorsCustomSKUCodePrefix(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "DRIED-BEEF-404G", f.skuCreator.created[0].SKUCode)
+}
+
+func TestPackWeightPortions_switchesASimpleProductToVariantsModeFirst(t *testing.T) {
+	f := newPackFixture()
+	categoryID := "cat-1"
+	f.catalog.products["product-1"] = pmsDomain.Product{
+		ID: "product-1", Name: "Carne Seca", Description: "Dried beef", CategoryID: &categoryID,
+		Status: pmsDomain.ProductStatusActive, HasVariants: false, Tags: []string{"meat"},
+	}
+
+	_, err := f.useCase(t).Execute(context.Background(), apppms.PackWeightPortionsInput{
+		BulkSKUID: "sku-bulk-1", WarehouseID: "warehouse-1", Lines: lines(2, 380),
+	})
+
+	require.NoError(t, err)
+	require.Len(t, f.productUpdater.calls, 1)
+	assert.Equal(t, apppms.UpdateProductInput{
+		ID: "product-1", Name: "Carne Seca", Description: "Dried beef", CategoryID: &categoryID,
+		Status: pmsDomain.ProductStatusActive, HasVariants: true, Tags: []string{"meat"},
+	}, f.productUpdater.calls[0], "only HasVariants changes")
+	require.Len(t, f.variantCreator.created, 1)
+}
+
+func TestPackWeightPortions_leavesASimpleProductAloneWhenOnlyRestocking(t *testing.T) {
+	f := newPackFixture()
+	p := f.catalog.products["product-1"]
+	p.HasVariants = false
+	f.catalog.products["product-1"] = p
+	f.addPackage("sku-existing-380", 380)
+
+	_, err := f.useCase(t).Execute(context.Background(), apppms.PackWeightPortionsInput{
+		BulkSKUID: "sku-bulk-1", WarehouseID: "warehouse-1", Lines: lines(2, 380),
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, f.productUpdater.calls)
+}
+
+func TestPackWeightPortions_newVariantsGoAfterTheExistingOnes(t *testing.T) {
+	f := newPackFixture()
+	f.addPackage("sku-existing-380", 380)
+
+	_, err := f.useCase(t).Execute(context.Background(), apppms.PackWeightPortionsInput{
+		BulkSKUID: "sku-bulk-1", WarehouseID: "warehouse-1", Lines: lines(1, 430, 1, 540),
+	})
+
+	require.NoError(t, err)
+	require.Len(t, f.variantCreator.created, 2)
+	assert.Equal(t, 2, f.variantCreator.created[0].Position)
+	assert.Equal(t, 3, f.variantCreator.created[1].Position)
 }

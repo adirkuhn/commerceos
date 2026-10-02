@@ -51,12 +51,33 @@ type PackWeightPortionsResult struct {
 	Lines []PackedWeightLine
 }
 
-// batchReaderForPack/batchCreatorForPack/portionerForPack/skuCreatorForPack/
-// scopedStockReaderForPack are PackWeightPortionsUseCase's collaborators,
-// narrowed to point of use (ISP).
+// The ports below are PackWeightPortionsUseCase's collaborators, narrowed
+// to point of use (ISP) -- they let it compose this package's
+// CreateVariant/CreateSKU/UpdateProduct and application/inventory's
+// CreateBatch/PortionFromBulk/GetScopedStock without their concrete types.
+type skuReaderForPack interface {
+	FindByID(ctx context.Context, id string) (*pmsDomain.SKU, error)
+	ListByVariant(ctx context.Context, variantID string) ([]pmsDomain.SKU, error)
+}
+type variantReaderForPack interface {
+	FindByID(ctx context.Context, id string) (*pmsDomain.Variant, error)
+	ListByProduct(ctx context.Context, productID string) ([]pmsDomain.Variant, error)
+}
+type productReaderForPack interface {
+	FindByID(ctx context.Context, id string) (*pmsDomain.Product, error)
+}
 type batchReaderForPack interface {
 	FindByID(ctx context.Context, id string) (*invDomain.Batch, error)
 	ListBySKU(ctx context.Context, skuID string) ([]invDomain.Batch, error)
+}
+type variantCreatorForPack interface {
+	Execute(ctx context.Context, in CreateVariantInput) (*pmsDomain.Variant, error)
+}
+type productUpdaterForPack interface {
+	Execute(ctx context.Context, in UpdateProductInput) (*pmsDomain.Product, error)
+}
+type skuCreatorForPack interface {
+	Execute(ctx context.Context, in CreateSKUInput) (*pmsDomain.SKU, error)
 }
 type batchCreatorForPack interface {
 	Execute(ctx context.Context, in invapp.CreateBatchInput) (*invDomain.Batch, error)
@@ -64,21 +85,35 @@ type batchCreatorForPack interface {
 type portionerForPack interface {
 	Execute(ctx context.Context, in invapp.PortionFromBulkInput) (*invapp.PortionFromBulkResult, error)
 }
-type skuCreatorForPack interface {
-	Execute(ctx context.Context, in CreateSKUInput) (*pmsDomain.SKU, error)
-}
 type scopedStockReaderForPack interface {
 	Execute(ctx context.Context, skuID, warehouseID string, batchID *string) (int64, error)
 }
 
-// PackWeightPortionsUseCase turns weighed packages into sellable stock:
-// one package SKU per distinct weight (UnitType=unit, PricingMode=fixed,
-// PortionedFromSKUID = the bulk pool, priced from the bulk's
-// PricePerKiloMinorUnits, barcoded via pms.EncodeWeightEmbeddedBarcode --
-// the exact label the scale prints for that weight), stocked with that
-// line's quantity. A weight that already has a package SKU off this pool
-// is restocked rather than re-created, so the same weight can be packed
-// again in a later session.
+type PackWeightPortionsDeps struct {
+	SKUs           skuReaderForPack
+	Variants       variantReaderForPack
+	Products       productReaderForPack
+	Batches        batchReaderForPack
+	CreateVariant  variantCreatorForPack
+	EnableVariants productUpdaterForPack
+	CreateSKU      skuCreatorForPack
+	CreateBatch    batchCreatorForPack
+	Portion        portionerForPack
+	Stock          scopedStockReaderForPack
+}
+
+// PackWeightPortionsUseCase turns weighed packages into sellable stock.
+// Each distinct weight gets its own variant ("~380g") on the bulk SKU's
+// product holding exactly one package SKU (UnitType=unit,
+// PricingMode=fixed, PortionedFromSKUID = the bulk pool, priced from the
+// bulk's PricePerKiloMinorUnits, barcoded via
+// pms.EncodeWeightEmbeddedBarcode -- the exact label the scale prints for
+// that weight), stocked with that line's quantity. One SKU per variant is
+// what every sales-channel push requires (see application/channels'
+// PushProductToWooUseCase), so a simple product is switched to variants
+// mode before its first package variant is added. A weight that already
+// has a package off this pool is restocked rather than re-created, so the
+// same weight can be packed again in a later session.
 //
 // The whole list is checked against the chosen lot's remaining stock up
 // front, so a list that doesn't fit changes nothing. After that, like
@@ -87,23 +122,24 @@ type scopedStockReaderForPack interface {
 // find-or-create + portion cycle per weight; an unexpected failure partway
 // names the weight that failed, earlier weights stay packed.
 type PackWeightPortionsUseCase struct {
-	db          *gorm.DB
-	skuRepo     pmsDomain.SKURepository
-	batchRepo   batchReaderForPack
-	createSKU   skuCreatorForPack
-	createBatch batchCreatorForPack
-	portion     portionerForPack
-	stock       scopedStockReaderForPack
+	db   *gorm.DB
+	deps PackWeightPortionsDeps
 }
 
-func NewPackWeightPortionsUseCase(
-	db *gorm.DB, skuRepo pmsDomain.SKURepository, batchRepo batchReaderForPack,
-	createSKU skuCreatorForPack, createBatch batchCreatorForPack, portion portionerForPack, stock scopedStockReaderForPack,
-) *PackWeightPortionsUseCase {
-	return &PackWeightPortionsUseCase{
-		db: db, skuRepo: skuRepo, batchRepo: batchRepo,
-		createSKU: createSKU, createBatch: createBatch, portion: portion, stock: stock,
-	}
+func NewPackWeightPortionsUseCase(db *gorm.DB, deps PackWeightPortionsDeps) *PackWeightPortionsUseCase {
+	return &PackWeightPortionsUseCase{db: db, deps: deps}
+}
+
+// packSource is everything Execute reads up front: the bulk SKU and its
+// product, the chosen lot, the product's variant count (new variants are
+// positioned after it), and the packages already portioned off this pool,
+// keyed by weight.
+type packSource struct {
+	bulkSKU      pmsDomain.SKU
+	product      pmsDomain.Product
+	bulkBatch    *invDomain.Batch
+	variantCount int
+	existing     map[int64]*pmsDomain.SKU
 }
 
 func (uc *PackWeightPortionsUseCase) Execute(ctx context.Context, in PackWeightPortionsInput) (*PackWeightPortionsResult, error) {
@@ -111,23 +147,25 @@ func (uc *PackWeightPortionsUseCase) Execute(ctx context.Context, in PackWeightP
 	if err != nil {
 		return nil, fmt.Errorf("packWeightPortions: %w", err)
 	}
-
-	bulkSKU, bulkBatch, existing, err := uc.loadBulk(ctx, in)
+	src, err := uc.loadSource(ctx, in)
 	if err != nil {
 		return nil, fmt.Errorf("packWeightPortions: %w", err)
 	}
 	if err := uc.requireLotCovers(ctx, in, lines); err != nil {
 		return nil, fmt.Errorf("packWeightPortions: %w", err)
 	}
+	if err := uc.enableVariantsIfNeeded(ctx, src, lines); err != nil {
+		return nil, fmt.Errorf("packWeightPortions: %w", err)
+	}
 
 	codePrefix := in.SKUCodePrefix
 	if codePrefix == "" {
-		codePrefix = bulkSKU.SKUCode
+		codePrefix = src.bulkSKU.SKUCode
 	}
 
 	result := &PackWeightPortionsResult{Lines: make([]PackedWeightLine, 0, len(lines))}
 	for _, line := range lines {
-		packed, err := uc.packLine(ctx, in, *bulkSKU, bulkBatch, existing[line.WeightGrams], codePrefix, line)
+		packed, err := uc.packLine(ctx, in, src, codePrefix, line)
 		if err != nil {
 			return nil, fmt.Errorf("packWeightPortions: packages at %dg: %w", line.WeightGrams, err)
 		}
@@ -159,52 +197,96 @@ func mergeWeightLines(in []WeightPackageLine) ([]WeightPackageLine, error) {
 	return merged, nil
 }
 
-// loadBulk reads the bulk SKU, the chosen lot, and the package SKUs
-// already portioned off this pool, keyed by weight.
-func (uc *PackWeightPortionsUseCase) loadBulk(ctx context.Context, in PackWeightPortionsInput) (*pmsDomain.SKU, *invDomain.Batch, map[int64]*pmsDomain.SKU, error) {
-	var bulkSKU *pmsDomain.SKU
-	var bulkBatch *invDomain.Batch
-	existing := map[int64]*pmsDomain.SKU{}
+func (uc *PackWeightPortionsUseCase) loadSource(ctx context.Context, in PackWeightPortionsInput) (*packSource, error) {
+	src := &packSource{existing: map[int64]*pmsDomain.SKU{}}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		sku, err := uc.skuRepo.FindByID(ctx, in.BulkSKUID)
+		sku, err := uc.deps.SKUs.FindByID(ctx, in.BulkSKUID)
 		if err != nil {
 			return err
 		}
 		if !isScaleSoldWeightPool(*sku) {
 			return pmsDomain.ErrBulkSKUNotWeightPool
 		}
-		bulkSKU = sku
+		src.bulkSKU = *sku
 		if in.BulkBatchID != nil {
-			b, err := uc.batchRepo.FindByID(ctx, *in.BulkBatchID)
+			b, err := uc.deps.Batches.FindByID(ctx, *in.BulkBatchID)
 			if err != nil {
 				return err
 			}
 			if b.SKUID != in.BulkSKUID {
 				return invDomain.ErrBatchDoesNotBelongToSKU
 			}
-			bulkBatch = b
+			src.bulkBatch = b
 		}
-		siblings, err := uc.skuRepo.ListByVariant(ctx, sku.VariantID)
+		variant, err := uc.deps.Variants.FindByID(ctx, sku.VariantID)
 		if err != nil {
 			return err
 		}
-		for i := range siblings {
-			s := &siblings[i]
+		product, err := uc.deps.Products.FindByID(ctx, variant.ProductID)
+		if err != nil {
+			return err
+		}
+		src.product = *product
+		variants, err := uc.deps.Variants.ListByProduct(ctx, product.ID)
+		if err != nil {
+			return err
+		}
+		src.variantCount = len(variants)
+		for _, v := range variants {
+			// A package SKU sharing the pool's own variant (how the
+			// previous bulk tool made them) can never be pushed to a
+			// sales channel -- not a package to restock.
+			if v.ID == sku.VariantID {
+				continue
+			}
+			skus, err := uc.deps.SKUs.ListByVariant(ctx, v.ID)
+			if err != nil {
+				return err
+			}
+			if len(skus) != 1 {
+				continue
+			}
+			s := skus[0]
 			if s.PortionedFromSKUID == nil || *s.PortionedFromSKUID != sku.ID || s.WeightGrams == nil {
 				continue
 			}
 			// Prefer an active package SKU over e.g. an archived one.
-			if prev, ok := existing[*s.WeightGrams]; ok && prev.Status == pmsDomain.SKUStatusActive {
+			if prev, ok := src.existing[*s.WeightGrams]; ok && prev.Status == pmsDomain.SKUStatusActive {
 				continue
 			}
-			existing[*s.WeightGrams] = s
+			src.existing[*s.WeightGrams] = &s
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	return bulkSKU, bulkBatch, existing, nil
+	return src, nil
+}
+
+// enableVariantsIfNeeded switches a simple product to variants mode before
+// its first package variant is created -- only HasVariants changes, every
+// other field is passed through as-is.
+func (uc *PackWeightPortionsUseCase) enableVariantsIfNeeded(ctx context.Context, src *packSource, lines []WeightPackageLine) error {
+	if src.product.HasVariants {
+		return nil
+	}
+	needsNewVariant := false
+	for _, l := range lines {
+		if src.existing[l.WeightGrams] == nil {
+			needsNewVariant = true
+			break
+		}
+	}
+	if !needsNewVariant {
+		return nil
+	}
+	p := src.product
+	_, err := uc.deps.EnableVariants.Execute(ctx, UpdateProductInput{
+		ID: p.ID, Name: p.Name, Description: p.Description, CategoryID: p.CategoryID, Status: p.Status,
+		HasVariants: true, SyncVariantsAsWooVariations: p.SyncVariantsAsWooVariations, Tags: p.Tags,
+	})
+	return err
 }
 
 func isScaleSoldWeightPool(s pmsDomain.SKU) bool {
@@ -217,7 +299,7 @@ func (uc *PackWeightPortionsUseCase) requireLotCovers(ctx context.Context, in Pa
 	for _, l := range lines {
 		needed += l.WeightGrams * l.Quantity
 	}
-	available, err := uc.stock.Execute(ctx, in.BulkSKUID, in.WarehouseID, in.BulkBatchID)
+	available, err := uc.deps.Stock.Execute(ctx, in.BulkSKUID, in.WarehouseID, in.BulkBatchID)
 	if err != nil {
 		return err
 	}
@@ -228,12 +310,11 @@ func (uc *PackWeightPortionsUseCase) requireLotCovers(ctx context.Context, in Pa
 }
 
 func (uc *PackWeightPortionsUseCase) packLine(
-	ctx context.Context, in PackWeightPortionsInput, bulkSKU pmsDomain.SKU, bulkBatch *invDomain.Batch,
-	existing *pmsDomain.SKU, codePrefix string, line WeightPackageLine,
+	ctx context.Context, in PackWeightPortionsInput, src *packSource, codePrefix string, line WeightPackageLine,
 ) (*PackedWeightLine, error) {
-	packageSKU, created := existing, false
+	packageSKU, created := src.existing[line.WeightGrams], false
 	if packageSKU == nil {
-		sku, err := uc.createPackageSKU(ctx, bulkSKU, codePrefix, line.WeightGrams)
+		sku, err := uc.createPackage(ctx, src, codePrefix, line.WeightGrams)
 		if err != nil {
 			return nil, err
 		}
@@ -241,8 +322,8 @@ func (uc *PackWeightPortionsUseCase) packLine(
 	}
 
 	var targetBatchID *string
-	if bulkBatch != nil {
-		id, err := uc.packageBatchFor(ctx, in.WarehouseID, packageSKU.ID, !created, *bulkBatch)
+	if src.bulkBatch != nil {
+		id, err := uc.packageBatchFor(ctx, in.WarehouseID, packageSKU.ID, !created, *src.bulkBatch)
 		if err != nil {
 			return nil, err
 		}
@@ -250,7 +331,7 @@ func (uc *PackWeightPortionsUseCase) packLine(
 	}
 
 	w := line.WeightGrams
-	if _, err := uc.portion.Execute(ctx, invapp.PortionFromBulkInput{
+	if _, err := uc.deps.Portion.Execute(ctx, invapp.PortionFromBulkInput{
 		TargetSKUID: packageSKU.ID, WarehouseID: in.WarehouseID, BatchID: in.BulkBatchID, WeightGrams: &w,
 		Quantity: line.Quantity, TargetBatchID: targetBatchID, Reason: in.Reason, OccurredAt: time.Now(),
 	}); err != nil {
@@ -259,16 +340,26 @@ func (uc *PackWeightPortionsUseCase) packLine(
 	return &PackedWeightLine{SKU: *packageSKU, WeightGrams: line.WeightGrams, Quantity: line.Quantity, Created: created}, nil
 }
 
-func (uc *PackWeightPortionsUseCase) createPackageSKU(ctx context.Context, bulkSKU pmsDomain.SKU, codePrefix string, weight int64) (*pmsDomain.SKU, error) {
-	barcode, err := pmsDomain.EncodeWeightEmbeddedBarcode(*bulkSKU.ScaleCode, weight)
+// createPackage adds a "~{weight}g" variant after the product's existing
+// ones, holding the package SKU for that weight.
+func (uc *PackWeightPortionsUseCase) createPackage(ctx context.Context, src *packSource, codePrefix string, weight int64) (*pmsDomain.SKU, error) {
+	barcode, err := pmsDomain.EncodeWeightEmbeddedBarcode(*src.bulkSKU.ScaleCode, weight)
 	if err != nil {
 		return nil, err
 	}
+	variant, err := uc.deps.CreateVariant.Execute(ctx, CreateVariantInput{
+		ProductID: src.product.ID, Name: fmt.Sprintf("~%dg", weight), Position: src.variantCount,
+	})
+	if err != nil {
+		return nil, err
+	}
+	src.variantCount++
 	w := weight
-	return uc.createSKU.Execute(ctx, CreateSKUInput{
-		VariantID: bulkSKU.VariantID, SKUCode: fmt.Sprintf("%s-%dG", codePrefix, weight), Barcode: barcode,
-		PriceMinorUnits: lineTotalForScannedWeight(bulkSKU, weight), CurrencyCode: bulkSKU.CurrencyCode, WeightGrams: &w,
-		UnitType: pmsDomain.SKUUnitTypeUnit, PortionedFromSKUID: &bulkSKU.ID,
+	bulk := src.bulkSKU
+	return uc.deps.CreateSKU.Execute(ctx, CreateSKUInput{
+		VariantID: variant.ID, SKUCode: fmt.Sprintf("%s-%dG", codePrefix, weight), Barcode: barcode,
+		PriceMinorUnits: lineTotalForScannedWeight(bulk, weight), CurrencyCode: bulk.CurrencyCode, WeightGrams: &w,
+		UnitType: pmsDomain.SKUUnitTypeUnit, PortionedFromSKUID: &bulk.ID,
 		PricingMode: pmsDomain.SKUPricingModeFixed, Status: pmsDomain.SKUStatusActive,
 	})
 }
@@ -281,7 +372,7 @@ func (uc *PackWeightPortionsUseCase) packageBatchFor(ctx context.Context, wareho
 	if mayHaveBatches {
 		var found string
 		err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-			batches, err := uc.batchRepo.ListBySKU(ctx, packageSKUID)
+			batches, err := uc.deps.Batches.ListBySKU(ctx, packageSKUID)
 			if err != nil {
 				return err
 			}
@@ -301,7 +392,7 @@ func (uc *PackWeightPortionsUseCase) packageBatchFor(ctx context.Context, wareho
 			return found, nil
 		}
 	}
-	created, err := uc.createBatch.Execute(ctx, invapp.CreateBatchInput{
+	created, err := uc.deps.CreateBatch.Execute(ctx, invapp.CreateBatchInput{
 		SKUID: packageSKUID, WarehouseID: warehouseID, LotNumber: bulkBatch.LotNumber, ExpiryDate: bulkBatch.ExpiryDate,
 	})
 	if err != nil {

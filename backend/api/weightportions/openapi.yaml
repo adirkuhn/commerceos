@@ -4,8 +4,10 @@ info:
   version: "2.0"
   description: >-
     Split a lot of a weight-pool bulk SKU (see domain/pms.SKU.UnitType=kilo)
-    into sellable packages: "1 x 430g, 4 x 540g, 10 x 380g". One package SKU
-    per distinct weight, auto-priced from the bulk's price-per-kilo and
+    into sellable packages: "1 x 430g, 4 x 540g, 10 x 380g". Each distinct
+    weight becomes its own variant ("~380g") on the bulk SKU's product with
+    one package SKU -- what every sales channel push needs, so a simple
+    product is switched to variants mode first -- auto-priced from the bulk's price-per-kilo and
     barcoded with the GS1 weight-embedded EAN-13 the scale prints for that
     weight (see domain/pms.EncodeWeightEmbeddedBarcode); a weight that
     already has a package SKU off this pool is restocked instead of

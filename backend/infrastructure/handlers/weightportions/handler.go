@@ -36,16 +36,21 @@ func NewHandler(pack packWeightPortionsUC) *Handler {
 var _ genweightportions.ServerInterface = (*Handler)(nil)
 
 func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
 	movementRepo := repositories.NewStockMovementRepo(db)
-	uc := apppms.NewPackWeightPortionsUseCase(
-		db, skuRepo, batchRepo,
-		apppms.NewCreateSKUUseCase(db, repositories.NewVariantRepo(db), skuRepo, repositories.NewSKUPriceHistoryRepo(db), outboxRepo),
-		invapp.NewCreateBatchUseCase(db, batchRepo),
-		invapp.NewPortionFromBulkUseCase(db, skuRepo, movementRepo, outboxRepo),
-		invapp.NewGetScopedStockUseCase(db, movementRepo),
-	)
+	uc := apppms.NewPackWeightPortionsUseCase(db, apppms.PackWeightPortionsDeps{
+		SKUs: skuRepo, Variants: variantRepo, Products: productRepo, Batches: batchRepo,
+		CreateVariant: apppms.NewCreateVariantUseCase(db, productRepo, variantRepo, outboxRepo),
+		EnableVariants: apppms.NewUpdateProductUseCase(db, productRepo, variantRepo,
+			repositories.NewProductChannelListingRepo(db), outboxRepo, repositories.NewProductHistoryRepo(db)),
+		CreateSKU:   apppms.NewCreateSKUUseCase(db, variantRepo, skuRepo, repositories.NewSKUPriceHistoryRepo(db), outboxRepo),
+		CreateBatch: invapp.NewCreateBatchUseCase(db, batchRepo),
+		Portion:     invapp.NewPortionFromBulkUseCase(db, skuRepo, movementRepo, outboxRepo),
+		Stock:       invapp.NewGetScopedStockUseCase(db, movementRepo),
+	})
 	genweightportions.RegisterHandlers(rg, NewHandler(uc))
 }
 
@@ -95,7 +100,8 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, invDomain.ErrBatchNotFound):
+	case errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, invDomain.ErrBatchNotFound),
+		errors.Is(err, pmsDomain.ErrVariantNotFound), errors.Is(err, pmsDomain.ErrProductNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, pmsDomain.ErrNoWeightsProvided), errors.Is(err, pmsDomain.ErrBulkSKUNotWeightPool),
 		errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrBatchDoesNotBelongToSKU),
