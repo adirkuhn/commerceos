@@ -109,7 +109,12 @@
     "tax": "Btw",
     "timeline": "Tijdlijn",
     "title": "Verkooporder",
-    "unmatchedSku": "Niet-gekoppelde SKU"
+    "unmatchedSku": "Niet-gekoppelde SKU",
+    "paymentStatus": "Status:",
+    "transaction": "Transactie:",
+    "paidOn": "Betaald op:",
+    "copyTransaction": "Transactie-id kopiëren",
+    "copied": "Gekopieerd"
   },
   "errors": {
     "loadOrders": "Orders laden mislukt",
@@ -195,5 +200,14 @@
     "fetching": "Ophalen…",
     "loading": "Track & trace laden…",
     "refresh": "Vernieuwen bij vervoerder"
+  },
+  "paymentStatus": {
+    "awaiting_payment": "Wacht op betaling",
+    "awaiting_confirmation": "Wacht op bevestiging",
+    "paid": "Betaald",
+    "failed": "Betaling mislukt",
+    "refunded": "Terugbetaald",
+    "partially_refunded": "Gedeeltelijk terugbetaald",
+    "cancelled_unpaid": "Geannuleerd, onbetaald"
   }
 }

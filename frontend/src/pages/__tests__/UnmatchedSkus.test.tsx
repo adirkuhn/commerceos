@@ -32,7 +32,7 @@ import * as pmsApi from '../../pms/api'
 
 function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
-    id: 'so-1', tenant_id: 'tenant-1', source: 'woocommerce', external_order_id: 'ext-1',
+    id: 'so-1', tenant_id: 'tenant-1', source: 'woocommerce', external_order_id: 'ext-1', payment_status: 'paid',
     number: '1001', order_key: '', status: 'processing', currency_code: 'USD',
     discount_total_minor_units: 0, shipping_total_minor_units: 0, tax_total_minor_units: 0,
     total_minor_units: 5000, occurred_at: '2026-08-10T12:00:00Z', created_at: '2026-08-10T12:00:00Z',

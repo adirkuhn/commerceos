@@ -109,7 +109,12 @@
     "tax": "Tax",
     "timeline": "Timeline",
     "title": "Sales Order",
-    "unmatchedSku": "Unmatched SKU"
+    "unmatchedSku": "Unmatched SKU",
+    "paymentStatus": "Status:",
+    "transaction": "Transaction:",
+    "paidOn": "Paid on:",
+    "copyTransaction": "Copy transaction id",
+    "copied": "Copied"
   },
   "errors": {
     "loadOrders": "Failed to load orders",
@@ -195,5 +200,14 @@
     "fetching": "Fetching…",
     "loading": "Loading tracking…",
     "refresh": "Refresh from provider"
+  },
+  "paymentStatus": {
+    "awaiting_payment": "Awaiting payment",
+    "awaiting_confirmation": "Awaiting confirmation",
+    "paid": "Paid",
+    "failed": "Payment failed",
+    "refunded": "Refunded",
+    "partially_refunded": "Partially refunded",
+    "cancelled_unpaid": "Cancelled, unpaid"
   }
 }

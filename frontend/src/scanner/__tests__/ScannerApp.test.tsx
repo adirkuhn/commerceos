@@ -136,7 +136,7 @@ function batch(overrides: Partial<Batch> = {}): Batch {
 
 function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
-    id: 'order-1', tenant_id: 'tenant-1', source: 'woocommerce', external_order_id: 'ext-1',
+    id: 'order-1', tenant_id: 'tenant-1', source: 'woocommerce', external_order_id: 'ext-1', payment_status: 'paid',
     number: '1001', order_key: 'key-1', status: 'processing', warehouse_id: 'warehouse-1',
     billing: { first_name: 'Jane', last_name: 'Doe' },
     shipping: { address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },

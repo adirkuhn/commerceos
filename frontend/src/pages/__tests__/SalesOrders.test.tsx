@@ -85,7 +85,7 @@ function warehouse(overrides: Record<string, unknown> = {}) {
 
 function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
-    id: 'so-1', tenant_id: 'tenant-1', source: 'pos', external_order_id: 'ext-1',
+    id: 'so-1', tenant_id: 'tenant-1', source: 'pos', external_order_id: 'ext-1', payment_status: 'paid',
     number: '1001', order_key: 'wc_order_abc', status: 'completed', currency_code: 'USD',
     discount_total_minor_units: 0, shipping_total_minor_units: 0, tax_total_minor_units: 0,
     total_minor_units: 5000, occurred_at: '2026-08-10T12:00:00Z', created_at: '2026-08-10T12:00:00Z',
@@ -174,6 +174,20 @@ describe('Sales orders list', () => {
 
     expect(screen.getByText('Fulfilled')).toBeInTheDocument()
     expect(screen.getByText('Unfulfilled')).toBeInTheDocument()
+  })
+
+  it('shows whether each order is paid', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+      salesOrders: [
+        salesOrder({ id: 'so-1', number: '1001', payment_status: 'paid' }),
+        salesOrder({ id: 'so-2', number: '1002', status: 'pending', payment_status: 'awaiting_payment' }),
+      ],
+      total: 2,
+    })
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+
+    expect(await screen.findByText('Paid')).toBeInTheDocument()
+    expect(screen.getByText('Awaiting payment')).toBeInTheDocument()
   })
 
   it('paginates using the server page param', async () => {

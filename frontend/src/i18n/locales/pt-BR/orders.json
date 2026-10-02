@@ -109,7 +109,12 @@
     "tax": "Imposto",
     "timeline": "Histórico",
     "title": "Pedido de venda",
-    "unmatchedSku": "SKU não vinculado"
+    "unmatchedSku": "SKU não vinculado",
+    "paymentStatus": "Status:",
+    "transaction": "Transação:",
+    "paidOn": "Pago em:",
+    "copyTransaction": "Copiar id da transação",
+    "copied": "Copiado"
   },
   "errors": {
     "loadOrders": "Não foi possível carregar os pedidos",
@@ -198,5 +203,14 @@
     "fetching": "Consultando…",
     "loading": "Carregando rastreamento…",
     "refresh": "Atualizar pela transportadora"
+  },
+  "paymentStatus": {
+    "awaiting_payment": "Aguardando pagamento",
+    "awaiting_confirmation": "Aguardando confirmação",
+    "paid": "Pago",
+    "failed": "Pagamento falhou",
+    "refunded": "Reembolsado",
+    "partially_refunded": "Parcialmente reembolsado",
+    "cancelled_unpaid": "Cancelado, não pago"
   }
 }

@@ -11,6 +11,7 @@ import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import type { SalesOrderStatus, SalesOrderSource, SalesOrderSortField, SortDirection } from '../oms/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_OPTIONS, customerName } from '../oms/salesOrderDisplay'
+import { PaymentStatusBadge } from '../oms/PaymentStatusBadge'
 import { salesOrderStatusLabel } from '../oms/statusLabel'
 import { CreateSalesOrderPage } from '../oms/CreateSalesOrderPage'
 import { SalesOrderDetailPage } from '../oms/SalesOrderDetailPage'
@@ -420,6 +421,7 @@ export default function SalesOrders() {
                     <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium', STATUS_COLORS[o.status])}>
                       {salesOrderStatusLabel(o.status)}
                     </span>
+                    <PaymentStatusBadge status={o.payment_status} />
                     <span className={clsx(
                       'px-2 py-0.5 rounded-full text-2xs font-medium',
                       o.fulfilled ? 'bg-green-500/15 text-success' : 'bg-gray-500/15 text-ink-4',

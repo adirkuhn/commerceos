@@ -20,6 +20,7 @@ import type { RecipientAddress, Shipment } from '../shipping/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_OPTIONS, addressesEqual, customerName } from './salesOrderDisplay'
 import { salesOrderStatusLabel } from './statusLabel'
+import { OrderPaymentCard } from './OrderPaymentCard'
 import { ShipmentTrackingSection } from './ShipmentTrackingSection'
 import { SoldExpiryNote } from './SoldExpiryNote'
 import { useDateFormat } from '../format/DateFormatProvider'
@@ -349,16 +350,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-line p-4 space-y-1 text-xs">
-                  <h3 className="text-xs font-semibold text-ink mb-2">{t('detail.payment')}</h3>
-                  <p className="text-ink-3">{t('detail.source')} <span className="text-ink capitalize">{detail.sales_order.source}</span></p>
-                  {(detail.sales_order.payment_method_title || detail.sales_order.payment_method) && (
-                    <p className="text-ink-3">{t('detail.paymentLabel')} <span className="text-ink">{detail.sales_order.payment_method_title || detail.sales_order.payment_method}</span></p>
-                  )}
-                  {detail.sales_order.shipping_method_title && (
-                    <p className="text-ink-3">{t('detail.shippingMethod')} <span className="text-ink">{detail.sales_order.shipping_method_title}</span></p>
-                  )}
-                </div>
+                <OrderPaymentCard order={detail.sales_order} />
 
                 {shipments.length > 0 && token && (
                   <div className="rounded-xl border border-line p-4 space-y-3 text-xs">

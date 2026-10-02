@@ -19,6 +19,12 @@ export type SalesOrderSource = 'pos' | 'manual' | 'woocommerce' | 'bol' | 'whats
 export type SalesOrderSortField = 'occurred_at' | 'customer' | 'source' | 'status' | 'total'
 export type SortDirection = 'asc' | 'desc'
 
+// Whether the order's payment succeeded -- derived by the backend from the
+// order's status and paid date (see api/oms/openapi.yaml PaymentStatus).
+export type PaymentStatus =
+  | 'awaiting_payment' | 'awaiting_confirmation' | 'paid' | 'failed'
+  | 'refunded' | 'partially_refunded' | 'cancelled_unpaid'
+
 export interface SalesOrder {
   id: string
   tenant_id: string
@@ -42,6 +48,11 @@ export interface SalesOrder {
   shipping_method?: string
   shipping_method_title?: string
   transaction_id?: string
+  payment_provider?: string
+  payment_external_id?: string
+  payment_status: PaymentStatus
+  // transaction_id when the channel sent one, else payment_external_id.
+  payment_reference?: string
   date_paid?: string | null
   date_completed?: string | null
   occurred_at: string
