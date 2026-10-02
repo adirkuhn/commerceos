@@ -344,8 +344,9 @@ func (uc *ImportWooOrdersUseCase) routeToExisting(ctx context.Context, existing 
 	if existing.CustomerID == nil && customerID != nil {
 		in.CustomerID = customerID
 	}
+	paymentChanged := applyWooPaymentChanges(*existing, wo, &in)
 
-	if in.Status == nil && in.Billing == nil && in.Shipping == nil && in.CustomerNote == nil && in.CustomerID == nil {
+	if in.Status == nil && in.Billing == nil && in.Shipping == nil && in.CustomerNote == nil && in.CustomerID == nil && !paymentChanged {
 		result.Unchanged++
 		return
 	}

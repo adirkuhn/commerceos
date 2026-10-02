@@ -826,3 +826,76 @@ func TestImportWooOrders_propagatesAStockMovementErrorAsAPerOrderError(t *testin
 	assert.Empty(t, h.lineItemRepo.updateCalls, "not ErrInsufficientStock -- must not be marked pending")
 	assert.Empty(t, h.salesOrderRepo.updateCalls, "not ErrInsufficientStock -- must not flag needs_stock_review")
 }
+
+// An order first imported as pending (no payment yet) and paid later must
+// pick up Woo's transaction id, paid date and final payment method on the
+// next import -- before, only status/addresses/note were ever re-synced,
+// so these stayed empty forever.
+func TestImportWooOrders_reimportFillsInPaymentInfoOnceWooRecordsIt(t *testing.T) {
+	order := simpleWooOrder()
+	order.Status = "processing"
+	order.PaymentMethod, order.PaymentMethodTitle = "stripe", "Credit card (Stripe)"
+	order.TransactionID = "pi_3Q123"
+	order.DatePaid = "2026-10-02T14:31:00"
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusPending, Billing: matchingBilling, Shipping: matchingShipping,
+		PaymentMethod: "stripe", PaymentMethodTitle: "Stripe",
+	}
+	uc := h.newImportUseCase(t, 2)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Updated)
+	require.Len(t, h.updateOrder.calls, 1)
+	call := h.updateOrder.calls[0]
+	require.NotNil(t, call.TransactionID)
+	assert.Equal(t, "pi_3Q123", *call.TransactionID)
+	require.NotNil(t, call.DatePaid)
+	assert.Equal(t, time.Date(2026, 10, 2, 14, 31, 0, 0, time.UTC), *call.DatePaid)
+	require.NotNil(t, call.PaymentMethodTitle)
+	assert.Equal(t, "Credit card (Stripe)", *call.PaymentMethodTitle)
+	assert.Nil(t, call.PaymentMethod, "unchanged -- no needless write")
+}
+
+func TestImportWooOrders_reimportLeavesUnchangedPaymentInfoAlone(t *testing.T) {
+	order := simpleWooOrder()
+	order.Status = "processing"
+	order.PaymentMethod, order.PaymentMethodTitle, order.TransactionID = "stripe", "Stripe", "pi_3Q123"
+	order.DatePaid = "2026-10-02T14:31:00"
+	paid := time.Date(2026, 10, 2, 14, 31, 0, 0, time.UTC)
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing, Billing: matchingBilling, Shipping: matchingShipping,
+		PaymentMethod: "stripe", PaymentMethodTitle: "Stripe", TransactionID: "pi_3Q123", DatePaid: &paid, CustomerID: strPtr("cust-1"),
+	}
+	uc := h.newImportUseCase(t, 2)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Unchanged)
+	assert.Empty(t, h.updateOrder.calls)
+}
+
+// Woo never "unpays" an order by blanking these -- an empty value on Woo's
+// side (e.g. a gateway that sets no transaction id) must not wipe what
+// CommerceOS already has (e.g. stamped by its own payment webhook).
+func TestImportWooOrders_reimportNeverBlanksKnownPaymentInfo(t *testing.T) {
+	order := simpleWooOrder()
+	order.Status = "processing"
+	order.TransactionID, order.DatePaid = "", ""
+	paid := time.Date(2026, 10, 2, 14, 31, 0, 0, time.UTC)
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing, Billing: matchingBilling, Shipping: matchingShipping,
+		PaymentMethod: order.PaymentMethod, PaymentMethodTitle: order.PaymentMethodTitle, TransactionID: "pi_3Q123", DatePaid: &paid, CustomerID: strPtr("cust-1"),
+	}
+	uc := h.newImportUseCase(t, 2)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1"})
+
+	require.NoError(t, err)
+	assert.Empty(t, h.updateOrder.calls)
+}
