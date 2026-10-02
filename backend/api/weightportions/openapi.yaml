@@ -52,6 +52,40 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /pms/skus/{id}/weight-packages/link-existing:
+    post:
+      operationId: linkExistingWeightPackages
+      summary: Adopt packages made by hand as this weight pool's packages
+      description: >-
+        Every other variant of the pool's product whose single SKU carries
+        the pool's scale label (barcode or SKU code, e.g. 2994721003809 =
+        380g) is linked to the pool with its weight read from the label and
+        a fixed price (a per-weight package gets its computed price). Split
+        into packages then restocks them instead of duplicating them. With
+        dry_run nothing changes -- the response previews what would.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkExistingWeightPackagesRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkExistingWeightPackagesResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -122,6 +156,53 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/PackedWeightLine'
+        error: { nullable: true }
+
+    LinkExistingWeightPackagesRequest:
+      type: object
+      properties:
+        dry_run: { type: boolean, default: false }
+
+    LinkedWeightPackage:
+      type: object
+      required: [sku_id, sku_code, variant_name, weight_grams, price_minor_units, price_changed]
+      properties:
+        sku_id: { type: string }
+        sku_code: { type: string }
+        variant_name: { type: string }
+        weight_grams: { type: integer }
+        price_minor_units: { type: integer, description: The package's price after linking. }
+        price_changed: { type: boolean, description: true when a per-weight package got its fixed price. }
+
+    SkippedWeightPackage:
+      type: object
+      required: [sku_id, sku_code, variant_name, reason]
+      properties:
+        sku_id: { type: string }
+        sku_code: { type: string }
+        variant_name: { type: string }
+        reason:
+          type: string
+          enum: [not_a_scale_label, other_scale_code, linked_to_another_pool, several_skus]
+
+    LinkExistingWeightPackagesResult:
+      type: object
+      required: [linked, skipped, errors]
+      properties:
+        linked:
+          type: array
+          items: { $ref: '#/components/schemas/LinkedWeightPackage' }
+        skipped:
+          type: array
+          items: { $ref: '#/components/schemas/SkippedWeightPackage' }
+        errors:
+          type: array
+          items: { type: string }
+
+    LinkExistingWeightPackagesResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/LinkExistingWeightPackagesResult' }
         error: { nullable: true }
 
     ErrorResponse:

@@ -25,12 +25,17 @@ type packWeightPortionsUC interface {
 	Execute(ctx context.Context, in apppms.PackWeightPortionsInput) (*apppms.PackWeightPortionsResult, error)
 }
 
-type Handler struct {
-	pack packWeightPortionsUC
+type linkExistingWeightPackagesUC interface {
+	Execute(ctx context.Context, in apppms.LinkExistingWeightPackagesInput) (*apppms.LinkExistingWeightPackagesResult, error)
 }
 
-func NewHandler(pack packWeightPortionsUC) *Handler {
-	return &Handler{pack: pack}
+type Handler struct {
+	pack packWeightPortionsUC
+	link linkExistingWeightPackagesUC
+}
+
+func NewHandler(pack packWeightPortionsUC, link linkExistingWeightPackagesUC) *Handler {
+	return &Handler{pack: pack, link: link}
 }
 
 var _ genweightportions.ServerInterface = (*Handler)(nil)
@@ -51,7 +56,9 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		Portion:     invapp.NewPortionFromBulkUseCase(db, skuRepo, movementRepo, outboxRepo),
 		Stock:       invapp.NewGetScopedStockUseCase(db, movementRepo),
 	})
-	genweightportions.RegisterHandlers(rg, NewHandler(uc))
+	link := apppms.NewLinkExistingWeightPackagesUseCase(db, skuRepo, variantRepo,
+		apppms.NewUpdateSKUUseCase(db, variantRepo, skuRepo, outboxRepo, repositories.NewSKUPriceHistoryRepo(db)))
+	genweightportions.RegisterHandlers(rg, NewHandler(uc, link))
 }
 
 func (h *Handler) PackWeightPortions(c *gin.Context, id string) {
@@ -86,6 +93,41 @@ func toGenPackedLine(l apppms.PackedWeightLine) genweightportions.PackedWeightLi
 		PriceMinorUnits: int(l.SKU.PriceMinorUnits), CurrencyCode: l.SKU.CurrencyCode,
 		WeightGrams: int(l.WeightGrams), Quantity: int(l.Quantity), Created: l.Created,
 	}
+}
+
+func (h *Handler) LinkExistingWeightPackages(c *gin.Context, id string) {
+	var req genweightportions.LinkExistingWeightPackagesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		return
+	}
+	result, err := h.link.Execute(c.Request.Context(), apppms.LinkExistingWeightPackagesInput{
+		BulkSKUID: id, DryRun: req.DryRun != nil && *req.DryRun,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := genweightportions.LinkExistingWeightPackagesResult{
+		Linked:  make([]genweightportions.LinkedWeightPackage, len(result.Linked)),
+		Skipped: make([]genweightportions.SkippedWeightPackage, len(result.Skipped)),
+		Errors:  result.Errors,
+	}
+	if out.Errors == nil {
+		out.Errors = []string{}
+	}
+	for i, l := range result.Linked {
+		out.Linked[i] = genweightportions.LinkedWeightPackage{
+			SkuId: l.SKU.ID, SkuCode: l.SKU.SKUCode, VariantName: l.VariantName, WeightGrams: int(l.WeightGrams),
+			PriceMinorUnits: int(l.PriceMinorUnits), PriceChanged: l.PriceChanged,
+		}
+	}
+	for i, sk := range result.Skipped {
+		out.Skipped[i] = genweightportions.SkippedWeightPackage{
+			SkuId: sk.SKU.ID, SkuCode: sk.SKU.SKUCode, VariantName: sk.VariantName,
+			Reason: genweightportions.SkippedWeightPackageReason(sk.Reason),
+		}
+	}
+	middleware.OK(c, out)
 }
 
 func stringValue(s *string) string {

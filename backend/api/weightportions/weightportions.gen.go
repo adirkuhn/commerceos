@@ -18,6 +18,30 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for SkippedWeightPackageReason.
+const (
+	LinkedToAnotherPool SkippedWeightPackageReason = "linked_to_another_pool"
+	NotAScaleLabel      SkippedWeightPackageReason = "not_a_scale_label"
+	OtherScaleCode      SkippedWeightPackageReason = "other_scale_code"
+	SeveralSkus         SkippedWeightPackageReason = "several_skus"
+)
+
+// Valid indicates whether the value is a known member of the SkippedWeightPackageReason enum.
+func (e SkippedWeightPackageReason) Valid() bool {
+	switch e {
+	case LinkedToAnotherPool:
+		return true
+	case NotAScaleLabel:
+		return true
+	case OtherScaleCode:
+		return true
+	case SeveralSkus:
+		return true
+	default:
+		return false
+	}
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Data  interface{} `json:"data,omitempty"`
@@ -25,6 +49,37 @@ type ErrorResponse struct {
 		Code    *string `json:"code,omitempty"`
 		Message *string `json:"message,omitempty"`
 	} `json:"error,omitempty"`
+}
+
+// LinkExistingWeightPackagesRequest defines model for LinkExistingWeightPackagesRequest.
+type LinkExistingWeightPackagesRequest struct {
+	DryRun *bool `json:"dry_run,omitempty"`
+}
+
+// LinkExistingWeightPackagesResponse defines model for LinkExistingWeightPackagesResponse.
+type LinkExistingWeightPackagesResponse struct {
+	Data  *LinkExistingWeightPackagesResult `json:"data,omitempty"`
+	Error interface{}                       `json:"error,omitempty"`
+}
+
+// LinkExistingWeightPackagesResult defines model for LinkExistingWeightPackagesResult.
+type LinkExistingWeightPackagesResult struct {
+	Errors  []string               `json:"errors"`
+	Linked  []LinkedWeightPackage  `json:"linked"`
+	Skipped []SkippedWeightPackage `json:"skipped"`
+}
+
+// LinkedWeightPackage defines model for LinkedWeightPackage.
+type LinkedWeightPackage struct {
+	// PriceChanged true when a per-weight package got its fixed price.
+	PriceChanged bool `json:"price_changed"`
+
+	// PriceMinorUnits The package's price after linking.
+	PriceMinorUnits int    `json:"price_minor_units"`
+	SkuCode         string `json:"sku_code"`
+	SkuId           string `json:"sku_id"`
+	VariantName     string `json:"variant_name"`
+	WeightGrams     int    `json:"weight_grams"`
 }
 
 // PackWeightPortionsRequest defines model for PackWeightPortionsRequest.
@@ -65,6 +120,17 @@ type PackedWeightLine struct {
 	WeightGrams int    `json:"weight_grams"`
 }
 
+// SkippedWeightPackage defines model for SkippedWeightPackage.
+type SkippedWeightPackage struct {
+	Reason      SkippedWeightPackageReason `json:"reason"`
+	SkuCode     string                     `json:"sku_code"`
+	SkuId       string                     `json:"sku_id"`
+	VariantName string                     `json:"variant_name"`
+}
+
+// SkippedWeightPackageReason defines model for SkippedWeightPackage.Reason.
+type SkippedWeightPackageReason string
+
 // WeightPackageLine defines model for WeightPackageLine.
 type WeightPackageLine struct {
 	Quantity    int `json:"quantity"`
@@ -77,11 +143,17 @@ type Error = ErrorResponse
 // PackWeightPortionsJSONRequestBody defines body for PackWeightPortions for application/json ContentType.
 type PackWeightPortionsJSONRequestBody = PackWeightPortionsRequest
 
+// LinkExistingWeightPackagesJSONRequestBody defines body for LinkExistingWeightPackages for application/json ContentType.
+type LinkExistingWeightPackagesJSONRequestBody = LinkExistingWeightPackagesRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// PackWeightPortions Split weight-pool stock into sellable packages, one SKU per distinct weight
 	// (POST /pms/skus/{id}/weight-packages)
 	PackWeightPortions(c *gin.Context, id string)
+	// LinkExistingWeightPackages Adopt packages made by hand as this weight pool's packages
+	// (POST /pms/skus/{id}/weight-packages/link-existing)
+	LinkExistingWeightPackages(c *gin.Context, id string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -118,6 +190,31 @@ func (siw *ServerInterfaceWrapper) PackWeightPortions(c *gin.Context) {
 	siw.Handler.PackWeightPortions(c, id)
 }
 
+// LinkExistingWeightPackages operation middleware
+func (siw *ServerInterfaceWrapper) LinkExistingWeightPackages(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.LinkExistingWeightPackages(c, id)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -146,6 +243,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.POST(options.BaseURL+"/pms/skus/:id/weight-packages", wrapper.PackWeightPortions)
+	router.POST(options.BaseURL+"/pms/skus/:id/weight-packages/link-existing", wrapper.LinkExistingWeightPackages)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -153,28 +251,36 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
