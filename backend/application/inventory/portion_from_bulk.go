@@ -20,6 +20,10 @@ type PortionFromBulkInput struct {
 	// item (e.g. a scale reading) -- nil defaults to the target SKU's own
 	// nominal WeightGrams.
 	WeightGrams *int64
+	// Quantity is how many packages of this same WeightGrams are portioned
+	// in one go (e.g. "10 packages of 380g") -- 0 means 1, preserving the
+	// original one-item-per-call behavior.
+	Quantity int64
 	// TargetBatchID, nil by default, links the resulting unit stock to a
 	// batch of the TARGET SKU (e.g. one created to carry the bulk lot's own
 	// expiry date forward -- see
@@ -39,8 +43,9 @@ type PortionFromBulkResult struct {
 
 // PortionFromBulkUseCase peels one sellable unit off a bulk (UnitType=kilo)
 // SKU's weight pool: TargetSKUID must be configured as portioned from a
-// bulk SKU (see pms.SKU.PortionedFromSKUID) -- WeightGrams leaves the bulk
-// SKU's stock and 1 unit of the target SKU arrives, atomically.
+// bulk SKU (see pms.SKU.PortionedFromSKUID) -- Quantity x WeightGrams
+// leaves the bulk SKU's stock and Quantity units (default 1) of the target
+// SKU arrive, atomically.
 //
 // Unlike SplitCaseIntoUnitsUseCase's fixed N-cases -> N*UnitsPerCase
 // multiplier, this is called once per physical item and is meant to be
@@ -86,13 +91,21 @@ func (uc *PortionFromBulkUseCase) Execute(ctx context.Context, in PortionFromBul
 		if weightGrams == nil || *weightGrams <= 0 {
 			return invDomain.ErrInvalidQuantity
 		}
+		quantity := in.Quantity
+		if quantity == 0 {
+			quantity = 1
+		}
+		if quantity < 0 {
+			return invDomain.ErrInvalidQuantity
+		}
+		totalGrams := *weightGrams * quantity
 
 		bulkSKUID := *target.PortionedFromSKUID
 		movements, err := uc.movementRepo.ListBySKU(ctx, bulkSKUID)
 		if err != nil {
 			return err
 		}
-		if err := requireSufficientStock(movements, in.WarehouseID, in.BatchID, -*weightGrams); err != nil {
+		if err := requireSufficientStock(movements, in.WarehouseID, in.BatchID, -totalGrams); err != nil {
 			return err
 		}
 
@@ -101,7 +114,7 @@ func (uc *PortionFromBulkUseCase) Execute(ctx context.Context, in PortionFromBul
 
 		bulkOut := invDomain.StockMovement{
 			TenantID: tenantID, SKUID: bulkSKUID, WarehouseID: in.WarehouseID, BatchID: in.BatchID,
-			Type: invDomain.MovementTypeSplitOut, QuantityDelta: -*weightGrams,
+			Type: invDomain.MovementTypeSplitOut, QuantityDelta: -totalGrams,
 			Reason: in.Reason, OccurredAt: in.OccurredAt, CreatedAt: now,
 		}
 		if err := uc.movementRepo.Create(ctx, &bulkOut); err != nil {
@@ -111,7 +124,7 @@ func (uc *PortionFromBulkUseCase) Execute(ctx context.Context, in PortionFromBul
 
 		unitIn := invDomain.StockMovement{
 			TenantID: tenantID, SKUID: in.TargetSKUID, WarehouseID: in.WarehouseID, BatchID: in.TargetBatchID,
-			Type: invDomain.MovementTypeSplitIn, QuantityDelta: 1,
+			Type: invDomain.MovementTypeSplitIn, QuantityDelta: quantity,
 			Reason: in.Reason, OccurredAt: in.OccurredAt, CreatedAt: now,
 		}
 		if err := uc.movementRepo.Create(ctx, &unitIn); err != nil {
