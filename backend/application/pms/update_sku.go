@@ -155,3 +155,18 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 	}
 	return &sku, nil
 }
+
+// UpdateSKUInputFrom is s's current values as an UpdateSKUInput -- the
+// starting point for a caller that changes only some fields, since
+// UpdateSKUUseCase replaces every one.
+func UpdateSKUInputFrom(s pmsDomain.SKU) UpdateSKUInput {
+	return UpdateSKUInput{
+		ID: s.ID, SKUCode: s.SKUCode, Barcode: s.Barcode, PriceMinorUnits: s.PriceMinorUnits,
+		SalePriceMinorUnits: s.SalePriceMinorUnits, SaleEndDate: s.SaleEndDate, CurrencyCode: s.CurrencyCode,
+		WeightGrams: s.WeightGrams, LengthMM: s.LengthMM, WidthMM: s.WidthMM, HeightMM: s.HeightMM,
+		IsVirtual: s.IsVirtual, TracksExpiry: s.TracksExpiry, CaseOfSKUID: s.CaseOfSKUID, UnitsPerCase: s.UnitsPerCase,
+		UnitType: s.UnitType, PortionedFromSKUID: s.PortionedFromSKUID, ScaleCode: s.ScaleCode,
+		PricingMode: s.PricingMode, PricePerKiloMinorUnits: s.PricePerKiloMinorUnits, TaxClassID: s.TaxClassID,
+		Status: s.Status,
+	}
+}
