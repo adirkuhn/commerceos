@@ -210,6 +210,31 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 	return out, total, nil
 }
 
+var _ omsDomain.MissingPaymentInfoLister = (*SalesOrderRepo)(nil)
+
+func (r *SalesOrderRepo) ListMissingPaymentInfo(ctx context.Context, connectionID string, after *omsDomain.MissingPaymentInfoCursor, limit int) ([]omsDomain.SalesOrder, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q := tx.Model(&salesOrderModel{}).
+		Where("connection_id = ?", connectionID).
+		Where("transaction_id = '' AND date_paid IS NULL").
+		Where("status IN ?", salesOrderStatusStrings(omsDomain.PaymentRecordExpectedStatuses()))
+	if after != nil {
+		q = q.Where("(occurred_at, id) < (?, ?)", after.OccurredAt, after.ID)
+	}
+	var rows []salesOrderModel
+	if err := q.Order("occurred_at DESC, id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.ListMissingPaymentInfo: %w", err)
+	}
+	out := make([]omsDomain.SalesOrder, len(rows))
+	for i, row := range rows {
+		out[i] = *toSalesOrderDomain(row)
+	}
+	return out, nil
+}
+
 func (r *SalesOrderRepo) ListByConnection(ctx context.Context, connectionID string) ([]omsDomain.SalesOrder, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {

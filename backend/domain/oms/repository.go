@@ -273,3 +273,19 @@ type PackScanRepository interface {
 	// one scan -- see PackingSession.BlocksPicking.
 	SessionIDsWithScans(ctx context.Context, sessionIDs []string) ([]string, error)
 }
+
+// MissingPaymentInfoCursor resumes a MissingPaymentInfoLister listing after
+// the last order already seen (newest first: OccurredAt desc, ID desc).
+type MissingPaymentInfoCursor struct {
+	OccurredAt time.Time
+	ID         string
+}
+
+// MissingPaymentInfoLister finds one channel connection's orders that went
+// through a payment (SalesOrderStatus.ExpectsPaymentRecord) yet carry no
+// transaction id and no paid date -- e.g. imported while pending, before
+// the import re-synced payment info. Kept apart from SalesOrderRepository
+// so only the payment backfill depends on it.
+type MissingPaymentInfoLister interface {
+	ListMissingPaymentInfo(ctx context.Context, connectionID string, after *MissingPaymentInfoCursor, limit int) ([]SalesOrder, error)
+}

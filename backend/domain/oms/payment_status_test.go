@@ -53,3 +53,21 @@ func TestSalesOrder_PaymentReference(t *testing.T) {
 		"storefront card orders only carry the provider's id")
 	assert.Equal(t, "", omsDomain.SalesOrder{}.PaymentReference())
 }
+
+func TestSalesOrderStatus_ExpectsPaymentRecord(t *testing.T) {
+	for _, s := range []omsDomain.SalesOrderStatus{
+		omsDomain.SalesOrderStatusProcessing, omsDomain.SalesOrderStatusOnHold, omsDomain.SalesOrderStatusShipped,
+		omsDomain.SalesOrderStatusCompleted, omsDomain.SalesOrderStatusRefunded, omsDomain.SalesOrderStatusPartiallyRefunded,
+	} {
+		assert.True(t, s.ExpectsPaymentRecord(), s)
+	}
+	for _, s := range []omsDomain.SalesOrderStatus{
+		omsDomain.SalesOrderStatusPending, omsDomain.SalesOrderStatusFailed, omsDomain.SalesOrderStatusCancelled,
+	} {
+		assert.False(t, s.ExpectsPaymentRecord(), s)
+	}
+	for _, s := range omsDomain.PaymentRecordExpectedStatuses() {
+		assert.True(t, s.ExpectsPaymentRecord(), s)
+	}
+	assert.Len(t, omsDomain.PaymentRecordExpectedStatuses(), 6)
+}

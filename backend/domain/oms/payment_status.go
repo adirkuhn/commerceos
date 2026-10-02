@@ -63,3 +63,29 @@ func (o SalesOrder) PaymentReference() string {
 	}
 	return o.PaymentExternalID
 }
+
+// ExpectsPaymentRecord reports whether an order in this status went
+// through a payment -- so a channel order in it with no transaction id and
+// no paid date is missing its payment info rather than simply unpaid.
+// On-hold counts: an offline payment is still recorded once confirmed.
+func (s SalesOrderStatus) ExpectsPaymentRecord() bool {
+	switch s {
+	case SalesOrderStatusProcessing, SalesOrderStatusOnHold, SalesOrderStatusShipped,
+		SalesOrderStatusCompleted, SalesOrderStatusRefunded, SalesOrderStatusPartiallyRefunded:
+		return true
+	default:
+		return false
+	}
+}
+
+// PaymentRecordExpectedStatuses lists every status ExpectsPaymentRecord
+// accepts -- for a repository filtering in SQL.
+func PaymentRecordExpectedStatuses() []SalesOrderStatus {
+	var out []SalesOrderStatus
+	for _, s := range SalesOrderStatuses() {
+		if s.ExpectsPaymentRecord() {
+			out = append(out, s)
+		}
+	}
+	return out
+}

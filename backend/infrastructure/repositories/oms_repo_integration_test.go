@@ -2590,3 +2590,89 @@ func TestSalesOrderRepo_Integration_ListFiltersByAwaitingPicking(t *testing.T) {
 	require.Len(t, found, 1)
 	assert.Equal(t, wantID, found[0].ID)
 }
+
+func TestSalesOrderRepo_Integration_ListMissingPaymentInfo(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	// The query only cares which connection an order came from, not its
+	// provider -- any connection row will do.
+	connID := seedMyParcelConnection(t, db, ctx)
+	otherConnID := seedConnectionOf(t, db, ctx, integrationsDomain.ProviderBol)
+	ids := map[string]string{}
+	base := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		paid := base
+		specs := []struct {
+			extID    string
+			conn     *string
+			status   omsDomain.SalesOrderStatus
+			txnID    string
+			datePaid *time.Time
+			minutes  int
+		}{
+			{"mpi-processing-missing", &connID, omsDomain.SalesOrderStatusProcessing, "", nil, 3},
+			{"mpi-completed-missing", &connID, omsDomain.SalesOrderStatusCompleted, "", nil, 2},
+			{"mpi-onhold-missing", &connID, omsDomain.SalesOrderStatusOnHold, "", nil, 1},
+			{"mpi-has-txn", &connID, omsDomain.SalesOrderStatusProcessing, "pi_1", nil, 4},
+			{"mpi-has-date", &connID, omsDomain.SalesOrderStatusCompleted, "", &paid, 5},
+			{"mpi-pending", &connID, omsDomain.SalesOrderStatusPending, "", nil, 6},
+			{"mpi-cancelled", &connID, omsDomain.SalesOrderStatusCancelled, "", nil, 7},
+			{"mpi-other-connection", &otherConnID, omsDomain.SalesOrderStatusProcessing, "", nil, 8},
+		}
+		for _, s := range specs {
+			at := base.Add(time.Duration(s.minutes) * time.Minute)
+			order := omsDomain.SalesOrder{
+				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: s.extID,
+				ConnectionID: s.conn, WarehouseID: warehouseID, CurrencyCode: "EUR", Status: s.status,
+				TransactionID: s.txnID, DatePaid: s.datePaid, OccurredAt: at, CreatedAt: at,
+			}
+			if err := salesOrderRepo.Create(ctx, &order); err != nil {
+				return err
+			}
+			ids[s.extID] = order.ID
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	list := func(after *omsDomain.MissingPaymentInfoCursor, limit int) []string {
+		var found []omsDomain.SalesOrder
+		require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			found, err = salesOrderRepo.ListMissingPaymentInfo(ctx, connID, after, limit)
+			return err
+		}))
+		out := make([]string, len(found))
+		for i, o := range found {
+			out[i] = o.ExternalOrderID
+		}
+		return out
+	}
+
+	assert.Equal(t, []string{"mpi-processing-missing", "mpi-completed-missing", "mpi-onhold-missing"}, list(nil, 50), "newest first")
+
+	firstPage := list(nil, 2)
+	assert.Equal(t, []string{"mpi-processing-missing", "mpi-completed-missing"}, firstPage)
+	cursor := &omsDomain.MissingPaymentInfoCursor{OccurredAt: base.Add(2 * time.Minute), ID: ids["mpi-completed-missing"]}
+	assert.Equal(t, []string{"mpi-onhold-missing"}, list(cursor, 2))
+}
+
+func seedConnectionOf(t *testing.T, db *gorm.DB, ctx context.Context, provider integrationsDomain.Provider) string {
+	t.Helper()
+	var id string
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		conn := &integrationsDomain.Connection{
+			TenantID: tenant.IDFromContext(ctx), Provider: provider, ConsumerSecretEncrypted: "enc",
+			Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := repositories.NewConnectionRepo(db).Create(ctx, conn); err != nil {
+			return err
+		}
+		id = conn.ID
+		return nil
+	}))
+	return id
+}
