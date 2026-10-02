@@ -1,4 +1,4 @@
-// Package weightportions wires the admin-only (JWT) Bulk Weight Portions
+// Package weightportions wires the admin-only (JWT) Weight Packages
 // API (see api/weightportions's doc comment) to its use case.
 package weightportions
 
@@ -21,66 +21,65 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
 
-type bulkAddWeightPortionsUC interface {
-	Execute(ctx context.Context, in apppms.BulkAddWeightPortionsInput) (*apppms.BulkAddWeightPortionsResult, error)
+type packWeightPortionsUC interface {
+	Execute(ctx context.Context, in apppms.PackWeightPortionsInput) (*apppms.PackWeightPortionsResult, error)
 }
 
 type Handler struct {
-	bulkAdd bulkAddWeightPortionsUC
+	pack packWeightPortionsUC
 }
 
-func NewHandler(bulkAdd bulkAddWeightPortionsUC) *Handler {
-	return &Handler{bulkAdd: bulkAdd}
+func NewHandler(pack packWeightPortionsUC) *Handler {
+	return &Handler{pack: pack}
 }
 
 var _ genweightportions.ServerInterface = (*Handler)(nil)
 
 func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 	skuRepo := repositories.NewSKURepo(db)
-	uc := apppms.NewBulkAddWeightPortionsUseCase(
-		db, skuRepo, repositories.NewBatchRepo(db),
+	batchRepo := repositories.NewBatchRepo(db)
+	movementRepo := repositories.NewStockMovementRepo(db)
+	uc := apppms.NewPackWeightPortionsUseCase(
+		db, skuRepo, batchRepo,
 		apppms.NewCreateSKUUseCase(db, repositories.NewVariantRepo(db), skuRepo, repositories.NewSKUPriceHistoryRepo(db), outboxRepo),
-		invapp.NewCreateBatchUseCase(db, repositories.NewBatchRepo(db)),
-		invapp.NewPortionFromBulkUseCase(db, skuRepo, repositories.NewStockMovementRepo(db), outboxRepo),
+		invapp.NewCreateBatchUseCase(db, batchRepo),
+		invapp.NewPortionFromBulkUseCase(db, skuRepo, movementRepo, outboxRepo),
+		invapp.NewGetScopedStockUseCase(db, movementRepo),
 	)
-	h := NewHandler(uc)
-	genweightportions.RegisterHandlers(rg, h)
+	genweightportions.RegisterHandlers(rg, NewHandler(uc))
 }
 
-func (h *Handler) BulkAddWeightPortions(c *gin.Context, id string) {
-	var req genweightportions.BulkAddWeightPortionsRequest
+func (h *Handler) PackWeightPortions(c *gin.Context, id string) {
+	var req genweightportions.PackWeightPortionsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
 		return
 	}
-	weights := make([]int64, len(req.WeightsGrams))
-	for i, w := range req.WeightsGrams {
-		weights[i] = int64(w)
+	lines := make([]apppms.WeightPackageLine, len(req.Lines))
+	for i, l := range req.Lines {
+		lines[i] = apppms.WeightPackageLine{WeightGrams: int64(l.WeightGrams), Quantity: int64(l.Quantity)}
 	}
-	result, err := h.bulkAdd.Execute(c.Request.Context(), apppms.BulkAddWeightPortionsInput{
+	result, err := h.pack.Execute(c.Request.Context(), apppms.PackWeightPortionsInput{
 		BulkSKUID: id, WarehouseID: req.WarehouseId, BulkBatchID: req.BulkBatchId,
-		WeightsGrams: weights, SKUCodePrefix: stringValue(req.SkuCodePrefix), Reason: stringValue(req.Reason),
+		Lines: lines, SKUCodePrefix: stringValue(req.SkuCodePrefix), Reason: stringValue(req.Reason),
 	})
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	created := make([]genweightportions.CreatedPortionedSKU, len(result.Created))
-	for i, sku := range result.Created {
-		created[i] = toGenCreatedSKU(sku)
+	packed := make([]genweightportions.PackedWeightLine, len(result.Lines))
+	for i, l := range result.Lines {
+		packed[i] = toGenPackedLine(l)
 	}
 	middleware.OK(c, struct {
-		Created []genweightportions.CreatedPortionedSKU `json:"created"`
-	}{Created: created})
+		Lines []genweightportions.PackedWeightLine `json:"lines"`
+	}{Lines: packed})
 }
 
-func toGenCreatedSKU(sku pmsDomain.SKU) genweightportions.CreatedPortionedSKU {
-	var weightGrams int
-	if sku.WeightGrams != nil {
-		weightGrams = int(*sku.WeightGrams)
-	}
-	return genweightportions.CreatedPortionedSKU{
-		Id: sku.ID, SkuCode: sku.SKUCode, Barcode: sku.Barcode,
-		PriceMinorUnits: int(sku.PriceMinorUnits), CurrencyCode: sku.CurrencyCode, WeightGrams: weightGrams,
+func toGenPackedLine(l apppms.PackedWeightLine) genweightportions.PackedWeightLine {
+	return genweightportions.PackedWeightLine{
+		SkuId: l.SKU.ID, SkuCode: l.SKU.SKUCode, Barcode: l.SKU.Barcode,
+		PriceMinorUnits: int(l.SKU.PriceMinorUnits), CurrencyCode: l.SKU.CurrencyCode,
+		WeightGrams: int(l.WeightGrams), Quantity: int(l.Quantity), Created: l.Created,
 	}
 }
 

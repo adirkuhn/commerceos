@@ -104,7 +104,7 @@ func computeEAN13CheckDigit(first12 string) int {
 // weight in grams -- the inverse of DecodeWeightEmbeddedBarcode. Used when
 // this codebase generates a barcode itself (e.g. bulk-portioning several
 // packages off a weight pool at once, see
-// application/pms.BulkAddWeightPortionsUseCase) rather than reading one a
+// application/pms.PackWeightPortionsUseCase) rather than reading one a
 // physical scale already printed. Reuses computeEAN13CheckDigit's exact
 // formula, so anything this produces is guaranteed to decode back through
 // DecodeWeightEmbeddedBarcode -- the two can never disagree about what's a

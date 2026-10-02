@@ -32,7 +32,7 @@ var (
 	ErrUnsupportedPhotoType = errors.New("unsupported photo content type")
 	// ErrBatchDoesNotBelongToSKU guards any caller that looks up a batch by
 	// ID expecting it to belong to a specific SKU (e.g.
-	// pms.BulkAddWeightPortionsUseCase resolving the bulk lot to draw
+	// pms.PackWeightPortionsUseCase resolving the bulk lot to draw
 	// from) -- a batch ID for a different SKU is a caller/client bug, not
 	// a "not found".
 	ErrBatchDoesNotBelongToSKU = errors.New("batch does not belong to this sku")

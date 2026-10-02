@@ -58,6 +58,7 @@ type stubSKURepo struct {
 	setManualCostPriceErr error
 	clearOverrideCalls    []string
 	clearOverrideErr      error
+	listByVariantResult   []pmsDomain.SKU
 }
 
 func (s *stubSKURepo) Create(_ context.Context, sku *pmsDomain.SKU) error {
@@ -100,7 +101,7 @@ func (s *stubSKURepo) FindByScaleCode(_ context.Context, scaleCode string) (*pms
 	return s.findByScaleCodeResult, s.findByScaleCodeErr
 }
 func (s *stubSKURepo) ListByVariant(_ context.Context, _ string) ([]pmsDomain.SKU, error) {
-	return nil, nil
+	return s.listByVariantResult, nil
 }
 func (s *stubSKURepo) Update(_ context.Context, sku *pmsDomain.SKU) error {
 	s.updated = sku

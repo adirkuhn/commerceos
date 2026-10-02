@@ -18,36 +18,6 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-// BulkAddWeightPortionsRequest defines model for BulkAddWeightPortionsRequest.
-type BulkAddWeightPortionsRequest struct {
-	// BulkBatchId Which lot of the bulk SKU these packages are drawn from -- omit/null for general (un-lotted) bulk stock, no expiry carried forward.
-	BulkBatchId *string `json:"bulk_batch_id,omitempty"`
-	Reason      *string `json:"reason,omitempty"`
-
-	// SkuCodePrefix Defaults to the bulk SKU's own code when omitted.
-	SkuCodePrefix *string `json:"sku_code_prefix,omitempty"`
-	WarehouseId   string  `json:"warehouse_id"`
-	WeightsGrams  []int   `json:"weights_grams"`
-}
-
-// BulkAddWeightPortionsResponse defines model for BulkAddWeightPortionsResponse.
-type BulkAddWeightPortionsResponse struct {
-	Data *struct {
-		Created *[]CreatedPortionedSKU `json:"created,omitempty"`
-	} `json:"data,omitempty"`
-	Error interface{} `json:"error,omitempty"`
-}
-
-// CreatedPortionedSKU defines model for CreatedPortionedSKU.
-type CreatedPortionedSKU struct {
-	Barcode         string `json:"barcode"`
-	CurrencyCode    string `json:"currency_code"`
-	Id              string `json:"id"`
-	PriceMinorUnits int    `json:"price_minor_units"`
-	SkuCode         string `json:"sku_code"`
-	WeightGrams     int    `json:"weight_grams"`
-}
-
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Data  interface{} `json:"data,omitempty"`
@@ -57,17 +27,61 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// PackWeightPortionsRequest defines model for PackWeightPortionsRequest.
+type PackWeightPortionsRequest struct {
+	// BulkBatchId Which lot of the bulk SKU these packages come from -- its lot number and expiry are carried onto each package SKU. Omit/null for general (un-lotted) bulk stock, no expiry carried forward.
+	BulkBatchId *string `json:"bulk_batch_id,omitempty"`
+
+	// Lines Repeated weights are merged into one line.
+	Lines  []WeightPackageLine `json:"lines"`
+	Reason *string             `json:"reason,omitempty"`
+
+	// SkuCodePrefix Prefix for newly created package SKU codes ("{prefix}-{weight}G"); defaults to the bulk SKU's own code.
+	SkuCodePrefix *string `json:"sku_code_prefix,omitempty"`
+	WarehouseId   string  `json:"warehouse_id"`
+}
+
+// PackWeightPortionsResponse defines model for PackWeightPortionsResponse.
+type PackWeightPortionsResponse struct {
+	Data *struct {
+		Lines []PackedWeightLine `json:"lines"`
+	} `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
+// PackedWeightLine defines model for PackedWeightLine.
+type PackedWeightLine struct {
+	Barcode string `json:"barcode"`
+
+	// Created true when this call created the package SKU, false when it restocked an existing one.
+	Created         bool   `json:"created"`
+	CurrencyCode    string `json:"currency_code"`
+	PriceMinorUnits int    `json:"price_minor_units"`
+
+	// Quantity Packages added to this SKU's stock by this call.
+	Quantity    int    `json:"quantity"`
+	SkuCode     string `json:"sku_code"`
+	SkuId       string `json:"sku_id"`
+	WeightGrams int    `json:"weight_grams"`
+}
+
+// WeightPackageLine defines model for WeightPackageLine.
+type WeightPackageLine struct {
+	Quantity    int `json:"quantity"`
+	WeightGrams int `json:"weight_grams"`
+}
+
 // Error defines model for Error.
 type Error = ErrorResponse
 
-// BulkAddWeightPortionsJSONRequestBody defines body for BulkAddWeightPortions for application/json ContentType.
-type BulkAddWeightPortionsJSONRequestBody = BulkAddWeightPortionsRequest
+// PackWeightPortionsJSONRequestBody defines body for PackWeightPortions for application/json ContentType.
+type PackWeightPortionsJSONRequestBody = PackWeightPortionsRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// BulkAddWeightPortions Create N sellable SKUs off a weight-pool bulk SKU, one per entered weight
-	// (POST /pms/skus/{id}/bulk-weight-portions)
-	BulkAddWeightPortions(c *gin.Context, id string)
+	// PackWeightPortions Split weight-pool stock into sellable packages, one SKU per distinct weight
+	// (POST /pms/skus/{id}/weight-packages)
+	PackWeightPortions(c *gin.Context, id string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -79,8 +93,8 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(c *gin.Context)
 
-// BulkAddWeightPortions operation middleware
-func (siw *ServerInterfaceWrapper) BulkAddWeightPortions(c *gin.Context) {
+// PackWeightPortions operation middleware
+func (siw *ServerInterfaceWrapper) PackWeightPortions(c *gin.Context) {
 
 	var err error
 	_ = err
@@ -101,7 +115,7 @@ func (siw *ServerInterfaceWrapper) BulkAddWeightPortions(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.BulkAddWeightPortions(c, id)
+	siw.Handler.PackWeightPortions(c, id)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -131,7 +145,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
-	router.POST(options.BaseURL+"/pms/skus/:id/bulk-weight-portions", wrapper.BulkAddWeightPortions)
+	router.POST(options.BaseURL+"/pms/skus/:id/weight-packages", wrapper.PackWeightPortions)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -139,23 +153,27 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"tFZNb9tGEP0rg22BxAAl+iMnAj3YqVEYBtIgqpFDYghj7kjcaL8yu7QiGPrvxS4pKRIlt4f2Ri5n38zw",
-	"vXm7L6J2xjtLNgZRvQim4J0NlF9umR2nh9rZSDamR/Reqxqjcrb8FpxNa6FuyGB6+pVpJirxS7lDLbuv",
-	"ocxon3p8sV6vCyEp1Kx8AhOVoJwurfdbEuJNqxfXUn4mNW/iR8cpNnyi7y2FXI9n54mj6ip+avVi+oSx",
-	"bqZKpoX9DJ8bVTegXQQ3g9gQpHiY3D+kl0DgsV7gnAIgE0jGpYUZOwOjETijYmlbrWHmGOZkiVHD29aO",
-	"tIuR5FmHFaKrFwVYB/TDK15BjcyKZNq1RJZjUYiEgk+aRBW5pULElSdRiRBZ2blYF4IJ+z87+BQW7bR2",
-	"kqaeaaZ+DFv8nWbY6hggur0O3wRwSwtpLywbsrmhSLmgQZYlMjWuDdT/xWFApiNM54wm/3gVqXswyirT",
-	"GlFdbHGVjTQnTvuMsndd5O4zMuMq0870vVVMUlRf9ks4TPi43eyevlEdE/QJofRyGyhFYsThas2EkeRe",
-	"R69p+n0X36cjObl/SLUMOhtUS5vR2hfD0dhjSYbKR07cHmWrbpnJ1qvpyYgTNHtWNU2Nso6nrVWdRQxZ",
-	"3YjyFanslHK4/YD3zPYWsNj2dayYw84Okh1Tyb4JnVTFASs/8XWgl1NdGwoB58e+DRk+spIosTM3HO+v",
-	"4q+VJ0DQKmQX6wejgDlF+ACBusIhy/erSNaVLGDUKTvsAib3DwHcbAbYY4y8c3rniG8DEUhnUNnSmzCe",
-	"3D+MH6yKKf9vC6XdWQHOEnhiIBuJSfZABRDWDWAb3SiTJjsX3djRmwB5eeSJRwkJ0MouvGdbwrNCwN5m",
-	"I0n4Y3KxKZPME8kUc3v9YXRxNSj01iaIzgdu+9ibDvdsDNcQyGMChWBQazBOtprgrVYLAvSqZHpWtAxF",
-	"ful5rHOHZ8AYG2KIDVqYOZ2qUDa6HOpNeAOomVCuQCPPCbJjBJLQoJWaOJutiklX4r0zhrimPyeQrAu6",
-	"gmHjXHD98U4U4pk4dMxfjM+TsJwni16JSlyNz8dXaS4wNlmMqYIyLNpQvii5LjPtW2o71Kxg152cScf5",
-	"HL+Tojpunxmd0VAkDqL68iJUKiVlTOcYmjzJaWJ3I9ydabsrwaH8H7tgCvHGydV/drt49Z6w3neZfqb3",
-	"7jqX5+f/dy2nbz5ukah9d/7uFPK21O4WlaMvL/91dPLo1hjkVRJedoKfveIfrODUnHedBOLnjTpa1qIS",
-	"ZZqG5wuxflz/HQAA//8=",
+	"tFdbj9u4Dv4rhM4BOgM4l7kc4CDFeWgPBkWxxXbQ2aIPnSJgLCZWY0kuJU8mCPLfF5JsjxMn2z7svjkS",
+	"RX4kP16yE7nVlTVkvBOznWBylTWO4o87ZsvhI7fGk/HhE6uqVDl6Zc3ku7MmnLm8II3h699MSzET/5q8",
+	"aJ2kWzeJ2j41+sV+v8+EJJezqoIyMRMUzYXz5kmHoXs124mKbUXsVYIo0UfDpi5LXJQkZp5r2meNsoF8",
+	"bmXU4rcViZlwnpVZiX0mNDmHq1N3+6w9sYvvlPtTJ5m4x3z9hdSq8PeWg0PuE/2oyfkhhkVdrucL9Hkx",
+	"VzI6cRCGL4XKCyitB7sEXxAEeXj47XP44QgqzNe4Ige51QRLthpGI1DexTem1gtiQCOBnivFW0AmyJFZ",
+	"kQRrvAXCvGi1BL1j+KiVn4QQwtIyrMgQYwkXtRmV1nuSlwmD8zZfZ2Bsq7pVu7S8QZZjkR0lIhsGulSm",
+	"Sd2B15+oIvQkYROD6CJsTbwiCSqgtoYgvA1GlCftfsa3JhvJzw/KUEyzMu/T46sOGzLjNlwyYcPoAWq3",
+	"rueBO/OKaameh/jv43mMn6FNuYWckz+9QEPQ4ODiUeySmv1ol9zdv3sUl69B0hLr0jvw9iDzrxzYjYnP",
+	"g/sDdBtkKmztqCGUVuYDmZUv+m72+Mz0o1ZMUsy+Hr5t0/PtFxn+s7I8PO1S/0v5C/ZIJott+g4zduTJ",
+	"eehdMzhqE+cK+cDssH6Rz7aRJutDfgR7sCnIgC+UgxzLsqNISHWPJhkssXSNtPLAFAuPJKABelbOK7MK",
+	"9dDjwsLaktBECDUzmXw7PwuyYpXTXCtjeV4blTp/I6WMpxVxEPtRo/HKb0+QvW1BKGXAb5NTiakRLCy2",
+	"L472cPbUtyV1tt4Sl4dkj6mZrxj1SeBHrGg09exlXQZPheI4gEcGe2F5yfYpzg3bz4BI/QBrZZSudb9g",
+	"e7E69vmvpI/r+wz6IebwUpmlHeb7oSqVB2yHEjZNelRZW76MpwtHBNJqVGZSaTcOo+WzUf6PbUX/W6vS",
+	"XqZO7igVYTfJZvAoruAZbm+mqwxu4Rn+cxu+rqbwDDf/na4exRg+moMigYoYZKyF3Dd4MsDa21HMqUyT",
+	"se2irxzE41FFPApY4oRseCBho3wRZd89XLXOkV5QpPfdm99HVzfx2uUYcLMy3sVe7wtsrQ/8vzNBeeLB",
+	"XaPsbbJ4+boLYlKBJRPKLRToAA/8tMtlqqQYbOV67UAZ5wllSAnTqCHjGN6AowoZPYHToc9oK+uS4KJU",
+	"awKs1ITpSdHGZfFHs/nkZDzxJTD6gqJjBpa2lO38DaKVdq86qCXyiiA2bkcSCjSyJI61rnxoseL/Vmvi",
+	"nD4+QIoCdI3jzf17kYknYpcYdj2eBp7bigxWSszEzXg6vgkFir6IlA/GJ25du8lOyf2kZWCjMBaXTdtW",
+	"KLG4oL6XTa86HFtRK6MmT+zE7OtOqAAhWAoLDOpYTqFlvNRRWmZeFt3jmfotCZPzb63c/m078/mtcn9Y",
+	"583We7C+X0+n/yiQ85u8XYdk3k5vz6ntcKZ/BVH6+vqXpcOAqLVG3nbNqd+R0gQ63WuyuEieaSDJF0f8",
+	"1DKj5lLMxCSQ/+lK7L/t/wwAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

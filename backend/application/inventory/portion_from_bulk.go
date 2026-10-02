@@ -27,7 +27,7 @@ type PortionFromBulkInput struct {
 	// TargetBatchID, nil by default, links the resulting unit stock to a
 	// batch of the TARGET SKU (e.g. one created to carry the bulk lot's own
 	// expiry date forward -- see
-	// application/pms.BulkAddWeightPortionsUseCase). Distinct from BatchID,
+	// application/pms.PackWeightPortionsUseCase). Distinct from BatchID,
 	// which addresses a batch of the BULK SKU being drawn down. Leaving
 	// this nil preserves the original behavior (unit stock un-batch-
 	// tracked, see this type's own doc comment).

@@ -1,32 +1,33 @@
 openapi: 3.0.3
 info:
-  title: CommerceOS Bulk Weight Portions API
-  version: "1.0"
+  title: CommerceOS Weight Packages API
+  version: "2.0"
   description: >-
-    "Type a list of weights, get N sellable items" -- bulk-creates sellable
-    SKUs off a weight-pool bulk SKU (see domain/pms.SKU.UnitType=kilo), one
-    per entered weight, each auto-priced from the bulk's price-per-kilo and
-    auto-barcoded via a generated GS1 weight-embedded EAN-13 (see
-    domain/pms.EncodeWeightEmbeddedBarcode). A separate small module (like
-    api/reviews, api/messagecenter) rather than folded into api/pms'
-    already large composed handler.
+    Split a lot of a weight-pool bulk SKU (see domain/pms.SKU.UnitType=kilo)
+    into sellable packages: "1 x 430g, 4 x 540g, 10 x 380g". One package SKU
+    per distinct weight, auto-priced from the bulk's price-per-kilo and
+    barcoded with the GS1 weight-embedded EAN-13 the scale prints for that
+    weight (see domain/pms.EncodeWeightEmbeddedBarcode); a weight that
+    already has a package SKU off this pool is restocked instead of
+    re-created. A separate small module (like api/reviews,
+    api/messagecenter) rather than folded into api/pms' already large
+    composed handler.
 servers:
   - url: /api/v1
 
 paths:
-  /pms/skus/{id}/bulk-weight-portions:
+  /pms/skus/{id}/weight-packages:
     post:
-      operationId: bulkAddWeightPortions
-      summary: Create N sellable SKUs off a weight-pool bulk SKU, one per entered weight
+      operationId: packWeightPortions
+      summary: Split weight-pool stock into sellable packages, one SKU per distinct weight
       parameters:
         # Named "id" (not e.g. "bulkSkuId"), matching every other
         # /pms/skus/{id}/... path in api/pms/openapi.yaml -- gin's router
         # requires the SAME wildcard name at a given path position across
         # every route registered into it, regardless of which OpenAPI
-        # module/Gin sub-group declared it (sub-groups only scope
-        # middleware, not the underlying route tree) -- a mismatched name
-        # here panics the whole process at startup ("conflicts with
-        # existing wildcard").
+        # module/Gin sub-group declared it -- a mismatched name here
+        # panics the whole process at startup ("conflicts with existing
+        # wildcard").
         - name: id
           in: path
           required: true
@@ -36,14 +37,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BulkAddWeightPortionsRequest'
+              $ref: '#/components/schemas/PackWeightPortionsRequest'
       responses:
         '200':
           description: ok
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BulkAddWeightPortionsResponse'
+                $ref: '#/components/schemas/PackWeightPortionsResponse'
         '422':
           $ref: '#/components/responses/Error'
         '404':
@@ -59,48 +60,66 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
-    BulkAddWeightPortionsRequest:
+    WeightPackageLine:
       type: object
-      required: [warehouse_id, weights_grams]
+      required: [weight_grams, quantity]
       properties:
-        warehouse_id: { type: string }
+        weight_grams: { type: integer, minimum: 1 }
+        quantity: { type: integer, minimum: 1 }
+
+    PackWeightPortionsRequest:
+      type: object
+      required: [warehouse_id, lines]
+      properties:
+        warehouse_id: { type: string, minLength: 1 }
         bulk_batch_id:
           type: string
           nullable: true
           description: >-
-            Which lot of the bulk SKU these packages are drawn from --
-            omit/null for general (un-lotted) bulk stock, no expiry
-            carried forward.
-        weights_grams:
+            Which lot of the bulk SKU these packages come from -- its lot
+            number and expiry are carried onto each package SKU. Omit/null
+            for general (un-lotted) bulk stock, no expiry carried forward.
+        lines:
           type: array
           minItems: 1
-          items: { type: integer, minimum: 1 }
+          description: Repeated weights are merged into one line.
+          items:
+            $ref: '#/components/schemas/WeightPackageLine'
         sku_code_prefix:
           type: string
-          description: Defaults to the bulk SKU's own code when omitted.
+          description: >-
+            Prefix for newly created package SKU codes ("{prefix}-{weight}G");
+            defaults to the bulk SKU's own code.
         reason: { type: string }
 
-    CreatedPortionedSKU:
+    PackedWeightLine:
       type: object
-      required: [id, sku_code, barcode, price_minor_units, currency_code, weight_grams]
+      required: [sku_id, sku_code, barcode, price_minor_units, currency_code, weight_grams, quantity, created]
       properties:
-        id: { type: string }
+        sku_id: { type: string }
         sku_code: { type: string }
         barcode: { type: string }
         price_minor_units: { type: integer }
         currency_code: { type: string }
         weight_grams: { type: integer }
+        quantity:
+          type: integer
+          description: Packages added to this SKU's stock by this call.
+        created:
+          type: boolean
+          description: true when this call created the package SKU, false when it restocked an existing one.
 
-    BulkAddWeightPortionsResponse:
+    PackWeightPortionsResponse:
       type: object
       properties:
         data:
           type: object
+          required: [lines]
           properties:
-            created:
+            lines:
               type: array
               items:
-                $ref: '#/components/schemas/CreatedPortionedSKU'
+                $ref: '#/components/schemas/PackedWeightLine'
         error: { nullable: true }
 
     ErrorResponse:

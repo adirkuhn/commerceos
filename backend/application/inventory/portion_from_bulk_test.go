@@ -165,7 +165,7 @@ func TestPortionFromBulk_unitStockIsUnBatchTrackedByDefault(t *testing.T) {
 }
 
 // TestPortionFromBulk_linksUnitStockToTargetBatchWhenSet is the regression
-// test for the new opt-in: BulkAddWeightPortionsUseCase sets TargetBatchID
+// test for the new opt-in: PackWeightPortionsUseCase sets TargetBatchID
 // so a portioned SKU's stock can carry the bulk lot's own expiry forward
 // (see that use case's own doc comment) instead of landing un-lotted.
 func TestPortionFromBulk_linksUnitStockToTargetBatchWhenSet(t *testing.T) {

@@ -3,91 +3,130 @@ package weightportions_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	ginmiddleware "github.com/oapi-codegen/gin-middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	genweightportions "github.com/adirkuhn/commerceos/api/weightportions"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
+	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	weightportionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/weightportions"
 )
 
 func init() { gin.SetMode(gin.TestMode) }
 
-type stubBulkAdd struct {
-	out *apppms.BulkAddWeightPortionsResult
-	err error
-	got apppms.BulkAddWeightPortionsInput
+type stubPack struct {
+	out    *apppms.PackWeightPortionsResult
+	err    error
+	got    apppms.PackWeightPortionsInput
+	called bool
 }
 
-func (s *stubBulkAdd) Execute(_ context.Context, in apppms.BulkAddWeightPortionsInput) (*apppms.BulkAddWeightPortionsResult, error) {
-	s.got = in
+func (s *stubPack) Execute(_ context.Context, in apppms.PackWeightPortionsInput) (*apppms.PackWeightPortionsResult, error) {
+	s.got, s.called = in, true
 	return s.out, s.err
 }
 
-func newTestRouter(h *weightportionshandler.Handler) *gin.Engine {
+// newTestRouter mounts the handler behind the same OpenAPI request
+// validator cmd/api/main.go uses, so the contract itself is under test.
+func newTestRouter(t *testing.T, h *weightportionshandler.Handler) *gin.Engine {
+	t.Helper()
+	spec, err := genweightportions.GetSpec()
+	require.NoError(t, err)
 	r := gin.New()
-	genweightportions.RegisterHandlers(r.Group("/api/v1"), h)
+	g := r.Group("/api/v1")
+	g.Use(ginmiddleware.OapiRequestValidatorWithOptions(spec, &ginmiddleware.Options{SilenceServersWarning: true}))
+	genweightportions.RegisterHandlers(g, h)
 	return r
 }
 
-func doRequest(rg *gin.Engine, method, path, body string) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, path, bytes.NewBufferString(body))
+func doRequest(rg *gin.Engine, path, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	rg.ServeHTTP(w, req)
 	return w
 }
 
-func TestBulkAddWeightPortionsHandler_success(t *testing.T) {
-	weight := int64(404)
-	bulkAdd := &stubBulkAdd{out: &apppms.BulkAddWeightPortionsResult{Created: []pmsDomain.SKU{
-		{ID: "sku-1", SKUCode: "CARNE-SECA-404G", Barcode: "2994721004047", PriceMinorUnits: 12116, CurrencyCode: "EUR", WeightGrams: &weight},
-	}}}
-	h := weightportionshandler.NewHandler(bulkAdd)
-	body := `{"warehouse_id":"warehouse-1","weights_grams":[404]}`
-	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/pms/skus/sku-bulk-1/bulk-weight-portions", body)
+const packPath = "/api/v1/pms/skus/sku-bulk-1/weight-packages"
 
-	require.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "sku-bulk-1", bulkAdd.got.BulkSKUID)
-	assert.Equal(t, "warehouse-1", bulkAdd.got.WarehouseID)
-	assert.Equal(t, []int64{404}, bulkAdd.got.WeightsGrams)
-	assert.Contains(t, w.Body.String(), "CARNE-SECA-404G")
+func TestPackWeightPortionsHandler_success(t *testing.T) {
+	weight := int64(380)
+	pack := &stubPack{out: &apppms.PackWeightPortionsResult{Lines: []apppms.PackedWeightLine{{
+		SKU:         pmsDomain.SKU{ID: "sku-1", SKUCode: "CARNE-SECA-380G", Barcode: "2994721003804", PriceMinorUnits: 11396, CurrencyCode: "EUR", WeightGrams: &weight},
+		WeightGrams: 380, Quantity: 10, Created: true,
+	}}}}
+	body := `{"warehouse_id":"warehouse-1","lines":[{"weight_grams":380,"quantity":10}]}`
+
+	w := doRequest(newTestRouter(t, weightportionshandler.NewHandler(pack)), packPath, body)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Equal(t, "sku-bulk-1", pack.got.BulkSKUID)
+	assert.Equal(t, "warehouse-1", pack.got.WarehouseID)
+	assert.Equal(t, []apppms.WeightPackageLine{{WeightGrams: 380, Quantity: 10}}, pack.got.Lines)
+	assert.JSONEq(t, `{"data":{"lines":[{"sku_id":"sku-1","sku_code":"CARNE-SECA-380G","barcode":"2994721003804",
+		"price_minor_units":11396,"currency_code":"EUR","weight_grams":380,"quantity":10,"created":true}]},"error":null}`, w.Body.String())
 }
 
-func TestBulkAddWeightPortionsHandler_passesOptionalFields(t *testing.T) {
-	bulkAdd := &stubBulkAdd{out: &apppms.BulkAddWeightPortionsResult{}}
-	h := weightportionshandler.NewHandler(bulkAdd)
-	body := `{"warehouse_id":"warehouse-1","bulk_batch_id":"batch-1","sku_code_prefix":"DRIED-BEEF","reason":"weekly restock","weights_grams":[404,458]}`
-	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/pms/skus/sku-bulk-1/bulk-weight-portions", body)
+func TestPackWeightPortionsHandler_passesOptionalFields(t *testing.T) {
+	pack := &stubPack{out: &apppms.PackWeightPortionsResult{}}
+	body := `{"warehouse_id":"warehouse-1","bulk_batch_id":"batch-1","sku_code_prefix":"DRIED-BEEF","reason":"weekly restock",
+		"lines":[{"weight_grams":430,"quantity":1},{"weight_grams":540,"quantity":4}]}`
 
-	require.Equal(t, http.StatusOK, w.Code)
-	require.NotNil(t, bulkAdd.got.BulkBatchID)
-	assert.Equal(t, "batch-1", *bulkAdd.got.BulkBatchID)
-	assert.Equal(t, "DRIED-BEEF", bulkAdd.got.SKUCodePrefix)
-	assert.Equal(t, "weekly restock", bulkAdd.got.Reason)
-	assert.Equal(t, []int64{404, 458}, bulkAdd.got.WeightsGrams)
+	w := doRequest(newTestRouter(t, weightportionshandler.NewHandler(pack)), packPath, body)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.NotNil(t, pack.got.BulkBatchID)
+	assert.Equal(t, "batch-1", *pack.got.BulkBatchID)
+	assert.Equal(t, "DRIED-BEEF", pack.got.SKUCodePrefix)
+	assert.Equal(t, "weekly restock", pack.got.Reason)
+	assert.Len(t, pack.got.Lines, 2)
+	assert.JSONEq(t, `{"data":{"lines":[]},"error":null}`, w.Body.String())
 }
 
-func TestBulkAddWeightPortionsHandler_invalidInput(t *testing.T) {
-	bulkAdd := &stubBulkAdd{err: pmsDomain.ErrNoWeightsProvided}
-	h := weightportionshandler.NewHandler(bulkAdd)
-	body := `{"warehouse_id":"warehouse-1","weights_grams":[404]}`
-	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/pms/skus/sku-bulk-1/bulk-weight-portions", body)
-
-	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+func TestPackWeightPortionsHandler_contractRejectsBadBodies(t *testing.T) {
+	for name, body := range map[string]string{
+		"no lines":         `{"warehouse_id":"warehouse-1","lines":[]}`,
+		"missing lines":    `{"warehouse_id":"warehouse-1"}`,
+		"zero quantity":    `{"warehouse_id":"warehouse-1","lines":[{"weight_grams":380,"quantity":0}]}`,
+		"zero weight":      `{"warehouse_id":"warehouse-1","lines":[{"weight_grams":0,"quantity":1}]}`,
+		"missing quantity": `{"warehouse_id":"warehouse-1","lines":[{"weight_grams":380}]}`,
+		"no warehouse":     `{"lines":[{"weight_grams":380,"quantity":1}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			pack := &stubPack{out: &apppms.PackWeightPortionsResult{}}
+			w := doRequest(newTestRouter(t, weightportionshandler.NewHandler(pack)), packPath, body)
+			assert.GreaterOrEqual(t, w.Code, 400)
+			assert.Less(t, w.Code, 500)
+			assert.False(t, pack.called, "use case must not run for a body the contract rejects")
+		})
+	}
 }
 
-func TestBulkAddWeightPortionsHandler_bulkSKUNotFound(t *testing.T) {
-	bulkAdd := &stubBulkAdd{err: pmsDomain.ErrSKUNotFound}
-	h := weightportionshandler.NewHandler(bulkAdd)
-	body := `{"warehouse_id":"warehouse-1","weights_grams":[404]}`
-	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/pms/skus/missing/bulk-weight-portions", body)
-
-	require.Equal(t, http.StatusNotFound, w.Code)
+func TestPackWeightPortionsHandler_mapsDomainErrors(t *testing.T) {
+	for name, tc := range map[string]struct {
+		err  error
+		code int
+	}{
+		"sku not found":      {pmsDomain.ErrSKUNotFound, http.StatusNotFound},
+		"batch not found":    {invDomain.ErrBatchNotFound, http.StatusNotFound},
+		"not a weight pool":  {pmsDomain.ErrBulkSKUNotWeightPool, http.StatusUnprocessableEntity},
+		"not enough in lot":  {invDomain.ErrInsufficientStock, http.StatusUnprocessableEntity},
+		"lot of another sku": {invDomain.ErrBatchDoesNotBelongToSKU, http.StatusUnprocessableEntity},
+		"unexpected failure": {errors.New("db down"), http.StatusInternalServerError},
+	} {
+		t.Run(name, func(t *testing.T) {
+			pack := &stubPack{err: tc.err}
+			body := `{"warehouse_id":"warehouse-1","lines":[{"weight_grams":380,"quantity":1}]}`
+			w := doRequest(newTestRouter(t, weightportionshandler.NewHandler(pack)), packPath, body)
+			assert.Equal(t, tc.code, w.Code)
+		})
+	}
 }
