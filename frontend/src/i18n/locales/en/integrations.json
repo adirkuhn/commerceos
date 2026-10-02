@@ -282,7 +282,15 @@
       "sync": "Sync",
       "taxes": "Taxes",
       "webhooks": "Webhooks"
-    }
+    },
+    "backfillPaymentsTitle": "Missing payment info",
+    "backfillPaymentsIntro": "Orders imported before they were paid may have no transaction id or paid date. This checks every paid order from this store that is missing them and fills in what WooCommerce has. Only payment details change.",
+    "backfillPayments": "Fetch missing payment info",
+    "backfillPaymentsRunning": "Checking… {{checked}} orders checked, {{updated}} updated",
+    "backfillPaymentsDone": "Done: {{checked}} orders checked, {{updated}} updated.",
+    "backfillPaymentsNothing": "Every paid order already has its payment info.",
+    "backfillPaymentsFailed": "Fetching payment info failed",
+    "backfillPaymentsErrors": "Some orders could not be checked:"
   },
   "wooCategories": {
     "addFailed": "Failed to add category link",

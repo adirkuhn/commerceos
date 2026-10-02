@@ -138,6 +138,15 @@ export interface DeleteAllImportedProductsResult {
   errors: string[]
 }
 
+// One batch of POST .../backfill-order-payments (api/orderpayments).
+export interface BackfillWooOrderPaymentsResult {
+  checked: number
+  updated: number
+  errors: string[]
+  // Pass back to continue; null once every order has been checked.
+  next_cursor: string | null
+}
+
 export interface FetchWooOrderResult {
   external_order_id: string
   sales_order_id?: string | null

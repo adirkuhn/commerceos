@@ -1,4 +1,4 @@
-import type { Connection, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult } from '../types'
+import type { Connection, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, BackfillWooOrderPaymentsResult } from '../types'
 import { base, request } from './client'
 
 export function listWooTaxes(token: string, connectionId: string): Promise<WooTaxClass[]> {
@@ -87,6 +87,14 @@ export function linkExistingWooProduct(
   return request<ProductChannelListing>(
     `${base()}/products/${productId}/link-existing-woo-product`,
     { method: 'POST', body: JSON.stringify({ connection_id: connectionId, sku }) },
+    token,
+  )
+}
+
+export function backfillWooOrderPayments(token: string, connectionId: string, cursor: string | null): Promise<BackfillWooOrderPaymentsResult> {
+  return request<BackfillWooOrderPaymentsResult>(
+    `${base()}/connections/${connectionId}/backfill-order-payments`,
+    { method: 'POST', body: JSON.stringify({ cursor }) },
     token,
   )
 }

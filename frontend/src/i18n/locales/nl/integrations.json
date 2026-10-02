@@ -282,7 +282,15 @@
       "sync": "Synchronisatie",
       "taxes": "Belastingen",
       "webhooks": "Webhooks"
-    }
+    },
+    "backfillPaymentsTitle": "Ontbrekende betaalgegevens",
+    "backfillPaymentsIntro": "Bestellingen die zijn geïmporteerd voordat ze betaald waren, missen mogelijk een transactie-id of betaaldatum. Dit controleert elke betaalde bestelling uit deze winkel waarbij die ontbreken en vult aan wat WooCommerce heeft. Alleen betaalgegevens worden gewijzigd.",
+    "backfillPayments": "Ontbrekende betaalgegevens ophalen",
+    "backfillPaymentsRunning": "Bezig… {{checked}} bestellingen gecontroleerd, {{updated}} bijgewerkt",
+    "backfillPaymentsDone": "Klaar: {{checked}} bestellingen gecontroleerd, {{updated}} bijgewerkt.",
+    "backfillPaymentsNothing": "Alle betaalde bestellingen hebben hun betaalgegevens al.",
+    "backfillPaymentsFailed": "Betaalgegevens ophalen mislukt",
+    "backfillPaymentsErrors": "Sommige bestellingen konden niet worden gecontroleerd:"
   },
   "wooCategories": {
     "addFailed": "Categoriekoppeling toevoegen mislukt",

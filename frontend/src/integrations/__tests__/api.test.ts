@@ -558,3 +558,22 @@ describe('setSalesChannelProductOverride', () => {
     await expect(api.setSalesChannelProductOverride(TOKEN, 'chan-1', 'missing', true)).rejects.toThrow('product not found')
   })
 })
+
+describe('backfillWooOrderPayments', () => {
+  it('POSTs the cursor to the connection\'s backfill-order-payments endpoint', async () => {
+    const batch = { checked: 25, updated: 20, errors: [], next_cursor: 'c1' }
+    mockFetch(batch)
+
+    await expect(api.backfillWooOrderPayments('tok', 'conn-1', null)).resolves.toEqual(batch)
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toMatch(/\/integrations\/connections\/conn-1\/backfill-order-payments$/)
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(init?.body as string)).toEqual({ cursor: null })
+  })
+
+  it('surfaces the server error', async () => {
+    mockFetchError('INVALID_REQUEST', 'integration provider not supported')
+    await expect(api.backfillWooOrderPayments('tok', 'conn-bol', 'c1')).rejects.toThrow('integration provider not supported')
+  })
+})

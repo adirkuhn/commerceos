@@ -290,7 +290,15 @@
       "sync": "Sincronização",
       "taxes": "Impostos",
       "webhooks": "Webhooks"
-    }
+    },
+    "backfillPaymentsTitle": "Informações de pagamento ausentes",
+    "backfillPaymentsIntro": "Pedidos importados antes de serem pagos podem não ter id de transação nem data de pagamento. Isto verifica cada pedido pago desta loja sem essas informações e preenche o que o WooCommerce tiver. Só os dados de pagamento mudam.",
+    "backfillPayments": "Buscar informações de pagamento ausentes",
+    "backfillPaymentsRunning": "Verificando… {{checked}} pedidos verificados, {{updated}} atualizados",
+    "backfillPaymentsDone": "Concluído: {{checked}} pedidos verificados, {{updated}} atualizados.",
+    "backfillPaymentsNothing": "Todos os pedidos pagos já têm as informações de pagamento.",
+    "backfillPaymentsFailed": "Falha ao buscar informações de pagamento",
+    "backfillPaymentsErrors": "Alguns pedidos não puderam ser verificados:"
   },
   "wooCategories": {
     "addFailed": "Não foi possível adicionar o vínculo de categoria",

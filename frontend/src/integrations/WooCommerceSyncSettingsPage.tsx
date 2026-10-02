@@ -1,4 +1,5 @@
 import { Trans, useTranslation } from 'react-i18next'
+import { BackfillOrderPaymentsCard } from './BackfillOrderPaymentsCard'
 import { useState } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import clsx from 'clsx'
@@ -340,6 +341,8 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
               </div>
             )}
           </div>
+
+          {canManageWebhooks(user?.role) && <BackfillOrderPaymentsCard token={token ?? ''} connectionId={connection.id} />}
 
           <div>
             <h2 className="text-sm font-semibold text-ink mb-1">{t('schedule.title')}</h2>
