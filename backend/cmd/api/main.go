@@ -25,6 +25,7 @@ import (
 	gennewsletter "github.com/adirkuhn/commerceos/api/newsletter"
 	gennotifications "github.com/adirkuhn/commerceos/api/notifications"
 	genoms "github.com/adirkuhn/commerceos/api/oms"
+	genorderpayments "github.com/adirkuhn/commerceos/api/orderpayments"
 	genpms "github.com/adirkuhn/commerceos/api/pms"
 	genpos "github.com/adirkuhn/commerceos/api/pos"
 	genprocurement "github.com/adirkuhn/commerceos/api/procurement"
@@ -58,6 +59,7 @@ import (
 	newsletterhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/newsletter"
 	notificationshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/notifications"
 	omshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/oms"
+	orderpaymentshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/orderpayments"
 	pmshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pms"
 	poshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pos"
 	procurementhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/procurement"
@@ -363,6 +365,20 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	weightportionshandler.Register(weightportionsGroup, db, outboxRepo)
+
+	orderpaymentsSpec, err := genorderpayments.GetSpec()
+	if err != nil {
+		log.Fatalf("orderpayments: load openapi spec: %v", err)
+	}
+	// Own sub-group so the orderpayments-only spec validator never applies
+	// to the other modules' routes — same reasoning as pmsGroup above.
+	orderpaymentsGroup := v1.Group("")
+	// It rewrites orders' payment info -- not for read-only customer_user.
+	orderpaymentsGroup.Use(middleware.RequireRole(middleware.RoleCustomerOwner, middleware.RoleCustomerAdmin, middleware.RoleSuperAdmin))
+	orderpaymentsGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(orderpaymentsSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	orderpaymentshandler.Register(orderpaymentsGroup, db, wooFactory, cfg.IntegrationsEncryptionSecret)
 
 	reportsSpec, err := genreports.GetSpec()
 	if err != nil {

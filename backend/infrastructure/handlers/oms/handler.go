@@ -191,6 +191,26 @@ func (a costLedgerRecorderAdapter) Execute(ctx context.Context, in appinventory.
 	})
 }
 
+// NewUpdateSalesOrderUseCase builds UpdateSalesOrderUseCase with its full
+// production dependency graph (stock allocation, stock movements with cost
+// ledger, outbox) -- for any module that edits orders, so the graph lives
+// in one place.
+func NewUpdateSalesOrderUseCase(db *gorm.DB) *appoms.UpdateSalesOrderUseCase {
+	skuRepo := repositories.NewSKURepo(db)
+	movementRepo := repositories.NewStockMovementRepo(db)
+	batchRepo := repositories.NewBatchRepo(db)
+	outboxRepo := repositories.NewOutboxRepository(db)
+	costLedgerRecorder := costLedgerRecorderAdapter{uc: apppms.NewRecordCostLedgerMovementUseCase(
+		db, skuRepo, repositories.NewSKUCostPriceLedgerRepo(db), appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, repositories.NewWarehouseRepo(db)),
+	)}
+	return appoms.NewUpdateSalesOrderUseCase(
+		db, repositories.NewSalesOrderRepo(db), repositories.NewSalesOrderLineItemRepo(db), repositories.NewSalesOrderLineItemStockMovementRepo(db), skuRepo,
+		appinventory.NewAllocateSaleStockUseCase(db, movementRepo, batchRepo, outboxRepo),
+		appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo, costLedgerRecorder),
+		outboxRepo,
+	)
+}
+
 // Register is the production wiring. Callers mount rg under the normal
 // human-JWT-authenticated /api/v1 group -- this is staff creating/editing
 // sales orders from the admin UI. The POS's own push path
@@ -218,7 +238,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 	variantRepo := repositories.NewVariantRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 	addLineItem := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
-	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, recordMovement, outboxRepo)
+	updateSalesOrder := NewUpdateSalesOrderUseCase(db)
 
 	packingSessionRepo := repositories.NewPackingSessionRepo(db)
 	packScanRepo := repositories.NewPackScanRepo(db)
