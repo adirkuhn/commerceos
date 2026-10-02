@@ -201,6 +201,13 @@ func bolAddressToOMS(a integrationsDomain.BolShipmentDetails) omsDomain.Address 
 	}
 }
 
+// The customer pays bol.com, which pays the store out later -- a bol order
+// has no payment transaction of its own, it's simply paid via bol.com.
+const (
+	bolPaymentMethod      = "bol"
+	bolPaymentMethodTitle = "bol.com"
+)
+
 func (uc *ImportBolOrdersUseCase) createOne(ctx context.Context, in ImportBolOrdersInput, bo integrationsDomain.BolOrder, externalOrderID string, status omsDomain.SalesOrderStatus, result *ImportOrdersResult) {
 	occurredAt := bo.OrderPlacedAt
 	if occurredAt.IsZero() {
@@ -227,6 +234,7 @@ func (uc *ImportBolOrdersUseCase) createOne(ctx context.Context, in ImportBolOrd
 			ExternalOrderID: externalOrderID, ConnectionID: &in.ConnectionID, Number: externalOrderID,
 			Status: status, WarehouseID: in.DefaultWarehouseID,
 			Billing: address, Shipping: address, CurrencyCode: "EUR", TotalMinorUnits: totalMinorUnits,
+			PaymentMethod: bolPaymentMethod, PaymentMethodTitle: bolPaymentMethodTitle,
 			OccurredAt: occurredAt, CreatedAt: now, UpdatedAt: now,
 			StockDecremented: stockReducing,
 			Fulfilled:        status == omsDomain.SalesOrderStatusCompleted,

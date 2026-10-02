@@ -96,6 +96,11 @@ func TestImportBolOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	assert.Equal(t, omsDomain.SalesOrderSourceBol, created.Source)
 	assert.Equal(t, "A2K8290LP8", created.ExternalOrderID)
 	assert.Equal(t, omsDomain.SalesOrderStatusProcessing, created.Status)
+	// The customer pays bol.com, not the store -- no transaction id of its
+	// own, but the order must still read as "paid via bol.com".
+	assert.Equal(t, "bol", created.PaymentMethod)
+	assert.Equal(t, "bol.com", created.PaymentMethodTitle)
+	assert.Equal(t, omsDomain.PaymentStatusPaid, created.PaymentStatus())
 	assert.True(t, created.StockDecremented)
 	assert.False(t, created.Fulfilled)
 	assert.Equal(t, "Billie", created.Shipping.FirstName)
