@@ -367,7 +367,8 @@
     "totalStock": "Totale voorraad: {{total}}",
     "unknownCustomer": "Onbekende klant",
     "unpair": "Ontkoppelen",
-    "useCamera": "Camera gebruiken"
+    "useCamera": "Camera gebruiken",
+    "inKg": "(kg)"
   },
   "shortfall": {
     "intro": "De geregistreerde voorraad is te laag voor deze artikelen. Kies per artikel hoe je afrondt.",

@@ -367,7 +367,8 @@
     "totalStock": "Total stock: {{total}}",
     "unknownCustomer": "Unknown customer",
     "unpair": "Unpair",
-    "useCamera": "Use camera"
+    "useCamera": "Use camera",
+    "inKg": "(kg)"
   },
   "shortfall": {
     "intro": "Tracked stock is short for these items. Decide how to finish for each.",

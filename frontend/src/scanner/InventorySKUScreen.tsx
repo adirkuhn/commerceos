@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { stockUnitFor } from '../inventory/stockUnit'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Package, Tag, Trash2 } from 'lucide-react'
 import * as pmsApi from '../pms/api'
@@ -177,6 +178,7 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
       {selectedRow && (
         <RowActionSheet
           row={selectedRow}
+          unit={stockUnitFor(sku)}
           warehouses={warehouses}
           batches={batches}
           error={actionError}
@@ -207,6 +209,7 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
 
       {addBatchOpen && (
         <AddBatchSheet
+          unit={stockUnitFor(sku)}
           warehouses={warehouses}
           error={addBatchError}
           onCancel={() => setAddBatchOpen(false)}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { stockUnitFor, type StockUnit } from '../inventory/stockUnit'
 import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QuantityStepper } from './QuantityStepper'
@@ -13,7 +14,8 @@ import { formatMinorUnitsAsInput } from './InventoryFormat'
 // -- e.g. a fresh delivery, or a brand-new SKU with nothing to move from
 // yet -- so quantity is optional and, when given, is recorded as a receipt
 // straight into the new batch rather than a transfer.
-export function AddBatchSheet({ warehouses, error, onCancel, onCreate }: {
+export function AddBatchSheet({ warehouses, unit = stockUnitFor(), error, onCancel, onCreate }: {
+  unit?: StockUnit
   warehouses: Warehouse[]
   error: string
   onCancel: () => void
@@ -58,13 +60,13 @@ export function AddBatchSheet({ warehouses, error, onCancel, onCreate }: {
             <label htmlFor="add-batch-expiry" className="block text-xs text-gray-400 mb-1.5">{t('inventory.expiryOptional')}</label>
             <input id="add-batch-expiry" type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus" />
           </div>
-          <QuantityStepper id="add-batch-qty" label={t('inventory.initialQty')} value={quantity} onChange={setQuantity} />
+          <QuantityStepper id="add-batch-qty" label={unit.kind === 'kg' ? `${t('inventory.initialQty')} ${t('shared.inKg')}` : t('inventory.initialQty')} value={quantity} onChange={setQuantity} decimal={unit.kind === 'kg'} />
           <div>
             <label htmlFor="add-batch-reason" className="block text-xs text-gray-400 mb-1.5">{t('shared.reason')}</label>
             <input id="add-batch-reason" value={reason} onChange={e => setReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus" />
           </div>
           <button
-            onClick={() => onCreate(warehouseId, lotNumber.trim(), expiryDate, Number(quantity) || 0, reason)}
+            onClick={() => onCreate(warehouseId, lotNumber.trim(), expiryDate, unit.parse(quantity) ?? 0, reason)}
             disabled={disabled}
             className="w-full py-3 rounded-xl bg-accent-solid text-white font-semibold disabled:opacity-50"
           >

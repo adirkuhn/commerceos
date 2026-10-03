@@ -329,6 +329,24 @@ describe('InventoryApp SKU screen', () => {
     })))
   })
 
+  it('Adjust on a weight pool reads kg (decimals allowed) and records grams', async () => {
+    vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue({
+      id: 'move-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1', type: 'adjustment',
+      quantity_delta: 2500, reason: '', occurred_at: '', created_at: '',
+    })
+    await resolveAndEnterSKU(sku({ unit_type: 'kilo' }), [batch({ quantity: 50000 }), generalLedgerRow()])
+
+    await userEvent.click(screen.getByText('LOT-1'))
+    await userEvent.click(await screen.findByRole('button', { name: /Adjust/ }))
+    const qty = await screen.findByRole('textbox', { name: 'Quantity change (kg)' })
+    await userEvent.type(qty, '2.5')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(inventoryApi.recordStockMovement).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
+      quantity_delta: 2500,
+    })))
+  })
+
   it('Adjust on the general ledger row is scoped with batch_id null, not the first real batch', async () => {
     vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue({
       id: 'move-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', type: 'adjustment',

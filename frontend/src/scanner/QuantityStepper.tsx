@@ -7,9 +7,11 @@ import { useTranslation } from 'react-i18next'
 // it in one tap. Left undefined (Adjust's quantity-change field) the
 // stepper is unbounded either direction, since a recount correction can go
 // either way.
-export function QuantityStepper({ id, label, value, onChange, min, max }: { id: string; label: string; value: string; onChange: (v: string) => void; min?: number; max?: number }) {
+// decimal lets a kg quantity (a weight pool) be typed with a comma or dot
+// and up to 3 decimals; whole numbers otherwise.
+export function QuantityStepper({ id, label, value, onChange, min, max, decimal = false }: { id: string; label: string; value: string; onChange: (v: string) => void; min?: number; max?: number; decimal?: boolean }) {
   const { t } = useTranslation('scanner')
-  const n = Number(value) || 0
+  const n = Number(value.replace(',', '.')) || 0
   function clamp(v: number): number {
     let out = v
     if (min !== undefined) out = Math.max(min, out)
@@ -32,9 +34,18 @@ export function QuantityStepper({ id, label, value, onChange, min, max }: { id: 
         </button>
         <input
           id={id}
-          inputMode="numeric"
+          inputMode={decimal ? 'decimal' : 'numeric'}
           value={value}
           onChange={e => {
+            if (decimal) {
+              const typed = e.target.value
+              // Up to 3 decimals, comma or dot; partial input ("1,") is kept as typed.
+              if (!/^-?\d*([.,]\d{0,3})?$/.test(typed)) return
+              const value = Number(typed.replace(',', '.'))
+              const complete = /\d$/.test(typed)
+              onChange(complete && clamp(value) !== value ? String(clamp(value)) : typed)
+              return
+            }
             const digits = e.target.value.replace(/(?!^-)[^\d]/g, '')
             onChange(digits === '' || digits === '-' ? digits : String(clamp(Number(digits))))
           }}

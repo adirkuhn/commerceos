@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { stockUnitFor, type StockUnit } from '../inventory/stockUnit'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
 import { ArrowRightLeft, PackageMinus, Plus, X, Check } from 'lucide-react'
@@ -53,8 +54,11 @@ function formatBatchExpiry(iso: string | null | undefined, formatDate: (value: D
 // brand-new batch (created first, then transferred into -- TransferStock
 // only ever targets an already-real batch, same as the desktop Inventory
 // page's Transfer modal).
-export function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, onMove, onCreateBatchAndMove, onDamagedLost }: {
+export function RowActionSheet({ row, warehouses, batches, unit = stockUnitFor(), error, onCancel, onAdjust, onMove, onCreateBatchAndMove, onDamagedLost }: {
   row: SelectedRow
+  // How quantities are typed for this SKU (kg for a weight pool); the
+  // callbacks always receive stored units (grams for kg).
+  unit?: StockUnit
   warehouses: Warehouse[]
   batches: Batch[]
   error: string
@@ -79,16 +83,19 @@ export function RowActionSheet({ row, warehouses, batches, error, onCancel, onAd
   const [dlReason, setDlReason] = useState('')
 
   const destinationBatches = batches.filter(b => !b.is_general_ledger && b.id !== row.batchId)
-  const availableQty = batches.find(b =>
+  const availableStored = batches.find(b =>
     b.warehouse_id === row.warehouseId && (row.batchId === null ? b.is_general_ledger : b.id === row.batchId))?.quantity ?? 0
+  // The steppers work in the typed unit (kg for a weight pool).
+  const availableQty = unit.kind === 'kg' ? availableStored / 1000 : availableStored
+  const stored = (typed: string) => unit.parse(typed) ?? 0
 
   function handleConfirm() {
     if (mode === 'adjust') {
-      onAdjust(Number(adjustQty) || 0, adjustReason)
+      onAdjust(stored(adjustQty), adjustReason)
       return
     }
     if (mode === 'move') {
-      const qty = Number(moveQty) || 0
+      const qty = stored(moveQty)
       if (toBatchId === NEW_BATCH) {
         onCreateBatchAndMove(toWarehouseId, newLotNumber, newExpiryDate, qty, moveReason)
       } else {
@@ -96,14 +103,15 @@ export function RowActionSheet({ row, warehouses, batches, error, onCancel, onAd
       }
       return
     }
-    onDamagedLost(Number(dlQty) || 0, dlType, dlReason)
+    onDamagedLost(stored(dlQty), dlType, dlReason)
   }
 
-  const adjustDisabled = (Number(adjustQty) || 0) === 0
-  const moveDisabled = (Number(moveQty) || 0) <= 0 || !toWarehouseId || (toBatchId === NEW_BATCH && !newLotNumber.trim())
-  const dlDisabled = (Number(dlQty) || 0) <= 0
+  const adjustDisabled = stored(adjustQty) === 0
+  const moveDisabled = stored(moveQty) <= 0 || !toWarehouseId || (toBatchId === NEW_BATCH && !newLotNumber.trim())
+  const dlDisabled = stored(dlQty) <= 0
   const confirmDisabled = mode === 'adjust' ? adjustDisabled : mode === 'move' ? moveDisabled : dlDisabled
   const { t } = useTranslation(['scanner', 'common'])
+  const qtyLabel = (label: string) => (unit.kind === 'kg' ? `${label} ${t('shared.inKg')}` : label)
   const tabs = rowActionTabs()
   const activeTab = tabs.find(tab => tab.id === mode)!
 
@@ -141,7 +149,7 @@ export function RowActionSheet({ row, warehouses, batches, error, onCancel, onAd
 
           {mode === 'adjust' && (
             <>
-              <QuantityStepper id="row-adjust-qty" label={t('rowAction.qtyChange')} value={adjustQty} onChange={setAdjustQty} />
+              <QuantityStepper id="row-adjust-qty" label={qtyLabel(t('rowAction.qtyChange'))} value={adjustQty} onChange={setAdjustQty} decimal={unit.kind === 'kg'} />
               <div>
                 <label htmlFor="row-adjust-reason" className="block text-xs text-gray-400 mb-1.5">{t('shared.reason')}</label>
                 <input id="row-adjust-reason" value={adjustReason} onChange={e => setAdjustReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus" />
@@ -190,7 +198,7 @@ export function RowActionSheet({ row, warehouses, batches, error, onCancel, onAd
                   </div>
                 </div>
               )}
-              <QuantityStepper id="row-move-qty" label={t('rowAction.qtyMove')} value={moveQty} onChange={setMoveQty} min={0} max={availableQty} />
+              <QuantityStepper id="row-move-qty" label={qtyLabel(t('rowAction.qtyMove'))} value={moveQty} onChange={setMoveQty} min={0} max={availableQty} decimal={unit.kind === 'kg'} />
               <div>
                 <label htmlFor="row-move-reason" className="block text-xs text-gray-400 mb-1.5">{t('shared.reasonOptional')}</label>
                 <input id="row-move-reason" value={moveReason} onChange={e => setMoveReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus" />
@@ -212,7 +220,7 @@ export function RowActionSheet({ row, warehouses, batches, error, onCancel, onAd
                   </button>
                 ))}
               </div>
-              <QuantityStepper id="row-dl-qty" label={t('shared.quantity')} value={dlQty} onChange={setDlQty} min={0} max={availableQty} />
+              <QuantityStepper id="row-dl-qty" label={qtyLabel(t('shared.quantity'))} value={dlQty} onChange={setDlQty} min={0} max={availableQty} decimal={unit.kind === 'kg'} />
               <div>
                 <label htmlFor="row-dl-reason" className="block text-xs text-gray-400 mb-1.5">{t('shared.reason')}</label>
                 <input id="row-dl-reason" value={dlReason} onChange={e => setDlReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-night-800 border border-night-700 text-gray-100 outline-none focus:ring-2 focus:ring-focus" />

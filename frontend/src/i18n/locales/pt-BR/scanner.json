@@ -367,7 +367,8 @@
     "totalStock": "Estoque total: {{total}}",
     "unknownCustomer": "Cliente desconhecido",
     "unpair": "Desparear",
-    "useCamera": "Usar câmera"
+    "useCamera": "Usar câmera",
+    "inKg": "(kg)"
   },
   "shortfall": {
     "intro": "O estoque registrado é insuficiente para estes itens. Decida como finalizar cada um.",
