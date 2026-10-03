@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import type { Batch, MovementType } from './types'
 import { Modal, inputClass, labelClass } from './components/Modal'
+import { stockUnitFor, type StockUnit } from './stockUnit'
 
 // Modal/inputClass/labelClass live in ../inventory/components/Modal (see
 // import above) -- shared by every stock-action modal in this file.
@@ -95,11 +96,13 @@ export function BatchFormModal({
 // ── Adjust stock ──────────────────────────────────────────────────────────────
 
 export function AdjustStockModal({
-  warehouses, batches, scope, onSave, onClose,
+  warehouses, batches, scope, unit = stockUnitFor(), onSave, onClose,
 }: {
   warehouses: { id: string; name: string }[]
   batches: Batch[]
   scope?: BatchScope
+  // How quantities are typed for this SKU (kg for a weight pool).
+  unit?: StockUnit
   onSave: (input: { warehouse_id: string; batch_id?: string | null; type: MovementType; quantity_delta: number; reason?: string }) => Promise<void>
   onClose: () => void
 }) {
@@ -113,8 +116,8 @@ export function AdjustStockModal({
   const [error, setError] = useState<string | null>(null)
 
   const submit = async () => {
-    const n = parseInt(quantity, 10)
-    if (Number.isNaN(n) || n === 0) {
+    const n = unit.parse(quantity)
+    if (n === null || n === 0) {
       setError(t('modal.enterNonZero'))
       return
     }
@@ -165,9 +168,9 @@ export function AdjustStockModal({
         )}
         <div>
           <label className={labelClass} htmlFor="adjust-qty">
-            {type === 'adjustment' ? t('modal.quantityAdjustment') : t('modal.quantity')}
+            {type === 'adjustment' ? t('modal.quantityAdjustment') : t('modal.quantity')}{unit.kind === 'kg' && <> {t('modal.inKg')}</>}
           </label>
-          <input id="adjust-qty" type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className={inputClass} />
+          <input id="adjust-qty" type="number" step={unit.step} inputMode="decimal" value={quantity} onChange={e => setQuantity(e.target.value)} className={inputClass} />
         </div>
         <div>
           <label className={labelClass} htmlFor="adjust-reason">{t('modal.reasonOptional')}</label>
@@ -190,11 +193,12 @@ export function AdjustStockModal({
 // ── Recount ───────────────────────────────────────────────────────────────────
 
 export function RecountModal({
-  warehouses, batches, scope, onSave, onClose,
+  warehouses, batches, scope, unit = stockUnitFor(), onSave, onClose,
 }: {
   warehouses: { id: string; name: string }[]
   batches: Batch[]
   scope?: BatchScope
+  unit?: StockUnit
   onSave: (input: { warehouse_id: string; batch_id?: string | null; counted_quantity: number; reason?: string }) => Promise<void>
   onClose: () => void
 }) {
@@ -207,8 +211,8 @@ export function RecountModal({
   const [error, setError] = useState<string | null>(null)
 
   const submit = async () => {
-    const n = parseInt(counted, 10)
-    if (Number.isNaN(n) || n < 0) {
+    const n = unit.parse(counted)
+    if (n === null || n < 0) {
       setError(t('modal.enterCounted'))
       return
     }
@@ -249,8 +253,8 @@ export function RecountModal({
           </div>
         )}
         <div>
-          <label className={labelClass} htmlFor="recount-qty">{t('modal.countedQuantity')}</label>
-          <input id="recount-qty" type="number" min={0} value={counted} onChange={e => setCounted(e.target.value)} className={inputClass} />
+          <label className={labelClass} htmlFor="recount-qty">{t('modal.countedQuantity')}{unit.kind === 'kg' && <> {t('modal.inKg')}</>}</label>
+          <input id="recount-qty" type="number" min={0} step={unit.step} inputMode="decimal" value={counted} onChange={e => setCounted(e.target.value)} className={inputClass} />
         </div>
         <div>
           <label className={labelClass} htmlFor="recount-reason">{t('modal.reasonOptional')}</label>

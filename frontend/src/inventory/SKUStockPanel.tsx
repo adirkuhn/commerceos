@@ -12,6 +12,7 @@ import type { Batch } from './types'
 import { PortionFromBulkModal } from './PortionFromBulkModal'
 import { SplitIntoPackagesModal } from '../pms/SplitIntoPackagesModal'
 import { isScaleSoldWeightPool } from '../pms/weightPackages'
+import { stockUnitFor } from './stockUnit'
 import { AdjustStockModal, BatchFormModal, BatchScope, RecountModal } from './BatchStockModals'
 import { formatSKUQuantity, isExpired, isExpiringSoon, parseOptionalPriceToMinorUnits, parsePriceToMinorUnits } from './inventoryFormat'
 import { BatchRowActionModal, NewBatchModal, PriceModal } from './BatchActionModals'
@@ -40,6 +41,7 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
   // (?allBatches=) -- a refresh or Back keeps or closes them like pages.
   const route = useSkuActionRoute(productId, sku.id)
   const canSplitPackages = isScaleSoldWeightPool(sku)
+  const unit = stockUnitFor(sku)
   // Packing adds package variants to this product, so its SKU list needs
   // a full reload (onSKUUpdated) -- deferred until the split modal closes,
   // since that reload remounts this panel and would drop the modal's
@@ -265,15 +267,15 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
         <BatchRowActionModal scope={rowScope} canSplitCase={!!sku.case_of_sku_id} canSplitPackages={canSplitPackages} onChoose={route.switchAction} onClose={closeModal} />
       )}
       {modal === 'adjust' && (
-        <AdjustStockModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
+        <AdjustStockModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} unit={unit} onClose={closeModal}
           onSave={input => adjust(input).then(() => onStockChanged())} />
       )}
       {modal === 'recount' && (
-        <RecountModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
+        <RecountModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} unit={unit} onClose={closeModal}
           onSave={input => recount(input).then(() => onStockChanged())} />
       )}
       {modal === 'transfer' && (
-        <TransferModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
+        <TransferModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} unit={unit} onClose={closeModal}
           onSave={input => transfer(input).then(() => onStockChanged())} />
       )}
       {modal === 'split-case' && (
@@ -293,7 +295,7 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
         />
       )}
       {modal === 'damaged-lost' && (
-        <DamagedLostModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} onClose={closeModal}
+        <DamagedLostModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} unit={unit} onClose={closeModal}
           onSave={input => markDamagedOrLost(input).then(() => onStockChanged())} />
       )}
       {modal === 'new-batch' && (

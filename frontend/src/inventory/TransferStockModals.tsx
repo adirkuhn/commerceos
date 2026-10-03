@@ -3,15 +3,17 @@ import { useTranslation } from 'react-i18next'
 import type { Batch } from './types'
 import { Modal, inputClass, labelClass } from './components/Modal'
 import { BatchScope, LockedField } from './BatchStockModals'
+import { stockUnitFor, type StockUnit } from './stockUnit'
 
 // ── Transfer (also covers general-ledger <-> batch moves) ───────────────────
 
 export function TransferModal({
-  warehouses, batches, scope, onSave, onClose,
+  warehouses, batches, scope, unit = stockUnitFor(), onSave, onClose,
 }: {
   warehouses: { id: string; name: string }[]
   batches: Batch[]
   scope?: BatchScope
+  unit?: StockUnit
   onSave: (input: {
     quantity: number; from_warehouse_id: string; from_batch_id?: string | null
     to_warehouse_id: string; to_batch_id?: string | null; reason?: string
@@ -29,8 +31,8 @@ export function TransferModal({
   const [error, setError] = useState<string | null>(null)
 
   const submit = async () => {
-    const n = parseInt(quantity, 10)
-    if (Number.isNaN(n) || n <= 0) {
+    const n = unit.parse(quantity)
+    if (n === null || n <= 0) {
       setError(t('transfer.enterPositive'))
       return
     }
@@ -92,8 +94,8 @@ export function TransferModal({
           </div>
         </div>
         <div>
-          <label className={labelClass} htmlFor="transfer-qty">{t('modal.quantity')}</label>
-          <input id="transfer-qty" type="number" min={1} value={quantity} onChange={e => setQuantity(e.target.value)} className={inputClass} />
+          <label className={labelClass} htmlFor="transfer-qty">{t('modal.quantity')}{unit.kind === 'kg' && <> {t('modal.inKg')}</>}</label>
+          <input id="transfer-qty" type="number" min={0} step={unit.step} inputMode="decimal" value={quantity} onChange={e => setQuantity(e.target.value)} className={inputClass} />
         </div>
         <div>
           <label className={labelClass} htmlFor="transfer-reason">{t('modal.reasonOptional')}</label>
@@ -216,11 +218,12 @@ export function SplitCaseModal({
 // ── Mark damaged / lost ───────────────────────────────────────────────────────
 
 export function DamagedLostModal({
-  warehouses, batches, scope, onSave, onClose,
+  warehouses, batches, scope, unit = stockUnitFor(), onSave, onClose,
 }: {
   warehouses: { id: string; name: string }[]
   batches: Batch[]
   scope?: BatchScope
+  unit?: StockUnit
   onSave: (input: { warehouse_id: string; batch_id?: string | null; quantity: number; type: 'damaged' | 'lost'; reason?: string }) => Promise<void>
   onClose: () => void
 }) {
@@ -234,8 +237,8 @@ export function DamagedLostModal({
   const [error, setError] = useState<string | null>(null)
 
   const submit = async () => {
-    const n = parseInt(quantity, 10)
-    if (Number.isNaN(n) || n <= 0) {
+    const n = unit.parse(quantity)
+    if (n === null || n <= 0) {
       setError(t('transfer.enterPositive'))
       return
     }
@@ -283,8 +286,8 @@ export function DamagedLostModal({
           </div>
         )}
         <div>
-          <label className={labelClass} htmlFor="dl-qty">{t('modal.quantity')}</label>
-          <input id="dl-qty" type="number" min={1} value={quantity} onChange={e => setQuantity(e.target.value)} className={inputClass} />
+          <label className={labelClass} htmlFor="dl-qty">{t('modal.quantity')}{unit.kind === 'kg' && <> {t('modal.inKg')}</>}</label>
+          <input id="dl-qty" type="number" min={0} step={unit.step} inputMode="decimal" value={quantity} onChange={e => setQuantity(e.target.value)} className={inputClass} />
         </div>
         <div>
           <label className={labelClass} htmlFor="dl-reason">{t('modal.reasonOptional')}</label>

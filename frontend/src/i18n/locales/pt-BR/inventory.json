@@ -102,7 +102,8 @@
     "typeAdjustment": "Ajuste (+/-)",
     "typeReceipt": "Recebimento (entrada)",
     "typeSale": "Venda (saída)",
-    "warehouse": "Depósito"
+    "warehouse": "Depósito",
+    "inKg": "(kg)"
   },
   "movementType": {
     "adjustment": "Ajuste",

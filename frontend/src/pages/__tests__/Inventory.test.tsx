@@ -831,6 +831,81 @@ describe('Clicking a batch row opens a scoped action window', () => {
     expect(screen.queryByRole('button', { name: /Split into packages/i })).not.toBeInTheDocument()
   })
 
+  describe('a kilo (weight pool) SKU is counted in kg', () => {
+    const kiloSku = { ...sku, unit_type: 'kilo' as const }
+    beforeEach(() => {
+      vi.mocked(pmsApi.getProduct).mockResolvedValue({ product, variants: [{ ...detail.variants[0], skus: [kiloSku] }] })
+    })
+
+    async function openModal(button: RegExp, title: string) {
+      const user = userEvent.setup()
+      renderAt(<Inventory />, '/inventory')
+      await user.click(await screen.findByText('Widget'))
+      await screen.findByText('WIDGET-1')
+      await user.click(screen.getByRole('button', { name: button }))
+      const modal = (await screen.findByText(title, { selector: 'h3' })).closest('div')!.parentElement!
+      return { user, modal }
+    }
+
+    it('adjust: 50 means 50 kg, sent as 50000 g', async () => {
+      vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue({
+        id: 'mv-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: null,
+        type: 'receipt', quantity_delta: 50000, reason: '', occurred_at: '', created_at: '',
+      })
+      const { user, modal } = await openModal(/adjust/i, 'Adjust stock')
+
+      expect(within(modal).getByLabelText(/quantity/i).closest('div')).toHaveTextContent('(kg)')
+      await user.type(within(modal).getByLabelText(/quantity/i), '50')
+      await user.click(within(modal).getByRole('button', { name: /record/i }))
+
+      await waitFor(() => expect(inventoryApi.recordStockMovement).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        quantity_delta: 50000,
+      })))
+    })
+
+    it('adjust: half a kilo is 500 g', async () => {
+      vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue({
+        id: 'mv-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: null,
+        type: 'receipt', quantity_delta: 500, reason: '', occurred_at: '', created_at: '',
+      })
+      const { user, modal } = await openModal(/adjust/i, 'Adjust stock')
+
+      await user.type(within(modal).getByLabelText(/quantity/i), '0.5')
+      await user.click(within(modal).getByRole('button', { name: /record/i }))
+
+      await waitFor(() => expect(inventoryApi.recordStockMovement).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        quantity_delta: 500,
+      })))
+    })
+
+    it('recount: counted kg sent as grams', async () => {
+      vi.mocked(inventoryApi.recordRecount).mockResolvedValue({
+        id: 'mv-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: null,
+        type: 'adjustment', quantity_delta: 0, reason: '', occurred_at: '', created_at: '',
+      })
+      const { user, modal } = await openModal(/recount/i, 'Recount stock')
+
+      await user.type(within(modal).getByLabelText(/counted/i), '12.5')
+      await user.click(within(modal).getByRole('button', { name: /record|save/i }))
+
+      await waitFor(() => expect(inventoryApi.recordRecount).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        counted_quantity: 12500,
+      })))
+    })
+
+    it('damaged/lost: kg sent as grams', async () => {
+      vi.mocked(inventoryApi.markDamagedOrLost).mockResolvedValue({} as never)
+      const { user, modal } = await openModal(/damaged\/lost/i, 'Mark damaged / lost')
+
+      await user.type(within(modal).getByLabelText(/quantity/i), '1.2')
+      await user.click(within(modal).getByRole('button', { name: /write off/i }))
+
+      await waitFor(() => expect(inventoryApi.markDamagedOrLost).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        quantity: 1200,
+      })))
+    })
+  })
+
   describe('Split into packages (scale-sold weight pool)', () => {
     const poolSku = { ...sku, unit_type: 'kilo' as const, pricing_mode: 'per_weight' as const, scale_code: '2994721', price_per_kilo_minor_units: 29990 }
 
