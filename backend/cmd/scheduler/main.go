@@ -235,6 +235,14 @@ func main() {
 		defer sub.Unsubscribe()
 	}
 
+	repricePackagesUC := pmsapp.NewRepriceWeightPackagesUseCase(db, skuRepo, variantRepo,
+		pmsapp.NewUpdateSKUUseCase(db, variantRepo, skuRepo, outboxRepo, priceHistoryRepo))
+	perKiloConsumer := consumers.NewSKUPricePerKiloChangedConsumer(processedEventRepo, repricePackagesUC, js)
+	if sub := subscribeConsumer(js, events.SKUPricePerKiloChanged{}.EventName(), "weight-package-repricer-scheduler",
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, perKiloConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
+	}
+
 	stockChangedConsumer := consumers.NewInventoryStockChangedConsumer(processedEventRepo, syncStockUC, js)
 	if sub := subscribeConsumer(js, events.InventoryStockChanged{}.EventName(), "inventory-stock-changed-scheduler",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, stockChangedConsumer.Handle); sub != nil {

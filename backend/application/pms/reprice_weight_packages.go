@@ -97,3 +97,10 @@ func (uc *RepriceWeightPackagesUseCase) packagesOf(ctx context.Context, pool pms
 	}
 	return out, nil
 }
+
+// Reprice is Execute without the result -- the shape an event consumer
+// needs (see infrastructure/consumers.SKUPricePerKiloChangedConsumer).
+func (uc *RepriceWeightPackagesUseCase) Reprice(ctx context.Context, poolSKUID string) error {
+	_, err := uc.Execute(ctx, poolSKUID)
+	return err
+}
