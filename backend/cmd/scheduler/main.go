@@ -227,6 +227,14 @@ func main() {
 		defer sub.Unsubscribe()
 	}
 
+	variantUnlistedConsumer := consumers.NewVariantUnlistedConsumer(processedEventRepo, channelsapp.NewDeleteVariantFromChannelsUseCase(
+		channelsapp.NewWooConnectionClients(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret),
+	), js)
+	if sub := subscribeConsumer(js, events.VariantUnlisted{}.EventName(), "variant-unlisted-scheduler",
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, variantUnlistedConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
+	}
+
 	stockChangedConsumer := consumers.NewInventoryStockChangedConsumer(processedEventRepo, syncStockUC, js)
 	if sub := subscribeConsumer(js, events.InventoryStockChanged{}.EventName(), "inventory-stock-changed-scheduler",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, stockChangedConsumer.Handle); sub != nil {
