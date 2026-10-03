@@ -1,5 +1,6 @@
 import i18next from 'i18next'
 import type { PurchaseOrderStatus, PurchaseOrderLineItem, ReceivingRecord, DiscrepancyType, LineItemType } from './types'
+import type { SKU } from '../pms/types'
 
 export const PROCUREMENT_PATH = '/procurement'
 
@@ -106,4 +107,14 @@ export function receivingStatusLabel(status: ReceivingRecord['status']): string 
     case 'applied': return i18next.t('procurement:receivingStatus.applied')
     default: return status
   }
+}
+
+// The "Units per purchased item" to use once a line is linked to sku. A
+// weight pool (unit_type kilo) keeps stock in grams, while suppliers
+// invoice it per kg -- so its default becomes 1000 (book "50" = 50 kg).
+// A value someone already changed from the default 1 is kept (e.g. a 5 kg
+// bag = 5000).
+export function unitsPerPurchasedItemOnLink(sku: Pick<SKU, 'unit_type'>, current: string): string {
+  if (sku.unit_type === 'kilo' && (current === '' || current === '1')) return '1000'
+  return current
 }

@@ -11,7 +11,7 @@ import type { PurchaseOrderLineItem, AddLineItemInput, UpdateLineItemInput } fro
 import type { SKU } from '../pms/types'
 import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
 import { useConfirm } from '../components/common/useConfirm'
-import { friendlyParsingError, lineTypeLabel, isChargeLineType, signedLineItemAmount } from './procurementHelpers'
+import { friendlyParsingError, lineTypeLabel, isChargeLineType, signedLineItemAmount, unitsPerPurchasedItemOnLink } from './procurementHelpers'
 import { LineItemFormRow } from './LineItemFormRow'
 import { formatMoney } from '../format/money'
 
@@ -354,7 +354,7 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
     setSaving(true)
     try {
       await procurementApi.linkLineItemToSku(token ?? '', lineItem.id, {
-        sku_id: sku.id, units_per_purchased_item: parseInt(unitsPerPurchasedItem || '1', 10),
+        sku_id: sku.id, units_per_purchased_item: parseInt(unitsPerPurchasedItemOnLink(sku, unitsPerPurchasedItem) || '1', 10),
       })
       onResolved()
     } catch (err) {

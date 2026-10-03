@@ -4,7 +4,7 @@ import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import type { PurchaseOrderLineItem, AddLineItemInput, LineItemType } from './types'
 import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
-import { LINE_TYPES, isChargeLineType, lineTypeLabel, signedLineItemAmount } from './procurementHelpers'
+import { LINE_TYPES, isChargeLineType, lineTypeLabel, signedLineItemAmount, unitsPerPurchasedItemOnLink } from './procurementHelpers'
 
 interface LineItemFormRowProps {
   initial?: PurchaseOrderLineItem
@@ -161,6 +161,7 @@ export function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRow
               <ProductSkuPicker
                 onSelect={(sku, label) => {
                   setSkuId(sku.id); setSkuLabel(label)
+                  setUnitsPerPurchasedItem(u => unitsPerPurchasedItemOnLink(sku, u))
                   if (!description) setDescription(label)
                   setPickerOpen(false)
                 }}
