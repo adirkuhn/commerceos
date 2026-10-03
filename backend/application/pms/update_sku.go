@@ -112,6 +112,7 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 		}
 		oldPriceMinorUnits := existing.PriceMinorUnits
 		oldSalePriceMinorUnits := existing.SalePriceMinorUnits
+		oldPricePerKilo := existing.PricePerKiloMinorUnits
 
 		existing.SKUCode = in.SKUCode
 		existing.Barcode = in.Barcode
@@ -141,6 +142,10 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 		sku = *existing
 
 		if err := recordSKUPriceChangeIfNeeded(ctx, uc.priceHistoryRepo, &sku, oldPriceMinorUnits, oldSalePriceMinorUnits, pmsDomain.PriceChangeReasonManualUpdate); err != nil {
+			return err
+		}
+
+		if err := enqueuePricePerKiloChangedIfNeeded(ctx, uc.outboxRepo, sku, oldPricePerKilo); err != nil {
 			return err
 		}
 

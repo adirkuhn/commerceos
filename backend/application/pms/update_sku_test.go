@@ -2,13 +2,16 @@ package pms_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	apppms "github.com/adirkuhn/commerceos/application/pms"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
 
@@ -417,4 +420,72 @@ func TestUpdateSKU_skipsPriceHistoryWhenPriceUnchanged(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, priceHistoryRepo.created, "a SKU edit that doesn't touch price/sale price must not fabricate a price-change event")
 	require.Empty(t, priceHistoryRepo.closedSKUIDs)
+}
+
+func poolSKU(perKilo int64) *pmsDomain.SKU {
+	scale := "2994721"
+	return &pmsDomain.SKU{
+		ID: "sku-pool", VariantID: "variant-1", SKUCode: "WOO-17522", CurrencyCode: "EUR", Status: pmsDomain.SKUStatusActive,
+		UnitType: pmsDomain.SKUUnitTypeKilo, PricingMode: pmsDomain.SKUPricingModePerWeight, PricePerKiloMinorUnits: &perKilo, ScaleCode: &scale,
+	}
+}
+
+func TestUpdateSKU_raisesPricePerKiloChangedWhenAPoolsRateChanges(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: poolSKU(2999)}
+	outbox := &stubOutboxRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), &stubVariantRepo{}, skuRepo, outbox, &stubSKUPriceHistoryRepo{})
+	in := apppms.UpdateSKUInputFrom(*poolSKU(2999))
+	newRate := int64(3299)
+	in.PricePerKiloMinorUnits = &newRate
+
+	_, err := uc.Execute(context.Background(), in)
+
+	require.NoError(t, err)
+	require.Contains(t, outbox.calls, "pms.sku.price_per_kilo_changed")
+	var e events.SKUPricePerKiloChanged
+	require.NoError(t, json.Unmarshal(outbox.payloads[indexOf(outbox.calls, "pms.sku.price_per_kilo_changed")], &e))
+	assert.Equal(t, "sku-pool", e.SKUID)
+	assert.Equal(t, int64(3299), e.NewPricePerKiloMinorUnits)
+	require.NotNil(t, e.OldPricePerKiloMinorUnits)
+	assert.Equal(t, int64(2999), *e.OldPricePerKiloMinorUnits)
+}
+
+func TestUpdateSKU_noPricePerKiloEventWhenTheRateIsUnchanged(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: poolSKU(2999)}
+	outbox := &stubOutboxRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), &stubVariantRepo{}, skuRepo, outbox, &stubSKUPriceHistoryRepo{})
+	in := apppms.UpdateSKUInputFrom(*poolSKU(2999))
+	in.SKUCode = "RENAMED"
+
+	_, err := uc.Execute(context.Background(), in)
+
+	require.NoError(t, err)
+	assert.NotContains(t, outbox.calls, "pms.sku.price_per_kilo_changed")
+}
+
+// A unit SKU priced per weight (sold loose by the scale, not a pool) has no
+// packages to reprice.
+func TestUpdateSKU_noPricePerKiloEventForANonPoolSKU(t *testing.T) {
+	notPool := poolSKU(2999)
+	notPool.UnitType = pmsDomain.SKUUnitTypeUnit
+	skuRepo := &stubSKURepo{findByIDResult: notPool}
+	outbox := &stubOutboxRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), &stubVariantRepo{}, skuRepo, outbox, &stubSKUPriceHistoryRepo{})
+	in := apppms.UpdateSKUInputFrom(*notPool)
+	newRate := int64(3299)
+	in.PricePerKiloMinorUnits = &newRate
+
+	_, err := uc.Execute(context.Background(), in)
+
+	require.NoError(t, err)
+	assert.NotContains(t, outbox.calls, "pms.sku.price_per_kilo_changed")
+}
+
+func indexOf(xs []string, x string) int {
+	for i, v := range xs {
+		if v == x {
+			return i
+		}
+	}
+	return -1
 }

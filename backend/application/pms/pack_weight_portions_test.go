@@ -216,7 +216,7 @@ func (f *packFixture) addPackage(skuID string, weight int64) {
 	f.catalog.variants = append(f.catalog.variants, pmsDomain.Variant{ID: variantID, ProductID: "product-1", Name: fmt.Sprintf("~%dg", weight)})
 	f.catalog.skus = append(f.catalog.skus, pmsDomain.SKU{
 		ID: skuID, VariantID: variantID, SKUCode: fmt.Sprintf("CARNE-SECA-%dG", weight), WeightGrams: &w,
-		UnitType: pmsDomain.SKUUnitTypeUnit, PortionedFromSKUID: &bulkID, Status: pmsDomain.SKUStatusActive,
+		UnitType: pmsDomain.SKUUnitTypeUnit, PricingMode: pmsDomain.SKUPricingModeFixed, PortionedFromSKUID: &bulkID, Status: pmsDomain.SKUStatusActive,
 	})
 }
 
