@@ -3,6 +3,8 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 
 	schedulerDomain "github.com/adirkuhn/commerceos/domain/scheduler"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -16,10 +18,11 @@ import (
 type UpdateJobConfigUseCase struct {
 	db      *gorm.DB
 	jobRepo schedulerDomain.JobRepository
+	outbox  eventrecord.Enqueuer
 }
 
-func NewUpdateJobConfigUseCase(db *gorm.DB, jobRepo schedulerDomain.JobRepository) *UpdateJobConfigUseCase {
-	return &UpdateJobConfigUseCase{db: db, jobRepo: jobRepo}
+func NewUpdateJobConfigUseCase(db *gorm.DB, jobRepo schedulerDomain.JobRepository, outbox eventrecord.Enqueuer) *UpdateJobConfigUseCase {
+	return &UpdateJobConfigUseCase{db: db, jobRepo: jobRepo, outbox: outbox}
 }
 
 func (uc *UpdateJobConfigUseCase) Execute(ctx context.Context, jobKey string, enabled bool, intervalMinutes int) error {
@@ -27,7 +30,17 @@ func (uc *UpdateJobConfigUseCase) Execute(ctx context.Context, jobKey string, en
 		return schedulerDomain.ErrInvalidIntervalMinutes
 	}
 	err := tenant.WithTenant(tenant.WithSuperAdmin(ctx), uc.db, func(ctx context.Context) error {
-		return uc.jobRepo.UpdateConfig(ctx, jobKey, enabled, intervalMinutes)
+		before, err := uc.jobRepo.FindByKey(ctx, jobKey)
+		if err != nil {
+			return err
+		}
+		if err := uc.jobRepo.UpdateConfig(ctx, jobKey, enabled, intervalMinutes); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.SchedulerJobUpdated, jobKey,
+			eventrecord.Data{"job_key": jobKey}, eventrecord.NewChanges().
+				Set("enabled", before.Enabled, enabled).
+				Set("interval_minutes", before.IntervalMinutes, intervalMinutes))
 	})
 	if err != nil {
 		return fmt.Errorf("updateJobConfig: %w", err)

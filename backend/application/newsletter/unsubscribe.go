@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/domain/newsletter"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -23,7 +25,10 @@ func (uc *UnsubscribeUseCase) Execute(ctx context.Context, token string) error {
 			return newsletter.ErrInvalidToken
 		}
 		s.Unsubscribe(uc.deps.Now())
-		return uc.deps.Repo.Update(ctx, s)
+		if err := uc.deps.Repo.Update(ctx, s); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.deps.Outbox, events.NewsletterSubscriberUnsubscribed, s.ID)
 	})
 	if err != nil {
 		return fmt.Errorf("unsubscribe: %w", err)

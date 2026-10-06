@@ -25,6 +25,8 @@ const reconcileFulfilledOrdersLimit = 500
 // the webhook paths do. A failure on one order is logged, not fatal -- the
 // next run tries again; only a failure listing the candidates at all fails
 // the whole run.
+//
+//events:delegated appshipping.MarkOrderShippedOnFulfillment -- the status change goes through SalesOrderStatusUpdater (oms.UpdateSalesOrderUseCase), which raises oms.sales_order.status_changed
 type ReconcileFulfilledOrdersUseCase struct {
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository

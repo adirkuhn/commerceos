@@ -3,7 +3,9 @@ package newsletter
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"github.com/adirkuhn/commerceos/application/shopperemail"
+	"github.com/adirkuhn/commerceos/domain/events"
 
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	"github.com/adirkuhn/commerceos/domain/newsletter"
@@ -52,10 +54,16 @@ func (uc *SubscribeUseCase) Execute(ctx context.Context, in SubscribeInput) erro
 			if err := uc.deps.Repo.Create(ctx, &s); err != nil {
 				return err
 			}
+			if err := recordSubscribed(ctx, uc.deps, s, false); err != nil {
+				return err
+			}
 			send = &s
 		} else if existing.Resubscribe(token, now) {
 			existing.SalesChannelID = in.SalesChannelID
 			if err := uc.deps.Repo.Update(ctx, existing); err != nil {
+				return err
+			}
+			if err := recordSubscribed(ctx, uc.deps, *existing, true); err != nil {
 				return err
 			}
 			send = existing
@@ -81,4 +89,10 @@ func (uc *SubscribeUseCase) Execute(ctx context.Context, in SubscribeInput) erro
 func confirmationEmail(store Store, to, confirmURL, unsubscribeURL string) messaging.Message {
 	subject, body := shopperemail.NewsletterConfirmation(store.Locale, store.Name, confirmURL, unsubscribeURL)
 	return messaging.Message{Channel: messaging.ChannelEmail, To: to, Subject: subject, HTMLBody: body}
+}
+
+func recordSubscribed(ctx context.Context, deps Deps, s newsletter.Subscriber, resubscribed bool) error {
+	return eventrecord.Record(ctx, deps.Outbox, events.NewsletterSubscriberSubscribed, s.ID, eventrecord.Data{
+		"sales_channel_id": s.SalesChannelID, "resubscribed": resubscribed,
+	})
 }

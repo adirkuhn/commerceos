@@ -186,7 +186,7 @@ func TestConfirmAndUnsubscribe(t *testing.T) {
 	require.NoError(t, appnewsletter.NewConfirmUseCase(w.deps).Execute(ctx, "tok1"))
 	s, _ := w.repo.FindByEmail(ctx, "a@x.io")
 	assert.Equal(t, newsletter.StatusConfirmed, s.Status)
-	assert.Equal(t, []string{"newsletter.subscriber.confirmed"}, w.outbox.subjects)
+	assert.Equal(t, []string{"newsletter.subscriber.subscribed", "newsletter.subscriber.confirmed"}, w.outbox.subjects)
 	assert.ErrorIs(t, appnewsletter.NewConfirmUseCase(w.deps).Execute(ctx, "tok1"), newsletter.ErrInvalidToken, "links work once")
 	assert.ErrorIs(t, appnewsletter.NewConfirmUseCase(w.deps).Execute(ctx, "bogus"), newsletter.ErrInvalidToken)
 

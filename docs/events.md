@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-67 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+70 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -102,6 +102,8 @@ Payload (`events.EntityAction`):
 |---|---|---|---|
 | `newsletter.subscriber.confirmed` | typed | NewsletterSubscriberConfirmed fires when an address completes double opt-in -- e.g. for a welcome email automation. | `NewsletterSubscriberConfirmed`: event_id, occurred_at, tenant_id, subscriber_id |
 | `newsletter.subscriber.erased` | typed | NewsletterSubscriberErased fires when a subscriber is deleted on request (right to erasure). | `NewsletterSubscriberErased`: event_id, occurred_at, tenant_id, subscriber_id |
+| `newsletter.subscriber.subscribed` | action | A shopper signed up for the newsletter and was sent a confirmation link (double opt-in, not confirmed yet). data: sales_channel_id, resubscribed (true when a previously unsubscribed address signed up again). | envelope |
+| `newsletter.subscriber.unsubscribed` | action | A subscriber unsubscribed through their unsubscribe link. | envelope |
 
 ### notifications
 
@@ -163,6 +165,12 @@ Payload (`events.EntityAction`):
 | `procurement.receiving_record.completed` | action | Review of an uploaded invoice was finished. data: purchase_order_id. | envelope |
 | `procurement.receiving_record.created` | action | A supplier invoice was uploaded against a purchase order to check what was delivered. data: purchase_order_id, file_name, content_type, parsing_job_id, potential_duplicate. | envelope |
 | `procurement.receiving_record.parsed` | action | An uploaded invoice was compared with its purchase order (each difference also raises receiving_discrepancy.detected). data: purchase_order_id, parsing_job_id, discrepancy_count. | envelope |
+
+### scheduler
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `scheduler.job.updated` | action | A scheduled job's configuration changed (changes: enabled, interval_minutes). data: job_key. | envelope |
 
 ### settings
 
