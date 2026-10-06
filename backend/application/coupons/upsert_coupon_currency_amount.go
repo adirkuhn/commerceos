@@ -3,6 +3,8 @@ package coupons
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 
 	"gorm.io/gorm"
 
@@ -21,10 +23,11 @@ type UpsertCouponCurrencyAmountUseCase struct {
 	db         *gorm.DB
 	couponRepo couponsDomain.Repository
 	repo       couponsDomain.CouponCurrencyAmountRepository
+	outbox     eventrecord.Enqueuer
 }
 
-func NewUpsertCouponCurrencyAmountUseCase(db *gorm.DB, couponRepo couponsDomain.Repository, repo couponsDomain.CouponCurrencyAmountRepository) *UpsertCouponCurrencyAmountUseCase {
-	return &UpsertCouponCurrencyAmountUseCase{db: db, couponRepo: couponRepo, repo: repo}
+func NewUpsertCouponCurrencyAmountUseCase(db *gorm.DB, couponRepo couponsDomain.Repository, repo couponsDomain.CouponCurrencyAmountRepository, outbox eventrecord.Enqueuer) *UpsertCouponCurrencyAmountUseCase {
+	return &UpsertCouponCurrencyAmountUseCase{db: db, couponRepo: couponRepo, repo: repo, outbox: outbox}
 }
 
 func (uc *UpsertCouponCurrencyAmountUseCase) Execute(ctx context.Context, in UpsertCouponCurrencyAmountInput) (*couponsDomain.CouponCurrencyAmount, error) {
@@ -44,7 +47,12 @@ func (uc *UpsertCouponCurrencyAmountUseCase) Execute(ctx context.Context, in Ups
 		amount = couponsDomain.CouponCurrencyAmount{
 			TenantID: tenant.IDFromContext(ctx), CouponID: coupon.ID, CurrencyCode: in.CurrencyCode, AmountMinorUnits: in.AmountMinorUnits,
 		}
-		return uc.repo.Upsert(ctx, &amount)
+		if err := uc.repo.Upsert(ctx, &amount); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.CouponCurrencyAmountSet, coupon.ID, eventrecord.Data{
+			"currency_code": amount.CurrencyCode, "amount_minor_units": amount.AmountMinorUnits,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("upsertCouponCurrencyAmount: %w", err)

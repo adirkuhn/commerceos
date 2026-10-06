@@ -69,14 +69,15 @@ var _ gencoupons.ServerInterface = (*Handler)(nil)
 func Register(rg gin.IRouter, db *gorm.DB) {
 	repo := repositories.NewCouponRepo(db)
 	currencyAmountRepo := repositories.NewCouponCurrencyAmountRepo(db)
+	outboxRepo := repositories.NewOutboxRepository(db)
 	h := NewHandler(
 		appCoupons.NewListCouponsUseCase(db, repo),
-		appCoupons.NewCreateCouponUseCase(db, repo),
-		appCoupons.NewUpdateCouponUseCase(db, repo),
-		appCoupons.NewDeleteCouponUseCase(db, repo),
+		appCoupons.NewCreateCouponUseCase(db, repo, outboxRepo),
+		appCoupons.NewUpdateCouponUseCase(db, repo, outboxRepo),
+		appCoupons.NewDeleteCouponUseCase(db, repo, outboxRepo),
 		appCoupons.NewListCouponCurrencyAmountsUseCase(db, currencyAmountRepo),
-		appCoupons.NewUpsertCouponCurrencyAmountUseCase(db, repo, currencyAmountRepo),
-		appCoupons.NewDeleteCouponCurrencyAmountUseCase(db, currencyAmountRepo),
+		appCoupons.NewUpsertCouponCurrencyAmountUseCase(db, repo, currencyAmountRepo, outboxRepo),
+		appCoupons.NewDeleteCouponCurrencyAmountUseCase(db, currencyAmountRepo, outboxRepo),
 	)
 	gencoupons.RegisterHandlers(rg, h)
 }

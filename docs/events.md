@@ -50,13 +50,23 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-51 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+56 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
 | `collections.collection.changed` | typed | CollectionChanged fires when a collection is created, edited, has its manual products changed, or is deleted (Deleted set) -- the signal for anything caching collection pages to refresh. | `CollectionChanged`: event_id, occurred_at, tenant_id, collection_id, deleted |
+
+### coupons
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `coupons.coupon.created` | action | A discount coupon was created. data: code, discount_type, discount_value, min_subtotal_minor_units, usage_limit, expires_at. | envelope |
+| `coupons.coupon.deleted` | action | A coupon was deleted. | envelope |
+| `coupons.coupon.updated` | action | A coupon changed (changes: code, discount_type, discount_value, min_subtotal_minor_units, usage_limit, expires_at, active). | envelope |
+| `coupons.coupon_currency_amount.deleted` | action | A coupon's per-currency discount was removed (it falls back to FX conversion). entity_id is the coupon. data: currency_code. | envelope |
+| `coupons.coupon_currency_amount.set` | action | A fixed-amount coupon's discount in one currency was set. entity_id is the coupon. data: currency_code, amount_minor_units. | envelope |
 
 ### integrations
 

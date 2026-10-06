@@ -2,6 +2,7 @@ package coupons_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,7 @@ func existingCoupon() couponsDomain.Coupon {
 
 func TestUpdateCoupon_success(t *testing.T) {
 	repo := &fakeCouponRepo{byID: map[string]couponsDomain.Coupon{"coupon-1": existingCoupon()}}
-	uc := appcoupons.NewUpdateCouponUseCase(newMockGormDB(t, 1), repo)
+	uc := appcoupons.NewUpdateCouponUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	coupon, err := uc.Execute(context.Background(), appcoupons.UpdateCouponInput{
 		ID: "coupon-1", Code: "new", DiscountType: couponsDomain.DiscountTypeFixed, DiscountValue: 1000, Active: false,
@@ -29,7 +30,7 @@ func TestUpdateCoupon_success(t *testing.T) {
 }
 
 func TestUpdateCoupon_propagatesNotFound(t *testing.T) {
-	uc := appcoupons.NewUpdateCouponUseCase(newMockGormDB(t, 1), &fakeCouponRepo{})
+	uc := appcoupons.NewUpdateCouponUseCase(newMockGormDB(t, 1), &fakeCouponRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appcoupons.UpdateCouponInput{
 		ID: "missing", Code: "X", DiscountType: couponsDomain.DiscountTypePercent, DiscountValue: 1000,
@@ -40,7 +41,7 @@ func TestUpdateCoupon_propagatesNotFound(t *testing.T) {
 
 func TestUpdateCoupon_rejectsInvalidInputBeforeLookup(t *testing.T) {
 	repo := &fakeCouponRepo{byID: map[string]couponsDomain.Coupon{"coupon-1": existingCoupon()}}
-	uc := appcoupons.NewUpdateCouponUseCase(newMockGormDB(t, 0), repo)
+	uc := appcoupons.NewUpdateCouponUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appcoupons.UpdateCouponInput{
 		ID: "coupon-1", Code: "", DiscountType: couponsDomain.DiscountTypePercent, DiscountValue: 1000,

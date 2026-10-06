@@ -6,6 +6,8 @@ package coupons
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"strings"
 	"time"
 
@@ -56,12 +58,13 @@ func validateCouponInput(code string, discountType couponsDomain.DiscountType, d
 }
 
 type CreateCouponUseCase struct {
-	db   *gorm.DB
-	repo couponsDomain.Repository
+	db     *gorm.DB
+	repo   couponsDomain.Repository
+	outbox eventrecord.Enqueuer
 }
 
-func NewCreateCouponUseCase(db *gorm.DB, repo couponsDomain.Repository) *CreateCouponUseCase {
-	return &CreateCouponUseCase{db: db, repo: repo}
+func NewCreateCouponUseCase(db *gorm.DB, repo couponsDomain.Repository, outbox eventrecord.Enqueuer) *CreateCouponUseCase {
+	return &CreateCouponUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 func (uc *CreateCouponUseCase) Execute(ctx context.Context, in CreateCouponInput) (*couponsDomain.Coupon, error) {
@@ -78,7 +81,13 @@ func (uc *CreateCouponUseCase) Execute(ctx context.Context, in CreateCouponInput
 			MinSubtotalMinorUnits: in.MinSubtotalMinorUnits, UsageLimit: in.UsageLimit, ExpiresAt: in.ExpiresAt,
 			Active: true, CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.repo.Create(ctx, &coupon)
+		if err := uc.repo.Create(ctx, &coupon); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.CouponCreated, coupon.ID, eventrecord.Data{
+			"code": coupon.Code, "discount_type": string(coupon.DiscountType), "discount_value": coupon.DiscountValue,
+			"min_subtotal_minor_units": coupon.MinSubtotalMinorUnits, "usage_limit": coupon.UsageLimit, "expires_at": coupon.ExpiresAt,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createCoupon: %w", err)
