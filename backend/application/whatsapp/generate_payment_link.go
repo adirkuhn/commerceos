@@ -20,6 +20,8 @@ import (
 // WhatsApp channel, or one with no payment method enabled -- both are
 // normal, expected states for a tenant that hasn't set payment up yet, not
 // failures.
+//
+//events:none -- no local write: it only asks the payment provider for a link; the order it pays for raises oms events
 type GeneratePaymentLinkUseCase struct {
 	db               *gorm.DB
 	salesChannelRepo channelsDomain.SalesChannelRepository

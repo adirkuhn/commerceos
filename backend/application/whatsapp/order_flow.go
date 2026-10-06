@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"log"
 	"strings"
 	"time"
@@ -66,6 +68,7 @@ type OrderFlowUseCase struct {
 	createSalesOrder    salesOrderCreator
 	createCustomer      customerCreator
 	generatePaymentLink paymentLinkGenerator
+	outbox              eventrecord.Enqueuer
 }
 
 func NewOrderFlowUseCase(
@@ -76,11 +79,12 @@ func NewOrderFlowUseCase(
 	createSalesOrder salesOrderCreator,
 	createCustomer customerCreator,
 	generatePaymentLink paymentLinkGenerator,
+	outbox eventrecord.Enqueuer,
 ) *OrderFlowUseCase {
 	return &OrderFlowUseCase{
 		db: db, conversationRepo: conversationRepo, channelRepo: channelRepo, lookupProduct: lookupProduct,
 		createSalesOrder: createSalesOrder, createCustomer: createCustomer,
-		generatePaymentLink: generatePaymentLink,
+		generatePaymentLink: generatePaymentLink, outbox: outbox,
 	}
 }
 
@@ -189,7 +193,12 @@ func (uc *OrderFlowUseCase) saveConversation(ctx context.Context, conv *whatsapp
 		conv.CreatedAt = conv.UpdatedAt
 	}
 	return tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.conversationRepo.Upsert(ctx, conv)
+		if err := uc.conversationRepo.Upsert(ctx, conv); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.WhatsAppConversationUpdated, conv.PhoneE164, eventrecord.Data{
+			"state": string(conv.State), "cart_item_count": len(conv.Cart),
+		})
 	})
 }
 

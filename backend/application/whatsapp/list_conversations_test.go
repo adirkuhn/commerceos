@@ -2,6 +2,7 @@ package whatsapp_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -50,7 +51,7 @@ func TestDeleteWhatsAppConversation_removesOnlyThatPhonesMessages(t *testing.T) 
 	require.NoError(t, repo.Create(context.Background(), &whatsappDomain.Message{
 		PhoneE164: "31699999999", Direction: whatsappDomain.MessageDirectionInbound, Body: "oi",
 	}))
-	uc := appwhatsapp.NewDeleteWhatsAppConversationUseCase(newMockGormDB(t, 1), repo)
+	uc := appwhatsapp.NewDeleteWhatsAppConversationUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "31612345678")
 

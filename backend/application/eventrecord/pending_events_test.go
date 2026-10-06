@@ -143,8 +143,4 @@ var pendingEvents = []string{
 	"theme/save_draft_settings.go",
 	"theme/update_asset.go",
 	"theme/upload_asset.go",
-	"whatsapp/generate_payment_link.go",
-	"whatsapp/handle_inbound_message.go",
-	"whatsapp/list_conversations.go",
-	"whatsapp/order_flow.go",
 }

@@ -3,6 +3,8 @@ package whatsapp
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 
 	"gorm.io/gorm"
 
@@ -66,15 +68,19 @@ func (uc *ListWhatsAppMessagesByPhoneUseCase) Execute(ctx context.Context, phone
 type DeleteWhatsAppConversationUseCase struct {
 	db          *gorm.DB
 	messageRepo whatsappDomain.MessageRepository
+	outbox      eventrecord.Enqueuer
 }
 
-func NewDeleteWhatsAppConversationUseCase(db *gorm.DB, messageRepo whatsappDomain.MessageRepository) *DeleteWhatsAppConversationUseCase {
-	return &DeleteWhatsAppConversationUseCase{db: db, messageRepo: messageRepo}
+func NewDeleteWhatsAppConversationUseCase(db *gorm.DB, messageRepo whatsappDomain.MessageRepository, outbox eventrecord.Enqueuer) *DeleteWhatsAppConversationUseCase {
+	return &DeleteWhatsAppConversationUseCase{db: db, messageRepo: messageRepo, outbox: outbox}
 }
 
 func (uc *DeleteWhatsAppConversationUseCase) Execute(ctx context.Context, phoneE164 string) error {
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.messageRepo.DeleteByPhone(ctx, phoneE164)
+		if err := uc.messageRepo.DeleteByPhone(ctx, phoneE164); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.WhatsAppConversationDeleted, phoneE164)
 	})
 	if err != nil {
 		return fmt.Errorf("deleteWhatsAppConversation: %w", err)

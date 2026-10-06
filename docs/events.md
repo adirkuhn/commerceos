@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-75 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+79 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -211,6 +211,15 @@ Payload (`events.EntityAction`):
 | `webhook_forwarding.fallback_event.republished` | action | An inbound webhook that couldn't be queued when it arrived was published again by an admin. data: provider. | envelope |
 | `webhook_forwarding.forward_rule.created` | action | A rule forwarding a provider's inbound webhooks to another URL was added. data: provider, topic, target_host (the host only -- a target URL's path/query can carry secrets). | envelope |
 | `webhook_forwarding.forward_rule.deleted` | action | A webhook forward rule was removed. | envelope |
+
+### whatsapp
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `whatsapp.conversation.deleted` | action | An admin deleted a WhatsApp conversation's message log. entity_id is the phone number. | envelope |
+| `whatsapp.conversation.updated` | action | A WhatsApp ordering conversation moved on (cart changed, a question answered, an order placed). entity_id is the phone number. data: state, cart_item_count. | envelope |
+| `whatsapp.message.received` | action | A customer's WhatsApp message arrived and was logged. data: customer_id (null when the number isn't a known customer), webhook_event_id. | envelope |
+| `whatsapp.message.sent` | action | CommerceOS replied to a customer on WhatsApp. data: customer_id. | envelope |
 
 ## Legacy subjects
 
