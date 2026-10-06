@@ -452,8 +452,7 @@ func TestCompletePicking_refundWithKnownProviderIssuesRealRefund(t *testing.T) {
 	require.Len(t, salesOrderRepo.updateCalls, 2, "refund status write + the always-on fulfilled write")
 	assert.Equal(t, "partially_refunded", salesOrderRepo.updateCalls[0].Fields["status"])
 
-	require.Len(t, outboxRepo.calls, 1)
-	assert.Equal(t, "payments.refund.issued", outboxRepo.calls[0])
+	require.Equal(t, []string{"payments.refund.issued", "oms.picking_session.completed", "oms.sales_order.updated"}, outboxRepo.calls)
 	require.Empty(t, result.MissingItems, "a refunded line counts as resolved, not missing")
 }
 
@@ -480,8 +479,7 @@ func TestCompletePicking_refundWithNoProviderInfoFlagsManualReview(t *testing.T)
 	assert.Equal(t, true, salesOrderRepo.updateCalls[0].Fields["needs_manual_refund_review"])
 	assert.NotContains(t, salesOrderRepo.updateCalls[0].Fields, "status", "no status change on the manual-review path")
 
-	require.Len(t, outboxRepo.calls, 1)
-	assert.Equal(t, "payments.refund.manual_review_required", outboxRepo.calls[0])
+	require.Equal(t, []string{"payments.refund.manual_review_required", "oms.picking_session.completed", "oms.sales_order.updated"}, outboxRepo.calls)
 }
 
 func TestCompletePicking_refundAPIFailureFallsBackToManualReviewWithoutBlocking(t *testing.T) {

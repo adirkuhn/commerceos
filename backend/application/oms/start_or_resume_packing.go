@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -19,6 +21,7 @@ import (
 // caller is an admin) -- it's closed as abandoned, keeping its scans -- and
 // otherwise blocks packing with ErrOrderPickingInProgress.
 type StartOrResumePackingUseCase struct {
+	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
 	sessionRepo    omsDomain.PackingSessionRepository
@@ -26,8 +29,8 @@ type StartOrResumePackingUseCase struct {
 	pickScanRepo   pickScanLister
 }
 
-func NewStartOrResumePackingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, sessionRepo omsDomain.PackingSessionRepository, pickingRepo pickingSessionTakeover, pickScanRepo pickScanLister) *StartOrResumePackingUseCase {
-	return &StartOrResumePackingUseCase{db: db, salesOrderRepo: salesOrderRepo, sessionRepo: sessionRepo, pickingRepo: pickingRepo, pickScanRepo: pickScanRepo}
+func NewStartOrResumePackingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, sessionRepo omsDomain.PackingSessionRepository, pickingRepo pickingSessionTakeover, pickScanRepo pickScanLister, outbox eventrecord.Enqueuer) *StartOrResumePackingUseCase {
+	return &StartOrResumePackingUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, sessionRepo: sessionRepo, pickingRepo: pickingRepo, pickScanRepo: pickScanRepo}
 }
 
 func (uc *StartOrResumePackingUseCase) Execute(ctx context.Context, salesOrderID string, actor omsDomain.LockActor) (*omsDomain.PackingSession, error) {
@@ -41,7 +44,7 @@ func (uc *StartOrResumePackingUseCase) Execute(ctx context.Context, salesOrderID
 			return err
 		}
 		now := time.Now()
-		if err := abandonOpenPicking(ctx, uc.pickingRepo, uc.pickScanRepo, salesOrderID, actor, now); err != nil {
+		if err := abandonOpenPicking(ctx, uc.pickingRepo, uc.pickScanRepo, uc.outbox, salesOrderID, actor, now); err != nil {
 			return err
 		}
 
@@ -62,7 +65,10 @@ func (uc *StartOrResumePackingUseCase) Execute(ctx context.Context, salesOrderID
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: salesOrderID,
 			Status: omsDomain.PackingSessionStatusInProgress, StartedAt: now,
 		}
-		return uc.sessionRepo.Create(ctx, &session)
+		if err := uc.sessionRepo.Create(ctx, &session); err != nil {
+			return err
+		}
+		return recordSession(ctx, uc.outbox, events.PackingSessionStarted, session.ID, salesOrderID, nil)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("startOrResumePacking: %w", err)

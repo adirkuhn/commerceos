@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -24,14 +25,15 @@ type LinkLineItemSKUInput struct {
 // the stock review flow) -- linking and decrementing are two different staff
 // judgment calls that shouldn't be silently coupled.
 type LinkLineItemSKUUseCase struct {
+	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	skuRepo        skuLookupRepo
 }
 
-func NewLinkLineItemSKUUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, skuRepo skuLookupRepo) *LinkLineItemSKUUseCase {
-	return &LinkLineItemSKUUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, skuRepo: skuRepo}
+func NewLinkLineItemSKUUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, skuRepo skuLookupRepo, outbox eventrecord.Enqueuer) *LinkLineItemSKUUseCase {
+	return &LinkLineItemSKUUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, skuRepo: skuRepo}
 }
 
 func (uc *LinkLineItemSKUUseCase) Execute(ctx context.Context, in LinkLineItemSKUInput) (*omsDomain.SalesOrder, error) {
@@ -50,6 +52,9 @@ func (uc *LinkLineItemSKUUseCase) Execute(ctx context.Context, in LinkLineItemSK
 		if err := uc.lineItemRepo.Update(ctx, in.LineItemID, map[string]any{"sku_id": in.SKUID}); err != nil {
 			return err
 		}
+		if err := recordLineItemLinked(ctx, uc.outbox, *li, in.SKUID, LineLinkSourceManual); err != nil {
+			return err
+		}
 
 		lineItems, err := uc.lineItemRepo.ListBySalesOrder(ctx, in.SalesOrderID)
 		if err != nil {
@@ -62,7 +67,7 @@ func (uc *LinkLineItemSKUUseCase) Execute(ctx context.Context, in LinkLineItemSK
 				break
 			}
 		}
-		if err := uc.salesOrderRepo.Update(ctx, in.SalesOrderID, map[string]any{"needs_sku_review": stillUnlinked}); err != nil {
+		if err := setNeedsSKUReview(ctx, uc.salesOrderRepo, uc.outbox, in.SalesOrderID, stillUnlinked); err != nil {
 			return err
 		}
 

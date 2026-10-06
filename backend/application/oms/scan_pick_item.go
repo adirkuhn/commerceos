@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -68,6 +70,7 @@ type ScanPickItemResult struct {
 // CompletePickingUseCase replays every staged row when the session
 // finishes.
 type ScanPickItemUseCase struct {
+	outbox             eventrecord.Enqueuer
 	db                 *gorm.DB
 	sessionRepo        omsDomain.PickingSessionRepository
 	scanRepo           omsDomain.PickScanRepository
@@ -91,8 +94,9 @@ func NewScanPickItemUseCase(
 	scaleCodeAliasRepo scaleCodeAliasFinder,
 	variantRepo variantFinderForPickScanResolve,
 	productRepo productFinderForPickScanResolve,
+	outbox eventrecord.Enqueuer,
 ) *ScanPickItemUseCase {
-	return &ScanPickItemUseCase{
+	return &ScanPickItemUseCase{outbox: outbox,
 		db: db, sessionRepo: sessionRepo, scanRepo: scanRepo, lineItemRepo: lineItemRepo, salesOrderRepo: salesOrderRepo,
 		skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo, scaleCodeAliasRepo: scaleCodeAliasRepo,
 		variantRepo: variantRepo, productRepo: productRepo,
@@ -150,7 +154,10 @@ func (uc *ScanPickItemUseCase) Execute(ctx context.Context, in ScanPickItemInput
 			ActionType: actionType, Quantity: in.Quantity, Reason: in.Reason,
 			ScannedAt: time.Now(), ScannedBy: in.ScannedBy,
 		}
-		return uc.scanRepo.Create(ctx, &scan)
+		if err := uc.scanRepo.Create(ctx, &scan); err != nil {
+			return err
+		}
+		return recordPickScan(ctx, uc.outbox, events.PickScanCreated, scan)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("scanPickItem: %w", err)
@@ -314,6 +321,9 @@ func (uc *ScanPickItemUseCase) autoLinkUnmatchedLine(ctx context.Context, salesO
 	if err := uc.lineItemRepo.Update(ctx, match.ID, map[string]any{"sku_id": skuID}); err != nil {
 		return "", err
 	}
+	if err := recordLineItemLinked(ctx, uc.outbox, *match, skuID, LineLinkSourcePickScan); err != nil {
+		return "", err
+	}
 	stillUnlinked := false
 	for _, li := range lineItems {
 		if li.ID != match.ID && li.SKUID == nil {
@@ -321,7 +331,7 @@ func (uc *ScanPickItemUseCase) autoLinkUnmatchedLine(ctx context.Context, salesO
 			break
 		}
 	}
-	if err := uc.salesOrderRepo.Update(ctx, salesOrderID, map[string]any{"needs_sku_review": stillUnlinked}); err != nil {
+	if err := setNeedsSKUReview(ctx, uc.salesOrderRepo, uc.outbox, salesOrderID, stillUnlinked); err != nil {
 		return "", err
 	}
 	return match.ID, nil

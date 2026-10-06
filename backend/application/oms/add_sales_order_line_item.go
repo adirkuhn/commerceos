@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -40,14 +42,15 @@ type AddSalesOrderLineItemInput struct {
 // movement is the caller's separate call" split used everywhere else in
 // this package (see ReceivePOSSalesOrderUseCase's doc).
 type AddSalesOrderLineItemUseCase struct {
+	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	skuRepo        skuLookupRepo
 }
 
-func NewAddSalesOrderLineItemUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, skuRepo skuLookupRepo) *AddSalesOrderLineItemUseCase {
-	return &AddSalesOrderLineItemUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, skuRepo: skuRepo}
+func NewAddSalesOrderLineItemUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, skuRepo skuLookupRepo, outbox eventrecord.Enqueuer) *AddSalesOrderLineItemUseCase {
+	return &AddSalesOrderLineItemUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, skuRepo: skuRepo}
 }
 
 func (uc *AddSalesOrderLineItemUseCase) Execute(ctx context.Context, in AddSalesOrderLineItemInput) (*omsDomain.SalesOrderLineItem, error) {
@@ -85,10 +88,21 @@ func (uc *AddSalesOrderLineItemUseCase) Execute(ctx context.Context, in AddSales
 			return err
 		}
 
-		return uc.salesOrderRepo.Update(ctx, order.ID, map[string]any{
-			"total_minor_units": order.TotalMinorUnits + total,
+		newTotal := order.TotalMinorUnits + total
+		if err := uc.salesOrderRepo.Update(ctx, order.ID, map[string]any{
+			"total_minor_units": newTotal,
 			"updated_at":        time.Now(),
-		})
+		}); err != nil {
+			return err
+		}
+		if err := eventrecord.Record(ctx, uc.outbox, events.SalesOrderLineItemAdded, lineItem.ID, eventrecord.Data{
+			"sales_order_id": order.ID, "sku_id": in.SKUID, "quantity": lineItem.Quantity,
+			"price_minor_units": lineItem.PriceMinorUnits, "total_minor_units": lineItem.TotalMinorUnits,
+		}); err != nil {
+			return err
+		}
+		return recordSalesOrderUpdated(ctx, uc.outbox, order.ID,
+			eventrecord.NewChanges().Set("total_minor_units", order.TotalMinorUnits, newTotal), OrderChangeReasonLineItemAdded)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("addSalesOrderLineItem: %w", err)

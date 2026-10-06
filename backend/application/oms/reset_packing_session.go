@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -14,13 +16,14 @@ import (
 // "start over" escape hatch for switching boxes or fixing a mis-scan spree.
 // Only legal while the session is in_progress -- 422 once completed.
 type ResetPackingSessionUseCase struct {
+	outbox      eventrecord.Enqueuer
 	db          *gorm.DB
 	sessionRepo omsDomain.PackingSessionRepository
 	scanRepo    omsDomain.PackScanRepository
 }
 
-func NewResetPackingSessionUseCase(db *gorm.DB, sessionRepo omsDomain.PackingSessionRepository, scanRepo omsDomain.PackScanRepository) *ResetPackingSessionUseCase {
-	return &ResetPackingSessionUseCase{db: db, sessionRepo: sessionRepo, scanRepo: scanRepo}
+func NewResetPackingSessionUseCase(db *gorm.DB, sessionRepo omsDomain.PackingSessionRepository, scanRepo omsDomain.PackScanRepository, outbox eventrecord.Enqueuer) *ResetPackingSessionUseCase {
+	return &ResetPackingSessionUseCase{outbox: outbox, db: db, sessionRepo: sessionRepo, scanRepo: scanRepo}
 }
 
 func (uc *ResetPackingSessionUseCase) Execute(ctx context.Context, sessionID string) (*omsDomain.PackingSession, error) {
@@ -54,7 +57,7 @@ func (uc *ResetPackingSessionUseCase) Execute(ctx context.Context, sessionID str
 			return err
 		}
 		session = *s
-		return nil
+		return recordSession(ctx, uc.outbox, events.PackingSessionReset, s.ID, s.SalesOrderID, eventrecord.Data{"removed_scan_count": len(scans)})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("resetPackingSession: %w", err)

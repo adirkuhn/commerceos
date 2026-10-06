@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -45,6 +47,7 @@ type ScanPackItemResult struct {
 // so an unresolvable line item here is a genuine mismatch, not something to
 // auto-link.
 type ScanPackItemUseCase struct {
+	outbox       eventrecord.Enqueuer
 	db           *gorm.DB
 	sessionRepo  omsDomain.PackingSessionRepository
 	scanRepo     omsDomain.PackScanRepository
@@ -66,8 +69,9 @@ func NewScanPackItemUseCase(
 	scaleCodeAliasRepo scaleCodeAliasFinder,
 	variantRepo variantFinderForPickScanResolve,
 	productRepo productFinderForPickScanResolve,
+	outbox eventrecord.Enqueuer,
 ) *ScanPackItemUseCase {
-	return &ScanPackItemUseCase{
+	return &ScanPackItemUseCase{outbox: outbox,
 		db: db, sessionRepo: sessionRepo, scanRepo: scanRepo, lineItemRepo: lineItemRepo,
 		resolver: scanCodeResolver{
 			lineItemRepo: lineItemRepo, skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo,
@@ -130,7 +134,10 @@ func (uc *ScanPackItemUseCase) Execute(ctx context.Context, in ScanPackItemInput
 				Quantity: in.Quantity, PriceMinorUnits: in.PriceMinorUnits, Reason: in.Reason,
 				ScannedAt: time.Now(), ScannedBy: in.ScannedBy,
 			}
-			return uc.scanRepo.Create(ctx, &scan)
+			if err := uc.scanRepo.Create(ctx, &scan); err != nil {
+				return err
+			}
+			return recordPackScan(ctx, uc.outbox, events.PackScanCreated, scan)
 		}
 
 		var lineItem *omsDomain.SalesOrderLineItem
@@ -164,7 +171,10 @@ func (uc *ScanPackItemUseCase) Execute(ctx context.Context, in ScanPackItemInput
 			TenantID: tenant.IDFromContext(ctx), SessionID: in.SessionID, LineItemID: &lineItemID, SKUID: skuID,
 			ActionType: omsDomain.PackScanActionPack, Quantity: in.Quantity, ScannedAt: time.Now(), ScannedBy: in.ScannedBy,
 		}
-		return uc.scanRepo.Create(ctx, &scan)
+		if err := uc.scanRepo.Create(ctx, &scan); err != nil {
+			return err
+		}
+		return recordPackScan(ctx, uc.outbox, events.PackScanCreated, scan)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("scanPackItem: %w", err)

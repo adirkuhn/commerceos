@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -23,7 +24,7 @@ import (
 // used to. Staff resolve a pending item via LinkLineItemSKUUseCase (SKU-less
 // case) then RetryStockDecrementUseCase (either case) from the "Stock
 // Issues"/"Unmatched SKUs" admin pages -- see those use cases' docs.
-func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, salesOrderRepo omsDomain.SalesOrderRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, orderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem) error {
+func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, salesOrderRepo omsDomain.SalesOrderRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, outbox eventrecord.Enqueuer, orderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem) error {
 	stillPending := false
 	for _, li := range lineItems {
 		if li.SKUID == nil {
@@ -42,7 +43,7 @@ func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain
 				return err
 			}
 			stillPending = true
-			if err := setLineItemStockStatus(ctx, db, lineItemRepo, li.ID, omsDomain.StockStatusPending); err != nil {
+			if err := setLineItemStockStatus(ctx, db, lineItemRepo, outbox, li, omsDomain.StockStatusPending, OrderChangeReasonStockShortfall); err != nil {
 				return err
 			}
 			continue
@@ -56,7 +57,7 @@ func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain
 			return err
 		}
 	}
-	return setOrderNeedsStockReview(ctx, db, salesOrderRepo, orderID, stillPending)
+	return setOrderNeedsStockReview(ctx, db, salesOrderRepo, outbox, orderID, stillPending, OrderChangeReasonStockShortfall)
 }
 
 // restockLineItems only restocks a line item whose StockStatus is already
@@ -75,13 +76,13 @@ func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain
 // Type Adjustment, not Sale -- Sale's sign validation only ever allows a
 // negative delta (removing stock), so a positive "giving it back" movement
 // has to be the other type explicitly allowed either direction.
-func restockLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, salesOrderRepo omsDomain.SalesOrderRepository, reverseMovement movementReverser, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, orderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem) error {
+func restockLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, salesOrderRepo omsDomain.SalesOrderRepository, reverseMovement movementReverser, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, outbox eventrecord.Enqueuer, orderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem) error {
 	for _, li := range lineItems {
 		if li.SKUID == nil {
 			continue
 		}
 		if li.StockStatus == omsDomain.StockStatusPending {
-			if err := setLineItemStockStatus(ctx, db, lineItemRepo, li.ID, omsDomain.StockStatusDecremented); err != nil {
+			if err := setLineItemStockStatus(ctx, db, lineItemRepo, outbox, li, omsDomain.StockStatusDecremented, OrderChangeReasonStockRestored); err != nil {
 				return err
 			}
 			continue
@@ -106,7 +107,7 @@ func restockLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.S
 			}
 		}
 	}
-	return setOrderNeedsStockReview(ctx, db, salesOrderRepo, orderID, false)
+	return setOrderNeedsStockReview(ctx, db, salesOrderRepo, outbox, orderID, false, OrderChangeReasonStockRestored)
 }
 
 // listLineItemMovements is linkRepo.ListByLineItem wrapped in its own
@@ -125,9 +126,12 @@ func listLineItemMovements(ctx context.Context, db *gorm.DB, linkRepo omsDomain.
 	return links, nil
 }
 
-func setLineItemStockStatus(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, lineItemID string, status omsDomain.StockStatus) error {
+func setLineItemStockStatus(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, outbox eventrecord.Enqueuer, li omsDomain.SalesOrderLineItem, status omsDomain.StockStatus, reason string) error {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		return lineItemRepo.Update(ctx, lineItemID, map[string]any{"stock_status": string(status)})
+		if err := lineItemRepo.Update(ctx, li.ID, map[string]any{"stock_status": string(status)}); err != nil {
+			return err
+		}
+		return recordLineItemStockStatus(ctx, outbox, li, status, reason)
 	})
 	if err != nil {
 		return fmt.Errorf("setLineItemStockStatus: %w", err)
@@ -135,9 +139,17 @@ func setLineItemStockStatus(ctx context.Context, db *gorm.DB, lineItemRepo omsDo
 	return nil
 }
 
-func setOrderNeedsStockReview(ctx context.Context, db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, orderID string, needsReview bool) error {
+func setOrderNeedsStockReview(ctx context.Context, db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, outbox eventrecord.Enqueuer, orderID string, needsReview bool, reason string) error {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		return salesOrderRepo.Update(ctx, orderID, map[string]any{"needs_stock_review": needsReview})
+		order, err := salesOrderRepo.FindByID(ctx, orderID)
+		if err != nil {
+			return err
+		}
+		if err := salesOrderRepo.Update(ctx, orderID, map[string]any{"needs_stock_review": needsReview}); err != nil {
+			return err
+		}
+		return recordSalesOrderUpdated(ctx, outbox, orderID,
+			eventrecord.NewChanges().Set("needs_stock_review", order.NeedsStockReview, needsReview), reason)
 	})
 	if err != nil {
 		return fmt.Errorf("setOrderNeedsStockReview: %w", err)

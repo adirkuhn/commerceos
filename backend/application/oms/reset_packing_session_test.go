@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,8 @@ func TestResetPackingSession_deletesAllScansAndReleasesLock(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{{ID: "scan-1"}, {ID: "scan-2"}}}
-	uc := appoms.NewResetPackingSessionUseCase(db, sessionRepo, scanRepo)
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewResetPackingSessionUseCase(db, sessionRepo, scanRepo, outbox)
 
 	session, err := uc.Execute(context.Background(), "session-1")
 
@@ -22,13 +24,16 @@ func TestResetPackingSession_deletesAllScansAndReleasesLock(t *testing.T) {
 	assert.ElementsMatch(t, []string{"scan-1", "scan-2"}, scanRepo.deleted)
 	assert.Equal(t, []string{"session-1"}, sessionRepo.released)
 	assert.Nil(t, session.LockedBy)
+
+	assert.Contains(t, outbox.Subjects(), "oms.packing_session.reset")
+
 }
 
 func TestResetPackingSession_rejectsCompletedSession(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", Status: omsDomain.PackingSessionStatusCompleted}}
 	scanRepo := &stubPackScanRepo{}
-	uc := appoms.NewResetPackingSessionUseCase(db, sessionRepo, scanRepo)
+	uc := appoms.NewResetPackingSessionUseCase(db, sessionRepo, scanRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "session-1")
 

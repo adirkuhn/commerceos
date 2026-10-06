@@ -332,7 +332,7 @@ func Register(
 	}
 	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
 	deleteSalesOrderUC := appoms.NewDeleteSalesOrderUseCase(
-		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, stockRecorderUC,
+		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, stockRecorderUC, outboxRepo,
 	)
 	customerRepo := repositories.NewCustomerRepo(db)
 	fetchWooOrderUC := appchannels.NewImportWooOrdersUseCase(

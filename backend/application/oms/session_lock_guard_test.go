@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,7 @@ func TestScanPackItem_rejectsCallerWhoLostTheLock(t *testing.T) {
 		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress, LockedBy: holder, LockedAt: at,
 	}}
 	scanRepo := &stubPackScanRepo{}
-	uc := appoms.NewScanPackItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPackItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPackItemInput{SessionID: "session-1", SKUID: "sku-1", Quantity: 1, ScannedBy: "user-1"})
 
@@ -43,7 +44,7 @@ func TestCompletePacking_rejectsCallerWhoLostTheLock(t *testing.T) {
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}}
 	applier := appoms.NewOrderChangeApplier(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubAddLineItemForPickCompletion{},
 		&stubRecordMovement{}, &stubReverseMovement{}, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{}, &stubOutboxRepo{}, &stubPaymentRefundClientResolver{})
-	uc := appoms.NewCompletePackingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubPackScanRepo{}, applier)
+	uc := appoms.NewCompletePackingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubPackScanRepo{}, applier, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.CompletePackingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
@@ -59,7 +60,7 @@ func TestScanPickItem_rejectsCallerWhoLostTheLock(t *testing.T) {
 		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress, LockedBy: holder, LockedAt: at,
 	}}
 	scanRepo := &stubPickScanRepo{}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-1", Quantity: 1, ScannedBy: "user-1"})
 
@@ -99,7 +100,7 @@ func TestSubstituteLineItem_rejectsCallerWhoLostTheLock(t *testing.T) {
 		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress, LockedBy: holder, LockedAt: at,
 	}}
 	scanRepo := &stubPackScanRepo{}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{})
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1", ScannedBy: "user-1",
@@ -117,7 +118,7 @@ func TestRefundLineItem_rejectsCallerWhoLostTheLock(t *testing.T) {
 		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress, LockedBy: holder, LockedAt: at,
 	}}
 	scanRepo := &stubPackScanRepo{}
-	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{}, &stubGroupPermissionRepo{})
+	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, scanRepo, &stubSalesOrderLineItemRepo{}, &stubGroupPermissionRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.RefundLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1", Quantity: 1, ScannedBy: "user-1", RequesterUserID: "user-1", RequesterRole: "customer_owner",
@@ -134,7 +135,7 @@ func TestScanPackItem_firstActionTakesTheLock(t *testing.T) {
 	skuID := "sku-1"
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: &skuID, Quantity: 2}}}
-	uc := appoms.NewScanPackItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPackItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPackItemInput{SessionID: "session-1", SKUID: skuID, Quantity: 1, ScannedBy: "user-1"})
 
@@ -146,7 +147,7 @@ func TestSubstituteLineItem_firstActionTakesTheLock(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", Quantity: 1}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1", ScannedBy: "user-1",
@@ -162,7 +163,7 @@ func TestScanPickItem_firstActionTakesTheLock(t *testing.T) {
 	skuID := "sku-1"
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: &skuID, Quantity: 2}}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: skuID, Quantity: 1, ScannedBy: "user-1"})
 

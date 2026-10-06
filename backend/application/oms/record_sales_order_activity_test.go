@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,8 @@ import (
 func TestRecordSalesOrderActivity_createsEntryWithMetadata(t *testing.T) {
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "so-1"}}
 	activityRepo := &stubSalesOrderActivityRepo{}
-	uc := appoms.NewRecordSalesOrderActivityUseCase(newMockGormDB(t), salesOrderRepo, activityRepo)
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewRecordSalesOrderActivityUseCase(newMockGormDB(t), salesOrderRepo, activityRepo, outbox)
 
 	activity, err := uc.Execute(context.Background(), appoms.RecordSalesOrderActivityInput{
 		SalesOrderID: "so-1", UserID: "user-1", ActivityType: "myparcel_shipment_created",
@@ -30,12 +32,15 @@ func TestRecordSalesOrderActivity_createsEntryWithMetadata(t *testing.T) {
 	var metadata map[string]any
 	require.NoError(t, json.Unmarshal(activity.Metadata, &metadata))
 	assert.Equal(t, "3SMYPA1", metadata["barcode"])
+
+	assert.Contains(t, outbox.Subjects(), "oms.sales_order_activity.recorded")
+
 }
 
 func TestRecordSalesOrderActivity_nilMetadataRecordsEmptyObjectNotNull(t *testing.T) {
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "so-1"}}
 	activityRepo := &stubSalesOrderActivityRepo{}
-	uc := appoms.NewRecordSalesOrderActivityUseCase(newMockGormDB(t), salesOrderRepo, activityRepo)
+	uc := appoms.NewRecordSalesOrderActivityUseCase(newMockGormDB(t), salesOrderRepo, activityRepo, &eventrecordtest.Outbox{})
 
 	activity, err := uc.Execute(context.Background(), appoms.RecordSalesOrderActivityInput{
 		SalesOrderID: "so-1", UserID: "user-1", ActivityType: "myparcel_error", Summary: "failed",
@@ -46,7 +51,7 @@ func TestRecordSalesOrderActivity_nilMetadataRecordsEmptyObjectNotNull(t *testin
 }
 
 func TestRecordSalesOrderActivity_propagatesSalesOrderNotFound(t *testing.T) {
-	uc := appoms.NewRecordSalesOrderActivityUseCase(newMockGormDB(t), &stubSalesOrderRepo{}, &stubSalesOrderActivityRepo{})
+	uc := appoms.NewRecordSalesOrderActivityUseCase(newMockGormDB(t), &stubSalesOrderRepo{}, &stubSalesOrderActivityRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.RecordSalesOrderActivityInput{SalesOrderID: "missing", UserID: "user-1"})
 

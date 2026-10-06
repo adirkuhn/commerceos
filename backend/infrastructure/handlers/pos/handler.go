@@ -75,7 +75,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	h := NewHandler(
 		apppms.NewListPOSProductCatalogUseCase(db, listProducts, variantRepo, skuRepo, mediaRepo, barcodeAliasRepo, scaleCodeAliasRepo),
 		appinventory.NewListStockLevelsUseCase(db, movementRepo, batchRepo, settingsRepo),
-		appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock),
+		appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, outboxRepo),
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
 	)
 	genpos.RegisterHandlers(rg, h)

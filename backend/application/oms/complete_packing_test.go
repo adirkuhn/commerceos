@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +19,7 @@ type completePackingFixture struct {
 	addLine   *stubAddLineItemForPickCompletion
 	movements *stubRecordMovement
 	stock     *stubStockAvailabilityChecker
+	outbox    *eventrecordtest.Outbox
 }
 
 func newCompletePackingFixture(lineItems []omsDomain.SalesOrderLineItem, scans []omsDomain.PackScan) completePackingFixture {
@@ -26,6 +28,7 @@ func newCompletePackingFixture(lineItems []omsDomain.SalesOrderLineItem, scans [
 		orders:    &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", WarehouseID: "wh-1"}},
 		lineItems: &stubSalesOrderLineItemRepo{listBySalesOrder: lineItems}, scans: &stubPackScanRepo{listBySession: scans},
 		addLine: &stubAddLineItemForPickCompletion{}, movements: &stubRecordMovement{}, stock: &stubStockAvailabilityChecker{},
+		outbox: &eventrecordtest.Outbox{},
 	}
 }
 
@@ -34,7 +37,7 @@ func (f completePackingFixture) useCase(t *testing.T) *appoms.CompletePackingUse
 	db := newMockGormDBN(t, 10)
 	applier := appoms.NewOrderChangeApplier(db, f.orders, f.lineItems, &stubSalesOrderLineItemStockMovementRepo{}, f.addLine,
 		f.movements, &stubReverseMovement{}, f.stock, &stubSKUFinderForShortfall{}, &stubOutboxRepo{}, &stubPaymentRefundClientResolver{})
-	return appoms.NewCompletePackingUseCase(db, f.sessions, f.orders, f.lineItems, f.scans, applier)
+	return appoms.NewCompletePackingUseCase(db, f.sessions, f.orders, f.lineItems, f.scans, applier, f.outbox)
 }
 
 func widget() omsDomain.SalesOrderLineItem {
@@ -58,6 +61,10 @@ func TestCompletePacking_completesAndMarksOrderPacked(t *testing.T) {
 	assert.Equal(t, "order-1", f.orders.gotUpdateID)
 	assert.Equal(t, map[string]any{"packed": true, "fulfilled": true}, f.orders.gotUpdateFields,
 		"packing also marks the order fulfilled -- picking is optional")
+
+	require.Equal(t, []string{"oms.packing_session.completed", "oms.sales_order.updated"}, f.outbox.Subjects())
+	assert.Equal(t, map[string]any{"sales_order_id": "order-1", "completed_by": "user-1", "missing_item_count": float64(0), "change_count": float64(0)}, f.outbox.Events[0].Data())
+	assert.Equal(t, map[string][2]any{"packed": {false, true}, "fulfilled": {false, true}}, f.outbox.Events[1].Changes())
 }
 
 func TestCompletePacking_reportsMissingItemsButStillCompletes(t *testing.T) {

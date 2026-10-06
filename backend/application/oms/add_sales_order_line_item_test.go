@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -16,7 +17,8 @@ func TestAddSalesOrderLineItem_createsLineItemAndBumpsOrderTotal(t *testing.T) {
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", TotalMinorUnits: 1000}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
 	skuRepo := &stubSKURepo{byID: map[string]*pmsDomain.SKU{"sku-1": {ID: "sku-1", SKUCode: "SKU-1", Barcode: "BC-1"}}}
-	uc := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo, outbox)
 
 	li, err := uc.Execute(context.Background(), appoms.AddSalesOrderLineItemInput{
 		SalesOrderID: "order-1", SKUID: "sku-1", Name: "Freebie Widget", Quantity: 2, PriceMinorUnits: 500,
@@ -30,6 +32,10 @@ func TestAddSalesOrderLineItem_createsLineItemAndBumpsOrderTotal(t *testing.T) {
 	require.Len(t, salesOrderRepo.updateCalls, 1)
 	assert.Equal(t, "order-1", salesOrderRepo.updateCalls[0].ID)
 	assert.Equal(t, int64(2000), salesOrderRepo.updateCalls[0].Fields["total_minor_units"]) // 1000 + 1000
+
+	assert.Contains(t, outbox.Subjects(), "oms.sales_order_line_item.added")
+	assert.Contains(t, outbox.Subjects(), "oms.sales_order.updated")
+
 }
 
 func TestAddSalesOrderLineItem_zeroPriceIsAValidFreebie(t *testing.T) {
@@ -37,7 +43,7 @@ func TestAddSalesOrderLineItem_zeroPriceIsAValidFreebie(t *testing.T) {
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", TotalMinorUnits: 1000}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
 	skuRepo := &stubSKURepo{byID: map[string]*pmsDomain.SKU{"sku-1": {ID: "sku-1"}}}
-	uc := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
+	uc := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo, &eventrecordtest.Outbox{})
 
 	li, err := uc.Execute(context.Background(), appoms.AddSalesOrderLineItemInput{
 		SalesOrderID: "order-1", SKUID: "sku-1", Name: "Freebie", Quantity: 1, PriceMinorUnits: 0,
@@ -51,7 +57,7 @@ func TestAddSalesOrderLineItem_zeroPriceIsAValidFreebie(t *testing.T) {
 func TestAddSalesOrderLineItem_propagatesOrderNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDErr: omsDomain.ErrSalesOrderNotFound}
-	uc := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSKURepo{})
+	uc := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSKURepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.AddSalesOrderLineItemInput{SalesOrderID: "missing", SKUID: "sku-1", Quantity: 1, PriceMinorUnits: 0})
 
@@ -62,7 +68,7 @@ func TestAddSalesOrderLineItem_propagatesSKUNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}}
 	skuRepo := &stubSKURepo{findErr: pmsDomain.ErrSKUNotFound}
-	uc := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, skuRepo)
+	uc := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, skuRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.AddSalesOrderLineItemInput{SalesOrderID: "order-1", SKUID: "missing", Quantity: 1, PriceMinorUnits: 0})
 
@@ -70,7 +76,7 @@ func TestAddSalesOrderLineItem_propagatesSKUNotFound(t *testing.T) {
 }
 
 func TestAddSalesOrderLineItem_rejectsNonPositiveQuantity(t *testing.T) {
-	uc := appoms.NewAddSalesOrderLineItemUseCase(nil, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSKURepo{})
+	uc := appoms.NewAddSalesOrderLineItemUseCase(nil, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSKURepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.AddSalesOrderLineItemInput{SalesOrderID: "order-1", SKUID: "sku-1", Quantity: 0, PriceMinorUnits: 0})
 
@@ -78,7 +84,7 @@ func TestAddSalesOrderLineItem_rejectsNonPositiveQuantity(t *testing.T) {
 }
 
 func TestAddSalesOrderLineItem_rejectsNegativePrice(t *testing.T) {
-	uc := appoms.NewAddSalesOrderLineItemUseCase(nil, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSKURepo{})
+	uc := appoms.NewAddSalesOrderLineItemUseCase(nil, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSKURepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.AddSalesOrderLineItemInput{SalesOrderID: "order-1", SKUID: "sku-1", Quantity: 1, PriceMinorUnits: -1})
 

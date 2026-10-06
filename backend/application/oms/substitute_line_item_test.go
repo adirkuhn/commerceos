@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -12,7 +13,7 @@ import (
 
 func TestSubstituteLineItem_rejectsEmptyLines(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{})
+	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{SessionID: "session-1", LineItemID: "li-1"})
 
@@ -21,7 +22,7 @@ func TestSubstituteLineItem_rejectsEmptyLines(t *testing.T) {
 
 func TestSubstituteLineItem_rejectsNonPositiveSubstituteQuantity(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{})
+	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -33,7 +34,7 @@ func TestSubstituteLineItem_rejectsNonPositiveSubstituteQuantity(t *testing.T) {
 
 func TestSubstituteLineItem_rejectsNonPositiveOriginalQtyCovered(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{})
+	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -45,7 +46,7 @@ func TestSubstituteLineItem_rejectsNonPositiveOriginalQtyCovered(t *testing.T) {
 
 func TestSubstituteLineItem_rejectsEmptySKUID(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{})
+	uc := appoms.NewSubstituteLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -58,7 +59,7 @@ func TestSubstituteLineItem_rejectsEmptySKUID(t *testing.T) {
 func TestSubstituteLineItem_rejectsWhenSessionNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDErr: omsDomain.ErrPackingSessionNotFound}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{})
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -71,7 +72,7 @@ func TestSubstituteLineItem_rejectsWhenSessionNotFound(t *testing.T) {
 func TestSubstituteLineItem_rejectsWhenSessionNotActive(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusCompleted}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{})
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -85,7 +86,7 @@ func TestSubstituteLineItem_rejectsLineItemNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDErr: omsDomain.ErrSalesOrderLineItemNotFound}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -99,7 +100,7 @@ func TestSubstituteLineItem_rejectsLineItemFromAnotherOrder(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-2", Quantity: 1}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -113,7 +114,7 @@ func TestSubstituteLineItem_rejectsCoverageTooLow(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", Quantity: 5}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -127,7 +128,7 @@ func TestSubstituteLineItem_rejectsCoverageTooHigh(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", Quantity: 5}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -142,7 +143,7 @@ func TestSubstituteLineItem_happyPathSingleLine(t *testing.T) {
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", Quantity: 5}}
 	scanRepo := &stubPackScanRepo{}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1", ScannedBy: "user-1", Reason: "out of stock",
@@ -179,7 +180,7 @@ func TestSubstituteLineItem_partialPack_substituteJustTheRemainder(t *testing.T)
 	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{
 		{ID: "scan-1", LineItemID: strPtr("li-beans"), ActionType: omsDomain.PackScanActionPack, Quantity: 3},
 	}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-beans", ScannedBy: "user-1", Reason: "out of stock",
@@ -202,7 +203,7 @@ func TestSubstituteLineItem_partialPack_rejectsSubstitutingTheFullOriginalQuanti
 	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{
 		{ID: "scan-1", LineItemID: strPtr("li-beans"), ActionType: omsDomain.PackScanActionPack, Quantity: 3},
 	}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-beans",
@@ -224,7 +225,7 @@ func TestSubstituteLineItem_coverageCountsExistingSubstituteScansToo(t *testing.
 	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{
 		{ID: "scan-1", LineItemID: strPtr("li-beans"), ActionType: omsDomain.PackScanActionSubstitute, Quantity: 10, OriginalQtyCovered: &alreadyCovered},
 	}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-beans",
@@ -245,7 +246,7 @@ func TestSubstituteLineItem_ignoresOtherLineItemsScans(t *testing.T) {
 	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{
 		{ID: "scan-1", LineItemID: strPtr("li-other"), ActionType: omsDomain.PackScanActionPack, Quantity: 3},
 	}}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-beans",
@@ -264,7 +265,8 @@ func TestSubstituteLineItem_happyPathMultipleLinesSplitAcrossCheaperSKUs(t *test
 	// and per-line ReturnToStock varying within the same batch.
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", Quantity: 2}}
 	scanRepo := &stubPackScanRepo{}
-	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo)
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewSubstituteLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, outbox)
 
 	result, err := uc.Execute(context.Background(), appoms.SubstituteLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1",
@@ -289,4 +291,7 @@ func TestSubstituteLineItem_happyPathMultipleLinesSplitAcrossCheaperSKUs(t *test
 		require.NotNil(t, s.OriginalQtyCovered)
 		assert.Equal(t, int64(1), *s.OriginalQtyCovered)
 	}
+
+	assert.Contains(t, outbox.Subjects(), "oms.pack_scan.created")
+
 }

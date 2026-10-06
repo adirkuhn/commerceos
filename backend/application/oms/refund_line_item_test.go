@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -12,7 +13,7 @@ import (
 
 func TestRefundLineItem_rejectsZeroOrNegativeQuantity(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewRefundLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubGroupPermissionRepo{})
+	uc := appoms.NewRefundLineItemUseCase(db, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubGroupPermissionRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.RefundLineItemInput{SessionID: "session-1", LineItemID: "li-1", Quantity: 0})
 	assert.ErrorIs(t, err, omsDomain.ErrInvalidRefundQuantity)
@@ -25,7 +26,7 @@ func TestRefundLineItem_rejectsQuantityExceedingLineItemQuantity(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1"), Quantity: 2}}
-	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &stubGroupPermissionRepo{})
+	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &stubGroupPermissionRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.RefundLineItemInput{SessionID: "session-1", LineItemID: "li-1", Quantity: 3})
 
@@ -37,7 +38,7 @@ func TestRefundLineItem_customerUserWithoutPermissionIsDenied(t *testing.T) {
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1"), Quantity: 2}}
 	permRepo := &stubGroupPermissionRepo{hasPermissionResult: false}
-	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, permRepo)
+	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, permRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.RefundLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1", Quantity: 1, RequesterUserID: "user-1", RequesterRole: "customer_user",
@@ -54,7 +55,7 @@ func TestRefundLineItem_customerUserWithPermissionIsAllowed(t *testing.T) {
 	scanRepo := &stubPackScanRepo{}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1"), Quantity: 2}}
 	permRepo := &stubGroupPermissionRepo{hasPermissionResult: true}
-	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, permRepo)
+	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, permRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appoms.RefundLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1", Quantity: 1, RequesterUserID: "user-1", RequesterRole: "customer_user", ScannedBy: "user-1",
@@ -74,7 +75,7 @@ func TestRefundLineItem_adminAndOwnerBypassPermissionCheck(t *testing.T) {
 		scanRepo := &stubPackScanRepo{}
 		lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1"), Quantity: 2}}
 		permRepo := &stubGroupPermissionRepo{hasPermissionResult: false}
-		uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, permRepo)
+		uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, permRepo, &eventrecordtest.Outbox{})
 
 		_, err := uc.Execute(context.Background(), appoms.RefundLineItemInput{
 			SessionID: "session-1", LineItemID: "li-1", Quantity: 1, RequesterRole: role,
@@ -88,7 +89,7 @@ func TestRefundLineItem_adminAndOwnerBypassPermissionCheck(t *testing.T) {
 func TestRefundLineItem_rejectsInactiveSession(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusCompleted}}
-	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubGroupPermissionRepo{})
+	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubGroupPermissionRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.RefundLineItemInput{SessionID: "session-1", LineItemID: "li-1", Quantity: 1})
 
@@ -99,7 +100,7 @@ func TestRefundLineItem_rejectsLineItemFromAnotherOrder(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-other", SKUID: strPtr("sku-1"), Quantity: 2}}
-	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &stubGroupPermissionRepo{})
+	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &stubGroupPermissionRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.RefundLineItemInput{SessionID: "session-1", LineItemID: "li-1", Quantity: 1})
 
@@ -110,7 +111,7 @@ func TestRefundLineItem_rejectsLineItemWithNoLinkedSKU(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", SKUID: nil, Quantity: 2}}
-	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &stubGroupPermissionRepo{})
+	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, &stubPackScanRepo{}, lineItemRepo, &stubGroupPermissionRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.RefundLineItemInput{SessionID: "session-1", LineItemID: "li-1", Quantity: 1})
 
@@ -122,7 +123,8 @@ func TestRefundLineItem_happyPathCreatesRefundScan(t *testing.T) {
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	scanRepo := &stubPackScanRepo{}
 	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1"), Quantity: 3}}
-	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, &stubGroupPermissionRepo{})
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewRefundLineItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, &stubGroupPermissionRepo{}, outbox)
 
 	result, err := uc.Execute(context.Background(), appoms.RefundLineItemInput{
 		SessionID: "session-1", LineItemID: "li-1", Quantity: 2, Reason: "damaged", ScannedBy: "user-1",
@@ -139,4 +141,8 @@ func TestRefundLineItem_happyPathCreatesRefundScan(t *testing.T) {
 	assert.Equal(t, "damaged", created.Reason)
 	assert.Equal(t, "user-1", created.ScannedBy)
 	assert.Equal(t, omsDomain.PackScanActionRefund, result.Scan.ActionType)
+
+	assert.Contains(t, outbox.Subjects(), "oms.pack_scan.created")
+	assert.Equal(t, "refund", outbox.Events[0].Data()["action_type"])
+
 }

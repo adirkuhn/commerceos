@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -14,19 +15,23 @@ func TestDeletePickScan_deletesStagedScan(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", Status: omsDomain.PickingSessionStatusInProgress}}
 	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{{ID: "scan-1"}}}
-	uc := appoms.NewDeletePickScanUseCase(db, sessionRepo, scanRepo)
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewDeletePickScanUseCase(db, sessionRepo, scanRepo, outbox)
 
 	err := uc.Execute(context.Background(), "session-1", "scan-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"scan-1"}, scanRepo.deleted)
+
+	assert.Contains(t, outbox.Subjects(), "oms.pick_scan.deleted")
+
 }
 
 func TestDeletePickScan_rejectsScanFromAnotherSession(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", Status: omsDomain.PickingSessionStatusInProgress}}
 	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{{ID: "scan-other"}}}
-	uc := appoms.NewDeletePickScanUseCase(db, sessionRepo, scanRepo)
+	uc := appoms.NewDeletePickScanUseCase(db, sessionRepo, scanRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "session-1", "scan-1")
 
@@ -37,7 +42,7 @@ func TestDeletePickScan_rejectsScanFromAnotherSession(t *testing.T) {
 func TestDeletePickScan_rejectsWhenSessionNotInProgress(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", Status: omsDomain.PickingSessionStatusPaused}}
-	uc := appoms.NewDeletePickScanUseCase(db, sessionRepo, &stubPickScanRepo{})
+	uc := appoms.NewDeletePickScanUseCase(db, sessionRepo, &stubPickScanRepo{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "session-1", "scan-1")
 
@@ -47,7 +52,7 @@ func TestDeletePickScan_rejectsWhenSessionNotInProgress(t *testing.T) {
 func TestDeletePickScan_propagatesSessionNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDErr: omsDomain.ErrPickingSessionNotFound}
-	uc := appoms.NewDeletePickScanUseCase(db, sessionRepo, &stubPickScanRepo{})
+	uc := appoms.NewDeletePickScanUseCase(db, sessionRepo, &stubPickScanRepo{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing", "scan-1")
 

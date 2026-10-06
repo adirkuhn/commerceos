@@ -237,7 +237,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 	scaleCodeAliasRepo := repositories.NewScaleCodeAliasRepo(db)
 	variantRepo := repositories.NewVariantRepo(db)
 	productRepo := repositories.NewProductRepo(db)
-	addLineItem := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
+	addLineItem := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo, outboxRepo)
 	updateSalesOrder := NewUpdateSalesOrderUseCase(db)
 
 	packingSessionRepo := repositories.NewPackingSessionRepo(db)
@@ -255,23 +255,23 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 	h := NewHandler(
 		appoms.NewListSalesOrdersUseCase(db, salesOrderRepo),
 		appoms.NewGetSalesOrderUseCase(db, salesOrderRepo, lineItemRepo),
-		appoms.NewCreateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock),
+		appoms.NewCreateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, outboxRepo),
 		updateSalesOrder,
-		appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement),
-		appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo),
-		appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock),
-		appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock),
+		appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement, outboxRepo),
+		appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo, outboxRepo),
+		appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, outboxRepo),
+		appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, outboxRepo),
 		addLineItem,
-		appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo, packScanRepo),
+		appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo, packScanRepo, outboxRepo),
 		appoms.NewGetPickingSessionUseCase(db, pickingSessionRepo, lineItemRepo, pickScanRepo, skuRepo, variantRepo),
 		appoms.NewTouchPickingSessionUseCase(db, pickingSessionRepo),
-		appoms.NewResetPickingSessionUseCase(db, pickingSessionRepo, pickScanRepo),
-		appoms.NewScanPickItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, salesOrderRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
-		appoms.NewSubstituteLineItemUseCase(db, packingSessionRepo, packScanRepo, lineItemRepo),
-		appoms.NewRefundLineItemUseCase(db, packingSessionRepo, packScanRepo, lineItemRepo, permissionRepo),
+		appoms.NewResetPickingSessionUseCase(db, pickingSessionRepo, pickScanRepo, outboxRepo),
+		appoms.NewScanPickItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, salesOrderRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo, outboxRepo),
+		appoms.NewSubstituteLineItemUseCase(db, packingSessionRepo, packScanRepo, lineItemRepo, outboxRepo),
+		appoms.NewRefundLineItemUseCase(db, packingSessionRepo, packScanRepo, lineItemRepo, permissionRepo, outboxRepo),
 		appoms.NewResolvePickScanCodeUseCase(db, pickingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
-		appoms.NewDeletePickScanUseCase(db, pickingSessionRepo, pickScanRepo),
-		appoms.NewPausePickingUseCase(db, pickingSessionRepo),
+		appoms.NewDeletePickScanUseCase(db, pickingSessionRepo, pickScanRepo, outboxRepo),
+		appoms.NewPausePickingUseCase(db, pickingSessionRepo, outboxRepo),
 		// allocateStock/recordMovement's roles swap here vs. their names --
 		// allocateStock (AllocateSaleStockUseCase) is the recordSaleMovementUC
 		// param, recordMovement (RecordStockMovementUseCase) is the
@@ -280,16 +280,16 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewCompletePickingUseCase(db, pickingSessionRepo, salesOrderRepo, lineItemRepo, linkRepo, pickScanRepo, addLineItem, allocateStock, recordMovement, allocateStock, skuRepo, outboxRepo, refundClientResolver),
 		appoms.NewBulkUpdateSalesOrderStatusUseCase(updateSalesOrder),
 		appoms.NewListSalesOrderActivitiesUseCase(db, repositories.NewSalesOrderActivityRepo(db)),
-		appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, packingSessionRepo, pickingSessionRepo, pickScanRepo),
+		appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, packingSessionRepo, pickingSessionRepo, pickScanRepo, outboxRepo),
 		appoms.NewGetPackingSessionUseCase(db, packingSessionRepo, lineItemRepo, packScanRepo, skuRepo, variantRepo),
 		appoms.NewTouchPackingSessionUseCase(db, packingSessionRepo),
-		appoms.NewResetPackingSessionUseCase(db, packingSessionRepo, packScanRepo),
-		appoms.NewScanPackItemUseCase(db, packingSessionRepo, packScanRepo, lineItemRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
-		appoms.NewDeletePackScanUseCase(db, packingSessionRepo, packScanRepo),
-		appoms.NewCompletePackingUseCase(db, packingSessionRepo, salesOrderRepo, lineItemRepo, packScanRepo, orderChangeApplier),
+		appoms.NewResetPackingSessionUseCase(db, packingSessionRepo, packScanRepo, outboxRepo),
+		appoms.NewScanPackItemUseCase(db, packingSessionRepo, packScanRepo, lineItemRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo, outboxRepo),
+		appoms.NewDeletePackScanUseCase(db, packingSessionRepo, packScanRepo, outboxRepo),
+		appoms.NewCompletePackingUseCase(db, packingSessionRepo, salesOrderRepo, lineItemRepo, packScanRepo, orderChangeApplier, outboxRepo),
 		appoms.NewBuildPickListUseCase(db, salesOrderRepo, lineItemRepo),
 		appoms.NewListPackingQueueUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo, packScanRepo),
-		appoms.NewMarkOrderPickedUseCase(db, salesOrderRepo, packingSessionRepo, packScanRepo, pickingSessionRepo, pickScanRepo, repositories.NewSalesOrderActivityRepo(db)),
+		appoms.NewMarkOrderPickedUseCase(db, salesOrderRepo, packingSessionRepo, packScanRepo, pickingSessionRepo, pickScanRepo, repositories.NewSalesOrderActivityRepo(db), outboxRepo),
 		appoms.NewResolvePackScanCodeUseCase(db, packingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
 		SessionLockUseCases{
 			ReleasePacking:  appoms.NewReleasePackingSessionLockUseCase(db, packingSessionRepo),

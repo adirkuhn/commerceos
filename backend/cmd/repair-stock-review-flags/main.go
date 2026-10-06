@@ -46,7 +46,7 @@ func main() {
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	linkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
-	uc := appoms.NewRepairStockReviewFlagsUseCase(db, salesOrderRepo, lineItemRepo, linkRepo)
+	uc := appoms.NewRepairStockReviewFlagsUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, repositories.NewOutboxRepository(db))
 
 	// Same cross-tenant discovery pattern as cmd/backfill-woo-sale-prices:
 	// ListByTenant has no WHERE tenant_id of its own, so under bypass_rls

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -17,12 +19,13 @@ import (
 // "switch to a different order mid-pick" works: pause this session, then
 // start/resume the other order's.
 type PausePickingUseCase struct {
+	outbox      eventrecord.Enqueuer
 	db          *gorm.DB
 	sessionRepo omsDomain.PickingSessionRepository
 }
 
-func NewPausePickingUseCase(db *gorm.DB, sessionRepo omsDomain.PickingSessionRepository) *PausePickingUseCase {
-	return &PausePickingUseCase{db: db, sessionRepo: sessionRepo}
+func NewPausePickingUseCase(db *gorm.DB, sessionRepo omsDomain.PickingSessionRepository, outbox eventrecord.Enqueuer) *PausePickingUseCase {
+	return &PausePickingUseCase{outbox: outbox, db: db, sessionRepo: sessionRepo}
 }
 
 func (uc *PausePickingUseCase) Execute(ctx context.Context, id string) (*omsDomain.PickingSession, error) {
@@ -39,7 +42,10 @@ func (uc *PausePickingUseCase) Execute(ctx context.Context, id string) (*omsDoma
 		now := time.Now()
 		session.Status = omsDomain.PickingSessionStatusPaused
 		session.PausedAt = &now
-		return uc.sessionRepo.Update(ctx, session)
+		if err := uc.sessionRepo.Update(ctx, session); err != nil {
+			return err
+		}
+		return recordSession(ctx, uc.outbox, events.PickingSessionPaused, session.ID, session.SalesOrderID, nil)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("pausePicking: %w", err)

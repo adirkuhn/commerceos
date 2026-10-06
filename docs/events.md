@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-60 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+80 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -91,7 +91,27 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `oms.pack_scan.created` | action | An item was handled while packing. data: session_id, line_item_id, sku_id, action_type (pack, freebie, new_item, substitute, refund), quantity, price_minor_units, original_qty_covered, return_to_stock, reason. | envelope |
+| `oms.pack_scan.deleted` | action | A pack scan was undone. data: session_id, line_item_id, sku_id, action_type, quantity. | envelope |
+| `oms.packing_session.completed` | action | Packing was finished; staged order changes (substitutions, extra items, refunds) were applied. data: sales_order_id, completed_by, missing_item_count, change_count. | envelope |
+| `oms.packing_session.reset` | action | A packing session was started over: its scans were removed. data: sales_order_id, removed_scan_count. | envelope |
+| `oms.packing_session.started` | action | Packing started for a sales order. data: sales_order_id. | envelope |
+| `oms.pick_scan.created` | action | An item was scanned while picking. data: session_id, line_item_id, sku_id, action_type, quantity, reason. | envelope |
+| `oms.pick_scan.deleted` | action | A pick scan was undone. data: session_id, line_item_id, sku_id, action_type, quantity. | envelope |
+| `oms.picking_session.abandoned` | action | An open picking session was closed because packing took over or the order was marked picked. data: sales_order_id, abandoned_by. | envelope |
+| `oms.picking_session.completed` | action | Picking was finished; staged order changes were applied. data: sales_order_id, completed_by, missing_item_count, change_count. | envelope |
+| `oms.picking_session.paused` | action | A picking session was paused. data: sales_order_id. | envelope |
+| `oms.picking_session.reset` | action | A picking session was started over: its scans were removed. data: sales_order_id, removed_scan_count. | envelope |
+| `oms.picking_session.resumed` | action | A paused picking session was picked up again. data: sales_order_id. | envelope |
+| `oms.picking_session.started` | action | Picking started for a sales order. data: sales_order_id. | envelope |
+| `oms.sales_order.created` | action | A sales order was created. data: source (manual, pos, ...), status, number, currency_code, total_minor_units, customer_id, sales_channel_id, warehouse_id, line_count. | envelope |
+| `oms.sales_order.deleted` | action | A sales order was deleted with its lines (sold stock is put back; inventory raises its own events). data: source, number, status, stock_restored. | envelope |
 | `oms.sales_order.status_changed` | typed | SalesOrderStatusChanged is raised whenever a SalesOrder's Status field actually transitions (never on creation, never a no-op write of the same value already there) -- see application/oms.UpdateSalesOrderUseCase, which is the one place Status ever changes, whatever the caller (a manual edit, a bulk update, or ImportWooOrdersUseCase routing a Woo order's own status change back through here). | `SalesOrderStatusChanged`: event_id, occurred_at, tenant_id, sales_order_id |
+| `oms.sales_order.updated` | action | A sales order's flags or totals changed (changes: fulfilled, packed, needs_sku_review, needs_stock_review, total_minor_units). data.reason says why: picking_completed, packing_completed, marked_picked, line_item_added, line_items_linked, stock_shortfall, stock_restored, stock_review_repair. | envelope |
+| `oms.sales_order_activity.recorded` | action | An entry was added to a sales order's activity log. data: sales_order_id, activity_type, summary. | envelope |
+| `oms.sales_order_line_item.added` | action | A line was added to a sales order. data: sales_order_id, sku_id, quantity, price_minor_units, total_minor_units. | envelope |
+| `oms.sales_order_line_item.linked` | action | A sales order line was linked to a catalog SKU (changes: sku_id). data: sales_order_id, source -- manual, or pick_scan (matched by product name when the SKU was scanned). | envelope |
+| `oms.sales_order_line_item.updated` | action | A sales order line changed (changes: stock_status -- pending when stock couldn't be taken yet, decremented once it was). data: sales_order_id, reason (stock_shortfall, stock_taken, stock_review_repair). | envelope |
 
 ### payments
 

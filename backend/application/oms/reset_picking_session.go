@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -18,13 +20,14 @@ import (
 // nothing left here to undo -- same one-way-door rule DeletePickScanUseCase
 // already enforces for a single scan, applied to the whole session.
 type ResetPickingSessionUseCase struct {
+	outbox      eventrecord.Enqueuer
 	db          *gorm.DB
 	sessionRepo omsDomain.PickingSessionRepository
 	scanRepo    omsDomain.PickScanRepository
 }
 
-func NewResetPickingSessionUseCase(db *gorm.DB, sessionRepo omsDomain.PickingSessionRepository, scanRepo omsDomain.PickScanRepository) *ResetPickingSessionUseCase {
-	return &ResetPickingSessionUseCase{db: db, sessionRepo: sessionRepo, scanRepo: scanRepo}
+func NewResetPickingSessionUseCase(db *gorm.DB, sessionRepo omsDomain.PickingSessionRepository, scanRepo omsDomain.PickScanRepository, outbox eventrecord.Enqueuer) *ResetPickingSessionUseCase {
+	return &ResetPickingSessionUseCase{outbox: outbox, db: db, sessionRepo: sessionRepo, scanRepo: scanRepo}
 }
 
 func (uc *ResetPickingSessionUseCase) Execute(ctx context.Context, sessionID string) (*omsDomain.PickingSession, error) {
@@ -63,7 +66,7 @@ func (uc *ResetPickingSessionUseCase) Execute(ctx context.Context, sessionID str
 			return err
 		}
 		session = *s
-		return nil
+		return recordSession(ctx, uc.outbox, events.PickingSessionReset, s.ID, s.SalesOrderID, eventrecord.Data{"removed_scan_count": len(scans)})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("resetPickingSession: %w", err)

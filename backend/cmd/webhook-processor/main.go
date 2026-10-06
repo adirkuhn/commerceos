@@ -128,7 +128,7 @@ func main() {
 		repositories.NewTenantSettingsRepo(db),
 	)
 	createSalesOrderUC := appoms.NewCreateSalesOrderUseCase(
-		db, salesOrderRepo, lineItemRepo, linkRepo, repositories.NewSKURepo(db), allocateStock,
+		db, salesOrderRepo, lineItemRepo, linkRepo, repositories.NewSKURepo(db), allocateStock, outboxRepo,
 	)
 	createCustomerUC := appcustomers.NewCreateCustomerUseCase(db, repositories.NewCustomerRepo(db))
 	generatePaymentLinkUC := appwhatsapp.NewGeneratePaymentLinkUseCase(

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -31,7 +32,8 @@ func TestLinkLineItemSKU_linksAndClearsNeedsSKUReviewWhenNoneRemainUnlinked(t *t
 		listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "sales-order-1", SKUID: strPtr("sku-1")}},
 	}
 	skuRepo := &stubLinkSKURepo{result: &pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}}
-	uc := appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo, outbox)
 
 	order, err := uc.Execute(context.Background(), appoms.LinkLineItemSKUInput{
 		SalesOrderID: "sales-order-1", LineItemID: "li-1", SKUID: "sku-1",
@@ -44,6 +46,10 @@ func TestLinkLineItemSKU_linksAndClearsNeedsSKUReviewWhenNoneRemainUnlinked(t *t
 	assert.Equal(t, "sku-1", lineItemRepo.updateCalls[0].Fields["sku_id"])
 	require.NotEmpty(t, salesOrderRepo.updateCalls)
 	assert.Equal(t, false, salesOrderRepo.updateCalls[0].Fields["needs_sku_review"], "no other line item is still unlinked")
+
+	assert.Contains(t, outbox.Subjects(), "oms.sales_order_line_item.linked")
+	assert.Contains(t, outbox.Subjects(), "oms.sales_order.updated")
+
 }
 
 func TestLinkLineItemSKU_keepsNeedsSKUReviewTrueWhenAnotherLineIsStillUnlinked(t *testing.T) {
@@ -57,7 +63,7 @@ func TestLinkLineItemSKU_keepsNeedsSKUReviewTrueWhenAnotherLineIsStillUnlinked(t
 		},
 	}
 	skuRepo := &stubLinkSKURepo{result: &pmsDomain.SKU{ID: "sku-1"}}
-	uc := appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
+	uc := appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.LinkLineItemSKUInput{
 		SalesOrderID: "sales-order-1", LineItemID: "li-1", SKUID: "sku-1",
@@ -75,7 +81,7 @@ func TestLinkLineItemSKU_rejectsALineItemFromADifferentOrder(t *testing.T) {
 		findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "some-other-order", SKUID: nil},
 	}
 	skuRepo := &stubLinkSKURepo{result: &pmsDomain.SKU{ID: "sku-1"}}
-	uc := appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
+	uc := appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.LinkLineItemSKUInput{
 		SalesOrderID: "sales-order-1", LineItemID: "li-1", SKUID: "sku-1",
@@ -92,7 +98,7 @@ func TestLinkLineItemSKU_rejectsAnUnknownSKUID(t *testing.T) {
 		findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "sales-order-1", SKUID: nil},
 	}
 	skuRepo := &stubLinkSKURepo{err: pmsDomain.ErrSKUNotFound}
-	uc := appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
+	uc := appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.LinkLineItemSKUInput{
 		SalesOrderID: "sales-order-1", LineItemID: "li-1", SKUID: "missing-sku",

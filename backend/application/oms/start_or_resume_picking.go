@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -18,6 +20,7 @@ import (
 // is optional (packing accepts unpicked orders), so it refuses an order
 // already packed or mid-packing -- see SalesOrder.CanStartPicking.
 type StartOrResumePickingUseCase struct {
+	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
 	sessionRepo    omsDomain.PickingSessionRepository
@@ -31,8 +34,8 @@ type activePackingSessionFinder interface {
 	FindActiveBySalesOrder(ctx context.Context, salesOrderID string) (*omsDomain.PackingSession, error)
 }
 
-func NewStartOrResumePickingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, sessionRepo omsDomain.PickingSessionRepository, packingRepo activePackingSessionFinder, packScans packSessionScanChecker) *StartOrResumePickingUseCase {
-	return &StartOrResumePickingUseCase{db: db, salesOrderRepo: salesOrderRepo, sessionRepo: sessionRepo, packingRepo: packingRepo, packScans: packScans}
+func NewStartOrResumePickingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, sessionRepo omsDomain.PickingSessionRepository, packingRepo activePackingSessionFinder, packScans packSessionScanChecker, outbox eventrecord.Enqueuer) *StartOrResumePickingUseCase {
+	return &StartOrResumePickingUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, sessionRepo: sessionRepo, packingRepo: packingRepo, packScans: packScans}
 }
 
 func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID string, actor omsDomain.LockActor) (*omsDomain.PickingSession, error) {
@@ -68,6 +71,9 @@ func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID
 				if err := uc.sessionRepo.Update(ctx, existing); err != nil {
 					return err
 				}
+				if err := recordSession(ctx, uc.outbox, events.PickingSessionResumed, existing.ID, salesOrderID, nil); err != nil {
+					return err
+				}
 			}
 			session = *existing
 			return nil
@@ -77,7 +83,10 @@ func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: salesOrderID,
 			Status: omsDomain.PickingSessionStatusInProgress, StartedAt: now,
 		}
-		return uc.sessionRepo.Create(ctx, &session)
+		if err := uc.sessionRepo.Create(ctx, &session); err != nil {
+			return err
+		}
+		return recordSession(ctx, uc.outbox, events.PickingSessionStarted, session.ID, salesOrderID, nil)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("startOrResumePicking: %w", err)

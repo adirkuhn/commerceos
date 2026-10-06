@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -27,13 +28,14 @@ type RecordSalesOrderActivityInput struct {
 // domain/oms.SalesOrderActivityRepository directly, per CLAUDE.md's
 // cross-domain-calls-through-use-cases rule.
 type RecordSalesOrderActivityUseCase struct {
+	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
 	activityRepo   omsDomain.SalesOrderActivityRepository
 }
 
-func NewRecordSalesOrderActivityUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, activityRepo omsDomain.SalesOrderActivityRepository) *RecordSalesOrderActivityUseCase {
-	return &RecordSalesOrderActivityUseCase{db: db, salesOrderRepo: salesOrderRepo, activityRepo: activityRepo}
+func NewRecordSalesOrderActivityUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, activityRepo omsDomain.SalesOrderActivityRepository, outbox eventrecord.Enqueuer) *RecordSalesOrderActivityUseCase {
+	return &RecordSalesOrderActivityUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, activityRepo: activityRepo}
 }
 
 func (uc *RecordSalesOrderActivityUseCase) Execute(ctx context.Context, in RecordSalesOrderActivityInput) (*omsDomain.SalesOrderActivity, error) {
@@ -55,7 +57,10 @@ func (uc *RecordSalesOrderActivityUseCase) Execute(ctx context.Context, in Recor
 			return err
 		}
 		activity.TenantID = tenant.IDFromContext(ctx)
-		return uc.activityRepo.Create(ctx, activity)
+		if err := uc.activityRepo.Create(ctx, activity); err != nil {
+			return err
+		}
+		return recordActivity(ctx, uc.outbox, *activity)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("recordSalesOrderActivity: %w", err)

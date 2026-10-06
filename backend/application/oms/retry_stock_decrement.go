@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -32,6 +33,7 @@ type RetryStockDecrementResult struct {
 // a whole -- that's an expected partial-success outcome, reported via
 // StillPending rather than aborting whatever did resolve.
 type RetryStockDecrementUseCase struct {
+	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
@@ -40,8 +42,8 @@ type RetryStockDecrementUseCase struct {
 	recordMovement recordSaleMovementUC
 }
 
-func NewRetryStockDecrementUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC) *RetryStockDecrementUseCase {
-	return &RetryStockDecrementUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement}
+func NewRetryStockDecrementUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, outbox eventrecord.Enqueuer) *RetryStockDecrementUseCase {
+	return &RetryStockDecrementUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement}
 }
 
 func (uc *RetryStockDecrementUseCase) Execute(ctx context.Context, salesOrderID string) (*RetryStockDecrementResult, error) {
@@ -85,7 +87,7 @@ func (uc *RetryStockDecrementUseCase) Execute(ctx context.Context, salesOrderID 
 				return nil, fmt.Errorf("retryStockDecrement: %w", err)
 			}
 		}
-		if err := setLineItemStockStatus(ctx, uc.db, uc.lineItemRepo, li.ID, omsDomain.StockStatusDecremented); err != nil {
+		if err := setLineItemStockStatus(ctx, uc.db, uc.lineItemRepo, uc.outbox, li, omsDomain.StockStatusDecremented, OrderChangeReasonStockTaken); err != nil {
 			return nil, fmt.Errorf("retryStockDecrement: %w", err)
 		}
 		if err := freezeCostAtSale(ctx, uc.db, uc.lineItemRepo, uc.skuRepo, li.ID, *li.SKUID, li.Quantity); err != nil {
@@ -93,7 +95,7 @@ func (uc *RetryStockDecrementUseCase) Execute(ctx context.Context, salesOrderID 
 		}
 		resolved++
 	}
-	if err := setOrderNeedsStockReview(ctx, uc.db, uc.salesOrderRepo, salesOrderID, stillPending > 0); err != nil {
+	if err := setOrderNeedsStockReview(ctx, uc.db, uc.salesOrderRepo, uc.outbox, salesOrderID, stillPending > 0, OrderChangeReasonStockTaken); err != nil {
 		return nil, fmt.Errorf("retryStockDecrement: %w", err)
 	}
 	order.NeedsStockReview = stillPending > 0
