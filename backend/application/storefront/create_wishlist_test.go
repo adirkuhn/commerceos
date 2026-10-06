@@ -2,6 +2,7 @@ package storefront_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,7 +16,7 @@ import (
 func TestCreateWishlist_startsAnEmptyWishlistOnTheChannel(t *testing.T) {
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
 	wishlistRepo := &fakeWishlistRepo{}
-	uc := appstorefront.NewCreateWishlistUseCase(newMockGormDB(t, 1), channelRepo, wishlistRepo)
+	uc := appstorefront.NewCreateWishlistUseCase(newMockGormDB(t, 1), channelRepo, wishlistRepo, &eventrecordtest.Outbox{})
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 
 	wishlist, err := uc.Execute(ctx, "channel-1")
@@ -29,7 +30,7 @@ func TestCreateWishlist_startsAnEmptyWishlistOnTheChannel(t *testing.T) {
 }
 
 func TestCreateWishlist_rejectsUnknownChannel(t *testing.T) {
-	uc := appstorefront.NewCreateWishlistUseCase(newMockGormDB(t, 1), &fakeChannelRepo{}, &fakeWishlistRepo{})
+	uc := appstorefront.NewCreateWishlistUseCase(newMockGormDB(t, 1), &fakeChannelRepo{}, &fakeWishlistRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing-channel")
 

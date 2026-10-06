@@ -7,7 +7,9 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	"github.com/adirkuhn/commerceos/internal/idgen"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -17,10 +19,11 @@ type CreateCartUseCase struct {
 	db          *gorm.DB
 	channelRepo channelsDomain.SalesChannelRepository
 	cartRepo    storefrontDomain.CartRepository
+	outbox      eventrecord.Enqueuer
 }
 
-func NewCreateCartUseCase(db *gorm.DB, channelRepo channelsDomain.SalesChannelRepository, cartRepo storefrontDomain.CartRepository) *CreateCartUseCase {
-	return &CreateCartUseCase{db: db, channelRepo: channelRepo, cartRepo: cartRepo}
+func NewCreateCartUseCase(db *gorm.DB, channelRepo channelsDomain.SalesChannelRepository, cartRepo storefrontDomain.CartRepository, outbox eventrecord.Enqueuer) *CreateCartUseCase {
+	return &CreateCartUseCase{db: db, channelRepo: channelRepo, cartRepo: cartRepo, outbox: outbox}
 }
 
 // Execute starts a new, empty cart on salesChannelID -- the channel a
@@ -39,7 +42,10 @@ func (uc *CreateCartUseCase) Execute(ctx context.Context, salesChannelID string)
 			TenantID: tenant.IDFromContext(ctx), SalesChannelID: salesChannelID,
 			Token: idgen.NewV4(), Items: nil, CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.cartRepo.Create(ctx, &cart)
+		if err := uc.cartRepo.Create(ctx, &cart); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.CartCreated, cart.ID, eventrecord.Data{"sales_channel_id": cart.SalesChannelID})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createCart: %w", err)

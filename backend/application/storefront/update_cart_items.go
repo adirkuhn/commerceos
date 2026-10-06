@@ -7,8 +7,10 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
+	"github.com/adirkuhn/commerceos/domain/events"
 	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
@@ -38,6 +40,7 @@ type UpdateCartItemsUseCase struct {
 	stockLevel           StockLevelGetter
 	couponRepo           couponsDomain.Repository
 	couponCurrencyRepo   couponsDomain.CouponCurrencyAmountRepository
+	outbox               eventrecord.Enqueuer
 }
 
 func NewUpdateCartItemsUseCase(
@@ -53,12 +56,13 @@ func NewUpdateCartItemsUseCase(
 	stockLevel StockLevelGetter,
 	couponRepo couponsDomain.Repository,
 	couponCurrencyRepo couponsDomain.CouponCurrencyAmountRepository,
+	outbox eventrecord.Enqueuer,
 ) *UpdateCartItemsUseCase {
 	return &UpdateCartItemsUseCase{
 		db: db, cartRepo: cartRepo, channelRepo: channelRepo, skuRepo: skuRepo,
 		variantRepo: variantRepo, productRepo: productRepo, overrideRepo: overrideRepo,
 		skuCurrencyPriceRepo: skuCurrencyPriceRepo, fxRepo: fxRepo, stockLevel: stockLevel,
-		couponRepo: couponRepo, couponCurrencyRepo: couponCurrencyRepo,
+		couponRepo: couponRepo, couponCurrencyRepo: couponCurrencyRepo, outbox: outbox,
 	}
 }
 
@@ -125,13 +129,43 @@ func (uc *UpdateCartItemsUseCase) Execute(ctx context.Context, token string, lin
 		}
 	}
 
+	before := cart.Items
 	cart.Items = items
 	cart.UpdatedAt = time.Now()
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.cartRepo.Update(ctx, cart)
+		if err := uc.cartRepo.Update(ctx, cart); err != nil {
+			return err
+		}
+		return recordCartItemsUpdated(ctx, uc.outbox, *cart, before)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateCartItems: %w", err)
 	}
 	return &CartResult{Cart: cart, DiscountMinorUnits: resolveDisplayDiscount(ctx, uc.db, uc.couponRepo, uc.couponCurrencyRepo, uc.fxRepo, cart)}, nil
+}
+
+type cartItemEventLine struct {
+	SKUID    string `json:"sku_id"`
+	SKUCode  string `json:"sku_code"`
+	Quantity int64  `json:"quantity"`
+}
+
+// recordCartItemsUpdated raises storefront.cart.items_updated: the new
+// lines, plus the change as sku_code -> quantity before and after.
+func recordCartItemsUpdated(ctx context.Context, outbox eventrecord.Enqueuer, cart storefrontDomain.Cart, before []storefrontDomain.CartItem) error {
+	lines := make([]cartItemEventLine, len(cart.Items))
+	for i, it := range cart.Items {
+		lines[i] = cartItemEventLine{SKUID: it.SKUID, SKUCode: it.SKUCode, Quantity: it.Quantity}
+	}
+	return eventrecord.Record(ctx, outbox, events.CartItemsUpdated, cart.ID,
+		eventrecord.Data{"sales_channel_id": cart.SalesChannelID, "line_count": len(cart.Items), "items": lines},
+		eventrecord.NewChanges().Set("items", quantitiesBySKUCode(before), quantitiesBySKUCode(cart.Items)))
+}
+
+func quantitiesBySKUCode(items []storefrontDomain.CartItem) map[string]int64 {
+	out := make(map[string]int64, len(items))
+	for _, it := range items {
+		out[it.SKUCode] += it.Quantity
+	}
+	return out
 }
