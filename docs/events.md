@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-29 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+36 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -115,6 +115,13 @@ Payload (`events.EntityAction`):
 |---|---|---|---|
 | `procurement.goods.received` | typed | GoodsReceived is raised when a purchase-order line item's stock is actually received into inventory -- a real inventory.Batch created with a landed cost basis (application/inventory.ReceiveStockUseCase), not merely a PO being created or edited (see procurement.PurchaseOrder's own design: "don't change inventory cost merely because a PO was created"). | `GoodsReceived`: event_id, occurred_at, tenant_id, sku_id, warehouse_id, batch_id, purchase_order_line_item_id, quantity, landed_unit_cost_minor_units |
 | `procurement.purchase_order.created` | action | A purchase order was created. data.source: manual, document or purchase_planner. | envelope |
+| `procurement.purchase_order.deleted` | action | A purchase order was deleted with its line items. data: supplier_id, status. | envelope |
+| `procurement.purchase_order.updated` | action | A purchase order changed (changes: supplier_id, warehouse_id, status, currency_code, expected_date, notes). data.reason is set when the system changed it: line_items_resolved (needs_review -> draft once every product line is linked). | envelope |
+| `procurement.purchase_order_document.attached` | action | A supplier document (invoice / order confirmation file) was attached to a purchase order. data: purchase_order_id, file_name, content_type, parsing_job_id, duplicate_of_purchase_order_id (set when the same file is already on another PO; its lines are then copied instead of parsed). | envelope |
+| `procurement.purchase_order_line_item.added` | action | A line was added to a purchase order. data: purchase_order_id, sku_id, quantity, units_per_purchased_item, unit_cost_minor_units, line_type, source -- manual, or duplicate_document (copied from the PO an identical document was already attached to). | envelope |
+| `procurement.purchase_order_line_item.linked` | action | A purchase order line was linked to a catalog SKU (changes: sku_id, units_per_purchased_item). data: purchase_order_id, source -- manual (a person picked the SKU) or supplier_alias (matched from the supplier's learned aliases). | envelope |
+| `procurement.purchase_order_line_item.removed` | action | A line was removed from a purchase order. data: purchase_order_id, sku_id. | envelope |
+| `procurement.purchase_order_line_item.updated` | action | A purchase order line changed (changes: sku_id, raw_sku, raw_description, quantity, units_per_purchased_item, unit_cost_minor_units, line_type). data: purchase_order_id. | envelope |
 
 ### settings
 

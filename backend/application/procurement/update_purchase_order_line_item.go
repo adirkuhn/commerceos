@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -28,10 +30,11 @@ type UpdatePurchaseOrderLineItemInput struct {
 type UpdatePurchaseOrderLineItemUseCase struct {
 	db           *gorm.DB
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository
+	outbox       eventrecord.Enqueuer
 }
 
-func NewUpdatePurchaseOrderLineItemUseCase(db *gorm.DB, lineItemRepo procurementDomain.PurchaseOrderLineItemRepository) *UpdatePurchaseOrderLineItemUseCase {
-	return &UpdatePurchaseOrderLineItemUseCase{db: db, lineItemRepo: lineItemRepo}
+func NewUpdatePurchaseOrderLineItemUseCase(db *gorm.DB, lineItemRepo procurementDomain.PurchaseOrderLineItemRepository, outbox eventrecord.Enqueuer) *UpdatePurchaseOrderLineItemUseCase {
+	return &UpdatePurchaseOrderLineItemUseCase{db: db, lineItemRepo: lineItemRepo, outbox: outbox}
 }
 
 func (uc *UpdatePurchaseOrderLineItemUseCase) Execute(ctx context.Context, in UpdatePurchaseOrderLineItemInput) (*procurementDomain.PurchaseOrderLineItem, error) {
@@ -51,6 +54,7 @@ func (uc *UpdatePurchaseOrderLineItemUseCase) Execute(ctx context.Context, in Up
 		if err != nil {
 			return err
 		}
+		before := *existing
 		existing.SKUID = in.SKUID
 		existing.RawSKU = in.RawSKU
 		existing.RawDescription = in.RawDescription
@@ -68,7 +72,15 @@ func (uc *UpdatePurchaseOrderLineItemUseCase) Execute(ctx context.Context, in Up
 			return err
 		}
 		li = *existing
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.PurchaseOrderLineItemUpdated, li.ID,
+			eventrecord.Data{"purchase_order_id": li.PurchaseOrderID}, eventrecord.NewChanges().
+				Set("sku_id", before.SKUID, li.SKUID).
+				Set("raw_sku", before.RawSKU, li.RawSKU).
+				Set("raw_description", before.RawDescription, li.RawDescription).
+				Set("quantity", before.Quantity, li.Quantity).
+				Set("units_per_purchased_item", before.UnitsPerPurchasedItem, li.UnitsPerPurchasedItem).
+				Set("unit_cost_minor_units", before.UnitCostMinorUnits, li.UnitCostMinorUnits).
+				Set("line_type", string(before.LineType), string(li.LineType)))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updatePurchaseOrderLineItem: %w", err)

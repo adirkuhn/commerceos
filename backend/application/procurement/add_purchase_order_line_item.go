@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -28,10 +29,11 @@ type AddPurchaseOrderLineItemInput struct {
 type AddPurchaseOrderLineItemUseCase struct {
 	db           *gorm.DB
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository
+	outbox       eventrecord.Enqueuer
 }
 
-func NewAddPurchaseOrderLineItemUseCase(db *gorm.DB, lineItemRepo procurementDomain.PurchaseOrderLineItemRepository) *AddPurchaseOrderLineItemUseCase {
-	return &AddPurchaseOrderLineItemUseCase{db: db, lineItemRepo: lineItemRepo}
+func NewAddPurchaseOrderLineItemUseCase(db *gorm.DB, lineItemRepo procurementDomain.PurchaseOrderLineItemRepository, outbox eventrecord.Enqueuer) *AddPurchaseOrderLineItemUseCase {
+	return &AddPurchaseOrderLineItemUseCase{db: db, lineItemRepo: lineItemRepo, outbox: outbox}
 }
 
 func (uc *AddPurchaseOrderLineItemUseCase) Execute(ctx context.Context, in AddPurchaseOrderLineItemInput) (*procurementDomain.PurchaseOrderLineItem, error) {
@@ -71,7 +73,10 @@ func (uc *AddPurchaseOrderLineItemUseCase) Execute(ctx context.Context, in AddPu
 			LineType: in.LineType, LineTypeConfirmed: true,
 			CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.lineItemRepo.Create(ctx, &li)
+		if err := uc.lineItemRepo.Create(ctx, &li); err != nil {
+			return err
+		}
+		return recordLineItemAdded(ctx, uc.outbox, li, LineItemSourceManual)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("addPurchaseOrderLineItem: %w", err)

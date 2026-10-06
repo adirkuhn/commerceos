@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	suppliersapp "github.com/adirkuhn/commerceos/application/suppliers"
+	"github.com/adirkuhn/commerceos/domain/events"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	suppliersDomain "github.com/adirkuhn/commerceos/domain/suppliers"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -44,6 +46,7 @@ type CreateSupplierAndAssignToPurchaseOrderUseCase struct {
 	poRepo             procurementDomain.PurchaseOrderRepository
 	lineItemRepo       procurementDomain.PurchaseOrderLineItemRepository
 	aliasRepo          procurementDomain.SupplierProductAliasRepository
+	outbox             eventrecord.Enqueuer
 }
 
 func NewCreateSupplierAndAssignToPurchaseOrderUseCase(
@@ -53,9 +56,11 @@ func NewCreateSupplierAndAssignToPurchaseOrderUseCase(
 	poRepo procurementDomain.PurchaseOrderRepository,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
 	aliasRepo procurementDomain.SupplierProductAliasRepository,
+	outbox eventrecord.Enqueuer,
 ) *CreateSupplierAndAssignToPurchaseOrderUseCase {
 	return &CreateSupplierAndAssignToPurchaseOrderUseCase{
 		db: db, findSupplierByName: findSupplierByName, createSupplier: createSupplier, poRepo: poRepo, lineItemRepo: lineItemRepo, aliasRepo: aliasRepo,
+		outbox: outbox,
 	}
 }
 
@@ -90,16 +95,20 @@ func (uc *CreateSupplierAndAssignToPurchaseOrderUseCase) Execute(ctx context.Con
 		if err != nil {
 			return err
 		}
+		before := *existing
 		existing.SupplierID = &supplier.ID
 		existing.UpdatedAt = time.Now()
 		if err := uc.poRepo.Update(ctx, existing); err != nil {
 			return err
 		}
 		po = *existing
+		if err := eventrecord.Record(ctx, uc.outbox, events.PurchaseOrderUpdated, po.ID, purchaseOrderChanges(before, po)); err != nil {
+			return err
+		}
 		// The supplier is only known now -- the parse-time matching pass
 		// (MatchExtractedLineItemsUseCase) had no supplierID to check
 		// learned aliases against, so give it a second chance now.
-		aliasMatched, err := resyncAliasMatchedLineItems(ctx, uc.lineItemRepo, uc.aliasRepo, po.ID, supplier.ID)
+		aliasMatched, err := resyncAliasMatchedLineItems(ctx, uc.lineItemRepo, uc.aliasRepo, uc.outbox, po.ID, supplier.ID)
 		if err != nil {
 			return err
 		}
@@ -107,7 +116,7 @@ func (uc *CreateSupplierAndAssignToPurchaseOrderUseCase) Execute(ctx context.Con
 		// PO's last gap, don't let that silently revert it out of
 		// needs_review. The human still has to look and explicitly save.
 		if !aliasMatched {
-			if err := revertPurchaseOrderFromReviewIfFullyResolved(ctx, uc.poRepo, uc.lineItemRepo, &po); err != nil {
+			if err := revertPurchaseOrderFromReviewIfFullyResolved(ctx, uc.poRepo, uc.lineItemRepo, uc.outbox, &po); err != nil {
 				return err
 			}
 		}

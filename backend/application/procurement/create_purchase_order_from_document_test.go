@@ -59,6 +59,7 @@ func TestCreatePurchaseOrderFromDocument_createsPOThenAttachesDocument(t *testin
 	require.NoError(t, err)
 	require.NotNil(t, createPO.gotInput.SupplierID)
 	assert.Equal(t, "supplier-1", *createPO.gotInput.SupplierID)
+	assert.Equal(t, appprocurement.PurchaseOrderSourceDocument, createPO.gotInput.Source)
 	assert.Equal(t, "po-1", attach.gotInput.PurchaseOrderID)
 	assert.Equal(t, "order.csv", attach.gotInput.FileName)
 	assert.Equal(t, "job-1", job.ID)

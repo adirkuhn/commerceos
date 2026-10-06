@@ -48,7 +48,7 @@ func NewCreatePurchaseOrderFromDocumentUseCase(createPO createPurchaseOrderForDo
 func (uc *CreatePurchaseOrderFromDocumentUseCase) Execute(ctx context.Context, in CreatePurchaseOrderFromDocumentInput) (*procurementDomain.DocumentParsingJob, error) {
 	po, err := uc.createPO.Execute(ctx, CreatePurchaseOrderInput{
 		SupplierID: in.SupplierID, WarehouseID: in.WarehouseID, CurrencyCode: in.CurrencyCode,
-		ExpectedDate: in.ExpectedDate,
+		ExpectedDate: in.ExpectedDate, Source: PurchaseOrderSourceDocument,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createPurchaseOrderFromDocument: %w", err)

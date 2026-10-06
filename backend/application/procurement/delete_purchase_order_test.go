@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 
 func TestDeletePurchaseOrder_deletesExisting(t *testing.T) {
 	repo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
-	uc := appprocurement.NewDeletePurchaseOrderUseCase(newMockGormDB(t), repo, &stubDocumentRepo{})
+	uc := appprocurement.NewDeletePurchaseOrderUseCase(newMockGormDB(t), repo, &stubDocumentRepo{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "po-1")
 
@@ -23,7 +24,7 @@ func TestDeletePurchaseOrder_deletesExisting(t *testing.T) {
 
 func TestDeletePurchaseOrder_propagatesNotFound(t *testing.T) {
 	repo := &stubPurchaseOrderRepo{findErr: procurementDomain.ErrPurchaseOrderNotFound}
-	uc := appprocurement.NewDeletePurchaseOrderUseCase(newMockGormDB(t), repo, &stubDocumentRepo{})
+	uc := appprocurement.NewDeletePurchaseOrderUseCase(newMockGormDB(t), repo, &stubDocumentRepo{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 
@@ -45,7 +46,7 @@ func TestDeletePurchaseOrder_repointsDependentToSurvivingDuplicate(t *testing.T)
 		byPO:                []procurementDomain.PurchaseOrderDocument{{ID: "document-2", PurchaseOrderID: "po-2", ContentHash: "hash-x"}},
 		duplicateCandidates: []procurementDomain.PurchaseOrderDocument{{ID: "document-3", PurchaseOrderID: "po-3", ContentHash: "hash-x"}},
 	}
-	uc := appprocurement.NewDeletePurchaseOrderUseCase(newMockGormDB(t), repo, documentRepo)
+	uc := appprocurement.NewDeletePurchaseOrderUseCase(newMockGormDB(t), repo, documentRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "po-1")
 
@@ -68,7 +69,7 @@ func TestDeletePurchaseOrder_clearsDependentWhenNoOtherDuplicateRemains(t *testi
 		byPO:                []procurementDomain.PurchaseOrderDocument{{ID: "document-2", PurchaseOrderID: "po-2", ContentHash: "hash-x"}},
 		duplicateCandidates: nil,
 	}
-	uc := appprocurement.NewDeletePurchaseOrderUseCase(newMockGormDB(t), repo, documentRepo)
+	uc := appprocurement.NewDeletePurchaseOrderUseCase(newMockGormDB(t), repo, documentRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "po-1")
 
@@ -80,7 +81,7 @@ func TestDeletePurchaseOrder_clearsDependentWhenNoOtherDuplicateRemains(t *testi
 func TestDeletePurchaseOrder_noDependents_doesNothingExtra(t *testing.T) {
 	repo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
 	documentRepo := &stubDocumentRepo{}
-	uc := appprocurement.NewDeletePurchaseOrderUseCase(newMockGormDB(t), repo, documentRepo)
+	uc := appprocurement.NewDeletePurchaseOrderUseCase(newMockGormDB(t), repo, documentRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "po-1")
 

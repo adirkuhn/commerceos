@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -21,15 +23,18 @@ type CreatePurchaseOrderInput struct {
 	CurrencyCode string
 	ExpectedDate *time.Time
 	Notes        string
+	// Source is where the PO came from (PurchaseOrderSource*); empty = manual.
+	Source string
 }
 
 type CreatePurchaseOrderUseCase struct {
 	db     *gorm.DB
 	poRepo procurementDomain.PurchaseOrderRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewCreatePurchaseOrderUseCase(db *gorm.DB, poRepo procurementDomain.PurchaseOrderRepository) *CreatePurchaseOrderUseCase {
-	return &CreatePurchaseOrderUseCase{db: db, poRepo: poRepo}
+func NewCreatePurchaseOrderUseCase(db *gorm.DB, poRepo procurementDomain.PurchaseOrderRepository, outbox eventrecord.Enqueuer) *CreatePurchaseOrderUseCase {
+	return &CreatePurchaseOrderUseCase{db: db, poRepo: poRepo, outbox: outbox}
 }
 
 func (uc *CreatePurchaseOrderUseCase) Execute(ctx context.Context, in CreatePurchaseOrderInput) (*procurementDomain.PurchaseOrder, error) {
@@ -45,7 +50,16 @@ func (uc *CreatePurchaseOrderUseCase) Execute(ctx context.Context, in CreatePurc
 			Status: status, CurrencyCode: in.CurrencyCode,
 			ExpectedDate: in.ExpectedDate, Notes: in.Notes, CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.poRepo.Create(ctx, &po)
+		if err := uc.poRepo.Create(ctx, &po); err != nil {
+			return err
+		}
+		source := in.Source
+		if source == "" {
+			source = PurchaseOrderSourceManual
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.PurchaseOrderCreated, po.ID, eventrecord.Data{
+			"source": source, "supplier_id": po.SupplierID, "currency_code": po.CurrencyCode, "status": string(po.Status),
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createPurchaseOrder: %w", err)

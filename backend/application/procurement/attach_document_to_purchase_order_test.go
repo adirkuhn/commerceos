@@ -3,6 +3,7 @@ package procurement_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"strings"
 	"testing"
 
@@ -19,7 +20,7 @@ func TestAttachDocumentToPurchaseOrder_savesDocumentAndEnqueuesJob(t *testing.T)
 	lineItemRepo := &stubLineItemRepo{}
 	jobRepo := &stubParsingJobRepo{}
 	storage := &stubFileStorage{}
-	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, lineItemRepo, jobRepo, storage)
+	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, lineItemRepo, jobRepo, storage, &eventrecordtest.Outbox{})
 
 	job, err := uc.Execute(context.Background(), appprocurement.AttachDocumentToPurchaseOrderInput{
 		PurchaseOrderID: "po-1", FileName: "order.csv", ContentType: "text/csv", Data: strings.NewReader("sku,qty\nA,1"),
@@ -41,7 +42,7 @@ func TestAttachDocumentToPurchaseOrder_flagsDocumentAsDuplicate_onSamePOReupload
 	documentRepo := &stubDocumentRepo{duplicateCandidates: []procurementDomain.PurchaseOrderDocument{
 		{ID: "document-0", PurchaseOrderID: "po-1"},
 	}}
-	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, &stubLineItemRepo{}, &stubParsingJobRepo{}, &stubFileStorage{})
+	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, &stubLineItemRepo{}, &stubParsingJobRepo{}, &stubFileStorage{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.AttachDocumentToPurchaseOrderInput{
 		PurchaseOrderID: "po-1", FileName: "invoice.pdf", ContentType: "application/pdf", Data: strings.NewReader("%PDF-1.4 fake bytes"),
@@ -64,7 +65,7 @@ func TestAttachDocumentToPurchaseOrder_marksPurchaseOrderAsDuplicate_whenMatchIs
 	// The matched PO (po-1) has no line items yet, so this falls back to a
 	// normal parse -- the "copy instead of parse" path is covered in its
 	// own tests below.
-	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, &stubLineItemRepo{}, &stubParsingJobRepo{}, &stubFileStorage{})
+	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, &stubLineItemRepo{}, &stubParsingJobRepo{}, &stubFileStorage{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.AttachDocumentToPurchaseOrderInput{
 		PurchaseOrderID: "po-2", FileName: "invoice.pdf", ContentType: "application/pdf", Data: strings.NewReader("%PDF-1.4 fake bytes"),
@@ -102,7 +103,7 @@ func TestAttachDocumentToPurchaseOrder_copiesFromDuplicateInsteadOfParsing(t *te
 		{ID: "line-item-src", PurchaseOrderID: "po-1", SKUID: &skuID, RawSKU: "WID-1", RawDescription: "Widget", Quantity: 3, UnitCostMinorUnits: 500},
 	}}
 	jobRepo := &stubParsingJobRepo{}
-	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, lineItemRepo, jobRepo, &stubFileStorage{})
+	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, lineItemRepo, jobRepo, &stubFileStorage{}, &eventrecordtest.Outbox{})
 
 	job, err := uc.Execute(context.Background(), appprocurement.AttachDocumentToPurchaseOrderInput{
 		PurchaseOrderID: "po-2", FileName: "invoice.pdf", ContentType: "application/pdf", Data: strings.NewReader("%PDF-1.4 fake bytes"),
@@ -143,7 +144,7 @@ func TestAttachDocumentToPurchaseOrder_doesNotOverwriteSupplier_whenThisPOAlread
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
 		{ID: "line-item-src", PurchaseOrderID: "po-1", RawSKU: "WID-1", RawDescription: "Widget", Quantity: 1},
 	}}
-	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, lineItemRepo, &stubParsingJobRepo{}, &stubFileStorage{})
+	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, lineItemRepo, &stubParsingJobRepo{}, &stubFileStorage{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.AttachDocumentToPurchaseOrderInput{
 		PurchaseOrderID: "po-2", FileName: "invoice.pdf", ContentType: "application/pdf", Data: strings.NewReader("%PDF-1.4 fake bytes"),
@@ -164,7 +165,7 @@ func TestAttachDocumentToPurchaseOrder_notFlaggedAsDuplicate_whenNoMatchFound(t 
 	db := newMockGormDBN(t, 2)
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
 	documentRepo := &stubDocumentRepo{}
-	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, &stubLineItemRepo{}, &stubParsingJobRepo{}, &stubFileStorage{})
+	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, &stubLineItemRepo{}, &stubParsingJobRepo{}, &stubFileStorage{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.AttachDocumentToPurchaseOrderInput{
 		PurchaseOrderID: "po-1", FileName: "invoice.pdf", ContentType: "application/pdf", Data: strings.NewReader("%PDF-1.4 fake bytes"),
@@ -179,7 +180,7 @@ func TestAttachDocumentToPurchaseOrder_notFlaggedAsDuplicate_whenNoMatchFound(t 
 func TestAttachDocumentToPurchaseOrder_propagatesPurchaseOrderNotFound(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	poRepo := &stubPurchaseOrderRepo{findErr: procurementDomain.ErrPurchaseOrderNotFound}
-	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, &stubDocumentRepo{}, &stubLineItemRepo{}, &stubParsingJobRepo{}, &stubFileStorage{})
+	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, &stubDocumentRepo{}, &stubLineItemRepo{}, &stubParsingJobRepo{}, &stubFileStorage{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.AttachDocumentToPurchaseOrderInput{
 		PurchaseOrderID: "missing", FileName: "order.csv", ContentType: "text/csv", Data: strings.NewReader(""),
@@ -192,7 +193,7 @@ func TestAttachDocumentToPurchaseOrder_propagatesStorageError(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
 	storage := &stubFileStorage{saveErr: errors.New("disk full")}
-	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, &stubDocumentRepo{}, &stubLineItemRepo{}, &stubParsingJobRepo{}, storage)
+	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, &stubDocumentRepo{}, &stubLineItemRepo{}, &stubParsingJobRepo{}, storage, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.AttachDocumentToPurchaseOrderInput{
 		PurchaseOrderID: "po-1", FileName: "order.csv", ContentType: "text/csv", Data: strings.NewReader(""),

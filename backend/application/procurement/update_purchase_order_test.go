@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 
 func TestUpdatePurchaseOrder_updatesFields(t *testing.T) {
 	repo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1", Status: procurementDomain.PurchaseOrderStatusDraft}}
-	uc := appprocurement.NewUpdatePurchaseOrderUseCase(newMockGormDB(t), repo, &stubLineItemRepo{}, &stubAliasRepo{})
+	uc := appprocurement.NewUpdatePurchaseOrderUseCase(newMockGormDB(t), repo, &stubLineItemRepo{}, &stubAliasRepo{}, &eventrecordtest.Outbox{})
 
 	po, err := uc.Execute(context.Background(), appprocurement.UpdatePurchaseOrderInput{
 		ID: "po-1", SupplierID: strPtr("supplier-2"), WarehouseID: strPtr("wh-2"), Status: procurementDomain.PurchaseOrderStatusSent, CurrencyCode: "EUR",
@@ -37,7 +38,7 @@ func TestUpdatePurchaseOrder_relinksAliasAutoMatchedLineItemsWhenSupplierChanges
 	aliasRepo := &stubAliasRepo{byKey: map[string]*procurementDomain.SupplierProductAlias{
 		"supplier-new|pt-1": {SupplierID: "supplier-new", RawKey: "pt-1", SKUID: "sku-new-guess"},
 	}}
-	uc := appprocurement.NewUpdatePurchaseOrderUseCase(newMockGormDB(t), repo, lineItemRepo, aliasRepo)
+	uc := appprocurement.NewUpdatePurchaseOrderUseCase(newMockGormDB(t), repo, lineItemRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.UpdatePurchaseOrderInput{
 		ID: "po-1", SupplierID: strPtr("supplier-new"), Status: procurementDomain.PurchaseOrderStatusDraft, CurrencyCode: "USD",
@@ -59,7 +60,7 @@ func TestUpdatePurchaseOrder_clearsAliasAutoMatchedLineItemWhenNewSupplierHasNoA
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
 		{ID: "line-alias", RawSKU: "PT-1", SKUID: &skuOld, SKUAutoLinkedFromAlias: true},
 	}}
-	uc := appprocurement.NewUpdatePurchaseOrderUseCase(newMockGormDB(t), repo, lineItemRepo, &stubAliasRepo{})
+	uc := appprocurement.NewUpdatePurchaseOrderUseCase(newMockGormDB(t), repo, lineItemRepo, &stubAliasRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.UpdatePurchaseOrderInput{
 		ID: "po-1", SupplierID: strPtr("supplier-new"), Status: procurementDomain.PurchaseOrderStatusDraft, CurrencyCode: "USD",
@@ -76,7 +77,7 @@ func TestUpdatePurchaseOrder_doesNotResyncAliasesWhenSupplierUnchanged(t *testin
 		ID: "po-1", Status: procurementDomain.PurchaseOrderStatusDraft, SupplierID: strPtr("supplier-1"),
 	}}
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{}}
-	uc := appprocurement.NewUpdatePurchaseOrderUseCase(newMockGormDB(t), repo, lineItemRepo, &stubAliasRepo{})
+	uc := appprocurement.NewUpdatePurchaseOrderUseCase(newMockGormDB(t), repo, lineItemRepo, &stubAliasRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.UpdatePurchaseOrderInput{
 		ID: "po-1", SupplierID: strPtr("supplier-1"), Status: procurementDomain.PurchaseOrderStatusSent, CurrencyCode: "USD",
@@ -88,7 +89,7 @@ func TestUpdatePurchaseOrder_doesNotResyncAliasesWhenSupplierUnchanged(t *testin
 
 func TestUpdatePurchaseOrder_propagatesNotFound(t *testing.T) {
 	repo := &stubPurchaseOrderRepo{findErr: procurementDomain.ErrPurchaseOrderNotFound}
-	uc := appprocurement.NewUpdatePurchaseOrderUseCase(newMockGormDB(t), repo, &stubLineItemRepo{}, &stubAliasRepo{})
+	uc := appprocurement.NewUpdatePurchaseOrderUseCase(newMockGormDB(t), repo, &stubLineItemRepo{}, &stubAliasRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.UpdatePurchaseOrderInput{ID: "missing"})
 

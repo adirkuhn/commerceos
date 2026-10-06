@@ -4,6 +4,7 @@ package repositories_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -479,7 +480,7 @@ func TestDeletePurchaseOrder_Integration_RepointsRemainingDuplicatesAfterDelete(
 
 	poRepo := repositories.NewPurchaseOrderRepo(db)
 	docRepo := repositories.NewPurchaseOrderDocumentRepo(db)
-	deleteUC := appprocurement.NewDeletePurchaseOrderUseCase(db, poRepo, docRepo)
+	deleteUC := appprocurement.NewDeletePurchaseOrderUseCase(db, poRepo, docRepo, &eventrecordtest.Outbox{})
 	const contentHash = "same-file-hash"
 
 	var poIDs []string

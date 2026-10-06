@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 
 func TestAddPurchaseOrderLineItem_setsFields(t *testing.T) {
 	repo := &stubLineItemRepo{}
-	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	skuID := "sku-1"
 	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
@@ -28,7 +29,7 @@ func TestAddPurchaseOrderLineItem_setsFields(t *testing.T) {
 
 func TestAddPurchaseOrderLineItem_defaultsUnitsPerPurchasedItemToOne(t *testing.T) {
 	repo := &stubLineItemRepo{}
-	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
 		PurchaseOrderID: "po-1", RawDescription: "Widget", Quantity: 10, UnitCostMinorUnits: 500,
@@ -44,7 +45,7 @@ func TestAddPurchaseOrderLineItem_defaultsUnitsPerPurchasedItemToOne(t *testing.
 // box represents (e.g. 36 for "Rapadurinha 36x25gr" linked to the 25g unit).
 func TestAddPurchaseOrderLineItem_persistsUnitsPerPurchasedItem(t *testing.T) {
 	repo := &stubLineItemRepo{}
-	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
 		PurchaseOrderID: "po-1", RawDescription: "Rapadurinha 36x25gr", Quantity: 1, UnitCostMinorUnits: 3600,
@@ -57,7 +58,7 @@ func TestAddPurchaseOrderLineItem_persistsUnitsPerPurchasedItem(t *testing.T) {
 
 func TestAddPurchaseOrderLineItem_rejectsNegativeUnitsPerPurchasedItem(t *testing.T) {
 	repo := &stubLineItemRepo{}
-	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
 		PurchaseOrderID: "po-1", RawDescription: "Widget", Quantity: 1, UnitCostMinorUnits: 500,
@@ -69,7 +70,7 @@ func TestAddPurchaseOrderLineItem_rejectsNegativeUnitsPerPurchasedItem(t *testin
 
 func TestAddPurchaseOrderLineItem_manuallyAddedItemIsConfirmedImmediately(t *testing.T) {
 	repo := &stubLineItemRepo{}
-	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
 		PurchaseOrderID: "po-1", RawDescription: "Shipping", Quantity: 1, UnitCostMinorUnits: 1500,
@@ -85,7 +86,7 @@ func TestAddPurchaseOrderLineItem_setsPositionAfterExistingItems(t *testing.T) {
 	repo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
 		{ID: "li-1", Position: 0}, {ID: "li-2", Position: 1},
 	}}
-	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
 		PurchaseOrderID: "po-1", RawDescription: "Widget", Quantity: 1,
@@ -97,7 +98,7 @@ func TestAddPurchaseOrderLineItem_setsPositionAfterExistingItems(t *testing.T) {
 
 func TestAddPurchaseOrderLineItem_setsPositionZeroWhenNoExistingItems(t *testing.T) {
 	repo := &stubLineItemRepo{}
-	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
 		PurchaseOrderID: "po-1", RawDescription: "Widget", Quantity: 1,
@@ -114,7 +115,7 @@ func TestAddPurchaseOrderLineItem_setsPositionAfterMaxWhenAnEarlierItemWasDelete
 	repo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
 		{ID: "li-3", Position: 2},
 	}}
-	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
 		PurchaseOrderID: "po-1", RawDescription: "Widget", Quantity: 1,
@@ -126,7 +127,7 @@ func TestAddPurchaseOrderLineItem_setsPositionAfterMaxWhenAnEarlierItemWasDelete
 
 func TestAddPurchaseOrderLineItem_rejectsNonPositiveQuantity(t *testing.T) {
 	repo := &stubLineItemRepo{}
-	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
 		PurchaseOrderID: "po-1", Quantity: 0,
@@ -138,7 +139,7 @@ func TestAddPurchaseOrderLineItem_rejectsNonPositiveQuantity(t *testing.T) {
 
 func TestAddPurchaseOrderLineItem_propagatesRepoError(t *testing.T) {
 	repo := &stubLineItemRepo{createErr: procurementDomain.ErrPurchaseOrderNotFound}
-	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{PurchaseOrderID: "po-1", Quantity: 1})
 

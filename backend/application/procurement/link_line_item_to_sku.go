@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -31,6 +33,7 @@ type LinkLineItemToSKUUseCase struct {
 	poRepo       procurementDomain.PurchaseOrderRepository
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository
 	aliasRepo    procurementDomain.SupplierProductAliasRepository
+	outbox       eventrecord.Enqueuer
 }
 
 func NewLinkLineItemToSKUUseCase(
@@ -38,8 +41,9 @@ func NewLinkLineItemToSKUUseCase(
 	poRepo procurementDomain.PurchaseOrderRepository,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
 	aliasRepo procurementDomain.SupplierProductAliasRepository,
+	outbox eventrecord.Enqueuer,
 ) *LinkLineItemToSKUUseCase {
-	return &LinkLineItemToSKUUseCase{db: db, poRepo: poRepo, lineItemRepo: lineItemRepo, aliasRepo: aliasRepo}
+	return &LinkLineItemToSKUUseCase{db: db, poRepo: poRepo, lineItemRepo: lineItemRepo, aliasRepo: aliasRepo, outbox: outbox}
 }
 
 func (uc *LinkLineItemToSKUUseCase) Execute(ctx context.Context, in LinkLineItemToSKUInput) (*procurementDomain.PurchaseOrderLineItem, error) {
@@ -62,6 +66,7 @@ func (uc *LinkLineItemToSKUUseCase) Execute(ctx context.Context, in LinkLineItem
 		}
 
 		now := time.Now()
+		before := *existing
 		existing.SKUID = &in.SKUID
 		existing.UnitsPerPurchasedItem = unitsPerPurchasedItem
 		// Explicit human confirmation -- overrides any unreviewed alias
@@ -72,6 +77,9 @@ func (uc *LinkLineItemToSKUUseCase) Execute(ctx context.Context, in LinkLineItem
 			return err
 		}
 		li = *existing
+		if err := recordLineItemLinked(ctx, uc.outbox, before, li, LinkSourceManual); err != nil {
+			return err
+		}
 
 		// Can't attribute a learned correction to an unknown supplier -- if
 		// the PO itself is still missing one, skip writing the alias (the
@@ -88,7 +96,7 @@ func (uc *LinkLineItemToSKUUseCase) Execute(ctx context.Context, in LinkLineItem
 			}
 		}
 
-		return revertPurchaseOrderFromReviewIfFullyResolved(ctx, uc.poRepo, uc.lineItemRepo, po)
+		return revertPurchaseOrderFromReviewIfFullyResolved(ctx, uc.poRepo, uc.lineItemRepo, uc.outbox, po)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("linkLineItemToSKU: %w", err)
@@ -105,6 +113,7 @@ func revertPurchaseOrderFromReviewIfFullyResolved(
 	ctx context.Context,
 	poRepo procurementDomain.PurchaseOrderRepository,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
+	outbox eventrecord.Enqueuer,
 	po *procurementDomain.PurchaseOrder,
 ) error {
 	if po.Status != procurementDomain.PurchaseOrderStatusNeedsReview {
@@ -124,7 +133,12 @@ func revertPurchaseOrderFromReviewIfFullyResolved(
 			return nil
 		}
 	}
+	before := *po
 	po.Status = procurementDomain.PurchaseOrderStatusDraft
 	po.UpdatedAt = time.Now()
-	return poRepo.Update(ctx, po)
+	if err := poRepo.Update(ctx, po); err != nil {
+		return err
+	}
+	return eventrecord.Record(ctx, outbox, events.PurchaseOrderUpdated, po.ID,
+		purchaseOrderChanges(before, *po), eventrecord.Data{"reason": PurchaseOrderChangeReasonLineItemsResolved})
 }

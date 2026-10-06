@@ -9,6 +9,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -37,6 +39,7 @@ type AttachDocumentToPurchaseOrderUseCase struct {
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository
 	jobRepo      procurementDomain.DocumentParsingJobRepository
 	storage      pmsDomain.FileStorage
+	outbox       eventrecord.Enqueuer
 }
 
 func NewAttachDocumentToPurchaseOrderUseCase(
@@ -46,9 +49,10 @@ func NewAttachDocumentToPurchaseOrderUseCase(
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
 	jobRepo procurementDomain.DocumentParsingJobRepository,
 	storage pmsDomain.FileStorage,
+	outbox eventrecord.Enqueuer,
 ) *AttachDocumentToPurchaseOrderUseCase {
 	return &AttachDocumentToPurchaseOrderUseCase{
-		db: db, poRepo: poRepo, documentRepo: documentRepo, lineItemRepo: lineItemRepo, jobRepo: jobRepo, storage: storage,
+		db: db, poRepo: poRepo, documentRepo: documentRepo, lineItemRepo: lineItemRepo, jobRepo: jobRepo, storage: storage, outbox: outbox,
 	}
 }
 
@@ -111,28 +115,13 @@ func (uc *AttachDocumentToPurchaseOrderUseCase) Execute(ctx context.Context, in 
 			}
 		}
 
-		if duplicateOfPOID != "" {
-			copied, err := uc.copyFromDuplicate(ctx, in.PurchaseOrderID, duplicateOfPOID, now)
-			if err != nil {
-				return err
-			}
-			if copied {
-				job = procurementDomain.DocumentParsingJob{
-					TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: in.PurchaseOrderID, DocumentID: doc.ID,
-					Status: procurementDomain.DocumentParsingJobCompleted, CreatedAt: now, StartedAt: &now, FinishedAt: &now,
-				}
-				return uc.jobRepo.Create(ctx, &job)
-			}
-			// Falls through to the normal parse below -- the matched PO
-			// has no line items yet (its own parse may still be pending,
-			// or failed), so there's nothing to copy.
+		if err := uc.createParsingJob(ctx, &job, doc.ID, in.PurchaseOrderID, duplicateOfPOID, now); err != nil {
+			return err
 		}
-
-		job = procurementDomain.DocumentParsingJob{
-			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: in.PurchaseOrderID, DocumentID: doc.ID,
-			Status: procurementDomain.DocumentParsingJobPending, CreatedAt: now,
-		}
-		return uc.jobRepo.Create(ctx, &job)
+		return eventrecord.Record(ctx, uc.outbox, events.PurchaseOrderDocumentAttached, doc.ID, eventrecord.Data{
+			"purchase_order_id": in.PurchaseOrderID, "file_name": doc.FileName, "content_type": doc.ContentType,
+			"parsing_job_id": job.ID, "duplicate_of_purchase_order_id": optionalString(duplicateOfPOID),
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("attachDocumentToPurchaseOrder: %w", err)
@@ -147,6 +136,37 @@ func (uc *AttachDocumentToPurchaseOrderUseCase) Execute(ctx context.Context, in 
 // (and supplier, if this PO doesn't have one yet) directly instead. Returns
 // false (no-op) if the matched PO has no line items yet, so the caller
 // falls back to a normal parse.
+// createParsingJob starts the document's parsing -- or, when the same file
+// is already on another PO with line items, copies those and records the
+// job as already completed.
+func (uc *AttachDocumentToPurchaseOrderUseCase) createParsingJob(ctx context.Context, job *procurementDomain.DocumentParsingJob, documentID, purchaseOrderID, duplicateOfPOID string, now time.Time) error {
+	if duplicateOfPOID != "" {
+		copied, err := uc.copyFromDuplicate(ctx, purchaseOrderID, duplicateOfPOID, now)
+		if err != nil {
+			return err
+		}
+		if copied {
+			*job = procurementDomain.DocumentParsingJob{
+				TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: purchaseOrderID, DocumentID: documentID,
+				Status: procurementDomain.DocumentParsingJobCompleted, CreatedAt: now, StartedAt: &now, FinishedAt: &now,
+			}
+			return uc.jobRepo.Create(ctx, job)
+		}
+	}
+	*job = procurementDomain.DocumentParsingJob{
+		TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: purchaseOrderID, DocumentID: documentID,
+		Status: procurementDomain.DocumentParsingJobPending, CreatedAt: now,
+	}
+	return uc.jobRepo.Create(ctx, job)
+}
+
+func optionalString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 func (uc *AttachDocumentToPurchaseOrderUseCase) copyFromDuplicate(ctx context.Context, purchaseOrderID, duplicateOfPOID string, now time.Time) (bool, error) {
 	sourceItems, err := uc.lineItemRepo.ListByPurchaseOrder(ctx, duplicateOfPOID)
 	if err != nil {
@@ -180,10 +200,13 @@ func (uc *AttachDocumentToPurchaseOrderUseCase) copyFromDuplicate(ctx context.Co
 		if err := uc.lineItemRepo.Create(ctx, &copy); err != nil {
 			return false, err
 		}
+		if err := recordLineItemAdded(ctx, uc.outbox, copy, LineItemSourceDuplicateDocument); err != nil {
+			return false, err
+		}
 	}
 
 	// Same "fully resolved -> back to draft" rule LinkLineItemToSKUUseCase
 	// applies -- a duplicate that copied a supplier and every line item
 	// already matched to a SKU doesn't need a human to review it too.
-	return true, revertPurchaseOrderFromReviewIfFullyResolved(ctx, uc.poRepo, uc.lineItemRepo, po)
+	return true, revertPurchaseOrderFromReviewIfFullyResolved(ctx, uc.poRepo, uc.lineItemRepo, uc.outbox, po)
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -25,6 +27,7 @@ type UpdatePurchaseOrderUseCase struct {
 	poRepo       procurementDomain.PurchaseOrderRepository
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository
 	aliasRepo    procurementDomain.SupplierProductAliasRepository
+	outbox       eventrecord.Enqueuer
 }
 
 func NewUpdatePurchaseOrderUseCase(
@@ -32,8 +35,9 @@ func NewUpdatePurchaseOrderUseCase(
 	poRepo procurementDomain.PurchaseOrderRepository,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
 	aliasRepo procurementDomain.SupplierProductAliasRepository,
+	outbox eventrecord.Enqueuer,
 ) *UpdatePurchaseOrderUseCase {
-	return &UpdatePurchaseOrderUseCase{db: db, poRepo: poRepo, lineItemRepo: lineItemRepo, aliasRepo: aliasRepo}
+	return &UpdatePurchaseOrderUseCase{db: db, poRepo: poRepo, lineItemRepo: lineItemRepo, aliasRepo: aliasRepo, outbox: outbox}
 }
 
 func (uc *UpdatePurchaseOrderUseCase) Execute(ctx context.Context, in UpdatePurchaseOrderInput) (*procurementDomain.PurchaseOrder, error) {
@@ -46,6 +50,7 @@ func (uc *UpdatePurchaseOrderUseCase) Execute(ctx context.Context, in UpdatePurc
 		// Picking a different supplier invalidates any not-yet-reviewed
 		// alias guess made under the old one -- redo those against the new
 		// supplier's own learned aliases rather than leaving a stale SKU.
+		before := *existing
 		supplierChanged := in.SupplierID != nil && (existing.SupplierID == nil || *existing.SupplierID != *in.SupplierID)
 		existing.SupplierID = in.SupplierID
 		existing.WarehouseID = in.WarehouseID
@@ -58,8 +63,11 @@ func (uc *UpdatePurchaseOrderUseCase) Execute(ctx context.Context, in UpdatePurc
 			return err
 		}
 		po = *existing
+		if err := eventrecord.Record(ctx, uc.outbox, events.PurchaseOrderUpdated, po.ID, purchaseOrderChanges(before, po)); err != nil {
+			return err
+		}
 		if supplierChanged {
-			if _, err := resyncAliasMatchedLineItems(ctx, uc.lineItemRepo, uc.aliasRepo, po.ID, *in.SupplierID); err != nil {
+			if _, err := resyncAliasMatchedLineItems(ctx, uc.lineItemRepo, uc.aliasRepo, uc.outbox, po.ID, *in.SupplierID); err != nil {
 				return err
 			}
 		}

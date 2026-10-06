@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 )
@@ -312,6 +313,7 @@ func resyncAliasMatchedLineItems(
 	ctx context.Context,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
 	aliasRepo procurementDomain.SupplierProductAliasRepository,
+	outbox eventrecord.Enqueuer,
 	purchaseOrderID, supplierID string,
 ) (bool, error) {
 	items, err := lineItemRepo.ListByPurchaseOrder(ctx, purchaseOrderID)
@@ -349,11 +351,15 @@ func resyncAliasMatchedLineItems(
 			continue
 		}
 
+		before := item
 		item.SKUID = newSKUID
 		item.SKUAutoLinkedFromAlias = newSKUID != nil
 		item.UnitsPerPurchasedItem = newUnitsPerPurchasedItem
 		item.UpdatedAt = time.Now()
 		if err := lineItemRepo.Update(ctx, &item); err != nil {
+			return false, fmt.Errorf("resyncAliasMatchedLineItems: %w", err)
+		}
+		if err := recordLineItemLinked(ctx, outbox, before, item, LinkSourceSupplierAlias); err != nil {
 			return false, fmt.Errorf("resyncAliasMatchedLineItems: %w", err)
 		}
 		changed = true

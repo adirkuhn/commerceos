@@ -3,6 +3,7 @@ package procurement_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
@@ -18,7 +19,7 @@ func TestLinkLineItemToSKU_setsSKUIDAndWritesAlias(t *testing.T) {
 	poRepo := &stubPurchaseOrderRepo{findResult: &po}
 	lineItemRepo := &stubLineItemRepo{findResult: &li, byPO: []procurementDomain.PurchaseOrderLineItem{li}}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appprocurement.LinkLineItemToSKUInput{LineItemID: "line-item-1", SKUID: "sku-1"})
 
@@ -44,7 +45,7 @@ func TestLinkLineItemToSKU_persistsUnitsPerPurchasedItemOnLineItemAndAlias(t *te
 	poRepo := &stubPurchaseOrderRepo{findResult: &po}
 	lineItemRepo := &stubLineItemRepo{findResult: &li, byPO: []procurementDomain.PurchaseOrderLineItem{li}}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appprocurement.LinkLineItemToSKUInput{
 		LineItemID: "line-item-1", SKUID: "sku-unit-1", UnitsPerPurchasedItem: 36,
@@ -63,7 +64,7 @@ func TestLinkLineItemToSKU_defaultsUnitsPerPurchasedItemToOne(t *testing.T) {
 	poRepo := &stubPurchaseOrderRepo{findResult: &po}
 	lineItemRepo := &stubLineItemRepo{findResult: &li, byPO: []procurementDomain.PurchaseOrderLineItem{li}}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appprocurement.LinkLineItemToSKUInput{LineItemID: "line-item-1", SKUID: "sku-1"})
 
@@ -89,7 +90,7 @@ func TestLinkLineItemToSKU_revertsPOFromNeedsReviewWhenAllItemsLinked(t *testing
 	li1AfterLink.SKUID = &linkedSKUID
 	lineItemRepo := &stubLineItemRepo{findResult: &li1, byPO: []procurementDomain.PurchaseOrderLineItem{li1AfterLink, li2}}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.LinkLineItemToSKUInput{LineItemID: "line-item-1", SKUID: "sku-2"})
 
@@ -106,7 +107,7 @@ func TestLinkLineItemToSKU_leavesPOInNeedsReviewWhenOtherItemsStillUnmatched(t *
 	poRepo := &stubPurchaseOrderRepo{findResult: &po}
 	lineItemRepo := &stubLineItemRepo{findResult: &li1, byPO: []procurementDomain.PurchaseOrderLineItem{li1, li2}}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.LinkLineItemToSKUInput{LineItemID: "line-item-1", SKUID: "sku-2"})
 
@@ -128,7 +129,7 @@ func TestLinkLineItemToSKU_revertsPOEvenWithAnUnmatchedChargeRow(t *testing.T) {
 	li1AfterLink.SKUID = &linkedSKUID
 	lineItemRepo := &stubLineItemRepo{findResult: &li1, byPO: []procurementDomain.PurchaseOrderLineItem{li1AfterLink, shippingLine}}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.LinkLineItemToSKUInput{LineItemID: "line-item-1", SKUID: "sku-2"})
 
@@ -144,7 +145,7 @@ func TestLinkLineItemToSKU_doesNotTouchPOStatusWhenNotInNeedsReview(t *testing.T
 	poRepo := &stubPurchaseOrderRepo{findResult: &po}
 	lineItemRepo := &stubLineItemRepo{findResult: &li, byPO: []procurementDomain.PurchaseOrderLineItem{li}}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.LinkLineItemToSKUInput{LineItemID: "line-item-1", SKUID: "sku-2"})
 
@@ -157,7 +158,7 @@ func TestLinkLineItemToSKU_propagatesLineItemNotFound(t *testing.T) {
 	poRepo := &stubPurchaseOrderRepo{}
 	lineItemRepo := &stubLineItemRepo{findErr: procurementDomain.ErrLineItemNotFound}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.LinkLineItemToSKUInput{LineItemID: "missing", SKUID: "sku-2"})
 
@@ -171,7 +172,7 @@ func TestLinkLineItemToSKU_propagatesAliasUpsertError(t *testing.T) {
 	poRepo := &stubPurchaseOrderRepo{findResult: &po}
 	lineItemRepo := &stubLineItemRepo{findResult: &li}
 	aliasRepo := &stubAliasRepo{upsertErr: errors.New("db down")}
-	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.LinkLineItemToSKUInput{LineItemID: "line-item-1", SKUID: "sku-2"})
 

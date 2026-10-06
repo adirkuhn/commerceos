@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 
 func TestRemovePurchaseOrderLineItem_removesExisting(t *testing.T) {
 	repo := &stubLineItemRepo{findResult: &procurementDomain.PurchaseOrderLineItem{ID: "line-item-1"}}
-	uc := appprocurement.NewRemovePurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewRemovePurchaseOrderLineItemUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "line-item-1")
 
@@ -22,7 +23,7 @@ func TestRemovePurchaseOrderLineItem_removesExisting(t *testing.T) {
 
 func TestRemovePurchaseOrderLineItem_propagatesNotFound(t *testing.T) {
 	repo := &stubLineItemRepo{findErr: procurementDomain.ErrLineItemNotFound}
-	uc := appprocurement.NewRemovePurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewRemovePurchaseOrderLineItemUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 

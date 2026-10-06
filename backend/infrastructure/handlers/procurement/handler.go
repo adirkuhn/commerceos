@@ -289,19 +289,19 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 	skuCostUpdater := skuCostUpdaterAdapter{uc: pmsapp.NewApplyReceiptCostUseCase(db, skuRepo, costLedgerRepo, batchListerForCost)}
 	costLedgerRecorder := costLedgerRecorderAdapter{uc: pmsapp.NewRecordCostLedgerMovementUseCase(db, skuRepo, costLedgerRepo, batchListerForCost)}
 
-	createPurchaseOrderUC := appprocurement.NewCreatePurchaseOrderUseCase(db, poRepo)
-	attachDocumentUC := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, lineItemRepo, jobRepo, fileStorage)
-	linkLineItemToSKUUC := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+	createPurchaseOrderUC := appprocurement.NewCreatePurchaseOrderUseCase(db, poRepo, outboxRepo)
+	attachDocumentUC := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, lineItemRepo, jobRepo, fileStorage, outboxRepo)
+	linkLineItemToSKUUC := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo, outboxRepo)
 
 	h := NewHandler(
 		appprocurement.NewListPurchaseOrdersUseCase(db, poRepo, lineItemRepo),
 		createPurchaseOrderUC,
 		appprocurement.NewGetPurchaseOrderUseCase(db, poRepo, lineItemRepo, documentRepo, skuRepo, variantRepo, productRepo),
-		appprocurement.NewUpdatePurchaseOrderUseCase(db, poRepo, lineItemRepo, aliasRepo),
-		appprocurement.NewDeletePurchaseOrderUseCase(db, poRepo, documentRepo),
-		appprocurement.NewAddPurchaseOrderLineItemUseCase(db, lineItemRepo),
-		appprocurement.NewUpdatePurchaseOrderLineItemUseCase(db, lineItemRepo),
-		appprocurement.NewRemovePurchaseOrderLineItemUseCase(db, lineItemRepo),
+		appprocurement.NewUpdatePurchaseOrderUseCase(db, poRepo, lineItemRepo, aliasRepo, outboxRepo),
+		appprocurement.NewDeletePurchaseOrderUseCase(db, poRepo, documentRepo, outboxRepo),
+		appprocurement.NewAddPurchaseOrderLineItemUseCase(db, lineItemRepo, outboxRepo),
+		appprocurement.NewUpdatePurchaseOrderLineItemUseCase(db, lineItemRepo, outboxRepo),
+		appprocurement.NewRemovePurchaseOrderLineItemUseCase(db, lineItemRepo, outboxRepo),
 		attachDocumentUC,
 		appprocurement.NewGetDocumentParsingJobUseCase(db, jobRepo),
 		appprocurement.NewGetReceivingParsingJobUseCase(db, receivingJobRepo),
@@ -314,7 +314,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 			linkLineItemToSKUUC,
 		),
 		appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(
-			db, supplierRepo, suppliersapp.NewCreateSupplierUseCase(db, supplierRepo, outboxRepo), poRepo, lineItemRepo, aliasRepo,
+			db, supplierRepo, suppliersapp.NewCreateSupplierUseCase(db, supplierRepo, outboxRepo), poRepo, lineItemRepo, aliasRepo, outboxRepo,
 		),
 		appprocurement.NewUploadInvoiceUseCase(db, poRepo, receivingRecordRepo, receivingJobRepo, fileStorage),
 		appprocurement.NewListReceivingRecordsUseCase(db, receivingRecordRepo),

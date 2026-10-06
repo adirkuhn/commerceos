@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 
 func TestCreatePurchaseOrder_setsFields(t *testing.T) {
 	repo := &stubPurchaseOrderRepo{}
-	uc := appprocurement.NewCreatePurchaseOrderUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewCreatePurchaseOrderUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	po, err := uc.Execute(context.Background(), appprocurement.CreatePurchaseOrderInput{
 		SupplierID: strPtr("supplier-1"), WarehouseID: strPtr("wh-1"), CurrencyCode: "USD", Notes: "urgent",
@@ -28,7 +29,7 @@ func TestCreatePurchaseOrder_setsFields(t *testing.T) {
 
 func TestCreatePurchaseOrder_allowsNilWarehouse(t *testing.T) {
 	repo := &stubPurchaseOrderRepo{}
-	uc := appprocurement.NewCreatePurchaseOrderUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewCreatePurchaseOrderUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	po, err := uc.Execute(context.Background(), appprocurement.CreatePurchaseOrderInput{
 		SupplierID: strPtr("supplier-1"), CurrencyCode: "USD",
@@ -40,7 +41,7 @@ func TestCreatePurchaseOrder_allowsNilWarehouse(t *testing.T) {
 
 func TestCreatePurchaseOrder_startsNeedsReviewWhenSupplierOmitted(t *testing.T) {
 	repo := &stubPurchaseOrderRepo{}
-	uc := appprocurement.NewCreatePurchaseOrderUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewCreatePurchaseOrderUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	po, err := uc.Execute(context.Background(), appprocurement.CreatePurchaseOrderInput{WarehouseID: strPtr("wh-1"), CurrencyCode: "USD"})
 
@@ -51,7 +52,7 @@ func TestCreatePurchaseOrder_startsNeedsReviewWhenSupplierOmitted(t *testing.T) 
 
 func TestCreatePurchaseOrder_propagatesRepoError(t *testing.T) {
 	repo := &stubPurchaseOrderRepo{createErr: procurementDomain.ErrPurchaseOrderNotFound}
-	uc := appprocurement.NewCreatePurchaseOrderUseCase(newMockGormDB(t), repo)
+	uc := appprocurement.NewCreatePurchaseOrderUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.CreatePurchaseOrderInput{SupplierID: strPtr("supplier-1"), WarehouseID: strPtr("wh-1")})
 
