@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -31,6 +32,7 @@ type WriteOffExpiredBatchUseCase struct {
 	batchRepo         invDomain.BatchRepository
 	movementRepo      invDomain.StockMovementRepository
 	markDamagedOrLost damagedOrLostRecorder
+	outbox            eventrecord.Enqueuer
 }
 
 func NewWriteOffExpiredBatchUseCase(
@@ -38,8 +40,9 @@ func NewWriteOffExpiredBatchUseCase(
 	batchRepo invDomain.BatchRepository,
 	movementRepo invDomain.StockMovementRepository,
 	markDamagedOrLost damagedOrLostRecorder,
+	outbox eventrecord.Enqueuer,
 ) *WriteOffExpiredBatchUseCase {
-	return &WriteOffExpiredBatchUseCase{db: db, batchRepo: batchRepo, movementRepo: movementRepo, markDamagedOrLost: markDamagedOrLost}
+	return &WriteOffExpiredBatchUseCase{db: db, batchRepo: batchRepo, movementRepo: movementRepo, markDamagedOrLost: markDamagedOrLost, outbox: outbox}
 }
 
 func (uc *WriteOffExpiredBatchUseCase) Execute(ctx context.Context, batchID string, performedBy string) error {
@@ -76,7 +79,7 @@ func (uc *WriteOffExpiredBatchUseCase) Execute(ctx context.Context, batchID stri
 	}
 
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.batchRepo.MarkReviewed(ctx, batchID)
+		return markBatchReviewed(ctx, uc.batchRepo, uc.outbox, batchID, BatchReviewOutcomeWrittenOff)
 	})
 	if err != nil {
 		return fmt.Errorf("writeOffExpiredBatch: %w", err)

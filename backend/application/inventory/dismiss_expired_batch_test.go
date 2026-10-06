@@ -2,6 +2,7 @@ package inventory_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,8 +12,8 @@ import (
 )
 
 func TestDismissExpiredBatch_marksReviewed(t *testing.T) {
-	batchRepo := &stubBatchRepo{}
-	uc := appinv.NewDismissExpiredBatchUseCase(newMockGormDB(t), batchRepo)
+	batchRepo := &stubBatchRepo{findResult: &invDomain.Batch{ID: "batch-1"}}
+	uc := appinv.NewDismissExpiredBatchUseCase(newMockGormDB(t), batchRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "batch-1")
 
@@ -22,7 +23,7 @@ func TestDismissExpiredBatch_marksReviewed(t *testing.T) {
 
 func TestDismissExpiredBatch_propagatesRepoError(t *testing.T) {
 	batchRepo := &stubBatchRepo{markReviewedErr: invDomain.ErrBatchNotFound}
-	uc := appinv.NewDismissExpiredBatchUseCase(newMockGormDB(t), batchRepo)
+	uc := appinv.NewDismissExpiredBatchUseCase(newMockGormDB(t), batchRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "batch-1")
 

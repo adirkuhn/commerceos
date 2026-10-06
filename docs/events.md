@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-51 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+57 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -68,7 +68,13 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `inventory.batch.created` | action | A stock batch (lot) was created. data: sku_id, warehouse_id, lot_number, expiry_date. | envelope |
+| `inventory.batch.deleted` | action | An unused stock batch was deleted. data: sku_id, warehouse_id, lot_number. | envelope |
+| `inventory.batch.reviewed` | action | An expired batch was dealt with and leaves the expiry review list. data: sku_id, warehouse_id, outcome -- dismissed (kept as is), written_off (remaining stock written off as lost) or discarded (a quantity discarded by hand). | envelope |
 | `inventory.stock.changed` | typed | InventoryStockChanged is raised whenever a SKU's stock ledger changes — a movement recorded via adjust/recount/transfer/mark-damaged-lost. | `InventoryStockChanged`: event_id, occurred_at, tenant_id, sku_id |
+| `inventory.warehouse.created` | action | A warehouse was created. data: name, country, active. | envelope |
+| `inventory.warehouse.deleted` | action | A warehouse was deleted. data: name. | envelope |
+| `inventory.warehouse.updated` | action | A warehouse changed (changes: name, address1, address2, city, province, zip, country, phone, active). | envelope |
 
 ### newsletter
 

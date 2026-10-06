@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -21,10 +23,11 @@ type CreateBatchInput struct {
 type CreateBatchUseCase struct {
 	db        *gorm.DB
 	batchRepo invDomain.BatchRepository
+	outbox    eventrecord.Enqueuer
 }
 
-func NewCreateBatchUseCase(db *gorm.DB, batchRepo invDomain.BatchRepository) *CreateBatchUseCase {
-	return &CreateBatchUseCase{db: db, batchRepo: batchRepo}
+func NewCreateBatchUseCase(db *gorm.DB, batchRepo invDomain.BatchRepository, outbox eventrecord.Enqueuer) *CreateBatchUseCase {
+	return &CreateBatchUseCase{db: db, batchRepo: batchRepo, outbox: outbox}
 }
 
 func (uc *CreateBatchUseCase) Execute(ctx context.Context, in CreateBatchInput) (*invDomain.Batch, error) {
@@ -46,7 +49,12 @@ func (uc *CreateBatchUseCase) Execute(ctx context.Context, in CreateBatchInput) 
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		}
-		return uc.batchRepo.Create(ctx, &batch)
+		if err := uc.batchRepo.Create(ctx, &batch); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.BatchCreated, batch.ID, eventrecord.Data{
+			"sku_id": batch.SKUID, "warehouse_id": batch.WarehouseID, "lot_number": batch.LotNumber, "expiry_date": batch.ExpiryDate,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createBatch: %w", err)

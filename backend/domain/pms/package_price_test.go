@@ -16,7 +16,7 @@ func TestPackagePriceMinorUnits_roundsDownToAPriceEndingIn9(t *testing.T) {
 	}{
 		{"29.99/kg x 380g = 11.40 -> 11.39", 2999, 380, 1139},
 		{"32.99/kg x 380g = 12.54 -> 12.49", 3299, 380, 1249},
-		{"already ends in 9 stays", 1000, 1249, 1249}, // 12.49
+		{"already ends in 9 stays", 1000, 1249, 1249},    // 12.49
 		{"x8 drops to the x9 below", 1000, 12480, 12479}, // 124.80 -> 124.79
 		{"29.99/kg x 528g = 15.83 -> 15.79", 2999, 528, 1579},
 	}

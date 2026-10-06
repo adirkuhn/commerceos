@@ -2,6 +2,7 @@ package inventory_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 
 func TestCreateBatch_setsFields(t *testing.T) {
 	batchRepo := &stubBatchRepo{}
-	uc := appinv.NewCreateBatchUseCase(newMockGormDB(t), batchRepo)
+	uc := appinv.NewCreateBatchUseCase(newMockGormDB(t), batchRepo, &eventrecordtest.Outbox{})
 
 	expiry := time.Now().Add(30 * 24 * time.Hour)
 	b, err := uc.Execute(context.Background(), appinv.CreateBatchInput{

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -16,15 +17,16 @@ import (
 type DismissExpiredBatchUseCase struct {
 	db        *gorm.DB
 	batchRepo invDomain.BatchRepository
+	outbox    eventrecord.Enqueuer
 }
 
-func NewDismissExpiredBatchUseCase(db *gorm.DB, batchRepo invDomain.BatchRepository) *DismissExpiredBatchUseCase {
-	return &DismissExpiredBatchUseCase{db: db, batchRepo: batchRepo}
+func NewDismissExpiredBatchUseCase(db *gorm.DB, batchRepo invDomain.BatchRepository, outbox eventrecord.Enqueuer) *DismissExpiredBatchUseCase {
+	return &DismissExpiredBatchUseCase{db: db, batchRepo: batchRepo, outbox: outbox}
 }
 
 func (uc *DismissExpiredBatchUseCase) Execute(ctx context.Context, batchID string) error {
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.batchRepo.MarkReviewed(ctx, batchID)
+		return markBatchReviewed(ctx, uc.batchRepo, uc.outbox, batchID, BatchReviewOutcomeDismissed)
 	})
 	if err != nil {
 		return fmt.Errorf("dismissExpiredBatch: %w", err)

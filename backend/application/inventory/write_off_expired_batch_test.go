@@ -2,6 +2,7 @@ package inventory_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -30,7 +31,7 @@ func TestWriteOffExpiredBatch_recordsALostMovementForTheBatchsRemainingQuantityT
 		{BatchID: strPtr("batch-1"), QuantityDelta: -3},
 	}}
 	recorder := &stubDamagedOrLostRecorder{}
-	uc := appinv.NewWriteOffExpiredBatchUseCase(newMockGormDBN(t, 2), batchRepo, movementRepo, recorder)
+	uc := appinv.NewWriteOffExpiredBatchUseCase(newMockGormDBN(t, 2), batchRepo, movementRepo, recorder, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "batch-1", "user-1")
 
@@ -51,7 +52,7 @@ func TestWriteOffExpiredBatch_zeroRemainingQuantitySkipsMovementButStillMarksRev
 		{BatchID: strPtr("batch-1"), QuantityDelta: -5},
 	}}
 	recorder := &stubDamagedOrLostRecorder{}
-	uc := appinv.NewWriteOffExpiredBatchUseCase(newMockGormDBN(t, 2), batchRepo, movementRepo, recorder)
+	uc := appinv.NewWriteOffExpiredBatchUseCase(newMockGormDBN(t, 2), batchRepo, movementRepo, recorder, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "batch-1", "user-1")
 
@@ -62,7 +63,7 @@ func TestWriteOffExpiredBatch_zeroRemainingQuantitySkipsMovementButStillMarksRev
 
 func TestWriteOffExpiredBatch_propagatesFindError(t *testing.T) {
 	batchRepo := &stubBatchRepo{findErr: invDomain.ErrBatchNotFound}
-	uc := appinv.NewWriteOffExpiredBatchUseCase(newMockGormDB(t), batchRepo, &stubStockMovementRepo{}, &stubDamagedOrLostRecorder{})
+	uc := appinv.NewWriteOffExpiredBatchUseCase(newMockGormDB(t), batchRepo, &stubStockMovementRepo{}, &stubDamagedOrLostRecorder{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "batch-1", "user-1")
 
@@ -73,7 +74,7 @@ func TestWriteOffExpiredBatch_propagatesRecorderError(t *testing.T) {
 	batchRepo := &stubBatchRepo{findResult: &invDomain.Batch{ID: "batch-1", SKUID: "sku-1", WarehouseID: "wh-1"}}
 	movementRepo := &stubStockMovementRepo{byBatch: []invDomain.StockMovement{{BatchID: strPtr("batch-1"), QuantityDelta: 4}}}
 	recorder := &stubDamagedOrLostRecorder{err: invDomain.ErrInvalidQuantity}
-	uc := appinv.NewWriteOffExpiredBatchUseCase(newMockGormDB(t), batchRepo, movementRepo, recorder)
+	uc := appinv.NewWriteOffExpiredBatchUseCase(newMockGormDB(t), batchRepo, movementRepo, recorder, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "batch-1", "user-1")
 

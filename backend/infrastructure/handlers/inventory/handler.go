@@ -241,12 +241,12 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, fileSto
 
 	h := NewHandler(
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
-		appinventory.NewCreateWarehouseUseCase(db, warehouseRepo),
-		appinventory.NewUpdateWarehouseUseCase(db, warehouseRepo),
-		appinventory.NewDeleteWarehouseUseCase(db, warehouseRepo),
-		appinventory.NewCreateBatchUseCase(db, batchRepo),
+		appinventory.NewCreateWarehouseUseCase(db, warehouseRepo, outboxRepo),
+		appinventory.NewUpdateWarehouseUseCase(db, warehouseRepo, outboxRepo),
+		appinventory.NewDeleteWarehouseUseCase(db, warehouseRepo, outboxRepo),
+		appinventory.NewCreateBatchUseCase(db, batchRepo, outboxRepo),
 		appinventory.NewUpdateBatchUseCase(db, batchRepo, outboxRepo),
-		appinventory.NewDeleteBatchUseCase(db, batchRepo, movementRepo),
+		appinventory.NewDeleteBatchUseCase(db, batchRepo, movementRepo, outboxRepo),
 		appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
 		appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo),
 		appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo, costLedgerRecorder),
@@ -259,11 +259,11 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, fileSto
 		appinventory.NewListStockMovementsUseCase(db, movementRepo),
 		appinventory.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo, skuCostUpdater),
 		appinventory.NewListPendingExpiredBatchesUseCase(db, batchRepo),
-		appinventory.NewWriteOffExpiredBatchUseCase(db, batchRepo, movementRepo, markDamagedOrLost),
+		appinventory.NewWriteOffExpiredBatchUseCase(db, batchRepo, movementRepo, markDamagedOrLost, outboxRepo),
 		appinventory.NewExtendBatchExpiryUseCase(db, batchRepo),
-		appinventory.NewDismissExpiredBatchUseCase(db, batchRepo),
+		appinventory.NewDismissExpiredBatchUseCase(db, batchRepo, outboxRepo),
 		appinventory.NewListBatchMovementsUseCase(db, movementRepo),
-		appinventory.NewDiscardBatchUseCase(db, batchRepo, markDamagedOrLost, fileStorage),
+		appinventory.NewDiscardBatchUseCase(db, batchRepo, markDamagedOrLost, fileStorage, outboxRepo),
 		appinventory.NewListDiscardsUseCase(db, discardRepo),
 	)
 	geninventory.RegisterHandlers(rg, h)
