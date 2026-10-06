@@ -30,6 +30,7 @@ import (
 	genpos "github.com/adirkuhn/commerceos/api/pos"
 	genprocurement "github.com/adirkuhn/commerceos/api/procurement"
 	genpromotions "github.com/adirkuhn/commerceos/api/promotions"
+	genpurchaseplanning "github.com/adirkuhn/commerceos/api/purchaseplanning"
 	genreports "github.com/adirkuhn/commerceos/api/reports"
 	genreviews "github.com/adirkuhn/commerceos/api/reviews"
 	genscannerauth "github.com/adirkuhn/commerceos/api/scannerauth"
@@ -64,6 +65,7 @@ import (
 	poshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pos"
 	procurementhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/procurement"
 	promotionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/promotions"
+	purchaseplanninghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/purchaseplanning"
 	reportshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/reports"
 	reviewshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/reviews"
 	scannerauthhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scannerauth"
@@ -497,6 +499,18 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	procurementhandler.Register(procurementGroup, db, fileStorage)
+
+	purchaseplanningSpec, err := genpurchaseplanning.GetSpec()
+	if err != nil {
+		log.Fatalf("purchaseplanning: load openapi spec: %v", err)
+	}
+	// Own sub-group so the purchaseplanning-only spec validator never
+	// applies to the other modules' routes — same reasoning as pmsGroup above.
+	purchaseplanningGroup := v1.Group("")
+	purchaseplanningGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(purchaseplanningSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	purchaseplanninghandler.Register(purchaseplanningGroup, db)
 
 	scanningSpec, err := genscanning.GetSpec()
 	if err != nil {

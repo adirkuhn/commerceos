@@ -1,0 +1,205 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Purchase Planner API
+  version: "1.0"
+  description: >-
+    Recommends what to buy, from which supplier, how much and by when.
+    Per SKU, demand is forecast over the supplier's lead time + the
+    coverage window: seasonal (units sold in the same window last year,
+    scaled by this year's growth vs last year over the last 56 days,
+    clamped 0.5x-2x) when last year's window sold, otherwise recent
+    velocity (last 56 days' average daily sales). Stock on hand and on
+    open purchase orders (sent, draft, needs review) is subtracted, a
+    safety stock added, and the rest rounded up to whole purchased items
+    (a box of 6, or per kg for a weight pool). SKUs are grouped by the
+    supplier of their newest non-cancelled purchase order; SKUs never
+    bought on one land in a group without supplier. A weight pool's
+    packages count toward the pool in grams. A separate small module
+    (like api/weightportions) rather than folded into api/procurement.
+servers:
+  - url: /api/v1
+
+paths:
+  /procurement/recommendations:
+    get:
+      operationId: getReorderRecommendations
+      summary: What to reorder now, grouped by supplier, most urgent first
+      parameters:
+        - name: coverage_days
+          in: query
+          description: How many days an order placed today should last once it arrives.
+          schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
+        - name: safety_days
+          in: query
+          description: Days of average demand kept on top as safety stock.
+          schema: { type: integer, minimum: 0, maximum: 90, default: 7 }
+        - name: supplier_id
+          in: query
+          description: Only this supplier's group.
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReorderRecommendationsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+components:
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    Forecast:
+      type: object
+      required: [units, method, growth_factor, days]
+      properties:
+        units:
+          type: integer
+          format: int64
+          description: Forecast units sold over `days` (grams for a weight pool).
+        method:
+          type: string
+          enum: [seasonal, recent_velocity, no_demand]
+        growth_factor:
+          type: number
+          description: Year-over-year growth applied to last year's window; 1 unless seasonal.
+        days: { type: integer, description: 'Forecast window: lead time + coverage days.' }
+        recent_units:
+          type: integer
+          format: int64
+          description: Units sold in the last 56 days.
+        last_year_units:
+          type: integer
+          format: int64
+          description: Units sold in the same window one year ago.
+
+    OnOrder:
+      type: object
+      required: [sent, draft]
+      properties:
+        sent: { type: integer, format: int64, description: On purchase orders sent to a supplier. }
+        draft: { type: integer, format: int64, description: On draft / needs-review purchase orders. }
+
+    RecommendationLine:
+      type: object
+      required:
+        - sku_id
+        - sku_code
+        - product_name
+        - variant_name
+        - is_weight_pool
+        - on_hand
+        - on_order
+        - forecast
+        - daily_demand
+        - safety_stock
+        - needed_units
+        - purchase_quantity
+        - units_per_purchased_item
+        - order_units
+        - currency_code
+      properties:
+        sku_id: { type: string }
+        sku_code: { type: string }
+        product_name: { type: string }
+        variant_name: { type: string }
+        is_weight_pool:
+          type: boolean
+          description: Stock units are grams; bought per kg unless a past PO says otherwise.
+        on_hand: { type: integer, format: int64, description: Stock units across every warehouse. }
+        on_order: { $ref: '#/components/schemas/OnOrder' }
+        forecast: { $ref: '#/components/schemas/Forecast' }
+        daily_demand: { type: number }
+        safety_stock: { type: integer, format: int64 }
+        needed_units:
+          type: integer
+          format: int64
+          description: Forecast + safety stock - on hand - on order, in stock units.
+        purchase_quantity:
+          type: integer
+          format: int64
+          description: Purchased items to order (needed units rounded up to whole items).
+        units_per_purchased_item: { type: integer, format: int64 }
+        order_units:
+          type: integer
+          format: int64
+          description: purchase_quantity in stock units.
+        unit_cost_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: Last purchase price per purchased item; null if never bought.
+        estimated_cost_minor_units: { type: integer, format: int64, nullable: true }
+        currency_code: { type: string }
+        stockout_date:
+          type: string
+          format: date
+          nullable: true
+          description: When on hand + on order runs out at daily_demand.
+        order_by_date:
+          type: string
+          format: date
+          nullable: true
+          description: Stockout date minus lead time -- in the past means already late.
+        last_ordered_at: { type: string, format: date-time, nullable: true }
+
+    SupplierRecommendation:
+      type: object
+      required: [supplier_name, lead_time_days, lead_time_assumed, lines, currency_code]
+      properties:
+        supplier_id:
+          type: string
+          nullable: true
+          description: Null for SKUs never bought on a purchase order.
+        supplier_name: { type: string }
+        lead_time_days: { type: integer }
+        lead_time_assumed:
+          type: boolean
+          description: True when the supplier has no lead time set and the default (14) was used.
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/RecommendationLine' }
+        estimated_cost_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: Null unless every line has a cost in one currency.
+        currency_code: { type: string }
+        earliest_order_by_date: { type: string, format: date, nullable: true }
+
+    ReorderRecommendations:
+      type: object
+      required: [as_of, coverage_days, safety_days, suppliers]
+      properties:
+        as_of: { type: string, format: date }
+        coverage_days: { type: integer }
+        safety_days: { type: integer }
+        suppliers:
+          type: array
+          items: { $ref: '#/components/schemas/SupplierRecommendation' }
+
+    ReorderRecommendationsResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ReorderRecommendations' }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
