@@ -61,12 +61,13 @@ var _ gensuppliers.ServerInterface = (*Handler)(nil)
 // mounts the generated routes (matching the OpenAPI spec exactly).
 func Register(rg gin.IRouter, db *gorm.DB) {
 	supplierRepo := repositories.NewSupplierRepo(db)
+	outboxRepo := repositories.NewOutboxRepository(db)
 
 	h := NewHandler(
 		appsuppliers.NewListSuppliersUseCase(db, supplierRepo),
-		appsuppliers.NewCreateSupplierUseCase(db, supplierRepo),
-		appsuppliers.NewUpdateSupplierUseCase(db, supplierRepo),
-		appsuppliers.NewDeleteSupplierUseCase(db, supplierRepo),
+		appsuppliers.NewCreateSupplierUseCase(db, supplierRepo, outboxRepo),
+		appsuppliers.NewUpdateSupplierUseCase(db, supplierRepo, outboxRepo),
+		appsuppliers.NewDeleteSupplierUseCase(db, supplierRepo, outboxRepo),
 	)
 	gensuppliers.RegisterHandlers(rg, h)
 }

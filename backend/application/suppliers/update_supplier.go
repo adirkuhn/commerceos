@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	suppliersDomain "github.com/adirkuhn/commerceos/domain/suppliers"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -24,10 +26,11 @@ type UpdateSupplierInput struct {
 type UpdateSupplierUseCase struct {
 	db           *gorm.DB
 	supplierRepo suppliersDomain.SupplierRepository
+	outbox       eventrecord.Enqueuer
 }
 
-func NewUpdateSupplierUseCase(db *gorm.DB, supplierRepo suppliersDomain.SupplierRepository) *UpdateSupplierUseCase {
-	return &UpdateSupplierUseCase{db: db, supplierRepo: supplierRepo}
+func NewUpdateSupplierUseCase(db *gorm.DB, supplierRepo suppliersDomain.SupplierRepository, outbox eventrecord.Enqueuer) *UpdateSupplierUseCase {
+	return &UpdateSupplierUseCase{db: db, supplierRepo: supplierRepo, outbox: outbox}
 }
 
 func (uc *UpdateSupplierUseCase) Execute(ctx context.Context, in UpdateSupplierInput) (*suppliersDomain.Supplier, error) {
@@ -37,6 +40,7 @@ func (uc *UpdateSupplierUseCase) Execute(ctx context.Context, in UpdateSupplierI
 		if err != nil {
 			return err
 		}
+		before := *existing
 		existing.Name = in.Name
 		existing.Email = in.Email
 		existing.Phone = in.Phone
@@ -49,7 +53,14 @@ func (uc *UpdateSupplierUseCase) Execute(ctx context.Context, in UpdateSupplierI
 			return err
 		}
 		supplier = *existing
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.SupplierUpdated, supplier.ID, eventrecord.NewChanges().
+			Set("name", before.Name, supplier.Name).
+			Set("email", before.Email, supplier.Email).
+			Set("phone", before.Phone, supplier.Phone).
+			Set("country", before.Country, supplier.Country).
+			Set("lead_time_days", before.LeadTimeDays, supplier.LeadTimeDays).
+			Set("status", string(before.Status), string(supplier.Status)).
+			Set("notes", before.Notes, supplier.Notes))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateSupplier: %w", err)

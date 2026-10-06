@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-26 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+29 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -137,6 +137,14 @@ Payload (`events.EntityAction`):
 | `storefront.theme.deleted` | typed |  | `ThemeDeleted`: event_id, occurred_at, tenant_id, theme_id, sales_channel_id |
 | `storefront.theme.published` | typed | ThemePublished fires when a draft is sealed and goes live -- the signal for anything caching the channel's live storefront to refresh. | `ThemePublished`: event_id, occurred_at, tenant_id, theme_id, sales_channel_id, version_id, version_number |
 | `storefront.theme.rolled_back` | typed |  | `ThemeRolledBack`: event_id, occurred_at, tenant_id, theme_id, sales_channel_id, version_id, version_number |
+
+### suppliers
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `suppliers.supplier.created` | action | A supplier was created. data: name, status. | envelope |
+| `suppliers.supplier.deleted` | action | A supplier was deleted. data: name. | envelope |
+| `suppliers.supplier.updated` | action | A supplier's details changed (changes: name, email, phone, country, lead_time_days, status, notes). | envelope |
 
 ## Legacy subjects
 

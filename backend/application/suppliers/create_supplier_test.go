@@ -2,6 +2,7 @@ package suppliers_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 
 func TestCreateSupplier_setsFields(t *testing.T) {
 	repo := &stubSupplierRepo{}
-	uc := appsuppliers.NewCreateSupplierUseCase(newMockGormDB(t), repo)
+	uc := appsuppliers.NewCreateSupplierUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	leadTime := 14
 	s, err := uc.Execute(context.Background(), appsuppliers.CreateSupplierInput{
@@ -30,7 +31,7 @@ func TestCreateSupplier_setsFields(t *testing.T) {
 
 func TestCreateSupplier_propagatesRepoError(t *testing.T) {
 	repo := &stubSupplierRepo{createErr: suppliersDomain.ErrSupplierNotFound}
-	uc := appsuppliers.NewCreateSupplierUseCase(newMockGormDB(t), repo)
+	uc := appsuppliers.NewCreateSupplierUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appsuppliers.CreateSupplierInput{Name: "Acme Foods"})
 

@@ -2,6 +2,7 @@ package suppliers_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 
 func TestDeleteSupplier_deletesExisting(t *testing.T) {
 	repo := &stubSupplierRepo{findResult: &suppliersDomain.Supplier{ID: "supplier-1"}}
-	uc := appsuppliers.NewDeleteSupplierUseCase(newMockGormDB(t), repo)
+	uc := appsuppliers.NewDeleteSupplierUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "supplier-1")
 
@@ -22,7 +23,7 @@ func TestDeleteSupplier_deletesExisting(t *testing.T) {
 
 func TestDeleteSupplier_propagatesNotFound(t *testing.T) {
 	repo := &stubSupplierRepo{findErr: suppliersDomain.ErrSupplierNotFound}
-	uc := appsuppliers.NewDeleteSupplierUseCase(newMockGormDB(t), repo)
+	uc := appsuppliers.NewDeleteSupplierUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 
