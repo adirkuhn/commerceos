@@ -73,7 +73,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outbox appsettings.EventEnqueuer) {
 	prefsRepo := repositories.NewNotificationPreferencesRepo(db)
 	h := NewHandler(
 		appsettings.NewGetTenantSettingsUseCase(db, repo),
-		appsettings.NewUpdateTenantSettingsUseCase(db, repo),
+		appsettings.NewUpdateTenantSettingsUseCase(db, repo, outbox),
 		appapikeys.NewListAPIKeysUseCase(db, apiKeyRepo),
 		appapikeys.NewCreateAPIKeyUseCase(db, apiKeyRepo),
 		appapikeys.NewRevokeAPIKeyUseCase(db, apiKeyRepo),

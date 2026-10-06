@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-69 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+71 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -156,11 +156,18 @@ Payload (`events.EntityAction`):
 | `procurement.receiving_record.created` | action | A supplier invoice was uploaded against a purchase order to check what was delivered. data: purchase_order_id, file_name, content_type, parsing_job_id, potential_duplicate. | envelope |
 | `procurement.receiving_record.parsed` | action | An uploaded invoice was compared with its purchase order (each difference also raises receiving_discrepancy.detected). data: purchase_order_id, parsing_job_id, discrepancy_count. | envelope |
 
+### reviews
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `reviews.review.deleted` | action | A product review was removed by moderation. | envelope |
+
 ### settings
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
 | `settings.company_profile.updated` | typed | CompanyProfileUpdated is raised when a tenant saves its company profile (legal name, VAT, address... -- the invoice seller block). | `CompanyProfileUpdated`: event_id, occurred_at, tenant_id |
+| `settings.tenant_settings.updated` | action | The tenant's settings changed; entity_id is the tenant (changes: default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, recommendations_min_support, recommendations_lookback_days, picking_mode). | envelope |
 
 ### shipping
 
