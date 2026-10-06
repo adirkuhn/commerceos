@@ -90,3 +90,16 @@ func domainEventNames(t *testing.T) []string {
 	}
 	return names
 }
+
+// JetStream rejects two streams claiming overlapping subjects -- the
+// domain-event stream must never take the webhook stream's (or its DLQ's).
+func TestEventStreamDoesNotOverlapTheWebhookStream(t *testing.T) {
+	for _, s := range subjects {
+		for _, w := range append(append([]string{}, webhookSubjects...), webhookDLQSubjects...) {
+			prefix := strings.TrimSuffix(w, ">")
+			if strings.HasPrefix(s, prefix) || strings.HasPrefix(prefix, strings.TrimSuffix(s, ">")) {
+				t.Errorf("event subject %q overlaps webhook subject %q", s, w)
+			}
+		}
+	}
+}

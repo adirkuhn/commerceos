@@ -16,7 +16,7 @@ the same transaction as the change, published to NATS JetStream by the relay
   `created`, `updated`, `deleted`, `status_changed`, `item_scanned` -- not `create`, `update_status`.
 - All lowercase, exactly three dot-separated parts. Enforced by `domain/events/naming_test.go`.
 
-Domains: `collections`, `integrations`, `inventory`, `newsletter`, `notifications`, `oms`, `payments`, `pms`, `procurement`, `settings`, `shipping`, `storefront`, `suppliers`.
+Domains: `apikeys`, `channels`, `collections`, `coupons`, `customers`, `fx`, `iam`, `integrations`, `inventory`, `messagecenter`, `newsletter`, `notifications`, `oms`, `payments`, `pms`, `procurement`, `promotions`, `reviews`, `scheduler`, `settings`, `shipping`, `storefront`, `suppliers`, `tax`, `theme`, `webhook_forwarding`, `whatsapp`.
 
 ## Standard action event
 
