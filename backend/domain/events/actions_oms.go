@@ -46,3 +46,6 @@ var (
 	PackScanDeleted = defineAction("oms.pack_scan.deleted",
 		"A pack scan was undone. data: session_id, line_item_id, sku_id, action_type, quantity.")
 )
+
+var SalesOrderLineItemSubstituted = defineAction("oms.sales_order_line_item.substituted",
+	"A different product was given for an order line while picking or packing (its stock movements raise inventory events). data: sales_order_id, substitute_sku_id, quantity, original_qty_covered, return_to_stock, source (picking or packing).")

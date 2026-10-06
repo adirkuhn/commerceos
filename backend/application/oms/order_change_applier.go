@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
+	"github.com/adirkuhn/commerceos/domain/events"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
@@ -106,7 +108,22 @@ func (a *OrderChangeApplier) shortfallName(ctx context.Context, s omsDomain.Stag
 // refunds -- marking each applied through marker as it commits, so a retry
 // after a partial failure never applies one twice. source labels the stock
 // movements' reason (e.g. "picking session <id>").
-func (a *OrderChangeApplier) Apply(ctx context.Context, source string, order *omsDomain.SalesOrder, lineItems []omsDomain.SalesOrderLineItem, changes []omsDomain.StagedChange, resolutions map[string]StockShortfallResolution, marker changeMarker) error {
+// OrderChangeStep is which fulfilment step staged the changes --
+// data.source of oms.sales_order_line_item.substituted.
+type OrderChangeStep string
+
+const (
+	OrderChangeStepPicking OrderChangeStep = "picking"
+	OrderChangeStepPacking OrderChangeStep = "packing"
+)
+
+// Reasons the applier changes an order while replaying a refund.
+const (
+	OrderChangeReasonRefundIssued      = "refund_issued"
+	OrderChangeReasonRefundNeedsReview = "refund_needs_review"
+)
+
+func (a *OrderChangeApplier) Apply(ctx context.Context, step OrderChangeStep, source string, order *omsDomain.SalesOrder, lineItems []omsDomain.SalesOrderLineItem, changes []omsDomain.StagedChange, resolutions map[string]StockShortfallResolution, marker changeMarker) error {
 	salesOrderID, warehouseID := order.ID, order.WarehouseID
 	lineItemsByID := make(map[string]omsDomain.SalesOrderLineItem, len(lineItems))
 	for _, li := range lineItems {
@@ -140,7 +157,7 @@ func (a *OrderChangeApplier) Apply(ctx context.Context, source string, order *om
 				continue
 			}
 			handledSubstituteLines[lineItemID] = true
-			if err := a.replaySubstituteGroup(ctx, source, warehouseID, li, changes, resolutions, handledScanIDs, marker); err != nil {
+			if err := a.replaySubstituteGroup(ctx, step, source, order.ID, warehouseID, li, changes, resolutions, handledScanIDs, marker); err != nil {
 				return err
 			}
 
@@ -204,7 +221,7 @@ func (a *OrderChangeApplier) Apply(ctx context.Context, source string, order *om
 // Reverses the original line's stock ONCE, summing OriginalQtyCovered only
 // across rows in the group whose own ReturnToStock is true, then applies
 // each row's own substitute-SKU decrement independently.
-func (a *OrderChangeApplier) replaySubstituteGroup(ctx context.Context, source, warehouseID string, li omsDomain.SalesOrderLineItem, changes []omsDomain.StagedChange, resolutions map[string]StockShortfallResolution, handledScanIDs map[string]bool, marker changeMarker) error {
+func (a *OrderChangeApplier) replaySubstituteGroup(ctx context.Context, step OrderChangeStep, source, salesOrderID, warehouseID string, li omsDomain.SalesOrderLineItem, changes []omsDomain.StagedChange, resolutions map[string]StockShortfallResolution, handledScanIDs map[string]bool, marker changeMarker) error {
 	var group []omsDomain.StagedChange
 	for _, s := range changes {
 		if s.Action == omsDomain.ChangeSubstitute && s.ReplayedAt == nil && derefOrEmpty(s.LineItemID) == li.ID {
@@ -243,7 +260,7 @@ func (a *OrderChangeApplier) replaySubstituteGroup(ctx context.Context, source, 
 				return err
 			}
 		}
-		if err := a.markApplied(ctx, marker, s.ID); err != nil {
+		if err := a.markSubstituted(ctx, marker, step, salesOrderID, li.ID, s); err != nil {
 			return err
 		}
 		handledScanIDs[s.ID] = true
@@ -326,16 +343,16 @@ func (a *OrderChangeApplier) replayRefund(ctx context.Context, order *omsDomain.
 		}); err != nil {
 			return err
 		}
-		if issued {
-			if err := a.salesOrderRepo.Update(ctx, order.ID, map[string]any{"status": string(omsDomain.SalesOrderStatusPartiallyRefunded)}); err != nil {
-				return err
-			}
-			return enqueuePaymentRefundIssued(ctx, a.outboxRepo, order.ID, li.ID, s.SKUID, s.Quantity, amount)
-		}
-		if err := a.salesOrderRepo.Update(ctx, order.ID, map[string]any{"needs_manual_refund_review": true}); err != nil {
+		if err := eventrecord.Record(ctx, a.outboxRepo, events.SalesOrderLineItemUpdated, li.ID,
+			eventrecord.Data{"sales_order_id": order.ID, "reason": OrderChangeReasonRefundIssued}, eventrecord.NewChanges().
+				Set("refunded_quantity", total.Quantity-s.Quantity, total.Quantity).
+				Set("refunded_amount_minor_units", total.AmountMinorUnits-amount, total.AmountMinorUnits)); err != nil {
 			return err
 		}
-		return enqueuePaymentRefundManualReviewRequired(ctx, a.outboxRepo, order.ID, li.ID, s.SKUID, s.Quantity, amount)
+		if issued {
+			return a.markRefunded(ctx, order, li, s, amount)
+		}
+		return a.flagRefundForReview(ctx, order, li, s, amount)
 	})
 	if err != nil {
 		return err
@@ -351,4 +368,57 @@ func (a *OrderChangeApplier) markApplied(ctx context.Context, marker changeMarke
 	return tenant.WithTenant(ctx, a.db, func(ctx context.Context) error {
 		return marker.MarkReplayed(ctx, id, time.Now())
 	})
+}
+
+// markSubstituted marks one substitute change applied and records it, in
+// one transaction.
+func (a *OrderChangeApplier) markSubstituted(ctx context.Context, marker changeMarker, step OrderChangeStep, salesOrderID, lineItemID string, s omsDomain.StagedChange) error {
+	return tenant.WithTenant(ctx, a.db, func(ctx context.Context) error {
+		if err := marker.MarkReplayed(ctx, s.ID, time.Now()); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, a.outboxRepo, events.SalesOrderLineItemSubstituted, lineItemID, eventrecord.Data{
+			"sales_order_id": salesOrderID, "substitute_sku_id": s.SKUID, "quantity": s.Quantity,
+			"original_qty_covered": derefInt64(s.OriginalQtyCovered), "return_to_stock": s.ReturnToStock, "source": string(step),
+		})
+	})
+}
+
+// markRefunded sets the order partially refunded after a real refund --
+// the same status change UpdateSalesOrderUseCase would announce.
+func (a *OrderChangeApplier) markRefunded(ctx context.Context, order *omsDomain.SalesOrder, li omsDomain.SalesOrderLineItem, s omsDomain.StagedChange, amount int64) error {
+	before := order.Status
+	if err := a.salesOrderRepo.Update(ctx, order.ID, map[string]any{"status": string(omsDomain.SalesOrderStatusPartiallyRefunded)}); err != nil {
+		return err
+	}
+	order.Status = omsDomain.SalesOrderStatusPartiallyRefunded
+	if before != order.Status {
+		if err := eventrecord.Record(ctx, a.outboxRepo, events.SalesOrderUpdated, order.ID,
+			eventrecord.Data{"reason": OrderChangeReasonRefundIssued},
+			eventrecord.NewChanges().Set("status", string(before), string(order.Status))); err != nil {
+			return err
+		}
+		if err := enqueueSalesOrderStatusChanged(ctx, a.outboxRepo, order.ID); err != nil {
+			return err
+		}
+	}
+	return enqueuePaymentRefundIssued(ctx, a.outboxRepo, order.ID, li.ID, s.SKUID, s.Quantity, amount)
+}
+
+// flagRefundForReview flags the order when the refund couldn't be issued
+// through the provider.
+func (a *OrderChangeApplier) flagRefundForReview(ctx context.Context, order *omsDomain.SalesOrder, li omsDomain.SalesOrderLineItem, s omsDomain.StagedChange, amount int64) error {
+	before := order.NeedsManualRefundReview
+	if err := a.salesOrderRepo.Update(ctx, order.ID, map[string]any{"needs_manual_refund_review": true}); err != nil {
+		return err
+	}
+	order.NeedsManualRefundReview = true
+	if !before {
+		if err := eventrecord.Record(ctx, a.outboxRepo, events.SalesOrderUpdated, order.ID,
+			eventrecord.Data{"reason": OrderChangeReasonRefundNeedsReview},
+			eventrecord.NewChanges().Set("needs_manual_refund_review", before, true)); err != nil {
+			return err
+		}
+	}
+	return enqueuePaymentRefundManualReviewRequired(ctx, a.outboxRepo, order.ID, li.ID, s.SKUID, s.Quantity, amount)
 }

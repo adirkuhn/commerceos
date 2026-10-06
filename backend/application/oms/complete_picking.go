@@ -256,7 +256,7 @@ func (uc *CompletePickingUseCase) Execute(ctx context.Context, in CompletePickin
 	if err := uc.markPlainPicksReplayed(ctx, scans); err != nil {
 		return nil, fmt.Errorf("completePicking: %w", err)
 	}
-	if err := uc.applier.Apply(ctx, "picking session "+in.SessionID, order, lineItems, changes, in.Resolutions, uc.scanRepo); err != nil {
+	if err := uc.applier.Apply(ctx, OrderChangeStepPicking, "picking session "+in.SessionID, order, lineItems, changes, in.Resolutions, uc.scanRepo); err != nil {
 		return nil, fmt.Errorf("completePicking: %w", err)
 	}
 

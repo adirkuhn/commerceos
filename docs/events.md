@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-210 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+211 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -216,6 +216,7 @@ Payload (`events.EntityAction`):
 | `oms.sales_order_activity.recorded` | action | An entry was added to a sales order's activity log. data: sales_order_id, activity_type, summary. | envelope |
 | `oms.sales_order_line_item.added` | action | A line was added to a sales order. data: sales_order_id, sku_id, quantity, price_minor_units, total_minor_units. | envelope |
 | `oms.sales_order_line_item.linked` | action | A sales order line was linked to a catalog SKU (changes: sku_id). data: sales_order_id, source -- manual, or pick_scan (matched by product name when the SKU was scanned). | envelope |
+| `oms.sales_order_line_item.substituted` | action | A different product was given for an order line while picking or packing (its stock movements raise inventory events). data: sales_order_id, substitute_sku_id, quantity, original_qty_covered, return_to_stock, source (picking or packing). | envelope |
 | `oms.sales_order_line_item.updated` | action | A sales order line changed (changes: stock_status -- pending when stock couldn't be taken yet, decremented once it was). data: sales_order_id, reason (stock_shortfall, stock_taken, stock_review_repair). | envelope |
 
 ### payments

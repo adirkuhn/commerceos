@@ -99,7 +99,8 @@ func TestCompletePicking_substituteReversesOriginalAndDecrementsSubstitute(t *te
 	}}
 	recordMovement := &stubRecordMovement{}
 	reverseMovement := &stubReverseMovement{}
-	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, linkRepo, scanRepo, &stubAddLineItemForPickCompletion{}, recordMovement, reverseMovement, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{}, &stubOutboxRepo{}, &stubPaymentRefundClientResolver{})
+	outboxRepo := &stubOutboxRepo{}
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, linkRepo, scanRepo, &stubAddLineItemForPickCompletion{}, recordMovement, reverseMovement, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{}, outboxRepo, &stubPaymentRefundClientResolver{})
 
 	result, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
@@ -118,6 +119,13 @@ func TestCompletePicking_substituteReversesOriginalAndDecrementsSubstitute(t *te
 
 	require.Len(t, linkRepo.created, 1)
 	assert.Equal(t, "li-1", linkRepo.created[0].SalesOrderLineItemID, "the substitute's new movement must link to the ORIGINAL line item")
+	substituted := substitutedEvents(t, outboxRepo)
+	require.Len(t, substituted, 1)
+	assert.Equal(t, "li-1", substituted[0]["entity_id"])
+	assert.Equal(t, map[string]any{
+		"sales_order_id": "order-1", "substitute_sku_id": "sku-sub", "quantity": float64(5),
+		"original_qty_covered": float64(5), "return_to_stock": true, "source": "picking",
+	}, substituted[0]["data"])
 	assert.Empty(t, result.MissingItems, "a substitute fully covers the original line's expected quantity")
 	assert.Equal(t, omsDomain.PickingSessionStatusCompleted, result.Session.Status)
 }
@@ -452,7 +460,13 @@ func TestCompletePicking_refundWithKnownProviderIssuesRealRefund(t *testing.T) {
 	require.Len(t, salesOrderRepo.updateCalls, 2, "refund status write + the always-on fulfilled write")
 	assert.Equal(t, "partially_refunded", salesOrderRepo.updateCalls[0].Fields["status"])
 
-	require.Equal(t, []string{"payments.refund.issued", "oms.picking_session.completed", "oms.sales_order.updated"}, outboxRepo.calls)
+	require.Equal(t, []string{
+		"oms.sales_order_line_item.updated", "oms.sales_order.updated", "oms.sales_order.status_changed", "payments.refund.issued",
+		"oms.picking_session.completed", "oms.sales_order.updated",
+	}, outboxRepo.calls)
+	refunded := decodePayload(t, outboxRepo.payloads[1])
+	assert.Equal(t, map[string]any{"status": map[string]any{"before": "", "after": "partially_refunded"}}, refunded["changes"])
+	assert.Equal(t, "refund_issued", refunded["data"].(map[string]any)["reason"])
 	require.Empty(t, result.MissingItems, "a refunded line counts as resolved, not missing")
 }
 
@@ -479,7 +493,12 @@ func TestCompletePicking_refundWithNoProviderInfoFlagsManualReview(t *testing.T)
 	assert.Equal(t, true, salesOrderRepo.updateCalls[0].Fields["needs_manual_refund_review"])
 	assert.NotContains(t, salesOrderRepo.updateCalls[0].Fields, "status", "no status change on the manual-review path")
 
-	require.Equal(t, []string{"payments.refund.manual_review_required", "oms.picking_session.completed", "oms.sales_order.updated"}, outboxRepo.calls)
+	require.Equal(t, []string{
+		"oms.sales_order_line_item.updated", "oms.sales_order.updated", "payments.refund.manual_review_required",
+		"oms.picking_session.completed", "oms.sales_order.updated",
+	}, outboxRepo.calls)
+	flagged := decodePayload(t, outboxRepo.payloads[1])
+	assert.Equal(t, map[string]any{"needs_manual_refund_review": map[string]any{"before": false, "after": true}}, flagged["changes"])
 }
 
 func TestCompletePicking_refundAPIFailureFallsBackToManualReviewWithoutBlocking(t *testing.T) {

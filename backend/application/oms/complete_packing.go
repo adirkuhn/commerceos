@@ -110,7 +110,7 @@ func (uc *CompletePackingUseCase) Execute(ctx context.Context, in CompletePackin
 	}
 	// The applier commits each change in its own transaction (see
 	// OrderChangeApplier.Apply), so it runs outside the one below.
-	if err := uc.applier.Apply(ctx, "packing session "+in.SessionID, order, lineItems, changes, in.Resolutions, uc.scanRepo); err != nil {
+	if err := uc.applier.Apply(ctx, OrderChangeStepPacking, "packing session "+in.SessionID, order, lineItems, changes, in.Resolutions, uc.scanRepo); err != nil {
 		return nil, fmt.Errorf("completePacking: %w", err)
 	}
 
