@@ -1,4 +1,4 @@
-import { test, expect, api, API_BASE_URL } from './fixtures'
+import { test, expect, api } from './fixtures'
 
 interface Supplier { id: string; name: string }
 interface Product { id: string }
@@ -28,7 +28,8 @@ test('turn a supplier recommendation into a draft PO and open it', async ({ page
       method: 'POST', body: { sku_code: `E2E-PAN-${stamp}`, price_minor_units: 1299, currency_code: 'EUR', status: 'active' },
     })
 
-    await page.route(`${new URL(API_BASE_URL).origin}/**/procurement/recommendations?*`, route => route.fulfill({
+    // Only GET .../procurement/recommendations -- not .../recommendations/purchase-orders.
+    await page.route(url => url.pathname.endsWith('/procurement/recommendations'), route => route.fulfill({
       status: 200,
       headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' },
       body: JSON.stringify({
@@ -92,6 +93,6 @@ test('season plan offers the upcoming holidays and keeps the choice in the URL',
   await expect(page.getByText(/^Christmas \d{4}$/)).toBeVisible()
 
   await season.selectOption('custom')
-  await expect(page.getByLabel('From')).toBeVisible()
-  await expect(page.getByLabel('To')).toBeVisible()
+  await expect(page.getByLabel('From', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('To', { exact: true })).toBeVisible()
 })

@@ -29,4 +29,12 @@ describe('useCreatePlanOrder', () => {
 
     await expect(result.current('sup-1', [])).rejects.toThrow('insufficient role')
   })
+
+  it('fails instead of opening a PO without an id', async () => {
+    vi.mocked(api.createPurchaseOrderFromPlan).mockResolvedValue({ purchase_order_id: '' })
+    const { result } = renderHook(() => ({ create: useCreatePlanOrder('tok'), location: useLocation() }), { wrapper })
+
+    await expect(result.current.create('sup-1', [])).rejects.toThrow()
+    expect(result.current.location.pathname).toBe('/purchase-planner')
+  })
 })

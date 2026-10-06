@@ -1,3 +1,4 @@
+import i18next from 'i18next'
 import { useCallback } from 'react'
 import { PROCUREMENT_PATH } from '../../procurement/procurementHelpers'
 import { useStackNavigation } from '../../routing/useStackNavigation'
@@ -10,6 +11,7 @@ export function useCreatePlanOrder(token: string) {
   const { open } = useStackNavigation()
   return useCallback(async (supplierId: string, lines: PlanOrderLine[]) => {
     const { purchase_order_id: id } = await api.createPurchaseOrderFromPlan(token, { supplier_id: supplierId, lines })
+    if (!id) throw new Error(i18next.t('purchasePlanning:errors.unknown'))
     open(`${PROCUREMENT_PATH}/${encodeURIComponent(id)}`)
   }, [token, open])
 }
