@@ -108,7 +108,7 @@ func TestGetSeasonPlan_HalfARangeIsInvalid(t *testing.T) {
 }
 
 func TestGetSeasonPlan_ContractRejectsBadQuery(t *testing.T) {
-	for _, q := range []string{"?event=halloween", "?event=christmas&year=1999", "?from=nope&to=2026-11-01", "?event=christmas&safety_days=91"} {
+	for _, q := range []string{"?event=groundhog_day", "?event=christmas&year=1999", "?from=nope&to=2026-11-01", "?event=christmas&safety_days=91"} {
 		plan := &stubSeasonPlan{}
 		w := getPath(newSeasonRouter(t, &stubRecommendations{}, plan, &stubSeasonEvents{}), "/api/v1/procurement/season-plan"+q)
 		assert.Equal(t, http.StatusBadRequest, w.Code, q)

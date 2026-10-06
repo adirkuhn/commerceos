@@ -311,7 +311,7 @@ components:
 
     SeasonEventKey:
       type: string
-      enum: [christmas, sinterklaas, black_friday, easter, carnival, valentines, mothers_day, fathers_day_br, festa_junina]
+      enum: [christmas, sinterklaas, black_friday, easter, carnival, valentines, mothers_day, fathers_day_br, festa_junina, dia_dos_namorados, fathers_day_nl, kings_day, halloween, dia_das_criancas, sint_maarten, new_years_eve]
 
     DateWindow:
       type: object

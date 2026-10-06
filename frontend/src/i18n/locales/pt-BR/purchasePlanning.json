@@ -74,7 +74,14 @@
       "valentines": "Dia de São Valentim",
       "mothersDay": "Dia das Mães",
       "fathersDayBR": "Dia dos Pais",
-      "festaJunina": "Festa Junina"
+      "festaJunina": "Festa Junina",
+      "diaDosNamorados": "Dia dos Namorados",
+      "fathersDayNL": "Dia dos Pais (Holanda)",
+      "kingsDay": "Dia do Rei",
+      "halloween": "Halloween",
+      "diaDasCriancas": "Dia das Crianças",
+      "sintMaarten": "Sint-Maarten",
+      "newYearsEve": "Réveillon"
     }
   },
   "order": {

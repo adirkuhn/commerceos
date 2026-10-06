@@ -20,4 +20,11 @@ export const seasonEventLabels = (t: TFunction<'purchasePlanning'>): Record<Seas
   mothers_day: t('season.event.mothersDay'),
   fathers_day_br: t('season.event.fathersDayBR'),
   festa_junina: t('season.event.festaJunina'),
+  dia_dos_namorados: t('season.event.diaDosNamorados'),
+  fathers_day_nl: t('season.event.fathersDayNL'),
+  kings_day: t('season.event.kingsDay'),
+  halloween: t('season.event.halloween'),
+  dia_das_criancas: t('season.event.diaDasCriancas'),
+  sint_maarten: t('season.event.sintMaarten'),
+  new_years_eve: t('season.event.newYearsEve'),
 })

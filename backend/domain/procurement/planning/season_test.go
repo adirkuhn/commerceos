@@ -64,7 +64,7 @@ func TestSeasonEventsAreAllListedWithUniqueKeys(t *testing.T) {
 		w := e.Window(2026)
 		assert.True(t, w.End.After(w.Start), e.Key)
 	}
-	assert.Len(t, seen, 9)
+	assert.Len(t, seen, 16)
 	_, ok := planning.FindSeasonEvent("nope")
 	assert.False(t, ok)
 }

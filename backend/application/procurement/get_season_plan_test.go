@@ -152,7 +152,7 @@ func TestGetSeasonPlan_RunningSeasonPlansTheRemainder(t *testing.T) {
 }
 
 func TestGetSeasonPlan_RejectsInvalidSeasons(t *testing.T) {
-	unknown := planning.SeasonEventKey("halloween")
+	unknown := planning.SeasonEventKey("groundhog_day")
 	over := planning.Window{Start: utcDate(2026, time.September, 1), End: utcDate(2026, time.October, 1)}
 	backwards := planning.Window{Start: utcDate(2026, time.December, 1), End: utcDate(2026, time.November, 1)}
 	tooLong := planning.Window{Start: utcDate(2026, time.November, 1), End: utcDate(2027, time.November, 3)}
@@ -198,7 +198,7 @@ func TestListSeasonEvents_NextOccurrenceOfEach(t *testing.T) {
 	assert.Equal(t, 2027, byKey[planning.SeasonEaster].Year)
 	assert.Equal(t, utcDate(2027, time.March, 28), byKey[planning.SeasonEaster].Date)
 	// Soonest first.
-	assert.Equal(t, planning.SeasonBlackFriday, events[0].Key)
+	assert.Equal(t, planning.SeasonDiaDasCriancas, events[0].Key) // Oct 12
 }
 
 func TestListSeasonEvents_ForAYear(t *testing.T) {

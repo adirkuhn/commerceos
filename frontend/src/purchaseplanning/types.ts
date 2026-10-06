@@ -80,6 +80,13 @@ export type SeasonEventKey =
   | 'mothers_day'
   | 'fathers_day_br'
   | 'festa_junina'
+  | 'dia_dos_namorados'
+  | 'fathers_day_nl'
+  | 'kings_day'
+  | 'halloween'
+  | 'dia_das_criancas'
+  | 'sint_maarten'
+  | 'new_years_eve'
 
 // Calendar days [start, end) -- end is exclusive.
 export interface DateWindow {

@@ -74,7 +74,14 @@
       "valentines": "Valentijnsdag",
       "mothersDay": "Moederdag",
       "fathersDayBR": "Dia dos Pais",
-      "festaJunina": "Festa Junina"
+      "festaJunina": "Festa Junina",
+      "diaDosNamorados": "Dia dos Namorados (Braziliaanse Valentijnsdag)",
+      "fathersDayNL": "Vaderdag",
+      "kingsDay": "Koningsdag",
+      "halloween": "Halloween",
+      "diaDasCriancas": "Dia das Crianças (Braziliaanse Kinderdag)",
+      "sintMaarten": "Sint-Maarten",
+      "newYearsEve": "Oudejaarsavond"
     }
   },
   "order": {

@@ -33,6 +33,14 @@ const (
 	SeasonFathersDayBR SeasonEventKey = "fathers_day_br"
 	SeasonFestaJunina  SeasonEventKey = "festa_junina"
 	SeasonBlackFriday  SeasonEventKey = "black_friday"
+	// Dia dos Namorados is Brazil's Valentine's Day.
+	SeasonDiaDosNamorados SeasonEventKey = "dia_dos_namorados"
+	SeasonFathersDayNL    SeasonEventKey = "fathers_day_nl"
+	SeasonKingsDay        SeasonEventKey = "kings_day"
+	SeasonHalloween       SeasonEventKey = "halloween"
+	SeasonDiaDasCriancas  SeasonEventKey = "dia_das_criancas"
+	SeasonSintMaarten     SeasonEventKey = "sint_maarten"
+	SeasonNewYearsEve     SeasonEventKey = "new_years_eve"
 )
 
 // anchorRule finds a holiday's date in a given year.
@@ -46,6 +54,18 @@ type fixedDate struct {
 }
 
 func (f fixedDate) date(year int) time.Time { return utcDay(year, f.month, f.day) }
+
+// notOnSunday is a fixed date moved one day earlier when it falls on a
+// Sunday (Koningsdag: April 27, or Saturday the 26th).
+type notOnSunday struct{ fixedDate }
+
+func (n notOnSunday) date(year int) time.Time {
+	d := n.fixedDate.date(year)
+	if d.Weekday() == time.Sunday {
+		return d.AddDate(0, 0, -1)
+	}
+	return d
+}
 
 // easterOffset is a holiday that moves with Easter (Carnival = Easter - 47).
 type easterOffset struct{ days int }
@@ -96,6 +116,13 @@ var seasonEvents = []SeasonEvent{
 	{Key: SeasonMothersDay, DaysBefore: 14, DaysAfter: 0, anchor: nthWeekday{2, time.Sunday, time.May, 0}},
 	{Key: SeasonFathersDayBR, DaysBefore: 14, DaysAfter: 0, anchor: nthWeekday{2, time.Sunday, time.August, 0}},
 	{Key: SeasonFestaJunina, DaysBefore: 23, DaysAfter: 6, anchor: fixedDate{time.June, 24}},
+	{Key: SeasonDiaDosNamorados, DaysBefore: 14, DaysAfter: 0, anchor: fixedDate{time.June, 12}},
+	{Key: SeasonFathersDayNL, DaysBefore: 14, DaysAfter: 0, anchor: nthWeekday{3, time.Sunday, time.June, 0}},
+	{Key: SeasonKingsDay, DaysBefore: 14, DaysAfter: 0, anchor: notOnSunday{fixedDate{time.April, 27}}},
+	{Key: SeasonHalloween, DaysBefore: 21, DaysAfter: 0, anchor: fixedDate{time.October, 31}},
+	{Key: SeasonDiaDasCriancas, DaysBefore: 14, DaysAfter: 0, anchor: fixedDate{time.October, 12}},
+	{Key: SeasonSintMaarten, DaysBefore: 14, DaysAfter: 0, anchor: fixedDate{time.November, 11}},
+	{Key: SeasonNewYearsEve, DaysBefore: 7, DaysAfter: 0, anchor: fixedDate{time.December, 31}},
 }
 
 // SeasonEvents lists the built-in events.
