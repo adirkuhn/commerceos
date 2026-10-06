@@ -11,6 +11,8 @@ import (
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -58,6 +60,7 @@ type ExportMyParcelOrderUseCase struct {
 	myParcelFactory integrationsDomain.MyParcelClientFactory
 	encSecret       string
 	recordActivity  recordActivityUC
+	outbox          eventrecord.Enqueuer
 }
 
 func NewExportMyParcelOrderUseCase(
@@ -70,11 +73,12 @@ func NewExportMyParcelOrderUseCase(
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
 	recordActivity recordActivityUC,
+	outbox eventrecord.Enqueuer,
 ) *ExportMyParcelOrderUseCase {
 	return &ExportMyParcelOrderUseCase{
 		db: db, connRepo: connRepo, settingsRepo: settingsRepo, fulfilmentRepo: fulfilmentRepo,
 		salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo,
-		myParcelFactory: myParcelFactory, encSecret: encryptionSecret, recordActivity: recordActivity,
+		myParcelFactory: myParcelFactory, encSecret: encryptionSecret, recordActivity: recordActivity, outbox: outbox,
 	}
 }
 
@@ -182,7 +186,13 @@ func (uc *ExportMyParcelOrderUseCase) Execute(ctx context.Context, in ExportMyPa
 		fulfilmentOrder.TenantID = tenant.IDFromContext(ctx)
 		now := time.Now()
 		fulfilmentOrder.CreatedAt, fulfilmentOrder.UpdatedAt = now, now
-		return uc.fulfilmentRepo.Create(ctx, &fulfilmentOrder)
+		if err := uc.fulfilmentRepo.Create(ctx, &fulfilmentOrder); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.FulfilmentOrderExported, fulfilmentOrder.ID, eventrecord.Data{
+			"sales_order_id": in.SalesOrderID, "connection_id": in.ConnectionID,
+			"myparcel_uuid": fulfilmentOrder.MyParcelUUID, "status": fulfilmentOrder.Status,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("exportMyParcelOrder: persist: %w", err)

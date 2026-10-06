@@ -3,11 +3,11 @@ package notifications_test
 import (
 	"context"
 	"errors"
-	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	"github.com/adirkuhn/commerceos/internal/tenant"

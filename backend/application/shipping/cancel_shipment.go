@@ -10,6 +10,8 @@ import (
 
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -53,6 +55,7 @@ type CancelShipmentUseCase struct {
 	encSecret      string
 	recordActivity recordActivityUC
 	now            func() time.Time
+	outbox         eventrecord.Enqueuer
 }
 
 func NewCancelShipmentUseCase(
@@ -62,11 +65,12 @@ func NewCancelShipmentUseCase(
 	carrierFactory integrationsDomain.CarrierClientFactory,
 	encryptionSecret string,
 	recordActivity recordActivityUC,
+	outbox eventrecord.Enqueuer,
 ) *CancelShipmentUseCase {
 	return &CancelShipmentUseCase{
 		db: db, connRepo: connRepo, shipmentRepo: shipmentRepo,
 		carrierFactory: carrierFactory, encSecret: encryptionSecret,
-		recordActivity: recordActivity, now: time.Now,
+		recordActivity: recordActivity, now: time.Now, outbox: outbox,
 	}
 }
 
@@ -118,7 +122,12 @@ func (uc *CancelShipmentUseCase) Execute(ctx context.Context, in CancelShipmentI
 
 	cancelledAt := uc.now()
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.shipmentRepo.MarkCancelled(ctx, shipment.ID, cancelledAt, result.Message)
+		if err := uc.shipmentRepo.MarkCancelled(ctx, shipment.ID, cancelledAt, result.Message); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ShipmentCancelled, shipment.ID, eventrecord.Data{
+			"sales_order_id": shipment.SalesOrderID, "deleted_on_carrier": result.DeletedOnMyParcel, "note": result.Message,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cancelShipment: persist cancellation: %w", err)
