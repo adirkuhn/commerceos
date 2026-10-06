@@ -1,6 +1,7 @@
 package scheduler_test
 
 import (
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"context"
 	"errors"
 	"testing"
@@ -89,8 +90,8 @@ func TestRunPromotionActivation_ActivatesDueLinesAndRevertsEndedOnesUnderTheirOw
 		},
 	}
 	salePrice := &stubPromotionActivationSalePrice{}
-	applyUC := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), stubPromotionActivationSKULookup{}, salePrice, lineRepo)
-	revertUC := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDBN(t, 1), salePrice, lineRepo)
+	applyUC := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), stubPromotionActivationSKULookup{}, salePrice, lineRepo, &eventrecordtest.Outbox{})
+	revertUC := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDBN(t, 1), salePrice, lineRepo, &eventrecordtest.Outbox{})
 	uc := appscheduler.NewRunPromotionActivationUseCase(newMockGormDBN(t, 3), lineRepo, applyUC, revertUC, &stubOpenClearanceLines{}, &stubClearanceFinisher{})
 
 	err := uc.Run(context.Background())
@@ -112,8 +113,8 @@ func TestRunPromotionActivation_ActivatesDueLinesAndRevertsEndedOnesUnderTheirOw
 func TestRunPromotionActivation_noDueLinesIsNoOp(t *testing.T) {
 	lineRepo := &stubPromotionActivationLineRepo{}
 	salePrice := &stubPromotionActivationSalePrice{}
-	applyUC := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 0), stubPromotionActivationSKULookup{}, salePrice, lineRepo)
-	revertUC := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDBN(t, 0), salePrice, lineRepo)
+	applyUC := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 0), stubPromotionActivationSKULookup{}, salePrice, lineRepo, &eventrecordtest.Outbox{})
+	revertUC := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDBN(t, 0), salePrice, lineRepo, &eventrecordtest.Outbox{})
 	uc := appscheduler.NewRunPromotionActivationUseCase(newMockGormDBN(t, 3), lineRepo, applyUC, revertUC, &stubOpenClearanceLines{}, &stubClearanceFinisher{})
 
 	err := uc.Run(context.Background())
@@ -147,8 +148,8 @@ func (s *stubClearanceFinisher) ExecuteForLine(ctx context.Context, line promoti
 func TestRunPromotionActivation_ChecksOpenClearanceLinesUnderTheirOwnTenant(t *testing.T) {
 	lineRepo := &stubPromotionActivationLineRepo{}
 	salePrice := &stubPromotionActivationSalePrice{}
-	applyUC := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 0), stubPromotionActivationSKULookup{}, salePrice, lineRepo)
-	revertUC := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDBN(t, 0), salePrice, lineRepo)
+	applyUC := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 0), stubPromotionActivationSKULookup{}, salePrice, lineRepo, &eventrecordtest.Outbox{})
+	revertUC := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDBN(t, 0), salePrice, lineRepo, &eventrecordtest.Outbox{})
 	open := &stubOpenClearanceLines{open: []promotionsDomain.PromotionSKU{
 		{ID: "clear-1", TenantID: "tenant-a"},
 		{ID: "clear-2", TenantID: "tenant-b"},

@@ -50,13 +50,52 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-93 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+125 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
 | `collections.collection.changed` | typed | CollectionChanged fires when a collection is created, edited, has its manual products changed, or is deleted (Deleted set) -- the signal for anything caching collection pages to refresh. | `CollectionChanged`: event_id, occurred_at, tenant_id, collection_id, deleted |
+
+### coupons
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `coupons.coupon.created` | action | A discount coupon was created. data: code, discount_type, discount_value, min_subtotal_minor_units, usage_limit, expires_at. | envelope |
+| `coupons.coupon.deleted` | action | A coupon was deleted. | envelope |
+| `coupons.coupon.updated` | action | A coupon changed (changes: code, discount_type, discount_value, min_subtotal_minor_units, usage_limit, expires_at, active). | envelope |
+| `coupons.coupon_currency_amount.deleted` | action | A coupon's per-currency discount was removed (it falls back to FX conversion). entity_id is the coupon. data: currency_code. | envelope |
+| `coupons.coupon_currency_amount.set` | action | A fixed-amount coupon's discount in one currency was set. entity_id is the coupon. data: currency_code, amount_minor_units. | envelope |
+
+### customers
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `customers.customer.created` | action | A customer was created. data: woo_customer_id, role, is_paying_customer. | envelope |
+| `customers.customer.deleted` | action | A customer was deleted. data: woo_customer_id. | envelope |
+| `customers.customer.updated` | action | A customer changed (changes: woo_customer_id, role, is_paying_customer). data.changed_fields: personal fields that changed (email, first_name, last_name, username, billing, shipping, avatar_url, customer_note), names only. | envelope |
+
+### fx
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `fx.exchange_rate.deleted` | action | A currency's exchange rate was removed. data: rate_basis_points (the removed rate, null if none was set). | envelope |
+| `fx.exchange_rate.set` | action | A currency's exchange rate was set (changes: rate_basis_points; before is null for a new currency). | envelope |
+
+### iam
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `iam.group.created` | action | A permission group was created. data: name, description. | envelope |
+| `iam.group.deleted` | action | A permission group was deleted. data: name. | envelope |
+| `iam.group.updated` | action | A permission group changed (changes: name, description). | envelope |
+| `iam.group_member.added` | action | A user joined a permission group. entity_id is the group. data: user_id. | envelope |
+| `iam.group_member.removed` | action | A user left a permission group. entity_id is the group. data: user_id. | envelope |
+| `iam.group_permission.assigned` | action | A permission rule was granted to a group (re-granting an existing rule raises nothing). entity_id is the group. data: rule. | envelope |
+| `iam.group_permission.revoked` | action | A permission rule was taken from a group. entity_id is the group. data: rule. | envelope |
+| `iam.scanner_pairing_code.claimed` | action | A scanner device claimed a pairing code and got a session acting as the pairing user (the actor). data: user_id, role. | envelope |
+| `iam.scanner_pairing_code.created` | action | A user asked to pair a scanner device. data: user_id, role, expires_at. | envelope |
 
 ### integrations
 
@@ -156,6 +195,17 @@ Payload (`events.EntityAction`):
 | `procurement.receiving_record.created` | action | A supplier invoice was uploaded against a purchase order to check what was delivered. data: purchase_order_id, file_name, content_type, parsing_job_id, potential_duplicate. | envelope |
 | `procurement.receiving_record.parsed` | action | An uploaded invoice was compared with its purchase order (each difference also raises receiving_discrepancy.detected). data: purchase_order_id, parsing_job_id, discrepancy_count. | envelope |
 
+### promotions
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `promotions.promotion.created` | action | A promotion was created. data: name, type, status, starts_at, ends_at, lines. | envelope |
+| `promotions.promotion.deleted` | action | A promotion was deleted (applied prices were reverted first, each raising promotion_line.reverted). data: name. | envelope |
+| `promotions.promotion.updated` | action | A promotion changed (changes: name, type, status, starts_at, ends_at, lines). data.reason clearance_finished when the system ended it because its last clearance line finished. | envelope |
+| `promotions.promotion_line.applied` | action | A promotion line put its SKU on sale. data: promotion_id, sku_id, sale_price_minor_units, previous_sale_price_minor_units. | envelope |
+| `promotions.promotion_line.finished` | action | A clearance line ended because its batch sold out, expired or was removed. data: promotion_id, sku_id, batch_id. | envelope |
+| `promotions.promotion_line.reverted` | action | A promotion line's SKU went back to its pre-promotion sale price. data: promotion_id, sku_id, restored_sale_price_minor_units. | envelope |
+
 ### reviews
 
 | Subject | Kind | Description | Payload |
@@ -214,6 +264,18 @@ Payload (`events.EntityAction`):
 | `suppliers.supplier.created` | action | A supplier was created. data: name, status. | envelope |
 | `suppliers.supplier.deleted` | action | A supplier was deleted. data: name. | envelope |
 | `suppliers.supplier.updated` | action | A supplier's details changed (changes: name, email, phone, country, lead_time_days, status, notes). | envelope |
+
+### tax
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `tax.external_tax_class_link.deleted` | action | A channel tax class link was removed. data: provider, external_slug, tax_class_id. | envelope |
+| `tax.external_tax_class_link.set` | action | A sales channel's tax class (e.g. a WooCommerce slug) was linked to a tax class. data: provider, external_slug, tax_class_id. | envelope |
+| `tax.tax_class.created` | action | A tax class was created. data: name, is_default. | envelope |
+| `tax.tax_class.deleted` | action | A tax class was deleted. data: name. | envelope |
+| `tax.tax_class.updated` | action | A tax class changed (changes: name, is_default). data.reason default_moved when it lost is_default because another class became the default. | envelope |
+| `tax.tax_rate.deleted` | action | A tax rate was removed. data: tax_class_id, country. | envelope |
+| `tax.tax_rate.set` | action | A tax class's rate for a country was set. data: tax_class_id, country, rate_basis_points. | envelope |
 
 ## Legacy subjects
 

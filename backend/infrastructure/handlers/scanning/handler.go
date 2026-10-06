@@ -49,8 +49,9 @@ var _ genscanning.ServerInterface = (*Handler)(nil)
 // separate from api/iam's admin-only Groups module.
 func Register(rg gin.IRouter, db *gorm.DB, jwtSecret []byte) {
 	repo := repositories.NewScannerPairingCodeRepo(db)
+	outboxRepo := repositories.NewOutboxRepository(db)
 	h := NewHandler(
-		appiam.NewGeneratePairingCodeUseCase(db, repo),
+		appiam.NewGeneratePairingCodeUseCase(db, repo, outboxRepo),
 		appiam.NewGetPairingCodeStatusUseCase(db, repo),
 		appiam.NewRefreshScannerSessionUseCase(jwtSecret),
 	)

@@ -3,6 +3,8 @@ package promotions
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 
 	promotionsDomain "github.com/adirkuhn/commerceos/domain/promotions"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -17,19 +19,21 @@ type DeletePromotionUseCase struct {
 	promoRepo promotionsDomain.PromotionRepository
 	lineRepo  promotionsDomain.PromotionSKURepository
 	reverter  lineReverter
+	outbox    eventrecord.Enqueuer
 }
 
-func NewDeletePromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.PromotionRepository, lineRepo promotionsDomain.PromotionSKURepository, reverter lineReverter) *DeletePromotionUseCase {
-	return &DeletePromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo, reverter: reverter}
+func NewDeletePromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.PromotionRepository, lineRepo promotionsDomain.PromotionSKURepository, reverter lineReverter, outbox eventrecord.Enqueuer) *DeletePromotionUseCase {
+	return &DeletePromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo, reverter: reverter, outbox: outbox}
 }
 
 func (uc *DeletePromotionUseCase) Execute(ctx context.Context, id string) error {
 	var lines []promotionsDomain.PromotionSKU
+	var promo *promotionsDomain.Promotion
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		if _, err := uc.promoRepo.FindByID(ctx, id); err != nil {
+		var err error
+		if promo, err = uc.promoRepo.FindByID(ctx, id); err != nil {
 			return err
 		}
-		var err error
 		lines, err = uc.lineRepo.ListByPromotion(ctx, id)
 		return err
 	})
@@ -41,7 +45,10 @@ func (uc *DeletePromotionUseCase) Execute(ctx context.Context, id string) error 
 	}
 
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.promoRepo.Delete(ctx, id)
+		if err := uc.promoRepo.Delete(ctx, id); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.PromotionDeleted, id, eventrecord.Data{"name": promo.Name})
 	})
 	if err != nil {
 		return fmt.Errorf("deletePromotion: %w", err)

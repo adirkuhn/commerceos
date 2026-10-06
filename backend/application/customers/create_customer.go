@@ -3,6 +3,8 @@ package customers
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"time"
 
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
@@ -31,10 +33,11 @@ type CreateCustomerInput struct {
 type CreateCustomerUseCase struct {
 	db           *gorm.DB
 	customerRepo customersDomain.CustomerRepository
+	outbox       eventrecord.Enqueuer
 }
 
-func NewCreateCustomerUseCase(db *gorm.DB, customerRepo customersDomain.CustomerRepository) *CreateCustomerUseCase {
-	return &CreateCustomerUseCase{db: db, customerRepo: customerRepo}
+func NewCreateCustomerUseCase(db *gorm.DB, customerRepo customersDomain.CustomerRepository, outbox eventrecord.Enqueuer) *CreateCustomerUseCase {
+	return &CreateCustomerUseCase{db: db, customerRepo: customerRepo, outbox: outbox}
 }
 
 func (uc *CreateCustomerUseCase) Execute(ctx context.Context, in CreateCustomerInput) (*customersDomain.Customer, error) {
@@ -48,7 +51,12 @@ func (uc *CreateCustomerUseCase) Execute(ctx context.Context, in CreateCustomerI
 			IsPayingCustomer: in.IsPayingCustomer, AvatarURL: in.AvatarURL, CustomerNote: in.CustomerNote,
 			DateCreated: now, DateModified: now,
 		}
-		return uc.customerRepo.Create(ctx, &customer)
+		if err := uc.customerRepo.Create(ctx, &customer); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.CustomerCreated, customer.ID, eventrecord.Data{
+			"woo_customer_id": customer.WooCustomerID, "role": customer.Role, "is_paying_customer": customer.IsPayingCustomer,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createCustomer: %w", err)

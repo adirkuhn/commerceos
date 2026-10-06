@@ -44,10 +44,11 @@ var _ genfx.ServerInterface = (*Handler)(nil)
 
 func Register(rg gin.IRouter, db *gorm.DB) {
 	repo := repositories.NewExchangeRateRepo(db)
+	outboxRepo := repositories.NewOutboxRepository(db)
 	h := NewHandler(
 		appfx.NewListExchangeRatesUseCase(db, repo),
-		appfx.NewUpsertExchangeRateUseCase(db, repo),
-		appfx.NewDeleteExchangeRateUseCase(db, repo),
+		appfx.NewUpsertExchangeRateUseCase(db, repo, outboxRepo),
+		appfx.NewDeleteExchangeRateUseCase(db, repo, outboxRepo),
 	)
 	genfx.RegisterHandlers(rg, h)
 }

@@ -2,6 +2,7 @@ package tax_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ import (
 func TestDeleteTaxClass_success(t *testing.T) {
 	repo := &stubTaxClassRepo{findResult: &taxDomain.TaxClass{ID: "class-1", Name: "Reduced rate"}}
 	checker := &stubSKUTaxClassChecker{exists: false}
-	uc := apptax.NewDeleteTaxClassUseCase(newMockGormDB(t, 1), repo, checker)
+	uc := apptax.NewDeleteTaxClassUseCase(newMockGormDB(t, 1), repo, checker, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "class-1")
 
@@ -24,7 +25,7 @@ func TestDeleteTaxClass_success(t *testing.T) {
 
 func TestDeleteTaxClass_propagatesNotFound(t *testing.T) {
 	repo := &stubTaxClassRepo{findErr: taxDomain.ErrTaxClassNotFound}
-	uc := apptax.NewDeleteTaxClassUseCase(newMockGormDB(t, 1), repo, &stubSKUTaxClassChecker{})
+	uc := apptax.NewDeleteTaxClassUseCase(newMockGormDB(t, 1), repo, &stubSKUTaxClassChecker{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 
@@ -33,7 +34,7 @@ func TestDeleteTaxClass_propagatesNotFound(t *testing.T) {
 
 func TestDeleteTaxClass_rejectsDeletingTheDefaultClass(t *testing.T) {
 	repo := &stubTaxClassRepo{findResult: &taxDomain.TaxClass{ID: "class-1", Name: "Standard", IsDefault: true}}
-	uc := apptax.NewDeleteTaxClassUseCase(newMockGormDB(t, 1), repo, &stubSKUTaxClassChecker{})
+	uc := apptax.NewDeleteTaxClassUseCase(newMockGormDB(t, 1), repo, &stubSKUTaxClassChecker{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "class-1")
 
@@ -44,7 +45,7 @@ func TestDeleteTaxClass_rejectsDeletingTheDefaultClass(t *testing.T) {
 func TestDeleteTaxClass_rejectsWhenAssignedToASKU(t *testing.T) {
 	repo := &stubTaxClassRepo{findResult: &taxDomain.TaxClass{ID: "class-1", Name: "Reduced rate"}}
 	checker := &stubSKUTaxClassChecker{exists: true}
-	uc := apptax.NewDeleteTaxClassUseCase(newMockGormDB(t, 1), repo, checker)
+	uc := apptax.NewDeleteTaxClassUseCase(newMockGormDB(t, 1), repo, checker, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "class-1")
 

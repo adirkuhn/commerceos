@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"time"
 
 	iamDomain "github.com/adirkuhn/commerceos/domain/iam"
@@ -20,10 +22,11 @@ type UpdateGroupInput struct {
 type UpdateGroupUseCase struct {
 	db        *gorm.DB
 	groupRepo iamDomain.GroupRepository
+	outbox    eventrecord.Enqueuer
 }
 
-func NewUpdateGroupUseCase(db *gorm.DB, groupRepo iamDomain.GroupRepository) *UpdateGroupUseCase {
-	return &UpdateGroupUseCase{db: db, groupRepo: groupRepo}
+func NewUpdateGroupUseCase(db *gorm.DB, groupRepo iamDomain.GroupRepository, outbox eventrecord.Enqueuer) *UpdateGroupUseCase {
+	return &UpdateGroupUseCase{db: db, groupRepo: groupRepo, outbox: outbox}
 }
 
 func (uc *UpdateGroupUseCase) Execute(ctx context.Context, in UpdateGroupInput) (*iamDomain.Group, error) {
@@ -45,6 +48,7 @@ func (uc *UpdateGroupUseCase) Execute(ctx context.Context, in UpdateGroupInput) 
 			}
 		}
 
+		before := *g
 		g.Name = in.Name
 		g.Description = in.Description
 		g.UpdatedAt = time.Now()
@@ -53,7 +57,9 @@ func (uc *UpdateGroupUseCase) Execute(ctx context.Context, in UpdateGroupInput) 
 			return err
 		}
 		group = g
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.GroupUpdated, g.ID, eventrecord.NewChanges().
+			Set("name", before.Name, g.Name).
+			Set("description", before.Description, g.Description))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateGroup: %w", err)

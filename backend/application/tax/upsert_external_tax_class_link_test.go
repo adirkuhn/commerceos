@@ -3,6 +3,7 @@ package tax_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,7 @@ import (
 func TestUpsertExternalTaxClassLink_success(t *testing.T) {
 	classRepo := &stubTaxClassRepo{findResult: &taxDomain.TaxClass{ID: "class-1", Name: "Reduced rate"}}
 	linkRepo := &stubExternalTaxClassLinkRepo{}
-	uc := apptax.NewUpsertExternalTaxClassLinkUseCase(newMockGormDB(t, 1), linkRepo, classRepo)
+	uc := apptax.NewUpsertExternalTaxClassLinkUseCase(newMockGormDB(t, 1), linkRepo, classRepo, &eventrecordtest.Outbox{})
 
 	link, err := uc.Execute(context.Background(), apptax.UpsertExternalTaxClassLinkInput{
 		Provider: "woocommerce", ExternalSlug: "reduced-rate", TaxClassID: "class-1",
@@ -33,7 +34,7 @@ func TestUpsertExternalTaxClassLink_allowsEmptyExternalSlug(t *testing.T) {
 	// rejected as "missing".
 	classRepo := &stubTaxClassRepo{findResult: &taxDomain.TaxClass{ID: "class-1", Name: "Standard"}}
 	linkRepo := &stubExternalTaxClassLinkRepo{}
-	uc := apptax.NewUpsertExternalTaxClassLinkUseCase(newMockGormDB(t, 1), linkRepo, classRepo)
+	uc := apptax.NewUpsertExternalTaxClassLinkUseCase(newMockGormDB(t, 1), linkRepo, classRepo, &eventrecordtest.Outbox{})
 
 	link, err := uc.Execute(context.Background(), apptax.UpsertExternalTaxClassLinkInput{
 		Provider: "woocommerce", ExternalSlug: "", TaxClassID: "class-1",
@@ -44,7 +45,7 @@ func TestUpsertExternalTaxClassLink_allowsEmptyExternalSlug(t *testing.T) {
 }
 
 func TestUpsertExternalTaxClassLink_rejectsEmptyProvider(t *testing.T) {
-	uc := apptax.NewUpsertExternalTaxClassLinkUseCase(newMockGormDB(t, 0), &stubExternalTaxClassLinkRepo{}, &stubTaxClassRepo{})
+	uc := apptax.NewUpsertExternalTaxClassLinkUseCase(newMockGormDB(t, 0), &stubExternalTaxClassLinkRepo{}, &stubTaxClassRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apptax.UpsertExternalTaxClassLinkInput{
 		Provider: "  ", ExternalSlug: "reduced-rate", TaxClassID: "class-1",
@@ -55,7 +56,7 @@ func TestUpsertExternalTaxClassLink_rejectsEmptyProvider(t *testing.T) {
 
 func TestUpsertExternalTaxClassLink_propagatesTaxClassNotFound(t *testing.T) {
 	classRepo := &stubTaxClassRepo{findErr: taxDomain.ErrTaxClassNotFound}
-	uc := apptax.NewUpsertExternalTaxClassLinkUseCase(newMockGormDB(t, 1), &stubExternalTaxClassLinkRepo{}, classRepo)
+	uc := apptax.NewUpsertExternalTaxClassLinkUseCase(newMockGormDB(t, 1), &stubExternalTaxClassLinkRepo{}, classRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apptax.UpsertExternalTaxClassLinkInput{
 		Provider: "woocommerce", ExternalSlug: "reduced-rate", TaxClassID: "missing",
@@ -67,7 +68,7 @@ func TestUpsertExternalTaxClassLink_propagatesTaxClassNotFound(t *testing.T) {
 func TestUpsertExternalTaxClassLink_propagatesRepoError(t *testing.T) {
 	classRepo := &stubTaxClassRepo{findResult: &taxDomain.TaxClass{ID: "class-1"}}
 	linkRepo := &stubExternalTaxClassLinkRepo{upsertErr: errors.New("db down")}
-	uc := apptax.NewUpsertExternalTaxClassLinkUseCase(newMockGormDB(t, 1), linkRepo, classRepo)
+	uc := apptax.NewUpsertExternalTaxClassLinkUseCase(newMockGormDB(t, 1), linkRepo, classRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apptax.UpsertExternalTaxClassLinkInput{
 		Provider: "woocommerce", ExternalSlug: "reduced-rate", TaxClassID: "class-1",

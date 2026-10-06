@@ -3,6 +3,7 @@ package promotions_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -69,7 +70,7 @@ func TestFinishClearanceLine_BatchStillSellable_DoesNothing(t *testing.T) {
 	lister := &stubSKUBatchLister{batches: []invDomain.Batch{batchWith(4, time.Now().Add(48*time.Hour))}}
 	lines := &stubClearanceLineRepo{}
 	reverter := &stubLineReverter{}
-	uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDBN(t, 0), lister, lines, &stubPromotionRepo{}, reverter)
+	uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDBN(t, 0), lister, lines, &stubPromotionRepo{}, reverter, &eventrecordtest.Outbox{})
 
 	finished, err := uc.ExecuteForLine(context.Background(), clearanceLine(true))
 
@@ -91,7 +92,7 @@ func TestFinishClearanceLine_FinishesAndRevertsWhenBatchIsDone(t *testing.T) {
 			lines := &stubClearanceLineRepo{unfinished: 1}
 			reverter := &stubLineReverter{}
 			promoRepo := &stubPromotionRepo{}
-			uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDB(t), &stubSKUBatchLister{batches: batches}, lines, promoRepo, reverter)
+			uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDB(t), &stubSKUBatchLister{batches: batches}, lines, promoRepo, reverter, &eventrecordtest.Outbox{})
 
 			finished, err := uc.ExecuteForLine(context.Background(), clearanceLine(true))
 
@@ -107,7 +108,7 @@ func TestFinishClearanceLine_FinishesAndRevertsWhenBatchIsDone(t *testing.T) {
 func TestFinishClearanceLine_EndsPromotionWhenLastLineFinishes(t *testing.T) {
 	lines := &stubClearanceLineRepo{unfinished: 0}
 	promoRepo := &stubPromotionRepo{findResult: &promotionsDomain.Promotion{ID: "promo-1", Status: promotionsDomain.PromotionStatusActive}}
-	uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDB(t), &stubSKUBatchLister{}, lines, promoRepo, &stubLineReverter{})
+	uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDB(t), &stubSKUBatchLister{}, lines, promoRepo, &stubLineReverter{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.ExecuteForLine(context.Background(), clearanceLine(true))
 
@@ -118,7 +119,7 @@ func TestFinishClearanceLine_EndsPromotionWhenLastLineFinishes(t *testing.T) {
 
 func TestFinishClearanceLine_NotYetAppliedLineIsNotReverted(t *testing.T) {
 	reverter := &stubLineReverter{}
-	uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDB(t), &stubSKUBatchLister{}, &stubClearanceLineRepo{unfinished: 1}, &stubPromotionRepo{}, reverter)
+	uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDB(t), &stubSKUBatchLister{}, &stubClearanceLineRepo{unfinished: 1}, &stubPromotionRepo{}, reverter, &eventrecordtest.Outbox{})
 
 	finished, err := uc.ExecuteForLine(context.Background(), clearanceLine(false))
 
@@ -131,19 +132,19 @@ func TestFinishClearanceLine_PropagatesErrors(t *testing.T) {
 	boom := errors.New("boom")
 
 	t.Run("batch lookup", func(t *testing.T) {
-		uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDBN(t, 0), &stubSKUBatchLister{err: boom}, &stubClearanceLineRepo{}, &stubPromotionRepo{}, &stubLineReverter{})
+		uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDBN(t, 0), &stubSKUBatchLister{err: boom}, &stubClearanceLineRepo{}, &stubPromotionRepo{}, &stubLineReverter{}, &eventrecordtest.Outbox{})
 		_, err := uc.ExecuteForLine(context.Background(), clearanceLine(true))
 		require.ErrorIs(t, err, boom)
 	})
 	t.Run("mark finished", func(t *testing.T) {
 		reverter := &stubLineReverter{}
-		uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDB(t), &stubSKUBatchLister{}, &stubClearanceLineRepo{finishErr: boom}, &stubPromotionRepo{}, reverter)
+		uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDB(t), &stubSKUBatchLister{}, &stubClearanceLineRepo{finishErr: boom}, &stubPromotionRepo{}, reverter, &eventrecordtest.Outbox{})
 		_, err := uc.ExecuteForLine(context.Background(), clearanceLine(true))
 		require.ErrorIs(t, err, boom)
 		require.Empty(t, reverter.reverted, "nothing reverted when the finish wasn't recorded")
 	})
 	t.Run("revert", func(t *testing.T) {
-		uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDB(t), &stubSKUBatchLister{}, &stubClearanceLineRepo{unfinished: 1}, &stubPromotionRepo{}, &stubLineReverter{err: boom})
+		uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDB(t), &stubSKUBatchLister{}, &stubClearanceLineRepo{unfinished: 1}, &stubPromotionRepo{}, &stubLineReverter{err: boom}, &eventrecordtest.Outbox{})
 		_, err := uc.ExecuteForLine(context.Background(), clearanceLine(true))
 		require.ErrorIs(t, err, boom)
 	})
@@ -152,7 +153,7 @@ func TestFinishClearanceLine_PropagatesErrors(t *testing.T) {
 func TestFinishClearanceLinesForSKU_ChecksEveryOpenLine(t *testing.T) {
 	lines := &stubClearanceLineRepo{openBySKU: []promotionsDomain.PromotionSKU{clearanceLine(true)}, unfinished: 1}
 	reverter := &stubLineReverter{}
-	uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDBN(t, 2), &stubSKUBatchLister{}, lines, &stubPromotionRepo{}, reverter)
+	uc := apppromotions.NewFinishClearanceLinesUseCase(newMockGormDBN(t, 2), &stubSKUBatchLister{}, lines, &stubPromotionRepo{}, reverter, &eventrecordtest.Outbox{})
 
 	err := uc.ExecuteForSKU(context.Background(), "sku-1")
 

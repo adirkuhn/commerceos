@@ -3,6 +3,8 @@ package tax
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 
 	taxDomain "github.com/adirkuhn/commerceos/domain/tax"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -20,10 +22,11 @@ type DeleteTaxClassUseCase struct {
 	db         *gorm.DB
 	repo       taxDomain.TaxClassRepository
 	skuChecker skuTaxClassChecker
+	outbox     eventrecord.Enqueuer
 }
 
-func NewDeleteTaxClassUseCase(db *gorm.DB, repo taxDomain.TaxClassRepository, skuChecker skuTaxClassChecker) *DeleteTaxClassUseCase {
-	return &DeleteTaxClassUseCase{db: db, repo: repo, skuChecker: skuChecker}
+func NewDeleteTaxClassUseCase(db *gorm.DB, repo taxDomain.TaxClassRepository, skuChecker skuTaxClassChecker, outbox eventrecord.Enqueuer) *DeleteTaxClassUseCase {
+	return &DeleteTaxClassUseCase{db: db, repo: repo, skuChecker: skuChecker, outbox: outbox}
 }
 
 func (uc *DeleteTaxClassUseCase) Execute(ctx context.Context, id string) error {
@@ -42,7 +45,10 @@ func (uc *DeleteTaxClassUseCase) Execute(ctx context.Context, id string) error {
 		if inUse {
 			return taxDomain.ErrTaxClassInUse
 		}
-		return uc.repo.Delete(ctx, id)
+		if err := uc.repo.Delete(ctx, id); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.TaxClassDeleted, id, eventrecord.Data{"name": existing.Name})
 	})
 	if err != nil {
 		return fmt.Errorf("deleteTaxClass: %w", err)

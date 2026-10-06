@@ -2,6 +2,7 @@ package tax_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 
 func TestDeleteExternalTaxClassLink_success(t *testing.T) {
 	repo := &stubExternalTaxClassLinkRepo{findResult: &taxDomain.ExternalTaxClassLink{ID: "link-1"}}
-	uc := apptax.NewDeleteExternalTaxClassLinkUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewDeleteExternalTaxClassLinkUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "link-1")
 
@@ -23,7 +24,7 @@ func TestDeleteExternalTaxClassLink_success(t *testing.T) {
 
 func TestDeleteExternalTaxClassLink_propagatesNotFound(t *testing.T) {
 	repo := &stubExternalTaxClassLinkRepo{findErr: taxDomain.ErrExternalTaxClassLinkNotFound}
-	uc := apptax.NewDeleteExternalTaxClassLinkUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewDeleteExternalTaxClassLinkUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 

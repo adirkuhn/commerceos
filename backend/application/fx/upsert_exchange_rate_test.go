@@ -2,6 +2,7 @@ package fx_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,7 @@ import (
 func TestUpsertExchangeRateUseCase_Execute(t *testing.T) {
 	t.Run("rejects an invalid currency code", func(t *testing.T) {
 		repo := &fakeExchangeRateRepo{}
-		uc := appfx.NewUpsertExchangeRateUseCase(newMockGormDB(t, 0), repo)
+		uc := appfx.NewUpsertExchangeRateUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 		_, err := uc.Execute(context.Background(), appfx.UpsertExchangeRateInput{CurrencyCode: "eur", RateBasisPoints: 10000})
 		require.ErrorIs(t, err, fxDomain.ErrInvalidCurrencyCode)
@@ -21,7 +22,7 @@ func TestUpsertExchangeRateUseCase_Execute(t *testing.T) {
 
 	t.Run("rejects a zero or negative rate", func(t *testing.T) {
 		repo := &fakeExchangeRateRepo{}
-		uc := appfx.NewUpsertExchangeRateUseCase(newMockGormDB(t, 0), repo)
+		uc := appfx.NewUpsertExchangeRateUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 		_, err := uc.Execute(context.Background(), appfx.UpsertExchangeRateInput{CurrencyCode: "USD", RateBasisPoints: 0})
 		require.ErrorIs(t, err, fxDomain.ErrInvalidRate)
@@ -29,7 +30,7 @@ func TestUpsertExchangeRateUseCase_Execute(t *testing.T) {
 
 	t.Run("upserts a valid rate", func(t *testing.T) {
 		repo := &fakeExchangeRateRepo{}
-		uc := appfx.NewUpsertExchangeRateUseCase(newMockGormDB(t, 1), repo)
+		uc := appfx.NewUpsertExchangeRateUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 		rate, err := uc.Execute(context.Background(), appfx.UpsertExchangeRateInput{CurrencyCode: "USD", RateBasisPoints: 10876})
 		require.NoError(t, err)

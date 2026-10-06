@@ -3,6 +3,8 @@ package iam
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 
 	iamDomain "github.com/adirkuhn/commerceos/domain/iam"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -18,10 +20,11 @@ type AssignPermissionToGroupUseCase struct {
 	db     *gorm.DB
 	gRepo  iamDomain.GroupRepository
 	gpRepo iamDomain.GroupPermissionRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewAssignPermissionToGroupUseCase(db *gorm.DB, gRepo iamDomain.GroupRepository, gpRepo iamDomain.GroupPermissionRepository) *AssignPermissionToGroupUseCase {
-	return &AssignPermissionToGroupUseCase{db: db, gRepo: gRepo, gpRepo: gpRepo}
+func NewAssignPermissionToGroupUseCase(db *gorm.DB, gRepo iamDomain.GroupRepository, gpRepo iamDomain.GroupPermissionRepository, outbox eventrecord.Enqueuer) *AssignPermissionToGroupUseCase {
+	return &AssignPermissionToGroupUseCase{db: db, gRepo: gRepo, gpRepo: gpRepo, outbox: outbox}
 }
 
 func (uc *AssignPermissionToGroupUseCase) Execute(ctx context.Context, in AssignPermissionInput) error {
@@ -43,7 +46,10 @@ func (uc *AssignPermissionToGroupUseCase) Execute(ctx context.Context, in Assign
 				return nil // idempotent
 			}
 		}
-		return uc.gpRepo.Assign(ctx, in.GroupID, rule)
+		if err := uc.gpRepo.Assign(ctx, in.GroupID, rule); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.GroupPermissionAssigned, in.GroupID, eventrecord.Data{"rule": string(rule)})
 	})
 	if err != nil {
 		return fmt.Errorf("assignPermissionToGroup: %w", err)

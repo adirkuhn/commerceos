@@ -3,6 +3,7 @@ package tax_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ import (
 
 func TestUpdateTaxClass_success(t *testing.T) {
 	repo := &stubTaxClassRepo{findResult: &taxDomain.TaxClass{ID: "class-1", Name: "Standard"}}
-	uc := apptax.NewUpdateTaxClassUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewUpdateTaxClassUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	class, err := uc.Execute(context.Background(), apptax.UpdateTaxClassInput{ID: "class-1", Name: "Standard rate"})
 
@@ -25,7 +26,7 @@ func TestUpdateTaxClass_success(t *testing.T) {
 
 func TestUpdateTaxClass_rejectsEmptyName(t *testing.T) {
 	repo := &stubTaxClassRepo{findResult: &taxDomain.TaxClass{ID: "class-1", Name: "Standard"}}
-	uc := apptax.NewUpdateTaxClassUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewUpdateTaxClassUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apptax.UpdateTaxClassInput{ID: "class-1", Name: ""})
 
@@ -34,7 +35,7 @@ func TestUpdateTaxClass_rejectsEmptyName(t *testing.T) {
 
 func TestUpdateTaxClass_propagatesNotFound(t *testing.T) {
 	repo := &stubTaxClassRepo{findErr: taxDomain.ErrTaxClassNotFound}
-	uc := apptax.NewUpdateTaxClassUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewUpdateTaxClassUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apptax.UpdateTaxClassInput{ID: "missing", Name: "X"})
 
@@ -49,7 +50,7 @@ func TestUpdateTaxClass_settingDefaultUnsetsThePreviousDefault(t *testing.T) {
 			{ID: "class-2", Name: "Reduced rate", IsDefault: false},
 		},
 	}
-	uc := apptax.NewUpdateTaxClassUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewUpdateTaxClassUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	class, err := uc.Execute(context.Background(), apptax.UpdateTaxClassInput{ID: "class-2", Name: "Reduced rate", IsDefault: true})
 
@@ -69,7 +70,7 @@ func TestUpdateTaxClass_reSavingTheCurrentDefaultDoesNotDoubleUnset(t *testing.T
 			{ID: "class-1", Name: "Standard", IsDefault: true},
 		},
 	}
-	uc := apptax.NewUpdateTaxClassUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewUpdateTaxClassUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	class, err := uc.Execute(context.Background(), apptax.UpdateTaxClassInput{ID: "class-1", Name: "Standard", IsDefault: true})
 
@@ -83,7 +84,7 @@ func TestUpdateTaxClass_propagatesRepoError(t *testing.T) {
 		findResult: &taxDomain.TaxClass{ID: "class-1", Name: "Standard"},
 		updateErr:  errors.New("db down"),
 	}
-	uc := apptax.NewUpdateTaxClassUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewUpdateTaxClassUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apptax.UpdateTaxClassInput{ID: "class-1", Name: "Standard rate"})
 

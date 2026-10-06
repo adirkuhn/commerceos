@@ -2,6 +2,7 @@ package promotions_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -42,7 +43,7 @@ func TestApplyPromotionSKU_ComputesPercentageDiscountAndMarksApplied(t *testing.
 	skuLookup := &stubSKUExistenceChecker{findResult: &pmsDomain.SKU{ID: "sku-1", PriceMinorUnits: 1000}}
 	setSalePrice := &stubSetPromotionSalePrice{applyPrevPrice: nil, applyPrevEnd: nil}
 	lineRepo := &stubPromotionSKURepo{}
-	uc := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), skuLookup, setSalePrice, lineRepo)
+	uc := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), skuLookup, setSalePrice, lineRepo, &eventrecordtest.Outbox{})
 
 	line := promotionsDomain.PromotionSKU{ID: "line-1", SKUID: "sku-1", DiscountType: promotionsDomain.PromotionTypePercentage, DiscountValue: 1000}
 	err := uc.Execute(context.Background(), line)
@@ -57,7 +58,7 @@ func TestApplyPromotionSKU_ComputesPercentageDiscountAndMarksApplied(t *testing.
 func TestApplyPromotionSKU_ComputesFixedAmountDiscount(t *testing.T) {
 	skuLookup := &stubSKUExistenceChecker{findResult: &pmsDomain.SKU{ID: "sku-1", PriceMinorUnits: 1000}}
 	setSalePrice := &stubSetPromotionSalePrice{}
-	uc := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), skuLookup, setSalePrice, &stubPromotionSKURepo{})
+	uc := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), skuLookup, setSalePrice, &stubPromotionSKURepo{}, &eventrecordtest.Outbox{})
 
 	line := promotionsDomain.PromotionSKU{ID: "line-1", SKUID: "sku-1", DiscountType: promotionsDomain.PromotionTypeFixedAmount, DiscountValue: 300}
 	err := uc.Execute(context.Background(), line)
@@ -69,7 +70,7 @@ func TestApplyPromotionSKU_ComputesFixedAmountDiscount(t *testing.T) {
 func TestApplyPromotionSKU_ClampsDiscountToAtLeastOneMinorUnit(t *testing.T) {
 	skuLookup := &stubSKUExistenceChecker{findResult: &pmsDomain.SKU{ID: "sku-1", PriceMinorUnits: 100}}
 	setSalePrice := &stubSetPromotionSalePrice{}
-	uc := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), skuLookup, setSalePrice, &stubPromotionSKURepo{})
+	uc := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), skuLookup, setSalePrice, &stubPromotionSKURepo{}, &eventrecordtest.Outbox{})
 
 	// Fixed amount discount larger than the price -- must never go to 0 or negative.
 	line := promotionsDomain.PromotionSKU{ID: "line-1", SKUID: "sku-1", DiscountType: promotionsDomain.PromotionTypeFixedAmount, DiscountValue: 500}
@@ -81,7 +82,7 @@ func TestApplyPromotionSKU_ClampsDiscountToAtLeastOneMinorUnit(t *testing.T) {
 
 func TestApplyPromotionSKU_PropagatesSKULookupError(t *testing.T) {
 	skuLookup := &stubSKUExistenceChecker{findErr: pmsDomain.ErrSKUNotFound}
-	uc := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDB(t), skuLookup, &stubSetPromotionSalePrice{}, &stubPromotionSKURepo{})
+	uc := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDB(t), skuLookup, &stubSetPromotionSalePrice{}, &stubPromotionSKURepo{}, &eventrecordtest.Outbox{})
 
 	line := promotionsDomain.PromotionSKU{ID: "line-1", SKUID: "missing", DiscountType: promotionsDomain.PromotionTypePercentage, DiscountValue: 1000}
 	err := uc.Execute(context.Background(), line)
@@ -92,7 +93,7 @@ func TestApplyPromotionSKU_PropagatesSKULookupError(t *testing.T) {
 func TestApplyPromotionSKU_PropagatesSetSalePriceError(t *testing.T) {
 	skuLookup := &stubSKUExistenceChecker{findResult: &pmsDomain.SKU{ID: "sku-1", PriceMinorUnits: 1000}}
 	setSalePrice := &stubSetPromotionSalePrice{applyErr: context.DeadlineExceeded}
-	uc := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), skuLookup, setSalePrice, &stubPromotionSKURepo{})
+	uc := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), skuLookup, setSalePrice, &stubPromotionSKURepo{}, &eventrecordtest.Outbox{})
 
 	line := promotionsDomain.PromotionSKU{ID: "line-1", SKUID: "sku-1", DiscountType: promotionsDomain.PromotionTypePercentage, DiscountValue: 1000}
 	err := uc.Execute(context.Background(), line)
@@ -103,7 +104,7 @@ func TestApplyPromotionSKU_PropagatesSetSalePriceError(t *testing.T) {
 func TestRevertPromotionSKU_RestoresPreviousValuesAndMarksReverted(t *testing.T) {
 	setSalePrice := &stubSetPromotionSalePrice{}
 	lineRepo := &stubPromotionSKURepo{}
-	uc := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDB(t), setSalePrice, lineRepo)
+	uc := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDB(t), setSalePrice, lineRepo, &eventrecordtest.Outbox{})
 
 	prevPrice := int64(899)
 	prevEnd := time.Now()
@@ -119,7 +120,7 @@ func TestRevertPromotionSKU_RestoresPreviousValuesAndMarksReverted(t *testing.T)
 
 func TestRevertPromotionSKU_PropagatesSetSalePriceError(t *testing.T) {
 	setSalePrice := &stubSetPromotionSalePrice{revertErr: context.DeadlineExceeded}
-	uc := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDB(t), setSalePrice, &stubPromotionSKURepo{})
+	uc := apppromotions.NewRevertPromotionSKUUseCase(newMockGormDB(t), setSalePrice, &stubPromotionSKURepo{}, &eventrecordtest.Outbox{})
 
 	line := promotionsDomain.PromotionSKU{ID: "line-1", SKUID: "sku-1"}
 	err := uc.Execute(context.Background(), line)

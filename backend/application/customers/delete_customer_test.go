@@ -2,6 +2,7 @@ package customers_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 
 func TestDeleteCustomer_deletesWhenFound(t *testing.T) {
 	repo := &stubCustomerRepo{findResult: &customersDomain.Customer{ID: "c1"}}
-	uc := appcustomers.NewDeleteCustomerUseCase(newMockGormDB(t), repo)
+	uc := appcustomers.NewDeleteCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "c1")
 
@@ -22,7 +23,7 @@ func TestDeleteCustomer_deletesWhenFound(t *testing.T) {
 
 func TestDeleteCustomer_propagatesNotFound(t *testing.T) {
 	repo := &stubCustomerRepo{findErr: customersDomain.ErrCustomerNotFound}
-	uc := appcustomers.NewDeleteCustomerUseCase(newMockGormDB(t), repo)
+	uc := appcustomers.NewDeleteCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 

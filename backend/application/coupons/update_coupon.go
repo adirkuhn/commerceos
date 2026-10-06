@@ -3,6 +3,8 @@ package coupons
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"time"
 
 	"gorm.io/gorm"
@@ -23,12 +25,13 @@ type UpdateCouponInput struct {
 }
 
 type UpdateCouponUseCase struct {
-	db   *gorm.DB
-	repo couponsDomain.Repository
+	db     *gorm.DB
+	repo   couponsDomain.Repository
+	outbox eventrecord.Enqueuer
 }
 
-func NewUpdateCouponUseCase(db *gorm.DB, repo couponsDomain.Repository) *UpdateCouponUseCase {
-	return &UpdateCouponUseCase{db: db, repo: repo}
+func NewUpdateCouponUseCase(db *gorm.DB, repo couponsDomain.Repository, outbox eventrecord.Enqueuer) *UpdateCouponUseCase {
+	return &UpdateCouponUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 func (uc *UpdateCouponUseCase) Execute(ctx context.Context, in UpdateCouponInput) (*couponsDomain.Coupon, error) {
@@ -43,6 +46,7 @@ func (uc *UpdateCouponUseCase) Execute(ctx context.Context, in UpdateCouponInput
 		if err != nil {
 			return err
 		}
+		before := *existing
 		existing.Code = code
 		existing.DiscountType = in.DiscountType
 		existing.DiscountValue = in.DiscountValue
@@ -55,7 +59,14 @@ func (uc *UpdateCouponUseCase) Execute(ctx context.Context, in UpdateCouponInput
 			return err
 		}
 		coupon = *existing
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.CouponUpdated, coupon.ID, eventrecord.NewChanges().
+			Set("code", before.Code, coupon.Code).
+			Set("discount_type", string(before.DiscountType), string(coupon.DiscountType)).
+			Set("discount_value", before.DiscountValue, coupon.DiscountValue).
+			Set("min_subtotal_minor_units", before.MinSubtotalMinorUnits, coupon.MinSubtotalMinorUnits).
+			Set("usage_limit", before.UsageLimit, coupon.UsageLimit).
+			Set("expires_at", before.ExpiresAt, coupon.ExpiresAt).
+			Set("active", before.Active, coupon.Active))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateCoupon: %w", err)
