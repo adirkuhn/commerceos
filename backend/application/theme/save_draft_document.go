@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -67,7 +69,12 @@ func (uc *SaveDraftDocumentUseCase) Execute(ctx context.Context, in SaveDraftDoc
 			return err
 		}
 		out = DraftWrite{Document: *doc, Revision: draft.Revision}
-		return uc.deps.Versions.Update(ctx, draft)
+		if err := uc.deps.Versions.Update(ctx, draft); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.deps.Outbox, events.ThemeDocumentUpdated, doc.ID, eventrecord.Data{
+			"theme_id": in.ThemeID, "version_id": draft.ID, "kind": string(doc.Kind), "key": doc.Key, "revision": draft.Revision,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("saveDraftDocument: %w", err)

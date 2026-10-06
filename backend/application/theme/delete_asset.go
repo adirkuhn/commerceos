@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -21,7 +23,10 @@ func (uc *DeleteAssetUseCase) Execute(ctx context.Context, id string) error {
 		}
 		now := uc.deps.Now()
 		a.DeletedAt = &now
-		return uc.deps.Assets.Update(ctx, a)
+		if err := uc.deps.Assets.Update(ctx, a); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.deps.Outbox, events.ThemeAssetDeleted, a.ID, eventrecord.Data{"filename": a.Filename})
 	})
 	if err != nil {
 		return fmt.Errorf("deleteAsset: %w", err)

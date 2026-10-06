@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -64,7 +66,13 @@ func (d Deps) storeAsset(ctx context.Context, filename string, data []byte, alt,
 		return nil, fmt.Errorf("storeAsset: save: %w", err)
 	}
 	if err := tenant.WithTenant(ctx, d.DB, func(ctx context.Context) error {
-		return d.Assets.Create(ctx, &asset)
+		if err := d.Assets.Create(ctx, &asset); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, d.Outbox, events.ThemeAssetUploaded, asset.ID, eventrecord.Data{
+			"filename": asset.Filename, "content_type": asset.ContentType, "bytes": asset.Bytes,
+			"width": asset.Width, "height": asset.Height,
+		})
 	}); err != nil {
 		return nil, fmt.Errorf("storeAsset: %w", err)
 	}

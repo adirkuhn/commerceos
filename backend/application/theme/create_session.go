@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -54,7 +56,13 @@ func (uc *CreateSessionUseCase) Execute(ctx context.Context, in CreateSessionInp
 			return err
 		}
 		out = SessionToken{Token: raw, ExpiresAt: s.ExpiresAt}
-		return uc.deps.Sessions.Create(ctx, &s)
+		if err := uc.deps.Sessions.Create(ctx, &s); err != nil {
+			return err
+		}
+		// The session token (and its hash) stay out of the event.
+		return eventrecord.Record(ctx, uc.deps.Outbox, events.ThemeSessionCreated, s.ID, eventrecord.Data{
+			"theme_id": s.ThemeID, "purpose": string(s.Purpose), "user_id": s.UserID, "role": s.Role, "locale": string(s.Locale),
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createSession: %w", err)

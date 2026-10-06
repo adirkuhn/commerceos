@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -20,11 +22,16 @@ func (uc *UpdateAssetUseCase) Execute(ctx context.Context, id, alt string) (*the
 		if err != nil {
 			return err
 		}
+		before := a.Alt
 		if err := a.SetAlt(alt); err != nil {
 			return err
 		}
 		out = *a
-		return uc.deps.Assets.Update(ctx, a)
+		if err := uc.deps.Assets.Update(ctx, a); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.deps.Outbox, events.ThemeAssetUpdated, a.ID,
+			eventrecord.NewChanges().Set("alt", before, a.Alt))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateAsset: %w", err)

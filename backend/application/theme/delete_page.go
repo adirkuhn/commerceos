@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -33,7 +35,12 @@ func (uc *DeletePageUseCase) Execute(ctx context.Context, themeID string, expect
 			return err
 		}
 		revision = draft.Revision
-		return uc.deps.Versions.Update(ctx, draft)
+		if err := uc.deps.Versions.Update(ctx, draft); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.deps.Outbox, events.ThemePageDeleted, doc.ID, eventrecord.Data{
+			"theme_id": themeID, "version_id": draft.ID, "key": doc.Key, "revision": draft.Revision,
+		})
 	})
 	if err != nil {
 		return 0, fmt.Errorf("deletePage: %w", err)
