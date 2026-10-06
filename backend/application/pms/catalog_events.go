@@ -1,0 +1,33 @@
+package pms
+
+import (
+	"context"
+
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+)
+
+// Why a SKU's cost price changed -- data.reason of pms.sku.cost_price_changed.
+const (
+	CostPriceChangeReasonReceipt         = "receipt"
+	CostPriceChangeReasonCorrection      = "correction"
+	CostPriceChangeReasonManual          = "manual"
+	CostPriceChangeReasonOverrideCleared = "override_cleared"
+)
+
+// recordCostPriceChanged records a SKU's cost price change: before is the
+// SKU as it was, after the cost and source it has now.
+func recordCostPriceChanged(ctx context.Context, outbox eventrecord.Enqueuer, before pmsDomain.SKU, afterCost *int64,
+	afterSource pmsDomain.SKUCostPriceSource, reason, referenceType, referenceID string) error {
+	data := eventrecord.Data{"reason": reason}
+	if referenceType != "" {
+		data["reference_type"] = referenceType
+	}
+	if referenceID != "" {
+		data["reference_id"] = referenceID
+	}
+	return eventrecord.Record(ctx, outbox, events.SKUCostPriceChanged, before.ID, data, eventrecord.NewChanges().
+		Set("cost_price_minor_units", before.CostPriceMinorUnits, afterCost).
+		Set("cost_price_source", string(before.CostPriceSource), string(afterSource)))
+}

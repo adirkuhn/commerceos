@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-57 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+69 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -107,12 +107,24 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `pms.barcode_alias.created` | action | An extra barcode (e.g. a case barcode) was linked to a SKU. data: sku_id, code, units_per_scan. | envelope |
+| `pms.barcode_alias.deleted` | action | An extra barcode was unlinked from its SKU. | envelope |
 | `pms.category.changed` | typed | CategoryChanged is raised whenever a category's fields (name, parent, markup) change. | `CategoryChanged`: event_id, occurred_at, tenant_id, category_id |
+| `pms.category.created` | action | A product category was created. data: name, slug, parent_id. | envelope |
+| `pms.category.deleted` | action | A product category was deleted. data: name. | envelope |
+| `pms.media.deleted` | action | A product or variant image was deleted (its file removed from storage). data: product_id, variant_id. | envelope |
+| `pms.media.uploaded` | action | An image was uploaded for a product or variant. data: product_id, variant_id, url, position. | envelope |
 | `pms.product.changed` | typed | ProductChanged is raised whenever a product's core fields or its default SKU's price/weight/dimensions change. | `ProductChanged`: event_id, occurred_at, tenant_id, product_id |
 | `pms.product.deleted` | typed | ProductDeleted is raised after a product has been deleted. | `ProductDeleted`: event_id, occurred_at, tenant_id, product_id, listings |
+| `pms.product.duplicated` | action | A product was copied (as a draft) with its variants and SKUs; entity_id is the new product. data: source_product_id, variant_count, sku_count. | envelope |
 | `pms.product.merged` | typed | ProductMerged is raised after a duplicate product was merged into an existing one (see domain/pms.ProductMerge): every reference to each duplicate SKU now points at its matched existing SKU, and the duplicate product is deleted (its own pms.product.deleted is raised alongside). | `ProductMerged`: event_id, occurred_at, tenant_id, source_product_id, target_product_id, skus |
 | `pms.product.translated` | typed | ProductTranslated is raised when a product's translated name/description change. | `ProductTranslated`: event_id, occurred_at, tenant_id, product_id |
+| `pms.scale_code_alias.created` | action | An extra scale code (a second weighing scale's PLU) was linked to a SKU. data: sku_id, code. | envelope |
+| `pms.scale_code_alias.deleted` | action | An extra scale code was unlinked from its SKU. | envelope |
+| `pms.sku.cost_price_changed` | action | A SKU's cost price changed (changes: cost_price_minor_units, cost_price_source). data: reason -- receipt (stock received at a landed cost, moving average), correction (a value correction such as a corrected invoice), manual (set by hand, overrides computed cost) or override_cleared (back to the computed cost); reference_type, reference_id. | envelope |
 | `pms.sku.price_per_kilo_changed` | typed | SKUPricePerKiloChanged is raised when a scale-sold weight pool's price per kilo changes. | `SKUPricePerKiloChanged`: event_id, occurred_at, tenant_id, sku_id, old_price_per_kilo_minor_units, new_price_per_kilo_minor_units |
+| `pms.sku_currency_price.deleted` | action | A SKU's fixed price in another currency was removed -- it falls back to exchange-rate conversion (entity_id is the SKU). data: currency_code. | envelope |
+| `pms.sku_currency_price.saved` | action | A SKU's fixed price in another currency was set or changed (entity_id is the SKU; changes: price_minor_units, sale_price_minor_units, sale_end_date). data: currency_code. | envelope |
 | `pms.variant.unlisted` | typed | VariantUnlisted is raised when a variant can no longer be sold on the channels it was listed on -- the variant was deleted, or its last SKU was. | `VariantUnlisted`: event_id, occurred_at, tenant_id, product_id, variant_id, listings |
 
 ### procurement

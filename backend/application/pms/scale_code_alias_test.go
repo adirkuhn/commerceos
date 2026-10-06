@@ -3,6 +3,7 @@ package pms_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,7 @@ import (
 func TestCreateScaleCodeAlias_persistsForTheSecondScale(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubScaleCodeAliasRepo{}
-	uc := apppms.NewCreateScaleCodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo)
+	uc := apppms.NewCreateScaleCodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	alias, err := uc.Execute(context.Background(), apppms.CreateScaleCodeAliasInput{SKUID: "sku-1", Code: "94722"})
 
@@ -27,7 +28,7 @@ func TestCreateScaleCodeAlias_persistsForTheSecondScale(t *testing.T) {
 func TestCreateScaleCodeAlias_rejectsBlankCode(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubScaleCodeAliasRepo{}
-	uc := apppms.NewCreateScaleCodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo)
+	uc := apppms.NewCreateScaleCodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateScaleCodeAliasInput{SKUID: "sku-1", Code: "  "})
 
@@ -37,7 +38,7 @@ func TestCreateScaleCodeAlias_rejectsBlankCode(t *testing.T) {
 func TestCreateScaleCodeAlias_propagatesSKUNotFound(t *testing.T) {
 	skuRepo := &stubSKURepo{findByIDErr: pmsDomain.ErrSKUNotFound}
 	aliasRepo := &stubScaleCodeAliasRepo{}
-	uc := apppms.NewCreateScaleCodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo)
+	uc := apppms.NewCreateScaleCodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateScaleCodeAliasInput{SKUID: "missing", Code: "94722"})
 
@@ -47,7 +48,7 @@ func TestCreateScaleCodeAlias_propagatesSKUNotFound(t *testing.T) {
 func TestCreateScaleCodeAlias_duplicateCodePropagates(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubScaleCodeAliasRepo{createErr: pmsDomain.ErrDuplicateScaleCodeAlias}
-	uc := apppms.NewCreateScaleCodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo)
+	uc := apppms.NewCreateScaleCodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateScaleCodeAliasInput{SKUID: "sku-1", Code: "TAKEN"})
 
@@ -66,7 +67,7 @@ func TestListScaleCodeAliases_returnsRepoResult(t *testing.T) {
 
 func TestDeleteScaleCodeAlias_delegatesToRepo(t *testing.T) {
 	aliasRepo := &stubScaleCodeAliasRepo{}
-	uc := apppms.NewDeleteScaleCodeAliasUseCase(newMockGormDB(t), aliasRepo)
+	uc := apppms.NewDeleteScaleCodeAliasUseCase(newMockGormDB(t), aliasRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "scalealias-1")
 

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -19,10 +21,11 @@ type CreateCategoryInput struct {
 type CreateCategoryUseCase struct {
 	db           *gorm.DB
 	categoryRepo pmsDomain.CategoryRepository
+	outbox       eventrecord.Enqueuer
 }
 
-func NewCreateCategoryUseCase(db *gorm.DB, categoryRepo pmsDomain.CategoryRepository) *CreateCategoryUseCase {
-	return &CreateCategoryUseCase{db: db, categoryRepo: categoryRepo}
+func NewCreateCategoryUseCase(db *gorm.DB, categoryRepo pmsDomain.CategoryRepository, outbox eventrecord.Enqueuer) *CreateCategoryUseCase {
+	return &CreateCategoryUseCase{db: db, categoryRepo: categoryRepo, outbox: outbox}
 }
 
 func (uc *CreateCategoryUseCase) Execute(ctx context.Context, in CreateCategoryInput) (*pmsDomain.Category, error) {
@@ -46,7 +49,12 @@ func (uc *CreateCategoryUseCase) Execute(ctx context.Context, in CreateCategoryI
 			CreatedAt: now,
 			UpdatedAt: now,
 		}
-		return uc.categoryRepo.Create(ctx, &category)
+		if err := uc.categoryRepo.Create(ctx, &category); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.CategoryCreated, category.ID, eventrecord.Data{
+			"name": category.Name, "slug": category.Slug, "parent_id": category.ParentID,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createCategory: %w", err)

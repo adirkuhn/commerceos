@@ -3,6 +3,7 @@ package pms_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -72,7 +73,7 @@ func TestApplyReceiptCost_blendsExistingKnownCostAndWritesLedgerEntry(t *testing
 	batchLister := &stubBatchListerForReceiptCost{batches: []invDomain.Batch{{Quantity: 150}}}
 	ledgerRepo := &stubCostLedgerRepo{}
 	occurredAt := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
-	uc := apppms.NewApplyReceiptCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister)
+	uc := apppms.NewApplyReceiptCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), apppms.ApplyReceiptCostInput{
 		SKUID: "sku-1", ReceivedQuantity: 50, LandedUnitCostMinorUnits: 520,
@@ -102,7 +103,7 @@ func TestApplyReceiptCost_unknownExistingCostMergesAsReceivedCostAndResolvesSour
 	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceMinorUnits: nil, CostPriceSource: pmsDomain.SKUCostPriceSourceUnknown}}
 	batchLister := &stubBatchListerForReceiptCost{batches: []invDomain.Batch{{Quantity: 150}}}
 	ledgerRepo := &stubCostLedgerRepo{}
-	uc := apppms.NewApplyReceiptCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister)
+	uc := apppms.NewApplyReceiptCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), apppms.ApplyReceiptCostInput{
 		SKUID: "sku-1", ReceivedQuantity: 50, LandedUnitCostMinorUnits: 520,
@@ -121,7 +122,7 @@ func TestApplyReceiptCost_skipsWhenCostPriceSourceIsManual(t *testing.T) {
 	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceSource: pmsDomain.SKUCostPriceSourceManual}}
 	batchLister := &stubBatchListerForReceiptCost{}
 	ledgerRepo := &stubCostLedgerRepo{}
-	uc := apppms.NewApplyReceiptCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister)
+	uc := apppms.NewApplyReceiptCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), apppms.ApplyReceiptCostInput{
 		SKUID: "sku-1", ReceivedQuantity: 50, LandedUnitCostMinorUnits: 520, OccurredAt: time.Now(),
@@ -133,7 +134,7 @@ func TestApplyReceiptCost_skipsWhenCostPriceSourceIsManual(t *testing.T) {
 }
 
 func TestApplyReceiptCost_rejectsNonPositiveReceivedQuantity(t *testing.T) {
-	uc := apppms.NewApplyReceiptCostUseCase(newMockGormDB(t), &stubSKURepoForReceiptCost{}, &stubCostLedgerRepo{}, &stubBatchListerForReceiptCost{})
+	uc := apppms.NewApplyReceiptCostUseCase(newMockGormDB(t), &stubSKURepoForReceiptCost{}, &stubCostLedgerRepo{}, &stubBatchListerForReceiptCost{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), apppms.ApplyReceiptCostInput{SKUID: "sku-1", ReceivedQuantity: 0, LandedUnitCostMinorUnits: 100})
 
@@ -144,7 +145,7 @@ func TestApplyReceiptCost_propagatesLedgerCreateError(t *testing.T) {
 	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1"}}
 	batchLister := &stubBatchListerForReceiptCost{batches: []invDomain.Batch{{Quantity: 50}}}
 	ledgerRepo := &stubCostLedgerRepo{err: errors.New("db down")}
-	uc := apppms.NewApplyReceiptCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister)
+	uc := apppms.NewApplyReceiptCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), apppms.ApplyReceiptCostInput{SKUID: "sku-1", ReceivedQuantity: 50, LandedUnitCostMinorUnits: 100, OccurredAt: time.Now()})
 

@@ -2,6 +2,7 @@ package pms_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -48,7 +49,7 @@ func TestCorrectCost_writesNewCostAndCorrectionLedgerEntryWithoutTouchingQuantit
 	batchLister := &stubBatchListerForReceiptCost{batches: []invDomain.Batch{{Quantity: 100}}}
 	ledgerRepo := &stubCostLedgerRepo{}
 	occurredAt := time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC)
-	uc := apppms.NewCorrectCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister)
+	uc := apppms.NewCorrectCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.CorrectCostInput{
 		SKUID: "sku-1", AdjustmentValueMinorUnits: 5000, ReferenceType: "purchase_order_line_item", ReferenceID: "line-1", OccurredAt: occurredAt,
@@ -70,7 +71,7 @@ func TestCorrectCost_writesNewCostAndCorrectionLedgerEntryWithoutTouchingQuantit
 
 func TestCorrectCost_rejectsWhenCostIsUnknown(t *testing.T) {
 	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceMinorUnits: nil}}
-	uc := apppms.NewCorrectCostUseCase(newMockGormDB(t), skuRepo, &stubCostLedgerRepo{}, &stubBatchListerForReceiptCost{})
+	uc := apppms.NewCorrectCostUseCase(newMockGormDB(t), skuRepo, &stubCostLedgerRepo{}, &stubBatchListerForReceiptCost{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.CorrectCostInput{SKUID: "sku-1", AdjustmentValueMinorUnits: 5000, OccurredAt: time.Now()})
 
@@ -82,7 +83,7 @@ func TestCorrectCost_rejectsWhenNoStockOnHand(t *testing.T) {
 	existingAvg := int64(300)
 	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceMinorUnits: &existingAvg}}
 	batchLister := &stubBatchListerForReceiptCost{}
-	uc := apppms.NewCorrectCostUseCase(newMockGormDB(t), skuRepo, &stubCostLedgerRepo{}, batchLister)
+	uc := apppms.NewCorrectCostUseCase(newMockGormDB(t), skuRepo, &stubCostLedgerRepo{}, batchLister, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.CorrectCostInput{SKUID: "sku-1", AdjustmentValueMinorUnits: 5000, OccurredAt: time.Now()})
 
@@ -98,7 +99,7 @@ func TestCorrectCost_neverTouchesHistoricalSalesJustFutureCost(t *testing.T) {
 	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceMinorUnits: &existingAvg}}
 	batchLister := &stubBatchListerForReceiptCost{batches: []invDomain.Batch{{Quantity: 10}}}
 	ledgerRepo := &stubCostLedgerRepo{}
-	uc := apppms.NewCorrectCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister)
+	uc := apppms.NewCorrectCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.CorrectCostInput{SKUID: "sku-1", AdjustmentValueMinorUnits: 100, OccurredAt: time.Now()})
 

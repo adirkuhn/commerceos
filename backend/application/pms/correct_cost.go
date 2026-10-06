@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -52,6 +53,7 @@ type CorrectCostUseCase struct {
 	skuRepo     skuCostRepositoryForReceiptCost
 	ledgerRepo  pmsDomain.SKUCostPriceLedgerRepository
 	batchLister batchListerForCostPrice
+	outbox      eventrecord.Enqueuer
 }
 
 func NewCorrectCostUseCase(
@@ -59,8 +61,9 @@ func NewCorrectCostUseCase(
 	skuRepo skuCostRepositoryForReceiptCost,
 	ledgerRepo pmsDomain.SKUCostPriceLedgerRepository,
 	batchLister batchListerForCostPrice,
+	outbox eventrecord.Enqueuer,
 ) *CorrectCostUseCase {
-	return &CorrectCostUseCase{db: db, skuRepo: skuRepo, ledgerRepo: ledgerRepo, batchLister: batchLister}
+	return &CorrectCostUseCase{db: db, skuRepo: skuRepo, ledgerRepo: ledgerRepo, batchLister: batchLister, outbox: outbox}
 }
 
 func (uc *CorrectCostUseCase) Execute(ctx context.Context, in CorrectCostInput) (*pmsDomain.SKU, error) {
@@ -95,6 +98,7 @@ func (uc *CorrectCostUseCase) Execute(ctx context.Context, in CorrectCostInput) 
 		if err := uc.skuRepo.UpdateCostPriceFromReceipt(ctx, in.SKUID, newCost); err != nil {
 			return err
 		}
+		before := *sku
 		sku.CostPriceMinorUnits = &newCost
 		sku.CostPriceSource = pmsDomain.SKUCostPriceSourceComputed
 
@@ -115,7 +119,11 @@ func (uc *CorrectCostUseCase) Execute(ctx context.Context, in CorrectCostInput) 
 		if in.ReferenceID != "" {
 			entry.ReferenceID = &in.ReferenceID
 		}
-		return uc.ledgerRepo.Create(ctx, entry)
+		if err := uc.ledgerRepo.Create(ctx, entry); err != nil {
+			return err
+		}
+		return recordCostPriceChanged(ctx, uc.outbox, before, sku.CostPriceMinorUnits, sku.CostPriceSource,
+			CostPriceChangeReasonCorrection, in.ReferenceType, in.ReferenceID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("correctCost: %w", err)

@@ -2,6 +2,7 @@ package pms_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	apppms "github.com/adirkuhn/commerceos/application/pms"
@@ -12,7 +13,7 @@ import (
 
 func TestSetManualCostPrice_writesCostPriceAndFlipsSourceToManual(t *testing.T) {
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1"}}
-	uc := apppms.NewSetManualCostPriceUseCase(newMockGormDB(t), skuRepo)
+	uc := apppms.NewSetManualCostPriceUseCase(newMockGormDB(t), skuRepo, &eventrecordtest.Outbox{})
 
 	sku, err := uc.Execute(context.Background(), "sku-1", 1250)
 
@@ -28,7 +29,7 @@ func TestSetManualCostPrice_writesCostPriceAndFlipsSourceToManual(t *testing.T) 
 
 func TestSetManualCostPrice_rejectsNegativeCostPrice(t *testing.T) {
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1"}}
-	uc := apppms.NewSetManualCostPriceUseCase(newMockGormDB(t), skuRepo)
+	uc := apppms.NewSetManualCostPriceUseCase(newMockGormDB(t), skuRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "sku-1", -1)
 
@@ -38,7 +39,7 @@ func TestSetManualCostPrice_rejectsNegativeCostPrice(t *testing.T) {
 
 func TestSetManualCostPrice_propagatesNotFound(t *testing.T) {
 	skuRepo := &stubSKURepo{findByIDErr: pmsDomain.ErrSKUNotFound}
-	uc := apppms.NewSetManualCostPriceUseCase(newMockGormDB(t), skuRepo)
+	uc := apppms.NewSetManualCostPriceUseCase(newMockGormDB(t), skuRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing", 1000)
 

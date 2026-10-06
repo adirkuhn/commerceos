@@ -110,7 +110,7 @@ func main() {
 	notificationRepo := repositories.NewNotificationRepo(db)
 	mediaRepo := repositories.NewMediaRepo(db)
 	fileStorage := buildFileStorage(cfg)
-	uploadMediaUC := pmsapp.NewUploadMediaUseCase(db, productRepo, variantRepo, mediaRepo, fileStorage)
+	uploadMediaUC := pmsapp.NewUploadMediaUseCase(db, productRepo, variantRepo, mediaRepo, fileStorage, outboxRepo)
 	expireSalePriceUC := pmsapp.NewExpireSKUSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo, priceHistoryRepo)
 	expireBatchUC := invapp.NewExpireBatchUseCase(db, batchRepo, outboxRepo)
 	promotionSKURepo := repositories.NewPromotionSKURepo(db)

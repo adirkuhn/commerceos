@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -41,6 +43,7 @@ type DuplicateProductUseCase struct {
 	productRepo pmsDomain.ProductRepository
 	variantRepo pmsDomain.VariantRepository
 	skuRepo     pmsDomain.SKURepository
+	outbox      eventrecord.Enqueuer
 }
 
 func NewDuplicateProductUseCase(
@@ -48,8 +51,9 @@ func NewDuplicateProductUseCase(
 	productRepo pmsDomain.ProductRepository,
 	variantRepo pmsDomain.VariantRepository,
 	skuRepo pmsDomain.SKURepository,
+	outbox eventrecord.Enqueuer,
 ) *DuplicateProductUseCase {
-	return &DuplicateProductUseCase{db: db, productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo}
+	return &DuplicateProductUseCase{db: db, productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo, outbox: outbox}
 }
 
 func (uc *DuplicateProductUseCase) Execute(ctx context.Context, sourceProductID string) (*ProductDetail, error) {
@@ -89,6 +93,7 @@ func (uc *DuplicateProductUseCase) Execute(ctx context.Context, sourceProductID 
 		result.Product = newProduct
 
 		result.Variants = make([]VariantDetail, len(variants))
+		skuCount := 0
 		for i, v := range variants {
 			skus, err := uc.skuRepo.ListByVariant(ctx, v.ID)
 			if err != nil {
@@ -147,8 +152,11 @@ func (uc *DuplicateProductUseCase) Execute(ctx context.Context, sourceProductID 
 				}
 			}
 			result.Variants[i] = VariantDetail{Variant: newVariant, SKUs: newSKUs}
+			skuCount += len(newSKUs)
 		}
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.ProductDuplicated, newProduct.ID, eventrecord.Data{
+			"source_product_id": sourceProductID, "variant_count": len(result.Variants), "sku_count": skuCount,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("duplicateProduct: %w", err)

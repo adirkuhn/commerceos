@@ -1,5 +1,7 @@
 package pms
 
+//events:none daily cost/recommended-price history snapshot (report data); the SKU itself is not changed.
+
 import (
 	"context"
 	"fmt"

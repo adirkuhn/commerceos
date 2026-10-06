@@ -2,6 +2,7 @@ package pms_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	apppms "github.com/adirkuhn/commerceos/application/pms"
@@ -12,7 +13,7 @@ import (
 
 func TestClearCostPriceOverride_resetsSourceBackToComputed(t *testing.T) {
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceSource: pmsDomain.SKUCostPriceSourceManual}}
-	uc := apppms.NewClearCostPriceOverrideUseCase(newMockGormDB(t), skuRepo)
+	uc := apppms.NewClearCostPriceOverrideUseCase(newMockGormDB(t), skuRepo, &eventrecordtest.Outbox{})
 
 	sku, err := uc.Execute(context.Background(), "sku-1")
 
@@ -24,7 +25,7 @@ func TestClearCostPriceOverride_resetsSourceBackToComputed(t *testing.T) {
 
 func TestClearCostPriceOverride_propagatesNotFound(t *testing.T) {
 	skuRepo := &stubSKURepo{findByIDErr: pmsDomain.ErrSKUNotFound}
-	uc := apppms.NewClearCostPriceOverrideUseCase(newMockGormDB(t), skuRepo)
+	uc := apppms.NewClearCostPriceOverrideUseCase(newMockGormDB(t), skuRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing")
 

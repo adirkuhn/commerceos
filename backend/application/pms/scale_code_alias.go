@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -20,10 +22,11 @@ type CreateScaleCodeAliasUseCase struct {
 	db        *gorm.DB
 	skuRepo   pmsDomain.SKURepository
 	aliasRepo pmsDomain.ScaleCodeAliasRepository
+	outbox    eventrecord.Enqueuer
 }
 
-func NewCreateScaleCodeAliasUseCase(db *gorm.DB, skuRepo pmsDomain.SKURepository, aliasRepo pmsDomain.ScaleCodeAliasRepository) *CreateScaleCodeAliasUseCase {
-	return &CreateScaleCodeAliasUseCase{db: db, skuRepo: skuRepo, aliasRepo: aliasRepo}
+func NewCreateScaleCodeAliasUseCase(db *gorm.DB, skuRepo pmsDomain.SKURepository, aliasRepo pmsDomain.ScaleCodeAliasRepository, outbox eventrecord.Enqueuer) *CreateScaleCodeAliasUseCase {
+	return &CreateScaleCodeAliasUseCase{db: db, skuRepo: skuRepo, aliasRepo: aliasRepo, outbox: outbox}
 }
 
 func (uc *CreateScaleCodeAliasUseCase) Execute(ctx context.Context, in CreateScaleCodeAliasInput) (*pmsDomain.ScaleCodeAlias, error) {
@@ -43,7 +46,10 @@ func (uc *CreateScaleCodeAliasUseCase) Execute(ctx context.Context, in CreateSca
 			TenantID: tenant.IDFromContext(ctx), SKUID: sku.ID, Code: in.Code,
 			CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.aliasRepo.Create(ctx, &alias)
+		if err := uc.aliasRepo.Create(ctx, &alias); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ScaleCodeAliasCreated, alias.ID, eventrecord.Data{"sku_id": alias.SKUID, "code": alias.Code})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createScaleCodeAlias: %w", err)
@@ -77,17 +83,21 @@ func (uc *ListScaleCodeAliasesUseCase) Execute(ctx context.Context, skuID string
 }
 
 type DeleteScaleCodeAliasUseCase struct {
-	db   *gorm.DB
-	repo pmsDomain.ScaleCodeAliasRepository
+	db     *gorm.DB
+	repo   pmsDomain.ScaleCodeAliasRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewDeleteScaleCodeAliasUseCase(db *gorm.DB, repo pmsDomain.ScaleCodeAliasRepository) *DeleteScaleCodeAliasUseCase {
-	return &DeleteScaleCodeAliasUseCase{db: db, repo: repo}
+func NewDeleteScaleCodeAliasUseCase(db *gorm.DB, repo pmsDomain.ScaleCodeAliasRepository, outbox eventrecord.Enqueuer) *DeleteScaleCodeAliasUseCase {
+	return &DeleteScaleCodeAliasUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 func (uc *DeleteScaleCodeAliasUseCase) Execute(ctx context.Context, id string) error {
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.repo.Delete(ctx, id)
+		if err := uc.repo.Delete(ctx, id); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ScaleCodeAliasDeleted, id)
 	})
 	if err != nil {
 		return fmt.Errorf("deleteScaleCodeAlias: %w", err)

@@ -235,7 +235,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, fileSto
 	discardRepo := repositories.NewDiscardRecordRepo(db)
 	costLedgerRepo := repositories.NewSKUCostPriceLedgerRepo(db)
 	batchListerForCost := appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo)
-	skuCostUpdater := skuCostUpdaterAdapter{uc: apppms.NewApplyReceiptCostUseCase(db, skuRepo, costLedgerRepo, batchListerForCost)}
+	skuCostUpdater := skuCostUpdaterAdapter{uc: apppms.NewApplyReceiptCostUseCase(db, skuRepo, costLedgerRepo, batchListerForCost, outboxRepo)}
 	costLedgerRecorder := costLedgerRecorderAdapter{uc: apppms.NewRecordCostLedgerMovementUseCase(db, skuRepo, costLedgerRepo, batchListerForCost)}
 	markDamagedOrLost := appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, discardRepo, outboxRepo, costLedgerRecorder)
 

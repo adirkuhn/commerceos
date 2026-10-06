@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -13,10 +15,11 @@ type DeleteMediaUseCase struct {
 	db        *gorm.DB
 	mediaRepo pmsDomain.MediaRepository
 	storage   pmsDomain.FileStorage
+	outbox    eventrecord.Enqueuer
 }
 
-func NewDeleteMediaUseCase(db *gorm.DB, mediaRepo pmsDomain.MediaRepository, storage pmsDomain.FileStorage) *DeleteMediaUseCase {
-	return &DeleteMediaUseCase{db: db, mediaRepo: mediaRepo, storage: storage}
+func NewDeleteMediaUseCase(db *gorm.DB, mediaRepo pmsDomain.MediaRepository, storage pmsDomain.FileStorage, outbox eventrecord.Enqueuer) *DeleteMediaUseCase {
+	return &DeleteMediaUseCase{db: db, mediaRepo: mediaRepo, storage: storage, outbox: outbox}
 }
 
 // Execute deletes the DB row first, then the stored file. That order means
@@ -31,7 +34,12 @@ func (uc *DeleteMediaUseCase) Execute(ctx context.Context, id string) error {
 			return err
 		}
 		url = m.URL
-		return uc.mediaRepo.Delete(ctx, id)
+		if err := uc.mediaRepo.Delete(ctx, id); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.MediaDeleted, id, eventrecord.Data{
+			"product_id": m.ProductID, "variant_id": m.VariantID,
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("deleteMedia: %w", err)

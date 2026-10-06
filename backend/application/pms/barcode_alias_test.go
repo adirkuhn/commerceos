@@ -3,6 +3,7 @@ package pms_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,7 @@ import (
 func TestCreateBarcodeAlias_defaultsUnitsPerScanToOne(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubBarcodeAliasRepo{}
-	uc := apppms.NewCreateBarcodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo)
+	uc := apppms.NewCreateBarcodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	alias, err := uc.Execute(context.Background(), apppms.CreateBarcodeAliasInput{SKUID: "sku-1", Code: "0630509892495"})
 
@@ -27,7 +28,7 @@ func TestCreateBarcodeAlias_defaultsUnitsPerScanToOne(t *testing.T) {
 func TestCreateBarcodeAlias_persistsAnExplicitCaseMultiplier(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubBarcodeAliasRepo{}
-	uc := apppms.NewCreateBarcodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo)
+	uc := apppms.NewCreateBarcodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	alias, err := uc.Execute(context.Background(), apppms.CreateBarcodeAliasInput{SKUID: "sku-1", Code: "CASE-12", UnitsPerScan: 12})
 
@@ -38,7 +39,7 @@ func TestCreateBarcodeAlias_persistsAnExplicitCaseMultiplier(t *testing.T) {
 func TestCreateBarcodeAlias_rejectsBlankCode(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubBarcodeAliasRepo{}
-	uc := apppms.NewCreateBarcodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo)
+	uc := apppms.NewCreateBarcodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateBarcodeAliasInput{SKUID: "sku-1", Code: "   "})
 
@@ -49,7 +50,7 @@ func TestCreateBarcodeAlias_rejectsBlankCode(t *testing.T) {
 func TestCreateBarcodeAlias_rejectsNegativeUnitsPerScan(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubBarcodeAliasRepo{}
-	uc := apppms.NewCreateBarcodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo)
+	uc := apppms.NewCreateBarcodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateBarcodeAliasInput{SKUID: "sku-1", Code: "X", UnitsPerScan: -1})
 
@@ -60,7 +61,7 @@ func TestCreateBarcodeAlias_rejectsNegativeUnitsPerScan(t *testing.T) {
 func TestCreateBarcodeAlias_propagatesSKUNotFound(t *testing.T) {
 	skuRepo := &stubSKURepo{findByIDErr: pmsDomain.ErrSKUNotFound}
 	aliasRepo := &stubBarcodeAliasRepo{}
-	uc := apppms.NewCreateBarcodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo)
+	uc := apppms.NewCreateBarcodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateBarcodeAliasInput{SKUID: "missing", Code: "X"})
 
@@ -70,7 +71,7 @@ func TestCreateBarcodeAlias_propagatesSKUNotFound(t *testing.T) {
 func TestCreateBarcodeAlias_duplicateCodePropagates(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubBarcodeAliasRepo{createErr: pmsDomain.ErrDuplicateBarcodeAliasCode}
-	uc := apppms.NewCreateBarcodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo)
+	uc := apppms.NewCreateBarcodeAliasUseCase(newMockGormDB(t), skuRepo, aliasRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateBarcodeAliasInput{SKUID: "sku-1", Code: "TAKEN"})
 
@@ -89,7 +90,7 @@ func TestListBarcodeAliases_returnsRepoResult(t *testing.T) {
 
 func TestDeleteBarcodeAlias_delegatesToRepo(t *testing.T) {
 	aliasRepo := &stubBarcodeAliasRepo{}
-	uc := apppms.NewDeleteBarcodeAliasUseCase(newMockGormDB(t), aliasRepo)
+	uc := apppms.NewDeleteBarcodeAliasUseCase(newMockGormDB(t), aliasRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "alias-1")
 
