@@ -1,0 +1,50 @@
+{
+  "title": "Inkoopplanner",
+  "intro": "Wat je nu moet inkopen, bij welke leverancier en wanneer. De prognose gebruikt dezelfde periode vorig jaar, gecorrigeerd voor de groei van dit jaar, als die er is — anders de recente verkoop. Voorraad en openstaande inkooporders worden afgetrokken.",
+  "window": {
+    "coverage": "Dekking",
+    "safety": "Veiligheidsvoorraad",
+    "days_one": "{{count}} dag",
+    "days_other": "{{count}} dagen",
+    "supplier": "Leverancier",
+    "allSuppliers": "Alle leveranciers"
+  },
+  "refresh": "Vernieuwen",
+  "loading": "Berekenen…",
+  "empty": "Niets bij te bestellen voor deze periode.",
+  "group": {
+    "noSupplier": "Nog geen leverancier",
+    "noSupplierHint": "Nooit ingekocht via een inkooporder — bestel één keer om een leverancier te koppelen.",
+    "leadTime": "Levertijd {{count}} dagen",
+    "leadTimeAssumed": "aangenomen",
+    "orderBy": "Bestellen vóór {{date}}",
+    "estimatedTotal": "Ca. {{amount}}",
+    "products_one": "{{count}} product",
+    "products_other": "{{count}} producten"
+  },
+  "col": {
+    "product": "Product",
+    "onHand": "Voorraad",
+    "onOrder": "Besteld",
+    "forecast": "Prognose",
+    "order": "Bestellen",
+    "cost": "Kosten ca.",
+    "orderBy": "Bestellen vóór"
+  },
+  "onOrderDraft": "{{amount}} in concept",
+  "forecast": {
+    "days": "komende {{count}} dagen",
+    "seasonal": "Vorig jaar {{lastYear}} × {{growth}}",
+    "recentVelocity": "Recente verkoop: {{recent}} in 56 dagen",
+    "noDemand": "Geen verkoop"
+  },
+  "urgency": {
+    "overdue": "Te laat",
+    "today": "Vandaag",
+    "soon": "Deze week",
+    "later": "Later"
+  },
+  "errors": {
+    "unknown": "Er ging iets mis"
+  }
+}

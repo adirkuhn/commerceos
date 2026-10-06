@@ -1,0 +1,50 @@
+{
+  "title": "Purchase planner",
+  "intro": "What to buy now, from which supplier and by when. The forecast uses the same period last year, adjusted for this year's growth, when there is one — otherwise recent sales. Stock on hand and on open purchase orders is subtracted.",
+  "window": {
+    "coverage": "Cover",
+    "safety": "Safety stock",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "supplier": "Supplier",
+    "allSuppliers": "All suppliers"
+  },
+  "refresh": "Refresh",
+  "loading": "Calculating…",
+  "empty": "Nothing to reorder for this period.",
+  "group": {
+    "noSupplier": "No supplier yet",
+    "noSupplierHint": "Never bought on a purchase order — order once to link a supplier.",
+    "leadTime": "Lead time {{count}} days",
+    "leadTimeAssumed": "assumed",
+    "orderBy": "Order by {{date}}",
+    "estimatedTotal": "Est. {{amount}}",
+    "products_one": "{{count}} product",
+    "products_other": "{{count}} products"
+  },
+  "col": {
+    "product": "Product",
+    "onHand": "On hand",
+    "onOrder": "On order",
+    "forecast": "Forecast",
+    "order": "Order",
+    "cost": "Est. cost",
+    "orderBy": "Order by"
+  },
+  "onOrderDraft": "{{amount}} in draft",
+  "forecast": {
+    "days": "next {{count}} days",
+    "seasonal": "Last year {{lastYear}} × {{growth}}",
+    "recentVelocity": "Recent sales: {{recent}} in 56 days",
+    "noDemand": "No sales"
+  },
+  "urgency": {
+    "overdue": "Late",
+    "today": "Today",
+    "soon": "This week",
+    "later": "Later"
+  },
+  "errors": {
+    "unknown": "Something went wrong"
+  }
+}

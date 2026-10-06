@@ -14,6 +14,7 @@ export type NavItem =
   | 'packing'
   | 'suppliers'
   | 'procurement'
+  | 'purchase-planner'
   | 'customers'
   | 'sales-orders'
   | 'stock-issues'

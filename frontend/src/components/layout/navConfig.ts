@@ -3,7 +3,7 @@ import i18next from 'i18next'
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
   ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3, Ticket, Star,
-  Webhook, MessageSquare, PackageCheck, UserCog, Layers, Mail,
+  Webhook, MessageSquare, PackageCheck, UserCog, Layers, Mail, CalendarClock,
 } from 'lucide-react'
 import type { NavItem } from '../../types'
 
@@ -57,6 +57,7 @@ const GROUPS: NavGroup[] = [
     id: 'buy', get label() { return i18next.t('layout:group.buy') }, items: [
       { id: 'suppliers', get label() { return i18next.t('layout:nav.suppliers') }, icon: Truck },
       { id: 'procurement', get label() { return i18next.t('layout:nav.procurement') }, icon: ShoppingBag },
+      { id: 'purchase-planner', get label() { return i18next.t('layout:nav.purchasePlanner') }, icon: CalendarClock },
     ],
   },
   {

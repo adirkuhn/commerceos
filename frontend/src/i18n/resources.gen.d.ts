@@ -19,6 +19,7 @@ import type ns_picking from './locales/en/picking.json'
 import type ns_pms from './locales/en/pms.json'
 import type ns_procurement from './locales/en/procurement.json'
 import type ns_promotions from './locales/en/promotions.json'
+import type ns_purchasePlanning from './locales/en/purchasePlanning.json'
 import type ns_reports from './locales/en/reports.json'
 import type ns_reviews from './locales/en/reviews.json'
 import type ns_scanner from './locales/en/scanner.json'
@@ -54,6 +55,7 @@ declare module 'i18next' {
       pms: typeof ns_pms
       procurement: typeof ns_procurement
       promotions: typeof ns_promotions
+      purchasePlanning: typeof ns_purchasePlanning
       reports: typeof ns_reports
       reviews: typeof ns_reviews
       scanner: typeof ns_scanner

@@ -1,0 +1,50 @@
+{
+  "title": "Planejamento de compras",
+  "intro": "O que comprar agora, de qual fornecedor e até quando. A previsão usa o mesmo período do ano passado, ajustado pelo crescimento deste ano, quando existe — senão, as vendas recentes. O estoque atual e os pedidos de compra em aberto são descontados.",
+  "window": {
+    "coverage": "Cobertura",
+    "safety": "Estoque de segurança",
+    "days_one": "{{count}} dia",
+    "days_other": "{{count}} dias",
+    "supplier": "Fornecedor",
+    "allSuppliers": "Todos os fornecedores"
+  },
+  "refresh": "Atualizar",
+  "loading": "Calculando…",
+  "empty": "Nada para repor neste período.",
+  "group": {
+    "noSupplier": "Sem fornecedor ainda",
+    "noSupplierHint": "Nunca comprado em um pedido de compra — compre uma vez para vincular um fornecedor.",
+    "leadTime": "Prazo de entrega {{count}} dias",
+    "leadTimeAssumed": "estimado",
+    "orderBy": "Pedir até {{date}}",
+    "estimatedTotal": "Est. {{amount}}",
+    "products_one": "{{count}} produto",
+    "products_other": "{{count}} produtos"
+  },
+  "col": {
+    "product": "Produto",
+    "onHand": "Em estoque",
+    "onOrder": "Pedido",
+    "forecast": "Previsão",
+    "order": "Comprar",
+    "cost": "Custo est.",
+    "orderBy": "Pedir até"
+  },
+  "onOrderDraft": "{{amount}} em rascunho",
+  "forecast": {
+    "days": "próximos {{count}} dias",
+    "seasonal": "Ano passado {{lastYear}} × {{growth}}",
+    "recentVelocity": "Vendas recentes: {{recent}} em 56 dias",
+    "noDemand": "Sem vendas"
+  },
+  "urgency": {
+    "overdue": "Atrasado",
+    "today": "Hoje",
+    "soon": "Esta semana",
+    "later": "Depois"
+  },
+  "errors": {
+    "unknown": "Algo deu errado"
+  }
+}

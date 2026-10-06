@@ -21,6 +21,7 @@ import SyncLog from './pages/SyncLog'
 import Users from './pages/Users'
 import Suppliers from './pages/Suppliers'
 import Procurement from './pages/Procurement'
+import PurchasePlanner from './pages/PurchasePlanner'
 import Customers from './pages/Customers'
 import SalesOrders from './pages/SalesOrders'
 import StockIssues from './pages/StockIssues'
@@ -72,6 +73,7 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'packing', path: '/packing', Component: Packing },
   { nav: 'suppliers', path: '/suppliers', Component: Suppliers },
   { nav: 'procurement', path: '/procurement', Component: Procurement },
+  { nav: 'purchase-planner', path: '/purchase-planner', Component: PurchasePlanner },
   { nav: 'integrations', path: '/integrations', Component: Integrations },
   { nav: 'webhooks', path: '/webhooks', Component: Webhooks },
   { nav: 'sales-channels', path: '/sales-channels', Component: SalesChannels },
