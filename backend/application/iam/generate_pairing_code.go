@@ -6,6 +6,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"math/big"
 	"time"
 
@@ -35,12 +37,13 @@ type GeneratePairingCodeInput struct {
 }
 
 type GeneratePairingCodeUseCase struct {
-	db   *gorm.DB
-	repo iamDomain.ScannerPairingCodeRepository
+	db     *gorm.DB
+	repo   iamDomain.ScannerPairingCodeRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewGeneratePairingCodeUseCase(db *gorm.DB, repo iamDomain.ScannerPairingCodeRepository) *GeneratePairingCodeUseCase {
-	return &GeneratePairingCodeUseCase{db: db, repo: repo}
+func NewGeneratePairingCodeUseCase(db *gorm.DB, repo iamDomain.ScannerPairingCodeRepository, outbox eventrecord.Enqueuer) *GeneratePairingCodeUseCase {
+	return &GeneratePairingCodeUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 func (uc *GeneratePairingCodeUseCase) Execute(ctx context.Context, in GeneratePairingCodeInput) (*iamDomain.ScannerPairingCode, error) {
@@ -67,7 +70,12 @@ func (uc *GeneratePairingCodeUseCase) Execute(ctx context.Context, in GeneratePa
 				TenantID: tenant.IDFromContext(ctx), Code: code, Token: token, UserID: in.UserID, Role: in.Role,
 				Status: iamDomain.ScannerPairingCodeStatusPending, ExpiresAt: now.Add(pairingCodeTTL), CreatedAt: now,
 			}
-			return uc.repo.Create(ctx, &pairing)
+			if err := uc.repo.Create(ctx, &pairing); err != nil {
+				return err
+			}
+			return eventrecord.Record(ctx, uc.outbox, events.ScannerPairingCodeCreated, pairing.ID, eventrecord.Data{
+				"user_id": pairing.UserID, "role": pairing.Role, "expires_at": pairing.ExpiresAt,
+			})
 		}
 		return errPairingCodeGenerationFailed
 	})

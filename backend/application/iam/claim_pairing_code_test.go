@@ -2,6 +2,7 @@ package iam_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -26,7 +27,7 @@ func TestClaimPairingCode_mintsTokenWithPairingIdentityAndMarksClaimed(t *testin
 		Status: iamDomain.ScannerPairingCodeStatusPending,
 	}}
 	secret := []byte("test-secret")
-	uc := appiam.NewClaimPairingCodeUseCase(db, repo, secret)
+	uc := appiam.NewClaimPairingCodeUseCase(db, repo, secret, &eventrecordtest.Outbox{})
 
 	tokenStr, err := uc.Execute(context.Background(), "123456")
 
@@ -44,7 +45,7 @@ func TestClaimPairingCode_mintsTokenWithPairingIdentityAndMarksClaimed(t *testin
 func TestClaimPairingCode_rejectsInvalidOrExpiredCode(t *testing.T) {
 	db := newMockGormDB(t)
 	repo := &stubScannerPairingCodeRepo{findPendingResult: nil}
-	uc := appiam.NewClaimPairingCodeUseCase(db, repo, []byte("test-secret"))
+	uc := appiam.NewClaimPairingCodeUseCase(db, repo, []byte("test-secret"), &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "000000")
 
@@ -59,7 +60,7 @@ func TestClaimPairingCodeByToken_mintsTokenWithPairingIdentityAndMarksClaimed(t 
 		Status: iamDomain.ScannerPairingCodeStatusPending,
 	}}
 	secret := []byte("test-secret")
-	uc := appiam.NewClaimPairingCodeUseCase(db, repo, secret)
+	uc := appiam.NewClaimPairingCodeUseCase(db, repo, secret, &eventrecordtest.Outbox{})
 
 	tokenStr, err := uc.ExecuteByToken(context.Background(), "opaque-abc")
 
@@ -77,7 +78,7 @@ func TestClaimPairingCodeByToken_mintsTokenWithPairingIdentityAndMarksClaimed(t 
 func TestClaimPairingCodeByToken_rejectsInvalidOrExpiredToken(t *testing.T) {
 	db := newMockGormDB(t)
 	repo := &stubScannerPairingCodeRepo{findPendingByTokenResult: nil}
-	uc := appiam.NewClaimPairingCodeUseCase(db, repo, []byte("test-secret"))
+	uc := appiam.NewClaimPairingCodeUseCase(db, repo, []byte("test-secret"), &eventrecordtest.Outbox{})
 
 	_, err := uc.ExecuteByToken(context.Background(), "does-not-exist")
 
@@ -91,7 +92,7 @@ func TestClaimPairingCode_propagatesMarkClaimedError(t *testing.T) {
 		findPendingResult: &iamDomain.ScannerPairingCode{ID: "pairing-1", TenantID: "tenant-1", UserID: "user-1", Role: "customer_owner"},
 		markClaimedErr:    assert.AnError,
 	}
-	uc := appiam.NewClaimPairingCodeUseCase(db, repo, []byte("test-secret"))
+	uc := appiam.NewClaimPairingCodeUseCase(db, repo, []byte("test-secret"), &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "123456")
 

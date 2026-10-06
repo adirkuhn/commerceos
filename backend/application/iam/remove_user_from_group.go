@@ -3,6 +3,8 @@ package iam
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 
 	iamDomain "github.com/adirkuhn/commerceos/domain/iam"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -18,10 +20,11 @@ type RemoveUserFromGroupUseCase struct {
 	db            *gorm.DB
 	groupRepo     iamDomain.GroupRepository
 	userGroupRepo iamDomain.UserGroupRepository
+	outbox        eventrecord.Enqueuer
 }
 
-func NewRemoveUserFromGroupUseCase(db *gorm.DB, groupRepo iamDomain.GroupRepository, userGroupRepo iamDomain.UserGroupRepository) *RemoveUserFromGroupUseCase {
-	return &RemoveUserFromGroupUseCase{db: db, groupRepo: groupRepo, userGroupRepo: userGroupRepo}
+func NewRemoveUserFromGroupUseCase(db *gorm.DB, groupRepo iamDomain.GroupRepository, userGroupRepo iamDomain.UserGroupRepository, outbox eventrecord.Enqueuer) *RemoveUserFromGroupUseCase {
+	return &RemoveUserFromGroupUseCase{db: db, groupRepo: groupRepo, userGroupRepo: userGroupRepo, outbox: outbox}
 }
 
 func (uc *RemoveUserFromGroupUseCase) Execute(ctx context.Context, in RemoveUserFromGroupInput) error {
@@ -36,7 +39,10 @@ func (uc *RemoveUserFromGroupUseCase) Execute(ctx context.Context, in RemoveUser
 		if !isMember {
 			return iamDomain.ErrNotMember
 		}
-		return uc.userGroupRepo.RemoveMember(ctx, in.GroupID, in.UserID)
+		if err := uc.userGroupRepo.RemoveMember(ctx, in.GroupID, in.UserID); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.GroupMemberRemoved, in.GroupID, eventrecord.Data{"user_id": in.UserID})
 	})
 	if err != nil {
 		return fmt.Errorf("removeUserFromGroup: %w", err)

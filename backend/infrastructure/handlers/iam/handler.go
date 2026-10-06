@@ -158,18 +158,19 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	groupRepo := repositories.NewGroupRepo(db)
 	userGroupRepo := repositories.NewUserGroupRepo(db)
 	gpRepo := repositories.NewGroupPermissionRepo(db)
+	outboxRepo := repositories.NewOutboxRepository(db)
 
 	h := NewHandler(
-		appiam.NewCreateGroupUseCase(db, groupRepo),
-		appiam.NewUpdateGroupUseCase(db, groupRepo),
-		appiam.NewDeleteGroupUseCase(db, groupRepo),
+		appiam.NewCreateGroupUseCase(db, groupRepo, outboxRepo),
+		appiam.NewUpdateGroupUseCase(db, groupRepo, outboxRepo),
+		appiam.NewDeleteGroupUseCase(db, groupRepo, outboxRepo),
 		appiam.NewGetGroupUseCase(db, groupRepo),
 		appiam.NewListGroupsUseCase(db, groupRepo),
-		appiam.NewAddUserToGroupUseCase(db, groupRepo, userGroupRepo),
-		appiam.NewRemoveUserFromGroupUseCase(db, groupRepo, userGroupRepo),
+		appiam.NewAddUserToGroupUseCase(db, groupRepo, userGroupRepo, outboxRepo),
+		appiam.NewRemoveUserFromGroupUseCase(db, groupRepo, userGroupRepo, outboxRepo),
 		appiam.NewListGroupMembersUseCase(db, groupRepo, userGroupRepo),
-		appiam.NewAssignPermissionToGroupUseCase(db, groupRepo, gpRepo),
-		appiam.NewRevokePermissionFromGroupUseCase(db, groupRepo, gpRepo),
+		appiam.NewAssignPermissionToGroupUseCase(db, groupRepo, gpRepo, outboxRepo),
+		appiam.NewRevokePermissionFromGroupUseCase(db, groupRepo, gpRepo, outboxRepo),
 		appiam.NewListGroupPermissionsUseCase(db, groupRepo, gpRepo),
 		appiam.NewGetUserEffectivePermissionsUseCase(db, gpRepo),
 		appoms.NewListUserActivitiesUseCase(db, repositories.NewSalesOrderActivityRepo(db)),

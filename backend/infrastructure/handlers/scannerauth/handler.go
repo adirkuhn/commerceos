@@ -49,8 +49,9 @@ var _ genscannerauth.ServerInterface = (*Handler)(nil)
 // comment for why this endpoint is public by design.
 func Register(rg gin.IRouter, db *gorm.DB, jwtSecret []byte) {
 	repo := repositories.NewScannerPairingCodeRepo(db)
+	outboxRepo := repositories.NewOutboxRepository(db)
 	limiter := middleware.NewIPRateLimiter(claimAttemptMax, claimAttemptWindow)
-	h := NewHandler(appiam.NewClaimPairingCodeUseCase(db, repo, jwtSecret), limiter)
+	h := NewHandler(appiam.NewClaimPairingCodeUseCase(db, repo, jwtSecret, outboxRepo), limiter)
 	genscannerauth.RegisterHandlers(rg, h)
 }
 

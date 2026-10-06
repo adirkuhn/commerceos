@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"time"
 
 	iamDomain "github.com/adirkuhn/commerceos/domain/iam"
@@ -19,10 +21,11 @@ type CreateGroupInput struct {
 type CreateGroupUseCase struct {
 	db        *gorm.DB
 	groupRepo iamDomain.GroupRepository
+	outbox    eventrecord.Enqueuer
 }
 
-func NewCreateGroupUseCase(db *gorm.DB, groupRepo iamDomain.GroupRepository) *CreateGroupUseCase {
-	return &CreateGroupUseCase{db: db, groupRepo: groupRepo}
+func NewCreateGroupUseCase(db *gorm.DB, groupRepo iamDomain.GroupRepository, outbox eventrecord.Enqueuer) *CreateGroupUseCase {
+	return &CreateGroupUseCase{db: db, groupRepo: groupRepo, outbox: outbox}
 }
 
 func (uc *CreateGroupUseCase) Execute(ctx context.Context, in CreateGroupInput) (*iamDomain.Group, error) {
@@ -44,7 +47,12 @@ func (uc *CreateGroupUseCase) Execute(ctx context.Context, in CreateGroupInput) 
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		}
-		return uc.groupRepo.Create(ctx, &group)
+		if err := uc.groupRepo.Create(ctx, &group); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.GroupCreated, group.ID, eventrecord.Data{
+			"name": group.Name, "description": group.Description,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createGroup: %w", err)

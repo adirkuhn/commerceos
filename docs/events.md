@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-74 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+83 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -82,6 +82,20 @@ Payload (`events.EntityAction`):
 |---|---|---|---|
 | `fx.exchange_rate.deleted` | action | A currency's exchange rate was removed. data: rate_basis_points (the removed rate, null if none was set). | envelope |
 | `fx.exchange_rate.set` | action | A currency's exchange rate was set (changes: rate_basis_points; before is null for a new currency). | envelope |
+
+### iam
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `iam.group.created` | action | A permission group was created. data: name, description. | envelope |
+| `iam.group.deleted` | action | A permission group was deleted. data: name. | envelope |
+| `iam.group.updated` | action | A permission group changed (changes: name, description). | envelope |
+| `iam.group_member.added` | action | A user joined a permission group. entity_id is the group. data: user_id. | envelope |
+| `iam.group_member.removed` | action | A user left a permission group. entity_id is the group. data: user_id. | envelope |
+| `iam.group_permission.assigned` | action | A permission rule was granted to a group (re-granting an existing rule raises nothing). entity_id is the group. data: rule. | envelope |
+| `iam.group_permission.revoked` | action | A permission rule was taken from a group. entity_id is the group. data: rule. | envelope |
+| `iam.scanner_pairing_code.claimed` | action | A scanner device claimed a pairing code and got a session acting as the pairing user (the actor). data: user_id, role. | envelope |
+| `iam.scanner_pairing_code.created` | action | A user asked to pair a scanner device. data: user_id, role, expires_at. | envelope |
 
 ### integrations
 

@@ -3,6 +3,8 @@ package iam
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -40,10 +42,11 @@ type ClaimPairingCodeUseCase struct {
 	db        *gorm.DB
 	repo      iamDomain.ScannerPairingCodeRepository
 	jwtSecret []byte
+	outbox    eventrecord.Enqueuer
 }
 
-func NewClaimPairingCodeUseCase(db *gorm.DB, repo iamDomain.ScannerPairingCodeRepository, jwtSecret []byte) *ClaimPairingCodeUseCase {
-	return &ClaimPairingCodeUseCase{db: db, repo: repo, jwtSecret: jwtSecret}
+func NewClaimPairingCodeUseCase(db *gorm.DB, repo iamDomain.ScannerPairingCodeRepository, jwtSecret []byte, outbox eventrecord.Enqueuer) *ClaimPairingCodeUseCase {
+	return &ClaimPairingCodeUseCase{db: db, repo: repo, jwtSecret: jwtSecret, outbox: outbox}
 }
 
 // Execute claims a code via the guessable, rate-limited digit-code path --
@@ -76,7 +79,15 @@ func (uc *ClaimPairingCodeUseCase) claim(ctx context.Context, lookup func(contex
 		if pairing == nil {
 			return iamDomain.ErrPairingCodeInvalid
 		}
-		return uc.repo.MarkClaimed(ctx, pairing.ID, time.Now())
+		if err := uc.repo.MarkClaimed(ctx, pairing.ID, time.Now()); err != nil {
+			return err
+		}
+		// The scanner calls unauthenticated: the claim happens in the
+		// pairing's tenant, acting as the user who paired it.
+		actorCtx := tenant.WithUserID(tenant.WithRole(tenant.WithTenantID(ctx, pairing.TenantID), tenant.Role(pairing.Role)), pairing.UserID)
+		return eventrecord.Record(actorCtx, uc.outbox, events.ScannerPairingCodeClaimed, pairing.ID, eventrecord.Data{
+			"user_id": pairing.UserID, "role": pairing.Role,
+		})
 	})
 	if err != nil {
 		return "", fmt.Errorf("claimPairingCode: %w", err)

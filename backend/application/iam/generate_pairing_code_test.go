@@ -2,6 +2,7 @@ package iam_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	appiam "github.com/adirkuhn/commerceos/application/iam"
@@ -13,7 +14,7 @@ import (
 func TestGeneratePairingCode_createsPendingCodeWithCallersIdentity(t *testing.T) {
 	db := newMockGormDB(t)
 	repo := &stubScannerPairingCodeRepo{}
-	uc := appiam.NewGeneratePairingCodeUseCase(db, repo)
+	uc := appiam.NewGeneratePairingCodeUseCase(db, repo, &eventrecordtest.Outbox{})
 
 	pairing, err := uc.Execute(context.Background(), appiam.GeneratePairingCodeInput{UserID: "user-1", Role: "customer_owner"})
 
@@ -38,7 +39,7 @@ func TestGeneratePairingCode_retriesOnCodeCollision(t *testing.T) {
 	// collision, then succeed -- exercised via a small local repo that
 	// counts calls, since the real repo takes no per-call override.
 	countingRepo := &collidingThenFreeRepo{stubScannerPairingCodeRepo: repo, collideFor: 2, calls: &calls}
-	uc := appiam.NewGeneratePairingCodeUseCase(db, countingRepo)
+	uc := appiam.NewGeneratePairingCodeUseCase(db, countingRepo, &eventrecordtest.Outbox{})
 
 	pairing, err := uc.Execute(context.Background(), appiam.GeneratePairingCodeInput{UserID: "user-1", Role: "customer_owner"})
 
@@ -50,7 +51,7 @@ func TestGeneratePairingCode_retriesOnCodeCollision(t *testing.T) {
 func TestGeneratePairingCode_propagatesFindError(t *testing.T) {
 	db := newMockGormDB(t)
 	repo := &stubScannerPairingCodeRepo{findPendingErr: assert.AnError}
-	uc := appiam.NewGeneratePairingCodeUseCase(db, repo)
+	uc := appiam.NewGeneratePairingCodeUseCase(db, repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appiam.GeneratePairingCodeInput{UserID: "user-1", Role: "customer_owner"})
 
