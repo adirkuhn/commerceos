@@ -3,6 +3,7 @@ package channels
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"log"
 
 	"gorm.io/gorm"
@@ -18,6 +19,7 @@ type DeleteProductFromChannelsUseCase struct {
 	connRepo   integrationsDomain.ConnectionRepository
 	wooFactory integrationsDomain.WooClientFactory
 	encSecret  string
+	outbox     eventrecord.Enqueuer
 }
 
 func NewDeleteProductFromChannelsUseCase(
@@ -25,8 +27,9 @@ func NewDeleteProductFromChannelsUseCase(
 	connRepo integrationsDomain.ConnectionRepository,
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
+	outbox eventrecord.Enqueuer,
 ) *DeleteProductFromChannelsUseCase {
-	return &DeleteProductFromChannelsUseCase{db: db, connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret}
+	return &DeleteProductFromChannelsUseCase{db: db, connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret, outbox: outbox}
 }
 
 // Execute removes a deleted product from every external channel it was
@@ -72,5 +75,9 @@ func (uc *DeleteProductFromChannelsUseCase) deleteOne(ctx context.Context, l eve
 	if err := client.DeleteProduct(ctx, l.ExternalID); err != nil {
 		return fmt.Errorf("%w: %w", integrationsDomain.ErrWooRequestFailed, err)
 	}
-	return nil
+	return tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		return eventrecord.Record(ctx, uc.outbox, events.ChannelExternalProductDeleted, l.ExternalID, eventrecord.Data{
+			"provider": l.Provider, "connection_id": l.ConnectionID,
+		})
+	})
 }

@@ -338,7 +338,7 @@ func Register(
 	fetchWooOrderUC := appchannels.NewImportWooOrdersUseCase(
 		db, connRepo, wooFactory, encryptionSecret,
 		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
-		allocateStockUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo),
+		allocateStockUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo), repositories.NewOutboxRepository(db),
 	)
 
 	stockLevelUC := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db))
@@ -386,7 +386,7 @@ func Register(
 		pushProductToWooUC,
 		appchannels.NewListSyncSchedulesUseCase(db, scheduleRepo),
 		appchannels.NewUpsertSyncSchedulesUseCase(db, scheduleRepo, repositories.NewOutboxRepository(db)),
-		appchannels.NewDeleteAllImportedProductsUseCase(db, listingRepo, productRepo, categoryRepo, salesOrderRepo, deleteSalesOrderUC),
+		appchannels.NewDeleteAllImportedProductsUseCase(db, listingRepo, productRepo, categoryRepo, salesOrderRepo, deleteSalesOrderUC, repositories.NewOutboxRepository(db)),
 		appintegrations.NewUpdateConnectionSettingsUseCase(db, connRepo),
 		appchannels.NewGetProductChannelListingUseCase(db, listingRepo),
 		appchannels.NewListSyncLogsUseCase(db, listingRepo, syncLogRepo),

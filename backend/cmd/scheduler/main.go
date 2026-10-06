@@ -220,7 +220,7 @@ func main() {
 		defer sub.Unsubscribe()
 	}
 
-	deleteProductFromChannelsUC := channelsapp.NewDeleteProductFromChannelsUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret)
+	deleteProductFromChannelsUC := channelsapp.NewDeleteProductFromChannelsUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, repositories.NewOutboxRepository(db))
 	productDeletedConsumer := consumers.NewProductDeletedConsumer(processedEventRepo, deleteProductFromChannelsUC, js)
 	if sub := subscribeConsumer(js, events.ProductDeleted{}.EventName(), "product-deleted-scheduler",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, productDeletedConsumer.Handle); sub != nil {
@@ -255,7 +255,7 @@ func main() {
 		defer sub.Unsubscribe()
 	}
 
-	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), repositories.NewShippingCarrierOverrideRepo(db), connRepo, wooFactory, cfg.IntegrationsEncryptionSecret)
+	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), repositories.NewShippingCarrierOverrideRepo(db), connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, repositories.NewOutboxRepository(db))
 	salesOrderStatusChangedConsumer := consumers.NewSalesOrderStatusChangedConsumer(processedEventRepo, pushSalesOrderStatusUC, js)
 	if sub := subscribeConsumer(js, events.SalesOrderStatusChanged{}.EventName(), "sales-order-status-changed-scheduler",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, salesOrderStatusChangedConsumer.Handle); sub != nil {
@@ -289,9 +289,9 @@ func main() {
 	ordersImportUC := channelsapp.NewImportWooOrdersUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
-		allocateStockUC, updateSalesOrderUC,
+		allocateStockUC, updateSalesOrderUC, repositories.NewOutboxRepository(db),
 	)
-	customersImportUC := channelsapp.NewImportWooCustomersUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, customerRepo)
+	customersImportUC := channelsapp.NewImportWooCustomersUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, customerRepo, repositories.NewOutboxRepository(db))
 	runManualWooImportUC := channelsapp.NewRunManualWooImportUseCase(importUC, customersImportUC, ordersImportUC)
 
 	notifyShipmentDeliveryUC := whatsappapp.NewNotifyShipmentDeliveryUseCase(
@@ -372,7 +372,7 @@ func main() {
 		channelsapp.NewImportBolOrdersUseCase(
 			db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
 			salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo,
-			allocateStockUC, updateSalesOrderUC,
+			allocateStockUC, updateSalesOrderUC, repositories.NewOutboxRepository(db),
 		),
 		channelsapp.NewRunScheduledBolExportUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushBolUC),
 	)

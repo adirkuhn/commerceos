@@ -3,6 +3,8 @@ package channels
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"time"
 
 	"gorm.io/gorm"
@@ -58,6 +60,7 @@ type BackfillWooSalePricesUseCase struct {
 	productRepo pmsDomain.ProductRepository
 	variantRepo pmsDomain.VariantRepository
 	skuRepo     pmsDomain.SKURepository
+	outbox      eventrecord.Enqueuer
 }
 
 func NewBackfillWooSalePricesUseCase(
@@ -69,10 +72,12 @@ func NewBackfillWooSalePricesUseCase(
 	productRepo pmsDomain.ProductRepository,
 	variantRepo pmsDomain.VariantRepository,
 	skuRepo pmsDomain.SKURepository,
+	outbox eventrecord.Enqueuer,
 ) *BackfillWooSalePricesUseCase {
 	return &BackfillWooSalePricesUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret,
 		listingRepo: listingRepo, productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
+		outbox: outbox,
 	}
 }
 
@@ -170,7 +175,7 @@ func (uc *BackfillWooSalePricesUseCase) Execute(ctx context.Context, in Backfill
 			if salePriceMinorUnits == nil {
 				continue
 			}
-			if err := uc.applySalePrice(ctx, target.skuID, salePriceMinorUnits, saleEndDate); err != nil {
+			if err := uc.applySalePrice(ctx, in.ConnectionID, wp.ID, target.skuID, salePriceMinorUnits, saleEndDate); err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("sku %s: %v", target.skuID, err))
 				continue
 			}
@@ -180,7 +185,7 @@ func (uc *BackfillWooSalePricesUseCase) Execute(ctx context.Context, in Backfill
 	return result, nil
 }
 
-func (uc *BackfillWooSalePricesUseCase) applySalePrice(ctx context.Context, skuID string, salePriceMinorUnits *int64, saleEndDate *time.Time) error {
+func (uc *BackfillWooSalePricesUseCase) applySalePrice(ctx context.Context, connectionID, externalID, skuID string, salePriceMinorUnits *int64, saleEndDate *time.Time) error {
 	return tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		sku, err := uc.skuRepo.FindByID(ctx, skuID)
 		if err != nil {
@@ -189,9 +194,17 @@ func (uc *BackfillWooSalePricesUseCase) applySalePrice(ctx context.Context, skuI
 		if sku.SalePriceMinorUnits != nil {
 			return nil // something else set it since the scan -- don't clobber
 		}
+		before := *sku
 		sku.SalePriceMinorUnits = salePriceMinorUnits
 		sku.SaleEndDate = saleEndDate
 		sku.UpdatedAt = time.Now()
-		return uc.skuRepo.Update(ctx, sku)
+		if err := uc.skuRepo.Update(ctx, sku); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ChannelSalePriceBackfilled, sku.ID,
+			eventrecord.Data{"connection_id": connectionID, "external_id": externalID},
+			eventrecord.NewChanges().
+				Set("sale_price_minor_units", before.SalePriceMinorUnits, sku.SalePriceMinorUnits).
+				Set("sale_end_date", before.SaleEndDate, sku.SaleEndDate))
 	})
 }

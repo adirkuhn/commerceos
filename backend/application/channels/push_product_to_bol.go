@@ -78,6 +78,8 @@ func NewPushProductToBolUseCase(
 // it's safe to call without recomputing any of pushOne's inputs. Used by
 // SyncProductToChannelsUseCase to gate/ungate a Bol listing when the local
 // product's status crosses the Active boundary.
+//
+//events:delegated SyncProductToChannelsUseCase.setGatedAt records channels.product_listing.gated/ungated for this on-hold flip; the push itself records its listing and sync events in push_product_to_bol_listing.go
 func (uc *PushProductToBolUseCase) SetOnHold(ctx context.Context, connectionID, externalID string, onHold bool) error {
 	var conn integrationsDomain.Connection
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {

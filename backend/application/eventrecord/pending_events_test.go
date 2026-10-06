@@ -7,16 +7,6 @@ package eventrecord_test
 // removed, or a new file writes without an event.
 var pendingEvents = []string{
 	"apikeys/create_api_key.go",
-	"channels/backfill_woo_sale_prices.go",
-	"channels/delete_all_imported_products.go",
-	"channels/delete_product_from_channels.go",
-	"channels/import_bol_orders.go",
-	"channels/import_woo_customers.go",
-	"channels/import_woo_orders_create.go",
-	"channels/import_woo_products_tax.go",
-	"channels/push_product_to_bol.go",
-	"channels/push_sales_order_status_to_channels.go",
-	"channels/sync_product_to_channels_woo.go",
 	"coupons/create_coupon.go",
 	"coupons/delete_coupon.go",
 	"coupons/delete_coupon_currency_amount.go",

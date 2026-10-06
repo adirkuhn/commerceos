@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,7 @@ func newPushSalesOrderStatusUseCaseWithShipments(t *testing.T, n int, salesOrder
 
 func newPushSalesOrderStatusUseCaseWithOverrides(t *testing.T, n int, salesOrderRepo *stubOrdersSalesOrderRepo, shipmentRepo *stubShipmentRepo, overrideRepo *stubCarrierOverrideRepo, connRepo *stubConnectionRepo, wooFactory *stubWooClientFactory) *appchannels.PushSalesOrderStatusToChannelsUseCase {
 	t.Helper()
-	return appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, n), salesOrderRepo, shipmentRepo, overrideRepo, connRepo, wooFactory, testEncryptionSecret)
+	return appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, n), salesOrderRepo, shipmentRepo, overrideRepo, connRepo, wooFactory, testEncryptionSecret, &eventrecordtest.Outbox{})
 }
 
 func TestPushSalesOrderStatusToChannels_wooOrder_pushesMappedStatus(t *testing.T) {
@@ -42,7 +43,7 @@ func TestPushSalesOrderStatusToChannels_wooOrder_pushesMappedStatus(t *testing.T
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
 	wooClient := &stubWooClient{}
 	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := newPushSalesOrderStatusUseCase(t, 2, salesOrderRepo, connRepo, wooFactory)
+	uc := newPushSalesOrderStatusUseCase(t, 3, salesOrderRepo, connRepo, wooFactory)
 
 	err = uc.Execute(context.Background(), "so-1")
 
@@ -67,7 +68,7 @@ func TestPushSalesOrderStatusToChannels_shippedWooOrder_pushesOnHoldAndAttachesS
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
 	wooClient := &stubWooClient{}
 	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 4, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
+	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 5, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
 
 	err = uc.Execute(context.Background(), "so-1")
 
@@ -101,7 +102,7 @@ func TestPushSalesOrderStatusToChannels_shippedWooOrder_configuredTemplateWinsOv
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
 	wooClient := &stubWooClient{}
 	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := newPushSalesOrderStatusUseCaseWithOverrides(t, 4, salesOrderRepo, shipmentRepo, overrideRepo, connRepo, wooFactory)
+	uc := newPushSalesOrderStatusUseCaseWithOverrides(t, 5, salesOrderRepo, shipmentRepo, overrideRepo, connRepo, wooFactory)
 
 	err = uc.Execute(context.Background(), "so-1")
 
@@ -125,7 +126,7 @@ func TestPushSalesOrderStatusToChannels_shippedWooOrder_noTrackingURLYet_noteOmi
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
 	wooClient := &stubWooClient{}
 	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 4, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
+	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 5, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
 
 	err = uc.Execute(context.Background(), "so-1")
 
@@ -149,7 +150,7 @@ func TestPushSalesOrderStatusToChannels_onHoldForUnrelatedReason_doesNotAttachNo
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
 	wooClient := &stubWooClient{}
 	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 2, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
+	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 3, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
 
 	err = uc.Execute(context.Background(), "so-1")
 
@@ -172,7 +173,7 @@ func TestPushSalesOrderStatusToChannels_noteFailure_doesNotFailThePush(t *testin
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
 	wooClient := &stubWooClient{addOrderNoteErr: errors.New("woo unreachable")}
 	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 4, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
+	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 5, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
 
 	err = uc.Execute(context.Background(), "so-1")
 

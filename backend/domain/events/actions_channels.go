@@ -36,3 +36,32 @@ var (
 	ProductListingUngated = defineAction("channels.product_listing.ungated",
 		"A gated listing went back on sale after the product became active again. data: product_id, connection_id, provider, external_id.")
 )
+
+// Imports from external channels -- records created in other modules
+// straight from a channel's data.
+var (
+	ChannelProductImported = defineAction("channels.product.imported",
+		"A product was created from an external shop's product (its listing also raises product_listing.created, source import). data: connection_id, provider, external_id, variant_id, sku_id, sku_code, category_id, price_minor_units, currency_code.")
+	ChannelCategoryImported = defineAction("channels.category.imported",
+		"A category was created from an external shop's category while importing its products. data: provider, external_id, name, slug, parent_id.")
+	ChannelTaxClassImported = defineAction("channels.tax_class.imported",
+		"A tax class was created for an external shop's tax class. data: provider, external_slug, name.")
+	ChannelTaxRateImported = defineAction("channels.tax_rate.imported",
+		"A tax rate was created or updated from an external shop's tax rates. data: provider, tax_class_id, country, rate_basis_points.")
+	ChannelCustomerImported = defineAction("channels.customer.imported",
+		"A customer was created from an external shop's customer. data: provider, external_customer_id, email, source (customer_import, order_import).")
+	ChannelOrderImported = defineAction("channels.order.imported",
+		"A sales order was created from an external channel's order. data: provider, connection_id, external_order_id, number, status, currency_code, total_minor_units, line_count, unlinked_line_count, needs_sku_review.")
+	ChannelOrderStockShortageDetected = defineAction("channels.order.stock_shortage_detected",
+		"An imported order's stock could not be taken for some lines (marked pending, order flagged for stock review). data: pending_line_item_ids.")
+	ChannelOrderStatusPushed = defineAction("channels.order.status_pushed",
+		"A sales order's status was sent to the channel it came from. data: provider, connection_id, external_order_id, status, channel_status.")
+	ChannelExternalProductDeleted = defineAction("channels.external_product.deleted",
+		"A deleted product was also deleted from an external shop (entity_id is the external id). data: provider, connection_id.")
+	ImportedProductDeleted = defineAction("channels.imported_product.deleted",
+		"A product imported from a connection was deleted when that connection's imported data was cleared. data: connection_id, external_id.")
+	ImportedCategoryDeleted = defineAction("channels.imported_category.deleted",
+		"A category left empty after clearing a connection's imported products was deleted. data: connection_id.")
+	ChannelSalePriceBackfilled = defineAction("channels.sale_price.backfilled",
+		"A SKU's missing sale price was filled in from its external shop listing (entity_id is the SKU). changes: sale_price_minor_units, sale_end_date. data: connection_id, external_id.")
+)

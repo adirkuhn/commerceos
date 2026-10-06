@@ -56,6 +56,9 @@ func (uc *ImportWooOrdersUseCase) resolveOrCreateCustomer(ctx context.Context, w
 	if err := uc.customerRepo.Create(ctx, &customer); err != nil {
 		return nil, err
 	}
+	if err := recordCustomerImported(ctx, uc.outbox, customer, CustomerImportSourceOrders); err != nil {
+		return nil, err
+	}
 	return &customer.ID, nil
 }
 

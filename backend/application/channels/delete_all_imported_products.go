@@ -3,6 +3,8 @@ package channels
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -48,6 +50,7 @@ type DeleteAllImportedProductsUseCase struct {
 	categoryRepo     pmsDomain.CategoryRepository
 	salesOrderRepo   omsDomain.SalesOrderRepository
 	deleteSalesOrder deleteSalesOrderUC
+	outbox           eventrecord.Enqueuer
 }
 
 func NewDeleteAllImportedProductsUseCase(
@@ -57,10 +60,12 @@ func NewDeleteAllImportedProductsUseCase(
 	categoryRepo pmsDomain.CategoryRepository,
 	salesOrderRepo omsDomain.SalesOrderRepository,
 	deleteSalesOrder deleteSalesOrderUC,
+	outbox eventrecord.Enqueuer,
 ) *DeleteAllImportedProductsUseCase {
 	return &DeleteAllImportedProductsUseCase{
 		db: db, listingRepo: listingRepo, productRepo: productRepo, categoryRepo: categoryRepo,
 		salesOrderRepo: salesOrderRepo, deleteSalesOrder: deleteSalesOrder,
+		outbox: outbox,
 	}
 }
 
@@ -105,7 +110,12 @@ func (uc *DeleteAllImportedProductsUseCase) Execute(ctx context.Context, in Dele
 			if product.CategoryID != nil {
 				categoryIDs[*product.CategoryID] = true
 			}
-			return uc.productRepo.Delete(ctx, listing.ProductID)
+			if err := uc.productRepo.Delete(ctx, listing.ProductID); err != nil {
+				return err
+			}
+			return eventrecord.Record(ctx, uc.outbox, events.ImportedProductDeleted, listing.ProductID, eventrecord.Data{
+				"connection_id": in.ConnectionID, "external_id": listing.ExternalID,
+			})
 		})
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("product %s: %v", listing.ProductID, err))
@@ -125,6 +135,11 @@ func (uc *DeleteAllImportedProductsUseCase) Execute(ctx context.Context, in Dele
 				return nil // still in use elsewhere, leave it
 			}
 			if err := uc.categoryRepo.Delete(ctx, categoryID); err != nil {
+				return err
+			}
+			if err := eventrecord.Record(ctx, uc.outbox, events.ImportedCategoryDeleted, categoryID, eventrecord.Data{
+				"connection_id": in.ConnectionID,
+			}); err != nil {
 				return err
 			}
 			deleted = true

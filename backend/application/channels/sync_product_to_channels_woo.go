@@ -12,6 +12,7 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
+//events:delegated recordSyncResult -> recordSyncLog records channels.product_listing.synced for this push
 func (uc *SyncProductToChannelsUseCase) syncOne(ctx context.Context, product pmsDomain.Product, sku pmsDomain.SKU, listing channelsDomain.ProductChannelListing, images []integrationsDomain.WooProductImage) {
 	client, err := uc.wooClientFor(ctx, listing.ConnectionID)
 	if err != nil {

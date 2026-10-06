@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"time"
 
 	"gorm.io/gorm"
@@ -122,7 +124,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			}
 			order.NeedsSKUReview = true
 		}
-		return nil
+		return recordOrderImported(ctx, uc.outbox, order, len(createdLineItems), unlinkedLines)
 	})
 	if err != nil {
 		if errors.Is(err, omsDomain.ErrDuplicateExternalOrder) {
@@ -154,7 +156,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 	if !stockReducing {
 		return
 	}
-	stockInsufficient := false
+	var pendingLineItemIDs []string
 	for _, li := range createdLineItems {
 		if li.SKUID == nil {
 			// Already Pending + order.NeedsSKUReview from creation above --
@@ -175,10 +177,11 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			// (see cmd/scheduler/dispatch.go's resultErr). Surfaced instead
 			// via order.NeedsStockReview on the "Stock Issues" admin page,
 			// resolved with RetryStockDecrementUseCase once stock is fixed.
-			stockInsufficient = true
 			if err := setChannelsLineItemStockStatus(ctx, uc.db, uc.lineItemRepo, li.ID, omsDomain.StockStatusPending); err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", externalOrderID, err))
+				continue
 			}
+			pendingLineItemIDs = append(pendingLineItemIDs, li.ID)
 			continue
 		}
 		for _, movement := range movements {
@@ -187,8 +190,8 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			}
 		}
 	}
-	if stockInsufficient {
-		if err := setChannelsOrderNeedsStockReview(ctx, uc.db, uc.salesOrderRepo, order.ID, true); err != nil {
+	if len(pendingLineItemIDs) > 0 {
+		if err := flagImportedOrderStockShortage(ctx, uc.db, uc.salesOrderRepo, uc.outbox, order.ID, pendingLineItemIDs); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", externalOrderID, err))
 		}
 	}
@@ -243,12 +246,19 @@ func setChannelsLineItemStockStatus(ctx context.Context, db *gorm.DB, lineItemRe
 	return nil
 }
 
-func setChannelsOrderNeedsStockReview(ctx context.Context, db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, orderID string, needsReview bool) error {
+// flagImportedOrderStockShortage flags an imported order for stock review
+// and records which lines couldn't take their stock.
+func flagImportedOrderStockShortage(ctx context.Context, db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, outbox eventrecord.Enqueuer, orderID string, pendingLineItemIDs []string) error {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		return salesOrderRepo.Update(ctx, orderID, map[string]any{"needs_stock_review": needsReview})
+		if err := salesOrderRepo.Update(ctx, orderID, map[string]any{"needs_stock_review": true}); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, outbox, events.ChannelOrderStockShortageDetected, orderID, eventrecord.Data{
+			"pending_line_item_ids": pendingLineItemIDs,
+		})
 	})
 	if err != nil {
-		return fmt.Errorf("setChannelsOrderNeedsStockReview: %w", err)
+		return fmt.Errorf("flagImportedOrderStockShortage: %w", err)
 	}
 	return nil
 }
