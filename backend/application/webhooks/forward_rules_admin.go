@@ -3,6 +3,8 @@ package webhooks
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"net/url"
 
 	"gorm.io/gorm"
@@ -15,6 +17,16 @@ import (
 // POST (see DeliverForwardedWebhooksUseCase), so anything that isn't an
 // absolute http(s) URL is rejected up front rather than failing every
 // delivery attempt later.
+// urlHost is a URL's host -- what an event may show of a forward target,
+// whose path or query can carry a secret token.
+func urlHost(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	return u.Host
+}
+
 func isHTTPURL(raw string) bool {
 	u, err := url.Parse(raw)
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
@@ -27,10 +39,11 @@ func isHTTPURL(raw string) bool {
 type CreateForwardRuleUseCase struct {
 	db       *gorm.DB
 	ruleRepo webhooks.ForwardRuleRepository
+	outbox   eventrecord.Enqueuer
 }
 
-func NewCreateForwardRuleUseCase(db *gorm.DB, ruleRepo webhooks.ForwardRuleRepository) *CreateForwardRuleUseCase {
-	return &CreateForwardRuleUseCase{db: db, ruleRepo: ruleRepo}
+func NewCreateForwardRuleUseCase(db *gorm.DB, ruleRepo webhooks.ForwardRuleRepository, outbox eventrecord.Enqueuer) *CreateForwardRuleUseCase {
+	return &CreateForwardRuleUseCase{db: db, ruleRepo: ruleRepo, outbox: outbox}
 }
 
 func (uc *CreateForwardRuleUseCase) Execute(ctx context.Context, provider, topic, targetURL string) (*webhooks.ForwardRule, error) {
@@ -45,7 +58,12 @@ func (uc *CreateForwardRuleUseCase) Execute(ctx context.Context, provider, topic
 		TenantID: tenant.IDFromContext(ctx), Provider: provider, Topic: topic, TargetURL: targetURL, Active: true,
 	}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.ruleRepo.Create(ctx, &rule)
+		if err := uc.ruleRepo.Create(ctx, &rule); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ForwardRuleCreated, rule.ID, eventrecord.Data{
+			"provider": rule.Provider, "topic": rule.Topic, "target_host": urlHost(rule.TargetURL),
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createForwardRule: %w", err)
@@ -85,15 +103,19 @@ func (uc *ListForwardRulesUseCase) Execute(ctx context.Context) ([]webhooks.Forw
 type DeleteForwardRuleUseCase struct {
 	db       *gorm.DB
 	ruleRepo webhooks.ForwardRuleRepository
+	outbox   eventrecord.Enqueuer
 }
 
-func NewDeleteForwardRuleUseCase(db *gorm.DB, ruleRepo webhooks.ForwardRuleRepository) *DeleteForwardRuleUseCase {
-	return &DeleteForwardRuleUseCase{db: db, ruleRepo: ruleRepo}
+func NewDeleteForwardRuleUseCase(db *gorm.DB, ruleRepo webhooks.ForwardRuleRepository, outbox eventrecord.Enqueuer) *DeleteForwardRuleUseCase {
+	return &DeleteForwardRuleUseCase{db: db, ruleRepo: ruleRepo, outbox: outbox}
 }
 
 func (uc *DeleteForwardRuleUseCase) Execute(ctx context.Context, id string) error {
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.ruleRepo.Delete(ctx, id)
+		if err := uc.ruleRepo.Delete(ctx, id); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ForwardRuleDeleted, id)
 	})
 	if err != nil {
 		return fmt.Errorf("deleteForwardRule: %w", err)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -59,7 +60,7 @@ func TestRetryWebhookFallbackEventUseCase_republishesAndMarksStatus(t *testing.T
 		events: []webhooks.FallbackEvent{{ID: "fb-1", Provider: "woocommerce", Payload: []byte(`{"id":1}`), Status: webhooks.FallbackStatusPendingRepublish, ReceivedAt: time.Now()}},
 	}
 	pub := &fakePublisher{}
-	uc := appwebhooks.NewRetryWebhookFallbackEventUseCase(newMockGormDB(t, 2), repo, pub)
+	uc := appwebhooks.NewRetryWebhookFallbackEventUseCase(newMockGormDB(t, 2), repo, pub, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "fb-1")
 
@@ -85,7 +86,7 @@ func TestRetryWebhookFallbackEventUseCase_publishesEnvelopeShapedLikeHotPath(t *
 		}},
 	}
 	pub := &fakePublisher{}
-	uc := appwebhooks.NewRetryWebhookFallbackEventUseCase(newMockGormDB(t, 2), repo, pub)
+	uc := appwebhooks.NewRetryWebhookFallbackEventUseCase(newMockGormDB(t, 2), repo, pub, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "fb-1")
 
@@ -107,7 +108,7 @@ func TestRetryWebhookFallbackEventUseCase_leavesStatusPendingOnPublishFailure(t 
 		events: []webhooks.FallbackEvent{{ID: "fb-1", Provider: "woocommerce", Payload: []byte(`{}`), Status: webhooks.FallbackStatusPendingRepublish}},
 	}
 	pub := &fakePublisher{failCount: 99}
-	uc := appwebhooks.NewRetryWebhookFallbackEventUseCase(newMockGormDB(t, 1), repo, pub)
+	uc := appwebhooks.NewRetryWebhookFallbackEventUseCase(newMockGormDB(t, 1), repo, pub, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "fb-1")
 
@@ -121,7 +122,7 @@ func TestAbandonAllWebhookFallbackEventsUseCase_abandonsEveryMatchingRow(t *test
 		{ID: "fb-2", Status: webhooks.FallbackStatusPendingRepublish},
 		{ID: "fb-3", Status: webhooks.FallbackStatusAbandoned},
 	}}
-	uc := appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(newMockGormDB(t, 1), repo)
+	uc := appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), webhooks.FallbackStatusPendingRepublish)
 
@@ -135,7 +136,7 @@ func TestAbandonAllWebhookFallbackEventsUseCase_defaultsToPendingRepublish(t *te
 	repo := &listingFallbackRepo{events: []webhooks.FallbackEvent{
 		{ID: "fb-1", Status: webhooks.FallbackStatusPendingRepublish},
 	}}
-	uc := appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(newMockGormDB(t, 1), repo)
+	uc := appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), "")
 
@@ -145,7 +146,7 @@ func TestAbandonAllWebhookFallbackEventsUseCase_defaultsToPendingRepublish(t *te
 
 func TestAbandonWebhookFallbackEventUseCase_marksAbandoned(t *testing.T) {
 	repo := &listingFallbackRepo{events: []webhooks.FallbackEvent{{ID: "fb-1"}}}
-	uc := appwebhooks.NewAbandonWebhookFallbackEventUseCase(newMockGormDB(t, 1), repo)
+	uc := appwebhooks.NewAbandonWebhookFallbackEventUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "fb-1")
 
@@ -155,7 +156,7 @@ func TestAbandonWebhookFallbackEventUseCase_marksAbandoned(t *testing.T) {
 
 func TestAbandonWebhookFallbackEventUseCase_propagatesNotFound(t *testing.T) {
 	repo := &listingFallbackRepo{notFound: true}
-	uc := appwebhooks.NewAbandonWebhookFallbackEventUseCase(newMockGormDB(t, 1), repo)
+	uc := appwebhooks.NewAbandonWebhookFallbackEventUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 

@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-70 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+75 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -201,6 +201,16 @@ Payload (`events.EntityAction`):
 | `suppliers.supplier.created` | action | A supplier was created. data: name, status. | envelope |
 | `suppliers.supplier.deleted` | action | A supplier was deleted. data: name. | envelope |
 | `suppliers.supplier.updated` | action | A supplier's details changed (changes: name, email, phone, country, lead_time_days, status, notes). | envelope |
+
+### webhook_forwarding
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `webhook_forwarding.fallback_event.abandoned` | action | An admin chose not to process an inbound webhook that couldn't be queued (kept for audit). data: provider. | envelope |
+| `webhook_forwarding.fallback_event.bulk_abandoned` | action | An admin abandoned every inbound webhook waiting in one status at once. entity_id is the tenant. data: from_status, count. | envelope |
+| `webhook_forwarding.fallback_event.republished` | action | An inbound webhook that couldn't be queued when it arrived was published again by an admin. data: provider. | envelope |
+| `webhook_forwarding.forward_rule.created` | action | A rule forwarding a provider's inbound webhooks to another URL was added. data: provider, topic, target_host (the host only -- a target URL's path/query can carry secrets). | envelope |
+| `webhook_forwarding.forward_rule.deleted` | action | A webhook forward rule was removed. | envelope |
 
 ## Legacy subjects
 

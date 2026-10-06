@@ -51,6 +51,8 @@ type Result struct {
 // ReceiveWebhookUseCase is the hot path: verify the provider's signature,
 // then publish to COMMERCEOS_WEBHOOKS. A provider unknown to the registry
 // or lacking a configured secret never reaches JetStream or the DB at all.
+//
+//events:none -- the hot path's only write is the fallback copy of an inbound webhook NATS couldn't take; the webhook itself is the event (webhooks.received.<provider> stream), and an admin's retry/abandon of the copy raises webhook_forwarding.fallback_event.*
 type ReceiveWebhookUseCase struct {
 	db               *gorm.DB
 	connRepo         integrationsDomain.ConnectionRepository
