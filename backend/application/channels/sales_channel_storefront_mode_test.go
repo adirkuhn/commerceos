@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,7 +13,7 @@ import (
 )
 
 func newCreateChannelUC(t *testing.T, txs int, repo *stubSalesChannelRepo) *appchannels.CreateSalesChannelUseCase {
-	return appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, txs), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{})
+	return appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, txs), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, &stubTenantSettings{}, &eventrecordtest.Outbox{})
 }
 
 func TestCreateSalesChannel_defaultsStorefrontModeToHeadless(t *testing.T) {
@@ -66,7 +67,7 @@ func existingInternalChannel(mode channelsDomain.StorefrontMode) *channelsDomain
 }
 
 func newUpdateChannelUC(t *testing.T, txs int, repo *stubSalesChannelRepo) *appchannels.UpdateSalesChannelUseCase {
-	return appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, txs), repo, &stubConnectionRepo{}, &stubWarehouseExistenceChecker{})
+	return appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, txs), repo, &stubConnectionRepo{}, &stubWarehouseExistenceChecker{}, &eventrecordtest.Outbox{})
 }
 
 func TestUpdateSalesChannel_switchesInternalChannelToThemedStorefront(t *testing.T) {

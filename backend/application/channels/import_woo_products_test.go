@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -86,7 +87,7 @@ func (h *harness) newImportUseCase(t *testing.T, n int) *appchannels.ImportWooPr
 	return appchannels.NewImportWooProductsUseCase(
 		newMockGormDB(t, n), h.connRepo, h.wooFactory, testEncryptionSecret,
 		h.categoryRepo, h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, h.stock, h.media,
-		h.taxClassRepo, h.taxRateRepo, h.taxLinkRepo,
+		h.taxClassRepo, h.taxRateRepo, h.taxLinkRepo, &eventrecordtest.Outbox{},
 	)
 }
 

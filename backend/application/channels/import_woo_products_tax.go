@@ -3,6 +3,8 @@ package channels
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"strings"
 	"time"
 
@@ -60,6 +62,12 @@ func (uc *ImportWooProductsUseCase) reconcileWooTaxClasses(ctx context.Context, 
 				if err := uc.taxRateRepo.Upsert(ctx, &rate); err != nil {
 					return err
 				}
+				if err := eventrecord.Record(ctx, uc.outbox, events.ChannelTaxRateImported, rate.ID, eventrecord.Data{
+					"provider": string(integrationsDomain.ProviderWooCommerce), "tax_class_id": rate.TaxClassID,
+					"country": rate.Country, "rate_basis_points": rate.RateBasisPoints,
+				}); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -92,6 +100,11 @@ func (uc *ImportWooProductsUseCase) resolveOrCreateTaxClassForWooSlug(ctx contex
 		ExternalSlug: slug, TaxClassID: class.ID, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := uc.taxLinkRepo.Upsert(ctx, &newLink); err != nil {
+		return "", err
+	}
+	if err := eventrecord.Record(ctx, uc.outbox, events.ChannelTaxClassImported, class.ID, eventrecord.Data{
+		"provider": newLink.Provider, "external_slug": slug, "name": class.Name,
+	}); err != nil {
 		return "", err
 	}
 	return class.ID, nil

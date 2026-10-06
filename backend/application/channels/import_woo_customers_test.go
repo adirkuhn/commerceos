@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,7 +40,7 @@ func newCustomersHarness(customers map[int][]integrationsDomain.WooCustomer) *cu
 
 func (h *customersHarness) newImportUseCase(t *testing.T, n int) *appchannels.ImportWooCustomersUseCase {
 	t.Helper()
-	return appchannels.NewImportWooCustomersUseCase(newMockGormDB(t, n), h.connRepo, h.wooFactory, testEncryptionSecret, h.customerRepo)
+	return appchannels.NewImportWooCustomersUseCase(newMockGormDB(t, n), h.connRepo, h.wooFactory, testEncryptionSecret, h.customerRepo, &eventrecordtest.Outbox{})
 }
 
 func simpleWooCustomer() integrationsDomain.WooCustomer {

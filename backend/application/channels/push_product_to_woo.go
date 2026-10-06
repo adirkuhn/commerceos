@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"time"
 
 	"gorm.io/gorm"
@@ -51,6 +52,7 @@ type PushProductToWooUseCase struct {
 	stockLevel   stockLevelGetter
 	mediaRepo    productMediaLister
 	categoryLink categoryLinkResolver
+	outbox       eventrecord.Enqueuer
 }
 
 func NewPushProductToWooUseCase(
@@ -66,12 +68,14 @@ func NewPushProductToWooUseCase(
 	stockLevel stockLevelGetter,
 	mediaRepo productMediaLister,
 	categoryLink categoryLinkResolver,
+	outbox eventrecord.Enqueuer,
 ) *PushProductToWooUseCase {
 	return &PushProductToWooUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret,
 		productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
 		listingRepo: listingRepo, syncLogRepo: syncLogRepo, stockLevel: stockLevel,
 		mediaRepo: mediaRepo, categoryLink: categoryLink,
+		outbox: outbox,
 	}
 }
 
@@ -177,8 +181,12 @@ func (uc *PushProductToWooUseCase) Execute(ctx context.Context, in PushProductTo
 				legacy, err := uc.listingRepo.FindByProductVariantAndConnection(ctx, in.ProductID, nil, in.ConnectionID)
 				if err == nil {
 					variantID := vp.Variant.ID
+					before := *legacy
 					legacy.VariantID = &variantID
 					if err := uc.listingRepo.Update(ctx, legacy); err != nil {
+						return err
+					}
+					if err := recordListingUpdated(ctx, uc.outbox, before, *legacy); err != nil {
 						return err
 					}
 					existingByVariant[vp.Variant.ID] = *legacy
@@ -250,7 +258,7 @@ func (uc *PushProductToWooUseCase) pushSingleSKU(ctx context.Context, client int
 	if err != nil {
 		return nil, err
 	}
-	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush,
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowPush,
 		channelsDomain.SyncLogStatusSuccess, "", wooProductToFields(wooProduct))
 
 	return []channelsDomain.ProductChannelListing{listing}, nil
@@ -276,7 +284,7 @@ func (uc *PushProductToWooUseCase) pushSeparateProducts(ctx context.Context, cli
 		if err != nil {
 			return nil, err
 		}
-		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush,
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowPush,
 			channelsDomain.SyncLogStatusSuccess, "", wooProductToFields(wooProduct))
 		listings = append(listings, listing)
 	}
@@ -311,7 +319,7 @@ func (uc *PushProductToWooUseCase) pushVariations(ctx context.Context, client in
 		if err != nil {
 			return nil, err
 		}
-		recordSyncLog(ctx, uc.db, uc.syncLogRepo, parentListing, channelsDomain.SyncFlowPush,
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, parentListing, channelsDomain.SyncFlowPush,
 			channelsDomain.SyncLogStatusSuccess, "", wooProductToFields(parentProduct))
 		listings = append(listings, parentListing)
 	}
@@ -333,7 +341,7 @@ func (uc *PushProductToWooUseCase) pushVariations(ctx context.Context, client in
 		if err != nil {
 			return nil, err
 		}
-		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush,
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowPush,
 			channelsDomain.SyncLogStatusSuccess, "", wooVariationToFields(wooVariation))
 		listings = append(listings, listing)
 	}
@@ -351,7 +359,10 @@ func (uc *PushProductToWooUseCase) createListing(ctx context.Context, in PushPro
 			SyncStatus: channelsDomain.SyncStatusSynced, LastSyncedAt: &now,
 			CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.listingRepo.Create(ctx, &listing)
+		if err := uc.listingRepo.Create(ctx, &listing); err != nil {
+			return err
+		}
+		return recordListingCreated(ctx, uc.outbox, listing, ListingSourcePush)
 	})
 	if err != nil {
 		return channelsDomain.ProductChannelListing{}, fmt.Errorf("pushProductToWoo: %w", err)

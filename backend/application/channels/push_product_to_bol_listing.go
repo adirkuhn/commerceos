@@ -28,7 +28,7 @@ func (uc *PushProductToBolUseCase) pushOne(
 	// creating a listing) -- recordSyncLog treats an empty listing.ID as
 	// "no listing to link this entry to" rather than erroring.
 	fail := func(err error, fields map[string]string) (channelsDomain.ProductChannelListing, error) {
-		recordSyncLog(ctx, uc.db, uc.syncLogRepo, channelsDomain.ProductChannelListing{
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, channelsDomain.ProductChannelListing{
 			ID: existing.ID, ProductID: product.ID, ConnectionID: connectionID,
 			Provider: string(integrationsDomain.ProviderBol), ExternalID: existing.ExternalID,
 		}, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), fields)
@@ -179,16 +179,17 @@ func (uc *PushProductToBolUseCase) pushOne(
 	variantID := bolListingVariantID(product, pu.Variant.ID)
 	if existing.ID != "" {
 		noteChanged := note != existing.NotForSaleNote
+		before := existing
 		existing.ExternalID = offerID
 		existing.SyncStatus = channelsDomain.SyncStatusSynced
 		existing.NotForSaleNote = note
-		if err := uc.saveListing(ctx, &existing, false); err != nil {
+		if err := uc.saveListing(ctx, &existing, &before); err != nil {
 			return channelsDomain.ProductChannelListing{}, err
 		}
 		if noteChanged && note != "" {
 			uc.notifyNotForSale(ctx, product, note)
 		}
-		recordSyncLog(ctx, uc.db, uc.syncLogRepo, existing, channelsDomain.SyncFlowPush,
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, existing, channelsDomain.SyncFlowPush,
 			channelsDomain.SyncLogStatusSuccess, "", mergeFields(bolOfferToFields(offerIn), contentAttrs))
 		return existing, nil
 	}
@@ -199,13 +200,13 @@ func (uc *PushProductToBolUseCase) pushOne(
 		VariantID: variantID, IsVariation: false, SyncStatus: channelsDomain.SyncStatusSynced,
 		NotForSaleNote: note,
 	}
-	if err := uc.saveListing(ctx, &listing, true); err != nil {
+	if err := uc.saveListing(ctx, &listing, nil); err != nil {
 		return channelsDomain.ProductChannelListing{}, err
 	}
 	if note != "" {
 		uc.notifyNotForSale(ctx, product, note)
 	}
-	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush,
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowPush,
 		channelsDomain.SyncLogStatusSuccess, "", mergeFields(bolOfferToFields(offerIn), contentAttrs))
 	return listing, nil
 }
@@ -252,13 +253,21 @@ func (uc *PushProductToBolUseCase) notifyNotForSale(ctx context.Context, product
 	}
 }
 
-func (uc *PushProductToBolUseCase) saveListing(ctx context.Context, l *channelsDomain.ProductChannelListing, create bool) error {
+// saveListing writes the listing; before is its previous state on an
+// update (nil for a create).
+func (uc *PushProductToBolUseCase) saveListing(ctx context.Context, l *channelsDomain.ProductChannelListing, before *channelsDomain.ProductChannelListing) error {
 	return tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		l.TenantID = tenant.IDFromContext(ctx)
-		if create {
-			return uc.listingRepo.Create(ctx, l)
+		if before == nil {
+			if err := uc.listingRepo.Create(ctx, l); err != nil {
+				return err
+			}
+			return recordListingCreated(ctx, uc.outbox, *l, ListingSourcePush)
 		}
-		return uc.listingRepo.Update(ctx, l)
+		if err := uc.listingRepo.Update(ctx, l); err != nil {
+			return err
+		}
+		return recordListingUpdated(ctx, uc.outbox, *before, *l)
 	})
 }
 

@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -21,7 +22,7 @@ func TestExportWooStockLevels_pushesCurrentSyncableLevelToWoo(t *testing.T) {
 
 	uc := appchannels.NewExportWooStockLevelsUseCase(
 		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
@@ -49,7 +50,7 @@ func TestExportWooStockLevels_includesLotMetadataWhenStockLevelHasASourceBatch(t
 
 	uc := appchannels.NewExportWooStockLevelsUseCase(
 		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, &eventrecordtest.Outbox{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
@@ -72,7 +73,7 @@ func TestExportWooStockLevels_skipsVirtualSKUs(t *testing.T) {
 
 	uc := appchannels.NewExportWooStockLevelsUseCase(
 		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
@@ -91,7 +92,7 @@ func TestExportWooStockLevels_recordsErrorForMultiVariantProductAndContinues(t *
 
 	uc := appchannels.NewExportWooStockLevelsUseCase(
 		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
@@ -149,7 +150,7 @@ func TestExportWooStockLevels_pushesEachVariantsStockForAPerVariantListingSet(t 
 
 	uc := appchannels.NewExportWooStockLevelsUseCase(
 		newMockGormDB(t, 5), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
@@ -176,7 +177,7 @@ func TestExportWooStockLevels_recordsErrorWhenWooUpdateFails(t *testing.T) {
 
 	uc := appchannels.NewExportWooStockLevelsUseCase(
 		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
@@ -191,7 +192,7 @@ func TestExportWooStockLevels_noopWhenNoListings(t *testing.T) {
 
 	uc := appchannels.NewExportWooStockLevelsUseCase(
 		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, &stubStockLevelGetter{},
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, &stubStockLevelGetter{}, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
@@ -207,7 +208,7 @@ func TestExportWooStockLevels_wrapsConnectionNotFound(t *testing.T) {
 
 	uc := appchannels.NewExportWooStockLevelsUseCase(
 		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, &stubStockLevelGetter{},
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, &stubStockLevelGetter{}, &eventrecordtest.Outbox{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "missing"})

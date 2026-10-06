@@ -3,6 +3,7 @@ package channels
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"log"
 	"time"
 
@@ -68,6 +69,7 @@ type SyncProductToChannelsUseCase struct {
 	stockCatchUp productStockForceSyncer
 	mediaRepo    productMediaLister
 	categoryLink categoryLinkResolver
+	outbox       eventrecord.Enqueuer
 }
 
 func NewSyncProductToChannelsUseCase(
@@ -86,6 +88,7 @@ func NewSyncProductToChannelsUseCase(
 	bolPusher bolProductPusher,
 	bolGater bolOfferGater,
 	stockCatchUp productStockForceSyncer,
+	outbox eventrecord.Enqueuer,
 ) *SyncProductToChannelsUseCase {
 	return &SyncProductToChannelsUseCase{
 		db: db, productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
@@ -93,6 +96,7 @@ func NewSyncProductToChannelsUseCase(
 		connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret, pusher: pusher,
 		mediaRepo: mediaRepo, categoryLink: categoryLink, bolPusher: bolPusher,
 		bolGater: bolGater, stockCatchUp: stockCatchUp,
+		outbox: outbox,
 	}
 }
 
@@ -278,7 +282,7 @@ func (uc *SyncProductToChannelsUseCase) recordSyncResult(ctx context.Context, li
 		listing.LastSyncError = ""
 	}
 
-	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, status, errMsg, fields)
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowPush, status, errMsg, fields)
 
 	if uErr := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		return uc.listingRepo.Update(ctx, &listing)

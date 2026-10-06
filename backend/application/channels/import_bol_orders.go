@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"time"
 
 	"gorm.io/gorm"
@@ -58,6 +59,7 @@ type ImportBolOrdersUseCase struct {
 	skuRepo        pmsDomain.SKURepository
 	allocateStock  saleStockAllocator
 	updateOrder    updateSalesOrderUC
+	outbox         eventrecord.Enqueuer
 }
 
 func NewImportBolOrdersUseCase(
@@ -71,11 +73,13 @@ func NewImportBolOrdersUseCase(
 	skuRepo pmsDomain.SKURepository,
 	allocateStock saleStockAllocator,
 	updateOrder updateSalesOrderUC,
+	outbox eventrecord.Enqueuer,
 ) *ImportBolOrdersUseCase {
 	return &ImportBolOrdersUseCase{
 		db: db, connRepo: connRepo, bolFactory: bolFactory, encSecret: encryptionSecret,
 		salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo,
 		skuRepo: skuRepo, allocateStock: allocateStock, updateOrder: updateOrder,
+		outbox: outbox,
 	}
 }
 
@@ -287,7 +291,7 @@ func (uc *ImportBolOrdersUseCase) createOne(ctx context.Context, in ImportBolOrd
 			}
 			order.NeedsSKUReview = true
 		}
-		return nil
+		return recordOrderImported(ctx, uc.outbox, order, len(createdLineItems), unlinkedLines)
 	})
 	if err != nil {
 		if errors.Is(err, omsDomain.ErrDuplicateExternalOrder) {
@@ -312,7 +316,7 @@ func (uc *ImportBolOrdersUseCase) createOne(ctx context.Context, in ImportBolOrd
 	if !stockReducing {
 		return
 	}
-	stockInsufficient := false
+	var pendingLineItemIDs []string
 	for _, li := range createdLineItems {
 		if li.SKUID == nil {
 			continue
@@ -326,10 +330,11 @@ func (uc *ImportBolOrdersUseCase) createOne(ctx context.Context, in ImportBolOrd
 				result.Errors = append(result.Errors, fmt.Sprintf("bol order %s: stock movement: %v", externalOrderID, err))
 				continue
 			}
-			stockInsufficient = true
 			if err := setChannelsLineItemStockStatus(ctx, uc.db, uc.lineItemRepo, li.ID, omsDomain.StockStatusPending); err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("bol order %s: %v", externalOrderID, err))
+				continue
 			}
+			pendingLineItemIDs = append(pendingLineItemIDs, li.ID)
 			continue
 		}
 		for _, movement := range movements {
@@ -338,8 +343,8 @@ func (uc *ImportBolOrdersUseCase) createOne(ctx context.Context, in ImportBolOrd
 			}
 		}
 	}
-	if stockInsufficient {
-		if err := setChannelsOrderNeedsStockReview(ctx, uc.db, uc.salesOrderRepo, order.ID, true); err != nil {
+	if len(pendingLineItemIDs) > 0 {
+		if err := flagImportedOrderStockShortage(ctx, uc.db, uc.salesOrderRepo, uc.outbox, order.ID, pendingLineItemIDs); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("bol order %s: %v", externalOrderID, err))
 		}
 	}

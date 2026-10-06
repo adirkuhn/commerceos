@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,7 +43,7 @@ func (h *bolOrdersHarness) newImportUseCase(t *testing.T, n int) *appchannels.Im
 	t.Helper()
 	return appchannels.NewImportBolOrdersUseCase(
 		newMockGormDB(t, n), h.connRepo, &fakeBolClientFactory{client: h.bolClient}, testEncryptionSecret,
-		h.salesOrderRepo, h.lineItemRepo, h.linkRepo, h.skuRepo, h.stock, h.updateOrder,
+		h.salesOrderRepo, h.lineItemRepo, h.linkRepo, h.skuRepo, h.stock, h.updateOrder, &eventrecordtest.Outbox{},
 	)
 }
 

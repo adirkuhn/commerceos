@@ -42,7 +42,7 @@ func main() {
 	uc := channelsapp.NewBackfillWooSalePricesUseCase(
 		db, connRepo, woocommerce.NewFactory(), cfg.IntegrationsEncryptionSecret,
 		repositories.NewProductChannelListingRepo(db), repositories.NewProductRepo(db),
-		repositories.NewVariantRepo(db), repositories.NewSKURepo(db),
+		repositories.NewVariantRepo(db), repositories.NewSKURepo(db), repositories.NewOutboxRepository(db),
 	)
 
 	// ListByTenant has no WHERE tenant_id clause of its own (see its own

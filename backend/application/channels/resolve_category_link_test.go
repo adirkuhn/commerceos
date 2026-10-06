@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -74,7 +75,7 @@ func TestResolveCategoryLink_returnsExistingLinkWithoutCallingWoo(t *testing.T) 
 	}}
 	categoryRepo := &stubResolveCategoryRepo{}
 	wooClient := &stubWooClient{categoriesErr: errors.New("must not be called")}
-	uc := appchannels.NewResolveCategoryLinkUseCase(newMockGormDB(t, 1), linkRepo, categoryRepo)
+	uc := appchannels.NewResolveCategoryLinkUseCase(newMockGormDB(t, 1), linkRepo, categoryRepo, &eventrecordtest.Outbox{})
 
 	externalID, err := uc.Execute(context.Background(), wooClient, "conn-1", "cat-1")
 
@@ -91,7 +92,7 @@ func TestResolveCategoryLink_matchesBySlugAndPersistsTheLink(t *testing.T) {
 		{ExternalID: "10", Name: "Snacks", Slug: "snacks"},
 		{ExternalID: "20", Name: "Beverages", Slug: "beverages"},
 	}}
-	uc := appchannels.NewResolveCategoryLinkUseCase(newMockGormDB(t, 3), linkRepo, categoryRepo)
+	uc := appchannels.NewResolveCategoryLinkUseCase(newMockGormDB(t, 3), linkRepo, categoryRepo, &eventrecordtest.Outbox{})
 
 	externalID, err := uc.Execute(context.Background(), wooClient, "conn-1", "cat-1")
 
@@ -111,7 +112,7 @@ func TestResolveCategoryLink_noSlugMatchReturnsEmptyWithoutError(t *testing.T) {
 	wooClient := &stubWooClient{categories: []integrationsDomain.WooCategory{
 		{ExternalID: "10", Name: "Snacks", Slug: "snacks"},
 	}}
-	uc := appchannels.NewResolveCategoryLinkUseCase(newMockGormDB(t, 2), linkRepo, categoryRepo)
+	uc := appchannels.NewResolveCategoryLinkUseCase(newMockGormDB(t, 2), linkRepo, categoryRepo, &eventrecordtest.Outbox{})
 
 	externalID, err := uc.Execute(context.Background(), wooClient, "conn-1", "cat-1")
 
@@ -126,7 +127,7 @@ func TestResolveCategoryLink_unreachableStoreDegradesToEmptyInsteadOfFailing(t *
 		"cat-1": {ID: "cat-1", Slug: "beverages"},
 	}}
 	wooClient := &stubWooClient{categoriesErr: errors.New("connection refused")}
-	uc := appchannels.NewResolveCategoryLinkUseCase(newMockGormDB(t, 2), linkRepo, categoryRepo)
+	uc := appchannels.NewResolveCategoryLinkUseCase(newMockGormDB(t, 2), linkRepo, categoryRepo, &eventrecordtest.Outbox{})
 
 	externalID, err := uc.Execute(context.Background(), wooClient, "conn-1", "cat-1")
 

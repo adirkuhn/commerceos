@@ -50,7 +50,38 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-125 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+151 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+
+### channels
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `channels.category.imported` | action | A category was created from an external shop's category while importing its products. data: provider, external_id, name, slug, parent_id. | envelope |
+| `channels.customer.imported` | action | A customer was created from an external shop's customer. data: provider, external_customer_id, email, source (customer_import, order_import). | envelope |
+| `channels.external_category_link.deleted` | action | A category mapping to an external shop was removed. | envelope |
+| `channels.external_category_link.saved` | action | A CommerceOS category was linked to a category in an external shop (a person mapped it, or it was matched by slug on push). data: connection_id, provider, external_id, category_id, source (manual, slug_match). | envelope |
+| `channels.external_product.deleted` | action | A deleted product was also deleted from an external shop (entity_id is the external id). data: provider, connection_id. | envelope |
+| `channels.import_job.created` | action | A product import from an external shop was queued. data: connection_id, default_warehouse_id, default_currency, is_first_import. | envelope |
+| `channels.imported_category.deleted` | action | A category left empty after clearing a connection's imported products was deleted. data: connection_id. | envelope |
+| `channels.imported_product.deleted` | action | A product imported from a connection was deleted when that connection's imported data was cleared. data: connection_id, external_id. | envelope |
+| `channels.order.imported` | action | A sales order was created from an external channel's order. data: provider, connection_id, external_order_id, number, status, currency_code, total_minor_units, line_count, unlinked_line_count, needs_sku_review. | envelope |
+| `channels.order.status_pushed` | action | A sales order's status was sent to the channel it came from. data: provider, connection_id, external_order_id, status, channel_status. | envelope |
+| `channels.order.stock_shortage_detected` | action | An imported order's stock could not be taken for some lines (marked pending, order flagged for stock review). data: pending_line_item_ids. | envelope |
+| `channels.product.imported` | action | A product was created from an external shop's product (its listing also raises product_listing.created, source import). data: connection_id, provider, external_id, variant_id, sku_id, sku_code, category_id, price_minor_units, currency_code. | envelope |
+| `channels.product_listing.created` | action | A product or variant was linked to a listing on an external channel. data: product_id, variant_id, connection_id, provider, external_id, is_variation, source (push, variant_added, link_existing, import). | envelope |
+| `channels.product_listing.deleted` | action | A listing was removed. data: product_id, variant_id, connection_id, provider, external_id, reason (shape_migration, variant_removed). | envelope |
+| `channels.product_listing.gated` | action | A listing was taken off sale on its channel because the product is no longer active (Woo status pushed, Bol offer put on hold). data: product_id, connection_id, provider, external_id. | envelope |
+| `channels.product_listing.synced` | action | A listing was synced with its channel (a sync log entry was written; an unchanged successful re-sync records nothing). changes: the synced fields that changed since the previous sync, before/after as strings. data: product_id, connection_id, provider, external_id, direction (push, import), status (success, error), error_message. | envelope |
+| `channels.product_listing.ungated` | action | A gated listing went back on sale after the product became active again. data: product_id, connection_id, provider, external_id. | envelope |
+| `channels.product_listing.updated` | action | A listing's link changed (changes: variant_id, external_id, not_for_sale_note). data: product_id, connection_id, provider. | envelope |
+| `channels.sale_price.backfilled` | action | A SKU's missing sale price was filled in from its external shop listing (entity_id is the SKU). changes: sale_price_minor_units, sale_end_date. data: connection_id, external_id. | envelope |
+| `channels.sales_channel.created` | action | A sales channel (web shop, Bol, POS...) was set up. data: name, type, connection_id, enrollment_mode, currency_code. | envelope |
+| `channels.sales_channel.deleted` | action | A sales channel was deleted. data: name, type. | envelope |
+| `channels.sales_channel.updated` | action | A sales channel's settings changed (changes: name, connection_id, enrollment_mode, enrollment_category_id, enrollment_tag, price_adjustment_basis_points, quantity_breaks, default_warehouse_id, storefront_mode, sign_in_url, storefront_locale, storefront_locales, active, payment_connection_id). | envelope |
+| `channels.sales_channel_product_override.set` | action | A product was explicitly included in or excluded from a sales channel, overriding its enrollment rule. data: channel_id, product_id, included. | envelope |
+| `channels.sync_schedule.saved` | action | An automatic sync schedule for a connection was created or changed. data: connection_id, entity_type, direction, enabled, interval_minutes, default_warehouse_id, default_currency. | envelope |
+| `channels.tax_class.imported` | action | A tax class was created for an external shop's tax class. data: provider, external_slug, name. | envelope |
+| `channels.tax_rate.imported` | action | A tax rate was created or updated from an external shop's tax rates. data: provider, tax_class_id, country, rate_basis_points. | envelope |
 
 ### collections
 

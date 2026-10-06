@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	inventoryDomain "github.com/adirkuhn/commerceos/domain/inventory"
@@ -96,13 +98,15 @@ type CreateSalesChannelUseCase struct {
 	fxRepo        fxDomain.ExchangeRateRepository
 	warehouseRepo warehouseExistenceChecker
 	company       companySettingsReader
+	outbox        eventrecord.Enqueuer
 }
 
 func NewCreateSalesChannelUseCase(
 	db *gorm.DB, repo channelsDomain.SalesChannelRepository, connRepo integrationsDomain.ConnectionRepository,
 	fxRepo fxDomain.ExchangeRateRepository, warehouseRepo warehouseExistenceChecker, company companySettingsReader,
+	outbox eventrecord.Enqueuer,
 ) *CreateSalesChannelUseCase {
-	return &CreateSalesChannelUseCase{db: db, repo: repo, connRepo: connRepo, fxRepo: fxRepo, warehouseRepo: warehouseRepo, company: company}
+	return &CreateSalesChannelUseCase{db: db, repo: repo, connRepo: connRepo, fxRepo: fxRepo, warehouseRepo: warehouseRepo, company: company, outbox: outbox}
 }
 
 func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSalesChannelInput) (*channelsDomain.SalesChannel, error) {
@@ -180,7 +184,13 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 			StorefrontLocales:          storefrontLocales,
 			Active:                     true, CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.repo.Create(ctx, &channel)
+		if err := uc.repo.Create(ctx, &channel); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.SalesChannelCreated, channel.ID, eventrecord.Data{
+			"name": channel.Name, "type": string(channel.Type), "connection_id": channel.ConnectionID,
+			"enrollment_mode": string(channel.EnrollmentMode), "currency_code": channel.CurrencyCode,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createSalesChannel: %w", err)

@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,7 @@ func TestSetProductChannelOverride_add_setsIncludedTrue(t *testing.T) {
 	overrideRepo := &stubSalesChannelProductOverrideRepo{}
 	channelRepo := &stubSalesChannelRepo{findResult: &channelsDomain.SalesChannel{ID: "channel-1"}}
 	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
-	uc := appchannels.NewSetProductChannelOverrideUseCase(newMockGormDB(t, 1), overrideRepo, channelRepo, productRepo)
+	uc := appchannels.NewSetProductChannelOverrideUseCase(newMockGormDB(t, 1), overrideRepo, channelRepo, productRepo, &eventrecordtest.Outbox{})
 
 	override, err := uc.Execute(context.Background(), appchannels.SetProductChannelOverrideInput{
 		ChannelID: "channel-1", ProductID: "product-1", Included: true,
@@ -31,7 +32,7 @@ func TestSetProductChannelOverride_remove_setsIncludedFalse(t *testing.T) {
 	overrideRepo := &stubSalesChannelProductOverrideRepo{}
 	channelRepo := &stubSalesChannelRepo{findResult: &channelsDomain.SalesChannel{ID: "channel-1"}}
 	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
-	uc := appchannels.NewSetProductChannelOverrideUseCase(newMockGormDB(t, 1), overrideRepo, channelRepo, productRepo)
+	uc := appchannels.NewSetProductChannelOverrideUseCase(newMockGormDB(t, 1), overrideRepo, channelRepo, productRepo, &eventrecordtest.Outbox{})
 
 	override, err := uc.Execute(context.Background(), appchannels.SetProductChannelOverrideInput{
 		ChannelID: "channel-1", ProductID: "product-1", Included: false,
@@ -43,7 +44,7 @@ func TestSetProductChannelOverride_remove_setsIncludedFalse(t *testing.T) {
 
 func TestSetProductChannelOverride_propagatesChannelNotFound(t *testing.T) {
 	channelRepo := &stubSalesChannelRepo{findErr: channelsDomain.ErrSalesChannelNotFound}
-	uc := appchannels.NewSetProductChannelOverrideUseCase(newMockGormDB(t, 1), &stubSalesChannelProductOverrideRepo{}, channelRepo, &stubChannelsProductRepo{})
+	uc := appchannels.NewSetProductChannelOverrideUseCase(newMockGormDB(t, 1), &stubSalesChannelProductOverrideRepo{}, channelRepo, &stubChannelsProductRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appchannels.SetProductChannelOverrideInput{ChannelID: "missing", ProductID: "product-1"})
 
@@ -52,7 +53,7 @@ func TestSetProductChannelOverride_propagatesChannelNotFound(t *testing.T) {
 
 func TestSetProductChannelOverride_propagatesProductNotFound(t *testing.T) {
 	channelRepo := &stubSalesChannelRepo{findResult: &channelsDomain.SalesChannel{ID: "channel-1"}}
-	uc := appchannels.NewSetProductChannelOverrideUseCase(newMockGormDB(t, 1), &stubSalesChannelProductOverrideRepo{}, channelRepo, &stubChannelsProductRepo{})
+	uc := appchannels.NewSetProductChannelOverrideUseCase(newMockGormDB(t, 1), &stubSalesChannelProductOverrideRepo{}, channelRepo, &stubChannelsProductRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appchannels.SetProductChannelOverrideInput{ChannelID: "channel-1", ProductID: "missing"})
 

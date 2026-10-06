@@ -6,8 +6,10 @@ import (
 	"log"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -42,13 +44,15 @@ type CreateImportJobUseCase struct {
 	importJobRepo channelsDomain.ImportJobRepository
 	listingRepo   channelsDomain.ProductChannelListingRepository
 	notifier      notifier
+	outbox        eventrecord.Enqueuer
 }
 
 func NewCreateImportJobUseCase(
 	db *gorm.DB, importJobRepo channelsDomain.ImportJobRepository,
 	listingRepo channelsDomain.ProductChannelListingRepository, notifier notifier,
+	outbox eventrecord.Enqueuer,
 ) *CreateImportJobUseCase {
-	return &CreateImportJobUseCase{db: db, importJobRepo: importJobRepo, listingRepo: listingRepo, notifier: notifier}
+	return &CreateImportJobUseCase{db: db, importJobRepo: importJobRepo, listingRepo: listingRepo, notifier: notifier, outbox: outbox}
 }
 
 func (uc *CreateImportJobUseCase) Execute(ctx context.Context, in CreateImportJobInput) (*channelsDomain.ImportJob, error) {
@@ -82,7 +86,13 @@ func (uc *CreateImportJobUseCase) Execute(ctx context.Context, in CreateImportJo
 			CreatedAt:          time.Now(),
 			IsFirstImport:      len(existingListings) == 0,
 		}
-		return uc.importJobRepo.Create(ctx, &job)
+		if err := uc.importJobRepo.Create(ctx, &job); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ImportJobCreated, job.ID, eventrecord.Data{
+			"connection_id": job.ConnectionID, "default_warehouse_id": job.DefaultWarehouseID,
+			"default_currency": job.DefaultCurrency, "is_first_import": job.IsFirstImport,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createImportJob: %w", err)

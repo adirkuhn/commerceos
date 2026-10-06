@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"time"
 
 	"gorm.io/gorm"
@@ -73,6 +75,7 @@ type ImportWooProductsUseCase struct {
 	taxClassRepo     taxDomain.TaxClassRepository
 	taxRateRepo      taxDomain.TaxRateRepository
 	taxLinkRepo      taxDomain.ExternalTaxClassLinkRepository
+	outbox           eventrecord.Enqueuer
 }
 
 func NewImportWooProductsUseCase(
@@ -91,12 +94,14 @@ func NewImportWooProductsUseCase(
 	taxClassRepo taxDomain.TaxClassRepository,
 	taxRateRepo taxDomain.TaxRateRepository,
 	taxLinkRepo taxDomain.ExternalTaxClassLinkRepository,
+	outbox eventrecord.Enqueuer,
 ) *ImportWooProductsUseCase {
 	return &ImportWooProductsUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
 		categoryRepo: categoryRepo, productRepo: productRepo, variantRepo: variantRepo,
 		skuRepo: skuRepo, listingRepo: listingRepo, syncLogRepo: syncLogRepo, stock: stock, media: media,
 		taxClassRepo: taxClassRepo, taxRateRepo: taxRateRepo, taxLinkRepo: taxLinkRepo,
+		outbox: outbox,
 	}
 }
 
@@ -229,6 +234,9 @@ func (uc *ImportWooProductsUseCase) importOne(
 				if err := uc.listingRepo.Create(ctx, &listing); err != nil {
 					return err
 				}
+				if err := recordListingCreated(ctx, uc.outbox, listing, ListingSourceImport); err != nil {
+					return err
+				}
 
 				createdListing = listing
 				createdFields = importedFieldsFromWoo(wp, *existingProduct, *existingSKU)
@@ -328,6 +336,16 @@ func (uc *ImportWooProductsUseCase) importOne(
 		if err := uc.listingRepo.Create(ctx, &listing); err != nil {
 			return err
 		}
+		if err := recordListingCreated(ctx, uc.outbox, listing, ListingSourceImport); err != nil {
+			return err
+		}
+		if err := eventrecord.Record(ctx, uc.outbox, events.ChannelProductImported, product.ID, eventrecord.Data{
+			"connection_id": in.ConnectionID, "provider": listing.Provider, "external_id": wp.ID,
+			"variant_id": variant.ID, "sku_id": sku.ID, "sku_code": sku.SKUCode, "category_id": product.CategoryID,
+			"price_minor_units": sku.PriceMinorUnits, "currency_code": sku.CurrencyCode,
+		}); err != nil {
+			return err
+		}
 
 		createdProductID = product.ID
 		createdSKUID = sku.ID
@@ -345,7 +363,7 @@ func (uc *ImportWooProductsUseCase) importOne(
 		return
 	}
 
-	recordSyncLog(ctx, uc.db, uc.syncLogRepo, createdListing, channelsDomain.SyncFlowImport,
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, createdListing, channelsDomain.SyncFlowImport,
 		channelsDomain.SyncLogStatusSuccess, "", createdFields)
 
 	// Linked to a pre-existing CommerceOS product by SKU code match — no
@@ -419,6 +437,12 @@ func (uc *ImportWooProductsUseCase) resolveCategoryChain(
 		CreatedAt: now, UpdatedAt: now,
 	}
 	if err := uc.categoryRepo.Create(ctx, &newCategory); err != nil {
+		return nil, err
+	}
+	if err := eventrecord.Record(ctx, uc.outbox, events.ChannelCategoryImported, newCategory.ID, eventrecord.Data{
+		"provider": string(integrationsDomain.ProviderWooCommerce), "external_id": woo.ExternalID,
+		"name": newCategory.Name, "slug": newCategory.Slug, "parent_id": newCategory.ParentID,
+	}); err != nil {
 		return nil, err
 	}
 	return &newCategory.ID, nil

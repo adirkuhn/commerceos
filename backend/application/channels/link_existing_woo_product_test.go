@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,7 @@ func newLinkExistingWooProductHarness(t *testing.T) (*appchannels.LinkExistingWo
 	listingRepo := &stubListingRepo{listByProduct: map[string][]channelsDomain.ProductChannelListing{}}
 	wooClient := &stubWooClient{}
 	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := appchannels.NewLinkExistingWooProductUseCase(newMockGormDB(t, 2), productRepo, connRepo, listingRepo, wooFactory, testEncryptionSecret)
+	uc := appchannels.NewLinkExistingWooProductUseCase(newMockGormDB(t, 2), productRepo, connRepo, listingRepo, wooFactory, testEncryptionSecret, &eventrecordtest.Outbox{})
 	return uc, productRepo, connRepo, listingRepo, wooClient
 }
 

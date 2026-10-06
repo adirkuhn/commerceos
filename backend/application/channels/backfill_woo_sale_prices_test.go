@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -35,7 +36,7 @@ func TestBackfillWooSalePrices_fillsInMissingSalePriceForACurrentlyOnSaleProduct
 
 	uc := appchannels.NewBackfillWooSalePricesUseCase(
 		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.listingRepo, h.productRepo, h.variantRepo, h.skuRepo,
+		h.listingRepo, h.productRepo, h.variantRepo, h.skuRepo, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.BackfillWooSalePricesInput{ConnectionID: "conn-1"})
@@ -64,7 +65,7 @@ func TestBackfillWooSalePrices_skipsSKUsThatAlreadyHaveASalePrice(t *testing.T) 
 
 	uc := appchannels.NewBackfillWooSalePricesUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.listingRepo, h.productRepo, h.variantRepo, h.skuRepo,
+		h.listingRepo, h.productRepo, h.variantRepo, h.skuRepo, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.BackfillWooSalePricesInput{ConnectionID: "conn-1"})
@@ -82,7 +83,7 @@ func TestBackfillWooSalePrices_doesNotUpdateWhenWooHasNoActiveSale(t *testing.T)
 
 	uc := appchannels.NewBackfillWooSalePricesUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.listingRepo, h.productRepo, h.variantRepo, h.skuRepo,
+		h.listingRepo, h.productRepo, h.variantRepo, h.skuRepo, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.BackfillWooSalePricesInput{ConnectionID: "conn-1"})
@@ -104,7 +105,7 @@ func TestBackfillWooSalePrices_skipsVariableProducts(t *testing.T) {
 
 	uc := appchannels.NewBackfillWooSalePricesUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.listingRepo, h.productRepo, h.variantRepo, h.skuRepo,
+		h.listingRepo, h.productRepo, h.variantRepo, h.skuRepo, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.BackfillWooSalePricesInput{ConnectionID: "conn-1"})
@@ -120,7 +121,7 @@ func TestBackfillWooSalePrices_noCandidatesIsANoOpWithoutCallingWoo(t *testing.T
 
 	uc := appchannels.NewBackfillWooSalePricesUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.listingRepo, h.productRepo, h.variantRepo, h.skuRepo,
+		h.listingRepo, h.productRepo, h.variantRepo, h.skuRepo, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.BackfillWooSalePricesInput{ConnectionID: "conn-1"})

@@ -3,6 +3,8 @@ package channels
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"log"
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
@@ -53,6 +55,7 @@ type PushSalesOrderStatusToChannelsUseCase struct {
 	connRepo            integrationsDomain.ConnectionRepository
 	wooFactory          integrationsDomain.WooClientFactory
 	encryptionSecret    string
+	outbox              eventrecord.Enqueuer
 }
 
 func NewPushSalesOrderStatusToChannelsUseCase(
@@ -63,10 +66,12 @@ func NewPushSalesOrderStatusToChannelsUseCase(
 	connRepo integrationsDomain.ConnectionRepository,
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
+	outbox eventrecord.Enqueuer,
 ) *PushSalesOrderStatusToChannelsUseCase {
 	return &PushSalesOrderStatusToChannelsUseCase{
 		db: db, salesOrderRepo: salesOrderRepo, shipmentRepo: shipmentRepo, carrierOverrideRepo: carrierOverrideRepo,
 		connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
+		outbox: outbox,
 	}
 }
 
@@ -130,6 +135,14 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) pushToWoo(ctx context.Context, 
 		return fmt.Errorf("pushSalesOrderStatusToChannels: build client: %w", err)
 	}
 	if err := client.UpdateOrderStatus(ctx, order.ExternalOrderID, wooStatus); err != nil {
+		return fmt.Errorf("pushSalesOrderStatusToChannels: %w", err)
+	}
+	if err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		return eventrecord.Record(ctx, uc.outbox, events.ChannelOrderStatusPushed, order.ID, eventrecord.Data{
+			"provider": string(integrationsDomain.ProviderWooCommerce), "connection_id": order.ConnectionID,
+			"external_order_id": order.ExternalOrderID, "status": string(order.Status), "channel_status": wooStatus,
+		})
+	}); err != nil {
 		return fmt.Errorf("pushSalesOrderStatusToChannels: %w", err)
 	}
 

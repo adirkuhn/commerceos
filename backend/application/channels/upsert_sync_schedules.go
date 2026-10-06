@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -15,12 +17,13 @@ type UpsertSyncSchedulesInput struct {
 }
 
 type UpsertSyncSchedulesUseCase struct {
-	db   *gorm.DB
-	repo channelsDomain.SyncScheduleRepository
+	db     *gorm.DB
+	repo   channelsDomain.SyncScheduleRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewUpsertSyncSchedulesUseCase(db *gorm.DB, repo channelsDomain.SyncScheduleRepository) *UpsertSyncSchedulesUseCase {
-	return &UpsertSyncSchedulesUseCase{db: db, repo: repo}
+func NewUpsertSyncSchedulesUseCase(db *gorm.DB, repo channelsDomain.SyncScheduleRepository, outbox eventrecord.Enqueuer) *UpsertSyncSchedulesUseCase {
+	return &UpsertSyncSchedulesUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 // Execute is the settings page's "Save" action for the whole sync-schedule
@@ -46,6 +49,9 @@ func (uc *UpsertSyncSchedulesUseCase) Execute(ctx context.Context, in UpsertSync
 		for i, in := range in.Schedules {
 			schedules[i] = buildSyncSchedule(ctx, in, now)
 			if err := uc.repo.Upsert(ctx, &schedules[i]); err != nil {
+				return err
+			}
+			if err := eventrecord.Record(ctx, uc.outbox, events.SyncScheduleSaved, schedules[i].ID, syncScheduleData(schedules[i])); err != nil {
 				return err
 			}
 		}

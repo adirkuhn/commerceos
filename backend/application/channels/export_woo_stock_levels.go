@@ -3,6 +3,7 @@ package channels
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"strconv"
 
 	"gorm.io/gorm"
@@ -32,6 +33,7 @@ type ExportWooStockLevelsUseCase struct {
 	listingRepo channelsDomain.ProductChannelListingRepository
 	syncLogRepo channelsDomain.SyncLogRepository
 	stockLevel  stockLevelGetter
+	outbox      eventrecord.Enqueuer
 }
 
 func NewExportWooStockLevelsUseCase(
@@ -44,10 +46,12 @@ func NewExportWooStockLevelsUseCase(
 	listingRepo channelsDomain.ProductChannelListingRepository,
 	syncLogRepo channelsDomain.SyncLogRepository,
 	stockLevel stockLevelGetter,
+	outbox eventrecord.Enqueuer,
 ) *ExportWooStockLevelsUseCase {
 	return &ExportWooStockLevelsUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret,
 		variantRepo: variantRepo, skuRepo: skuRepo, listingRepo: listingRepo, syncLogRepo: syncLogRepo, stockLevel: stockLevel,
+		outbox: outbox,
 	}
 }
 
@@ -158,7 +162,7 @@ func (uc *ExportWooStockLevelsUseCase) pushOne(ctx context.Context, client integ
 	})
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("product %s: %v", listing.ProductID, err))
-		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), nil)
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), nil)
 		return
 	}
 	if isVirtual {
@@ -168,7 +172,7 @@ func (uc *ExportWooStockLevelsUseCase) pushOne(ctx context.Context, client integ
 	level, err := uc.stockLevel.Execute(ctx, skuID)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("sku %s: stock level: %v", skuID, err))
-		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), nil)
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), nil)
 		return
 	}
 
@@ -179,9 +183,9 @@ func (uc *ExportWooStockLevelsUseCase) pushOne(ctx context.Context, client integ
 	}
 	if err := client.UpdateProductStock(ctx, parentExternalIDFor(listings, listing), listing.ExternalID, int(level.Syncable), metadata); err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("sku %s: %v: %v", skuID, integrationsDomain.ErrWooRequestFailed, err))
-		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), fields)
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), fields)
 		return
 	}
 	result.Updated++
-	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusSuccess, "", fields)
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusSuccess, "", fields)
 }

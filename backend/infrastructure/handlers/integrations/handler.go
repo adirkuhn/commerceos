@@ -338,30 +338,30 @@ func Register(
 	fetchWooOrderUC := appchannels.NewImportWooOrdersUseCase(
 		db, connRepo, wooFactory, encryptionSecret,
 		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
-		allocateStockUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo),
+		allocateStockUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo), repositories.NewOutboxRepository(db),
 	)
 
 	stockLevelUC := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db))
 	categoryLinkRepo := repositories.NewExternalCategoryLinkRepo(db)
-	resolveCategoryLinkUC := appchannels.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo)
+	resolveCategoryLinkUC := appchannels.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo, repositories.NewOutboxRepository(db))
 	pushProductToWooUC := appchannels.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, encryptionSecret,
 		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo,
 		stockLevelUC,
 		mediaRepo,
-		resolveCategoryLinkUC,
+		resolveCategoryLinkUC, repositories.NewOutboxRepository(db),
 	)
 	bolOverrideRepo := repositories.NewBolProductOverrideRepo(db)
 	bolContentRepo := repositories.NewBolProductContentRepo(db)
 	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
 		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC,
-		appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), outboxRepo),
+		appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), outboxRepo), repositories.NewOutboxRepository(db),
 	)
 	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
-		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret, pushProductToBolUC,
+		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret, pushProductToBolUC, repositories.NewOutboxRepository(db),
 	)
 	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC, pushProductToBolUC, syncStockToChannelsUC,
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC, pushProductToBolUC, syncStockToChannelsUC, repositories.NewOutboxRepository(db),
 	)
 	enrollProductInChannelsUC := appchannels.NewEnrollProductInChannelsUseCase(
 		db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushProductToWooUC, pushProductToBolUC,
@@ -381,12 +381,12 @@ func Register(
 		appintegrations.NewTestConnectionUseCase(db, connRepo, wooFactory, encryptionSecret),
 		appintegrations.NewListWooTaxesUseCase(db, connRepo, wooFactory, encryptionSecret),
 		appchannels.NewCreateImportJobUseCase(
-			db, importJobRepo, listingRepo, appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), outboxRepo),
+			db, importJobRepo, listingRepo, appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), outboxRepo), repositories.NewOutboxRepository(db),
 		),
 		pushProductToWooUC,
 		appchannels.NewListSyncSchedulesUseCase(db, scheduleRepo),
-		appchannels.NewUpsertSyncSchedulesUseCase(db, scheduleRepo),
-		appchannels.NewDeleteAllImportedProductsUseCase(db, listingRepo, productRepo, categoryRepo, salesOrderRepo, deleteSalesOrderUC),
+		appchannels.NewUpsertSyncSchedulesUseCase(db, scheduleRepo, repositories.NewOutboxRepository(db)),
+		appchannels.NewDeleteAllImportedProductsUseCase(db, listingRepo, productRepo, categoryRepo, salesOrderRepo, deleteSalesOrderUC, repositories.NewOutboxRepository(db)),
 		appintegrations.NewUpdateConnectionSettingsUseCase(db, connRepo),
 		appchannels.NewGetProductChannelListingUseCase(db, listingRepo),
 		appchannels.NewListSyncLogsUseCase(db, listingRepo, syncLogRepo),
@@ -399,17 +399,17 @@ func Register(
 		appintegrations.NewConnectAIProviderUseCase(db, aiConnRepo, encryptionSecret),
 		appintegrations.NewDisconnectAIConnectionUseCase(db, aiConnRepo),
 		appchannels.NewListSalesChannelsUseCase(db, salesChannelRepo),
-		appchannels.NewCreateSalesChannelUseCase(db, salesChannelRepo, connRepo, exchangeRateRepo, channelWarehouseRepo, repositories.NewTenantSettingsRepo(db)),
-		appchannels.NewUpdateSalesChannelUseCase(db, salesChannelRepo, connRepo, channelWarehouseRepo),
-		appchannels.NewSetSalesChannelPaymentMethodUseCase(db, salesChannelRepo, connRepo),
-		appchannels.NewDeleteSalesChannelUseCase(db, salesChannelRepo),
+		appchannels.NewCreateSalesChannelUseCase(db, salesChannelRepo, connRepo, exchangeRateRepo, channelWarehouseRepo, repositories.NewTenantSettingsRepo(db), repositories.NewOutboxRepository(db)),
+		appchannels.NewUpdateSalesChannelUseCase(db, salesChannelRepo, connRepo, channelWarehouseRepo, repositories.NewOutboxRepository(db)),
+		appchannels.NewSetSalesChannelPaymentMethodUseCase(db, salesChannelRepo, connRepo, repositories.NewOutboxRepository(db)),
+		appchannels.NewDeleteSalesChannelUseCase(db, salesChannelRepo, repositories.NewOutboxRepository(db)),
 		appchannels.NewListProductsWithChannelEnrollmentUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo),
-		appchannels.NewSetProductChannelOverrideUseCase(db, salesChannelOverrideRepo, salesChannelRepo, productRepo),
+		appchannels.NewSetProductChannelOverrideUseCase(db, salesChannelOverrideRepo, salesChannelRepo, productRepo, repositories.NewOutboxRepository(db)),
 		fetchWooOrderUC,
 		appintegrations.NewListWooCategoriesUseCase(db, connRepo, wooFactory, encryptionSecret),
 		appchannels.NewListExternalCategoryLinksUseCase(db, categoryLinkRepo),
-		appchannels.NewUpsertExternalCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo),
-		appchannels.NewDeleteExternalCategoryLinkUseCase(db, categoryLinkRepo),
+		appchannels.NewUpsertExternalCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo, repositories.NewOutboxRepository(db)),
+		appchannels.NewDeleteExternalCategoryLinkUseCase(db, categoryLinkRepo, repositories.NewOutboxRepository(db)),
 		appintegrations.NewSetWebhookSecretUseCase(db, connRepo, encryptionSecret),
 		appwebhooks.NewListWebhookFallbackEventsUseCase(db, webhookFallbackRepo),
 		appwebhooks.NewRetryWebhookFallbackEventUseCase(db, webhookFallbackRepo, webhookPublisher),
@@ -437,7 +437,7 @@ func Register(
 		appintegrations.NewListBolEconomicOperatorsUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret),
 		appwebhooks.NewListWebhookEventsUseCase(db, webhookEventRepo),
 		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewCarrierClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC, notifyShipmentDeliveryUC, outboxRepo, retryablePaymentHandlers),
-		appchannels.NewLinkExistingWooProductUseCase(db, productRepo, connRepo, listingRepo, wooFactory, encryptionSecret),
+		appchannels.NewLinkExistingWooProductUseCase(db, productRepo, connRepo, listingRepo, wooFactory, encryptionSecret, repositories.NewOutboxRepository(db)),
 		appchannels.NewListProductChannelListingsUseCase(db, listingRepo),
 		appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(db, webhookFallbackRepo),
 		appintegrations.NewSetWhatsAppTestModeUseCase(db, connRepo),

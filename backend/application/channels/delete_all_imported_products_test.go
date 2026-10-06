@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -26,7 +27,7 @@ func TestDeleteAllImportedProducts_deletesAllProductsAndEmptyCategory(t *testing
 		{ID: "l2", ProductID: "p2", ConnectionID: "conn-1"},
 	}
 
-	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 5), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{})
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 5), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
 
@@ -47,7 +48,7 @@ func TestDeleteAllImportedProducts_leavesCategoryStillUsedByOtherProducts(t *tes
 		{ID: "l1", ProductID: "p1", ConnectionID: "conn-1"},
 	}
 
-	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 4), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{})
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 4), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
 
@@ -64,7 +65,7 @@ func TestDeleteAllImportedProducts_skipsCategoryStepWhenProductHasNone(t *testin
 		{ID: "l1", ProductID: "p1", ConnectionID: "conn-1"},
 	}
 
-	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 3), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{})
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 3), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
 
@@ -81,7 +82,7 @@ func TestDeleteAllImportedProducts_recordsErrorPerProductAndContinues(t *testing
 		{ID: "l2", ProductID: "p2", ConnectionID: "conn-1"},
 	}
 
-	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 4), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{})
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 4), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
 
@@ -104,7 +105,7 @@ func TestDeleteAllImportedProducts_reportsCleanMessageForReceivingHistory(t *tes
 		{ID: "l1", ProductID: "p1", ConnectionID: "conn-1"},
 	}
 
-	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 3), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{})
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 3), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
 
@@ -123,7 +124,7 @@ func TestDeleteAllImportedProducts_reportsCleanMessageForSalesOrderHistory(t *te
 		{ID: "l1", ProductID: "p1", ConnectionID: "conn-1"},
 	}
 
-	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 3), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{})
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 3), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
 
@@ -143,7 +144,7 @@ func TestDeleteAllImportedProducts_deletesConnectionsSalesOrdersBeforeProducts(t
 	salesOrderRepo := &stubOrdersSalesOrderRepo{byConnection: []omsDomain.SalesOrder{{ID: "so-1"}, {ID: "so-2"}}}
 	deleteSalesOrderUC := &stubDeleteSalesOrderUC{}
 
-	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 4), h.listingRepo, h.productRepo, h.categoryRepo, salesOrderRepo, deleteSalesOrderUC)
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 4), h.listingRepo, h.productRepo, h.categoryRepo, salesOrderRepo, deleteSalesOrderUC, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
 
@@ -162,7 +163,7 @@ func TestDeleteAllImportedProducts_oneSalesOrderFailureDoesNotAbortTheRun(t *tes
 	salesOrderRepo := &stubOrdersSalesOrderRepo{byConnection: []omsDomain.SalesOrder{{ID: "so-1"}, {ID: "so-2"}}}
 	deleteSalesOrderUC := &stubDeleteSalesOrderUC{errsByID: map[string]error{"so-1": errors.New("still processing")}}
 
-	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 4), h.listingRepo, h.productRepo, h.categoryRepo, salesOrderRepo, deleteSalesOrderUC)
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 4), h.listingRepo, h.productRepo, h.categoryRepo, salesOrderRepo, deleteSalesOrderUC, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
 
@@ -177,7 +178,7 @@ func TestDeleteAllImportedProducts_propagatesSalesOrderListError(t *testing.T) {
 	h := newHarness(nil)
 	salesOrderRepo := &stubOrdersSalesOrderRepo{listByConnectionErr: errors.New("db down")}
 
-	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 1), h.listingRepo, h.productRepo, h.categoryRepo, salesOrderRepo, &stubDeleteSalesOrderUC{})
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 1), h.listingRepo, h.productRepo, h.categoryRepo, salesOrderRepo, &stubDeleteSalesOrderUC{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
 
@@ -194,7 +195,7 @@ func TestDeleteAllImportedProducts_recordsErrorWhenCategoryDeleteFails(t *testin
 		{ID: "l1", ProductID: "p1", ConnectionID: "conn-1"},
 	}
 
-	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 4), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{})
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 4), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
 
@@ -207,7 +208,7 @@ func TestDeleteAllImportedProducts_recordsErrorWhenCategoryDeleteFails(t *testin
 func TestDeleteAllImportedProducts_noopWhenNoListings(t *testing.T) {
 	h := newHarness(nil)
 
-	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 2), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{})
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 2), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
 
@@ -220,7 +221,7 @@ func TestDeleteAllImportedProducts_propagatesListingListError(t *testing.T) {
 	h := newHarness(nil)
 	h.listingRepo.findErr = errors.New("db down")
 
-	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 2), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{})
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 2), h.listingRepo, h.productRepo, h.categoryRepo, &stubOrdersSalesOrderRepo{}, &stubDeleteSalesOrderUC{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
 

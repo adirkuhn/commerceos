@@ -3,6 +3,7 @@ package channels
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"strconv"
 	"time"
 
@@ -110,6 +111,7 @@ type ImportWooOrdersUseCase struct {
 	customerRepo     customersDomain.CustomerRepository
 	allocateStock    saleStockAllocator
 	updateOrder      updateSalesOrderUC
+	outbox           eventrecord.Enqueuer
 }
 
 func NewImportWooOrdersUseCase(
@@ -124,11 +126,13 @@ func NewImportWooOrdersUseCase(
 	customerRepo customersDomain.CustomerRepository,
 	allocateStock saleStockAllocator,
 	updateOrder updateSalesOrderUC,
+	outbox eventrecord.Enqueuer,
 ) *ImportWooOrdersUseCase {
 	return &ImportWooOrdersUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
 		salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo,
 		skuRepo: skuRepo, customerRepo: customerRepo, allocateStock: allocateStock, updateOrder: updateOrder,
+		outbox: outbox,
 	}
 }
 

@@ -133,6 +133,9 @@ func (uc *SyncProductToChannelsUseCase) setGatedAt(ctx context.Context, listings
 			if err := uc.listingRepo.Update(ctx, &l); err != nil {
 				return err
 			}
+			if err := recordListingGate(ctx, uc.outbox, l, gatedAt != nil); err != nil {
+				return err
+			}
 		}
 		return nil
 	}); err != nil {

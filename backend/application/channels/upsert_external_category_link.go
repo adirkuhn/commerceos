@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -27,10 +28,11 @@ type UpsertExternalCategoryLinkUseCase struct {
 	db           *gorm.DB
 	linkRepo     channelsDomain.ExternalCategoryLinkRepository
 	categoryRepo pmsDomain.CategoryRepository
+	outbox       eventrecord.Enqueuer
 }
 
-func NewUpsertExternalCategoryLinkUseCase(db *gorm.DB, linkRepo channelsDomain.ExternalCategoryLinkRepository, categoryRepo pmsDomain.CategoryRepository) *UpsertExternalCategoryLinkUseCase {
-	return &UpsertExternalCategoryLinkUseCase{db: db, linkRepo: linkRepo, categoryRepo: categoryRepo}
+func NewUpsertExternalCategoryLinkUseCase(db *gorm.DB, linkRepo channelsDomain.ExternalCategoryLinkRepository, categoryRepo pmsDomain.CategoryRepository, outbox eventrecord.Enqueuer) *UpsertExternalCategoryLinkUseCase {
+	return &UpsertExternalCategoryLinkUseCase{db: db, linkRepo: linkRepo, categoryRepo: categoryRepo, outbox: outbox}
 }
 
 func (uc *UpsertExternalCategoryLinkUseCase) Execute(ctx context.Context, in UpsertExternalCategoryLinkInput) (*channelsDomain.ExternalCategoryLink, error) {
@@ -46,7 +48,10 @@ func (uc *UpsertExternalCategoryLinkUseCase) Execute(ctx context.Context, in Ups
 			ExternalID: in.ExternalID, CategoryID: in.CategoryID,
 			CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.linkRepo.Upsert(ctx, &link)
+		if err := uc.linkRepo.Upsert(ctx, &link); err != nil {
+			return err
+		}
+		return recordCategoryLinkSaved(ctx, uc.outbox, link, CategoryLinkSourceManual)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("upsertExternalCategoryLink: %w", err)

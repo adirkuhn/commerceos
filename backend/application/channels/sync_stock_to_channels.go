@@ -3,6 +3,7 @@ package channels
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"log"
 	"maps"
 	"strconv"
@@ -34,6 +35,7 @@ type SyncStockToChannelsUseCase struct {
 	stockLevel  stockLevelGetter
 	encSecret   string
 	bolPusher   bolProductPusher
+	outbox      eventrecord.Enqueuer
 }
 
 func NewSyncStockToChannelsUseCase(
@@ -47,11 +49,13 @@ func NewSyncStockToChannelsUseCase(
 	stockLevel stockLevelGetter,
 	encryptionSecret string,
 	bolPusher bolProductPusher,
+	outbox eventrecord.Enqueuer,
 ) *SyncStockToChannelsUseCase {
 	return &SyncStockToChannelsUseCase{
 		db: db, skuRepo: skuRepo, variantRepo: variantRepo, listingRepo: listingRepo,
 		syncLogRepo: syncLogRepo, connRepo: connRepo, wooFactory: wooFactory,
 		stockLevel: stockLevel, encSecret: encryptionSecret, bolPusher: bolPusher,
+		outbox: outbox,
 	}
 }
 
@@ -264,7 +268,7 @@ func (uc *SyncStockToChannelsUseCase) syncWoo(ctx context.Context, listing chann
 		listing.LastSyncError = ""
 	}
 
-	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, status, errMsg, fields)
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowPush, status, errMsg, fields)
 
 	if uErr := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		return uc.listingRepo.Update(ctx, &listing)

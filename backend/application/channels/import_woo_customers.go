@@ -3,6 +3,7 @@ package channels
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"time"
 
 	"gorm.io/gorm"
@@ -47,6 +48,7 @@ type ImportWooCustomersUseCase struct {
 	wooFactory       integrationsDomain.WooClientFactory
 	encryptionSecret string
 	customerRepo     customersDomain.CustomerRepository
+	outbox           eventrecord.Enqueuer
 }
 
 func NewImportWooCustomersUseCase(
@@ -55,10 +57,12 @@ func NewImportWooCustomersUseCase(
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
 	customerRepo customersDomain.CustomerRepository,
+	outbox eventrecord.Enqueuer,
 ) *ImportWooCustomersUseCase {
 	return &ImportWooCustomersUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory,
 		encryptionSecret: encryptionSecret, customerRepo: customerRepo,
+		outbox: outbox,
 	}
 }
 
@@ -136,7 +140,10 @@ func (uc *ImportWooCustomersUseCase) importOne(ctx context.Context, woo integrat
 			IsPayingCustomer: woo.IsPayingCustomer, AvatarURL: woo.AvatarURL,
 			DateCreated: dateCreated, DateModified: dateModified,
 		}
-		return uc.customerRepo.Create(ctx, &customer)
+		if err := uc.customerRepo.Create(ctx, &customer); err != nil {
+			return err
+		}
+		return recordCustomerImported(ctx, uc.outbox, customer, CustomerImportSourceCustomers)
 	})
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("woo customer %d: %v", woo.ID, err))

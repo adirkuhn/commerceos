@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,7 @@ import (
 
 func TestUpsertSyncSchedule_createsScheduleForRunnableEntity(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	s, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStock,
@@ -28,7 +29,7 @@ func TestUpsertSyncSchedule_createsScheduleForRunnableEntity(t *testing.T) {
 
 func TestUpsertSyncSchedule_disabledScheduleHasNoNextRunAt(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	s, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStock,
@@ -41,7 +42,7 @@ func TestUpsertSyncSchedule_disabledScheduleHasNoNextRunAt(t *testing.T) {
 
 func TestUpsertSyncSchedule_allowsSavingOrdersDisabled(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrders,
@@ -53,7 +54,7 @@ func TestUpsertSyncSchedule_allowsSavingOrdersDisabled(t *testing.T) {
 
 func TestUpsertSyncSchedule_rejectsEnablingOrdersImportWithoutWarehouse(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrders,
@@ -67,7 +68,7 @@ func TestUpsertSyncSchedule_rejectsEnablingOrdersImportWithoutWarehouse(t *testi
 
 func TestUpsertSyncSchedule_allowsEnablingOrdersImportWithWarehouse(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 	warehouseID := "wh-1"
 
 	s, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
@@ -83,7 +84,7 @@ func TestUpsertSyncSchedule_allowsEnablingOrdersImportWithWarehouse(t *testing.T
 
 func TestUpsertSyncSchedule_rejectsEnablingOrdersExport(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 	warehouseID := "wh-1"
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
@@ -99,7 +100,7 @@ func TestUpsertSyncSchedule_rejectsEnablingOrdersExport(t *testing.T) {
 
 func TestUpsertSyncSchedule_rejectsEnablingOrdersReconciliationWithoutWarehouse(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrdersReconciliation,
@@ -113,7 +114,7 @@ func TestUpsertSyncSchedule_rejectsEnablingOrdersReconciliationWithoutWarehouse(
 
 func TestUpsertSyncSchedule_allowsEnablingOrdersReconciliationWithWarehouse(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 	warehouseID := "wh-1"
 
 	s, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
@@ -129,7 +130,7 @@ func TestUpsertSyncSchedule_allowsEnablingOrdersReconciliationWithWarehouse(t *t
 
 func TestUpsertSyncSchedule_rejectsEnablingOrdersReconciliationExport(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 	warehouseID := "wh-1"
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
@@ -145,7 +146,7 @@ func TestUpsertSyncSchedule_rejectsEnablingOrdersReconciliationExport(t *testing
 
 func TestUpsertSyncSchedule_rejectsEnablingCategories(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityCategories,
@@ -158,7 +159,7 @@ func TestUpsertSyncSchedule_rejectsEnablingCategories(t *testing.T) {
 
 func TestUpsertSyncSchedule_rejectsInvalidEntityType(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: "bogus",
@@ -171,7 +172,7 @@ func TestUpsertSyncSchedule_rejectsInvalidEntityType(t *testing.T) {
 
 func TestUpsertSyncSchedule_rejectsInvalidDirection(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityProducts,
@@ -184,7 +185,7 @@ func TestUpsertSyncSchedule_rejectsInvalidDirection(t *testing.T) {
 
 func TestUpsertSyncSchedule_rejectsNonPositiveInterval(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityProducts,
@@ -197,7 +198,7 @@ func TestUpsertSyncSchedule_rejectsNonPositiveInterval(t *testing.T) {
 
 func TestUpsertSyncSchedule_rejectsEnablingProductsImportWithoutWarehouseAndCurrency(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityProducts,
@@ -211,7 +212,7 @@ func TestUpsertSyncSchedule_rejectsEnablingProductsImportWithoutWarehouseAndCurr
 
 func TestUpsertSyncSchedule_allowsEnablingProductsImportWithWarehouseAndCurrency(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 	warehouseID := "wh-1"
 	currency := "USD"
 
@@ -228,7 +229,7 @@ func TestUpsertSyncSchedule_allowsEnablingProductsImportWithWarehouseAndCurrency
 
 func TestUpsertSyncSchedule_rejectsEnablingStockImportWithoutWarehouse(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStock,
@@ -241,7 +242,7 @@ func TestUpsertSyncSchedule_rejectsEnablingStockImportWithoutWarehouse(t *testin
 
 func TestUpsertSyncSchedule_allowsEnablingStockImportWithWarehouse(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 	warehouseID := "wh-1"
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
@@ -255,7 +256,7 @@ func TestUpsertSyncSchedule_allowsEnablingStockImportWithWarehouse(t *testing.T)
 
 func TestUpsertSyncSchedule_doesNotRequireWarehouseOrCurrencyForStockExport(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStock,
@@ -267,7 +268,7 @@ func TestUpsertSyncSchedule_doesNotRequireWarehouseOrCurrencyForStockExport(t *t
 
 func TestUpsertSyncSchedule_rejectsEnablingBolOrdersImportWithoutWarehouse(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityBolOrders,
@@ -281,7 +282,7 @@ func TestUpsertSyncSchedule_rejectsEnablingBolOrdersImportWithoutWarehouse(t *te
 
 func TestUpsertSyncSchedule_allowsEnablingBolOrdersImportWithWarehouseAndNoCurrency(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 	warehouseID := "wh-1"
 
 	s, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
@@ -296,7 +297,7 @@ func TestUpsertSyncSchedule_allowsEnablingBolOrdersImportWithWarehouseAndNoCurre
 
 func TestUpsertSyncSchedule_rejectsEnablingBolOrdersExport(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 	warehouseID := "wh-1"
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
@@ -312,7 +313,7 @@ func TestUpsertSyncSchedule_rejectsEnablingBolOrdersExport(t *testing.T) {
 
 func TestUpsertSyncSchedule_rejectsEnablingBolProductsImport(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityBolProducts,
@@ -326,7 +327,7 @@ func TestUpsertSyncSchedule_rejectsEnablingBolProductsImport(t *testing.T) {
 
 func TestUpsertSyncSchedule_rejectsEnablingBolStockImport(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityBolStock,
@@ -340,7 +341,7 @@ func TestUpsertSyncSchedule_rejectsEnablingBolStockImport(t *testing.T) {
 
 func TestUpsertSyncSchedule_allowsEnablingBolProductsAndBolStockExportWithNoWarehouseOrCurrency(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 2), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 2), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityBolProducts,
@@ -357,7 +358,7 @@ func TestUpsertSyncSchedule_allowsEnablingBolProductsAndBolStockExportWithNoWare
 
 func TestUpsertSyncSchedule_propagatesRepoError(t *testing.T) {
 	repo := &stubSyncScheduleRepo{upsertErr: errors.New("db down")}
-	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStock,

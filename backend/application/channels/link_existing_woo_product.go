@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"time"
 
 	"gorm.io/gorm"
@@ -40,6 +41,7 @@ type LinkExistingWooProductUseCase struct {
 	listingRepo channelsDomain.ProductChannelListingRepository
 	wooFactory  integrationsDomain.WooClientFactory
 	encSecret   string
+	outbox      eventrecord.Enqueuer
 }
 
 func NewLinkExistingWooProductUseCase(
@@ -49,10 +51,12 @@ func NewLinkExistingWooProductUseCase(
 	listingRepo channelsDomain.ProductChannelListingRepository,
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
+	outbox eventrecord.Enqueuer,
 ) *LinkExistingWooProductUseCase {
 	return &LinkExistingWooProductUseCase{
 		db: db, productRepo: productRepo, connRepo: connRepo, listingRepo: listingRepo,
 		wooFactory: wooFactory, encSecret: encryptionSecret,
+		outbox: outbox,
 	}
 }
 
@@ -105,7 +109,10 @@ func (uc *LinkExistingWooProductUseCase) Execute(ctx context.Context, in LinkExi
 			SyncStatus: channelsDomain.SyncStatusSynced, LastSyncedAt: &now,
 			CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.listingRepo.Create(ctx, &listing)
+		if err := uc.listingRepo.Create(ctx, &listing); err != nil {
+			return err
+		}
+		return recordListingCreated(ctx, uc.outbox, listing, ListingSourceLinkExisting)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("linkExistingWooProduct: %w", err)

@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,7 @@ import (
 
 func TestDeleteProductFromChannels_deletesEachListingOnWoo(t *testing.T) {
 	h := newHarness(nil)
-	uc := appchannels.NewDeleteProductFromChannelsUseCase(newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret)
+	uc := appchannels.NewDeleteProductFromChannelsUseCase(newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), []events.ProductDeletedListing{
 		{ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555"},
@@ -27,7 +28,7 @@ func TestDeleteProductFromChannels_deletesEachListingOnWoo(t *testing.T) {
 
 func TestDeleteProductFromChannels_deletesMultipleListings(t *testing.T) {
 	h := newHarness(nil)
-	uc := appchannels.NewDeleteProductFromChannelsUseCase(newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret)
+	uc := appchannels.NewDeleteProductFromChannelsUseCase(newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), []events.ProductDeletedListing{
 		{ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555"},
@@ -40,7 +41,7 @@ func TestDeleteProductFromChannels_deletesMultipleListings(t *testing.T) {
 
 func TestDeleteProductFromChannels_skipsNonWooCommerceProvider(t *testing.T) {
 	h := newHarness(nil)
-	uc := appchannels.NewDeleteProductFromChannelsUseCase(newMockGormDB(t, 0), h.connRepo, h.wooFactory, testEncryptionSecret)
+	uc := appchannels.NewDeleteProductFromChannelsUseCase(newMockGormDB(t, 0), h.connRepo, h.wooFactory, testEncryptionSecret, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), []events.ProductDeletedListing{
 		{ConnectionID: "conn-1", Provider: "internal", ExternalID: "555"},
@@ -57,7 +58,7 @@ func TestDeleteProductFromChannels_skipsNonWooCommerceProvider(t *testing.T) {
 func TestDeleteProductFromChannels_onePushFailureDoesNotBlockOthers(t *testing.T) {
 	h := newHarness(nil)
 	h.wooClient.deleteProductErr = errors.New("woo unreachable")
-	uc := appchannels.NewDeleteProductFromChannelsUseCase(newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret)
+	uc := appchannels.NewDeleteProductFromChannelsUseCase(newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), []events.ProductDeletedListing{
 		{ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555"},
@@ -70,7 +71,7 @@ func TestDeleteProductFromChannels_onePushFailureDoesNotBlockOthers(t *testing.T
 
 func TestDeleteProductFromChannels_noListingsIsANoOp(t *testing.T) {
 	h := newHarness(nil)
-	uc := appchannels.NewDeleteProductFromChannelsUseCase(newMockGormDB(t, 0), h.connRepo, h.wooFactory, testEncryptionSecret)
+	uc := appchannels.NewDeleteProductFromChannelsUseCase(newMockGormDB(t, 0), h.connRepo, h.wooFactory, testEncryptionSecret, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), nil)
 
