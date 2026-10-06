@@ -130,7 +130,7 @@ func main() {
 	createSalesOrderUC := appoms.NewCreateSalesOrderUseCase(
 		db, salesOrderRepo, lineItemRepo, linkRepo, repositories.NewSKURepo(db), allocateStock,
 	)
-	createCustomerUC := appcustomers.NewCreateCustomerUseCase(db, repositories.NewCustomerRepo(db))
+	createCustomerUC := appcustomers.NewCreateCustomerUseCase(db, repositories.NewCustomerRepo(db), outboxRepo)
 	generatePaymentLinkUC := appwhatsapp.NewGeneratePaymentLinkUseCase(
 		db, repositories.NewSalesChannelRepo(db), repositories.NewConnectionRepo(db),
 		stripe.NewClientFactory(), revolut.NewClientFactory(), cfg.IntegrationsEncryptionSecret, cfg.FrontendBaseURL,

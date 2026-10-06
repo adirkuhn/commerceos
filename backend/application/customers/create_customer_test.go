@@ -2,6 +2,7 @@ package customers_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 
 func TestCreateCustomer_setsFields(t *testing.T) {
 	repo := &stubCustomerRepo{}
-	uc := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), repo)
+	uc := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	wooID := int64(42)
 	c, err := uc.Execute(context.Background(), appcustomers.CreateCustomerInput{
@@ -32,7 +33,7 @@ func TestCreateCustomer_setsFields(t *testing.T) {
 
 func TestCreateCustomer_setsCustomerNote(t *testing.T) {
 	repo := &stubCustomerRepo{}
-	uc := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), repo)
+	uc := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	c, err := uc.Execute(context.Background(), appcustomers.CreateCustomerInput{
 		Email: "jane@example.com", CustomerNote: "VIP, call before delivery",
@@ -44,7 +45,7 @@ func TestCreateCustomer_setsCustomerNote(t *testing.T) {
 
 func TestCreateCustomer_propagatesRepoError(t *testing.T) {
 	repo := &stubCustomerRepo{createErr: customersDomain.ErrCustomerNotFound}
-	uc := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), repo)
+	uc := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appcustomers.CreateCustomerInput{Email: "jane@example.com"})
 

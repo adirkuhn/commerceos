@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-56 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+59 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -67,6 +67,14 @@ Payload (`events.EntityAction`):
 | `coupons.coupon.updated` | action | A coupon changed (changes: code, discount_type, discount_value, min_subtotal_minor_units, usage_limit, expires_at, active). | envelope |
 | `coupons.coupon_currency_amount.deleted` | action | A coupon's per-currency discount was removed (it falls back to FX conversion). entity_id is the coupon. data: currency_code. | envelope |
 | `coupons.coupon_currency_amount.set` | action | A fixed-amount coupon's discount in one currency was set. entity_id is the coupon. data: currency_code, amount_minor_units. | envelope |
+
+### customers
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `customers.customer.created` | action | A customer was created. data: woo_customer_id, role, is_paying_customer. | envelope |
+| `customers.customer.deleted` | action | A customer was deleted. data: woo_customer_id. | envelope |
+| `customers.customer.updated` | action | A customer changed (changes: woo_customer_id, role, is_paying_customer). data.changed_fields: personal fields that changed (email, first_name, last_name, username, billing, shipping, avatar_url, customer_note), names only. | envelope |
 
 ### integrations
 

@@ -2,6 +2,7 @@ package customers_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 
 func TestUpdateCustomer_updatesFields(t *testing.T) {
 	repo := &stubCustomerRepo{findResult: &customersDomain.Customer{ID: "c1", Email: "old@example.com"}}
-	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo)
+	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	c, err := uc.Execute(context.Background(), appcustomers.UpdateCustomerInput{
 		ID: "c1", Email: "new@example.com", FirstName: "Jane", LastName: "Doe",
@@ -26,7 +27,7 @@ func TestUpdateCustomer_updatesFields(t *testing.T) {
 
 func TestUpdateCustomer_updatesCustomerNote(t *testing.T) {
 	repo := &stubCustomerRepo{findResult: &customersDomain.Customer{ID: "c1", Email: "jane@example.com", CustomerNote: "old note"}}
-	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo)
+	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	c, err := uc.Execute(context.Background(), appcustomers.UpdateCustomerInput{
 		ID: "c1", Email: "jane@example.com", CustomerNote: "Call before delivery",
@@ -40,7 +41,7 @@ func TestUpdateCustomer_updatesCustomerNote(t *testing.T) {
 
 func TestUpdateCustomer_propagatesNotFound(t *testing.T) {
 	repo := &stubCustomerRepo{findErr: customersDomain.ErrCustomerNotFound}
-	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo)
+	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appcustomers.UpdateCustomerInput{ID: "missing"})
 

@@ -3,6 +3,7 @@ package customers
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"time"
 
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
@@ -28,10 +29,11 @@ type UpdateCustomerInput struct {
 type UpdateCustomerUseCase struct {
 	db           *gorm.DB
 	customerRepo customersDomain.CustomerRepository
+	outbox       eventrecord.Enqueuer
 }
 
-func NewUpdateCustomerUseCase(db *gorm.DB, customerRepo customersDomain.CustomerRepository) *UpdateCustomerUseCase {
-	return &UpdateCustomerUseCase{db: db, customerRepo: customerRepo}
+func NewUpdateCustomerUseCase(db *gorm.DB, customerRepo customersDomain.CustomerRepository, outbox eventrecord.Enqueuer) *UpdateCustomerUseCase {
+	return &UpdateCustomerUseCase{db: db, customerRepo: customerRepo, outbox: outbox}
 }
 
 func (uc *UpdateCustomerUseCase) Execute(ctx context.Context, in UpdateCustomerInput) (*customersDomain.Customer, error) {
@@ -41,6 +43,7 @@ func (uc *UpdateCustomerUseCase) Execute(ctx context.Context, in UpdateCustomerI
 		if err != nil {
 			return err
 		}
+		before := *existing
 		existing.WooCustomerID = in.WooCustomerID
 		existing.Email = in.Email
 		existing.FirstName = in.FirstName
@@ -57,7 +60,7 @@ func (uc *UpdateCustomerUseCase) Execute(ctx context.Context, in UpdateCustomerI
 			return err
 		}
 		customer = *existing
-		return nil
+		return recordCustomerUpdated(ctx, uc.outbox, before, customer)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateCustomer: %w", err)

@@ -61,12 +61,13 @@ var _ gencustomers.ServerInterface = (*Handler)(nil)
 // mounts the generated routes (matching the OpenAPI spec exactly).
 func Register(rg gin.IRouter, db *gorm.DB) {
 	customerRepo := repositories.NewCustomerRepo(db)
+	outboxRepo := repositories.NewOutboxRepository(db)
 
 	h := NewHandler(
 		appcustomers.NewListCustomersUseCase(db, customerRepo),
-		appcustomers.NewCreateCustomerUseCase(db, customerRepo),
-		appcustomers.NewUpdateCustomerUseCase(db, customerRepo),
-		appcustomers.NewDeleteCustomerUseCase(db, customerRepo),
+		appcustomers.NewCreateCustomerUseCase(db, customerRepo, outboxRepo),
+		appcustomers.NewUpdateCustomerUseCase(db, customerRepo, outboxRepo),
+		appcustomers.NewDeleteCustomerUseCase(db, customerRepo, outboxRepo),
 		appcustomers.NewListCustomerWhatsAppMessagesUseCase(db, repositories.NewWhatsAppMessageRepo(db)),
 	)
 	gencustomers.RegisterHandlers(rg, h)
