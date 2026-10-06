@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"time"
 
 	promotionsDomain "github.com/adirkuhn/commerceos/domain/promotions"
@@ -31,10 +33,11 @@ type FinishClearanceLinesUseCase struct {
 	lines     promotionsDomain.ClearanceLineRepository
 	promoRepo promotionsDomain.PromotionRepository
 	reverter  lineReverter
+	outbox    eventrecord.Enqueuer
 }
 
-func NewFinishClearanceLinesUseCase(db *gorm.DB, batches skuBatchLister, lines promotionsDomain.ClearanceLineRepository, promoRepo promotionsDomain.PromotionRepository, reverter lineReverter) *FinishClearanceLinesUseCase {
-	return &FinishClearanceLinesUseCase{db: db, batches: batches, lines: lines, promoRepo: promoRepo, reverter: reverter}
+func NewFinishClearanceLinesUseCase(db *gorm.DB, batches skuBatchLister, lines promotionsDomain.ClearanceLineRepository, promoRepo promotionsDomain.PromotionRepository, reverter lineReverter, outbox eventrecord.Enqueuer) *FinishClearanceLinesUseCase {
+	return &FinishClearanceLinesUseCase{db: db, batches: batches, lines: lines, promoRepo: promoRepo, reverter: reverter, outbox: outbox}
 }
 
 // ExecuteForSKU checks every open clearance line on skuID for ctx's tenant.
@@ -79,6 +82,11 @@ func (uc *FinishClearanceLinesUseCase) ExecuteForLine(ctx context.Context, line 
 		if err := uc.lines.MarkFinished(ctx, line.ID, now); err != nil {
 			return err
 		}
+		if err := eventrecord.Record(ctx, uc.outbox, events.PromotionLineFinished, line.ID, eventrecord.Data{
+			"promotion_id": line.PromotionID, "sku_id": line.SKUID, "batch_id": *line.BatchID,
+		}); err != nil {
+			return err
+		}
 		return uc.endPromotionIfDone(ctx, line.PromotionID, now)
 	})
 	if err != nil {
@@ -105,7 +113,13 @@ func (uc *FinishClearanceLinesUseCase) endPromotionIfDone(ctx context.Context, p
 	if promo.Status == promotionsDomain.PromotionStatusEnded {
 		return nil
 	}
+	before := *promo
 	promo.Status = promotionsDomain.PromotionStatusEnded
 	promo.UpdatedAt = now
-	return uc.promoRepo.Update(ctx, promo)
+	if err := uc.promoRepo.Update(ctx, promo); err != nil {
+		return err
+	}
+	return eventrecord.Record(ctx, uc.outbox, events.PromotionUpdated, promo.ID,
+		eventrecord.NewChanges().Set("status", string(before.Status), string(promo.Status)),
+		eventrecord.Data{"reason": PromotionChangeReasonClearanceFinished})
 }

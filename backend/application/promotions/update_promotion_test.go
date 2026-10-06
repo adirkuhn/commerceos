@@ -3,6 +3,7 @@ package promotions_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 func TestUpdatePromotion_replacesLinesWholesale(t *testing.T) {
 	promoRepo := &stubPromotionRepo{findResult: &promotionsDomain.Promotion{ID: "promo-1", Name: "Old"}}
 	lineRepo := &stubPromotionSKURepo{}
-	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &stubLineReverter{})
+	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &stubLineReverter{}, &eventrecordtest.Outbox{})
 
 	promo, err := uc.Execute(context.Background(), apppromotions.UpdatePromotionInput{
 		ID: "promo-1", Name: "New", Type: promotionsDomain.PromotionTypeFixedAmount, StartsAt: time.Now(),
@@ -34,7 +35,7 @@ func TestUpdatePromotion_replacesLinesWholesale(t *testing.T) {
 
 func TestUpdatePromotion_propagatesNotFound(t *testing.T) {
 	promoRepo := &stubPromotionRepo{}
-	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &stubLineReverter{})
+	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &stubLineReverter{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppromotions.UpdatePromotionInput{
 		ID: "missing", Name: "New", Type: promotionsDomain.PromotionTypePercentage, StartsAt: time.Now(),
@@ -48,7 +49,7 @@ func TestUpdatePromotion_propagatesNotFound(t *testing.T) {
 
 func TestUpdatePromotion_rejectsInvalidStatus(t *testing.T) {
 	promoRepo := &stubPromotionRepo{findResult: &promotionsDomain.Promotion{ID: "promo-1"}}
-	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &stubLineReverter{})
+	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &stubLineReverter{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppromotions.UpdatePromotionInput{
 		ID: "promo-1", Name: "New", Type: promotionsDomain.PromotionTypePercentage, StartsAt: time.Now(),

@@ -3,6 +3,7 @@ package promotions_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -17,7 +18,7 @@ func TestCreatePromotion_persistsPromotionAndLines(t *testing.T) {
 	promoRepo := &stubPromotionRepo{}
 	lineRepo := &stubPromotionSKURepo{}
 	skuChecker := &stubSKUExistenceChecker{}
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), promoRepo, lineRepo, skuChecker, &stubSKUBatchLister{})
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), promoRepo, lineRepo, skuChecker, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
 		Name: "Summer Acai", Type: promotionsDomain.PromotionTypePercentage,
@@ -37,7 +38,7 @@ func TestCreatePromotion_persistsPromotionAndLines(t *testing.T) {
 }
 
 func TestCreatePromotion_rejectsEmptyName(t *testing.T) {
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{})
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
 		Name: "   ", Type: promotionsDomain.PromotionTypePercentage, StartsAt: time.Now(),
@@ -49,7 +50,7 @@ func TestCreatePromotion_rejectsEmptyName(t *testing.T) {
 }
 
 func TestCreatePromotion_rejectsInvalidType(t *testing.T) {
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{})
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
 		Name: "Promo", Type: "bogo", StartsAt: time.Now(),
@@ -63,7 +64,7 @@ func TestCreatePromotion_rejectsInvalidType(t *testing.T) {
 func TestCreatePromotion_rejectsEndBeforeStart(t *testing.T) {
 	starts := time.Now()
 	ends := starts.Add(-time.Hour)
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{})
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
 		Name: "Promo", Type: promotionsDomain.PromotionTypePercentage, StartsAt: starts, EndsAt: &ends,
@@ -75,7 +76,7 @@ func TestCreatePromotion_rejectsEndBeforeStart(t *testing.T) {
 }
 
 func TestCreatePromotion_rejectsNoLines(t *testing.T) {
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{})
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
 		Name: "Promo", Type: promotionsDomain.PromotionTypePercentage, StartsAt: time.Now(),
@@ -86,7 +87,7 @@ func TestCreatePromotion_rejectsNoLines(t *testing.T) {
 }
 
 func TestCreatePromotion_rejectsDuplicateSKUInLines(t *testing.T) {
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{})
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
 		Name: "Promo", Type: promotionsDomain.PromotionTypePercentage, StartsAt: time.Now(),
@@ -101,7 +102,7 @@ func TestCreatePromotion_rejectsDuplicateSKUInLines(t *testing.T) {
 }
 
 func TestCreatePromotion_rejectsPercentageOutOfRange(t *testing.T) {
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{})
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
 		Name: "Promo", Type: promotionsDomain.PromotionTypePercentage, StartsAt: time.Now(),
@@ -113,7 +114,7 @@ func TestCreatePromotion_rejectsPercentageOutOfRange(t *testing.T) {
 }
 
 func TestCreatePromotion_rejectsNonPositiveFixedAmount(t *testing.T) {
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{})
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
 		Name: "Promo", Type: promotionsDomain.PromotionTypeFixedAmount, StartsAt: time.Now(),
@@ -126,7 +127,7 @@ func TestCreatePromotion_rejectsNonPositiveFixedAmount(t *testing.T) {
 
 func TestCreatePromotion_propagatesSKUNotFound(t *testing.T) {
 	skuChecker := &stubSKUExistenceChecker{findErr: pmsDomain.ErrSKUNotFound}
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, skuChecker, &stubSKUBatchLister{})
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, skuChecker, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
 		Name: "Promo", Type: promotionsDomain.PromotionTypePercentage, StartsAt: time.Now(),
@@ -139,7 +140,7 @@ func TestCreatePromotion_propagatesSKUNotFound(t *testing.T) {
 
 func TestCreatePromotion_defaultsStatusToDraft(t *testing.T) {
 	promoRepo := &stubPromotionRepo{}
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), promoRepo, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{})
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), promoRepo, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
 		Name: "Promo", Type: promotionsDomain.PromotionTypePercentage, StartsAt: time.Now(),
@@ -153,7 +154,7 @@ func TestCreatePromotion_defaultsStatusToDraft(t *testing.T) {
 func TestCreatePromotion_warnsWhenSKUAlreadyHasAManualSalePrice(t *testing.T) {
 	existingSalePrice := int64(799)
 	skuChecker := &stubSKUExistenceChecker{findResult: &pmsDomain.SKU{ID: "sku-1", SKUCode: "ACAI-1L", SalePriceMinorUnits: &existingSalePrice}}
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, skuChecker, &stubSKUBatchLister{})
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, skuChecker, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
 		Name: "Promo", Type: promotionsDomain.PromotionTypePercentage, StartsAt: time.Now(),
@@ -167,7 +168,7 @@ func TestCreatePromotion_warnsWhenSKUAlreadyHasAManualSalePrice(t *testing.T) {
 
 func TestCreatePromotion_noWarningWhenSKUHasNoManualSalePrice(t *testing.T) {
 	skuChecker := &stubSKUExistenceChecker{findResult: &pmsDomain.SKU{ID: "sku-1", SKUCode: "ACAI-1L"}}
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, skuChecker, &stubSKUBatchLister{})
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, skuChecker, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
 		Name: "Promo", Type: promotionsDomain.PromotionTypePercentage, StartsAt: time.Now(),

@@ -3,6 +3,7 @@ package promotions_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,7 @@ import (
 
 func TestDeletePromotion_deletesByID(t *testing.T) {
 	promoRepo := &stubPromotionRepo{findResult: &promotionsDomain.Promotion{ID: "promo-1"}}
-	uc := apppromotions.NewDeletePromotionUseCase(newMockGormDBN(t, 2), promoRepo, &stubPromotionSKURepo{}, &stubLineReverter{})
+	uc := apppromotions.NewDeletePromotionUseCase(newMockGormDBN(t, 2), promoRepo, &stubPromotionSKURepo{}, &stubLineReverter{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "promo-1")
 
@@ -23,7 +24,7 @@ func TestDeletePromotion_deletesByID(t *testing.T) {
 
 func TestDeletePromotion_propagatesNotFound(t *testing.T) {
 	promoRepo := &stubPromotionRepo{}
-	uc := apppromotions.NewDeletePromotionUseCase(newMockGormDBN(t, 2), promoRepo, &stubPromotionSKURepo{}, &stubLineReverter{})
+	uc := apppromotions.NewDeletePromotionUseCase(newMockGormDBN(t, 2), promoRepo, &stubPromotionSKURepo{}, &stubLineReverter{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 

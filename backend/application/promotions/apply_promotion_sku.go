@@ -3,6 +3,8 @@ package promotions
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"time"
 
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -54,10 +56,11 @@ type ApplyPromotionSKUUseCase struct {
 	skuLookup    skuPriceLookup
 	setSalePrice setPromotionSalePrice
 	lineRepo     promotionsDomain.PromotionSKURepository
+	outbox       eventrecord.Enqueuer
 }
 
-func NewApplyPromotionSKUUseCase(db *gorm.DB, skuLookup skuPriceLookup, setSalePrice setPromotionSalePrice, lineRepo promotionsDomain.PromotionSKURepository) *ApplyPromotionSKUUseCase {
-	return &ApplyPromotionSKUUseCase{db: db, skuLookup: skuLookup, setSalePrice: setSalePrice, lineRepo: lineRepo}
+func NewApplyPromotionSKUUseCase(db *gorm.DB, skuLookup skuPriceLookup, setSalePrice setPromotionSalePrice, lineRepo promotionsDomain.PromotionSKURepository, outbox eventrecord.Enqueuer) *ApplyPromotionSKUUseCase {
+	return &ApplyPromotionSKUUseCase{db: db, skuLookup: skuLookup, setSalePrice: setSalePrice, lineRepo: lineRepo, outbox: outbox}
 }
 
 func (uc *ApplyPromotionSKUUseCase) Execute(ctx context.Context, line promotionsDomain.PromotionSKU) error {
@@ -81,7 +84,13 @@ func (uc *ApplyPromotionSKUUseCase) Execute(ctx context.Context, line promotions
 	}
 
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.lineRepo.MarkApplied(ctx, line.ID, previousSalePrice, previousSaleEndDate)
+		if err := uc.lineRepo.MarkApplied(ctx, line.ID, previousSalePrice, previousSaleEndDate); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.PromotionLineApplied, line.ID, eventrecord.Data{
+			"promotion_id": line.PromotionID, "sku_id": line.SKUID,
+			"sale_price_minor_units": newSalePrice, "previous_sale_price_minor_units": previousSalePrice,
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("applyPromotionSKU: %w", err)
@@ -96,10 +105,11 @@ type RevertPromotionSKUUseCase struct {
 	db           *gorm.DB
 	setSalePrice setPromotionSalePrice
 	lineRepo     promotionsDomain.PromotionSKURepository
+	outbox       eventrecord.Enqueuer
 }
 
-func NewRevertPromotionSKUUseCase(db *gorm.DB, setSalePrice setPromotionSalePrice, lineRepo promotionsDomain.PromotionSKURepository) *RevertPromotionSKUUseCase {
-	return &RevertPromotionSKUUseCase{db: db, setSalePrice: setSalePrice, lineRepo: lineRepo}
+func NewRevertPromotionSKUUseCase(db *gorm.DB, setSalePrice setPromotionSalePrice, lineRepo promotionsDomain.PromotionSKURepository, outbox eventrecord.Enqueuer) *RevertPromotionSKUUseCase {
+	return &RevertPromotionSKUUseCase{db: db, setSalePrice: setSalePrice, lineRepo: lineRepo, outbox: outbox}
 }
 
 func (uc *RevertPromotionSKUUseCase) Execute(ctx context.Context, line promotionsDomain.PromotionSKU) error {
@@ -107,7 +117,13 @@ func (uc *RevertPromotionSKUUseCase) Execute(ctx context.Context, line promotion
 		return fmt.Errorf("revertPromotionSKU: %w", err)
 	}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.lineRepo.MarkReverted(ctx, line.ID)
+		if err := uc.lineRepo.MarkReverted(ctx, line.ID); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.PromotionLineReverted, line.ID, eventrecord.Data{
+			"promotion_id": line.PromotionID, "sku_id": line.SKUID,
+			"restored_sale_price_minor_units": line.PreviousSalePriceMinorUnits,
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("revertPromotionSKU: %w", err)

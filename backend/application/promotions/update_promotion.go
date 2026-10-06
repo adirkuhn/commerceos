@@ -3,6 +3,8 @@ package promotions
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"strings"
 	"time"
 
@@ -28,10 +30,11 @@ type UpdatePromotionUseCase struct {
 	skuChecker skuExistenceChecker
 	batches    skuBatchLister
 	reverter   lineReverter
+	outbox     eventrecord.Enqueuer
 }
 
-func NewUpdatePromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.PromotionRepository, lineRepo promotionsDomain.PromotionSKURepository, skuChecker skuExistenceChecker, batches skuBatchLister, reverter lineReverter) *UpdatePromotionUseCase {
-	return &UpdatePromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo, skuChecker: skuChecker, batches: batches, reverter: reverter}
+func NewUpdatePromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.PromotionRepository, lineRepo promotionsDomain.PromotionSKURepository, skuChecker skuExistenceChecker, batches skuBatchLister, reverter lineReverter, outbox eventrecord.Enqueuer) *UpdatePromotionUseCase {
+	return &UpdatePromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo, skuChecker: skuChecker, batches: batches, reverter: reverter, outbox: outbox}
 }
 
 // Execute replaces the promotion's whole line set wholesale (delete then
@@ -88,6 +91,7 @@ func (uc *UpdatePromotionUseCase) Execute(ctx context.Context, in UpdatePromotio
 			return err
 		}
 
+		before := *existing
 		existing.Name = name
 		existing.Type = in.Type
 		existing.StartsAt = in.StartsAt
@@ -103,6 +107,7 @@ func (uc *UpdatePromotionUseCase) Execute(ctx context.Context, in UpdatePromotio
 			return err
 		}
 		now := time.Now()
+		created := make([]promotionsDomain.PromotionSKU, 0, len(in.Lines))
 		for _, l := range in.Lines {
 			line := promotionsDomain.PromotionSKU{
 				TenantID: tenant.IDFromContext(ctx), PromotionID: promo.ID, SKUID: l.SKUID, BatchID: l.BatchID,
@@ -111,8 +116,9 @@ func (uc *UpdatePromotionUseCase) Execute(ctx context.Context, in UpdatePromotio
 			if err := uc.lineRepo.Create(ctx, &line); err != nil {
 				return err
 			}
+			created = append(created, line)
 		}
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.PromotionUpdated, promo.ID, promotionChanges(before, promo, existingLines, created))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updatePromotion: %w", err)

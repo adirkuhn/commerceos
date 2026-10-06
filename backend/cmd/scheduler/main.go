@@ -115,11 +115,11 @@ func main() {
 	expireBatchUC := invapp.NewExpireBatchUseCase(db, batchRepo, outboxRepo)
 	promotionSKURepo := repositories.NewPromotionSKURepo(db)
 	setPromotionSalePriceUC := pmsapp.NewSetPromotionSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo, priceHistoryRepo)
-	applyPromotionSKUUC := apppromotions.NewApplyPromotionSKUUseCase(db, skuRepo, setPromotionSalePriceUC, promotionSKURepo)
-	revertPromotionSKUUC := apppromotions.NewRevertPromotionSKUUseCase(db, setPromotionSalePriceUC, promotionSKURepo)
+	applyPromotionSKUUC := apppromotions.NewApplyPromotionSKUUseCase(db, skuRepo, setPromotionSalePriceUC, promotionSKURepo, outboxRepo)
+	revertPromotionSKUUC := apppromotions.NewRevertPromotionSKUUseCase(db, setPromotionSalePriceUC, promotionSKURepo, outboxRepo)
 	finishClearanceLinesUC := apppromotions.NewFinishClearanceLinesUseCase(
 		db, invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
-		promotionSKURepo, repositories.NewPromotionRepo(db), revertPromotionSKUUC,
+		promotionSKURepo, repositories.NewPromotionRepo(db), revertPromotionSKUUC, outboxRepo,
 	)
 	jobRepo := repositories.NewScheduledJobRepo(db)
 

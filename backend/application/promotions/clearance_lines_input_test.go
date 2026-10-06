@@ -2,6 +2,7 @@ package promotions_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -28,7 +29,7 @@ func createInput(lines []apppromotions.PromotionLineInput) apppromotions.CreateP
 func TestCreatePromotion_persistsClearanceLineBatch(t *testing.T) {
 	lineRepo := &stubPromotionSKURepo{}
 	lister := &stubSKUBatchLister{batches: []invDomain.Batch{batchWith(5, time.Now().Add(72*time.Hour))}}
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, lineRepo, &stubSKUExistenceChecker{}, lister)
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, lineRepo, &stubSKUExistenceChecker{}, lister, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), createInput(clearanceInput("batch-1")))
 
@@ -40,7 +41,7 @@ func TestCreatePromotion_persistsClearanceLineBatch(t *testing.T) {
 
 func TestCreatePromotion_rejectsClearanceBatchNotOnSKU(t *testing.T) {
 	lister := &stubSKUBatchLister{batches: []invDomain.Batch{batchWith(5, time.Now().Add(72*time.Hour))}}
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDBN(t, 0), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, lister)
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDBN(t, 0), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, lister, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), createInput(clearanceInput("some-other-batch")))
 
@@ -49,7 +50,7 @@ func TestCreatePromotion_rejectsClearanceBatchNotOnSKU(t *testing.T) {
 
 func TestCreatePromotion_rejectsFinishedClearanceBatch(t *testing.T) {
 	lister := &stubSKUBatchLister{batches: []invDomain.Batch{batchWith(0, time.Now().Add(72*time.Hour))}}
-	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDBN(t, 0), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, lister)
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDBN(t, 0), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, lister, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), createInput(clearanceInput("batch-1")))
 
@@ -63,7 +64,7 @@ func TestUpdatePromotion_keepsExistingClearanceBatchWithoutRevalidating(t *testi
 	promoRepo := &stubPromotionRepo{findResult: &promotionsDomain.Promotion{ID: "promo-1"}}
 	lineRepo := &stubPromotionSKURepo{listResult: []promotionsDomain.PromotionSKU{{ID: "line-1", SKUID: "sku-1", BatchID: &batchID}}}
 	lister := &stubSKUBatchLister{} // batch is gone -- would fail validation if re-checked
-	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, &stubSKUExistenceChecker{}, lister, &stubLineReverter{})
+	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, &stubSKUExistenceChecker{}, lister, &stubLineReverter{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppromotions.UpdatePromotionInput{
 		ID: "promo-1", Name: "Renamed", Type: promotionsDomain.PromotionTypePercentage, StartsAt: time.Now(),
@@ -77,7 +78,7 @@ func TestUpdatePromotion_keepsExistingClearanceBatchWithoutRevalidating(t *testi
 
 func TestUpdatePromotion_validatesNewlyAddedClearanceBatch(t *testing.T) {
 	promoRepo := &stubPromotionRepo{findResult: &promotionsDomain.Promotion{ID: "promo-1"}}
-	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 1), promoRepo, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &stubLineReverter{})
+	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 1), promoRepo, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &stubLineReverter{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppromotions.UpdatePromotionInput{
 		ID: "promo-1", Name: "Clearance", Type: promotionsDomain.PromotionTypePercentage, StartsAt: time.Now(),

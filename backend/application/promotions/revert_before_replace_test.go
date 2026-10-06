@@ -3,6 +3,7 @@ package promotions_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -51,7 +52,7 @@ func TestUpdatePromotion_restoresLivePricesBeforeReplacingLines(t *testing.T) {
 	promoRepo := &stubPromotionRepo{findResult: &promotionsDomain.Promotion{ID: "promo-1"}}
 	lineRepo := &stubPromotionSKURepo{listResult: liveAndIdleLines()}
 	reverter := &orderedReverter{lineRepo: lineRepo, promoRepo: promoRepo}
-	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, reverter)
+	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, reverter, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), updateInput(pctLine("sku-1")))
 
@@ -68,7 +69,7 @@ func TestUpdatePromotion_revertFailureLeavesLinesUntouched(t *testing.T) {
 	lineRepo := &stubPromotionSKURepo{listResult: liveAndIdleLines()}
 	boom := errors.New("price update failed")
 	reverter := &orderedReverter{lineRepo: lineRepo, promoRepo: promoRepo, err: boom}
-	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, reverter)
+	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, reverter, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), updateInput(pctLine("sku-1")))
 
@@ -81,7 +82,7 @@ func TestUpdatePromotion_invalidLinesNeverTouchPrices(t *testing.T) {
 	promoRepo := &stubPromotionRepo{findResult: &promotionsDomain.Promotion{ID: "promo-1"}}
 	lineRepo := &stubPromotionSKURepo{listResult: liveAndIdleLines()}
 	reverter := &orderedReverter{lineRepo: lineRepo, promoRepo: promoRepo}
-	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, reverter)
+	uc := apppromotions.NewUpdatePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, reverter, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), updateInput(pctLine("sku-1"), pctLine("sku-1")))
 
@@ -93,7 +94,7 @@ func TestDeletePromotion_restoresLivePricesBeforeDeleting(t *testing.T) {
 	promoRepo := &stubPromotionRepo{findResult: &promotionsDomain.Promotion{ID: "promo-1"}}
 	lineRepo := &stubPromotionSKURepo{listResult: liveAndIdleLines()}
 	reverter := &orderedReverter{lineRepo: lineRepo, promoRepo: promoRepo}
-	uc := apppromotions.NewDeletePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, reverter)
+	uc := apppromotions.NewDeletePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, reverter, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "promo-1")
 
@@ -107,7 +108,7 @@ func TestDeletePromotion_revertFailureKeepsPromotion(t *testing.T) {
 	promoRepo := &stubPromotionRepo{findResult: &promotionsDomain.Promotion{ID: "promo-1"}}
 	lineRepo := &stubPromotionSKURepo{listResult: liveAndIdleLines()}
 	boom := errors.New("price update failed")
-	uc := apppromotions.NewDeletePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, &orderedReverter{lineRepo: lineRepo, promoRepo: promoRepo, err: boom})
+	uc := apppromotions.NewDeletePromotionUseCase(newMockGormDBN(t, 2), promoRepo, lineRepo, &orderedReverter{lineRepo: lineRepo, promoRepo: promoRepo, err: boom}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "promo-1")
 

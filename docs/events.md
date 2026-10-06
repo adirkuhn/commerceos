@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-68 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+74 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -162,6 +162,17 @@ Payload (`events.EntityAction`):
 | `procurement.receiving_record.completed` | action | Review of an uploaded invoice was finished. data: purchase_order_id. | envelope |
 | `procurement.receiving_record.created` | action | A supplier invoice was uploaded against a purchase order to check what was delivered. data: purchase_order_id, file_name, content_type, parsing_job_id, potential_duplicate. | envelope |
 | `procurement.receiving_record.parsed` | action | An uploaded invoice was compared with its purchase order (each difference also raises receiving_discrepancy.detected). data: purchase_order_id, parsing_job_id, discrepancy_count. | envelope |
+
+### promotions
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `promotions.promotion.created` | action | A promotion was created. data: name, type, status, starts_at, ends_at, lines. | envelope |
+| `promotions.promotion.deleted` | action | A promotion was deleted (applied prices were reverted first, each raising promotion_line.reverted). data: name. | envelope |
+| `promotions.promotion.updated` | action | A promotion changed (changes: name, type, status, starts_at, ends_at, lines). data.reason clearance_finished when the system ended it because its last clearance line finished. | envelope |
+| `promotions.promotion_line.applied` | action | A promotion line put its SKU on sale. data: promotion_id, sku_id, sale_price_minor_units, previous_sale_price_minor_units. | envelope |
+| `promotions.promotion_line.finished` | action | A clearance line ended because its batch sold out, expired or was removed. data: promotion_id, sku_id, batch_id. | envelope |
+| `promotions.promotion_line.reverted` | action | A promotion line's SKU went back to its pre-promotion sale price. data: promotion_id, sku_id, restored_sale_price_minor_units. | envelope |
 
 ### settings
 
