@@ -2,6 +2,7 @@ package messagecenter_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 
 func TestDeleteMessageTemplate_success(t *testing.T) {
 	repo := &stubMessageTemplateRepo{byID: map[string]mcDomain.MessageTemplate{"template-1": {ID: "template-1"}}}
-	uc := appmc.NewDeleteMessageTemplateUseCase(newMockGormDB(t, 1), repo)
+	uc := appmc.NewDeleteMessageTemplateUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "template-1")
 
@@ -23,7 +24,7 @@ func TestDeleteMessageTemplate_success(t *testing.T) {
 
 func TestDeleteMessageTemplate_notFound(t *testing.T) {
 	repo := &stubMessageTemplateRepo{byID: map[string]mcDomain.MessageTemplate{}}
-	uc := appmc.NewDeleteMessageTemplateUseCase(newMockGormDB(t, 1), repo)
+	uc := appmc.NewDeleteMessageTemplateUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 

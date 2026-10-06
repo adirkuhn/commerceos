@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-61 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+67 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -84,6 +84,17 @@ Payload (`events.EntityAction`):
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
 | `inventory.stock.changed` | typed | InventoryStockChanged is raised whenever a SKU's stock ledger changes — a movement recorded via adjust/recount/transfer/mark-damaged-lost. | `InventoryStockChanged`: event_id, occurred_at, tenant_id, sku_id |
+
+### messagecenter
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `messagecenter.automation_rule.created` | action | An automation rule (send a template when an event happens) was created. data: name, trigger_subject, template_id. | envelope |
+| `messagecenter.automation_rule.deleted` | action | An automation rule was deleted. data: name. | envelope |
+| `messagecenter.automation_rule.updated` | action | An automation rule changed (changes: name, trigger_subject, conditions, template_id, channel_override, enabled). | envelope |
+| `messagecenter.message_template.created` | action | A message template was created. data: name, category, channels. | envelope |
+| `messagecenter.message_template.deleted` | action | A message template was deleted. data: name. | envelope |
+| `messagecenter.message_template.updated` | action | A message template changed (changes: name, category, channels, subject, body, enabled). | envelope |
 
 ### newsletter
 

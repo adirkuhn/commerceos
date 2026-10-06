@@ -2,6 +2,7 @@ package messagecenter_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ import (
 func TestCreateAutomationRule_success(t *testing.T) {
 	repo := &stubAutomationRuleRepo{}
 	templateRepo := &stubMessageTemplateRepo{byID: map[string]mcDomain.MessageTemplate{"template-1": {ID: "template-1"}}}
-	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 1), repo, templateRepo)
+	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 1), repo, templateRepo, &eventrecordtest.Outbox{})
 
 	rule, err := uc.Execute(context.Background(), appmc.CreateAutomationRuleInput{
 		Name: "Notify on collect point delivery", TriggerSubject: "shipping.shipment.fulfillment_signal",
@@ -28,7 +29,7 @@ func TestCreateAutomationRule_success(t *testing.T) {
 }
 
 func TestCreateAutomationRule_rejectsEmptyName(t *testing.T) {
-	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), &stubAutomationRuleRepo{}, &stubMessageTemplateRepo{})
+	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), &stubAutomationRuleRepo{}, &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.CreateAutomationRuleInput{
 		TriggerSubject: "shipping.shipment.fulfillment_signal", TemplateID: "template-1",
@@ -38,7 +39,7 @@ func TestCreateAutomationRule_rejectsEmptyName(t *testing.T) {
 }
 
 func TestCreateAutomationRule_rejectsInvalidTriggerSubject(t *testing.T) {
-	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), &stubAutomationRuleRepo{}, &stubMessageTemplateRepo{})
+	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), &stubAutomationRuleRepo{}, &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.CreateAutomationRuleInput{
 		Name: "X", TriggerSubject: "bogus.subject", TemplateID: "template-1",
@@ -48,7 +49,7 @@ func TestCreateAutomationRule_rejectsInvalidTriggerSubject(t *testing.T) {
 }
 
 func TestCreateAutomationRule_rejectsMissingTemplateID(t *testing.T) {
-	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), &stubAutomationRuleRepo{}, &stubMessageTemplateRepo{})
+	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), &stubAutomationRuleRepo{}, &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.CreateAutomationRuleInput{
 		Name: "X", TriggerSubject: "shipping.shipment.fulfillment_signal",
@@ -58,7 +59,7 @@ func TestCreateAutomationRule_rejectsMissingTemplateID(t *testing.T) {
 }
 
 func TestCreateAutomationRule_rejectsInvalidCondition_emptyField(t *testing.T) {
-	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), &stubAutomationRuleRepo{}, &stubMessageTemplateRepo{})
+	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), &stubAutomationRuleRepo{}, &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.CreateAutomationRuleInput{
 		Name: "X", TriggerSubject: "shipping.shipment.fulfillment_signal", TemplateID: "template-1",
@@ -69,7 +70,7 @@ func TestCreateAutomationRule_rejectsInvalidCondition_emptyField(t *testing.T) {
 }
 
 func TestCreateAutomationRule_rejectsInvalidCondition_badOperator(t *testing.T) {
-	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), &stubAutomationRuleRepo{}, &stubMessageTemplateRepo{})
+	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), &stubAutomationRuleRepo{}, &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.CreateAutomationRuleInput{
 		Name: "X", TriggerSubject: "shipping.shipment.fulfillment_signal", TemplateID: "template-1",
@@ -80,7 +81,7 @@ func TestCreateAutomationRule_rejectsInvalidCondition_badOperator(t *testing.T) 
 }
 
 func TestCreateAutomationRule_rejectsInOperatorWithNonArrayValue(t *testing.T) {
-	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), &stubAutomationRuleRepo{}, &stubMessageTemplateRepo{})
+	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), &stubAutomationRuleRepo{}, &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.CreateAutomationRuleInput{
 		Name: "X", TriggerSubject: "shipping.shipment.fulfillment_signal", TemplateID: "template-1",
@@ -93,7 +94,7 @@ func TestCreateAutomationRule_rejectsInOperatorWithNonArrayValue(t *testing.T) {
 func TestCreateAutomationRule_propagatesTemplateNotFound(t *testing.T) {
 	repo := &stubAutomationRuleRepo{}
 	templateRepo := &stubMessageTemplateRepo{byID: map[string]mcDomain.MessageTemplate{}}
-	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 1), repo, templateRepo)
+	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 1), repo, templateRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.CreateAutomationRuleInput{
 		Name: "X", TriggerSubject: "shipping.shipment.fulfillment_signal", TemplateID: "missing-template",

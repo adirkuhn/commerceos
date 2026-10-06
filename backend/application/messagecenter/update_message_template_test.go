@@ -2,6 +2,7 @@ package messagecenter_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,7 @@ func TestUpdateMessageTemplate_success(t *testing.T) {
 	repo := &stubMessageTemplateRepo{byID: map[string]mcDomain.MessageTemplate{
 		"template-1": {ID: "template-1", Name: "Old", Category: mcDomain.CategoryPurchase, Channels: []messaging.Channel{messaging.ChannelEmail}, Body: "old", Enabled: true},
 	}}
-	uc := appmc.NewUpdateMessageTemplateUseCase(newMockGormDB(t, 1), repo)
+	uc := appmc.NewUpdateMessageTemplateUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	tmpl, err := uc.Execute(context.Background(), appmc.UpdateMessageTemplateInput{
 		ID: "template-1", Name: "New", Category: mcDomain.CategoryOrderStatus,
@@ -31,7 +32,7 @@ func TestUpdateMessageTemplate_success(t *testing.T) {
 
 func TestUpdateMessageTemplate_notFound(t *testing.T) {
 	repo := &stubMessageTemplateRepo{byID: map[string]mcDomain.MessageTemplate{}}
-	uc := appmc.NewUpdateMessageTemplateUseCase(newMockGormDB(t, 1), repo)
+	uc := appmc.NewUpdateMessageTemplateUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.UpdateMessageTemplateInput{
 		ID: "missing", Name: "New", Category: mcDomain.CategoryOrderStatus,
@@ -42,7 +43,7 @@ func TestUpdateMessageTemplate_notFound(t *testing.T) {
 }
 
 func TestUpdateMessageTemplate_rejectsInvalidInputBeforeLookup(t *testing.T) {
-	uc := appmc.NewUpdateMessageTemplateUseCase(newMockGormDB(t, 0), &stubMessageTemplateRepo{})
+	uc := appmc.NewUpdateMessageTemplateUseCase(newMockGormDB(t, 0), &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.UpdateMessageTemplateInput{
 		ID: "template-1", Name: "", Category: mcDomain.CategoryOrderStatus,

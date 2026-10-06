@@ -77,15 +77,16 @@ var _ genmc.ServerInterface = (*Handler)(nil)
 func Register(rg gin.IRouter, db *gorm.DB) {
 	templateRepo := repositories.NewMessageTemplateRepo(db)
 	ruleRepo := repositories.NewAutomationRuleRepo(db)
+	outboxRepo := repositories.NewOutboxRepository(db)
 	h := NewHandler(
 		appmc.NewListMessageTemplatesUseCase(db, templateRepo),
-		appmc.NewCreateMessageTemplateUseCase(db, templateRepo),
-		appmc.NewUpdateMessageTemplateUseCase(db, templateRepo),
-		appmc.NewDeleteMessageTemplateUseCase(db, templateRepo),
+		appmc.NewCreateMessageTemplateUseCase(db, templateRepo, outboxRepo),
+		appmc.NewUpdateMessageTemplateUseCase(db, templateRepo, outboxRepo),
+		appmc.NewDeleteMessageTemplateUseCase(db, templateRepo, outboxRepo),
 		appmc.NewListAutomationRulesUseCase(db, ruleRepo),
-		appmc.NewCreateAutomationRuleUseCase(db, ruleRepo, templateRepo),
-		appmc.NewUpdateAutomationRuleUseCase(db, ruleRepo, templateRepo),
-		appmc.NewDeleteAutomationRuleUseCase(db, ruleRepo),
+		appmc.NewCreateAutomationRuleUseCase(db, ruleRepo, templateRepo, outboxRepo),
+		appmc.NewUpdateAutomationRuleUseCase(db, ruleRepo, templateRepo, outboxRepo),
+		appmc.NewDeleteAutomationRuleUseCase(db, ruleRepo, outboxRepo),
 	)
 	genmc.RegisterHandlers(rg, h)
 }
