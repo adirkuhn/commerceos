@@ -9,7 +9,9 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	reviewsDomain "github.com/adirkuhn/commerceos/domain/reviews"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
@@ -32,6 +34,7 @@ type SubmitReviewUseCase struct {
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository
 	productRepo  pmsDomain.ProductRepository
 	reviewRepo   reviewsDomain.Repository
+	outbox       eventrecord.Enqueuer
 }
 
 func NewSubmitReviewUseCase(
@@ -40,8 +43,9 @@ func NewSubmitReviewUseCase(
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository,
 	productRepo pmsDomain.ProductRepository,
 	reviewRepo reviewsDomain.Repository,
+	outbox eventrecord.Enqueuer,
 ) *SubmitReviewUseCase {
-	return &SubmitReviewUseCase{db: db, channelRepo: channelRepo, overrideRepo: overrideRepo, productRepo: productRepo, reviewRepo: reviewRepo}
+	return &SubmitReviewUseCase{db: db, channelRepo: channelRepo, overrideRepo: overrideRepo, productRepo: productRepo, reviewRepo: reviewRepo, outbox: outbox}
 }
 
 // Execute validates the review, confirms the product is actually available
@@ -101,7 +105,14 @@ func (uc *SubmitReviewUseCase) Execute(ctx context.Context, in SubmitReviewInput
 		now := time.Now()
 		review.CreatedAt = now
 		review.UpdatedAt = now
-		return uc.reviewRepo.Create(ctx, &review)
+		if err := uc.reviewRepo.Create(ctx, &review); err != nil {
+			return err
+		}
+		// Reviewer name/email and the review text stay out of the event.
+		return eventrecord.Record(ctx, uc.outbox, events.StorefrontReviewSubmitted, review.ID, eventrecord.Data{
+			"sales_channel_id": review.SalesChannelID, "product_id": review.ProductID,
+			"rating": review.Rating, "verified": review.Verified,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("submitReview: %w", err)

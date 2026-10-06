@@ -2,6 +2,7 @@ package storefront_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,7 +16,7 @@ import (
 func newUpdateCartItemsUseCase(t *testing.T, n int, cartRepo *fakeCartRepo, channelRepo *fakeChannelRepo, skuRepo *fakeSKURepo, variantRepo *fakeVariantRepo, productRepo *fakeProductRepo, overrideRepo *fakeOverrideRepo, stockLevel *fakeStockLevel) *appstorefront.UpdateCartItemsUseCase {
 	return appstorefront.NewUpdateCartItemsUseCase(
 		newMockGormDB(t, n), cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo,
-		&fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{}, stockLevel, nil, &fakeCouponCurrencyAmountRepo{},
+		&fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{}, stockLevel, nil, &fakeCouponCurrencyAmountRepo{}, &eventrecordtest.Outbox{},
 	)
 }
 
@@ -65,7 +66,7 @@ func TestUpdateCartItems_convertsPriceIntoTheChannelsCurrencyBeforeSnapshotting(
 	fxRepo := &fakeExchangeRateRepo{byCurrency: map[string]fxDomain.ExchangeRate{"USD": {CurrencyCode: "USD", RateBasisPoints: 10876}}}
 	uc := appstorefront.NewUpdateCartItemsUseCase(
 		newMockGormDB(t, 2), cartRepo, channelRepo, sku, variant, product, override,
-		&fakeSKUCurrencyPriceRepo{}, fxRepo, stockLevel, nil, &fakeCouponCurrencyAmountRepo{},
+		&fakeSKUCurrencyPriceRepo{}, fxRepo, stockLevel, nil, &fakeCouponCurrencyAmountRepo{}, &eventrecordtest.Outbox{},
 	)
 
 	cart, err := uc.Execute(context.Background(), "token-1", []appstorefront.UpdateCartItemLineInput{{SKUCode: "SKU-A", Quantity: 1}})

@@ -9,7 +9,9 @@ import (
 	"gorm.io/gorm"
 
 	appcoupons "github.com/adirkuhn/commerceos/application/coupons"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
+	"github.com/adirkuhn/commerceos/domain/events"
 	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -21,13 +23,15 @@ type ApplyCouponUseCase struct {
 	couponRepo         couponsDomain.Repository
 	couponCurrencyRepo couponsDomain.CouponCurrencyAmountRepository
 	fxRepo             fxDomain.ExchangeRateRepository
+	outbox             eventrecord.Enqueuer
 }
 
 func NewApplyCouponUseCase(
 	db *gorm.DB, cartRepo storefrontDomain.CartRepository, couponRepo couponsDomain.Repository,
 	couponCurrencyRepo couponsDomain.CouponCurrencyAmountRepository, fxRepo fxDomain.ExchangeRateRepository,
+	outbox eventrecord.Enqueuer,
 ) *ApplyCouponUseCase {
-	return &ApplyCouponUseCase{db: db, cartRepo: cartRepo, couponRepo: couponRepo, couponCurrencyRepo: couponCurrencyRepo, fxRepo: fxRepo}
+	return &ApplyCouponUseCase{db: db, cartRepo: cartRepo, couponRepo: couponRepo, couponCurrencyRepo: couponCurrencyRepo, fxRepo: fxRepo, outbox: outbox}
 }
 
 // Execute attaches code to token's cart, or removes any attached coupon
@@ -50,6 +54,7 @@ func (uc *ApplyCouponUseCase) Execute(ctx context.Context, token string, code st
 			return storefrontDomain.ErrCartAlreadyCheckedOut
 		}
 
+		previousCode := found.CouponCode
 		trimmed := strings.ToUpper(strings.TrimSpace(code))
 		if trimmed == "" {
 			found.CouponCode = nil
@@ -80,7 +85,12 @@ func (uc *ApplyCouponUseCase) Execute(ctx context.Context, token string, code st
 			return err
 		}
 		cart = found
-		return nil
+		changes := eventrecord.NewChanges().Set("coupon_code", previousCode, found.CouponCode)
+		if found.CouponCode == nil {
+			return eventrecord.Record(ctx, uc.outbox, events.CartCouponRemoved, found.ID, changes)
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.CartCouponApplied, found.ID, changes,
+			eventrecord.Data{"coupon_code": *found.CouponCode, "discount_minor_units": discount})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("applyCoupon: %w", err)

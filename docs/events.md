@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-51 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+73 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -154,11 +154,33 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `storefront.cart.coupon_applied` | action | A coupon was applied to a cart. data: coupon_code, discount_minor_units. changes: coupon_code. | envelope |
+| `storefront.cart.coupon_removed` | action | A cart's coupon was removed. changes: coupon_code. | envelope |
+| `storefront.cart.created` | action | A shopper started a cart. data: sales_channel_id. | envelope |
+| `storefront.cart.items_updated` | action | A cart's lines were replaced (add, remove or change quantity). data: sales_channel_id, line_count, items (sku_id, sku_code, quantity). changes: items (before/after, sku_code -> quantity). | envelope |
+| `storefront.customer_session.ended` | action | A shopper signed out. data: sales_channel_id, customer_id. | envelope |
+| `storefront.customer_session.started` | action | A shopper signed in with a magic link (the link is now used). data: sales_channel_id, customer_id, magic_link_id. | envelope |
+| `storefront.magic_link.requested` | action | A shopper asked for a sign-in link; it was emailed. data: sales_channel_id, customer_id. | envelope |
 | `storefront.order.placed` | typed | StorefrontOrderPlaced is raised once by CheckoutCartUseCase, right after the oms.SalesOrder it creates commits -- the first "an order was created" event this codebase has ever raised (SalesOrderStatusChanged fires only on a later status transition, never on creation). | `StorefrontOrderPlaced`: event_id, occurred_at, tenant_id, sales_order_id |
+| `storefront.payment_link.created` | action | A checkout payment link was created at the channel's payment provider (entity_id: the provider's link id). data: sales_channel_id, provider, reference (order number), amount_minor_units, currency_code. | envelope |
+| `storefront.review.submitted` | action | A shopper submitted a product review (awaiting moderation). data: sales_channel_id, product_id, rating, verified (bought the product). | envelope |
 | `storefront.theme.created` | typed |  | `ThemeCreated`: event_id, occurred_at, tenant_id, theme_id, sales_channel_id |
 | `storefront.theme.deleted` | typed |  | `ThemeDeleted`: event_id, occurred_at, tenant_id, theme_id, sales_channel_id |
+| `storefront.theme.draft_started` | action | Editing a published theme started a new draft version (a copy of the live one). data: version_id, version_number, based_on_version_id. | envelope |
 | `storefront.theme.published` | typed | ThemePublished fires when a draft is sealed and goes live -- the signal for anything caching the channel's live storefront to refresh. | `ThemePublished`: event_id, occurred_at, tenant_id, theme_id, sales_channel_id, version_id, version_number |
+| `storefront.theme.renamed` | action | A theme was renamed. changes: name. | envelope |
 | `storefront.theme.rolled_back` | typed |  | `ThemeRolledBack`: event_id, occurred_at, tenant_id, theme_id, sales_channel_id, version_id, version_number |
+| `storefront.theme.settings_updated` | action | A theme draft's global settings (colors, fonts, logo...) were saved. data: version_id, revision. | envelope |
+| `storefront.theme_asset.deleted` | action | A theme asset was removed from the library. data: filename. | envelope |
+| `storefront.theme_asset.updated` | action | A theme asset's details changed. changes: alt. | envelope |
+| `storefront.theme_asset.uploaded` | action | An image was added to the tenant's theme asset library. data: filename, content_type, bytes, width, height. | envelope |
+| `storefront.theme_document.updated` | action | A theme draft document (page, header, footer...) was saved. data: theme_id, version_id, kind, key, revision. | envelope |
+| `storefront.theme_page.created` | action | A page was added to a theme draft. data: theme_id, version_id, key, title, revision. | envelope |
+| `storefront.theme_page.deleted` | action | A page was removed from a theme draft. data: theme_id, version_id, key, revision. | envelope |
+| `storefront.theme_session.created` | action | An editor or preview session was opened for a theme. data: theme_id, purpose, user_id, role, locale. | envelope |
+| `storefront.wishlist.created` | action | A shopper started a wishlist. data: sales_channel_id. | envelope |
+| `storefront.wishlist.item_added` | action | A product was added to a wishlist. data: sales_channel_id, product_id. | envelope |
+| `storefront.wishlist.item_removed` | action | A product was removed from a wishlist. data: sales_channel_id, product_id. | envelope |
 
 ### suppliers
 

@@ -2,6 +2,7 @@ package storefront_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,7 +16,7 @@ import (
 func TestCreateCart_startsAnEmptyCartOnTheChannel(t *testing.T) {
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
 	cartRepo := &fakeCartRepo{}
-	uc := appstorefront.NewCreateCartUseCase(newMockGormDB(t, 1), channelRepo, cartRepo)
+	uc := appstorefront.NewCreateCartUseCase(newMockGormDB(t, 1), channelRepo, cartRepo, &eventrecordtest.Outbox{})
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 
 	cart, err := uc.Execute(ctx, "channel-1")
@@ -30,7 +31,7 @@ func TestCreateCart_startsAnEmptyCartOnTheChannel(t *testing.T) {
 }
 
 func TestCreateCart_rejectsUnknownChannel(t *testing.T) {
-	uc := appstorefront.NewCreateCartUseCase(newMockGormDB(t, 1), &fakeChannelRepo{}, &fakeCartRepo{})
+	uc := appstorefront.NewCreateCartUseCase(newMockGormDB(t, 1), &fakeChannelRepo{}, &fakeCartRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing-channel")
 
@@ -40,7 +41,7 @@ func TestCreateCart_rejectsUnknownChannel(t *testing.T) {
 func TestCreateCart_rejectsNonInternalChannel(t *testing.T) {
 	wooChannel := channelsDomain.SalesChannel{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, Active: true}
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": wooChannel}}
-	uc := appstorefront.NewCreateCartUseCase(newMockGormDB(t, 1), channelRepo, &fakeCartRepo{})
+	uc := appstorefront.NewCreateCartUseCase(newMockGormDB(t, 1), channelRepo, &fakeCartRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "channel-1")
 
@@ -51,7 +52,7 @@ func TestCreateCart_rejectsInactiveChannel(t *testing.T) {
 	inactive := internalChannel("channel-1")
 	inactive.Active = false
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": inactive}}
-	uc := appstorefront.NewCreateCartUseCase(newMockGormDB(t, 1), channelRepo, &fakeCartRepo{})
+	uc := appstorefront.NewCreateCartUseCase(newMockGormDB(t, 1), channelRepo, &fakeCartRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "channel-1")
 

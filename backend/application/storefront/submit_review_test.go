@@ -2,6 +2,7 @@ package storefront_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -39,7 +40,7 @@ func activeEnrolledProduct() (*fakeChannelRepo, *fakeProductRepo, *fakeOverrideR
 func TestSubmitReview_createsAnUnverifiedReview(t *testing.T) {
 	channelRepo, productRepo, overrideRepo := activeEnrolledProduct()
 	reviewRepo := &fakeReviewRepo{}
-	uc := appstorefront.NewSubmitReviewUseCase(newMockGormDB(t, 1), channelRepo, overrideRepo, productRepo, reviewRepo)
+	uc := appstorefront.NewSubmitReviewUseCase(newMockGormDB(t, 1), channelRepo, overrideRepo, productRepo, reviewRepo, &eventrecordtest.Outbox{})
 
 	review, err := uc.Execute(context.Background(), appstorefront.SubmitReviewInput{
 		SalesChannelID: "channel-1", ProductID: "product-1",
@@ -55,7 +56,7 @@ func TestSubmitReview_createsAnUnverifiedReview(t *testing.T) {
 func TestSubmitReview_setsVerifiedWhenPurchaseConfirmed(t *testing.T) {
 	channelRepo, productRepo, overrideRepo := activeEnrolledProduct()
 	reviewRepo := &fakeReviewRepo{verified: true}
-	uc := appstorefront.NewSubmitReviewUseCase(newMockGormDB(t, 1), channelRepo, overrideRepo, productRepo, reviewRepo)
+	uc := appstorefront.NewSubmitReviewUseCase(newMockGormDB(t, 1), channelRepo, overrideRepo, productRepo, reviewRepo, &eventrecordtest.Outbox{})
 
 	review, err := uc.Execute(context.Background(), appstorefront.SubmitReviewInput{
 		SalesChannelID: "channel-1", ProductID: "product-1",
@@ -68,7 +69,7 @@ func TestSubmitReview_setsVerifiedWhenPurchaseConfirmed(t *testing.T) {
 
 func TestSubmitReview_rejectsInvalidRating(t *testing.T) {
 	channelRepo, productRepo, overrideRepo := activeEnrolledProduct()
-	uc := appstorefront.NewSubmitReviewUseCase(newMockGormDB(t, 0), channelRepo, overrideRepo, productRepo, &fakeReviewRepo{})
+	uc := appstorefront.NewSubmitReviewUseCase(newMockGormDB(t, 0), channelRepo, overrideRepo, productRepo, &fakeReviewRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appstorefront.SubmitReviewInput{
 		SalesChannelID: "channel-1", ProductID: "product-1",
@@ -80,7 +81,7 @@ func TestSubmitReview_rejectsInvalidRating(t *testing.T) {
 
 func TestSubmitReview_rejectsEmptyBody(t *testing.T) {
 	channelRepo, productRepo, overrideRepo := activeEnrolledProduct()
-	uc := appstorefront.NewSubmitReviewUseCase(newMockGormDB(t, 0), channelRepo, overrideRepo, productRepo, &fakeReviewRepo{})
+	uc := appstorefront.NewSubmitReviewUseCase(newMockGormDB(t, 0), channelRepo, overrideRepo, productRepo, &fakeReviewRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appstorefront.SubmitReviewInput{
 		SalesChannelID: "channel-1", ProductID: "product-1",
@@ -92,7 +93,7 @@ func TestSubmitReview_rejectsEmptyBody(t *testing.T) {
 
 func TestSubmitReview_rejectsMissingNameAndEmail(t *testing.T) {
 	channelRepo, productRepo, overrideRepo := activeEnrolledProduct()
-	uc := appstorefront.NewSubmitReviewUseCase(newMockGormDB(t, 0), channelRepo, overrideRepo, productRepo, &fakeReviewRepo{})
+	uc := appstorefront.NewSubmitReviewUseCase(newMockGormDB(t, 0), channelRepo, overrideRepo, productRepo, &fakeReviewRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appstorefront.SubmitReviewInput{
 		SalesChannelID: "channel-1", ProductID: "product-1", Rating: 3, Body: "Good",
@@ -109,7 +110,7 @@ func TestSubmitReview_rejectsUnavailableProduct(t *testing.T) {
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
 	productRepo := &fakeProductRepo{}
 	overrideRepo := &fakeOverrideRepo{}
-	uc := appstorefront.NewSubmitReviewUseCase(newMockGormDB(t, 1), channelRepo, overrideRepo, productRepo, &fakeReviewRepo{})
+	uc := appstorefront.NewSubmitReviewUseCase(newMockGormDB(t, 1), channelRepo, overrideRepo, productRepo, &fakeReviewRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appstorefront.SubmitReviewInput{
 		SalesChannelID: "channel-1", ProductID: "missing-product",

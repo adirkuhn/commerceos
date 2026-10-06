@@ -2,6 +2,7 @@ package storefront_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -38,7 +39,7 @@ func redeemableCoupon() couponsDomain.Coupon {
 func TestApplyCoupon_attachesARedeemableCode(t *testing.T) {
 	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": openCartWithOneItem()}}
 	couponRepo := &fakeCouponRepoForCheckout{byCode: map[string]couponsDomain.Coupon{"SUMMER10": redeemableCoupon()}}
-	uc := appstorefront.NewApplyCouponUseCase(newMockGormDB(t, 1), cartRepo, couponRepo, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{})
+	uc := appstorefront.NewApplyCouponUseCase(newMockGormDB(t, 1), cartRepo, couponRepo, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "token-1", "summer10")
 
@@ -54,7 +55,7 @@ func TestApplyCoupon_removesTheCouponWhenCodeIsEmpty(t *testing.T) {
 	code := "SUMMER10"
 	cart.CouponCode = &code
 	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": cart}}
-	uc := appstorefront.NewApplyCouponUseCase(newMockGormDB(t, 1), cartRepo, &fakeCouponRepoForCheckout{}, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{})
+	uc := appstorefront.NewApplyCouponUseCase(newMockGormDB(t, 1), cartRepo, &fakeCouponRepoForCheckout{}, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "token-1", "")
 
@@ -65,7 +66,7 @@ func TestApplyCoupon_removesTheCouponWhenCodeIsEmpty(t *testing.T) {
 
 func TestApplyCoupon_rejectsUnknownCode(t *testing.T) {
 	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": openCartWithOneItem()}}
-	uc := appstorefront.NewApplyCouponUseCase(newMockGormDB(t, 1), cartRepo, &fakeCouponRepoForCheckout{}, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{})
+	uc := appstorefront.NewApplyCouponUseCase(newMockGormDB(t, 1), cartRepo, &fakeCouponRepoForCheckout{}, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "token-1", "NOPE")
 
@@ -78,7 +79,7 @@ func TestApplyCoupon_rejectsExpiredCode(t *testing.T) {
 	expired.ExpiresAt = &past
 	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": openCartWithOneItem()}}
 	couponRepo := &fakeCouponRepoForCheckout{byCode: map[string]couponsDomain.Coupon{"SUMMER10": expired}}
-	uc := appstorefront.NewApplyCouponUseCase(newMockGormDB(t, 1), cartRepo, couponRepo, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{})
+	uc := appstorefront.NewApplyCouponUseCase(newMockGormDB(t, 1), cartRepo, couponRepo, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "token-1", "SUMMER10")
 
@@ -91,7 +92,7 @@ func TestApplyCoupon_rejectsWhenCartSubtotalBelowMinimum(t *testing.T) {
 	tooHigh.MinSubtotalMinorUnits = &min
 	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": openCartWithOneItem()}}
 	couponRepo := &fakeCouponRepoForCheckout{byCode: map[string]couponsDomain.Coupon{"SUMMER10": tooHigh}}
-	uc := appstorefront.NewApplyCouponUseCase(newMockGormDB(t, 1), cartRepo, couponRepo, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{})
+	uc := appstorefront.NewApplyCouponUseCase(newMockGormDB(t, 1), cartRepo, couponRepo, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "token-1", "SUMMER10")
 
@@ -102,7 +103,7 @@ func TestApplyCoupon_rejectsAlreadyCheckedOutCart(t *testing.T) {
 	cart := openCartWithOneItem()
 	cart.CheckedOutAt = timePtr()
 	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": cart}}
-	uc := appstorefront.NewApplyCouponUseCase(newMockGormDB(t, 1), cartRepo, &fakeCouponRepoForCheckout{}, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{})
+	uc := appstorefront.NewApplyCouponUseCase(newMockGormDB(t, 1), cartRepo, &fakeCouponRepoForCheckout{}, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "token-1", "SUMMER10")
 

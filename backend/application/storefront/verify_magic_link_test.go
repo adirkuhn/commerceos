@@ -2,6 +2,7 @@ package storefront_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -21,7 +22,7 @@ func redeemableMagicLink() storefrontDomain.MagicLinkToken {
 func TestVerifyMagicLink_exchangesARedeemableTokenForASession(t *testing.T) {
 	tokenRepo := &fakeMagicLinkTokenRepo{byToken: map[string]storefrontDomain.MagicLinkToken{"LINK123": redeemableMagicLink()}}
 	sessionRepo := &fakeCustomerSessionRepo{}
-	uc := appstorefront.NewVerifyMagicLinkUseCase(newMockGormDB(t, 1), tokenRepo, sessionRepo)
+	uc := appstorefront.NewVerifyMagicLinkUseCase(newMockGormDB(t, 1), tokenRepo, sessionRepo, &eventrecordtest.Outbox{})
 
 	session, err := uc.Execute(context.Background(), "channel-1", "LINK123")
 
@@ -34,7 +35,7 @@ func TestVerifyMagicLink_exchangesARedeemableTokenForASession(t *testing.T) {
 }
 
 func TestVerifyMagicLink_rejectsUnknownToken(t *testing.T) {
-	uc := appstorefront.NewVerifyMagicLinkUseCase(newMockGormDB(t, 1), &fakeMagicLinkTokenRepo{}, &fakeCustomerSessionRepo{})
+	uc := appstorefront.NewVerifyMagicLinkUseCase(newMockGormDB(t, 1), &fakeMagicLinkTokenRepo{}, &fakeCustomerSessionRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "channel-1", "missing-token")
 
@@ -45,7 +46,7 @@ func TestVerifyMagicLink_rejectsExpiredToken(t *testing.T) {
 	expired := redeemableMagicLink()
 	expired.ExpiresAt = time.Now().Add(-time.Minute)
 	tokenRepo := &fakeMagicLinkTokenRepo{byToken: map[string]storefrontDomain.MagicLinkToken{"LINK123": expired}}
-	uc := appstorefront.NewVerifyMagicLinkUseCase(newMockGormDB(t, 1), tokenRepo, &fakeCustomerSessionRepo{})
+	uc := appstorefront.NewVerifyMagicLinkUseCase(newMockGormDB(t, 1), tokenRepo, &fakeCustomerSessionRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "channel-1", "LINK123")
 
@@ -57,7 +58,7 @@ func TestVerifyMagicLink_rejectsAlreadyUsedToken(t *testing.T) {
 	usedAt := time.Now().Add(-time.Minute)
 	used.UsedAt = &usedAt
 	tokenRepo := &fakeMagicLinkTokenRepo{byToken: map[string]storefrontDomain.MagicLinkToken{"LINK123": used}}
-	uc := appstorefront.NewVerifyMagicLinkUseCase(newMockGormDB(t, 1), tokenRepo, &fakeCustomerSessionRepo{})
+	uc := appstorefront.NewVerifyMagicLinkUseCase(newMockGormDB(t, 1), tokenRepo, &fakeCustomerSessionRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "channel-1", "LINK123")
 
@@ -66,7 +67,7 @@ func TestVerifyMagicLink_rejectsAlreadyUsedToken(t *testing.T) {
 
 func TestVerifyMagicLink_rejectsWrongChannel(t *testing.T) {
 	tokenRepo := &fakeMagicLinkTokenRepo{byToken: map[string]storefrontDomain.MagicLinkToken{"LINK123": redeemableMagicLink()}}
-	uc := appstorefront.NewVerifyMagicLinkUseCase(newMockGormDB(t, 1), tokenRepo, &fakeCustomerSessionRepo{})
+	uc := appstorefront.NewVerifyMagicLinkUseCase(newMockGormDB(t, 1), tokenRepo, &fakeCustomerSessionRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "channel-2", "LINK123")
 
@@ -79,7 +80,7 @@ func TestVerifyMagicLink_raceOnMarkUsedFailsTheWholeExchange(t *testing.T) {
 		markUsedErr: storefrontDomain.ErrInvalidOrExpiredMagicLink,
 	}
 	sessionRepo := &fakeCustomerSessionRepo{}
-	uc := appstorefront.NewVerifyMagicLinkUseCase(newMockGormDB(t, 1), tokenRepo, sessionRepo)
+	uc := appstorefront.NewVerifyMagicLinkUseCase(newMockGormDB(t, 1), tokenRepo, sessionRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "channel-1", "LINK123")
 

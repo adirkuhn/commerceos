@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -44,7 +46,12 @@ func (uc *CreatePageUseCase) Execute(ctx context.Context, in CreatePageInput) (*
 			return err
 		}
 		out = DraftWrite{Document: page, Revision: draft.Revision}
-		return uc.deps.Versions.Update(ctx, draft)
+		if err := uc.deps.Versions.Update(ctx, draft); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.deps.Outbox, events.ThemePageCreated, page.ID, eventrecord.Data{
+			"theme_id": in.ThemeID, "version_id": draft.ID, "key": page.Key, "title": page.Title, "revision": draft.Revision,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createPage: %w", err)

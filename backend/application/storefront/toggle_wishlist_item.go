@@ -8,7 +8,9 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -20,6 +22,7 @@ type ToggleWishlistItemUseCase struct {
 	channelRepo  channelsDomain.SalesChannelRepository
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository
 	productRepo  pmsDomain.ProductRepository
+	outbox       eventrecord.Enqueuer
 }
 
 func NewToggleWishlistItemUseCase(
@@ -28,8 +31,9 @@ func NewToggleWishlistItemUseCase(
 	channelRepo channelsDomain.SalesChannelRepository,
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository,
 	productRepo pmsDomain.ProductRepository,
+	outbox eventrecord.Enqueuer,
 ) *ToggleWishlistItemUseCase {
-	return &ToggleWishlistItemUseCase{db: db, wishlistRepo: wishlistRepo, channelRepo: channelRepo, overrideRepo: overrideRepo, productRepo: productRepo}
+	return &ToggleWishlistItemUseCase{db: db, wishlistRepo: wishlistRepo, channelRepo: channelRepo, overrideRepo: overrideRepo, productRepo: productRepo, outbox: outbox}
 }
 
 // Execute adds productID to the wishlist if absent, or removes it if
@@ -49,7 +53,9 @@ func (uc *ToggleWishlistItemUseCase) Execute(ctx context.Context, token, product
 			return storefrontDomain.ErrWishlistNotFound
 		}
 
+		action := events.WishlistItemAdded
 		if found.Contains(productID) {
+			action = events.WishlistItemRemoved
 			filtered := make([]string, 0, len(found.ProductIDs))
 			for _, id := range found.ProductIDs {
 				if id != productID {
@@ -86,7 +92,9 @@ func (uc *ToggleWishlistItemUseCase) Execute(ctx context.Context, token, product
 			return err
 		}
 		wishlist = found
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, action, found.ID, eventrecord.Data{
+			"sales_channel_id": found.SalesChannelID, "product_id": productID,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("toggleWishlistItem: %w", err)

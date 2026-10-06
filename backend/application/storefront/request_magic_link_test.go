@@ -3,6 +3,7 @@ package storefront_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -25,7 +26,7 @@ func headlessChannel(id, signInURL string) channelsDomain.SalesChannel {
 }
 
 func newMagicLinkUC(t *testing.T, txs int, channels map[string]channelsDomain.SalesChannel, customers *fakeCustomerRepo, creator *fakeCustomerCreator, tokens *fakeMagicLinkTokenRepo, email *fakeEmailClient) *appstorefront.RequestMagicLinkUseCase {
-	return appstorefront.NewRequestMagicLinkUseCase(newMockGormDB(t, txs), &fakeChannelRepo{byID: channels}, customers, creator, tokens, email, hostedStorefronts)
+	return appstorefront.NewRequestMagicLinkUseCase(newMockGormDB(t, txs), &fakeChannelRepo{byID: channels}, customers, creator, tokens, email, hostedStorefronts, &eventrecordtest.Outbox{})
 }
 
 func TestRequestMagicLink_existingCustomer_createsTokenAndEmailsTheLink(t *testing.T) {

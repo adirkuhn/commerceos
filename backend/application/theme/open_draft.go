@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -85,6 +87,11 @@ func (uc *OpenDraftUseCase) startDraft(ctx context.Context, th theme.Theme, user
 		return nil, err
 	}
 	if err := uc.deps.Docs.CopyAll(ctx, published.ID, draft.ID); err != nil {
+		return nil, err
+	}
+	if err := eventrecord.Record(ctx, uc.deps.Outbox, events.ThemeDraftStarted, th.ID, eventrecord.Data{
+		"version_id": draft.ID, "version_number": draft.Number, "based_on_version_id": published.ID,
+	}); err != nil {
 		return nil, err
 	}
 	return &draft, nil

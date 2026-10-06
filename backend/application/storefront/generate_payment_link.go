@@ -6,7 +6,9 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -42,6 +44,7 @@ type GeneratePaymentLinkUseCase struct {
 	revolutFactory   integrationsDomain.PaymentLinkClientFactory
 	encryptionSecret string
 	publicBaseURL    string
+	outbox           eventrecord.Enqueuer
 }
 
 func NewGeneratePaymentLinkUseCase(
@@ -51,11 +54,12 @@ func NewGeneratePaymentLinkUseCase(
 	stripeFactory integrationsDomain.PaymentLinkClientFactory,
 	revolutFactory integrationsDomain.PaymentLinkClientFactory,
 	encryptionSecret, publicBaseURL string,
+	outbox eventrecord.Enqueuer,
 ) *GeneratePaymentLinkUseCase {
 	return &GeneratePaymentLinkUseCase{
 		db: db, channelRepo: channelRepo, connRepo: connRepo,
 		stripeFactory: stripeFactory, revolutFactory: revolutFactory,
-		encryptionSecret: encryptionSecret, publicBaseURL: publicBaseURL,
+		encryptionSecret: encryptionSecret, publicBaseURL: publicBaseURL, outbox: outbox,
 	}
 }
 
@@ -107,6 +111,17 @@ func (uc *GeneratePaymentLinkUseCase) Execute(ctx context.Context, salesChannelI
 	})
 	if err != nil {
 		return nil, false, fmt.Errorf("generatePaymentLink: create link: %w", err)
+	}
+	// The link now exists at the provider -- record it in its own
+	// transaction (there's no CommerceOS write to share one with).
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		return eventrecord.Record(ctx, uc.outbox, events.PaymentLinkCreated, link.ExternalID, eventrecord.Data{
+			"sales_channel_id": salesChannelID, "provider": string(conn.Provider), "reference": reference,
+			"amount_minor_units": amountMinorUnits, "currency_code": currencyCode,
+		})
+	})
+	if err != nil {
+		return nil, false, fmt.Errorf("generatePaymentLink: %w", err)
 	}
 	return &link, true, nil
 }

@@ -10,8 +10,10 @@ import (
 	"gorm.io/gorm"
 
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	"github.com/adirkuhn/commerceos/internal/idgen"
@@ -38,6 +40,7 @@ type RequestMagicLinkUseCase struct {
 	emailClient    messaging.Client
 	// hostedStorefrontURL is where CommerceOS serves themed storefronts.
 	hostedStorefrontURL string
+	outbox              eventrecord.Enqueuer
 }
 
 func NewRequestMagicLinkUseCase(
@@ -48,11 +51,12 @@ func NewRequestMagicLinkUseCase(
 	tokenRepo storefrontDomain.MagicLinkTokenRepository,
 	emailClient messaging.Client,
 	hostedStorefrontURL string,
+	outbox eventrecord.Enqueuer,
 ) *RequestMagicLinkUseCase {
 	return &RequestMagicLinkUseCase{
 		db: db, channelRepo: channelRepo, customerRepo: customerRepo,
 		createCustomer: createCustomer, tokenRepo: tokenRepo, emailClient: emailClient,
-		hostedStorefrontURL: hostedStorefrontURL,
+		hostedStorefrontURL: hostedStorefrontURL, outbox: outbox,
 	}
 }
 
@@ -107,6 +111,12 @@ func (uc *RequestMagicLinkUseCase) Execute(ctx context.Context, in RequestMagicL
 			Token: idgen.NewV4(), ExpiresAt: now.Add(magicLinkTokenTTL), CreatedAt: now,
 		}
 		if err := uc.tokenRepo.Create(ctx, token); err != nil {
+			return err
+		}
+		// The shopper's email and the link token stay out of the event.
+		if err := eventrecord.Record(ctx, uc.outbox, events.MagicLinkRequested, token.ID, eventrecord.Data{
+			"sales_channel_id": token.SalesChannelID, "customer_id": token.CustomerID,
+		}); err != nil {
 			return err
 		}
 		signIn, err := channel.SignInLink(uc.hostedStorefrontURL, token.Token)
