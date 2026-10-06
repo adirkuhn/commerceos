@@ -1,12 +1,12 @@
-import type { APIResponse, ReorderRecommendations, ReorderRecommendationsQuery, SeasonEvent, SeasonPlan, SeasonPlanQuery } from './types'
+import type { APIResponse, CreatePlanOrderInput, CreatedPurchaseOrder, ReorderRecommendations, ReorderRecommendationsQuery, SeasonEvent, SeasonPlan, SeasonPlanQuery } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/procurement`
 }
 
-async function request<T>(path: string, token: string): Promise<T> {
+async function request<T>(path: string, token: string, init: RequestInit = { method: 'GET' }): Promise<T> {
   const res = await fetch(path, {
-    method: 'GET',
+    ...init,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
   })
   const body: APIResponse<T> = await res.json()
@@ -42,4 +42,8 @@ export function getSeasonPlan(token: string, query: SeasonPlanQuery): Promise<Se
   if (query.supplier_id) params.set('supplier_id', query.supplier_id)
   if (query.all_products) params.set('all_products', 'true')
   return request<SeasonPlan>(`${base()}/season-plan?${params}`, token)
+}
+
+export function createPurchaseOrderFromPlan(token: string, input: CreatePlanOrderInput): Promise<CreatedPurchaseOrder> {
+  return request<CreatedPurchaseOrder>(`${base()}/recommendations/purchase-orders`, token, { method: 'POST', body: JSON.stringify(input) })
 }

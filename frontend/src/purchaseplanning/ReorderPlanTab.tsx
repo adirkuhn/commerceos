@@ -5,10 +5,12 @@ import { useReorderRecommendations } from './hooks/useReorderRecommendations'
 import { COVERAGE, SAFETY, parseDays } from './planningWindow'
 import { DaysPicker, PlanResult, RefreshButton, SupplierFilter } from './PlanControls'
 import { SupplierRecommendationCard } from './SupplierRecommendationCard'
+import { useCreatePlanOrder } from './hooks/useCreatePlanOrder'
 
 // "What to reorder now": window in the URL (?coverage=&safety=&supplier=).
 export function ReorderPlanTab({ token, suppliers }: { token: string; suppliers: Supplier[] }) {
   const { t } = useTranslation('purchasePlanning')
+  const createOrder = useCreatePlanOrder(token)
   const [coverageRaw, setCoverage] = useQueryString('coverage')
   const [safetyRaw, setSafety] = useQueryString('safety')
   const [supplierId, setSupplierId] = useQueryString('supplier')
@@ -32,7 +34,7 @@ export function ReorderPlanTab({ token, suppliers }: { token: string; suppliers:
         <p className="text-xs text-ink-3 max-w-3xl">{t('intro')}</p>
         <PlanResult loading={loading} error={error} empty={!data || data.suppliers.length === 0} emptyText={t('empty')}>
           {data?.suppliers.map(group => (
-            <SupplierRecommendationCard key={group.supplier_id ?? 'unsourced'} group={group} asOf={data.as_of} />
+            <SupplierRecommendationCard key={group.supplier_id ?? 'unsourced'} group={group} asOf={data.as_of} suppliers={suppliers} onCreateOrder={createOrder} />
           ))}
         </PlanResult>
       </div>

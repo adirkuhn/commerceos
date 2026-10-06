@@ -9,7 +9,7 @@ import type { ReorderRecommendations, SeasonEvent, SeasonPlan } from '../../purc
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
 }))
-vi.mock('../../purchaseplanning/api', () => ({ getReorderRecommendations: vi.fn(), listSeasonEvents: vi.fn(), getSeasonPlan: vi.fn() }))
+vi.mock('../../purchaseplanning/api', () => ({ getReorderRecommendations: vi.fn(), listSeasonEvents: vi.fn(), getSeasonPlan: vi.fn(), createPurchaseOrderFromPlan: vi.fn() }))
 vi.mock('../../suppliers/api', () => ({
   listSuppliers: vi.fn(() => Promise.resolve([{ id: 'sup-1', name: 'Bauducco NL', status: 'active' }])),
 }))
@@ -79,6 +79,17 @@ describe('PurchasePlanner', () => {
 
     await waitFor(() => expect(api.getReorderRecommendations).toHaveBeenLastCalledWith('test-token', { coverage_days: 30, safety_days: 7, supplier_id: 'sup-1' }))
     expect(router.state.location.search).toContain('supplier=sup-1')
+  })
+
+  it('turns a supplier\'s recommendations into a draft PO and opens it', async () => {
+    vi.mocked(api.createPurchaseOrderFromPlan).mockResolvedValue({ purchase_order_id: 'po-9' })
+    const { router } = renderAt(<PurchasePlanner />, '/purchase-planner')
+    await screen.findByText('Panettone')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create draft PO' }))
+
+    expect(api.createPurchaseOrderFromPlan).toHaveBeenCalledWith('test-token', { supplier_id: 'sup-1', lines: [{ sku_id: 'sku-1', quantity: 172 }] })
+    await waitFor(() => expect(router.state.location.pathname).toBe('/procurement/po-9'))
   })
 
   it('shows an empty state', async () => {

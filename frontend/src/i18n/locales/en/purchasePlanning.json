@@ -76,5 +76,12 @@
       "fathersDayBR": "Dia dos Pais",
       "festaJunina": "Festa Junina"
     }
+  },
+  "order": {
+    "create": "Create draft PO",
+    "creating": "Creating…",
+    "orderFrom": "Order from",
+    "pickSupplier": "Pick a supplier",
+    "quantityFor": "Quantity for {{product}}"
   }
 }

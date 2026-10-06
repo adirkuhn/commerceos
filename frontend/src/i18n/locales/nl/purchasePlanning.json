@@ -76,5 +76,12 @@
       "fathersDayBR": "Dia dos Pais",
       "festaJunina": "Festa Junina"
     }
+  },
+  "order": {
+    "create": "Conceptorder maken",
+    "creating": "Bezig…",
+    "orderFrom": "Bestellen bij",
+    "pickSupplier": "Kies een leverancier",
+    "quantityFor": "Aantal voor {{product}}"
   }
 }

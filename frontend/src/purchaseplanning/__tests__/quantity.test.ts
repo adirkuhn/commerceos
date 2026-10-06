@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatStockQuantity, formatPurchaseQuantity, orderUrgency } from '../quantity'
+import { formatStockQuantity, formatPurchaseQuantity, orderUrgency, purchaseUnitSuffix } from '../quantity'
 
 describe('formatStockQuantity', () => {
   it('shows units as a plain count', () => {
@@ -53,5 +53,14 @@ describe('orderUrgency', () => {
   it('is none without a date', () => {
     expect(orderUrgency(null, asOf)).toBe('none')
     expect(orderUrgency(undefined, asOf)).toBe('none')
+  })
+})
+
+describe('purchaseUnitSuffix', () => {
+  it('names the unit a purchase quantity is typed in', () => {
+    expect(purchaseUnitSuffix({ units_per_purchased_item: 1, is_weight_pool: false })).toBe('')
+    expect(purchaseUnitSuffix({ units_per_purchased_item: 6, is_weight_pool: false })).toBe('× 6')
+    expect(purchaseUnitSuffix({ units_per_purchased_item: 1000, is_weight_pool: true })).toBe('kg')
+    expect(purchaseUnitSuffix({ units_per_purchased_item: 5000, is_weight_pool: true })).toBe('× 5 kg')
   })
 })

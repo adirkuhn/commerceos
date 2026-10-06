@@ -71,3 +71,23 @@ describe('getSeasonPlan', () => {
     expect(fetchMock.mock.calls[0][0]).toMatch(/\/season-plan\?from=2026-11-01&to=2026-11-11&safety_days=0$/)
   })
 })
+
+describe('createPurchaseOrderFromPlan', () => {
+  it('posts the supplier and lines', async () => {
+    const fetchMock = mockFetch({ data: { purchase_order_id: 'po-9' }, error: null }, 201)
+    const input = { supplier_id: 'sup-1', lines: [{ sku_id: 'sku-1', quantity: 172 }] }
+
+    const out = await api.createPurchaseOrderFromPlan('tok', input)
+
+    expect(out).toEqual({ purchase_order_id: 'po-9' })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toMatch(/\/procurement\/recommendations\/purchase-orders$/)
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual(input)
+  })
+
+  it('throws the API error message', async () => {
+    mockFetch({ data: null, error: { code: 'FORBIDDEN', message: 'insufficient role' } }, 403)
+    await expect(api.createPurchaseOrderFromPlan('tok', { supplier_id: 's', lines: [] })).rejects.toThrow('insufficient role')
+  })
+})

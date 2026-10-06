@@ -8,6 +8,7 @@ import { seasonEventLabels } from './labels'
 import { SAFETY, parseDays } from './planningWindow'
 import { DaysPicker, Field, PlanResult, RefreshButton, SELECT, SupplierFilter } from './PlanControls'
 import { SupplierRecommendationCard } from './SupplierRecommendationCard'
+import { useCreatePlanOrder } from './hooks/useCreatePlanOrder'
 import type { DateWindow, SeasonEventKey } from './types'
 
 const CUSTOM = 'custom'
@@ -17,6 +18,7 @@ const CUSTOM = 'custom'
 // upcoming holiday is planned.
 export function SeasonPlanTab({ token, suppliers }: { token: string; suppliers: Supplier[] }) {
   const { t } = useTranslation('purchasePlanning')
+  const createOrder = useCreatePlanOrder(token)
   const { formatDate } = useDateFormat()
   const labels = seasonEventLabels(t)
   const [seasonRaw, setSeason] = useQueryString('season')
@@ -88,7 +90,7 @@ export function SeasonPlanTab({ token, suppliers }: { token: string; suppliers: 
         )}
         <PlanResult loading={plan.loading} error={plan.error} empty={!data || data.suppliers.length === 0} emptyText={t('season.empty')}>
           {data?.suppliers.map(group => (
-            <SupplierRecommendationCard key={group.supplier_id ?? 'unsourced'} group={group} asOf={data.as_of} />
+            <SupplierRecommendationCard key={group.supplier_id ?? 'unsourced'} group={group} asOf={data.as_of} suppliers={suppliers} onCreateOrder={createOrder} />
           ))}
         </PlanResult>
       </div>

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { SupplierRecommendationCard } from '../SupplierRecommendationCard'
 import type { RecommendationLine, SupplierRecommendation } from '../types'
 
@@ -88,5 +89,64 @@ describe('SupplierRecommendationCard', () => {
     const row = screen.getByTestId('recommendation-row')
     expect(within(row).getByText('+48 until the season')).toBeInTheDocument()
     expect(within(row).getByText('18.6× usual sales')).toBeInTheDocument()
+  })
+
+  it('is read-only without an order action', () => {
+    render(<SupplierRecommendationCard group={group()} asOf={AS_OF} />)
+    expect(screen.queryByRole('button', { name: 'Create draft PO' })).not.toBeInTheDocument()
+  })
+})
+
+describe('SupplierRecommendationCard ordering', () => {
+  const suppliers = [{ id: 'sup-2', name: 'Casa Brasil' }]
+  const twoLines = group({
+    lines: [line(), line({ sku_id: 'sku-2', sku_code: 'COL-1', product_name: 'Colomba', purchase_quantity: 10, units_per_purchased_item: 1, unit_cost_minor_units: 300 })],
+  })
+
+  it('creates a draft PO with the edited quantities, skipping zeros', async () => {
+    const onCreateOrder = vi.fn().mockResolvedValue(undefined)
+    render(<SupplierRecommendationCard group={twoLines} asOf={AS_OF} suppliers={suppliers} onCreateOrder={onCreateOrder} />)
+
+    const pan = screen.getByLabelText('Quantity for Panettone')
+    expect(pan).toHaveValue(172)
+    expect(screen.getByText('× 6')).toBeInTheDocument()
+    await userEvent.clear(pan)
+    await userEvent.type(pan, '150')
+    await userEvent.clear(screen.getByLabelText('Quantity for Colomba'))
+    await userEvent.type(screen.getByLabelText('Quantity for Colomba'), '0')
+    expect(screen.getByText('€675.00')).toBeInTheDocument() // 150 x 4.50
+    await userEvent.click(screen.getByRole('button', { name: 'Create draft PO' }))
+
+    expect(onCreateOrder).toHaveBeenCalledWith('sup-1', [{ sku_id: 'sku-1', quantity: 150 }])
+  })
+
+  it('needs a supplier picked for products never bought on a PO', async () => {
+    const onCreateOrder = vi.fn().mockResolvedValue(undefined)
+    render(<SupplierRecommendationCard group={group({ supplier_id: null, supplier_name: '' })} asOf={AS_OF} suppliers={suppliers} onCreateOrder={onCreateOrder} />)
+
+    const create = screen.getByRole('button', { name: 'Create draft PO' })
+    expect(create).toBeDisabled()
+    await userEvent.selectOptions(screen.getByLabelText('Order from'), 'sup-2')
+    await userEvent.click(create)
+
+    expect(onCreateOrder).toHaveBeenCalledWith('sup-2', [{ sku_id: 'sku-1', quantity: 172 }])
+  })
+
+  it('shows why creating failed', async () => {
+    const onCreateOrder = vi.fn().mockRejectedValue(new Error('insufficient role'))
+    render(<SupplierRecommendationCard group={group()} asOf={AS_OF} suppliers={suppliers} onCreateOrder={onCreateOrder} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create draft PO' }))
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('insufficient role'))
+    expect(screen.getByRole('button', { name: 'Create draft PO' })).toBeEnabled()
+  })
+
+  it('can\'t create an order with nothing in it', async () => {
+    render(<SupplierRecommendationCard group={group()} asOf={AS_OF} suppliers={suppliers} onCreateOrder={vi.fn()} />)
+
+    await userEvent.clear(screen.getByLabelText('Quantity for Panettone'))
+
+    expect(screen.getByRole('button', { name: 'Create draft PO' })).toBeDisabled()
   })
 })

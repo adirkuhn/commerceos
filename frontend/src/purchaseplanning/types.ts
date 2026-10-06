@@ -115,6 +115,22 @@ export interface SeasonPlanQuery {
   all_products: boolean
 }
 
+export interface PlanOrderLine {
+  sku_id: string
+  // Purchased items (boxes, kg), as the plan shows them.
+  quantity: number
+}
+
+export interface CreatePlanOrderInput {
+  supplier_id: string
+  lines: PlanOrderLine[]
+  notes?: string
+}
+
+export interface CreatedPurchaseOrder {
+  purchase_order_id: string
+}
+
 export interface APIResponse<T> {
   data: T | null
   error: { code: string; message: string } | null

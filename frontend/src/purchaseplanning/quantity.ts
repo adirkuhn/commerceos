@@ -22,6 +22,14 @@ export function formatPurchaseQuantity(
   return perItem > 1 ? `${qty} × ${perItem}` : String(qty)
 }
 
+// The unit a purchase quantity is typed in: "" for single items, "× 6"
+// for a box of 6, "kg" for a weight pool bought per kg ("× 5 kg" otherwise).
+export function purchaseUnitSuffix(line: Pick<RecommendationLine, 'units_per_purchased_item' | 'is_weight_pool'>): string {
+  const { units_per_purchased_item: perItem, is_weight_pool: pool } = line
+  if (pool) return perItem === GRAMS_PER_KG ? 'kg' : `× ${kg(perItem)}`
+  return perItem > 1 ? `× ${perItem}` : ''
+}
+
 export type OrderUrgency = 'overdue' | 'today' | 'soon' | 'later' | 'none'
 
 // Both dates are ISO calendar days (YYYY-MM-DD), compared as UTC days.

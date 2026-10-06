@@ -3,9 +3,12 @@ import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { formatMoney } from '../format/money'
-import { formatPurchaseQuantity, formatStockQuantity, orderUrgency, type OrderUrgency } from './quantity'
+import type { Supplier } from '../suppliers/types'
+import { useOrderQuantities } from './hooks/useOrderQuantities'
+import { OrderActions } from './OrderActions'
+import { formatPurchaseQuantity, formatStockQuantity, orderUrgency, purchaseUnitSuffix, type OrderUrgency } from './quantity'
 import { urgencyLabels } from './labels'
-import type { RecommendationLine, SupplierRecommendation } from './types'
+import type { PlanOrderLine, RecommendationLine, SupplierRecommendation } from './types'
 
 const URGENCY_STYLE: Record<OrderUrgency, string> = {
   overdue: 'text-danger font-semibold',
@@ -19,13 +22,20 @@ interface Props {
   group: SupplierRecommendation
   // The plan's "today" (YYYY-MM-DD), for how urgent each order-by date is.
   asOf: string
+  // With onCreateOrder, quantities are editable and the card turns them
+  // into a draft PO (suppliers: who to order unsourced products from).
+  suppliers?: Pick<Supplier, 'id' | 'name'>[]
+  onCreateOrder?: (supplierId: string, lines: PlanOrderLine[]) => Promise<void>
 }
 
 // One supplier's share of the plan: what to order from them, most urgent first.
-export function SupplierRecommendationCard({ group, asOf }: Props) {
+export function SupplierRecommendationCard({ group, asOf, suppliers = [], onCreateOrder }: Props) {
   const { t } = useTranslation('purchasePlanning')
   const { formatDate } = useDateFormat()
   const unsourced = !group.supplier_id
+  const order = useOrderQuantities(group.lines)
+  const editable = Boolean(onCreateOrder)
+  const total = editable ? editedTotal(group, order.quantity) : group.estimated_cost_minor_units
 
   return (
     <section className="rounded-xl border border-line bg-raised overflow-hidden">
@@ -44,13 +54,16 @@ export function SupplierRecommendationCard({ group, asOf }: Props) {
               {t('group.orderBy', { date: formatDate(group.earliest_order_by_date) })}
             </span>
           )}
-          {group.estimated_cost_minor_units != null && (
+          {total != null && (
             <span className="font-medium text-ink">
-              {t('group.estimatedTotal', { amount: formatMoney(group.estimated_cost_minor_units, group.currency_code) })}
+              {t('group.estimatedTotal', { amount: formatMoney(total, group.currency_code) })}
             </span>
           )}
         </span>
         {unsourced && <p className="basis-full text-2xs text-ink-4">{t('group.noSupplierHint')}</p>}
+        {onCreateOrder && (
+          <OrderActions supplierId={group.supplier_id ?? null} suppliers={suppliers} lines={order.orderLines} onCreateOrder={onCreateOrder} />
+        )}
       </header>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
@@ -66,7 +79,12 @@ export function SupplierRecommendationCard({ group, asOf }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-line/50">
-            {group.lines.map(line => <RecommendationRow key={line.sku_id} line={line} asOf={asOf} />)}
+            {group.lines.map(line => (
+              <RecommendationRow
+                key={line.sku_id} line={line} asOf={asOf}
+                order={editable ? { typed: order.typed(line.sku_id), quantity: order.quantity(line.sku_id), onChange: v => order.setTyped(line.sku_id, v) } : null}
+              />
+            ))}
           </tbody>
         </table>
       </div>
@@ -74,7 +92,13 @@ export function SupplierRecommendationCard({ group, asOf }: Props) {
   )
 }
 
-function RecommendationRow({ line, asOf }: { line: RecommendationLine; asOf: string }) {
+interface RowOrder {
+  typed: string
+  quantity: number
+  onChange: (value: string) => void
+}
+
+function RecommendationRow({ line, asOf, order }: { line: RecommendationLine; asOf: string; order: RowOrder | null }) {
   const { t } = useTranslation('purchasePlanning')
   const { formatDate } = useDateFormat()
   const qty = (units: number) => formatStockQuantity(units, line.is_weight_pool)
@@ -105,16 +129,41 @@ function RecommendationRow({ line, asOf }: { line: RecommendationLine; asOf: str
           <div className="text-2xs font-medium text-accent">{t('season.lift', { lift: Math.round(line.seasonal_lift * 10) / 10 })}</div>
         )}
       </td>
-      <td className="px-4 py-2 text-right font-semibold text-ink">{formatPurchaseQuantity(line)}</td>
-      <td className="px-4 py-2 text-right text-ink-3">
-        {line.estimated_cost_minor_units != null ? formatMoney(line.estimated_cost_minor_units, line.currency_code) : '—'}
+      <td className="px-4 py-2 text-right font-semibold text-ink whitespace-nowrap">
+        {order ? (
+          <>
+            <input
+              type="number" min={0} step={1} value={order.typed} onChange={e => order.onChange(e.target.value)}
+              aria-label={t('order.quantityFor', { product: line.product_name })}
+              className="w-20 px-2 py-1 rounded-md border border-line bg-surface text-right text-xs text-ink"
+            />
+            {purchaseUnitSuffix(line) && <span className="ml-1 text-2xs font-normal text-ink-4">{purchaseUnitSuffix(line)}</span>}
+          </>
+        ) : formatPurchaseQuantity(line)}
       </td>
+      <td className="px-4 py-2 text-right text-ink-3">{lineCost(line, order)}</td>
       <td className="px-4 py-2 text-right">
         <div className={URGENCY_STYLE[urgency]}>{line.order_by_date ? formatDate(line.order_by_date) : '—'}</div>
         {urgency !== 'none' && <div className={clsx('text-2xs', URGENCY_STYLE[urgency])}>{urgencyLabels(t)[urgency]}</div>}
       </td>
     </tr>
   )
+}
+
+function lineCost(line: RecommendationLine, order: RowOrder | null): string {
+  if (line.unit_cost_minor_units == null) return '—'
+  const cost = order ? line.unit_cost_minor_units * order.quantity : line.estimated_cost_minor_units
+  return cost != null ? formatMoney(cost, line.currency_code) : '—'
+}
+
+// The edited order's total; null unless every line has a cost in the group's currency.
+function editedTotal(group: SupplierRecommendation, quantity: (skuId: string) => number): number | null {
+  let total = 0
+  for (const l of group.lines) {
+    if (l.unit_cost_minor_units == null || l.currency_code !== group.currency_code) return null
+    total += l.unit_cost_minor_units * quantity(l.sku_id)
+  }
+  return total
 }
 
 function forecastReason(line: RecommendationLine, qty: (n: number) => string, t: TFunction<'purchasePlanning'>): string {
