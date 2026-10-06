@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"time"
 
 	"gorm.io/gorm"
@@ -73,6 +74,7 @@ type ImportWooProductsUseCase struct {
 	taxClassRepo     taxDomain.TaxClassRepository
 	taxRateRepo      taxDomain.TaxRateRepository
 	taxLinkRepo      taxDomain.ExternalTaxClassLinkRepository
+	outbox           eventrecord.Enqueuer
 }
 
 func NewImportWooProductsUseCase(
@@ -91,12 +93,14 @@ func NewImportWooProductsUseCase(
 	taxClassRepo taxDomain.TaxClassRepository,
 	taxRateRepo taxDomain.TaxRateRepository,
 	taxLinkRepo taxDomain.ExternalTaxClassLinkRepository,
+	outbox eventrecord.Enqueuer,
 ) *ImportWooProductsUseCase {
 	return &ImportWooProductsUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
 		categoryRepo: categoryRepo, productRepo: productRepo, variantRepo: variantRepo,
 		skuRepo: skuRepo, listingRepo: listingRepo, syncLogRepo: syncLogRepo, stock: stock, media: media,
 		taxClassRepo: taxClassRepo, taxRateRepo: taxRateRepo, taxLinkRepo: taxLinkRepo,
+		outbox: outbox,
 	}
 }
 
@@ -345,7 +349,7 @@ func (uc *ImportWooProductsUseCase) importOne(
 		return
 	}
 
-	recordSyncLog(ctx, uc.db, uc.syncLogRepo, createdListing, channelsDomain.SyncFlowImport,
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, createdListing, channelsDomain.SyncFlowImport,
 		channelsDomain.SyncLogStatusSuccess, "", createdFields)
 
 	// Linked to a pre-existing CommerceOS product by SKU code match — no

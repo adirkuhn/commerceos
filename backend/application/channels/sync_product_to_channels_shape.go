@@ -93,6 +93,9 @@ func (uc *SyncProductToChannelsUseCase) migrateShape(ctx context.Context, produc
 			if err := uc.listingRepo.Delete(ctx, l.ID); err != nil {
 				return err
 			}
+			if err := recordListingDeleted(ctx, uc.outbox, l, ListingDeletedReasonShapeMigration); err != nil {
+				return err
+			}
 		}
 		return nil
 	}); err != nil {
@@ -143,7 +146,7 @@ func (uc *SyncProductToChannelsUseCase) syncSeparateProducts(ctx context.Context
 				log.Printf("syncProductToChannels: recording new listing for variant %s: %v", v.ID, err)
 				continue
 			}
-			recordSyncLog(ctx, uc.db, uc.syncLogRepo, newListing, channelsDomain.SyncFlowPush,
+			recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, newListing, channelsDomain.SyncFlowPush,
 				channelsDomain.SyncLogStatusSuccess, "", wooProductToFields(wooProduct))
 			continue
 		}
@@ -159,7 +162,7 @@ func (uc *SyncProductToChannelsUseCase) syncSeparateProducts(ctx context.Context
 		if err := client.DeleteProduct(ctx, l.ExternalID); err != nil {
 			log.Printf("syncProductToChannels: deleting product for removed variant %s: %v", variantID, err)
 		}
-		uc.deleteListing(ctx, l.ID)
+		uc.deleteListing(ctx, l, ListingDeletedReasonVariantRemoved)
 	}
 }
 
@@ -221,7 +224,7 @@ func (uc *SyncProductToChannelsUseCase) syncVariations(ctx context.Context, prod
 				log.Printf("syncProductToChannels: recording new variation listing for variant %s: %v", v.ID, err)
 				continue
 			}
-			recordSyncLog(ctx, uc.db, uc.syncLogRepo, newListing, channelsDomain.SyncFlowPush,
+			recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, newListing, channelsDomain.SyncFlowPush,
 				channelsDomain.SyncLogStatusSuccess, "", wooVariationToFields(wooVariation))
 			continue
 		}
@@ -237,15 +240,18 @@ func (uc *SyncProductToChannelsUseCase) syncVariations(ctx context.Context, prod
 		if err := client.DeleteVariation(ctx, parentListing.ExternalID, l.ExternalID); err != nil {
 			log.Printf("syncProductToChannels: deleting variation for removed variant %s: %v", variantID, err)
 		}
-		uc.deleteListing(ctx, l.ID)
+		uc.deleteListing(ctx, l, ListingDeletedReasonVariantRemoved)
 	}
 }
 
-func (uc *SyncProductToChannelsUseCase) deleteListing(ctx context.Context, listingID string) {
+func (uc *SyncProductToChannelsUseCase) deleteListing(ctx context.Context, l channelsDomain.ProductChannelListing, reason string) {
 	if err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.listingRepo.Delete(ctx, listingID)
+		if err := uc.listingRepo.Delete(ctx, l.ID); err != nil {
+			return err
+		}
+		return recordListingDeleted(ctx, uc.outbox, l, reason)
 	}); err != nil {
-		log.Printf("syncProductToChannels: deleting listing %s: %v", listingID, err)
+		log.Printf("syncProductToChannels: deleting listing %s: %v", l.ID, err)
 	}
 }
 
@@ -260,7 +266,10 @@ func (uc *SyncProductToChannelsUseCase) createListing(ctx context.Context, produ
 			SyncStatus: channelsDomain.SyncStatusSynced, LastSyncedAt: &now,
 			CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.listingRepo.Create(ctx, &listing)
+		if err := uc.listingRepo.Create(ctx, &listing); err != nil {
+			return err
+		}
+		return recordListingCreated(ctx, uc.outbox, listing, ListingSourceVariantAdded)
 	})
 	return listing, err
 }

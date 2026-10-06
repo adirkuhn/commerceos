@@ -148,7 +148,7 @@ func main() {
 	resolveCategoryLinkUC := channelsapp.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo, repositories.NewOutboxRepository(db))
 	pushUC := channelsapp.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo, resolveCategoryLinkUC,
+		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo, resolveCategoryLinkUC, repositories.NewOutboxRepository(db),
 	)
 	taxClassRepo := repositories.NewTaxClassRepo(db)
 	taxRateRepo := repositories.NewTaxRateRepo(db)
@@ -156,7 +156,7 @@ func main() {
 	importUC := channelsapp.NewImportWooProductsUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 		categoryRepo, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockRecorderUC, uploadMediaUC,
-		taxClassRepo, taxRateRepo, taxLinkRepo,
+		taxClassRepo, taxRateRepo, taxLinkRepo, repositories.NewOutboxRepository(db),
 	)
 	// Notifications honour each tenant's delivery preferences (bell and/or
 	// email); the email half is sent by NotificationEmailConsumer below.
@@ -191,17 +191,17 @@ func main() {
 	bolOverrideRepo := repositories.NewBolProductOverrideRepo(db)
 	bolContentRepo := repositories.NewBolProductContentRepo(db)
 	pushBolUC := channelsapp.NewPushProductToBolUseCase(
-		db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC, notifyUC,
+		db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC, notifyUC, repositories.NewOutboxRepository(db),
 	)
 	// syncStockUC is built here (moved up from its stockChangedConsumer
 	// wiring further below) so syncProductUC can use it as its stock
 	// catch-up dependency for reactivation after a gated period -- see
 	// SyncProductToChannelsUseCase's doc comment.
 	syncStockUC := channelsapp.NewSyncStockToChannelsUseCase(
-		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, cfg.IntegrationsEncryptionSecret, pushBolUC,
+		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, cfg.IntegrationsEncryptionSecret, pushBolUC, repositories.NewOutboxRepository(db),
 	)
 	syncProductUC := channelsapp.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, pushUC, mediaRepo, resolveCategoryLinkUC, pushBolUC, pushBolUC, syncStockUC,
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, pushUC, mediaRepo, resolveCategoryLinkUC, pushBolUC, pushBolUC, syncStockUC, repositories.NewOutboxRepository(db),
 	)
 	salesChannelRepo := repositories.NewSalesChannelRepo(db)
 	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)
@@ -361,11 +361,11 @@ func main() {
 		channelsapp.NewRunScheduledProductExportUseCase(db, productRepo, listingRepo, pushUC),
 		channelsapp.NewImportWooStockLevelsUseCase(
 			db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-			variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, stockRecorderUC,
+			variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, stockRecorderUC, repositories.NewOutboxRepository(db),
 		),
 		channelsapp.NewExportWooStockLevelsUseCase(
 			db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-			variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC,
+			variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, repositories.NewOutboxRepository(db),
 		),
 		ordersImportUC,
 		shipmentReconcileUC,

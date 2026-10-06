@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -50,7 +51,7 @@ func (h *harness) newSyncStockUseCase(t *testing.T, n int, stockLevel *stubStock
 	// that happens to include a Bol listing).
 	return appchannels.NewSyncStockToChannelsUseCase(
 		newMockGormDB(t, n), h.skuRepo, h.variantRepo, h.listingRepo, h.syncLogRepo,
-		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret, nil,
+		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret, nil, &eventrecordtest.Outbox{},
 	)
 }
 
@@ -58,7 +59,7 @@ func (h *harness) newSyncStockUseCaseWithBol(t *testing.T, n int, stockLevel *st
 	t.Helper()
 	return appchannels.NewSyncStockToChannelsUseCase(
 		newMockGormDB(t, n), h.skuRepo, h.variantRepo, h.listingRepo, h.syncLogRepo,
-		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret, bolPusher,
+		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret, bolPusher, &eventrecordtest.Outbox{},
 	)
 }
 
@@ -427,7 +428,7 @@ func TestSyncStockToChannels_eachVariantListingGetsItsOwnStockLevel(t *testing.T
 	}}
 	uc := appchannels.NewSyncStockToChannelsUseCase(
 		newMockGormDB(t, 15), h.skuRepo, h.variantRepo, h.listingRepo, h.syncLogRepo,
-		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret, nil,
+		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret, nil, &eventrecordtest.Outbox{},
 	)
 
 	err := uc.Execute(context.Background(), "sku-1")
@@ -472,7 +473,7 @@ func TestSyncStockToChannels_resolveListingSKUID_skipsBulkPoolSKUForTheSellableO
 	}}
 	uc := appchannels.NewSyncStockToChannelsUseCase(
 		newMockGormDB(t, 15), h.skuRepo, h.variantRepo, h.listingRepo, h.syncLogRepo,
-		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret, nil,
+		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret, nil, &eventrecordtest.Outbox{},
 	)
 
 	err := uc.Execute(context.Background(), "sku-1")

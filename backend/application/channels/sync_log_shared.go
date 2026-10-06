@@ -9,7 +9,9 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -31,11 +33,14 @@ import (
 // failed sync is always recorded, even if fields match, since the failure
 // itself is the thing worth an audit trail.
 //
+// Every written entry is also raised as channels.product_listing.synced
+// (same transaction), so a skipped no-change success raises nothing either.
+//
 // Must be called from its own tenant.WithTenant block — logging failures
 // are only logged, never propagated, since the actual sync this entry
 // describes has already happened by the time this runs.
 func recordSyncLog(
-	ctx context.Context, db *gorm.DB, syncLogRepo channelsDomain.SyncLogRepository,
+	ctx context.Context, db *gorm.DB, syncLogRepo channelsDomain.SyncLogRepository, outbox eventrecord.Enqueuer,
 	listing channelsDomain.ProductChannelListing,
 	direction channelsDomain.SyncDirectionFlow, status channelsDomain.SyncLogStatus, errMsg string, fields map[string]string,
 ) {
@@ -72,7 +77,13 @@ func recordSyncLog(
 			Direction: direction, Status: status, ErrorMessage: errMsg,
 			Fields: fields, Changes: changes, SyncedAt: time.Now(),
 		}
-		return syncLogRepo.Create(ctx, &entry)
+		if err := syncLogRepo.Create(ctx, &entry); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, outbox, events.ProductListingSynced, listing.ID, eventrecord.Data{
+			"product_id": listing.ProductID, "connection_id": listing.ConnectionID, "provider": listing.Provider,
+			"external_id": listing.ExternalID, "direction": string(direction), "status": string(status), "error_message": errMsg,
+		}, syncLogChanges(changes))
 	})
 	if err != nil {
 		log.Printf("recordSyncLog: writing entry for listing %s: %v", listing.ID, err)

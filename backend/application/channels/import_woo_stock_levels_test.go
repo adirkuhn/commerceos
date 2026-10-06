@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -38,7 +39,7 @@ func TestImportWooStockLevels_recordsAdjustmentWhenQuantitiesDiffer(t *testing.T
 
 	uc := appchannels.NewImportWooStockLevelsUseCase(
 		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.stock,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.stock, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooStockLevelsInput{ConnectionID: "conn-1", DefaultWarehouseID: "wh-1"})
@@ -67,7 +68,7 @@ func TestImportWooStockLevels_noopWhenQuantitiesMatch(t *testing.T) {
 
 	uc := appchannels.NewImportWooStockLevelsUseCase(
 		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.stock,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.stock, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooStockLevelsInput{ConnectionID: "conn-1"})
@@ -84,7 +85,7 @@ func TestImportWooStockLevels_skipsProductsWooIsNotManagingStock(t *testing.T) {
 
 	uc := appchannels.NewImportWooStockLevelsUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.stock,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.stock, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooStockLevelsInput{ConnectionID: "conn-1"})
@@ -104,7 +105,7 @@ func TestImportWooStockLevels_recordsErrorForMultiVariantProductAndContinues(t *
 
 	uc := appchannels.NewImportWooStockLevelsUseCase(
 		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.stock,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.stock, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooStockLevelsInput{ConnectionID: "conn-1"})
@@ -121,7 +122,7 @@ func TestImportWooStockLevels_wrapsWooListFailure(t *testing.T) {
 
 	uc := appchannels.NewImportWooStockLevelsUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.stock,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.stock, &eventrecordtest.Outbox{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooStockLevelsInput{ConnectionID: "conn-1"})
@@ -135,7 +136,7 @@ func TestImportWooStockLevels_noopWhenNoListings(t *testing.T) {
 
 	uc := appchannels.NewImportWooStockLevelsUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, &stubStockLevelGetter{}, h.stock,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, &stubStockLevelGetter{}, h.stock, &eventrecordtest.Outbox{},
 	)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooStockLevelsInput{ConnectionID: "conn-1"})

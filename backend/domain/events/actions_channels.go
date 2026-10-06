@@ -19,3 +19,20 @@ var (
 	ImportJobCreated = defineAction("channels.import_job.created",
 		"A product import from an external shop was queued. data: connection_id, default_warehouse_id, default_currency, is_first_import.")
 )
+
+// Product listings -- a product (or variant) published on an external
+// channel, and every sync of it.
+var (
+	ProductListingCreated = defineAction("channels.product_listing.created",
+		"A product or variant was linked to a listing on an external channel. data: product_id, variant_id, connection_id, provider, external_id, is_variation, source (push, variant_added, link_existing, import).")
+	ProductListingUpdated = defineAction("channels.product_listing.updated",
+		"A listing's link changed (changes: variant_id, external_id, not_for_sale_note). data: product_id, connection_id, provider.")
+	ProductListingDeleted = defineAction("channels.product_listing.deleted",
+		"A listing was removed. data: product_id, variant_id, connection_id, provider, external_id, reason (shape_migration, variant_removed).")
+	ProductListingSynced = defineAction("channels.product_listing.synced",
+		"A listing was synced with its channel (a sync log entry was written; an unchanged successful re-sync records nothing). changes: the synced fields that changed since the previous sync, before/after as strings. data: product_id, connection_id, provider, external_id, direction (push, import), status (success, error), error_message.")
+	ProductListingGated = defineAction("channels.product_listing.gated",
+		"A listing was taken off sale on its channel because the product is no longer active (Woo status pushed, Bol offer put on hold). data: product_id, connection_id, provider, external_id.")
+	ProductListingUngated = defineAction("channels.product_listing.ungated",
+		"A gated listing went back on sale after the product became active again. data: product_id, connection_id, provider, external_id.")
+)

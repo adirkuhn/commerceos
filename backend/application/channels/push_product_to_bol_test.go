@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -202,7 +203,7 @@ func newBolUseCase(t *testing.T, h *pushHarness, client integrationsDomain.BolCl
 	return appchannels.NewPushProductToBolUseCase(
 		newMockGormDB(t, mockTxCount), h.connRepo, &fakeBolClientFactory{client: client}, testEncryptionSecret,
 		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.overrideRepo, h.contentRepo, h.syncLogRepo, h.stockLevel,
-		&fakeNotifier{},
+		&fakeNotifier{}, &eventrecordtest.Outbox{},
 	)
 }
 
@@ -211,7 +212,7 @@ func newBolUseCaseWithNotifier(t *testing.T, h *pushHarness, client integrations
 	return appchannels.NewPushProductToBolUseCase(
 		newMockGormDB(t, mockTxCount), h.connRepo, &fakeBolClientFactory{client: client}, testEncryptionSecret,
 		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.overrideRepo, h.contentRepo, h.syncLogRepo, h.stockLevel,
-		notifier,
+		notifier, &eventrecordtest.Outbox{},
 	)
 }
 

@@ -3,6 +3,7 @@ package channels
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"strconv"
 	"time"
 
@@ -48,6 +49,7 @@ type ImportWooStockLevelsUseCase struct {
 	syncLogRepo channelsDomain.SyncLogRepository
 	stockLevel  stockLevelGetter
 	stock       stockRecorder
+	outbox      eventrecord.Enqueuer
 }
 
 func NewImportWooStockLevelsUseCase(
@@ -61,11 +63,13 @@ func NewImportWooStockLevelsUseCase(
 	syncLogRepo channelsDomain.SyncLogRepository,
 	stockLevel stockLevelGetter,
 	stock stockRecorder,
+	outbox eventrecord.Enqueuer,
 ) *ImportWooStockLevelsUseCase {
 	return &ImportWooStockLevelsUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret,
 		variantRepo: variantRepo, skuRepo: skuRepo, listingRepo: listingRepo, syncLogRepo: syncLogRepo,
 		stockLevel: stockLevel, stock: stock,
+		outbox: outbox,
 	}
 }
 
@@ -152,14 +156,14 @@ func (uc *ImportWooStockLevelsUseCase) reconcileOne(ctx context.Context, in Impo
 	})
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("product %s: %v", listing.ProductID, err))
-		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowImport, channelsDomain.SyncLogStatusError, err.Error(), fields)
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowImport, channelsDomain.SyncLogStatusError, err.Error(), fields)
 		return
 	}
 
 	level, err := uc.stockLevel.Execute(ctx, skuID)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("sku %s: stock level: %v", skuID, err))
-		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowImport, channelsDomain.SyncLogStatusError, err.Error(), fields)
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowImport, channelsDomain.SyncLogStatusError, err.Error(), fields)
 		return
 	}
 	delta := int64(wooQty) - level.Syncable
@@ -178,9 +182,9 @@ func (uc *ImportWooStockLevelsUseCase) reconcileOne(ctx context.Context, in Impo
 	})
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("sku %s: record adjustment: %v", skuID, err))
-		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowImport, channelsDomain.SyncLogStatusError, err.Error(), fields)
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowImport, channelsDomain.SyncLogStatusError, err.Error(), fields)
 		return
 	}
 	result.Updated++
-	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowImport, channelsDomain.SyncLogStatusSuccess, "", fields)
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowImport, channelsDomain.SyncLogStatusSuccess, "", fields)
 }

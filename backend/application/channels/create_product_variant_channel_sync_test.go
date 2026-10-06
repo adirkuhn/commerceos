@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -58,7 +59,7 @@ func TestCreateProductThenAddVariant_endToEnd_reachesWooCommerce(t *testing.T) {
 	createSKUUC := apppms.NewCreateSKUUseCase(db, h.variantRepo, h.skuRepo, noopSKUPriceHistoryRepo{}, outboxRepo)
 	pushUC := appchannels.NewPushProductToWooUseCase(
 		db, h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{}, &eventrecordtest.Outbox{},
 	)
 	enrollUC := appchannels.NewEnrollProductInChannelsUseCase(db, h.productRepo, channelRepo, overrideRepo, pushUC, nil)
 

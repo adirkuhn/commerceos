@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 
 	"gorm.io/gorm"
 
@@ -44,6 +45,7 @@ type PushProductToBolUseCase struct {
 	syncLogRepo  channelsDomain.SyncLogRepository
 	stockLevel   stockLevelGetter
 	notifier     notifier
+	outbox       eventrecord.Enqueuer
 }
 
 func NewPushProductToBolUseCase(
@@ -60,12 +62,14 @@ func NewPushProductToBolUseCase(
 	syncLogRepo channelsDomain.SyncLogRepository,
 	stockLevel stockLevelGetter,
 	notifier notifier,
+	outbox eventrecord.Enqueuer,
 ) *PushProductToBolUseCase {
 	return &PushProductToBolUseCase{
 		db: db, connRepo: connRepo, bolFactory: bolFactory, encSecret: encryptionSecret,
 		productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
 		listingRepo: listingRepo, overrideRepo: overrideRepo, contentRepo: contentRepo,
 		syncLogRepo: syncLogRepo, stockLevel: stockLevel, notifier: notifier,
+		outbox: outbox,
 	}
 }
 

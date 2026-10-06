@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-59 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+65 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### channels
 
@@ -59,6 +59,12 @@ Payload (`events.EntityAction`):
 | `channels.external_category_link.deleted` | action | A category mapping to an external shop was removed. | envelope |
 | `channels.external_category_link.saved` | action | A CommerceOS category was linked to a category in an external shop (a person mapped it, or it was matched by slug on push). data: connection_id, provider, external_id, category_id, source (manual, slug_match). | envelope |
 | `channels.import_job.created` | action | A product import from an external shop was queued. data: connection_id, default_warehouse_id, default_currency, is_first_import. | envelope |
+| `channels.product_listing.created` | action | A product or variant was linked to a listing on an external channel. data: product_id, variant_id, connection_id, provider, external_id, is_variation, source (push, variant_added, link_existing, import). | envelope |
+| `channels.product_listing.deleted` | action | A listing was removed. data: product_id, variant_id, connection_id, provider, external_id, reason (shape_migration, variant_removed). | envelope |
+| `channels.product_listing.gated` | action | A listing was taken off sale on its channel because the product is no longer active (Woo status pushed, Bol offer put on hold). data: product_id, connection_id, provider, external_id. | envelope |
+| `channels.product_listing.synced` | action | A listing was synced with its channel (a sync log entry was written; an unchanged successful re-sync records nothing). changes: the synced fields that changed since the previous sync, before/after as strings. data: product_id, connection_id, provider, external_id, direction (push, import), status (success, error), error_message. | envelope |
+| `channels.product_listing.ungated` | action | A gated listing went back on sale after the product became active again. data: product_id, connection_id, provider, external_id. | envelope |
+| `channels.product_listing.updated` | action | A listing's link changed (changes: variant_id, external_id, not_for_sale_note). data: product_id, connection_id, provider. | envelope |
 | `channels.sales_channel.created` | action | A sales channel (web shop, Bol, POS...) was set up. data: name, type, connection_id, enrollment_mode, currency_code. | envelope |
 | `channels.sales_channel.deleted` | action | A sales channel was deleted. data: name, type. | envelope |
 | `channels.sales_channel.updated` | action | A sales channel's settings changed (changes: name, connection_id, enrollment_mode, enrollment_category_id, enrollment_tag, price_adjustment_basis_points, quantity_breaks, default_warehouse_id, storefront_mode, sign_in_url, storefront_locale, storefront_locales, active, payment_connection_id). | envelope |

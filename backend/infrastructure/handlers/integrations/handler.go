@@ -349,19 +349,19 @@ func Register(
 		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo,
 		stockLevelUC,
 		mediaRepo,
-		resolveCategoryLinkUC,
+		resolveCategoryLinkUC, repositories.NewOutboxRepository(db),
 	)
 	bolOverrideRepo := repositories.NewBolProductOverrideRepo(db)
 	bolContentRepo := repositories.NewBolProductContentRepo(db)
 	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
 		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC,
-		appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), outboxRepo),
+		appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), outboxRepo), repositories.NewOutboxRepository(db),
 	)
 	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
-		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret, pushProductToBolUC,
+		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret, pushProductToBolUC, repositories.NewOutboxRepository(db),
 	)
 	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC, pushProductToBolUC, syncStockToChannelsUC,
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC, pushProductToBolUC, syncStockToChannelsUC, repositories.NewOutboxRepository(db),
 	)
 	enrollProductInChannelsUC := appchannels.NewEnrollProductInChannelsUseCase(
 		db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushProductToWooUC, pushProductToBolUC,
@@ -437,7 +437,7 @@ func Register(
 		appintegrations.NewListBolEconomicOperatorsUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret),
 		appwebhooks.NewListWebhookEventsUseCase(db, webhookEventRepo),
 		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewCarrierClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC, notifyShipmentDeliveryUC, outboxRepo, retryablePaymentHandlers),
-		appchannels.NewLinkExistingWooProductUseCase(db, productRepo, connRepo, listingRepo, wooFactory, encryptionSecret),
+		appchannels.NewLinkExistingWooProductUseCase(db, productRepo, connRepo, listingRepo, wooFactory, encryptionSecret, repositories.NewOutboxRepository(db)),
 		appchannels.NewListProductChannelListingsUseCase(db, listingRepo),
 		appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(db, webhookFallbackRepo),
 		appintegrations.NewSetWhatsAppTestModeUseCase(db, connRepo),
