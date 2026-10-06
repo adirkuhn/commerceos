@@ -118,7 +118,8 @@ func TestRetryWebhookEventDispatch_orderStatusChangeTopic_reprocessesAndMarksPro
 
 	require.NoError(t, err)
 	assert.Equal(t, webhooksDomain.WebhookEventStatusProcessed, updated.Status)
-	require.Len(t, outboxRepo.calls, 1)
+	require.Len(t, outboxRepo.calls, 2, "the order's own event, then the redispatch")
+	assert.Equal(t, "shipping.webhook_event.redispatched", outboxRepo.calls[1].subject)
 	var event events.ShipmentFulfillmentSignal
 	require.NoError(t, json.Unmarshal(outboxRepo.calls[0].payload, &event))
 	assert.Equal(t, "order-1", event.SalesOrderID)

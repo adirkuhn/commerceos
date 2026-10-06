@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -45,6 +47,7 @@ type CompletePackingInput struct {
 // may knowingly ship a partial box. Substituted and refunded units count as
 // handled, except a substitute resolved "ship without".
 type CompletePackingUseCase struct {
+	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	sessionRepo    omsDomain.PackingSessionRepository
 	salesOrderRepo omsDomain.SalesOrderRepository
@@ -60,8 +63,9 @@ func NewCompletePackingUseCase(
 	lineItemRepo omsDomain.SalesOrderLineItemRepository,
 	scanRepo omsDomain.PackScanRepository,
 	applier *OrderChangeApplier,
+	outbox eventrecord.Enqueuer,
 ) *CompletePackingUseCase {
-	return &CompletePackingUseCase{
+	return &CompletePackingUseCase{outbox: outbox,
 		db: db, sessionRepo: sessionRepo, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, scanRepo: scanRepo, applier: applier,
 	}
 }
@@ -124,6 +128,15 @@ func (uc *CompletePackingUseCase) Execute(ctx context.Context, in CompletePackin
 			return err
 		}
 		if err := uc.salesOrderRepo.Update(ctx, session.SalesOrderID, map[string]any{"packed": true, "fulfilled": true}); err != nil {
+			return err
+		}
+		if err := recordSession(ctx, uc.outbox, events.PackingSessionCompleted, session.ID, session.SalesOrderID, eventrecord.Data{
+			"completed_by": in.CompletedBy, "missing_item_count": len(result.MissingItems), "change_count": len(changes),
+		}); err != nil {
+			return err
+		}
+		if err := recordSalesOrderUpdated(ctx, uc.outbox, session.SalesOrderID, eventrecord.NewChanges().
+			Set("packed", order.Packed, true).Set("fulfilled", order.Fulfilled, true), OrderChangeReasonPackingCompleted); err != nil {
 			return err
 		}
 		result.Session = *session

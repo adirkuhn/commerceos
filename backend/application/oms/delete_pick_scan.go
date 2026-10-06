@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -17,6 +19,7 @@ import (
 // the only place a staged row becomes real). Mirrors
 // procurement.DeleteBookingScanUseCase.
 type DeletePickScanUseCase struct {
+	outbox      eventrecord.Enqueuer
 	db          *gorm.DB
 	sessionRepo omsDomain.PickingSessionRepository
 	scanRepo    omsDomain.PickScanRepository
@@ -26,8 +29,9 @@ func NewDeletePickScanUseCase(
 	db *gorm.DB,
 	sessionRepo omsDomain.PickingSessionRepository,
 	scanRepo omsDomain.PickScanRepository,
+	outbox eventrecord.Enqueuer,
 ) *DeletePickScanUseCase {
-	return &DeletePickScanUseCase{db: db, sessionRepo: sessionRepo, scanRepo: scanRepo}
+	return &DeletePickScanUseCase{outbox: outbox, db: db, sessionRepo: sessionRepo, scanRepo: scanRepo}
 }
 
 func (uc *DeletePickScanUseCase) Execute(ctx context.Context, sessionID, scanID string) error {
@@ -44,18 +48,21 @@ func (uc *DeletePickScanUseCase) Execute(ctx context.Context, sessionID, scanID 
 		if err != nil {
 			return err
 		}
-		found := false
-		for _, s := range scans {
-			if s.ID == scanID {
-				found = true
+		var found *omsDomain.PickScan
+		for i := range scans {
+			if scans[i].ID == scanID {
+				found = &scans[i]
 				break
 			}
 		}
-		if !found {
+		if found == nil {
 			return omsDomain.ErrPickScanNotFound
 		}
 
-		return uc.scanRepo.Delete(ctx, scanID)
+		if err := uc.scanRepo.Delete(ctx, scanID); err != nil {
+			return err
+		}
+		return recordPickScan(ctx, uc.outbox, events.PickScanDeleted, *found)
 	})
 	if err != nil {
 		return fmt.Errorf("deletePickScan: %w", err)

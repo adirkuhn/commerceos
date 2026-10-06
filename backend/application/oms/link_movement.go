@@ -17,6 +17,8 @@ import (
 // movement's BatchID/QuantityDelta onto the link row so a later restock can
 // reverse exactly what this movement did without a second lookup -- see
 // SalesOrderLineItemStockMovement's doc.
+//
+//events:none join row (line item <-> stock movement) kept only to reverse a sale's stock later; the sale and the movement raise their own events
 func linkLineItemMovement(ctx context.Context, db *gorm.DB, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, lineItemID string, movement invDomain.StockMovement) error {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		return linkRepo.Create(ctx, &omsDomain.SalesOrderLineItemStockMovement{

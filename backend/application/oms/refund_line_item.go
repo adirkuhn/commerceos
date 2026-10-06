@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	iamDomain "github.com/adirkuhn/commerceos/domain/iam"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -55,6 +57,7 @@ type RefundLineItemResult struct {
 // row. It only stages the row: nothing is real (no money moves, no line
 // item mutated) until CompletePackingUseCase applies it.
 type RefundLineItemUseCase struct {
+	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	sessionRepo    omsDomain.PackingSessionRepository
 	scanRepo       omsDomain.PackScanRepository
@@ -68,8 +71,9 @@ func NewRefundLineItemUseCase(
 	scanRepo omsDomain.PackScanRepository,
 	lineItemRepo omsDomain.SalesOrderLineItemRepository,
 	permissionRepo iamDomain.GroupPermissionRepository,
+	outbox eventrecord.Enqueuer,
 ) *RefundLineItemUseCase {
-	return &RefundLineItemUseCase{
+	return &RefundLineItemUseCase{outbox: outbox,
 		db: db, sessionRepo: sessionRepo, scanRepo: scanRepo, lineItemRepo: lineItemRepo, permissionRepo: permissionRepo,
 	}
 }
@@ -122,7 +126,10 @@ func (uc *RefundLineItemUseCase) Execute(ctx context.Context, in RefundLineItemI
 			ActionType: omsDomain.PackScanActionRefund, Quantity: in.Quantity, Reason: in.Reason,
 			ScannedAt: time.Now(), ScannedBy: in.ScannedBy,
 		}
-		return uc.scanRepo.Create(ctx, &scan)
+		if err := uc.scanRepo.Create(ctx, &scan); err != nil {
+			return err
+		}
+		return recordPackScan(ctx, uc.outbox, events.PackScanCreated, scan)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("refundLineItem: %w", err)

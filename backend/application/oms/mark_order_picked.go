@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -25,6 +26,7 @@ type activityCreator interface {
 // under the same takeover rules packing uses. Logged to the order's
 // activity feed, in the same transaction.
 type MarkOrderPickedUseCase struct {
+	outbox       eventrecord.Enqueuer
 	db           *gorm.DB
 	orderRepo    omsDomain.SalesOrderRepository
 	packingRepo  activeSessionFinderForMarkPicked
@@ -34,8 +36,8 @@ type MarkOrderPickedUseCase struct {
 	activityRepo activityCreator
 }
 
-func NewMarkOrderPickedUseCase(db *gorm.DB, orderRepo omsDomain.SalesOrderRepository, packingRepo activeSessionFinderForMarkPicked, packScans packSessionScanChecker, pickingRepo pickingSessionTakeover, pickScanRepo pickScanLister, activityRepo activityCreator) *MarkOrderPickedUseCase {
-	return &MarkOrderPickedUseCase{db: db, orderRepo: orderRepo, packingRepo: packingRepo, packScans: packScans, pickingRepo: pickingRepo, pickScanRepo: pickScanRepo, activityRepo: activityRepo}
+func NewMarkOrderPickedUseCase(db *gorm.DB, orderRepo omsDomain.SalesOrderRepository, packingRepo activeSessionFinderForMarkPicked, packScans packSessionScanChecker, pickingRepo pickingSessionTakeover, pickScanRepo pickScanLister, activityRepo activityCreator, outbox eventrecord.Enqueuer) *MarkOrderPickedUseCase {
+	return &MarkOrderPickedUseCase{outbox: outbox, db: db, orderRepo: orderRepo, packingRepo: packingRepo, packScans: packScans, pickingRepo: pickingRepo, pickScanRepo: pickScanRepo, activityRepo: activityRepo}
 }
 
 func (uc *MarkOrderPickedUseCase) Execute(ctx context.Context, salesOrderID string, actor omsDomain.LockActor) error {
@@ -56,16 +58,24 @@ func (uc *MarkOrderPickedUseCase) Execute(ctx context.Context, salesOrderID stri
 		if err := order.CanMarkPicked(inPacking); err != nil {
 			return err
 		}
-		if err := abandonOpenPicking(ctx, uc.pickingRepo, uc.pickScanRepo, salesOrderID, actor, now); err != nil {
+		if err := abandonOpenPicking(ctx, uc.pickingRepo, uc.pickScanRepo, uc.outbox, salesOrderID, actor, now); err != nil {
 			return err
 		}
 		if err := uc.orderRepo.Update(ctx, salesOrderID, map[string]any{"fulfilled": true, "updated_at": now}); err != nil {
 			return err
 		}
-		return uc.activityRepo.Create(ctx, &omsDomain.SalesOrderActivity{
+		if err := recordSalesOrderUpdated(ctx, uc.outbox, salesOrderID,
+			eventrecord.NewChanges().Set("fulfilled", order.Fulfilled, true), OrderChangeReasonMarkedPicked); err != nil {
+			return err
+		}
+		activity := omsDomain.SalesOrderActivity{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: salesOrderID, UserID: actor.UserID,
 			ActivityType: omsDomain.ActivityTypeMarkedPicked, Summary: "Marked as picked", Metadata: []byte("{}"),
-		})
+		}
+		if err := uc.activityRepo.Create(ctx, &activity); err != nil {
+			return err
+		}
+		return recordActivity(ctx, uc.outbox, activity)
 	})
 	if err != nil {
 		return fmt.Errorf("markOrderPicked: %w", err)

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"github.com/adirkuhn/commerceos/application/integrations/mocks"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
@@ -38,8 +39,9 @@ func TestCancelShipment_myParcelDeletesSuccessfully_marksCancelledLocally(t *tes
 		},
 	}
 
+	outbox := &eventrecordtest.Outbox{}
 	uc := appshipping.NewCancelShipmentUseCase(newMockGormDB(t, 2), connRepo, shipmentRepo,
-		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
+		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, outbox)
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appshipping.CancelShipmentInput{ShipmentID: "shipment-1"})
@@ -50,6 +52,12 @@ func TestCancelShipment_myParcelDeletesSuccessfully_marksCancelledLocally(t *tes
 	assert.Contains(t, result.Message, "deleted on MyParcel")
 	assert.Equal(t, "shipment-1", markedID)
 	assert.Equal(t, result.Message, markedNote)
+
+	e, err := outbox.Only()
+	require.NoError(t, err)
+	assert.Equal(t, "shipping.shipment.cancelled", e.Subject)
+	assert.Equal(t, "shipment-1", e.Payload["entity_id"])
+	assert.Equal(t, map[string]any{"sales_order_id": "order-1", "deleted_on_carrier": true, "note": result.Message}, e.Data())
 }
 
 func TestCancelShipment_myParcelRejectsDelete_stillCancelsLocallyAndInformsCaller(t *testing.T) {
@@ -72,7 +80,7 @@ func TestCancelShipment_myParcelRejectsDelete_stillCancelsLocallyAndInformsCalle
 	}
 
 	uc := appshipping.NewCancelShipmentUseCase(newMockGormDB(t, 2), connRepo, shipmentRepo,
-		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
+		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, &eventrecordtest.Outbox{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appshipping.CancelShipmentInput{ShipmentID: "shipment-1"})
@@ -105,7 +113,7 @@ func TestCancelShipment_alreadyCancelled_isIdempotentAndDoesNotCallMyParcelAgain
 	}
 
 	uc := appshipping.NewCancelShipmentUseCase(newMockGormDB(t, 1), connRepo, shipmentRepo,
-		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
+		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, &eventrecordtest.Outbox{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appshipping.CancelShipmentInput{ShipmentID: "shipment-1"})
@@ -123,7 +131,7 @@ func TestCancelShipment_shipmentNotFound_returnsError(t *testing.T) {
 		},
 	}
 	uc := appshipping.NewCancelShipmentUseCase(newMockGormDB(t, 1), connRepo, shipmentRepo,
-		&fakeCarrierClientFactory{}, testEncSecret, &fakeRecordActivity{})
+		&fakeCarrierClientFactory{}, testEncSecret, &fakeRecordActivity{}, &eventrecordtest.Outbox{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	_, err := uc.Execute(ctx, appshipping.CancelShipmentInput{ShipmentID: "missing"})

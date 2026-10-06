@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -41,7 +42,8 @@ func TestRepairStockReviewFlags_flagsAnOrderWithAMissingMovementDespiteStockDecr
 		{ID: "li-1", SalesOrderID: "so-1", SKUID: strPtr("sku-1"), StockStatus: omsDomain.StockStatusDecremented},
 	}}
 	linkRepo := &stubSalesOrderLineItemStockMovementRepo{existsResult: false}
-	uc := appoms.NewRepairStockReviewFlagsUseCase(db, salesOrderRepo, lineItemRepo, linkRepo)
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewRepairStockReviewFlagsUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, outbox)
 
 	result, err := uc.Execute(context.Background())
 
@@ -54,6 +56,10 @@ func TestRepairStockReviewFlags_flagsAnOrderWithAMissingMovementDespiteStockDecr
 	assert.Equal(t, string(omsDomain.StockStatusPending), lineItemRepo.updateCalls[0].Fields["stock_status"])
 	require.NotEmpty(t, salesOrderRepo.updateCalls)
 	assert.Equal(t, true, salesOrderRepo.updateCalls[0].Fields["needs_stock_review"])
+
+	assert.Contains(t, outbox.Subjects(), "oms.sales_order_line_item.updated")
+	assert.Contains(t, outbox.Subjects(), "oms.sales_order.updated")
+
 }
 
 func TestRepairStockReviewFlags_leavesAnOrderWithARecordedMovementUntouched(t *testing.T) {
@@ -65,7 +71,7 @@ func TestRepairStockReviewFlags_leavesAnOrderWithARecordedMovementUntouched(t *t
 		{ID: "li-1", SalesOrderID: "so-1", SKUID: strPtr("sku-1"), StockStatus: omsDomain.StockStatusDecremented},
 	}}
 	linkRepo := &stubSalesOrderLineItemStockMovementRepo{existsResult: true}
-	uc := appoms.NewRepairStockReviewFlagsUseCase(db, salesOrderRepo, lineItemRepo, linkRepo)
+	uc := appoms.NewRepairStockReviewFlagsUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background())
 
@@ -88,7 +94,7 @@ func TestRepairStockReviewFlags_ignoresASkipStockMovementsBootstrapOrder(t *test
 		{ID: "li-1", SalesOrderID: "so-1", SKUID: strPtr("sku-1"), StockStatus: omsDomain.StockStatusDecremented},
 	}}
 	linkRepo := &stubSalesOrderLineItemStockMovementRepo{existsResult: false}
-	uc := appoms.NewRepairStockReviewFlagsUseCase(db, salesOrderRepo, lineItemRepo, linkRepo)
+	uc := appoms.NewRepairStockReviewFlagsUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background())
 
@@ -107,7 +113,7 @@ func TestRepairStockReviewFlags_flagsAnUnmatchedSKULineItemAndMarksItPending(t *
 		{ID: "li-1", SalesOrderID: "so-1", SKUID: nil, StockStatus: omsDomain.StockStatusDecremented},
 	}}
 	linkRepo := &stubSalesOrderLineItemStockMovementRepo{}
-	uc := appoms.NewRepairStockReviewFlagsUseCase(db, salesOrderRepo, lineItemRepo, linkRepo)
+	uc := appoms.NewRepairStockReviewFlagsUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background())
 
@@ -128,7 +134,7 @@ func TestRepairStockReviewFlags_isIdempotentOnASecondRun(t *testing.T) {
 		{ID: "li-1", SalesOrderID: "so-1", SKUID: strPtr("sku-1"), StockStatus: omsDomain.StockStatusPending},
 	}}
 	linkRepo := &stubSalesOrderLineItemStockMovementRepo{existsResult: false}
-	uc := appoms.NewRepairStockReviewFlagsUseCase(db, salesOrderRepo, lineItemRepo, linkRepo)
+	uc := appoms.NewRepairStockReviewFlagsUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background())
 

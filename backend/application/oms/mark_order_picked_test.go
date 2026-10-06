@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -19,17 +20,19 @@ type markPickedFixture struct {
 	scans      *stubPickScanRepo
 	packScans  *stubPackScanRepo
 	activities *stubSalesOrderActivityRepo
+	outbox     *eventrecordtest.Outbox
 }
 
 func newMarkPickedFixture(order omsDomain.SalesOrder) markPickedFixture {
 	return markPickedFixture{
 		orders: &stubSalesOrderRepo{findByIDResult: &order}, packing: &stubPackingSessionRepo{},
 		picking: &stubPickingSessionRepo{}, scans: &stubPickScanRepo{}, packScans: &stubPackScanRepo{}, activities: &stubSalesOrderActivityRepo{},
+		outbox: &eventrecordtest.Outbox{},
 	}
 }
 
 func (f markPickedFixture) run(t *testing.T, actor omsDomain.LockActor) error {
-	uc := appoms.NewMarkOrderPickedUseCase(newMockGormDB(t), f.orders, f.packing, f.packScans, f.picking, f.scans, f.activities)
+	uc := appoms.NewMarkOrderPickedUseCase(newMockGormDB(t), f.orders, f.packing, f.packScans, f.picking, f.scans, f.activities, f.outbox)
 	return uc.Execute(context.Background(), "order-1", actor)
 }
 
@@ -47,6 +50,10 @@ func TestMarkOrderPicked_marksFulfilledAndLogsActivity(t *testing.T) {
 	assert.Equal(t, "user-1", a.UserID)
 	assert.Equal(t, omsDomain.ActivityTypeMarkedPicked, a.ActivityType)
 	assert.Equal(t, "Marked as picked", a.Summary)
+
+	require.Equal(t, []string{"oms.sales_order.updated", "oms.sales_order_activity.recorded"}, f.outbox.Subjects())
+	assert.Equal(t, map[string][2]any{"fulfilled": {false, true}}, f.outbox.Events[0].Changes())
+	assert.Equal(t, map[string]any{"reason": "marked_picked"}, f.outbox.Events[0].Data())
 }
 
 func TestMarkOrderPicked_rejectsWhatThePickingRuleRejects(t *testing.T) {

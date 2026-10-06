@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -14,7 +15,7 @@ import (
 
 func TestCreateNotification_setsTenantAndFields(t *testing.T) {
 	repo := &stubNotificationRepo{}
-	uc := appnotifications.NewCreateNotificationUseCase(newMockGormDB(t), repo)
+	uc := appnotifications.NewCreateNotificationUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	n, err := uc.Execute(ctx, appnotifications.CreateNotificationInput{
@@ -30,7 +31,7 @@ func TestCreateNotification_setsTenantAndFields(t *testing.T) {
 
 func TestCreateNotification_propagatesRepoError(t *testing.T) {
 	repo := &stubNotificationRepo{createErr: errors.New("db down")}
-	uc := appnotifications.NewCreateNotificationUseCase(newMockGormDB(t), repo)
+	uc := appnotifications.NewCreateNotificationUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appnotifications.CreateNotificationInput{Title: "X"})
 

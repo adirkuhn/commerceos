@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
@@ -181,6 +183,7 @@ type CompletePickingUseCase struct {
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	scanRepo       omsDomain.PickScanRepository
 	applier        *OrderChangeApplier
+	outbox         eventrecord.Enqueuer
 }
 
 func NewCompletePickingUseCase(
@@ -200,6 +203,7 @@ func NewCompletePickingUseCase(
 ) *CompletePickingUseCase {
 	return &CompletePickingUseCase{
 		db: db, sessionRepo: sessionRepo, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, scanRepo: scanRepo,
+		outbox: outboxRepo,
 		applier: NewOrderChangeApplier(db, salesOrderRepo, lineItemRepo, linkRepo, addLineItem, recordMovement,
 			reverseMovement, stockChecker, skuRepo, outboxRepo, refundClientResolver),
 	}
@@ -273,7 +277,16 @@ func (uc *CompletePickingUseCase) Execute(ctx context.Context, in CompletePickin
 		// Completion always marks the order fulfilled, gaps or not -- see
 		// this type's doc comment for why that differs from Booking's
 		// received/partially_received PO status.
-		return uc.salesOrderRepo.Update(ctx, order.ID, map[string]any{"fulfilled": true, "updated_at": now})
+		if err := uc.salesOrderRepo.Update(ctx, order.ID, map[string]any{"fulfilled": true, "updated_at": now}); err != nil {
+			return err
+		}
+		if err := recordSession(ctx, uc.outbox, events.PickingSessionCompleted, session.ID, order.ID, eventrecord.Data{
+			"completed_by": in.CompletedBy, "missing_item_count": len(result.MissingItems), "change_count": len(changes),
+		}); err != nil {
+			return err
+		}
+		return recordSalesOrderUpdated(ctx, uc.outbox, order.ID,
+			eventrecord.NewChanges().Set("fulfilled", order.Fulfilled, true), OrderChangeReasonPickingCompleted)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("completePicking: %w", err)

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"github.com/adirkuhn/commerceos/application/integrations/mocks"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
@@ -50,8 +51,9 @@ func TestExportMyParcelOrder_happyPath_createsAndPersistsAndRecordsActivity(t *t
 	}}
 	activity := &fakeRecordActivity{}
 
+	outbox := &eventrecordtest.Outbox{}
 	uc := appshipping.NewExportMyParcelOrderUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, fulfilmentRepo,
-		salesOrderRepo, lineItemRepo, &fakeMyParcelClientFactory{client: client}, testEncSecret, activity)
+		salesOrderRepo, lineItemRepo, &fakeMyParcelClientFactory{client: client}, testEncSecret, activity, outbox)
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appshipping.ExportMyParcelOrderInput{
@@ -62,6 +64,11 @@ func TestExportMyParcelOrder_happyPath_createsAndPersistsAndRecordsActivity(t *t
 	require.NotNil(t, result)
 	assert.Equal(t, "fulfilment-1", result.ID)
 	assert.Equal(t, "order-uuid-1", result.MyParcelUUID)
+	e, err := outbox.Only()
+	require.NoError(t, err)
+	assert.Equal(t, "shipping.fulfilment_order.exported", e.Subject)
+	assert.Equal(t, "fulfilment-1", e.Payload["entity_id"])
+	assert.Equal(t, map[string]any{"sales_order_id": "order-1", "connection_id": "conn-1", "myparcel_uuid": "order-uuid-1", "status": "open"}, e.Data())
 
 	assert.Equal(t, "1001", gotCreateOrderInput.ExternalIdentifier, "the human order number, not our internal SalesOrder.ID -- MyParcel's Orders API has no separate per-shipment reference field")
 	assert.Equal(t, 111, gotCreateOrderInput.AccountID)
@@ -104,7 +111,7 @@ func TestExportMyParcelOrder_alreadyExported_returnsExistingWithoutCallingMyParc
 	// existing != nil short-circuits before the order/line-item fetch (see
 	// Execute's doc) -- these fakes must never be called.
 	uc := appshipping.NewExportMyParcelOrderUseCase(newMockGormDB(t, 1), connRepo, settingsRepo, fulfilmentRepo,
-		&fakeSalesOrderTotalGetter{}, &fakeSalesOrderLineItemLister{}, &fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
+		&fakeSalesOrderTotalGetter{}, &fakeSalesOrderLineItemLister{}, &fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, &eventrecordtest.Outbox{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appshipping.ExportMyParcelOrderInput{
@@ -117,7 +124,7 @@ func TestExportMyParcelOrder_alreadyExported_returnsExistingWithoutCallingMyParc
 }
 
 func TestExportMyParcelOrder_incompleteRecipient_returnsErrMissingRecipient(t *testing.T) {
-	uc := appshipping.NewExportMyParcelOrderUseCase(newMockGormDB(t, 0), nil, nil, nil, nil, nil, nil, testEncSecret, nil)
+	uc := appshipping.NewExportMyParcelOrderUseCase(newMockGormDB(t, 0), nil, nil, nil, nil, nil, nil, testEncSecret, nil, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appshipping.ExportMyParcelOrderInput{
 		SalesOrderID: "order-1", ConnectionID: "conn-1", Recipient: appshipping.RecipientInput{},
@@ -148,7 +155,7 @@ func TestExportMyParcelOrder_myParcelAPIError_recordsFailureActivity(t *testing.
 	}}
 	activity := &fakeRecordActivity{}
 	uc := appshipping.NewExportMyParcelOrderUseCase(newMockGormDB(t, 1), connRepo, settingsRepo, fulfilmentRepo,
-		salesOrderRepo, lineItemRepo, &fakeMyParcelClientFactory{client: client}, testEncSecret, activity)
+		salesOrderRepo, lineItemRepo, &fakeMyParcelClientFactory{client: client}, testEncSecret, activity, &eventrecordtest.Outbox{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	_, err := uc.Execute(ctx, appshipping.ExportMyParcelOrderInput{

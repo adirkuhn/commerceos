@@ -7,12 +7,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 )
 
 func TestMarkNotificationRead_callsRepoWithID(t *testing.T) {
 	repo := &stubNotificationRepo{}
-	uc := appnotifications.NewMarkNotificationReadUseCase(newMockGormDB(t), repo)
+	uc := appnotifications.NewMarkNotificationReadUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "notif-1")
 
@@ -22,7 +23,7 @@ func TestMarkNotificationRead_callsRepoWithID(t *testing.T) {
 
 func TestMarkNotificationRead_propagatesRepoError(t *testing.T) {
 	repo := &stubNotificationRepo{markReadErr: errors.New("db down")}
-	uc := appnotifications.NewMarkNotificationReadUseCase(newMockGormDB(t), repo)
+	uc := appnotifications.NewMarkNotificationReadUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "notif-1")
 
@@ -31,7 +32,7 @@ func TestMarkNotificationRead_propagatesRepoError(t *testing.T) {
 
 func TestMarkAllNotificationsRead_callsRepo(t *testing.T) {
 	repo := &stubNotificationRepo{}
-	uc := appnotifications.NewMarkAllNotificationsReadUseCase(newMockGormDB(t), repo)
+	uc := appnotifications.NewMarkAllNotificationsReadUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background())
 
@@ -41,7 +42,7 @@ func TestMarkAllNotificationsRead_callsRepo(t *testing.T) {
 
 func TestMarkAllNotificationsRead_propagatesRepoError(t *testing.T) {
 	repo := &stubNotificationRepo{markAllReadErr: errors.New("db down")}
-	uc := appnotifications.NewMarkAllNotificationsReadUseCase(newMockGormDB(t), repo)
+	uc := appnotifications.NewMarkAllNotificationsReadUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background())
 

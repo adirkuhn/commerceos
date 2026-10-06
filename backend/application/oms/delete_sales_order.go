@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
+	"github.com/adirkuhn/commerceos/domain/events"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -21,6 +23,7 @@ import (
 // the order is left untouched rather than deleted with its stock impact
 // unresolved.
 type DeleteSalesOrderUseCase struct {
+	outbox          eventrecord.Enqueuer
 	db              *gorm.DB
 	salesOrderRepo  omsDomain.SalesOrderRepository
 	lineItemRepo    omsDomain.SalesOrderLineItemRepository
@@ -28,8 +31,8 @@ type DeleteSalesOrderUseCase struct {
 	reverseMovement movementReverser
 }
 
-func NewDeleteSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, reverseMovement movementReverser) *DeleteSalesOrderUseCase {
-	return &DeleteSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, reverseMovement: reverseMovement}
+func NewDeleteSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, reverseMovement movementReverser, outbox eventrecord.Enqueuer) *DeleteSalesOrderUseCase {
+	return &DeleteSalesOrderUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, reverseMovement: reverseMovement}
 }
 
 func (uc *DeleteSalesOrderUseCase) Execute(ctx context.Context, id string) error {
@@ -79,7 +82,13 @@ func (uc *DeleteSalesOrderUseCase) Execute(ctx context.Context, id string) error
 		if err := uc.lineItemRepo.DeleteBySalesOrder(ctx, id); err != nil {
 			return err
 		}
-		return uc.salesOrderRepo.Delete(ctx, id)
+		if err := uc.salesOrderRepo.Delete(ctx, id); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.SalesOrderDeleted, id, eventrecord.Data{
+			"source": string(order.Source), "number": order.Number, "status": string(order.Status),
+			"stock_restored": order.StockDecremented,
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("deleteSalesOrder: %w", err)

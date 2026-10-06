@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,8 @@ func TestDeleteSalesOrder_restocksBeforeDeletingWhenStockWasDecremented(t *testi
 		"li-1": {{SalesOrderLineItemID: "li-1", QuantityDelta: -3}},
 	}}
 	reverseMovement := &stubReverseMovement{}
-	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, reverseMovement)
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, reverseMovement, outbox)
 
 	err := uc.Execute(context.Background(), "sales-order-1")
 
@@ -34,13 +36,17 @@ func TestDeleteSalesOrder_restocksBeforeDeletingWhenStockWasDecremented(t *testi
 	require.Len(t, reverseMovement.calls, 1)
 	assert.Equal(t, int64(3), reverseMovement.calls[0].QuantityDelta, "positive -- stock coming back")
 	assert.Equal(t, "sales-order-1", salesOrderRepo.gotDeleteID)
+
+	assert.Contains(t, outbox.Subjects(), "oms.sales_order.deleted")
+	assert.Equal(t, true, outbox.Events[0].Data()["stock_restored"])
+
 }
 
 func TestDeleteSalesOrder_doesNotRestockWhenStockWasNeverDecremented(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
 	reverseMovement := &stubReverseMovement{}
-	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, reverseMovement)
+	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, reverseMovement, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "sales-order-1")
 
@@ -51,7 +57,7 @@ func TestDeleteSalesOrder_doesNotRestockWhenStockWasNeverDecremented(t *testing.
 
 func TestDeleteSalesOrder_returnsNotFoundForAMissingOrder(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewDeleteSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubReverseMovement{})
+	uc := appoms.NewDeleteSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubReverseMovement{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 
@@ -70,7 +76,7 @@ func TestDeleteSalesOrder_propagatesAStockMovementError(t *testing.T) {
 		"li-1": {{SalesOrderLineItemID: "li-1", QuantityDelta: -3}},
 	}}
 	reverseMovement := &stubReverseMovement{err: assert.AnError}
-	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, reverseMovement)
+	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, reverseMovement, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "sales-order-1")
 

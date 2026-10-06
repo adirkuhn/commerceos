@@ -229,12 +229,12 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 	}
 
 	if decrementing {
-		if err := decrementLineItems(ctx, uc.db, uc.lineItemRepo, uc.linkRepo, uc.salesOrderRepo, uc.skuRepo, uc.recordMovement, id, updated.WarehouseID, lineItems); err != nil {
+		if err := decrementLineItems(ctx, uc.db, uc.lineItemRepo, uc.linkRepo, uc.salesOrderRepo, uc.skuRepo, uc.recordMovement, uc.outboxRepo, id, updated.WarehouseID, lineItems); err != nil {
 			return nil, fmt.Errorf("updateSalesOrder: %w", err)
 		}
 	}
 	if restocking {
-		if err := restockLineItems(ctx, uc.db, uc.lineItemRepo, uc.salesOrderRepo, uc.reverseMovement, uc.linkRepo, id, updated.WarehouseID, lineItems); err != nil {
+		if err := restockLineItems(ctx, uc.db, uc.lineItemRepo, uc.salesOrderRepo, uc.reverseMovement, uc.linkRepo, uc.outboxRepo, id, updated.WarehouseID, lineItems); err != nil {
 			return nil, fmt.Errorf("updateSalesOrder: %w", err)
 		}
 	}

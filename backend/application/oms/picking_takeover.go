@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 )
 
@@ -24,7 +26,7 @@ type pickScanLister interface {
 // it's marked picked in one action). Refused while someone else actively
 // holds it (unless actor is an admin), or while it still holds unapplied
 // order changes that abandoning would drop. Its scans are kept.
-func abandonOpenPicking(ctx context.Context, pickingRepo pickingSessionTakeover, scanRepo pickScanLister, salesOrderID string, actor omsDomain.LockActor, now time.Time) error {
+func abandonOpenPicking(ctx context.Context, pickingRepo pickingSessionTakeover, scanRepo pickScanLister, outbox eventrecord.Enqueuer, salesOrderID string, actor omsDomain.LockActor, now time.Time) error {
 	picking, err := pickingRepo.FindActiveBySalesOrder(ctx, salesOrderID)
 	if err != nil || picking == nil {
 		return err
@@ -46,5 +48,8 @@ func abandonOpenPicking(ctx context.Context, pickingRepo pickingSessionTakeover,
 	if err := pickingRepo.Update(ctx, picking); err != nil {
 		return err
 	}
-	return pickingRepo.ReleaseLock(ctx, picking.ID)
+	if err := pickingRepo.ReleaseLock(ctx, picking.ID); err != nil {
+		return err
+	}
+	return recordSession(ctx, outbox, events.PickingSessionAbandoned, picking.ID, salesOrderID, eventrecord.Data{"abandoned_by": actor.UserID})
 }

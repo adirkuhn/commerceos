@@ -22,6 +22,8 @@ import (
 // (CostPriceMinorUnits nil, pms.SKUCostPriceSourceUnknown) -- the line's
 // cost/COGS are simply left nil, never a fabricated 0 (see
 // SalesOrderLineItem.CostAtSaleMinorUnits's doc comment).
+//
+//events:none cost snapshot taken as part of a sale; the sale itself raises the event
 func freezeCostAtSale(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, skuRepo skuLookupRepo, lineItemID, skuID string, quantity int64) error {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		sku, err := skuRepo.FindByID(ctx, skuID)

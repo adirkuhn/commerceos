@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -48,14 +49,15 @@ type RepairStockReviewFlagsResult struct {
 // wrongly flag correct data. Idempotent/safe to re-run: an order/line item
 // already in the correct state is left untouched.
 type RepairStockReviewFlagsUseCase struct {
+	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	linkRepo       omsDomain.SalesOrderLineItemStockMovementRepository
 }
 
-func NewRepairStockReviewFlagsUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository) *RepairStockReviewFlagsUseCase {
-	return &RepairStockReviewFlagsUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo}
+func NewRepairStockReviewFlagsUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, outbox eventrecord.Enqueuer) *RepairStockReviewFlagsUseCase {
+	return &RepairStockReviewFlagsUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo}
 }
 
 func (uc *RepairStockReviewFlagsUseCase) Execute(ctx context.Context) (*RepairStockReviewFlagsResult, error) {
@@ -115,6 +117,9 @@ func (uc *RepairStockReviewFlagsUseCase) repairOne(ctx context.Context, order om
 				if err := uc.lineItemRepo.Update(ctx, li.ID, map[string]any{"stock_status": string(omsDomain.StockStatusPending)}); err != nil {
 					return 0, false, err
 				}
+				if err := recordLineItemStockStatus(ctx, uc.outbox, li, omsDomain.StockStatusPending, OrderChangeReasonStockReviewRepair); err != nil {
+					return 0, false, err
+				}
 				stockIssueFound = true
 				lineItemsFixed++
 			}
@@ -131,6 +136,9 @@ func (uc *RepairStockReviewFlagsUseCase) repairOne(ctx context.Context, order om
 			if err := uc.lineItemRepo.Update(ctx, li.ID, map[string]any{"stock_status": string(omsDomain.StockStatusPending)}); err != nil {
 				return 0, false, err
 			}
+			if err := recordLineItemStockStatus(ctx, uc.outbox, li, omsDomain.StockStatusPending, OrderChangeReasonStockReviewRepair); err != nil {
+				return 0, false, err
+			}
 			stockIssueFound = true
 			lineItemsFixed++
 		}
@@ -140,10 +148,18 @@ func (uc *RepairStockReviewFlagsUseCase) repairOne(ctx context.Context, order om
 		if err := uc.salesOrderRepo.Update(ctx, order.ID, map[string]any{"needs_sku_review": true}); err != nil {
 			return 0, false, err
 		}
+		if err := recordSalesOrderUpdated(ctx, uc.outbox, order.ID,
+			eventrecord.NewChanges().Set("needs_sku_review", order.NeedsSKUReview, true), OrderChangeReasonStockReviewRepair); err != nil {
+			return 0, false, err
+		}
 		orderFlagged = true
 	}
 	if stockIssueFound && !order.NeedsStockReview {
 		if err := uc.salesOrderRepo.Update(ctx, order.ID, map[string]any{"needs_stock_review": true}); err != nil {
+			return 0, false, err
+		}
+		if err := recordSalesOrderUpdated(ctx, uc.outbox, order.ID,
+			eventrecord.NewChanges().Set("needs_stock_review", order.NeedsStockReview, true), OrderChangeReasonStockReviewRepair); err != nil {
 			return 0, false, err
 		}
 		orderFlagged = true

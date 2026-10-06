@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -14,19 +15,23 @@ func TestDeletePackScan_removesStagedScan(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{{ID: "scan-1"}}}
-	uc := appoms.NewDeletePackScanUseCase(db, sessionRepo, scanRepo)
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewDeletePackScanUseCase(db, sessionRepo, scanRepo, outbox)
 
 	err := uc.Execute(context.Background(), "session-1", "scan-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"scan-1"}, scanRepo.deleted)
+
+	assert.Contains(t, outbox.Subjects(), "oms.pack_scan.deleted")
+
 }
 
 func TestDeletePackScan_rejectsUnknownScan(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{{ID: "scan-1"}}}
-	uc := appoms.NewDeletePackScanUseCase(db, sessionRepo, scanRepo)
+	uc := appoms.NewDeletePackScanUseCase(db, sessionRepo, scanRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "session-1", "missing")
 
@@ -38,7 +43,7 @@ func TestDeletePackScan_rejectsCompletedSession(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", Status: omsDomain.PackingSessionStatusCompleted}}
 	scanRepo := &stubPackScanRepo{listBySession: []omsDomain.PackScan{{ID: "scan-1"}}}
-	uc := appoms.NewDeletePackScanUseCase(db, sessionRepo, scanRepo)
+	uc := appoms.NewDeletePackScanUseCase(db, sessionRepo, scanRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "session-1", "scan-1")
 

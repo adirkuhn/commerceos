@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -30,6 +31,7 @@ type ForceAcceptStockResult struct {
 // entirely -- there's no SKU to draw stock from at all, that's
 // LinkLineItemSKUUseCase's job on the "Unmatched SKUs" page, not this one.
 type ForceAcceptStockUseCase struct {
+	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
@@ -38,8 +40,8 @@ type ForceAcceptStockUseCase struct {
 	recordMovement recordSaleMovementUC
 }
 
-func NewForceAcceptStockUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC) *ForceAcceptStockUseCase {
-	return &ForceAcceptStockUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement}
+func NewForceAcceptStockUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, outbox eventrecord.Enqueuer) *ForceAcceptStockUseCase {
+	return &ForceAcceptStockUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement}
 }
 
 func (uc *ForceAcceptStockUseCase) Execute(ctx context.Context, salesOrderID string) (*ForceAcceptStockResult, error) {
@@ -76,7 +78,7 @@ func (uc *ForceAcceptStockUseCase) Execute(ctx context.Context, salesOrderID str
 				return nil, fmt.Errorf("forceAcceptStock: %w", err)
 			}
 		}
-		if err := setLineItemStockStatus(ctx, uc.db, uc.lineItemRepo, li.ID, omsDomain.StockStatusDecremented); err != nil {
+		if err := setLineItemStockStatus(ctx, uc.db, uc.lineItemRepo, uc.outbox, li, omsDomain.StockStatusDecremented, OrderChangeReasonStockTaken); err != nil {
 			return nil, fmt.Errorf("forceAcceptStock: %w", err)
 		}
 		if err := freezeCostAtSale(ctx, uc.db, uc.lineItemRepo, uc.skuRepo, li.ID, *li.SKUID, li.Quantity); err != nil {
@@ -84,7 +86,7 @@ func (uc *ForceAcceptStockUseCase) Execute(ctx context.Context, salesOrderID str
 		}
 		resolved++
 	}
-	if err := setOrderNeedsStockReview(ctx, uc.db, uc.salesOrderRepo, salesOrderID, false); err != nil {
+	if err := setOrderNeedsStockReview(ctx, uc.db, uc.salesOrderRepo, uc.outbox, salesOrderID, false, OrderChangeReasonStockTaken); err != nil {
 		return nil, fmt.Errorf("forceAcceptStock: %w", err)
 	}
 	order.NeedsStockReview = false

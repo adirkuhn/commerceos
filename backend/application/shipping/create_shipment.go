@@ -13,6 +13,8 @@ import (
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -103,6 +105,7 @@ type CreateShipmentUseCase struct {
 	orderExporter      myParcelOrderExporter
 	lineItemRepo       salesOrderLineItemLister
 	skuRepo            skuWeightGetter
+	outbox             eventrecord.Enqueuer
 }
 
 func NewCreateShipmentUseCase(
@@ -119,12 +122,13 @@ func NewCreateShipmentUseCase(
 	orderExporter myParcelOrderExporter,
 	lineItemRepo salesOrderLineItemLister,
 	skuRepo skuWeightGetter,
+	outbox eventrecord.Enqueuer,
 ) *CreateShipmentUseCase {
 	return &CreateShipmentUseCase{
 		db: db, connRepo: connRepo, settingsRepo: settingsRepo, overrideRepo: overrideRepo,
 		shipmentRepo: shipmentRepo, carrierFactory: carrierFactory, encSecret: encryptionSecret,
 		recordActivity: recordActivity, tenantSettingsRepo: tenantSettingsRepo, salesOrderRepo: salesOrderRepo,
-		orderExporter: orderExporter, lineItemRepo: lineItemRepo, skuRepo: skuRepo,
+		orderExporter: orderExporter, lineItemRepo: lineItemRepo, skuRepo: skuRepo, outbox: outbox,
 	}
 }
 
@@ -281,7 +285,14 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	}
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		shipment.TenantID = tenant.IDFromContext(ctx)
-		return uc.shipmentRepo.Create(ctx, &shipment)
+		if err := uc.shipmentRepo.Create(ctx, &shipment); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ShipmentCreated, shipment.ID, eventrecord.Data{
+			"sales_order_id": shipment.SalesOrderID, "connection_id": shipment.ConnectionID, "carrier": int(shipment.Carrier),
+			"external_shipment_id": shipment.ExternalShipmentID, "barcode": shipment.Barcode,
+			"package_type": int(shipment.PackageType), "insured": shipment.InsuranceAmountMinorEUR != nil,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createShipment: persist: %w", err)

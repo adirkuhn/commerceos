@@ -9,6 +9,8 @@ import (
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	webhooksDomain "github.com/adirkuhn/commerceos/domain/webhooks"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -39,6 +41,7 @@ type RetryWebhookEventDispatchUseCase struct {
 	dispatcher         *shipmentWebhookDispatcher
 	orderStatusHandler myParcelWebhookHandler
 	genericHandlers    map[string]RetryableWebhookHandler
+	outbox             eventrecord.Enqueuer
 }
 
 func NewRetryWebhookEventDispatchUseCase(
@@ -60,7 +63,7 @@ func NewRetryWebhookEventDispatchUseCase(
 		db: db, webhookEventRepo: webhookEventRepo, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo,
 		connRepo: connRepo, salesOrderRepo: salesOrderRepo, carrierFactory: carrierFactory, encSecret: encryptionSecret,
 		updateSalesOrder: updateSalesOrder, whatsappNotifier: whatsappNotifier,
-	}, genericHandlers: genericHandlers}
+	}, genericHandlers: genericHandlers, outbox: outboxRepo}
 	// fulfilmentOrderRepo may be nil (a deployment that hasn't wired
 	// order_status_change dispatch yet) -- order_status_change retries then
 	// fall through Execute's default case as not-dispatchable, same as
@@ -114,7 +117,9 @@ func (uc *RetryWebhookEventDispatchUseCase) Execute(ctx context.Context, eventID
 			return err
 		}
 		updated = *e
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.WebhookEventRedispatched, updated.ID, eventrecord.Data{
+			"provider": updated.Provider, "topic": updated.Topic, "status": string(updated.Status), "error": updated.DispatchError,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("retryWebhookEventDispatch: refetch: %w", err)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +18,8 @@ func TestResetPickingSession_deletesAllScansAndReleasesLock(t *testing.T) {
 		ID: "session-1", Status: omsDomain.PickingSessionStatusInProgress, LockedBy: &user,
 	}}
 	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{{ID: "scan-1"}, {ID: "scan-2"}}}
-	uc := appoms.NewResetPickingSessionUseCase(db, sessionRepo, scanRepo)
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewResetPickingSessionUseCase(db, sessionRepo, scanRepo, outbox)
 
 	session, err := uc.Execute(context.Background(), "session-1")
 
@@ -28,6 +30,9 @@ func TestResetPickingSession_deletesAllScansAndReleasesLock(t *testing.T) {
 	assert.Equal(t, omsDomain.PickingSessionStatusInProgress, sessionRepo.updated[0].Status)
 	assert.Nil(t, sessionRepo.updated[0].LockedBy)
 	assert.Equal(t, omsDomain.PickingSessionStatusInProgress, session.Status)
+
+	assert.Contains(t, outbox.Subjects(), "oms.picking_session.reset")
+
 }
 
 func TestResetPickingSession_allowsFromPaused(t *testing.T) {
@@ -36,7 +41,7 @@ func TestResetPickingSession_allowsFromPaused(t *testing.T) {
 		ID: "session-1", Status: omsDomain.PickingSessionStatusPaused,
 	}}
 	scanRepo := &stubPickScanRepo{}
-	uc := appoms.NewResetPickingSessionUseCase(db, sessionRepo, scanRepo)
+	uc := appoms.NewResetPickingSessionUseCase(db, sessionRepo, scanRepo, &eventrecordtest.Outbox{})
 
 	session, err := uc.Execute(context.Background(), "session-1")
 
@@ -50,7 +55,7 @@ func TestResetPickingSession_rejectsAlreadyCompletedSession(t *testing.T) {
 		ID: "session-1", Status: omsDomain.PickingSessionStatusCompleted,
 	}}
 	scanRepo := &stubPickScanRepo{}
-	uc := appoms.NewResetPickingSessionUseCase(db, sessionRepo, scanRepo)
+	uc := appoms.NewResetPickingSessionUseCase(db, sessionRepo, scanRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "session-1")
 
@@ -62,7 +67,7 @@ func TestResetPickingSession_rejectsAlreadyCompletedSession(t *testing.T) {
 func TestResetPickingSession_propagatesSessionNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDErr: omsDomain.ErrPickingSessionNotFound}
-	uc := appoms.NewResetPickingSessionUseCase(db, sessionRepo, &stubPickScanRepo{})
+	uc := appoms.NewResetPickingSessionUseCase(db, sessionRepo, &stubPickScanRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing")
 

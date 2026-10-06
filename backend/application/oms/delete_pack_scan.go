@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -13,6 +15,7 @@ import (
 // scan (fix a mis-scan, or move an item to a different box) while the
 // session is still in_progress.
 type DeletePackScanUseCase struct {
+	outbox      eventrecord.Enqueuer
 	db          *gorm.DB
 	sessionRepo omsDomain.PackingSessionRepository
 	scanRepo    omsDomain.PackScanRepository
@@ -22,8 +25,9 @@ func NewDeletePackScanUseCase(
 	db *gorm.DB,
 	sessionRepo omsDomain.PackingSessionRepository,
 	scanRepo omsDomain.PackScanRepository,
+	outbox eventrecord.Enqueuer,
 ) *DeletePackScanUseCase {
-	return &DeletePackScanUseCase{db: db, sessionRepo: sessionRepo, scanRepo: scanRepo}
+	return &DeletePackScanUseCase{outbox: outbox, db: db, sessionRepo: sessionRepo, scanRepo: scanRepo}
 }
 
 func (uc *DeletePackScanUseCase) Execute(ctx context.Context, sessionID, scanID string) error {
@@ -40,18 +44,21 @@ func (uc *DeletePackScanUseCase) Execute(ctx context.Context, sessionID, scanID 
 		if err != nil {
 			return err
 		}
-		found := false
-		for _, s := range scans {
-			if s.ID == scanID {
-				found = true
+		var found *omsDomain.PackScan
+		for i := range scans {
+			if scans[i].ID == scanID {
+				found = &scans[i]
 				break
 			}
 		}
-		if !found {
+		if found == nil {
 			return omsDomain.ErrPackScanNotFound
 		}
 
-		return uc.scanRepo.Delete(ctx, scanID)
+		if err := uc.scanRepo.Delete(ctx, scanID); err != nil {
+			return err
+		}
+		return recordPackScan(ctx, uc.outbox, events.PackScanDeleted, *found)
 	})
 	if err != nil {
 		return fmt.Errorf("deletePackScan: %w", err)

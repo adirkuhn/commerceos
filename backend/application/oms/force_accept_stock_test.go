@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +22,8 @@ func TestForceAcceptStock_reconcilesEveryPendingLinkedLineItemAndResolvesTheOrde
 		{ID: "li-2", SKUID: strPtr("sku-2"), Quantity: 1, StockStatus: omsDomain.StockStatusDecremented},
 	}}
 	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement)
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement, outbox)
 
 	result, err := uc.Execute(context.Background(), "sales-order-1")
 
@@ -37,6 +39,9 @@ func TestForceAcceptStock_reconcilesEveryPendingLinkedLineItemAndResolvesTheOrde
 	require.NotEmpty(t, salesOrderRepo.updateCalls)
 	last := salesOrderRepo.updateCalls[len(salesOrderRepo.updateCalls)-1]
 	assert.Equal(t, false, last.Fields["needs_stock_review"], "force-accept always resolves the order -- ReconcileShortfall never leaves anything pending")
+
+	assert.Contains(t, outbox.Subjects(), "oms.sales_order_line_item.updated")
+
 }
 
 func TestForceAcceptStock_skipsUnlinkedLineItems(t *testing.T) {
@@ -48,7 +53,7 @@ func TestForceAcceptStock_skipsUnlinkedLineItems(t *testing.T) {
 		{ID: "li-1", SKUID: nil, Quantity: 1, StockStatus: omsDomain.StockStatusPending},
 	}}
 	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement)
+	uc := appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "sales-order-1")
 
@@ -59,7 +64,7 @@ func TestForceAcceptStock_skipsUnlinkedLineItems(t *testing.T) {
 
 func TestForceAcceptStock_returnsNotFoundForAMissingOrder(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewForceAcceptStockUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{})
+	uc := appoms.NewForceAcceptStockUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing")
 
@@ -75,7 +80,7 @@ func TestForceAcceptStock_propagatesAGenuineMovementError(t *testing.T) {
 		{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 1, StockStatus: omsDomain.StockStatusPending},
 	}}
 	recordMovement := &stubRecordMovement{err: assert.AnError}
-	uc := appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement)
+	uc := appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "sales-order-1")
 

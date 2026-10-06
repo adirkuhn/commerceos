@@ -48,8 +48,8 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	repo := repositories.NewNotificationRepo(db)
 	h := NewHandler(
 		appnotifications.NewListNotificationsUseCase(db, repo),
-		appnotifications.NewMarkNotificationReadUseCase(db, repo),
-		appnotifications.NewMarkAllNotificationsReadUseCase(db, repo),
+		appnotifications.NewMarkNotificationReadUseCase(db, repo, repositories.NewOutboxRepository(db)),
+		appnotifications.NewMarkAllNotificationsReadUseCase(db, repo, repositories.NewOutboxRepository(db)),
 	)
 	gennotifications.RegisterHandlers(rg, h)
 }

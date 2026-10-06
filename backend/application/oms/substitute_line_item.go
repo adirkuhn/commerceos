@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -44,6 +46,7 @@ type SubstituteLineItemResult struct {
 // CompletePackingUseCase applies it. Order changes happen in packing now
 // that picking is optional; picking only picks.
 type SubstituteLineItemUseCase struct {
+	outbox       eventrecord.Enqueuer
 	db           *gorm.DB
 	sessionRepo  omsDomain.PackingSessionRepository
 	scanRepo     omsDomain.PackScanRepository
@@ -55,8 +58,9 @@ func NewSubstituteLineItemUseCase(
 	sessionRepo omsDomain.PackingSessionRepository,
 	scanRepo omsDomain.PackScanRepository,
 	lineItemRepo omsDomain.SalesOrderLineItemRepository,
+	outbox eventrecord.Enqueuer,
 ) *SubstituteLineItemUseCase {
-	return &SubstituteLineItemUseCase{db: db, sessionRepo: sessionRepo, scanRepo: scanRepo, lineItemRepo: lineItemRepo}
+	return &SubstituteLineItemUseCase{outbox: outbox, db: db, sessionRepo: sessionRepo, scanRepo: scanRepo, lineItemRepo: lineItemRepo}
 }
 
 // coveredQuantity sums how much of lineItemID's ordered Quantity is already
@@ -126,6 +130,9 @@ func (uc *SubstituteLineItemUseCase) Execute(ctx context.Context, in SubstituteL
 				ScannedAt: now, ScannedBy: in.ScannedBy,
 			}
 			if err := uc.scanRepo.Create(ctx, &scan); err != nil {
+				return err
+			}
+			if err := recordPackScan(ctx, uc.outbox, events.PackScanCreated, scan); err != nil {
 				return err
 			}
 			scans = append(scans, scan)
