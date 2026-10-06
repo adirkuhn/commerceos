@@ -3,6 +3,7 @@ package integrations_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,7 +29,7 @@ func TestSetWebhookSecret_generatesAndEncryptsSecret(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewSetWebhookSecretUseCase(newMockGormDB(t), repo, testWebhookEncryptionSecret)
+	uc := appintegrations.NewSetWebhookSecretUseCase(newMockGormDB(t), repo, testWebhookEncryptionSecret, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "conn-1", "")
 
@@ -53,7 +54,7 @@ func TestSetWebhookSecret_rotatesExistingSecret(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewSetWebhookSecretUseCase(newMockGormDB(t), repo, testWebhookEncryptionSecret)
+	uc := appintegrations.NewSetWebhookSecretUseCase(newMockGormDB(t), repo, testWebhookEncryptionSecret, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "conn-1", "")
 
@@ -71,7 +72,7 @@ func TestSetWebhookSecret_storesAProvidedSecretVerbatim(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewSetWebhookSecretUseCase(newMockGormDB(t), repo, testWebhookEncryptionSecret)
+	uc := appintegrations.NewSetWebhookSecretUseCase(newMockGormDB(t), repo, testWebhookEncryptionSecret, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "conn-1", "whsec_from_stripe_dashboard")
 
@@ -88,7 +89,7 @@ func TestSetWebhookSecret_propagatesNotFound(t *testing.T) {
 			return nil, integrationsDomain.ErrConnectionNotFound
 		},
 	}
-	uc := appintegrations.NewSetWebhookSecretUseCase(newMockGormDB(t), repo, testWebhookEncryptionSecret)
+	uc := appintegrations.NewSetWebhookSecretUseCase(newMockGormDB(t), repo, testWebhookEncryptionSecret, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing", "")
 

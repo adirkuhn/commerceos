@@ -7,6 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -27,6 +29,7 @@ type TestConnectionUseCase struct {
 	connRepo         integrationsDomain.ConnectionRepository
 	wooFactory       integrationsDomain.WooClientFactory
 	encryptionSecret string
+	outbox           eventrecord.Enqueuer
 }
 
 func NewTestConnectionUseCase(
@@ -34,12 +37,14 @@ func NewTestConnectionUseCase(
 	connRepo integrationsDomain.ConnectionRepository,
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
+	outbox eventrecord.Enqueuer,
 ) *TestConnectionUseCase {
 	return &TestConnectionUseCase{
 		db:               db,
 		connRepo:         connRepo,
 		wooFactory:       wooFactory,
 		encryptionSecret: encryptionSecret,
+		outbox:           outbox,
 	}
 }
 
@@ -70,9 +75,15 @@ func (uc *TestConnectionUseCase) Execute(ctx context.Context, id string) (*integ
 			}
 		}
 
+		before := conn.Status
 		conn.Status = NextStatusAfterTest(testErr)
 		conn.UpdatedAt = time.Now()
-		return uc.connRepo.Update(ctx, &conn)
+		if err := uc.connRepo.Update(ctx, &conn); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ConnectionTested, conn.ID,
+			eventrecord.Data{"provider": string(conn.Provider), "succeeded": testErr == nil},
+			eventrecord.NewChanges().Set("status", string(before), string(conn.Status)))
 	})
 	if txErr != nil {
 		return nil, fmt.Errorf("testConnection: %w", txErr)

@@ -10,7 +10,9 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -28,12 +30,13 @@ type CreateAPIKeyResult struct {
 }
 
 type CreateAPIKeyUseCase struct {
-	db   *gorm.DB
-	repo apikeysDomain.Repository
+	db     *gorm.DB
+	repo   apikeysDomain.Repository
+	outbox eventrecord.Enqueuer
 }
 
-func NewCreateAPIKeyUseCase(db *gorm.DB, repo apikeysDomain.Repository) *CreateAPIKeyUseCase {
-	return &CreateAPIKeyUseCase{db: db, repo: repo}
+func NewCreateAPIKeyUseCase(db *gorm.DB, repo apikeysDomain.Repository, outbox eventrecord.Enqueuer) *CreateAPIKeyUseCase {
+	return &CreateAPIKeyUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 // Execute mints a new key. salesChannelID is nil for a tenant-wide key
@@ -52,7 +55,12 @@ func (uc *CreateAPIKeyUseCase) Execute(ctx context.Context, name, description st
 	k := &apikeysDomain.APIKey{Name: name, Description: description, KeyHash: hashKey(plaintext), SalesChannelID: salesChannelID}
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		k.TenantID = tenant.IDFromContext(ctx)
-		return uc.repo.Create(ctx, k)
+		if err := uc.repo.Create(ctx, k); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.APIKeyCreated, k.ID, eventrecord.Data{
+			"name": k.Name, "sales_channel_id": k.SalesChannelID,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createApiKey: %w", err)

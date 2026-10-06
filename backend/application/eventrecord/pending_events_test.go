@@ -6,7 +6,6 @@ package eventrecord_test
 // TestEveryWriteRaisesAnEvent fails when a file here is fixed but not
 // removed, or a new file writes without an event.
 var pendingEvents = []string{
-	"apikeys/create_api_key.go",
 	"channels/backfill_woo_sale_prices.go",
 	"channels/create_import_job.go",
 	"channels/create_sales_channel.go",
@@ -56,16 +55,6 @@ var pendingEvents = []string{
 	"iam/generate_pairing_code.go",
 	"iam/remove_user_from_group.go",
 	"iam/update_group.go",
-	"integrations/connect_ai_provider.go",
-	"integrations/disconnect_ai_connection.go",
-	"integrations/disconnect_connection.go",
-	"integrations/provider_webhooks.go",
-	"integrations/set_webhook_secret.go",
-	"integrations/set_whatsapp_ai_parsing.go",
-	"integrations/set_whatsapp_test_mode.go",
-	"integrations/test_connection.go",
-	"integrations/update_connection_settings.go",
-	"integrations/update_whatsapp_credentials.go",
 	"inventory/create_batch.go",
 	"inventory/create_warehouse.go",
 	"inventory/delete_batch.go",

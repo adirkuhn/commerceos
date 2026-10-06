@@ -3,6 +3,7 @@ package integrations_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
@@ -58,7 +59,7 @@ func TestUpdateConnectionSettings_setsDefaultCurrency(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{ID: "conn-1", DefaultCurrency: "USD"})
 
@@ -78,7 +79,7 @@ func TestUpdateConnectionSettings_normalizesCasingAndWhitespace(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{ID: "conn-1", DefaultCurrency: " usd "})
 
@@ -97,7 +98,7 @@ func TestUpdateConnectionSettings_setsDefaultWarehouse(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 	warehouseID := "wh-1"
 
 	result, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{
@@ -122,7 +123,7 @@ func TestUpdateConnectionSettings_clearsDefaultWarehouseWhenNilOrEmpty(t *testin
 			return nil
 		},
 	}
-	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 	empty := ""
 
 	result, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{
@@ -144,7 +145,7 @@ func TestUpdateConnectionSettings_setsBolEconomicOperatorIDAndDeliveryCode(t *te
 			return nil
 		},
 	}
-	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 	economicOperatorID := "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 	deliveryCode := "1-2d"
 
@@ -174,7 +175,7 @@ func TestUpdateConnectionSettings_clearsBolFieldsWhenNilOrEmpty(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 	empty := ""
 
 	result, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{
@@ -198,7 +199,7 @@ func TestUpdateConnectionSettings_rejectsInvalidBolDeliveryCode(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDBNoTx(t), repo)
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDBNoTx(t), repo, &eventrecordtest.Outbox{})
 	bogus := "next-week"
 
 	_, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{
@@ -215,7 +216,7 @@ func TestUpdateConnectionSettings_propagatesNotFound(t *testing.T) {
 			return nil, integrationsDomain.ErrConnectionNotFound
 		},
 	}
-	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{ID: "missing", DefaultCurrency: "USD"})
 
@@ -231,7 +232,7 @@ func TestUpdateConnectionSettings_propagatesUpdateError(t *testing.T) {
 			return errors.New("db down")
 		},
 	}
-	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{ID: "conn-1", DefaultCurrency: "USD"})
 

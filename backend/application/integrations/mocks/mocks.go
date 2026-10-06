@@ -98,6 +98,9 @@ type AIConnectionRepo struct {
 }
 
 func (m *AIConnectionRepo) Get(ctx context.Context) (*integrations.AIConnection, error) {
+	if m.GetFn == nil {
+		return nil, nil
+	}
 	return m.GetFn(ctx)
 }
 func (m *AIConnectionRepo) Upsert(ctx context.Context, c *integrations.AIConnection) error {

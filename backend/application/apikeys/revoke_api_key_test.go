@@ -3,6 +3,7 @@ package apikeys_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,7 @@ import (
 
 func TestRevokeAPIKey_callsRepoWithID(t *testing.T) {
 	repo := &stubAPIKeyRepo{}
-	uc := appapikeys.NewRevokeAPIKeyUseCase(newMockGormDB(t), repo)
+	uc := appapikeys.NewRevokeAPIKeyUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "key-1")
 
@@ -23,7 +24,7 @@ func TestRevokeAPIKey_callsRepoWithID(t *testing.T) {
 
 func TestRevokeAPIKey_propagatesNotFound(t *testing.T) {
 	repo := &stubAPIKeyRepo{revokeErr: apikeysDomain.ErrNotFound}
-	uc := appapikeys.NewRevokeAPIKeyUseCase(newMockGormDB(t), repo)
+	uc := appapikeys.NewRevokeAPIKeyUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 

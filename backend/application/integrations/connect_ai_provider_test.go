@@ -3,6 +3,7 @@ package integrations_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,7 @@ func TestConnectAIProvider_encryptsKeyAndUpserts(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), repo, "test-secret")
+	uc := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), repo, "test-secret", &eventrecordtest.Outbox{})
 
 	conn, err := uc.Execute(withTenantCtx("tenant-1"), appintegrations.ConnectAIProviderInput{
 		Provider: integrationsDomain.AIProviderOpenAI, APIKey: "sk-test-key", Model: "gpt-4o",
@@ -48,7 +49,7 @@ func TestConnectAIProvider_ollamaAllowsEmptyAPIKey(t *testing.T) {
 	repo := &mocks.AIConnectionRepo{
 		UpsertFn: func(_ context.Context, _ *integrationsDomain.AIConnection) error { return nil },
 	}
-	uc := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), repo, "test-secret")
+	uc := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), repo, "test-secret", &eventrecordtest.Outbox{})
 
 	conn, err := uc.Execute(withTenantCtx("tenant-1"), appintegrations.ConnectAIProviderInput{
 		Provider: integrationsDomain.AIProviderOllama, BaseURL: "http://localhost:11434",
@@ -59,7 +60,7 @@ func TestConnectAIProvider_ollamaAllowsEmptyAPIKey(t *testing.T) {
 }
 
 func TestConnectAIProvider_ollamaRequiresBaseURL(t *testing.T) {
-	uc := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), &mocks.AIConnectionRepo{}, "test-secret")
+	uc := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), &mocks.AIConnectionRepo{}, "test-secret", &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(withTenantCtx("tenant-1"), appintegrations.ConnectAIProviderInput{
 		Provider: integrationsDomain.AIProviderOllama,
@@ -69,7 +70,7 @@ func TestConnectAIProvider_ollamaRequiresBaseURL(t *testing.T) {
 }
 
 func TestConnectAIProvider_hostedProviderRequiresAPIKey(t *testing.T) {
-	uc := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), &mocks.AIConnectionRepo{}, "test-secret")
+	uc := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), &mocks.AIConnectionRepo{}, "test-secret", &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(withTenantCtx("tenant-1"), appintegrations.ConnectAIProviderInput{
 		Provider: integrationsDomain.AIProviderAnthropic,
@@ -79,7 +80,7 @@ func TestConnectAIProvider_hostedProviderRequiresAPIKey(t *testing.T) {
 }
 
 func TestConnectAIProvider_rejectsUnsupportedProvider(t *testing.T) {
-	uc := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), &mocks.AIConnectionRepo{}, "test-secret")
+	uc := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), &mocks.AIConnectionRepo{}, "test-secret", &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(withTenantCtx("tenant-1"), appintegrations.ConnectAIProviderInput{
 		Provider: integrationsDomain.AIProvider("deepseek"), APIKey: "key",
@@ -92,7 +93,7 @@ func TestConnectAIProvider_propagatesUpsertError(t *testing.T) {
 	repo := &mocks.AIConnectionRepo{
 		UpsertFn: func(_ context.Context, _ *integrationsDomain.AIConnection) error { return errors.New("db down") },
 	}
-	uc := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), repo, "test-secret")
+	uc := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), repo, "test-secret", &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(withTenantCtx("tenant-1"), appintegrations.ConnectAIProviderInput{
 		Provider: integrationsDomain.AIProviderOpenAI, APIKey: "sk-test",

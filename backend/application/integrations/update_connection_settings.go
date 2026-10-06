@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -31,10 +32,11 @@ type UpdateConnectionSettingsInput struct {
 type UpdateConnectionSettingsUseCase struct {
 	db       *gorm.DB
 	connRepo integrationsDomain.ConnectionRepository
+	outbox   eventrecord.Enqueuer
 }
 
-func NewUpdateConnectionSettingsUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository) *UpdateConnectionSettingsUseCase {
-	return &UpdateConnectionSettingsUseCase{db: db, connRepo: connRepo}
+func NewUpdateConnectionSettingsUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, outbox eventrecord.Enqueuer) *UpdateConnectionSettingsUseCase {
+	return &UpdateConnectionSettingsUseCase{db: db, connRepo: connRepo, outbox: outbox}
 }
 
 func (uc *UpdateConnectionSettingsUseCase) Execute(ctx context.Context, in UpdateConnectionSettingsInput) (*integrationsDomain.Connection, error) {
@@ -55,6 +57,7 @@ func (uc *UpdateConnectionSettingsUseCase) Execute(ctx context.Context, in Updat
 		// here means every reader (the import modal's <select>, the sync
 		// schedule row) can exact-match against it without each one having
 		// to re-normalize on read.
+		before := *existing
 		existing.DefaultCurrency = strings.ToUpper(strings.TrimSpace(in.DefaultCurrency))
 		if in.DefaultWarehouseID != nil && strings.TrimSpace(*in.DefaultWarehouseID) != "" {
 			warehouseID := strings.TrimSpace(*in.DefaultWarehouseID)
@@ -79,7 +82,11 @@ func (uc *UpdateConnectionSettingsUseCase) Execute(ctx context.Context, in Updat
 			return err
 		}
 		conn = *existing
-		return nil
+		return recordConnectionUpdated(ctx, uc.outbox, conn, eventrecord.NewChanges().
+			Set("default_currency", before.DefaultCurrency, conn.DefaultCurrency).
+			Set("default_warehouse_id", before.DefaultWarehouseID, conn.DefaultWarehouseID).
+			Set("bol_economic_operator_id", before.BolEconomicOperatorID, conn.BolEconomicOperatorID).
+			Set("bol_delivery_code", before.BolDeliveryCode, conn.BolDeliveryCode))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateConnectionSettings: %w", err)

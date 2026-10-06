@@ -3,6 +3,7 @@ package apikeys_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -52,7 +53,7 @@ func (s *stubAPIKeyRepo) FindActiveTenantIDByHash(_ context.Context, hash string
 
 func TestCreateAPIKey_generatesAndHashesKey(t *testing.T) {
 	repo := &stubAPIKeyRepo{}
-	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
+	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 
 	result, err := uc.Execute(ctx, "My storefront", "WooCommerce prod", nil)
@@ -72,7 +73,7 @@ func TestCreateAPIKey_generatesAndHashesKey(t *testing.T) {
 
 func TestCreateAPIKey_scopesToSalesChannelWhenGiven(t *testing.T) {
 	repo := &stubAPIKeyRepo{}
-	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
+	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 	channelID := "channel-1"
 
 	result, err := uc.Execute(context.Background(), "B2B storefront", "", &channelID)
@@ -83,7 +84,7 @@ func TestCreateAPIKey_scopesToSalesChannelWhenGiven(t *testing.T) {
 }
 
 func TestCreateAPIKey_rejectsEmptyName(t *testing.T) {
-	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), &stubAPIKeyRepo{})
+	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), &stubAPIKeyRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "", "", nil)
 
@@ -93,11 +94,11 @@ func TestCreateAPIKey_rejectsEmptyName(t *testing.T) {
 
 func TestCreateAPIKey_generatesADifferentKeyEachCall(t *testing.T) {
 	repo := &stubAPIKeyRepo{}
-	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
+	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 	first, err := uc.Execute(context.Background(), "Key A", "", nil)
 	require.NoError(t, err)
 
-	uc2 := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
+	uc2 := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 	second, err := uc2.Execute(context.Background(), "Key B", "", nil)
 	require.NoError(t, err)
 
@@ -106,7 +107,7 @@ func TestCreateAPIKey_generatesADifferentKeyEachCall(t *testing.T) {
 
 func TestCreateAPIKey_propagatesRepoError(t *testing.T) {
 	repo := &stubAPIKeyRepo{createErr: errors.New("db down")}
-	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
+	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "Key A", "", nil)
 

@@ -3,6 +3,7 @@ package apikeys_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,7 @@ func TestResolveAPIKey_returnsTenantIDForAMatchingHash(t *testing.T) {
 	// exercises the exact same hashing both use cases share, rather than
 	// assuming they agree.
 	repo := &stubAPIKeyRepo{resolveOut: apikeysDomain.ResolvedAPIKey{TenantID: "tenant-1"}}
-	createUC := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
+	createUC := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 	created, err := createUC.Execute(context.Background(), "Key A", "", nil)
 	require.NoError(t, err)
 

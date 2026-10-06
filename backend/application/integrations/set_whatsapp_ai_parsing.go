@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -25,10 +26,11 @@ type SetWhatsAppAIParsingUseCase struct {
 	db         *gorm.DB
 	connRepo   integrationsDomain.ConnectionRepository
 	aiConnRepo integrationsDomain.AIConnectionRepository
+	outbox     eventrecord.Enqueuer
 }
 
-func NewSetWhatsAppAIParsingUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, aiConnRepo integrationsDomain.AIConnectionRepository) *SetWhatsAppAIParsingUseCase {
-	return &SetWhatsAppAIParsingUseCase{db: db, connRepo: connRepo, aiConnRepo: aiConnRepo}
+func NewSetWhatsAppAIParsingUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, aiConnRepo integrationsDomain.AIConnectionRepository, outbox eventrecord.Enqueuer) *SetWhatsAppAIParsingUseCase {
+	return &SetWhatsAppAIParsingUseCase{db: db, connRepo: connRepo, aiConnRepo: aiConnRepo, outbox: outbox}
 }
 
 func (uc *SetWhatsAppAIParsingUseCase) Execute(ctx context.Context, connectionID string, enabled bool) (*integrationsDomain.Connection, error) {
@@ -50,13 +52,15 @@ func (uc *SetWhatsAppAIParsingUseCase) Execute(ctx context.Context, connectionID
 				return ErrAIConnectionRequiredForWhatsAppParsing
 			}
 		}
+		before := *existing
 		existing.WhatsAppAIParsingEnabled = enabled
 		existing.UpdatedAt = time.Now()
 		if err := uc.connRepo.Update(ctx, existing); err != nil {
 			return err
 		}
 		result = existing
-		return nil
+		return recordConnectionUpdated(ctx, uc.outbox, *existing, eventrecord.NewChanges().
+			Set("whatsapp_ai_parsing_enabled", before.WhatsAppAIParsingEnabled, existing.WhatsAppAIParsingEnabled))
 	})
 	if err != nil {
 		if errors.Is(err, integrationsDomain.ErrNotWhatsAppConnection) || errors.Is(err, integrationsDomain.ErrConnectionNotFound) ||

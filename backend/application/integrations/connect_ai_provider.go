@@ -7,6 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -32,10 +34,11 @@ type ConnectAIProviderUseCase struct {
 	db               *gorm.DB
 	aiConnRepo       integrationsDomain.AIConnectionRepository
 	encryptionSecret string
+	outbox           eventrecord.Enqueuer
 }
 
-func NewConnectAIProviderUseCase(db *gorm.DB, aiConnRepo integrationsDomain.AIConnectionRepository, encryptionSecret string) *ConnectAIProviderUseCase {
-	return &ConnectAIProviderUseCase{db: db, aiConnRepo: aiConnRepo, encryptionSecret: encryptionSecret}
+func NewConnectAIProviderUseCase(db *gorm.DB, aiConnRepo integrationsDomain.AIConnectionRepository, encryptionSecret string, outbox eventrecord.Enqueuer) *ConnectAIProviderUseCase {
+	return &ConnectAIProviderUseCase{db: db, aiConnRepo: aiConnRepo, encryptionSecret: encryptionSecret, outbox: outbox}
 }
 
 func (uc *ConnectAIProviderUseCase) Execute(ctx context.Context, in ConnectAIProviderInput) (*integrationsDomain.AIConnection, error) {
@@ -69,7 +72,12 @@ func (uc *ConnectAIProviderUseCase) Execute(ctx context.Context, in ConnectAIPro
 		Status: integrationsDomain.StatusConnected, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.aiConnRepo.Upsert(ctx, conn)
+		if err := uc.aiConnRepo.Upsert(ctx, conn); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.AIConnectionConnected, conn.ID, eventrecord.Data{
+			"provider": string(conn.Provider), "model": conn.Model, "base_url": conn.BaseURL, "fallback_models": conn.FallbackModels,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("connectAIProvider: %w", err)

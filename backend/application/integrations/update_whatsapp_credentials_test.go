@@ -3,6 +3,7 @@ package integrations_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -30,7 +31,7 @@ func TestUpdateWhatsAppCredentials_replacesBaseURLInstanceNameAndKey(t *testing.
 			return nil
 		},
 	}
-	uc := appintegrations.NewUpdateWhatsAppCredentialsUseCase(newMockGormDB(t), repo, "test-encryption-secret")
+	uc := appintegrations.NewUpdateWhatsAppCredentialsUseCase(newMockGormDB(t), repo, "test-encryption-secret", &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "conn-1", appintegrations.UpdateWhatsAppCredentialsInput{
 		BaseURL: "https://new.example.com", InstanceName: "new-instance", APIKey: "new-key",
@@ -58,7 +59,7 @@ func TestUpdateWhatsAppCredentials_emptyAPIKeyKeepsTheExistingOne(t *testing.T) 
 		FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil },
 		UpdateFn:   func(_ context.Context, _ *integrationsDomain.Connection) error { return nil },
 	}
-	uc := appintegrations.NewUpdateWhatsAppCredentialsUseCase(newMockGormDB(t), repo, "test-encryption-secret")
+	uc := appintegrations.NewUpdateWhatsAppCredentialsUseCase(newMockGormDB(t), repo, "test-encryption-secret", &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "conn-1", appintegrations.UpdateWhatsAppCredentialsInput{
 		BaseURL: "https://new.example.com", InstanceName: "new-instance", APIKey: "",
@@ -72,7 +73,7 @@ func TestUpdateWhatsAppCredentials_emptyAPIKeyKeepsTheExistingOne(t *testing.T) 
 
 func TestUpdateWhatsAppCredentials_invalidBaseURL(t *testing.T) {
 	repo := &mocks.ConnectionRepo{}
-	uc := appintegrations.NewUpdateWhatsAppCredentialsUseCase(newMockGormDB(t), repo, "test-encryption-secret")
+	uc := appintegrations.NewUpdateWhatsAppCredentialsUseCase(newMockGormDB(t), repo, "test-encryption-secret", &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "conn-1", appintegrations.UpdateWhatsAppCredentialsInput{
 		BaseURL: "not-a-url", InstanceName: "instance", APIKey: "key",
@@ -86,7 +87,7 @@ func TestUpdateWhatsAppCredentials_rejectsNonWhatsAppConnection(t *testing.T) {
 	repo := &mocks.ConnectionRepo{
 		FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil },
 	}
-	uc := appintegrations.NewUpdateWhatsAppCredentialsUseCase(newMockGormDB(t), repo, "test-encryption-secret")
+	uc := appintegrations.NewUpdateWhatsAppCredentialsUseCase(newMockGormDB(t), repo, "test-encryption-secret", &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "conn-1", appintegrations.UpdateWhatsAppCredentialsInput{
 		BaseURL: "https://new.example.com", InstanceName: "instance", APIKey: "key",
@@ -101,7 +102,7 @@ func TestUpdateWhatsAppCredentials_connectionNotFound(t *testing.T) {
 			return nil, integrationsDomain.ErrConnectionNotFound
 		},
 	}
-	uc := appintegrations.NewUpdateWhatsAppCredentialsUseCase(newMockGormDB(t), repo, "test-encryption-secret")
+	uc := appintegrations.NewUpdateWhatsAppCredentialsUseCase(newMockGormDB(t), repo, "test-encryption-secret", &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "conn-1", appintegrations.UpdateWhatsAppCredentialsInput{
 		BaseURL: "https://new.example.com", InstanceName: "instance", APIKey: "key",

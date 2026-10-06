@@ -9,6 +9,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -20,10 +21,11 @@ import (
 type SetWhatsAppTestModeUseCase struct {
 	db       *gorm.DB
 	connRepo integrationsDomain.ConnectionRepository
+	outbox   eventrecord.Enqueuer
 }
 
-func NewSetWhatsAppTestModeUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository) *SetWhatsAppTestModeUseCase {
-	return &SetWhatsAppTestModeUseCase{db: db, connRepo: connRepo}
+func NewSetWhatsAppTestModeUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, outbox eventrecord.Enqueuer) *SetWhatsAppTestModeUseCase {
+	return &SetWhatsAppTestModeUseCase{db: db, connRepo: connRepo, outbox: outbox}
 }
 
 func (uc *SetWhatsAppTestModeUseCase) Execute(ctx context.Context, connectionID string, enabled bool, testPhoneE164 string) (*integrationsDomain.Connection, error) {
@@ -41,6 +43,7 @@ func (uc *SetWhatsAppTestModeUseCase) Execute(ctx context.Context, connectionID 
 		if existing.Provider != integrationsDomain.ProviderWhatsApp {
 			return integrationsDomain.ErrNotWhatsAppConnection
 		}
+		before := *existing
 		existing.WhatsAppTestModeEnabled = enabled
 		if enabled {
 			existing.WhatsAppTestPhoneE164 = &testPhoneE164
@@ -52,7 +55,9 @@ func (uc *SetWhatsAppTestModeUseCase) Execute(ctx context.Context, connectionID 
 			return err
 		}
 		result = existing
-		return nil
+		return recordConnectionUpdated(ctx, uc.outbox, *existing, eventrecord.NewChanges().
+			Set("whatsapp_test_mode_enabled", before.WhatsAppTestModeEnabled, existing.WhatsAppTestModeEnabled).
+			Set("whatsapp_test_phone", before.WhatsAppTestPhoneE164, existing.WhatsAppTestPhoneE164))
 	})
 	if err != nil {
 		if errors.Is(err, integrationsDomain.ErrNotWhatsAppConnection) || errors.Is(err, integrationsDomain.ErrConnectionNotFound) {
