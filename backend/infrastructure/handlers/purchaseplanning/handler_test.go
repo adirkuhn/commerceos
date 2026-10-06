@@ -66,12 +66,17 @@ func newTestRouter(t *testing.T, uc *stubRecommendations) *gin.Engine {
 
 func newSeasonRouter(t *testing.T, uc *stubRecommendations, plan *stubSeasonPlan, events *stubSeasonEvents) *gin.Engine {
 	t.Helper()
+	return newRouter(t, purchaseplanninghandler.UseCases{Recommendations: uc, SeasonPlan: plan, SeasonEvents: events, PlanOrder: &stubPlanOrder{}})
+}
+
+func newRouter(t *testing.T, ucs purchaseplanninghandler.UseCases) *gin.Engine {
+	t.Helper()
 	spec, err := genpurchaseplanning.GetSpec()
 	require.NoError(t, err)
 	r := gin.New()
 	g := r.Group("/api/v1")
 	g.Use(ginmiddleware.OapiRequestValidatorWithOptions(spec, &ginmiddleware.Options{SilenceServersWarning: true}))
-	genpurchaseplanning.RegisterHandlers(g, purchaseplanninghandler.NewHandler(uc, plan, events))
+	genpurchaseplanning.RegisterHandlers(g, purchaseplanninghandler.NewHandler(ucs))
 	return r
 }
 

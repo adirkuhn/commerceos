@@ -507,6 +507,8 @@ func main() {
 	// Own sub-group so the purchaseplanning-only spec validator never
 	// applies to the other modules' routes — same reasoning as pmsGroup above.
 	purchaseplanningGroup := v1.Group("")
+	// Every role may see the plan; only owners/admins turn it into POs.
+	purchaseplanningGroup.Use(middleware.RequireRoleForWrites(middleware.RoleCustomerOwner, middleware.RoleCustomerAdmin, middleware.RoleSuperAdmin))
 	purchaseplanningGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(purchaseplanningSpec, &ginmiddleware.Options{
 		SilenceServersWarning: true,
 	}))

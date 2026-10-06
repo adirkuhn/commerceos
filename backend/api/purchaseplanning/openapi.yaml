@@ -49,6 +49,37 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /procurement/recommendations/purchase-orders:
+    post:
+      operationId: createPurchaseOrderFromPlan
+      summary: Turn a supplier's share of a plan into one draft purchase order
+      description: >-
+        Quantities are in purchased items, as the plan shows them. Price and
+        pack size (units per purchased item) come from the SKU's newest
+        purchase order line with this same supplier, never from the request;
+        a SKU last bought elsewhere gets no price and pack size 1 (per kg
+        for a weight pool). Currency: this supplier's last purchase order
+        currency, else the tenant default. Owners and admins only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePurchaseOrderFromPlanRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePurchaseOrderFromPlanResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /procurement/season-events:
     get:
       operationId: listSeasonEvents
@@ -332,6 +363,38 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/SeasonPlan' }
+        error: { nullable: true }
+
+    PlanOrderLine:
+      type: object
+      required: [sku_id, quantity]
+      properties:
+        sku_id: { type: string, format: uuid }
+        quantity: { type: integer, format: int64, minimum: 1, description: Purchased items. }
+
+    CreatePurchaseOrderFromPlanRequest:
+      type: object
+      required: [supplier_id, lines]
+      properties:
+        supplier_id: { type: string, format: uuid }
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 500
+          description: Each SKU at most once.
+          items: { $ref: '#/components/schemas/PlanOrderLine' }
+        notes: { type: string, maxLength: 2000 }
+
+    CreatedPurchaseOrder:
+      type: object
+      required: [purchase_order_id]
+      properties:
+        purchase_order_id: { type: string }
+
+    CreatePurchaseOrderFromPlanResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CreatedPurchaseOrder' }
         error: { nullable: true }
 
     ErrorResponse:
