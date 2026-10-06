@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -35,12 +37,13 @@ type UpsertSyncScheduleInput struct {
 }
 
 type UpsertSyncScheduleUseCase struct {
-	db   *gorm.DB
-	repo channelsDomain.SyncScheduleRepository
+	db     *gorm.DB
+	repo   channelsDomain.SyncScheduleRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewUpsertSyncScheduleUseCase(db *gorm.DB, repo channelsDomain.SyncScheduleRepository) *UpsertSyncScheduleUseCase {
-	return &UpsertSyncScheduleUseCase{db: db, repo: repo}
+func NewUpsertSyncScheduleUseCase(db *gorm.DB, repo channelsDomain.SyncScheduleRepository, outbox eventrecord.Enqueuer) *UpsertSyncScheduleUseCase {
+	return &UpsertSyncScheduleUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 // validateUpsertSyncScheduleInput is shared by UpsertSyncScheduleUseCase
@@ -140,7 +143,10 @@ func (uc *UpsertSyncScheduleUseCase) Execute(ctx context.Context, in UpsertSyncS
 	var schedule channelsDomain.SyncSchedule
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		schedule = buildSyncSchedule(ctx, in, time.Now())
-		return uc.repo.Upsert(ctx, &schedule)
+		if err := uc.repo.Upsert(ctx, &schedule); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.SyncScheduleSaved, schedule.ID, syncScheduleData(schedule))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("upsertSyncSchedule: %w", err)

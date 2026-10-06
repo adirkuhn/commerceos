@@ -93,7 +93,7 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 	)
 	stockLevelUC := appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo)
 	categoryLinkRepo := repositories.NewExternalCategoryLinkRepo(db)
-	resolveCategoryLinkUC := appchannels.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo)
+	resolveCategoryLinkUC := appchannels.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo, repositories.NewOutboxRepository(db))
 	pushProductToWooUC := appchannels.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo, resolveCategoryLinkUC,
 	)

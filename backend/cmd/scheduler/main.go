@@ -145,7 +145,7 @@ func main() {
 	}
 	runJobNowUC := schedulerapp.NewRunJobNowUseCase(db, jobRepo, jobRunners)
 	categoryLinkRepo := repositories.NewExternalCategoryLinkRepo(db)
-	resolveCategoryLinkUC := channelsapp.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo)
+	resolveCategoryLinkUC := channelsapp.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo, repositories.NewOutboxRepository(db))
 	pushUC := channelsapp.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo, resolveCategoryLinkUC,

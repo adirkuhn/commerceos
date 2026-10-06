@@ -50,7 +50,20 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-51 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+59 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+
+### channels
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `channels.external_category_link.deleted` | action | A category mapping to an external shop was removed. | envelope |
+| `channels.external_category_link.saved` | action | A CommerceOS category was linked to a category in an external shop (a person mapped it, or it was matched by slug on push). data: connection_id, provider, external_id, category_id, source (manual, slug_match). | envelope |
+| `channels.import_job.created` | action | A product import from an external shop was queued. data: connection_id, default_warehouse_id, default_currency, is_first_import. | envelope |
+| `channels.sales_channel.created` | action | A sales channel (web shop, Bol, POS...) was set up. data: name, type, connection_id, enrollment_mode, currency_code. | envelope |
+| `channels.sales_channel.deleted` | action | A sales channel was deleted. data: name, type. | envelope |
+| `channels.sales_channel.updated` | action | A sales channel's settings changed (changes: name, connection_id, enrollment_mode, enrollment_category_id, enrollment_tag, price_adjustment_basis_points, quantity_breaks, default_warehouse_id, storefront_mode, sign_in_url, storefront_locale, storefront_locales, active, payment_connection_id). | envelope |
+| `channels.sales_channel_product_override.set` | action | A product was explicitly included in or excluded from a sales channel, overriding its enrollment rule. data: channel_id, product_id, included. | envelope |
+| `channels.sync_schedule.saved` | action | An automatic sync schedule for a connection was created or changed. data: connection_id, entity_type, direction, enabled, interval_minutes, default_warehouse_id, default_currency. | envelope |
 
 ### collections
 

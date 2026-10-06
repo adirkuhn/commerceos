@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -49,13 +51,15 @@ type UpdateSalesChannelUseCase struct {
 	repo          channelsDomain.SalesChannelRepository
 	connRepo      integrationsDomain.ConnectionRepository
 	warehouseRepo warehouseExistenceChecker
+	outbox        eventrecord.Enqueuer
 }
 
 func NewUpdateSalesChannelUseCase(
 	db *gorm.DB, repo channelsDomain.SalesChannelRepository, connRepo integrationsDomain.ConnectionRepository,
 	warehouseRepo warehouseExistenceChecker,
+	outbox eventrecord.Enqueuer,
 ) *UpdateSalesChannelUseCase {
-	return &UpdateSalesChannelUseCase{db: db, repo: repo, connRepo: connRepo, warehouseRepo: warehouseRepo}
+	return &UpdateSalesChannelUseCase{db: db, repo: repo, connRepo: connRepo, warehouseRepo: warehouseRepo, outbox: outbox}
 }
 
 func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSalesChannelInput) (*channelsDomain.SalesChannel, error) {
@@ -108,6 +112,7 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 				return err
 			}
 		}
+		before := *existing
 		existing.Name = in.Name
 		existing.ConnectionID = in.ConnectionID
 		existing.EnrollmentMode = in.EnrollmentMode
@@ -126,7 +131,7 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 			return err
 		}
 		channel = *existing
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.SalesChannelUpdated, channel.ID, salesChannelChanges(before, channel))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateSalesChannel: %w", err)

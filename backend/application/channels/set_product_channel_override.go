@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -26,6 +28,7 @@ type SetProductChannelOverrideUseCase struct {
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository
 	channelRepo  channelsDomain.SalesChannelRepository
 	productRepo  pmsDomain.ProductRepository
+	outbox       eventrecord.Enqueuer
 }
 
 func NewSetProductChannelOverrideUseCase(
@@ -33,8 +36,9 @@ func NewSetProductChannelOverrideUseCase(
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository,
 	channelRepo channelsDomain.SalesChannelRepository,
 	productRepo pmsDomain.ProductRepository,
+	outbox eventrecord.Enqueuer,
 ) *SetProductChannelOverrideUseCase {
-	return &SetProductChannelOverrideUseCase{db: db, overrideRepo: overrideRepo, channelRepo: channelRepo, productRepo: productRepo}
+	return &SetProductChannelOverrideUseCase{db: db, overrideRepo: overrideRepo, channelRepo: channelRepo, productRepo: productRepo, outbox: outbox}
 }
 
 func (uc *SetProductChannelOverrideUseCase) Execute(ctx context.Context, in SetProductChannelOverrideInput) (*channelsDomain.SalesChannelProductOverride, error) {
@@ -50,7 +54,12 @@ func (uc *SetProductChannelOverrideUseCase) Execute(ctx context.Context, in SetP
 			TenantID: tenant.IDFromContext(ctx), ChannelID: in.ChannelID, ProductID: in.ProductID,
 			Included: in.Included, CreatedAt: time.Now(),
 		}
-		return uc.overrideRepo.Upsert(ctx, &override)
+		if err := uc.overrideRepo.Upsert(ctx, &override); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.SalesChannelProductOverrideSet, override.ID, eventrecord.Data{
+			"channel_id": override.ChannelID, "product_id": override.ProductID, "included": override.Included,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("setProductChannelOverride: %w", err)

@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -62,7 +63,7 @@ func TestUpdateSalesChannel_storefrontLocale_omittedKeeps_valueSets(t *testing.T
 }
 
 func newCreateChannelUCWithCompany(t *testing.T, txs int, repo *stubSalesChannelRepo, company *stubTenantSettings) *appchannels.CreateSalesChannelUseCase {
-	return appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, txs), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, company)
+	return appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, txs), repo, &stubConnectionRepo{}, &stubExchangeRateRepo{}, &stubWarehouseExistenceChecker{}, company, &eventrecordtest.Outbox{})
 }
 
 func TestCreateSalesChannel_storefrontLocaleDefaultsToTheCompanyLanguage(t *testing.T) {

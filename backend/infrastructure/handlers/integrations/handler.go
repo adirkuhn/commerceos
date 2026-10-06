@@ -343,7 +343,7 @@ func Register(
 
 	stockLevelUC := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db))
 	categoryLinkRepo := repositories.NewExternalCategoryLinkRepo(db)
-	resolveCategoryLinkUC := appchannels.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo)
+	resolveCategoryLinkUC := appchannels.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo, repositories.NewOutboxRepository(db))
 	pushProductToWooUC := appchannels.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, encryptionSecret,
 		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo,
@@ -381,11 +381,11 @@ func Register(
 		appintegrations.NewTestConnectionUseCase(db, connRepo, wooFactory, encryptionSecret),
 		appintegrations.NewListWooTaxesUseCase(db, connRepo, wooFactory, encryptionSecret),
 		appchannels.NewCreateImportJobUseCase(
-			db, importJobRepo, listingRepo, appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), outboxRepo),
+			db, importJobRepo, listingRepo, appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), outboxRepo), repositories.NewOutboxRepository(db),
 		),
 		pushProductToWooUC,
 		appchannels.NewListSyncSchedulesUseCase(db, scheduleRepo),
-		appchannels.NewUpsertSyncSchedulesUseCase(db, scheduleRepo),
+		appchannels.NewUpsertSyncSchedulesUseCase(db, scheduleRepo, repositories.NewOutboxRepository(db)),
 		appchannels.NewDeleteAllImportedProductsUseCase(db, listingRepo, productRepo, categoryRepo, salesOrderRepo, deleteSalesOrderUC),
 		appintegrations.NewUpdateConnectionSettingsUseCase(db, connRepo),
 		appchannels.NewGetProductChannelListingUseCase(db, listingRepo),
@@ -399,17 +399,17 @@ func Register(
 		appintegrations.NewConnectAIProviderUseCase(db, aiConnRepo, encryptionSecret),
 		appintegrations.NewDisconnectAIConnectionUseCase(db, aiConnRepo),
 		appchannels.NewListSalesChannelsUseCase(db, salesChannelRepo),
-		appchannels.NewCreateSalesChannelUseCase(db, salesChannelRepo, connRepo, exchangeRateRepo, channelWarehouseRepo, repositories.NewTenantSettingsRepo(db)),
-		appchannels.NewUpdateSalesChannelUseCase(db, salesChannelRepo, connRepo, channelWarehouseRepo),
-		appchannels.NewSetSalesChannelPaymentMethodUseCase(db, salesChannelRepo, connRepo),
-		appchannels.NewDeleteSalesChannelUseCase(db, salesChannelRepo),
+		appchannels.NewCreateSalesChannelUseCase(db, salesChannelRepo, connRepo, exchangeRateRepo, channelWarehouseRepo, repositories.NewTenantSettingsRepo(db), repositories.NewOutboxRepository(db)),
+		appchannels.NewUpdateSalesChannelUseCase(db, salesChannelRepo, connRepo, channelWarehouseRepo, repositories.NewOutboxRepository(db)),
+		appchannels.NewSetSalesChannelPaymentMethodUseCase(db, salesChannelRepo, connRepo, repositories.NewOutboxRepository(db)),
+		appchannels.NewDeleteSalesChannelUseCase(db, salesChannelRepo, repositories.NewOutboxRepository(db)),
 		appchannels.NewListProductsWithChannelEnrollmentUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo),
-		appchannels.NewSetProductChannelOverrideUseCase(db, salesChannelOverrideRepo, salesChannelRepo, productRepo),
+		appchannels.NewSetProductChannelOverrideUseCase(db, salesChannelOverrideRepo, salesChannelRepo, productRepo, repositories.NewOutboxRepository(db)),
 		fetchWooOrderUC,
 		appintegrations.NewListWooCategoriesUseCase(db, connRepo, wooFactory, encryptionSecret),
 		appchannels.NewListExternalCategoryLinksUseCase(db, categoryLinkRepo),
-		appchannels.NewUpsertExternalCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo),
-		appchannels.NewDeleteExternalCategoryLinkUseCase(db, categoryLinkRepo),
+		appchannels.NewUpsertExternalCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo, repositories.NewOutboxRepository(db)),
+		appchannels.NewDeleteExternalCategoryLinkUseCase(db, categoryLinkRepo, repositories.NewOutboxRepository(db)),
 		appintegrations.NewSetWebhookSecretUseCase(db, connRepo, encryptionSecret),
 		appwebhooks.NewListWebhookFallbackEventsUseCase(db, webhookFallbackRepo),
 		appwebhooks.NewRetryWebhookFallbackEventUseCase(db, webhookFallbackRepo, webhookPublisher),

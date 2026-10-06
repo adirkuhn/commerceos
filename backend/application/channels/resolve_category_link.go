@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -47,10 +48,11 @@ type ResolveCategoryLinkUseCase struct {
 	db           *gorm.DB
 	linkRepo     channelsDomain.ExternalCategoryLinkRepository
 	categoryRepo pmsDomain.CategoryRepository
+	outbox       eventrecord.Enqueuer
 }
 
-func NewResolveCategoryLinkUseCase(db *gorm.DB, linkRepo channelsDomain.ExternalCategoryLinkRepository, categoryRepo pmsDomain.CategoryRepository) *ResolveCategoryLinkUseCase {
-	return &ResolveCategoryLinkUseCase{db: db, linkRepo: linkRepo, categoryRepo: categoryRepo}
+func NewResolveCategoryLinkUseCase(db *gorm.DB, linkRepo channelsDomain.ExternalCategoryLinkRepository, categoryRepo pmsDomain.CategoryRepository, outbox eventrecord.Enqueuer) *ResolveCategoryLinkUseCase {
+	return &ResolveCategoryLinkUseCase{db: db, linkRepo: linkRepo, categoryRepo: categoryRepo, outbox: outbox}
 }
 
 func (uc *ResolveCategoryLinkUseCase) Execute(ctx context.Context, client integrationsDomain.WooClient, connectionID, categoryID string) (string, error) {
@@ -104,7 +106,10 @@ func (uc *ResolveCategoryLinkUseCase) Execute(ctx context.Context, client integr
 			ExternalID: matchedExternalID, CategoryID: categoryID,
 			CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.linkRepo.Upsert(ctx, newLink)
+		if err := uc.linkRepo.Upsert(ctx, newLink); err != nil {
+			return err
+		}
+		return recordCategoryLinkSaved(ctx, uc.outbox, *newLink, CategoryLinkSourceSlugMatch)
 	})
 	if err != nil {
 		return "", fmt.Errorf("resolveCategoryLink: %w", err)

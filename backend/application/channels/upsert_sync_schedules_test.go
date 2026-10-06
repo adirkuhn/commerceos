@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,7 @@ func validSyncScheduleInput(entity channelsDomain.SyncEntityType, direction chan
 
 func TestUpsertSyncSchedules_persistsEveryRowInOneTransactionWhenAllValid(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncSchedulesUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncSchedulesUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	schedules, err := uc.Execute(context.Background(), channelsapp.UpsertSyncSchedulesInput{
 		Schedules: []channelsapp.UpsertSyncScheduleInput{
@@ -43,7 +44,7 @@ func TestUpsertSyncSchedules_persistsEveryRowInOneTransactionWhenAllValid(t *tes
 // or nothing in it does.
 func TestUpsertSyncSchedules_writesNothingWhenAnyRowFailsValidation(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncSchedulesUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncSchedulesUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	invalid := channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityProducts, Direction: channelsDomain.SyncDirectionImport,
@@ -65,7 +66,7 @@ func TestUpsertSyncSchedules_writesNothingWhenAnyRowFailsValidation(t *testing.T
 
 func TestUpsertSyncSchedules_errorNamesTheFailingRow(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncSchedulesUseCase(newMockGormDB(t, 0), repo)
+	uc := channelsapp.NewUpsertSyncSchedulesUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncSchedulesInput{
 		Schedules: []channelsapp.UpsertSyncScheduleInput{
@@ -81,7 +82,7 @@ func TestUpsertSyncSchedules_errorNamesTheFailingRow(t *testing.T) {
 
 func TestUpsertSyncSchedules_propagatesRepoErrorAndWritesNothingElseInThatTransaction(t *testing.T) {
 	repo := &stubSyncScheduleRepo{upsertErr: errors.New("db down")}
-	uc := channelsapp.NewUpsertSyncSchedulesUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncSchedulesUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncSchedulesInput{
 		Schedules: []channelsapp.UpsertSyncScheduleInput{
@@ -95,7 +96,7 @@ func TestUpsertSyncSchedules_propagatesRepoErrorAndWritesNothingElseInThatTransa
 
 func TestUpsertSyncSchedules_emptyBatchIsANoOp(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
-	uc := channelsapp.NewUpsertSyncSchedulesUseCase(newMockGormDB(t, 1), repo)
+	uc := channelsapp.NewUpsertSyncSchedulesUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	schedules, err := uc.Execute(context.Background(), channelsapp.UpsertSyncSchedulesInput{})
 

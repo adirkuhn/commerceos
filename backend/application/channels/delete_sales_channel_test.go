@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 
 func TestDeleteSalesChannel_success(t *testing.T) {
 	repo := &stubSalesChannelRepo{findResult: &channelsDomain.SalesChannel{ID: "channel-1"}}
-	uc := appchannels.NewDeleteSalesChannelUseCase(newMockGormDB(t, 1), repo)
+	uc := appchannels.NewDeleteSalesChannelUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "channel-1")
 
@@ -23,7 +24,7 @@ func TestDeleteSalesChannel_success(t *testing.T) {
 
 func TestDeleteSalesChannel_propagatesNotFound(t *testing.T) {
 	repo := &stubSalesChannelRepo{findErr: channelsDomain.ErrSalesChannelNotFound}
-	uc := appchannels.NewDeleteSalesChannelUseCase(newMockGormDB(t, 1), repo)
+	uc := appchannels.NewDeleteSalesChannelUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 

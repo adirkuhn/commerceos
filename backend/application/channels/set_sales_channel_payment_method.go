@@ -8,7 +8,9 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -26,10 +28,11 @@ type SetSalesChannelPaymentMethodUseCase struct {
 	db       *gorm.DB
 	repo     channelsDomain.SalesChannelRepository
 	connRepo integrationsDomain.ConnectionRepository
+	outbox   eventrecord.Enqueuer
 }
 
-func NewSetSalesChannelPaymentMethodUseCase(db *gorm.DB, repo channelsDomain.SalesChannelRepository, connRepo integrationsDomain.ConnectionRepository) *SetSalesChannelPaymentMethodUseCase {
-	return &SetSalesChannelPaymentMethodUseCase{db: db, repo: repo, connRepo: connRepo}
+func NewSetSalesChannelPaymentMethodUseCase(db *gorm.DB, repo channelsDomain.SalesChannelRepository, connRepo integrationsDomain.ConnectionRepository, outbox eventrecord.Enqueuer) *SetSalesChannelPaymentMethodUseCase {
+	return &SetSalesChannelPaymentMethodUseCase{db: db, repo: repo, connRepo: connRepo, outbox: outbox}
 }
 
 func (uc *SetSalesChannelPaymentMethodUseCase) Execute(ctx context.Context, channelID string, paymentConnectionID *string) (*channelsDomain.SalesChannel, error) {
@@ -51,13 +54,14 @@ func (uc *SetSalesChannelPaymentMethodUseCase) Execute(ctx context.Context, chan
 				return channelsDomain.ErrInvalidPaymentConnection
 			}
 		}
+		before := *existing
 		existing.PaymentConnectionID = paymentConnectionID
 		existing.UpdatedAt = time.Now()
 		if err := uc.repo.Update(ctx, existing); err != nil {
 			return err
 		}
 		channel = *existing
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.SalesChannelUpdated, channel.ID, salesChannelChanges(before, channel))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("setSalesChannelPaymentMethod: %w", err)
