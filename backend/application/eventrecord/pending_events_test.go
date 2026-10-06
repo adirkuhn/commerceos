@@ -82,8 +82,6 @@ var pendingEvents = []string{
 	"messagecenter/update_message_template.go",
 	"newsletter/subscribe.go",
 	"newsletter/unsubscribe.go",
-	"notifications/create_notification.go",
-	"notifications/mark_read.go",
 	"oms/add_sales_order_line_item.go",
 	"oms/complete_packing.go",
 	"oms/complete_picking.go",
