@@ -156,7 +156,9 @@ type OrderCreated struct {
 }
 ```
 
-Subject naming: `{domain}.{entity}.{past-tense-verb}` — e.g., `commerce.order.created`.
+Subject naming: `{domain}.{entity}.{past-tense-verb}` — e.g., `procurement.purchase_order.created`. Full standard + catalog of every event: `docs/events.md` (generated: `go run ./cmd/eventcatalog` in backend/; a test fails when stale).
+
+**Every state-changing action raises an event** — plain CRUD included. Register the action in `domain/events/actions_<domain>.go` and call `eventrecord.Record(ctx, outbox, events.X, id, ...)` inside the use case's `tenant.WithTenant` (updates pass `eventrecord.NewChanges().Set(field, before, after)`).
 
 ### Consumer Rules
 - All consumers must be **idempotent** — duplicate delivery must produce no side effects.
