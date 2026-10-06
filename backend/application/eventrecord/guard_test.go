@@ -73,13 +73,16 @@ func parsePackage(t *testing.T, dir string) map[string]parsedFile {
 	return out
 }
 
-// recordingFuncs are the package's functions/methods that record an event
-// themselves -- calling one counts as recording (e.g. collections' Deps.changed).
+// recordingFuncs are the package's unexported helpers that record an event
+// themselves -- calling one counts as recording (e.g. collections'
+// Deps.changed). Exported names (a use case's Execute) don't: a call can't
+// be told apart from any other type's Execute, so delegating to another
+// use case is declared with //events:delegated instead.
 func recordingFuncs(files map[string]parsedFile) map[string]bool {
 	out := map[string]bool{}
 	for _, f := range files {
 		for _, decl := range f.ast.Decls {
-			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Body != nil && callsRecord(fn.Body, nil) {
+			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Body != nil && !fn.Name.IsExported() && callsRecord(fn.Body, nil) {
 				out[fn.Name.Name] = true
 			}
 		}
