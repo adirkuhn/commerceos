@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
@@ -63,6 +65,7 @@ type ScanBookingItemUseCase struct {
 	barcodeAliasRepo   pmsDomain.BarcodeAliasRepository
 	scaleCodeAliasRepo pmsDomain.ScaleCodeAliasRepository
 	lineItemRepo       procurementDomain.PurchaseOrderLineItemRepository
+	outbox             eventrecord.Enqueuer
 }
 
 func NewScanBookingItemUseCase(
@@ -74,11 +77,12 @@ func NewScanBookingItemUseCase(
 	barcodeAliasRepo pmsDomain.BarcodeAliasRepository,
 	scaleCodeAliasRepo pmsDomain.ScaleCodeAliasRepository,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
+	outbox eventrecord.Enqueuer,
 ) *ScanBookingItemUseCase {
 	return &ScanBookingItemUseCase{
 		db: db, bookingRepo: bookingRepo, poRepo: poRepo, scanRepo: scanRepo,
 		skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo, scaleCodeAliasRepo: scaleCodeAliasRepo,
-		lineItemRepo: lineItemRepo,
+		lineItemRepo: lineItemRepo, outbox: outbox,
 	}
 }
 
@@ -223,7 +227,14 @@ func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingIte
 			scan.WriteOffQuantity = effectiveQuantity
 		}
 
-		return uc.scanRepo.Create(ctx, &scan)
+		if err := uc.scanRepo.Create(ctx, &scan); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.BookingScanCreated, scan.ID, eventrecord.Data{
+			"booking_id": scan.BookingID, "sku_id": scan.SKUID, "action_type": string(scan.ActionType),
+			"quantity": scan.Quantity, "write_off_quantity": scan.WriteOffQuantity,
+			"lot_number": scan.LotNumber, "expiry_date": scan.ExpiryDate,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("scanBookingItem: %w", err)

@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
@@ -13,7 +14,7 @@ import (
 func TestPauseBooking_pausesInProgressBooking(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", Status: procurementDomain.BookingStatusInProgress}}
-	uc := appprocurement.NewPauseBookingUseCase(db, bookingRepo)
+	uc := appprocurement.NewPauseBookingUseCase(db, bookingRepo, &eventrecordtest.Outbox{})
 
 	booking, err := uc.Execute(context.Background(), "booking-1")
 
@@ -27,7 +28,7 @@ func TestPauseBooking_pausesInProgressBooking(t *testing.T) {
 func TestPauseBooking_rejectsWhenNotInProgress(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", Status: procurementDomain.BookingStatusCompleted}}
-	uc := appprocurement.NewPauseBookingUseCase(db, bookingRepo)
+	uc := appprocurement.NewPauseBookingUseCase(db, bookingRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "booking-1")
 
@@ -38,7 +39,7 @@ func TestPauseBooking_rejectsWhenNotInProgress(t *testing.T) {
 func TestPauseBooking_propagatesNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo := &stubBookingRepo{findErr: procurementDomain.ErrBookingNotFound}
-	uc := appprocurement.NewPauseBookingUseCase(db, bookingRepo)
+	uc := appprocurement.NewPauseBookingUseCase(db, bookingRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing")
 

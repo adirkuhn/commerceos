@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -17,10 +19,11 @@ import (
 type PauseBookingUseCase struct {
 	db          *gorm.DB
 	bookingRepo procurementDomain.BookingRepository
+	outbox      eventrecord.Enqueuer
 }
 
-func NewPauseBookingUseCase(db *gorm.DB, bookingRepo procurementDomain.BookingRepository) *PauseBookingUseCase {
-	return &PauseBookingUseCase{db: db, bookingRepo: bookingRepo}
+func NewPauseBookingUseCase(db *gorm.DB, bookingRepo procurementDomain.BookingRepository, outbox eventrecord.Enqueuer) *PauseBookingUseCase {
+	return &PauseBookingUseCase{db: db, bookingRepo: bookingRepo, outbox: outbox}
 }
 
 func (uc *PauseBookingUseCase) Execute(ctx context.Context, id string) (*procurementDomain.Booking, error) {
@@ -37,7 +40,10 @@ func (uc *PauseBookingUseCase) Execute(ctx context.Context, id string) (*procure
 		now := time.Now()
 		booking.Status = procurementDomain.BookingStatusPaused
 		booking.PausedAt = &now
-		return uc.bookingRepo.Update(ctx, booking)
+		if err := uc.bookingRepo.Update(ctx, booking); err != nil {
+			return err
+		}
+		return recordBooking(ctx, uc.outbox, events.BookingPaused, *booking)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("pauseBooking: %w", err)

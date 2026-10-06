@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
+	"github.com/adirkuhn/commerceos/domain/events"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -82,6 +84,7 @@ type CompleteBookingUseCase struct {
 	receiveStock      receiveStockForCompletionUC
 	recordAdjustment  recordAdjustmentForCompletionUC
 	markDamagedOrLost markDamagedOrLostForCompletionUC
+	outbox            eventrecord.Enqueuer
 }
 
 func NewCompleteBookingUseCase(
@@ -93,10 +96,12 @@ func NewCompleteBookingUseCase(
 	receiveStock receiveStockForCompletionUC,
 	recordAdjustment recordAdjustmentForCompletionUC,
 	markDamagedOrLost markDamagedOrLostForCompletionUC,
+	outbox eventrecord.Enqueuer,
 ) *CompleteBookingUseCase {
 	return &CompleteBookingUseCase{
 		db: db, bookingRepo: bookingRepo, poRepo: poRepo, lineItemRepo: lineItemRepo, scanRepo: scanRepo,
 		receiveStock: receiveStock, recordAdjustment: recordAdjustment, markDamagedOrLost: markDamagedOrLost,
+		outbox: outbox,
 	}
 }
 
@@ -153,6 +158,12 @@ func (uc *CompleteBookingUseCase) Execute(ctx context.Context, id string, comple
 			return err
 		}
 		result.Booking = *booking
+		if err := eventrecord.Record(ctx, uc.outbox, events.BookingCompleted, booking.ID, eventrecord.Data{
+			"purchase_order_id": booking.PurchaseOrderID, "completed_by": completedBy, "missing_item_count": len(result.MissingItems),
+		}); err != nil {
+			return err
+		}
+		before := *po
 
 		// Every product line fully accounted for (received + damaged/lost,
 		// see missingBookingItems) means the PO itself is done -- taking it
@@ -167,7 +178,11 @@ func (uc *CompleteBookingUseCase) Execute(ctx context.Context, id string, comple
 		} else {
 			po.Status = procurementDomain.PurchaseOrderStatusPartiallyReceived
 		}
-		return uc.poRepo.Update(ctx, po)
+		if err := uc.poRepo.Update(ctx, po); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.PurchaseOrderUpdated, po.ID, purchaseOrderChanges(before, *po),
+			eventrecord.Data{"reason": PurchaseOrderChangeReasonBookingCompleted})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("completeBooking: %w", err)

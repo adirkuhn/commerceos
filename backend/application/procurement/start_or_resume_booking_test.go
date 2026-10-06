@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
@@ -14,7 +15,7 @@ func TestStartOrResumeBooking_createsNewBookingWhenNoneActive(t *testing.T) {
 	db := newMockGormDB(t)
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1", WarehouseID: strPtr("warehouse-1")}}
 	bookingRepo := &stubBookingRepo{}
-	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo)
+	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo, &eventrecordtest.Outbox{})
 
 	booking, err := uc.Execute(context.Background(), appprocurement.StartOrResumeBookingInput{PurchaseOrderID: "po-1"})
 
@@ -28,7 +29,7 @@ func TestStartOrResumeBooking_reusesInProgressBooking(t *testing.T) {
 	db := newMockGormDB(t)
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1", WarehouseID: strPtr("warehouse-1")}}
 	bookingRepo := &stubBookingRepo{activeResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusInProgress}}
-	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo)
+	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo, &eventrecordtest.Outbox{})
 
 	booking, err := uc.Execute(context.Background(), appprocurement.StartOrResumeBookingInput{PurchaseOrderID: "po-1"})
 
@@ -41,7 +42,7 @@ func TestStartOrResumeBooking_resumesPausedBooking(t *testing.T) {
 	db := newMockGormDB(t)
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1", WarehouseID: strPtr("warehouse-1")}}
 	bookingRepo := &stubBookingRepo{activeResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusPaused}}
-	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo)
+	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo, &eventrecordtest.Outbox{})
 
 	booking, err := uc.Execute(context.Background(), appprocurement.StartOrResumeBookingInput{PurchaseOrderID: "po-1"})
 
@@ -55,7 +56,7 @@ func TestStartOrResumeBooking_resumesPausedBooking(t *testing.T) {
 func TestStartOrResumeBooking_propagatesPurchaseOrderNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	poRepo := &stubPurchaseOrderRepo{findErr: procurementDomain.ErrPurchaseOrderNotFound}
-	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, &stubBookingRepo{})
+	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, &stubBookingRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.StartOrResumeBookingInput{PurchaseOrderID: "missing"})
 
@@ -66,7 +67,7 @@ func TestStartOrResumeBooking_assignsWarehouseWhenPOHasNone(t *testing.T) {
 	db := newMockGormDB(t)
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
 	bookingRepo := &stubBookingRepo{}
-	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo)
+	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo, &eventrecordtest.Outbox{})
 
 	booking, err := uc.Execute(context.Background(), appprocurement.StartOrResumeBookingInput{
 		PurchaseOrderID: "po-1", WarehouseID: strPtr("warehouse-1"),
@@ -82,7 +83,7 @@ func TestStartOrResumeBooking_assignsWarehouseWhenPOHasNone(t *testing.T) {
 func TestStartOrResumeBooking_rejectsWhenPOHasNoWarehouseAndNoneGiven(t *testing.T) {
 	db := newMockGormDB(t)
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
-	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, &stubBookingRepo{})
+	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, &stubBookingRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.StartOrResumeBookingInput{PurchaseOrderID: "po-1"})
 
@@ -94,7 +95,7 @@ func TestStartOrResumeBooking_ignoresWarehouseInputWhenPOAlreadyHasOne(t *testin
 	db := newMockGormDB(t)
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1", WarehouseID: strPtr("warehouse-1")}}
 	bookingRepo := &stubBookingRepo{}
-	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo)
+	uc := appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.StartOrResumeBookingInput{
 		PurchaseOrderID: "po-1", WarehouseID: strPtr("warehouse-2"),

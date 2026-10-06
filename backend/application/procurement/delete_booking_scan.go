@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -22,14 +24,16 @@ type DeleteBookingScanUseCase struct {
 	db          *gorm.DB
 	bookingRepo procurementDomain.BookingRepository
 	scanRepo    procurementDomain.BookingScanRepository
+	outbox      eventrecord.Enqueuer
 }
 
 func NewDeleteBookingScanUseCase(
 	db *gorm.DB,
 	bookingRepo procurementDomain.BookingRepository,
 	scanRepo procurementDomain.BookingScanRepository,
+	outbox eventrecord.Enqueuer,
 ) *DeleteBookingScanUseCase {
-	return &DeleteBookingScanUseCase{db: db, bookingRepo: bookingRepo, scanRepo: scanRepo}
+	return &DeleteBookingScanUseCase{db: db, bookingRepo: bookingRepo, scanRepo: scanRepo, outbox: outbox}
 }
 
 func (uc *DeleteBookingScanUseCase) Execute(ctx context.Context, bookingID, scanID string) error {
@@ -46,18 +50,23 @@ func (uc *DeleteBookingScanUseCase) Execute(ctx context.Context, bookingID, scan
 		if err != nil {
 			return err
 		}
-		found := false
-		for _, s := range scans {
-			if s.ID == scanID {
-				found = true
+		var found *procurementDomain.BookingScan
+		for i := range scans {
+			if scans[i].ID == scanID {
+				found = &scans[i]
 				break
 			}
 		}
-		if !found {
+		if found == nil {
 			return procurementDomain.ErrBookingScanNotFound
 		}
 
-		return uc.scanRepo.Delete(ctx, scanID)
+		if err := uc.scanRepo.Delete(ctx, scanID); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.BookingScanDeleted, scanID, eventrecord.Data{
+			"booking_id": bookingID, "sku_id": found.SKUID, "action_type": string(found.ActionType),
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("deleteBookingScan: %w", err)

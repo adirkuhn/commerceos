@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
@@ -20,7 +21,7 @@ func newFlagDamagedFixture() (*stubReceivingRecordRepo, *stubLineItemRepo, *stub
 func TestFlagDamagedLineItem_happyPath(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	recRepo, lineItemRepo, discrepancyRepo := newFlagDamagedFixture()
-	uc := appprocurement.NewFlagDamagedLineItemUseCase(db, recRepo, lineItemRepo, discrepancyRepo)
+	uc := appprocurement.NewFlagDamagedLineItemUseCase(db, recRepo, lineItemRepo, discrepancyRepo, &eventrecordtest.Outbox{})
 
 	d, err := uc.Execute(context.Background(), "receiving-record-1", "line-1", 3, "crushed box")
 
@@ -35,7 +36,7 @@ func TestFlagDamagedLineItem_happyPath(t *testing.T) {
 
 func TestFlagDamagedLineItem_invalidQuantity(t *testing.T) {
 	recRepo, lineItemRepo, discrepancyRepo := newFlagDamagedFixture()
-	uc := appprocurement.NewFlagDamagedLineItemUseCase(nil, recRepo, lineItemRepo, discrepancyRepo)
+	uc := appprocurement.NewFlagDamagedLineItemUseCase(nil, recRepo, lineItemRepo, discrepancyRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "receiving-record-1", "line-1", 0, "")
 
@@ -47,7 +48,7 @@ func TestFlagDamagedLineItem_receivingRecordNotFound(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	_, lineItemRepo, discrepancyRepo := newFlagDamagedFixture()
 	recRepo := &stubReceivingRecordRepo{findErr: procurementDomain.ErrReceivingRecordNotFound}
-	uc := appprocurement.NewFlagDamagedLineItemUseCase(db, recRepo, lineItemRepo, discrepancyRepo)
+	uc := appprocurement.NewFlagDamagedLineItemUseCase(db, recRepo, lineItemRepo, discrepancyRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "receiving-record-1", "line-1", 3, "")
 
@@ -58,7 +59,7 @@ func TestFlagDamagedLineItem_lineItemNotFound(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	recRepo, _, discrepancyRepo := newFlagDamagedFixture()
 	lineItemRepo := &stubLineItemRepo{findErr: procurementDomain.ErrLineItemNotFound}
-	uc := appprocurement.NewFlagDamagedLineItemUseCase(db, recRepo, lineItemRepo, discrepancyRepo)
+	uc := appprocurement.NewFlagDamagedLineItemUseCase(db, recRepo, lineItemRepo, discrepancyRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "receiving-record-1", "line-1", 3, "")
 
@@ -69,7 +70,7 @@ func TestFlagDamagedLineItem_lineItemBelongsToDifferentPO(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	recRepo, lineItemRepo, discrepancyRepo := newFlagDamagedFixture()
 	lineItemRepo.findResult.PurchaseOrderID = "po-2"
-	uc := appprocurement.NewFlagDamagedLineItemUseCase(db, recRepo, lineItemRepo, discrepancyRepo)
+	uc := appprocurement.NewFlagDamagedLineItemUseCase(db, recRepo, lineItemRepo, discrepancyRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "receiving-record-1", "line-1", 3, "")
 

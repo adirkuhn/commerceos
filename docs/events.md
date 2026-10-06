@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-42 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+51 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -113,6 +113,12 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `procurement.booking.completed` | action | A stock booking was finished: scans became stock (inventory raises its own events) and the PO became received or partially_received. data: purchase_order_id, completed_by, missing_item_count. | envelope |
+| `procurement.booking.paused` | action | A stock booking was paused. data: purchase_order_id. | envelope |
+| `procurement.booking.resumed` | action | A paused stock booking was picked up again. data: purchase_order_id. | envelope |
+| `procurement.booking.started` | action | Stock booking (scanning a delivery in) started for a purchase order. data: purchase_order_id. | envelope |
+| `procurement.booking_scan.created` | action | An item was scanned during stock booking. data: booking_id, sku_id, action_type (receive, correction, damaged, lost), quantity, write_off_quantity, lot_number, expiry_date. | envelope |
+| `procurement.booking_scan.deleted` | action | A booking scan was undone. data: booking_id, sku_id, action_type. | envelope |
 | `procurement.goods.received` | typed | GoodsReceived is raised when a purchase-order line item's stock is actually received into inventory -- a real inventory.Batch created with a landed cost basis (application/inventory.ReceiveStockUseCase), not merely a PO being created or edited (see procurement.PurchaseOrder's own design: "don't change inventory cost merely because a PO was created"). | `GoodsReceived`: event_id, occurred_at, tenant_id, sku_id, warehouse_id, batch_id, purchase_order_line_item_id, quantity, landed_unit_cost_minor_units |
 | `procurement.purchase_order.created` | action | A purchase order was created. data.source: manual, document or purchase_planner. | envelope |
 | `procurement.purchase_order.deleted` | action | A purchase order was deleted with its line items. data: supplier_id, status. | envelope |
@@ -125,7 +131,10 @@ Payload (`events.EntityAction`):
 | `procurement.purchase_order_line_item.linked` | action | A purchase order line was linked to a catalog SKU (changes: sku_id, units_per_purchased_item). data: purchase_order_id, source -- manual (a person picked the SKU) or supplier_alias (matched from the supplier's learned aliases). | envelope |
 | `procurement.purchase_order_line_item.removed` | action | A line was removed from a purchase order. data: purchase_order_id, sku_id. | envelope |
 | `procurement.purchase_order_line_item.updated` | action | A purchase order line changed (changes: sku_id, raw_sku, raw_description, quantity, units_per_purchased_item, unit_cost_minor_units, line_type). data: purchase_order_id. | envelope |
-| `procurement.receiving_discrepancy.detected` | action | An invoice differs from its purchase order. data: receiving_record_id, type (missing_item, quantity_mismatch, unexpected_item, expiry_mismatch), line_item_id, expected_qty, received_qty. | envelope |
+| `procurement.receiving_discrepancy.acknowledged` | action | Someone reviewed an invoice discrepancy and accepted it. data: receiving_record_id, type. | envelope |
+| `procurement.receiving_discrepancy.detected` | action | An invoice or delivery differs from its purchase order. data: receiving_record_id, type (missing_item, quantity_mismatch, unexpected_item, expiry_mismatch, damaged_item), line_item_id, expected_qty, received_qty, source -- invoice (found by comparing the invoice) or manual (flagged by a person, e.g. damaged). | envelope |
+| `procurement.receiving_discrepancy.linked` | action | An unexpected invoice line and a missing purchase order line were matched as the same item (both become acknowledged; one event each). data: receiving_record_id, type, linked_discrepancy_id. | envelope |
+| `procurement.receiving_record.completed` | action | Review of an uploaded invoice was finished. data: purchase_order_id. | envelope |
 | `procurement.receiving_record.created` | action | A supplier invoice was uploaded against a purchase order to check what was delivered. data: purchase_order_id, file_name, content_type, parsing_job_id, potential_duplicate. | envelope |
 | `procurement.receiving_record.parsed` | action | An uploaded invoice was compared with its purchase order (each difference also raises receiving_discrepancy.detected). data: purchase_order_id, parsing_job_id, discrepancy_count. | envelope |
 

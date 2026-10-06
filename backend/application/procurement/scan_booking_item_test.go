@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
@@ -23,7 +24,7 @@ func TestScanBookingItem_resolvesUnitBarcodeAndStagesAReceive(t *testing.T) {
 	scanRepo := &stubBookingScanRepo{}
 	skuRepo := &stubSKURepo{byBarcode: map[string]*pmsDomain.SKU{"BARCODE-1": {ID: "sku-1"}}}
 	aliasRepo := &stubBarcodeAliasRepo{}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, aliasRepo, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, aliasRepo, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", Code: "BARCODE-1", Quantity: 3, ScannedBy: "user-1",
@@ -47,7 +48,7 @@ func TestScanBookingItem_resolvesCaseBarcodeAliasWithMultiplier(t *testing.T) {
 	scanRepo := &stubBookingScanRepo{}
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubBarcodeAliasRepo{byCode: map[string]*pmsDomain.BarcodeAlias{"CASE-1": {SKUID: "sku-1", UnitsPerScan: 12}}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, aliasRepo, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, aliasRepo, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", Code: "CASE-1", Quantity: 2, ScannedBy: "user-1",
@@ -65,7 +66,7 @@ func TestScanBookingItem_booksDirectlyAgainstSKUIDSkippingBarcodeResolution(t *t
 	scanRepo := &stubBookingScanRepo{}
 	skuRepo := &stubSKURepo{} // no barcode registered -- must not be consulted
 	aliasRepo := &stubBarcodeAliasRepo{}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, aliasRepo, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, aliasRepo, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	// Tapping a line item row on the booking screen: the SKU is already
 	// known (from the line item), no barcode was scanned.
@@ -97,7 +98,7 @@ func TestScanBookingItem_scalesTapToBookQuantityByUnitsPerPurchasedItem(t *testi
 	lineItemRepo := &stubLineItemRepo{byPOMap: map[string][]procurementDomain.PurchaseOrderLineItem{
 		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: &skuID, Quantity: 5, UnitsPerPurchasedItem: 10}},
 	}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo)
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo, &eventrecordtest.Outbox{})
 
 	// Operator received all 5 boxes and types "5" -- matching what the PO
 	// line item itself says (Quantity: 5) -- not the 50 stock units that
@@ -124,7 +125,7 @@ func TestScanBookingItem_scalesDamagedWriteOffByUnitsPerPurchasedItem(t *testing
 	lineItemRepo := &stubLineItemRepo{byPOMap: map[string][]procurementDomain.PurchaseOrderLineItem{
 		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: &skuID, Quantity: 5, UnitsPerPurchasedItem: 10}},
 	}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo)
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionDamaged,
@@ -147,7 +148,7 @@ func TestScanBookingItem_doesNotScaleWhenSKUMatchesNoLineItem(t *testing.T) {
 	lineItemRepo := &stubLineItemRepo{byPOMap: map[string][]procurementDomain.PurchaseOrderLineItem{
 		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: &skuID, Quantity: 5, UnitsPerPurchasedItem: 10}},
 	}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo)
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", SKUID: "sku-substitute", Quantity: 4, ScannedBy: "user-1",
@@ -165,7 +166,7 @@ func TestScanBookingItem_resolvesWeightEmbeddedBarcodeViaPrimaryScaleCode(t *tes
 	bookingRepo, poRepo := activeBookingFixtures()
 	scanRepo := &stubBookingScanRepo{}
 	skuRepo := &stubSKURepo{byScaleCode: map[string]*pmsDomain.SKU{"2994721": {ID: "sku-1", PricingMode: pmsDomain.SKUPricingModePerWeight}}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	// Real dry-meat label: scale code 94721, weight 462g.
 	result, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
@@ -181,7 +182,7 @@ func TestScanBookingItem_resolvesViaScaleCodeAliasForASecondScale(t *testing.T) 
 	bookingRepo, poRepo := activeBookingFixtures()
 	scanRepo := &stubBookingScanRepo{}
 	scaleAliasRepo := &stubScaleCodeAliasRepo{byCode: map[string]*pmsDomain.ScaleCodeAlias{"2994722": {SKUID: "sku-1"}}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, scaleAliasRepo, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, scaleAliasRepo, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", Code: "2994722004621", Quantity: 1, ScannedBy: "user-1",
@@ -196,7 +197,7 @@ func TestScanBookingItem_rejectsSKUCodeMatchForAPerWeightSKU(t *testing.T) {
 	bookingRepo, poRepo := activeBookingFixtures()
 	scanRepo := &stubBookingScanRepo{}
 	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"DRYMEAT-1": {ID: "sku-1", PricingMode: pmsDomain.SKUPricingModePerWeight}}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", Code: "DRYMEAT-1", Quantity: 1, ScannedBy: "user-1",
@@ -214,7 +215,7 @@ func TestScanBookingItem_rejectsLineItemRawSKUMatchForAPerWeightSKU(t *testing.T
 		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: &skuID, RawSKU: "SUPPLIER-CODE"}},
 	}}
 	skuRepo := &stubSKURepo{findByIDs: map[string]*pmsDomain.SKU{"sku-1": {ID: "sku-1", PricingMode: pmsDomain.SKUPricingModePerWeight}}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo)
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", Code: "SUPPLIER-CODE", Quantity: 1, ScannedBy: "user-1",
@@ -226,7 +227,7 @@ func TestScanBookingItem_rejectsLineItemRawSKUMatchForAPerWeightSKU(t *testing.T
 func TestScanBookingItem_rejectsCorruptedWeightEmbeddedCheckDigit(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo, poRepo := activeBookingFixtures()
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", Code: "2900633003339", Quantity: 1, ScannedBy: "user-1",
@@ -244,7 +245,7 @@ func TestScanBookingItem_scalesLineItemFallbackResolutionByUnitsPerPurchasedItem
 		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: &skuID, RawSKU: "7897122604154", Quantity: 3, UnitsPerPurchasedItem: 6}},
 	}}
 	skuRepo := &stubSKURepo{findByIDs: map[string]*pmsDomain.SKU{"sku-1": {ID: "sku-1"}}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo)
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", Code: "7897122604154", Quantity: 3, ScannedBy: "user-1",
@@ -258,7 +259,7 @@ func TestScanBookingItem_stagesACorrectionWithNegativeNetQuantity(t *testing.T) 
 	db := newMockGormDB(t)
 	bookingRepo, poRepo := activeBookingFixtures()
 	scanRepo := &stubBookingScanRepo{}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	batchID := "batch-1"
 	result, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
@@ -281,7 +282,7 @@ func TestScanBookingItem_stagesADamagedWriteOffWithoutAffectingReceivedProgress(
 	db := newMockGormDB(t)
 	bookingRepo, poRepo := activeBookingFixtures()
 	scanRepo := &stubBookingScanRepo{}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionDamaged,
@@ -302,7 +303,7 @@ func TestScanBookingItem_stagesALostWriteOff(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo, poRepo := activeBookingFixtures()
 	scanRepo := &stubBookingScanRepo{}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionLost, Quantity: 1,
@@ -317,7 +318,7 @@ func TestScanBookingItem_stagesLotNumberAndExpiryForANewBatch(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo, poRepo := activeBookingFixtures()
 	scanRepo := &stubBookingScanRepo{}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", SKUID: "sku-1", Quantity: 10, LotNumber: "LOT-NEW",
@@ -331,7 +332,7 @@ func TestScanBookingItem_stagesLotNumberAndExpiryForANewBatch(t *testing.T) {
 func TestScanBookingItem_rejectsInvalidActionType(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo, poRepo := activeBookingFixtures()
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", SKUID: "sku-1", ActionType: "bogus", Quantity: 1,
@@ -343,7 +344,7 @@ func TestScanBookingItem_rejectsInvalidActionType(t *testing.T) {
 func TestScanBookingItem_rejectsWhenNeitherCodeNorSKUIDProvided(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo, poRepo := activeBookingFixtures()
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{BookingID: "booking-1", Quantity: 1})
 
@@ -353,7 +354,7 @@ func TestScanBookingItem_rejectsWhenNeitherCodeNorSKUIDProvided(t *testing.T) {
 func TestScanBookingItem_rejectsNonPositiveQuantity(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo, poRepo := activeBookingFixtures()
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{BookingID: "booking-1", Code: "X", Quantity: 0})
 
@@ -364,7 +365,7 @@ func TestScanBookingItem_rejectsWhenBookingNotActive(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", Status: procurementDomain.BookingStatusPaused}}
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{BookingID: "booking-1", Code: "X", Quantity: 1})
 
@@ -378,7 +379,7 @@ func TestScanBookingItem_fallsBackToSKUCodeWhenNeitherBarcodeNorAliasMatches(t *
 	// No barcode, no alias -- only a direct SKU.SKUCode match, same
 	// fallback pms.ResolveBarcodeUseCase already has.
 	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"TSHIRT-1": {ID: "sku-1"}}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", Code: "TSHIRT-1", Quantity: 3, ScannedBy: "user-1",
@@ -394,7 +395,7 @@ func TestScanBookingItem_trimsWhitespaceFromTheScannedCode(t *testing.T) {
 	bookingRepo, poRepo := activeBookingFixtures()
 	scanRepo := &stubBookingScanRepo{}
 	skuRepo := &stubSKURepo{byBarcode: map[string]*pmsDomain.SKU{"BARCODE-1": {ID: "sku-1"}}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", Code: " BARCODE-1\n", Quantity: 1, ScannedBy: "user-1",
@@ -408,7 +409,7 @@ func TestScanBookingItem_trimsWhitespaceFromTheScannedCode(t *testing.T) {
 func TestScanBookingItem_returnsSKUNotFoundWhenNeitherBarcodeNorAliasMatch(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo, poRepo := activeBookingFixtures()
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{BookingID: "booking-1", Code: "UNKNOWN", Quantity: 1})
 
@@ -427,7 +428,7 @@ func TestScanBookingItem_fallsBackToThisPOsLineItemRawSKUWhenCatalogWideLookupsA
 		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: &skuID, RawSKU: "  7897122604154 "}},
 	}}
 	skuRepo := &stubSKURepo{findByIDs: map[string]*pmsDomain.SKU{"sku-1": {ID: "sku-1"}}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo)
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", Code: "7897122604154", Quantity: 1, ScannedBy: "user-1",
@@ -446,7 +447,7 @@ func TestScanBookingItem_lineItemFallbackIgnoresAnUnlinkedLineItem(t *testing.T)
 	lineItemRepo := &stubLineItemRepo{byPOMap: map[string][]procurementDomain.PurchaseOrderLineItem{
 		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: nil, RawSKU: "7897122604154"}},
 	}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo)
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, lineItemRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
 		BookingID: "booking-1", Code: "7897122604154", Quantity: 1,
@@ -460,7 +461,7 @@ func TestScanBookingItem_propagatesScanCreateError(t *testing.T) {
 	bookingRepo, poRepo := activeBookingFixtures()
 	skuRepo := &stubSKURepo{byBarcode: map[string]*pmsDomain.SKU{"BARCODE-1": {ID: "sku-1"}}}
 	scanRepo := &stubBookingScanRepo{createErr: assert.AnError}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{BookingID: "booking-1", Code: "BARCODE-1", Quantity: 1})
 
@@ -471,7 +472,7 @@ func TestScanBookingItem_rejectsWarehouseRequired(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusInProgress}}
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
-	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, &stubBookingScanRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{BookingID: "booking-1", SKUID: "sku-1", Quantity: 1})
 

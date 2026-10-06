@@ -102,7 +102,7 @@ func TestRunReceivingParsingJob_RecordsDiscrepanciesAndParsed(t *testing.T) {
 	require.Equal(t, []string{"procurement.receiving_discrepancy.detected", "procurement.receiving_record.parsed"}, outbox.Subjects())
 	assert.Equal(t, map[string]any{
 		"receiving_record_id": "receiving-record-1", "type": "quantity_mismatch", "line_item_id": "line-1",
-		"expected_qty": float64(10), "received_qty": float64(8),
+		"expected_qty": float64(10), "received_qty": float64(8), "source": "invoice",
 	}, outbox.Events[0].Data())
 	assert.Equal(t, "receiving-record-1", outbox.Events[1].Payload["entity_id"])
 	assert.Equal(t, float64(1), outbox.Events[1].Data()["discrepancy_count"])

@@ -102,7 +102,7 @@ func (uc *RunReceivingParsingJobUseCase) Execute(ctx context.Context, job procur
 			if err := uc.discrepancyRepo.Create(ctx, &discrepancies[i]); err != nil {
 				return err
 			}
-			if err := recordDiscrepancyDetected(ctx, uc.outbox, discrepancies[i]); err != nil {
+			if err := recordDiscrepancyDetected(ctx, uc.outbox, discrepancies[i], DiscrepancySourceInvoice); err != nil {
 				return err
 			}
 		}

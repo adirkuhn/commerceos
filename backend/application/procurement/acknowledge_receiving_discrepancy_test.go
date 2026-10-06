@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
@@ -16,7 +17,7 @@ func TestAcknowledgeReceivingDiscrepancy_happyPath(t *testing.T) {
 		ID: "discrepancy-1", ReceivingRecordID: "receiving-record-1",
 		Type: procurementDomain.DiscrepancyTypeQuantityMismatch, Status: procurementDomain.DiscrepancyStatusOpen,
 	}}
-	uc := appprocurement.NewAcknowledgeReceivingDiscrepancyUseCase(db, repo)
+	uc := appprocurement.NewAcknowledgeReceivingDiscrepancyUseCase(db, repo, &eventrecordtest.Outbox{})
 
 	d, err := uc.Execute(context.Background(), "discrepancy-1")
 
@@ -30,7 +31,7 @@ func TestAcknowledgeReceivingDiscrepancy_happyPath(t *testing.T) {
 func TestAcknowledgeReceivingDiscrepancy_notFound(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	repo := &stubReceivingDiscrepancyRepo{findErr: procurementDomain.ErrDiscrepancyNotFound}
-	uc := appprocurement.NewAcknowledgeReceivingDiscrepancyUseCase(db, repo)
+	uc := appprocurement.NewAcknowledgeReceivingDiscrepancyUseCase(db, repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing")
 
@@ -42,7 +43,7 @@ func TestAcknowledgeReceivingDiscrepancy_alreadyAcknowledged(t *testing.T) {
 	repo := &stubReceivingDiscrepancyRepo{findResult: &procurementDomain.ReceivingDiscrepancy{
 		ID: "discrepancy-1", Status: procurementDomain.DiscrepancyStatusAcknowledged,
 	}}
-	uc := appprocurement.NewAcknowledgeReceivingDiscrepancyUseCase(db, repo)
+	uc := appprocurement.NewAcknowledgeReceivingDiscrepancyUseCase(db, repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "discrepancy-1")
 

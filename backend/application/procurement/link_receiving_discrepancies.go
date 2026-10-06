@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -20,12 +22,13 @@ import (
 // SupplierProductAlias or otherwise change future matching; that's a
 // separate, bigger decision than a one-off review acknowledgment.
 type LinkReceivingDiscrepanciesUseCase struct {
-	db   *gorm.DB
-	repo procurementDomain.ReceivingDiscrepancyRepository
+	db     *gorm.DB
+	repo   procurementDomain.ReceivingDiscrepancyRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewLinkReceivingDiscrepanciesUseCase(db *gorm.DB, repo procurementDomain.ReceivingDiscrepancyRepository) *LinkReceivingDiscrepanciesUseCase {
-	return &LinkReceivingDiscrepanciesUseCase{db: db, repo: repo}
+func NewLinkReceivingDiscrepanciesUseCase(db *gorm.DB, repo procurementDomain.ReceivingDiscrepancyRepository, outbox eventrecord.Enqueuer) *LinkReceivingDiscrepanciesUseCase {
+	return &LinkReceivingDiscrepanciesUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 func (uc *LinkReceivingDiscrepanciesUseCase) Execute(ctx context.Context, unexpectedDiscrepancyID, missingDiscrepancyID string) error {
@@ -56,10 +59,22 @@ func (uc *LinkReceivingDiscrepanciesUseCase) Execute(ctx context.Context, unexpe
 		}
 		missing.Status = procurementDomain.DiscrepancyStatusAcknowledged
 		missing.AcknowledgedAt = &now
-		return uc.repo.Update(ctx, missing)
+		if err := uc.repo.Update(ctx, missing); err != nil {
+			return err
+		}
+		if err := uc.recordLinked(ctx, unexpected, missing.ID); err != nil {
+			return err
+		}
+		return uc.recordLinked(ctx, missing, unexpected.ID)
 	})
 	if err != nil {
 		return fmt.Errorf("linkReceivingDiscrepancies: %w", err)
 	}
 	return nil
+}
+
+func (uc *LinkReceivingDiscrepanciesUseCase) recordLinked(ctx context.Context, d *procurementDomain.ReceivingDiscrepancy, linkedID string) error {
+	return eventrecord.Record(ctx, uc.outbox, events.ReceivingDiscrepancyLinked, d.ID, eventrecord.Data{
+		"receiving_record_id": d.ReceivingRecordID, "type": string(d.Type), "linked_discrepancy_id": linkedID,
+	})
 }

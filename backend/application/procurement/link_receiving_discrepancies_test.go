@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
@@ -20,7 +21,7 @@ func newLinkFixtureRepo() *stubReceivingDiscrepancyRepo {
 func TestLinkReceivingDiscrepancies_happyPath(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	repo := newLinkFixtureRepo()
-	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo)
+	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "unexpected-1", "missing-1")
 
@@ -34,7 +35,7 @@ func TestLinkReceivingDiscrepancies_mismatchedReceivingRecord(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	repo := newLinkFixtureRepo()
 	repo.byID["missing-1"].ReceivingRecordID = "record-2"
-	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo)
+	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "unexpected-1", "missing-1")
 
@@ -46,7 +47,7 @@ func TestLinkReceivingDiscrepancies_wrongTypeOnUnexpectedSide(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	repo := newLinkFixtureRepo()
 	repo.byID["unexpected-1"].Type = procurementDomain.DiscrepancyTypeQuantityMismatch
-	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo)
+	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "unexpected-1", "missing-1")
 
@@ -57,7 +58,7 @@ func TestLinkReceivingDiscrepancies_wrongTypeOnMissingSide(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	repo := newLinkFixtureRepo()
 	repo.byID["missing-1"].Type = procurementDomain.DiscrepancyTypeExpiryMismatch
-	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo)
+	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "unexpected-1", "missing-1")
 
@@ -68,7 +69,7 @@ func TestLinkReceivingDiscrepancies_alreadyAcknowledged(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	repo := newLinkFixtureRepo()
 	repo.byID["missing-1"].Status = procurementDomain.DiscrepancyStatusAcknowledged
-	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo)
+	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "unexpected-1", "missing-1")
 
@@ -79,7 +80,7 @@ func TestLinkReceivingDiscrepancies_unexpectedNotFound(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	repo := newLinkFixtureRepo()
 	repo.findErr = procurementDomain.ErrDiscrepancyNotFound
-	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo)
+	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "nonexistent", "missing-1")
 
@@ -90,7 +91,7 @@ func TestLinkReceivingDiscrepancies_missingSideNotFound(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	repo := newLinkFixtureRepo()
 	repo.findErr = procurementDomain.ErrDiscrepancyNotFound
-	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo)
+	uc := appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "unexpected-1", "nonexistent")
 

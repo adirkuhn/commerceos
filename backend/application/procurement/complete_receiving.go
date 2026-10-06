@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -19,10 +21,11 @@ import (
 type CompleteReceivingUseCase struct {
 	db      *gorm.DB
 	recRepo procurementDomain.ReceivingRecordRepository
+	outbox  eventrecord.Enqueuer
 }
 
-func NewCompleteReceivingUseCase(db *gorm.DB, recRepo procurementDomain.ReceivingRecordRepository) *CompleteReceivingUseCase {
-	return &CompleteReceivingUseCase{db: db, recRepo: recRepo}
+func NewCompleteReceivingUseCase(db *gorm.DB, recRepo procurementDomain.ReceivingRecordRepository, outbox eventrecord.Enqueuer) *CompleteReceivingUseCase {
+	return &CompleteReceivingUseCase{db: db, recRepo: recRepo, outbox: outbox}
 }
 
 func (uc *CompleteReceivingUseCase) Execute(ctx context.Context, receivingRecordID string) (*procurementDomain.ReceivingRecord, error) {
@@ -35,7 +38,12 @@ func (uc *CompleteReceivingUseCase) Execute(ctx context.Context, receivingRecord
 		}
 		rec.Status = procurementDomain.ReceivingRecordStatusApplied
 		rec.UpdatedAt = time.Now()
-		return uc.recRepo.Update(ctx, rec)
+		if err := uc.recRepo.Update(ctx, rec); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ReceivingRecordCompleted, rec.ID, eventrecord.Data{
+			"purchase_order_id": rec.PurchaseOrderID,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("completeReceiving: %w", err)

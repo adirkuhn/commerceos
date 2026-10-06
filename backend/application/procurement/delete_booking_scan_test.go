@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
@@ -16,7 +17,7 @@ func TestDeleteBookingScan_deletesAStagedRowBelongingToAnInProgressBooking(t *te
 	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
 		{ID: "scan-1", BookingID: "booking-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionDamaged, WriteOffQuantity: 1},
 	}}
-	uc := appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, scanRepo)
+	uc := appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, scanRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "booking-1", "scan-1")
 
@@ -30,7 +31,7 @@ func TestDeleteBookingScan_rejectsAScanNotBelongingToThisBooking(t *testing.T) {
 	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
 		{ID: "scan-9", BookingID: "booking-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 1},
 	}}
-	uc := appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, scanRepo)
+	uc := appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, scanRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "booking-1", "scan-does-not-exist")
 
@@ -45,7 +46,7 @@ func TestDeleteBookingScan_rejectsWhenBookingIsNotInProgress(t *testing.T) {
 	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
 		{ID: "scan-1", BookingID: "booking-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionDamaged, WriteOffQuantity: 1},
 	}}
-	uc := appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, scanRepo)
+	uc := appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, scanRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "booking-1", "scan-1")
 
@@ -58,7 +59,7 @@ func TestDeleteBookingScan_propagatesBookingNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo := &stubBookingRepo{findErr: procurementDomain.ErrBookingNotFound}
 	scanRepo := &stubBookingScanRepo{}
-	uc := appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, scanRepo)
+	uc := appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, scanRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "booking-1", "scan-1")
 

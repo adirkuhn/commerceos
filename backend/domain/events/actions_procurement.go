@@ -39,5 +39,26 @@ var (
 	ReceivingRecordParsed = defineAction("procurement.receiving_record.parsed",
 		"An uploaded invoice was compared with its purchase order (each difference also raises receiving_discrepancy.detected). data: purchase_order_id, parsing_job_id, discrepancy_count.")
 	ReceivingDiscrepancyDetected = defineAction("procurement.receiving_discrepancy.detected",
-		"An invoice differs from its purchase order. data: receiving_record_id, type (missing_item, quantity_mismatch, unexpected_item, expiry_mismatch), line_item_id, expected_qty, received_qty.")
+		"An invoice or delivery differs from its purchase order. data: receiving_record_id, type (missing_item, quantity_mismatch, unexpected_item, expiry_mismatch, damaged_item), line_item_id, expected_qty, received_qty, source -- invoice (found by comparing the invoice) or manual (flagged by a person, e.g. damaged).")
+)
+
+var (
+	ReceivingDiscrepancyAcknowledged = defineAction("procurement.receiving_discrepancy.acknowledged",
+		"Someone reviewed an invoice discrepancy and accepted it. data: receiving_record_id, type.")
+	ReceivingDiscrepancyLinked = defineAction("procurement.receiving_discrepancy.linked",
+		"An unexpected invoice line and a missing purchase order line were matched as the same item (both become acknowledged; one event each). data: receiving_record_id, type, linked_discrepancy_id.")
+	ReceivingRecordCompleted = defineAction("procurement.receiving_record.completed",
+		"Review of an uploaded invoice was finished. data: purchase_order_id.")
+	BookingStarted = defineAction("procurement.booking.started",
+		"Stock booking (scanning a delivery in) started for a purchase order. data: purchase_order_id.")
+	BookingResumed = defineAction("procurement.booking.resumed",
+		"A paused stock booking was picked up again. data: purchase_order_id.")
+	BookingPaused = defineAction("procurement.booking.paused",
+		"A stock booking was paused. data: purchase_order_id.")
+	BookingCompleted = defineAction("procurement.booking.completed",
+		"A stock booking was finished: scans became stock (inventory raises its own events) and the PO became received or partially_received. data: purchase_order_id, completed_by, missing_item_count.")
+	BookingScanCreated = defineAction("procurement.booking_scan.created",
+		"An item was scanned during stock booking. data: booking_id, sku_id, action_type (receive, correction, damaged, lost), quantity, write_off_quantity, lot_number, expiry_date.")
+	BookingScanDeleted = defineAction("procurement.booking_scan.deleted",
+		"A booking scan was undone. data: booking_id, sku_id, action_type.")
 )

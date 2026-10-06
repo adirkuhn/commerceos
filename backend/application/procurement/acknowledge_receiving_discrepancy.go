@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -17,12 +19,13 @@ import (
 // CompleteReceivingUseCase doesn't require it (see ReceivingDiscrepancy's
 // doc comment).
 type AcknowledgeReceivingDiscrepancyUseCase struct {
-	db   *gorm.DB
-	repo procurementDomain.ReceivingDiscrepancyRepository
+	db     *gorm.DB
+	repo   procurementDomain.ReceivingDiscrepancyRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewAcknowledgeReceivingDiscrepancyUseCase(db *gorm.DB, repo procurementDomain.ReceivingDiscrepancyRepository) *AcknowledgeReceivingDiscrepancyUseCase {
-	return &AcknowledgeReceivingDiscrepancyUseCase{db: db, repo: repo}
+func NewAcknowledgeReceivingDiscrepancyUseCase(db *gorm.DB, repo procurementDomain.ReceivingDiscrepancyRepository, outbox eventrecord.Enqueuer) *AcknowledgeReceivingDiscrepancyUseCase {
+	return &AcknowledgeReceivingDiscrepancyUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 func (uc *AcknowledgeReceivingDiscrepancyUseCase) Execute(ctx context.Context, discrepancyID string) (*procurementDomain.ReceivingDiscrepancy, error) {
@@ -39,7 +42,12 @@ func (uc *AcknowledgeReceivingDiscrepancyUseCase) Execute(ctx context.Context, d
 		now := time.Now()
 		d.Status = procurementDomain.DiscrepancyStatusAcknowledged
 		d.AcknowledgedAt = &now
-		return uc.repo.Update(ctx, d)
+		if err := uc.repo.Update(ctx, d); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ReceivingDiscrepancyAcknowledged, d.ID, eventrecord.Data{
+			"receiving_record_id": d.ReceivingRecordID, "type": string(d.Type),
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("acknowledgeReceivingDiscrepancy: %w", err)

@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -28,7 +29,7 @@ func TestCompleteBooking_replaysAStagedReceiveIntoRealStock(t *testing.T) {
 	receiveStock := &stubReceiveStockForBooking{}
 	adjustment := &stubRecordAdjustmentForBooking{}
 	writeOff := &stubMarkDamagedOrLostForBooking{}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, adjustment, writeOff)
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, adjustment, writeOff, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -58,7 +59,7 @@ func TestCompleteBooking_computesLandedCostForAReceiveFromItsLineItemAndSharedSh
 		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10},
 	}}
 	receiveStock := &stubReceiveStockForBooking{}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -81,7 +82,7 @@ func TestCompleteBooking_replaysAStagedCorrectionAsANegativeAdjustment(t *testin
 	}}
 	receiveStock := &stubReceiveStockForBooking{}
 	adjustment := &stubRecordAdjustmentForBooking{}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, adjustment, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, adjustment, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -108,7 +109,7 @@ func TestCompleteBooking_replaysADamagedWriteOffWithoutReducingReceivedProgress(
 	}}
 	receiveStock := &stubReceiveStockForBooking{}
 	writeOff := &stubMarkDamagedOrLostForBooking{}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, &stubRecordAdjustmentForBooking{}, writeOff)
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, &stubRecordAdjustmentForBooking{}, writeOff, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -136,7 +137,7 @@ func TestCompleteBooking_writeOffCountsTowardScannedProgressAlongsideReceives(t 
 		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 23, BatchID: &batchID},
 		{ID: "scan-2", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionDamaged, WriteOffQuantity: 1, BatchID: &batchID},
 	}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -151,7 +152,7 @@ func TestCompleteBooking_marksThePurchaseOrderReceivedWhenNothingIsMissing(t *te
 	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
 		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10},
 	}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -167,7 +168,7 @@ func TestCompleteBooking_marksThePurchaseOrderPartiallyReceivedWhenSomethingIsMi
 	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
 		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 7},
 	}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -185,7 +186,7 @@ func TestCompleteBooking_replaysALostWriteOff(t *testing.T) {
 		{ID: "scan-2", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionLost, WriteOffQuantity: 1},
 	}}
 	writeOff := &stubMarkDamagedOrLostForBooking{}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, writeOff)
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, writeOff, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -210,7 +211,7 @@ func TestCompleteBooking_resolvesAPendingBatchAcrossLaterRowsByLotNumber(t *test
 		{Batch: &invDomain.Batch{ID: "real-batch-1"}, Movement: &invDomain.StockMovement{ID: "m1"}},
 	}}
 	writeOff := &stubMarkDamagedOrLostForBooking{}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, &stubRecordAdjustmentForBooking{}, writeOff)
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, &stubRecordAdjustmentForBooking{}, writeOff, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -233,7 +234,7 @@ func TestCompleteBooking_rejectsACorrectionWhoseLotWasNeverStaged(t *testing.T) 
 	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
 		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionCorrection, Quantity: -1, LotNumber: "GHOST-LOT"},
 	}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -255,7 +256,7 @@ func TestCompleteBooking_skipsARowAlreadyReplayedByAnEarlierFinishAttempt(t *tes
 	}}
 	receiveStock := &stubReceiveStockForBooking{}
 	adjustment := &stubRecordAdjustmentForBooking{}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, adjustment, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, adjustment, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -284,7 +285,7 @@ func TestCompleteBooking_resolvesAPendingBatchFromAnAlreadyReplayedRow(t *testin
 	}}
 	receiveStock := &stubReceiveStockForBooking{}
 	adjustment := &stubRecordAdjustmentForBooking{}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, adjustment, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, adjustment, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -307,7 +308,7 @@ func TestCompleteBooking_excludesNonProductLinesFromMissingItems(t *testing.T) {
 	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
 		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10},
 	}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -325,7 +326,7 @@ func TestCompleteBooking_scalesExpectedQtyByUnitsPerPurchasedItem(t *testing.T) 
 	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
 		{ID: "scan-1", SKUID: "sku-unit-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 30},
 	}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -338,7 +339,7 @@ func TestCompleteBooking_scalesExpectedQtyByUnitsPerPurchasedItem(t *testing.T) 
 func TestCompleteBooking_rejectsAlreadyCompletedBooking(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", Status: procurementDomain.BookingStatusCompleted}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, &stubPurchaseOrderRepo{}, &stubLineItemRepo{}, &stubBookingScanRepo{}, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, &stubPurchaseOrderRepo{}, &stubLineItemRepo{}, &stubBookingScanRepo{}, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -348,7 +349,7 @@ func TestCompleteBooking_rejectsAlreadyCompletedBooking(t *testing.T) {
 func TestCompleteBooking_propagatesNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo := &stubBookingRepo{findErr: procurementDomain.ErrBookingNotFound}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, &stubPurchaseOrderRepo{}, &stubLineItemRepo{}, &stubBookingScanRepo{}, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, &stubPurchaseOrderRepo{}, &stubLineItemRepo{}, &stubBookingScanRepo{}, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing", "user-1")
 
@@ -363,7 +364,7 @@ func TestCompleteBooking_propagatesReplayError(t *testing.T) {
 		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10},
 	}}
 	receiveStock := &stubReceiveStockForBooking{err: invDomain.ErrInsufficientStock}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
 

@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
@@ -15,7 +16,7 @@ func TestCompleteReceiving_marksRecordApplied(t *testing.T) {
 	recRepo := &stubReceivingRecordRepo{findResult: &procurementDomain.ReceivingRecord{
 		ID: "receiving-record-1", Status: procurementDomain.ReceivingRecordStatusPendingReview,
 	}}
-	uc := appprocurement.NewCompleteReceivingUseCase(db, recRepo)
+	uc := appprocurement.NewCompleteReceivingUseCase(db, recRepo, &eventrecordtest.Outbox{})
 
 	rec, err := uc.Execute(context.Background(), "receiving-record-1")
 
@@ -28,7 +29,7 @@ func TestCompleteReceiving_marksRecordApplied(t *testing.T) {
 func TestCompleteReceiving_propagatesNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	recRepo := &stubReceivingRecordRepo{findErr: procurementDomain.ErrReceivingRecordNotFound}
-	uc := appprocurement.NewCompleteReceivingUseCase(db, recRepo)
+	uc := appprocurement.NewCompleteReceivingUseCase(db, recRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing")
 
@@ -41,7 +42,7 @@ func TestCompleteReceiving_propagatesUpdateError(t *testing.T) {
 		findResult: &procurementDomain.ReceivingRecord{ID: "receiving-record-1"},
 		updateErr:  assert.AnError,
 	}
-	uc := appprocurement.NewCompleteReceivingUseCase(db, recRepo)
+	uc := appprocurement.NewCompleteReceivingUseCase(db, recRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "receiving-record-1")
 

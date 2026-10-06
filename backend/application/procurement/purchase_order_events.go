@@ -59,9 +59,26 @@ func recordLineItemLinked(ctx context.Context, outbox eventrecord.Enqueuer, befo
 			Set("units_per_purchased_item", before.UnitsPerPurchasedItem, after.UnitsPerPurchasedItem))
 }
 
-func recordDiscrepancyDetected(ctx context.Context, outbox eventrecord.Enqueuer, d procurementDomain.ReceivingDiscrepancy) error {
+// Who found a receiving discrepancy -- data.source of
+// procurement.receiving_discrepancy.detected.
+const (
+	DiscrepancySourceInvoice = "invoice"
+	DiscrepancySourceManual  = "manual"
+)
+
+func recordDiscrepancyDetected(ctx context.Context, outbox eventrecord.Enqueuer, d procurementDomain.ReceivingDiscrepancy, source string) error {
 	return eventrecord.Record(ctx, outbox, events.ReceivingDiscrepancyDetected, d.ID, eventrecord.Data{
 		"receiving_record_id": d.ReceivingRecordID, "type": string(d.Type), "line_item_id": d.LineItemID,
-		"expected_qty": d.ExpectedQty, "received_qty": d.ReceivedQty,
+		"expected_qty": d.ExpectedQty, "received_qty": d.ReceivedQty, "source": source,
 	})
+}
+
+// Reasons the system changed a PO as part of stock booking.
+const (
+	PurchaseOrderChangeReasonBookingStarted   = "booking_started"
+	PurchaseOrderChangeReasonBookingCompleted = "booking_completed"
+)
+
+func recordBooking(ctx context.Context, outbox eventrecord.Enqueuer, action events.ActionType, b procurementDomain.Booking) error {
+	return eventrecord.Record(ctx, outbox, action, b.ID, eventrecord.Data{"purchase_order_id": b.PurchaseOrderID})
 }
