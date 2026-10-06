@@ -3,6 +3,8 @@ package tax
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"strings"
 	"time"
 
@@ -24,10 +26,11 @@ type UpsertExternalTaxClassLinkUseCase struct {
 	db        *gorm.DB
 	linkRepo  taxDomain.ExternalTaxClassLinkRepository
 	classRepo taxDomain.TaxClassRepository
+	outbox    eventrecord.Enqueuer
 }
 
-func NewUpsertExternalTaxClassLinkUseCase(db *gorm.DB, linkRepo taxDomain.ExternalTaxClassLinkRepository, classRepo taxDomain.TaxClassRepository) *UpsertExternalTaxClassLinkUseCase {
-	return &UpsertExternalTaxClassLinkUseCase{db: db, linkRepo: linkRepo, classRepo: classRepo}
+func NewUpsertExternalTaxClassLinkUseCase(db *gorm.DB, linkRepo taxDomain.ExternalTaxClassLinkRepository, classRepo taxDomain.TaxClassRepository, outbox eventrecord.Enqueuer) *UpsertExternalTaxClassLinkUseCase {
+	return &UpsertExternalTaxClassLinkUseCase{db: db, linkRepo: linkRepo, classRepo: classRepo, outbox: outbox}
 }
 
 func (uc *UpsertExternalTaxClassLinkUseCase) Execute(ctx context.Context, in UpsertExternalTaxClassLinkInput) (*taxDomain.ExternalTaxClassLink, error) {
@@ -46,7 +49,12 @@ func (uc *UpsertExternalTaxClassLinkUseCase) Execute(ctx context.Context, in Ups
 			TenantID: tenant.IDFromContext(ctx), Provider: provider, ExternalSlug: in.ExternalSlug,
 			TaxClassID: in.TaxClassID, CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.linkRepo.Upsert(ctx, &link)
+		if err := uc.linkRepo.Upsert(ctx, &link); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ExternalTaxClassLinkSet, link.ID, eventrecord.Data{
+			"provider": link.Provider, "external_slug": link.ExternalSlug, "tax_class_id": link.TaxClassID,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("upsertExternalTaxClassLink: %w", err)

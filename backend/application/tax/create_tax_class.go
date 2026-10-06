@@ -3,6 +3,8 @@ package tax
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"strings"
 	"time"
 
@@ -17,12 +19,13 @@ type CreateTaxClassInput struct {
 }
 
 type CreateTaxClassUseCase struct {
-	db   *gorm.DB
-	repo taxDomain.TaxClassRepository
+	db     *gorm.DB
+	repo   taxDomain.TaxClassRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewCreateTaxClassUseCase(db *gorm.DB, repo taxDomain.TaxClassRepository) *CreateTaxClassUseCase {
-	return &CreateTaxClassUseCase{db: db, repo: repo}
+func NewCreateTaxClassUseCase(db *gorm.DB, repo taxDomain.TaxClassRepository, outbox eventrecord.Enqueuer) *CreateTaxClassUseCase {
+	return &CreateTaxClassUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 func (uc *CreateTaxClassUseCase) Execute(ctx context.Context, in CreateTaxClassInput) (*taxDomain.TaxClass, error) {
@@ -34,7 +37,7 @@ func (uc *CreateTaxClassUseCase) Execute(ctx context.Context, in CreateTaxClassI
 	var class taxDomain.TaxClass
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		if in.IsDefault {
-			if err := unsetExistingDefault(ctx, uc.repo, ""); err != nil {
+			if err := unsetExistingDefault(ctx, uc.repo, uc.outbox, ""); err != nil {
 				return err
 			}
 		}
@@ -43,7 +46,12 @@ func (uc *CreateTaxClassUseCase) Execute(ctx context.Context, in CreateTaxClassI
 			TenantID: tenant.IDFromContext(ctx), Name: name, IsDefault: in.IsDefault,
 			CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.repo.Create(ctx, &class)
+		if err := uc.repo.Create(ctx, &class); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.TaxClassCreated, class.ID, eventrecord.Data{
+			"name": class.Name, "is_default": class.IsDefault,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createTaxClass: %w", err)
@@ -56,7 +64,11 @@ func (uc *CreateTaxClassUseCase) Execute(ctx context.Context, in CreateTaxClassI
 // class that's already the default) so a tenant never ends up with two.
 // Shared by Create and Update, since setting a new default is the same
 // operation either way.
-func unsetExistingDefault(ctx context.Context, repo taxDomain.TaxClassRepository, excludeID string) error {
+// TaxClassChangeReasonDefaultMoved: data.reason of a tax.tax_class.updated
+// the system raised when another class became the default.
+const TaxClassChangeReasonDefaultMoved = "default_moved"
+
+func unsetExistingDefault(ctx context.Context, repo taxDomain.TaxClassRepository, outbox eventrecord.Enqueuer, excludeID string) error {
 	classes, err := repo.List(ctx)
 	if err != nil {
 		return err
@@ -66,6 +78,11 @@ func unsetExistingDefault(ctx context.Context, repo taxDomain.TaxClassRepository
 			c.IsDefault = false
 			c.UpdatedAt = time.Now()
 			if err := repo.Update(ctx, &c); err != nil {
+				return err
+			}
+			if err := eventrecord.Record(ctx, outbox, events.TaxClassUpdated, c.ID,
+				eventrecord.NewChanges().Set("is_default", true, false),
+				eventrecord.Data{"reason": TaxClassChangeReasonDefaultMoved}); err != nil {
 				return err
 			}
 		}

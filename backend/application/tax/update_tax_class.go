@@ -3,6 +3,8 @@ package tax
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"strings"
 	"time"
 
@@ -18,12 +20,13 @@ type UpdateTaxClassInput struct {
 }
 
 type UpdateTaxClassUseCase struct {
-	db   *gorm.DB
-	repo taxDomain.TaxClassRepository
+	db     *gorm.DB
+	repo   taxDomain.TaxClassRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewUpdateTaxClassUseCase(db *gorm.DB, repo taxDomain.TaxClassRepository) *UpdateTaxClassUseCase {
-	return &UpdateTaxClassUseCase{db: db, repo: repo}
+func NewUpdateTaxClassUseCase(db *gorm.DB, repo taxDomain.TaxClassRepository, outbox eventrecord.Enqueuer) *UpdateTaxClassUseCase {
+	return &UpdateTaxClassUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 func (uc *UpdateTaxClassUseCase) Execute(ctx context.Context, in UpdateTaxClassInput) (*taxDomain.TaxClass, error) {
@@ -39,10 +42,11 @@ func (uc *UpdateTaxClassUseCase) Execute(ctx context.Context, in UpdateTaxClassI
 			return err
 		}
 		if in.IsDefault && !existing.IsDefault {
-			if err := unsetExistingDefault(ctx, uc.repo, existing.ID); err != nil {
+			if err := unsetExistingDefault(ctx, uc.repo, uc.outbox, existing.ID); err != nil {
 				return err
 			}
 		}
+		before := *existing
 		existing.Name = name
 		existing.IsDefault = in.IsDefault
 		existing.UpdatedAt = time.Now()
@@ -50,7 +54,9 @@ func (uc *UpdateTaxClassUseCase) Execute(ctx context.Context, in UpdateTaxClassI
 			return err
 		}
 		class = existing
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.TaxClassUpdated, existing.ID, eventrecord.NewChanges().
+			Set("name", before.Name, existing.Name).
+			Set("is_default", before.IsDefault, existing.IsDefault))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateTaxClass: %w", err)

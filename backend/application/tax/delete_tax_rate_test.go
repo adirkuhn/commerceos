@@ -2,6 +2,7 @@ package tax_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 
 func TestDeleteTaxRate_success(t *testing.T) {
 	repo := &stubTaxRateRepo{findResult: &taxDomain.TaxRate{ID: "rate-1"}}
-	uc := apptax.NewDeleteTaxRateUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewDeleteTaxRateUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "rate-1")
 
@@ -23,7 +24,7 @@ func TestDeleteTaxRate_success(t *testing.T) {
 
 func TestDeleteTaxRate_propagatesNotFound(t *testing.T) {
 	repo := &stubTaxRateRepo{findErr: taxDomain.ErrTaxRateNotFound}
-	uc := apptax.NewDeleteTaxRateUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewDeleteTaxRateUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 

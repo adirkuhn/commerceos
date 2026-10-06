@@ -3,6 +3,8 @@ package tax
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"strings"
 	"time"
 
@@ -21,10 +23,11 @@ type UpsertTaxRateUseCase struct {
 	db        *gorm.DB
 	rateRepo  taxDomain.TaxRateRepository
 	classRepo taxDomain.TaxClassRepository
+	outbox    eventrecord.Enqueuer
 }
 
-func NewUpsertTaxRateUseCase(db *gorm.DB, rateRepo taxDomain.TaxRateRepository, classRepo taxDomain.TaxClassRepository) *UpsertTaxRateUseCase {
-	return &UpsertTaxRateUseCase{db: db, rateRepo: rateRepo, classRepo: classRepo}
+func NewUpsertTaxRateUseCase(db *gorm.DB, rateRepo taxDomain.TaxRateRepository, classRepo taxDomain.TaxClassRepository, outbox eventrecord.Enqueuer) *UpsertTaxRateUseCase {
+	return &UpsertTaxRateUseCase{db: db, rateRepo: rateRepo, classRepo: classRepo, outbox: outbox}
 }
 
 func (uc *UpsertTaxRateUseCase) Execute(ctx context.Context, in UpsertTaxRateInput) (*taxDomain.TaxRate, error) {
@@ -46,7 +49,12 @@ func (uc *UpsertTaxRateUseCase) Execute(ctx context.Context, in UpsertTaxRateInp
 			TenantID: tenant.IDFromContext(ctx), TaxClassID: in.TaxClassID, Country: country,
 			RateBasisPoints: in.RateBasisPoints, CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.rateRepo.Upsert(ctx, &rate)
+		if err := uc.rateRepo.Upsert(ctx, &rate); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.TaxRateSet, rate.ID, eventrecord.Data{
+			"tax_class_id": rate.TaxClassID, "country": rate.Country, "rate_basis_points": rate.RateBasisPoints,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("upsertTaxRate: %w", err)

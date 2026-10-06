@@ -3,6 +3,7 @@ package tax_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,7 @@ import (
 func TestUpsertTaxRate_success(t *testing.T) {
 	classRepo := &stubTaxClassRepo{findResult: &taxDomain.TaxClass{ID: "class-1", Name: "Standard"}}
 	rateRepo := &stubTaxRateRepo{}
-	uc := apptax.NewUpsertTaxRateUseCase(newMockGormDB(t, 1), rateRepo, classRepo)
+	uc := apptax.NewUpsertTaxRateUseCase(newMockGormDB(t, 1), rateRepo, classRepo, &eventrecordtest.Outbox{})
 
 	rate, err := uc.Execute(context.Background(), apptax.UpsertTaxRateInput{
 		TaxClassID: "class-1", Country: "nl", RateBasisPoints: 2100,
@@ -30,7 +31,7 @@ func TestUpsertTaxRate_success(t *testing.T) {
 
 func TestUpsertTaxRate_rejectsInvalidCountryCode(t *testing.T) {
 	classRepo := &stubTaxClassRepo{findResult: &taxDomain.TaxClass{ID: "class-1"}}
-	uc := apptax.NewUpsertTaxRateUseCase(newMockGormDB(t, 1), &stubTaxRateRepo{}, classRepo)
+	uc := apptax.NewUpsertTaxRateUseCase(newMockGormDB(t, 1), &stubTaxRateRepo{}, classRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apptax.UpsertTaxRateInput{
 		TaxClassID: "class-1", Country: "Netherlands", RateBasisPoints: 2100,
@@ -41,7 +42,7 @@ func TestUpsertTaxRate_rejectsInvalidCountryCode(t *testing.T) {
 
 func TestUpsertTaxRate_rejectsNegativeRate(t *testing.T) {
 	classRepo := &stubTaxClassRepo{findResult: &taxDomain.TaxClass{ID: "class-1"}}
-	uc := apptax.NewUpsertTaxRateUseCase(newMockGormDB(t, 1), &stubTaxRateRepo{}, classRepo)
+	uc := apptax.NewUpsertTaxRateUseCase(newMockGormDB(t, 1), &stubTaxRateRepo{}, classRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apptax.UpsertTaxRateInput{
 		TaxClassID: "class-1", Country: "NL", RateBasisPoints: -1,
@@ -52,7 +53,7 @@ func TestUpsertTaxRate_rejectsNegativeRate(t *testing.T) {
 
 func TestUpsertTaxRate_propagatesTaxClassNotFound(t *testing.T) {
 	classRepo := &stubTaxClassRepo{findErr: taxDomain.ErrTaxClassNotFound}
-	uc := apptax.NewUpsertTaxRateUseCase(newMockGormDB(t, 1), &stubTaxRateRepo{}, classRepo)
+	uc := apptax.NewUpsertTaxRateUseCase(newMockGormDB(t, 1), &stubTaxRateRepo{}, classRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apptax.UpsertTaxRateInput{
 		TaxClassID: "missing", Country: "NL", RateBasisPoints: 2100,
@@ -64,7 +65,7 @@ func TestUpsertTaxRate_propagatesTaxClassNotFound(t *testing.T) {
 func TestUpsertTaxRate_propagatesRepoError(t *testing.T) {
 	classRepo := &stubTaxClassRepo{findResult: &taxDomain.TaxClass{ID: "class-1"}}
 	rateRepo := &stubTaxRateRepo{upsertErr: errors.New("db down")}
-	uc := apptax.NewUpsertTaxRateUseCase(newMockGormDB(t, 1), rateRepo, classRepo)
+	uc := apptax.NewUpsertTaxRateUseCase(newMockGormDB(t, 1), rateRepo, classRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apptax.UpsertTaxRateInput{
 		TaxClassID: "class-1", Country: "NL", RateBasisPoints: 2100,

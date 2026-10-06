@@ -3,6 +3,7 @@ package tax_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ import (
 
 func TestCreateTaxClass_success(t *testing.T) {
 	repo := &stubTaxClassRepo{}
-	uc := apptax.NewCreateTaxClassUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewCreateTaxClassUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	class, err := uc.Execute(context.Background(), apptax.CreateTaxClassInput{Name: "Standard"})
 
@@ -25,7 +26,7 @@ func TestCreateTaxClass_success(t *testing.T) {
 }
 
 func TestCreateTaxClass_rejectsEmptyName(t *testing.T) {
-	uc := apptax.NewCreateTaxClassUseCase(newMockGormDB(t, 0), &stubTaxClassRepo{})
+	uc := apptax.NewCreateTaxClassUseCase(newMockGormDB(t, 0), &stubTaxClassRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apptax.CreateTaxClassInput{Name: "  "})
 
@@ -37,7 +38,7 @@ func TestCreateTaxClass_settingDefaultUnsetsThePreviousDefault(t *testing.T) {
 		{ID: "class-old", Name: "Standard", IsDefault: true},
 		{ID: "class-other", Name: "Other", IsDefault: false},
 	}}
-	uc := apptax.NewCreateTaxClassUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewCreateTaxClassUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	class, err := uc.Execute(context.Background(), apptax.CreateTaxClassInput{Name: "Zero rate", IsDefault: true})
 
@@ -50,7 +51,7 @@ func TestCreateTaxClass_settingDefaultUnsetsThePreviousDefault(t *testing.T) {
 
 func TestCreateTaxClass_propagatesRepoError(t *testing.T) {
 	repo := &stubTaxClassRepo{createErr: errors.New("db down")}
-	uc := apptax.NewCreateTaxClassUseCase(newMockGormDB(t, 1), repo)
+	uc := apptax.NewCreateTaxClassUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apptax.CreateTaxClassInput{Name: "Standard"})
 

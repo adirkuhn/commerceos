@@ -87,16 +87,17 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	rateRepo := repositories.NewTaxRateRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
 	linkRepo := repositories.NewExternalTaxClassLinkRepo(db)
+	outboxRepo := repositories.NewOutboxRepository(db)
 	h := NewHandler(
-		apptax.NewCreateTaxClassUseCase(db, classRepo),
-		apptax.NewUpdateTaxClassUseCase(db, classRepo),
-		apptax.NewDeleteTaxClassUseCase(db, classRepo, skuRepo),
+		apptax.NewCreateTaxClassUseCase(db, classRepo, outboxRepo),
+		apptax.NewUpdateTaxClassUseCase(db, classRepo, outboxRepo),
+		apptax.NewDeleteTaxClassUseCase(db, classRepo, skuRepo, outboxRepo),
 		apptax.NewListTaxClassesUseCase(db, classRepo),
-		apptax.NewUpsertTaxRateUseCase(db, rateRepo, classRepo),
-		apptax.NewDeleteTaxRateUseCase(db, rateRepo),
+		apptax.NewUpsertTaxRateUseCase(db, rateRepo, classRepo, outboxRepo),
+		apptax.NewDeleteTaxRateUseCase(db, rateRepo, outboxRepo),
 		apptax.NewListTaxRatesUseCase(db, rateRepo),
-		apptax.NewUpsertExternalTaxClassLinkUseCase(db, linkRepo, classRepo),
-		apptax.NewDeleteExternalTaxClassLinkUseCase(db, linkRepo),
+		apptax.NewUpsertExternalTaxClassLinkUseCase(db, linkRepo, classRepo, outboxRepo),
+		apptax.NewDeleteExternalTaxClassLinkUseCase(db, linkRepo, outboxRepo),
 		apptax.NewListExternalTaxClassLinksUseCase(db, linkRepo),
 	)
 	gentax.RegisterHandlers(rg, h)

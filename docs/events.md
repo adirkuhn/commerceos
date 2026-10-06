@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-61 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+68 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -192,6 +192,18 @@ Payload (`events.EntityAction`):
 | `suppliers.supplier.created` | action | A supplier was created. data: name, status. | envelope |
 | `suppliers.supplier.deleted` | action | A supplier was deleted. data: name. | envelope |
 | `suppliers.supplier.updated` | action | A supplier's details changed (changes: name, email, phone, country, lead_time_days, status, notes). | envelope |
+
+### tax
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `tax.external_tax_class_link.deleted` | action | A channel tax class link was removed. data: provider, external_slug, tax_class_id. | envelope |
+| `tax.external_tax_class_link.set` | action | A sales channel's tax class (e.g. a WooCommerce slug) was linked to a tax class. data: provider, external_slug, tax_class_id. | envelope |
+| `tax.tax_class.created` | action | A tax class was created. data: name, is_default. | envelope |
+| `tax.tax_class.deleted` | action | A tax class was deleted. data: name. | envelope |
+| `tax.tax_class.updated` | action | A tax class changed (changes: name, is_default). data.reason default_moved when it lost is_default because another class became the default. | envelope |
+| `tax.tax_rate.deleted` | action | A tax rate was removed. data: tax_class_id, country. | envelope |
+| `tax.tax_rate.set` | action | A tax class's rate for a country was set. data: tax_class_id, country, rate_basis_points. | envelope |
 
 ## Legacy subjects
 
