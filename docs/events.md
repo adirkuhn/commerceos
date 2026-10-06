@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-59 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+61 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -75,6 +75,13 @@ Payload (`events.EntityAction`):
 | `customers.customer.created` | action | A customer was created. data: woo_customer_id, role, is_paying_customer. | envelope |
 | `customers.customer.deleted` | action | A customer was deleted. data: woo_customer_id. | envelope |
 | `customers.customer.updated` | action | A customer changed (changes: woo_customer_id, role, is_paying_customer). data.changed_fields: personal fields that changed (email, first_name, last_name, username, billing, shipping, avatar_url, customer_note), names only. | envelope |
+
+### fx
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `fx.exchange_rate.deleted` | action | A currency's exchange rate was removed. data: rate_basis_points (the removed rate, null if none was set). | envelope |
+| `fx.exchange_rate.set` | action | A currency's exchange rate was set (changes: rate_basis_points; before is null for a new currency). | envelope |
 
 ### integrations
 

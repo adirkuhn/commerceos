@@ -38,8 +38,6 @@ var pendingEvents = []string{
 	"channels/upsert_external_category_link.go",
 	"channels/upsert_sync_schedule.go",
 	"channels/upsert_sync_schedules.go",
-	"fx/delete_exchange_rate.go",
-	"fx/upsert_exchange_rate.go",
 	"iam/add_user_to_group.go",
 	"iam/assign_permission_to_group.go",
 	"iam/claim_pairing_code.go",

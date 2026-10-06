@@ -3,6 +3,8 @@ package fx
 import (
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"time"
 
 	"gorm.io/gorm"
@@ -17,12 +19,13 @@ type UpsertExchangeRateInput struct {
 }
 
 type UpsertExchangeRateUseCase struct {
-	db   *gorm.DB
-	repo fxDomain.ExchangeRateRepository
+	db     *gorm.DB
+	repo   fxDomain.ExchangeRateRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewUpsertExchangeRateUseCase(db *gorm.DB, repo fxDomain.ExchangeRateRepository) *UpsertExchangeRateUseCase {
-	return &UpsertExchangeRateUseCase{db: db, repo: repo}
+func NewUpsertExchangeRateUseCase(db *gorm.DB, repo fxDomain.ExchangeRateRepository, outbox eventrecord.Enqueuer) *UpsertExchangeRateUseCase {
+	return &UpsertExchangeRateUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 func (uc *UpsertExchangeRateUseCase) Execute(ctx context.Context, in UpsertExchangeRateInput) (*fxDomain.ExchangeRate, error) {
@@ -35,15 +38,31 @@ func (uc *UpsertExchangeRateUseCase) Execute(ctx context.Context, in UpsertExcha
 
 	var rate fxDomain.ExchangeRate
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		previous, err := uc.repo.FindByCurrency(ctx, in.CurrencyCode)
+		if err != nil {
+			return err
+		}
 		now := time.Now()
 		rate = fxDomain.ExchangeRate{
 			TenantID: tenant.IDFromContext(ctx), CurrencyCode: in.CurrencyCode, RateBasisPoints: in.RateBasisPoints,
 			CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.repo.Upsert(ctx, &rate)
+		if err := uc.repo.Upsert(ctx, &rate); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ExchangeRateSet, rate.CurrencyCode,
+			eventrecord.NewChanges().Set("rate_basis_points", previousRate(previous), rate.RateBasisPoints))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("upsertExchangeRate: %w", err)
 	}
 	return &rate, nil
+}
+
+// previousRate is the rate before an upsert, nil when the currency had none.
+func previousRate(r *fxDomain.ExchangeRate) *int64 {
+	if r == nil {
+		return nil
+	}
+	return &r.RateBasisPoints
 }
