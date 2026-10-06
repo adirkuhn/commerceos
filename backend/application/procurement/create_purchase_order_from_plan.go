@@ -2,17 +2,16 @@ package procurement
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"github.com/adirkuhn/commerceos/domain/events"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/domain/procurement/planning"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	suppliersDomain "github.com/adirkuhn/commerceos/domain/suppliers"
-	"github.com/adirkuhn/commerceos/internal/idgen"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -50,10 +49,6 @@ type planLineItemCreator interface {
 	Create(ctx context.Context, li *procurementDomain.PurchaseOrderLineItem) error
 }
 
-type planOutbox interface {
-	Enqueue(ctx context.Context, subject, eventID string, payload []byte, occurredAt time.Time) error
-}
-
 type PlanOrderDeps struct {
 	Catalog        planning.CatalogReader
 	Supply         planning.SupplyReader
@@ -61,7 +56,7 @@ type PlanOrderDeps struct {
 	Settings       planTenantSettings
 	PurchaseOrders planPurchaseOrderCreator
 	LineItems      planLineItemCreator
-	Outbox         planOutbox
+	Outbox         eventrecord.Enqueuer
 }
 
 // CreatePurchaseOrderFromPlanUseCase turns a supplier's share of a plan
@@ -138,19 +133,13 @@ func (uc *CreatePurchaseOrderFromPlanUseCase) Execute(ctx context.Context, in Pl
 	return &po, nil
 }
 
-// enqueueCreated writes procurement.purchase_order.created to the outbox,
-// atomic with the PO (same tenant.WithTenant tx).
+// enqueueCreated records procurement.purchase_order.created, atomic with
+// the PO (same tenant.WithTenant tx).
 func (uc *CreatePurchaseOrderFromPlanUseCase) enqueueCreated(ctx context.Context, po procurementDomain.PurchaseOrder, lineCount int) error {
-	event := events.PurchaseOrderCreated{
-		Base:     events.Base{EventID: idgen.NewV4(), OccurredAt: time.Now()},
-		TenantID: po.TenantID, PurchaseOrderID: po.ID, SupplierID: *po.SupplierID, CurrencyCode: po.CurrencyCode,
-		Source: events.PurchaseOrderSourcePlanner, LineCount: lineCount,
-	}
-	payload, err := json.Marshal(event)
-	if err != nil {
-		return fmt.Errorf("marshal event: %w", err)
-	}
-	return uc.deps.Outbox.Enqueue(ctx, event.EventName(), event.EventID, payload, event.OccurredAt)
+	return eventrecord.Record(ctx, uc.deps.Outbox, events.PurchaseOrderCreated, po.ID, eventrecord.Data{
+		"source": PurchaseOrderSourcePlanner, "supplier_id": *po.SupplierID,
+		"currency_code": po.CurrencyCode, "line_count": lineCount,
+	})
 }
 
 func validatePlanOrder(in PlanOrderInput) error {

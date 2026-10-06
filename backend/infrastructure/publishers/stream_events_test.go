@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/adirkuhn/commerceos/domain/events"
 )
 
 // TestSubjectsCoverEveryDomainEvent discovers every domain/events type's
@@ -23,9 +25,22 @@ func TestSubjectsCoverEveryDomainEvent(t *testing.T) {
 	if len(names) == 0 {
 		t.Fatal("found no EventName() declarations in domain/events — parser drifted")
 	}
+	for _, a := range events.ActionTypes() {
+		names = append(names, a.Subject)
+	}
 	for _, name := range names {
 		if !subjectCovered(name, subjects) {
 			t.Errorf("event subject %q has no matching stream subject in %v", name, subjects)
+		}
+	}
+}
+
+// Every domain an event may use (events.Domains) has a stream subject, so
+// a new action type in it is published, not silently dropped.
+func TestSubjectsCoverEveryEventDomain(t *testing.T) {
+	for _, d := range events.Domains {
+		if !subjectCovered(d+".x.created", subjects) {
+			t.Errorf("event domain %q has no stream subject in %v", d, subjects)
 		}
 	}
 }

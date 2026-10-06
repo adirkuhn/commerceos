@@ -115,12 +115,10 @@ func TestCreatePurchaseOrderFromPlan_DraftWithSupplierPricesAndPackSizes(t *test
 	require.Equal(t, []string{"procurement.purchase_order.created"}, f.outbox.subjects)
 	var event map[string]any
 	require.NoError(t, json.Unmarshal(f.outbox.payloads[0], &event))
-	assert.Equal(t, "po-1", event["purchase_order_id"])
-	assert.Equal(t, "sup-1", event["supplier_id"])
-	assert.Equal(t, "GBP", event["currency_code"])
-	assert.Equal(t, "purchase_planner", event["source"])
-	assert.Equal(t, float64(3), event["line_count"])
-	assert.NotEmpty(t, event["event_id"])
+	assert.Equal(t, "po-1", event["entity_id"])
+	assert.Equal(t, map[string]any{
+		"source": "purchase_planner", "supplier_id": "sup-1", "currency_code": "GBP", "line_count": float64(3),
+	}, event["data"])
 }
 
 func TestCreatePurchaseOrderFromPlan_OutboxFailureFailsTheWhole(t *testing.T) {
