@@ -46,5 +46,35 @@
   },
   "errors": {
     "unknown": "Something went wrong"
+  },
+  "tabs": {
+    "reorder": "Reorder now",
+    "season": "Season plan"
+  },
+  "season": {
+    "intro": "How much to buy for a season and by when, from last year's same season — lined up on the holiday itself, so Easter compares with last Easter — adjusted for this year's growth, plus what sells until the season starts. Only products that sold clearly more in last year's season are listed, unless you include all.",
+    "picker": "Season",
+    "option": "{{name}} ({{date}})",
+    "custom": "Custom dates",
+    "from": "From",
+    "to": "To",
+    "allProducts": "Include all products",
+    "title": "{{name}} {{year}}",
+    "range": "{{start}} – {{end}}",
+    "comparedWith": "compared with {{range}}",
+    "empty": "Nothing to buy for this season — no product sold clearly more in last year's season, or stock already covers it.",
+    "preSeason": "+{{amount}} until the season",
+    "lift": "{{lift}}× usual sales",
+    "event": {
+      "christmas": "Christmas",
+      "sinterklaas": "Sinterklaas",
+      "blackFriday": "Black Friday",
+      "easter": "Easter",
+      "carnival": "Carnival",
+      "valentines": "Valentine's Day",
+      "mothersDay": "Mother's Day",
+      "fathersDayBR": "Dia dos Pais",
+      "festaJunina": "Festa Junina"
+    }
   }
 }

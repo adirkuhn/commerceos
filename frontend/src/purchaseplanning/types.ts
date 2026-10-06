@@ -39,6 +39,10 @@ export interface RecommendationLine {
   stockout_date?: string | null
   order_by_date?: string | null
   last_ordered_at?: string | null
+  // Season plan only: forecast until the season starts, and how many
+  // times its usual daily rate it sold in last year's season.
+  pre_season?: Forecast | null
+  seasonal_lift?: number | null
 }
 
 export interface SupplierRecommendation {
@@ -64,6 +68,51 @@ export interface ReorderRecommendationsQuery {
   coverage_days: number
   safety_days: number
   supplier_id?: string | null
+}
+
+export type SeasonEventKey =
+  | 'christmas'
+  | 'sinterklaas'
+  | 'black_friday'
+  | 'easter'
+  | 'carnival'
+  | 'valentines'
+  | 'mothers_day'
+  | 'fathers_day_br'
+  | 'festa_junina'
+
+// Calendar days [start, end) -- end is exclusive.
+export interface DateWindow {
+  start: string
+  end: string
+}
+
+export interface SeasonEvent {
+  key: SeasonEventKey
+  year: number
+  date: string
+  window: DateWindow
+}
+
+export interface SeasonPlan {
+  as_of: string
+  event?: SeasonEventKey | null
+  year: number
+  window: DateWindow
+  last_year_window: DateWindow
+  safety_days: number
+  suppliers: SupplierRecommendation[]
+}
+
+// Either event (+ year) or a custom from/to (to exclusive).
+export interface SeasonPlanQuery {
+  event?: SeasonEventKey | null
+  year?: number | null
+  from?: string | null
+  to?: string | null
+  safety_days: number
+  supplier_id?: string | null
+  all_products: boolean
 }
 
 export interface APIResponse<T> {

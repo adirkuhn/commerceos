@@ -79,4 +79,14 @@ describe('SupplierRecommendationCard', () => {
     expect(screen.getByText('assumed')).toBeInTheDocument()
     expect(screen.queryByText(/^Est\. €/)).not.toBeInTheDocument()
   })
+
+  it('shows a season line\'s pre-season demand and seasonal lift', () => {
+    render(<SupplierRecommendationCard group={group({
+      lines: [line({ pre_season: { units: 48, method: 'seasonal', growth_factor: 1.18, days: 38 }, seasonal_lift: 18.64 })],
+    })} asOf={AS_OF} />)
+
+    const row = screen.getByTestId('recommendation-row')
+    expect(within(row).getByText('+48 until the season')).toBeInTheDocument()
+    expect(within(row).getByText('18.6× usual sales')).toBeInTheDocument()
+  })
 })

@@ -4,12 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import PurchasePlanner from '../PurchasePlanner'
 import { renderAt } from '../../test/renderAt'
-import type { ReorderRecommendations } from '../../purchaseplanning/types'
+import type { ReorderRecommendations, SeasonEvent, SeasonPlan } from '../../purchaseplanning/types'
 
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
 }))
-vi.mock('../../purchaseplanning/api', () => ({ getReorderRecommendations: vi.fn() }))
+vi.mock('../../purchaseplanning/api', () => ({ getReorderRecommendations: vi.fn(), listSeasonEvents: vi.fn(), getSeasonPlan: vi.fn() }))
 vi.mock('../../suppliers/api', () => ({
   listSuppliers: vi.fn(() => Promise.resolve([{ id: 'sup-1', name: 'Bauducco NL', status: 'active' }])),
 }))
@@ -32,9 +32,22 @@ const plan: ReorderRecommendations = {
   }],
 }
 
+const events: SeasonEvent[] = [
+  { key: 'black_friday', year: 2026, date: '2026-11-27', window: { start: '2026-11-20', end: '2026-12-01' } },
+  { key: 'christmas', year: 2026, date: '2026-12-25', window: { start: '2026-11-13', end: '2026-12-27' } },
+]
+
+const seasonPlan: SeasonPlan = {
+  as_of: '2026-10-06', event: 'christmas', year: 2026, safety_days: 7,
+  window: { start: '2026-11-13', end: '2026-12-27' }, last_year_window: { start: '2025-11-13', end: '2025-12-27' },
+  suppliers: plan.suppliers.map(s => ({ ...s, lines: s.lines.map(l => ({ ...l, seasonal_lift: 18.6 })) })),
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.getReorderRecommendations).mockResolvedValue(plan)
+  vi.mocked(api.listSeasonEvents).mockResolvedValue(events)
+  vi.mocked(api.getSeasonPlan).mockResolvedValue(seasonPlan)
 })
 
 describe('PurchasePlanner', () => {
@@ -80,5 +93,55 @@ describe('PurchasePlanner', () => {
     renderAt(<PurchasePlanner />, '/purchase-planner')
 
     expect(await screen.findByText('coverage_days must be 1-365')).toBeInTheDocument()
+  })
+})
+
+describe('PurchasePlanner season tab', () => {
+  it('plans the next upcoming holiday by default', async () => {
+    renderAt(<PurchasePlanner />, '/purchase-planner', '/purchase-planner?tab=season')
+
+    expect(await screen.findByText('Panettone')).toBeInTheDocument()
+    expect(api.getSeasonPlan).toHaveBeenLastCalledWith('test-token', {
+      event: 'black_friday', from: null, to: null, safety_days: 7, supplier_id: null, all_products: false,
+    })
+    expect(screen.getByText('18.6× usual sales')).toBeInTheDocument()
+  })
+
+  it('shows the season and last year\'s matching window', async () => {
+    renderAt(<PurchasePlanner />, '/purchase-planner', '/purchase-planner?tab=season&season=christmas')
+
+    expect(await screen.findByText('Christmas 2026')).toBeInTheDocument()
+    expect(screen.getByText(/13\/11\/2026 – 26\/12\/2026/)).toBeInTheDocument()
+    expect(screen.getByText('· compared with 13/11/2025 – 26/12/2025', { exact: false })).toBeInTheDocument()
+  })
+
+  it('switches tabs through the URL', async () => {
+    const { router } = renderAt(<PurchasePlanner />, '/purchase-planner')
+    await screen.findByText('Panettone')
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Season plan' }))
+
+    expect(router.state.location.search).toContain('tab=season')
+    await waitFor(() => expect(api.getSeasonPlan).toHaveBeenCalled())
+  })
+
+  it('plans a custom date range, sending the end as exclusive', async () => {
+    const { router } = renderAt(<PurchasePlanner />, '/purchase-planner', '/purchase-planner?tab=season&season=custom')
+    await screen.findByLabelText('From')
+    expect(api.getSeasonPlan).not.toHaveBeenCalled()
+
+    router.navigate('/purchase-planner?tab=season&season=custom&from=2026-11-01&to=2026-11-10&all=1')
+
+    await waitFor(() => expect(api.getSeasonPlan).toHaveBeenLastCalledWith('test-token', {
+      event: null, from: '2026-11-01', to: '2026-11-11', safety_days: 7, supplier_id: null, all_products: true,
+    }))
+    expect(screen.getByLabelText('Include all products')).toBeChecked()
+  })
+
+  it('shows season errors', async () => {
+    vi.mocked(api.getSeasonPlan).mockRejectedValue(new Error('this season is already over'))
+    renderAt(<PurchasePlanner />, '/purchase-planner', '/purchase-planner?tab=season&season=easter')
+
+    expect(await screen.findByText('this season is already over')).toBeInTheDocument()
   })
 })

@@ -46,5 +46,35 @@
   },
   "errors": {
     "unknown": "Er ging iets mis"
+  },
+  "tabs": {
+    "reorder": "Nu bijbestellen",
+    "season": "Seizoensplan"
+  },
+  "season": {
+    "intro": "Hoeveel je voor een seizoen moet inkopen en wanneer, op basis van hetzelfde seizoen vorig jaar — uitgelijnd op de feestdag zelf, dus Pasen wordt vergeleken met vorig Pasen — gecorrigeerd voor de groei van dit jaar, plus wat er tot het seizoen verkocht wordt. Alleen producten die in het seizoen van vorig jaar duidelijk meer verkochten worden getoond, tenzij je alles meeneemt.",
+    "picker": "Seizoen",
+    "option": "{{name}} ({{date}})",
+    "custom": "Eigen data",
+    "from": "Van",
+    "to": "Tot en met",
+    "allProducts": "Alle producten meenemen",
+    "title": "{{name}} {{year}}",
+    "range": "{{start}} – {{end}}",
+    "comparedWith": "vergeleken met {{range}}",
+    "empty": "Niets in te kopen voor dit seizoen — geen product verkocht duidelijk meer in het seizoen van vorig jaar, of de voorraad dekt het al.",
+    "preSeason": "+{{amount}} tot het seizoen",
+    "lift": "{{lift}}× normale verkoop",
+    "event": {
+      "christmas": "Kerst",
+      "sinterklaas": "Sinterklaas",
+      "blackFriday": "Black Friday",
+      "easter": "Pasen",
+      "carnival": "Carnaval",
+      "valentines": "Valentijnsdag",
+      "mothersDay": "Moederdag",
+      "fathersDayBR": "Dia dos Pais",
+      "festaJunina": "Festa Junina"
+    }
   }
 }

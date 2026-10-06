@@ -46,5 +46,35 @@
   },
   "errors": {
     "unknown": "Algo deu errado"
+  },
+  "tabs": {
+    "reorder": "Repor agora",
+    "season": "Plano de temporada"
+  },
+  "season": {
+    "intro": "Quanto comprar para uma temporada e até quando, com base na mesma temporada do ano passado — alinhada ao próprio feriado, então a Páscoa é comparada com a Páscoa anterior — ajustada pelo crescimento deste ano, mais o que vende até a temporada começar. Só aparecem produtos que venderam bem mais na temporada do ano passado, a menos que você inclua todos.",
+    "picker": "Temporada",
+    "option": "{{name}} ({{date}})",
+    "custom": "Datas personalizadas",
+    "from": "De",
+    "to": "Até",
+    "allProducts": "Incluir todos os produtos",
+    "title": "{{name}} {{year}}",
+    "range": "{{start}} – {{end}}",
+    "comparedWith": "comparado com {{range}}",
+    "empty": "Nada a comprar para esta temporada — nenhum produto vendeu bem mais na temporada do ano passado, ou o estoque já cobre.",
+    "preSeason": "+{{amount}} até a temporada",
+    "lift": "{{lift}}× as vendas normais",
+    "event": {
+      "christmas": "Natal",
+      "sinterklaas": "Sinterklaas",
+      "blackFriday": "Black Friday",
+      "easter": "Páscoa",
+      "carnival": "Carnaval",
+      "valentines": "Dia de São Valentim",
+      "mothersDay": "Dia das Mães",
+      "fathersDayBR": "Dia dos Pais",
+      "festaJunina": "Festa Junina"
+    }
   }
 }

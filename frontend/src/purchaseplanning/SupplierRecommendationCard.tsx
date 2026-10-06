@@ -1,8 +1,10 @@
 import clsx from 'clsx'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { formatMoney } from '../format/money'
 import { formatPurchaseQuantity, formatStockQuantity, orderUrgency, type OrderUrgency } from './quantity'
+import { urgencyLabels } from './labels'
 import type { RecommendationLine, SupplierRecommendation } from './types'
 
 const URGENCY_STYLE: Record<OrderUrgency, string> = {
@@ -96,6 +98,12 @@ function RecommendationRow({ line, asOf }: { line: RecommendationLine; asOf: str
         <div className="text-ink">{qty(line.forecast.units)}</div>
         <div className="text-2xs text-ink-4">{t('forecast.days', { count: line.forecast.days })}</div>
         <div className="text-2xs text-ink-4">{forecastReason(line, qty, t)}</div>
+        {line.pre_season && line.pre_season.units > 0 && (
+          <div className="text-2xs text-ink-4">{t('season.preSeason', { amount: qty(line.pre_season.units) })}</div>
+        )}
+        {line.seasonal_lift != null && (
+          <div className="text-2xs font-medium text-accent">{t('season.lift', { lift: Math.round(line.seasonal_lift * 10) / 10 })}</div>
+        )}
       </td>
       <td className="px-4 py-2 text-right font-semibold text-ink">{formatPurchaseQuantity(line)}</td>
       <td className="px-4 py-2 text-right text-ink-3">
@@ -103,15 +111,13 @@ function RecommendationRow({ line, asOf }: { line: RecommendationLine; asOf: str
       </td>
       <td className="px-4 py-2 text-right">
         <div className={URGENCY_STYLE[urgency]}>{line.order_by_date ? formatDate(line.order_by_date) : '—'}</div>
-        {urgency !== 'none' && <div className={clsx('text-2xs', URGENCY_STYLE[urgency])}>{t(`urgency.${urgency}`)}</div>}
+        {urgency !== 'none' && <div className={clsx('text-2xs', URGENCY_STYLE[urgency])}>{urgencyLabels(t)[urgency]}</div>}
       </td>
     </tr>
   )
 }
 
-type Translate = ReturnType<typeof useTranslation<'purchasePlanning'>>['t']
-
-function forecastReason(line: RecommendationLine, qty: (n: number) => string, t: Translate): string {
+function forecastReason(line: RecommendationLine, qty: (n: number) => string, t: TFunction<'purchasePlanning'>): string {
   switch (line.forecast.method) {
     case 'seasonal':
       return t('forecast.seasonal', {
