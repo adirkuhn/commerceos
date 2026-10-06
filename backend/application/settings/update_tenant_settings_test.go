@@ -2,6 +2,7 @@ package settings_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,7 @@ import (
 
 func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appsettings.UpdateTenantSettingsInput{
@@ -54,7 +55,7 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 
 func TestUpdateTenantSettings_propagatesRepoError(t *testing.T) {
 	repo := &stubSettingsRepo{upsertErr: errBoom}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD"})
 
@@ -63,7 +64,7 @@ func TestUpdateTenantSettings_propagatesRepoError(t *testing.T) {
 
 func TestUpdateTenantSettings_rejectsNegativeTargetMarkup(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", DefaultTargetMarkupBasisPoints: -1})
 
@@ -72,7 +73,7 @@ func TestUpdateTenantSettings_rejectsNegativeTargetMarkup(t *testing.T) {
 
 func TestUpdateTenantSettings_rejectsBundleConfidenceThresholdBelowZero(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", BundleConfidenceThreshold: -0.01})
 
@@ -81,7 +82,7 @@ func TestUpdateTenantSettings_rejectsBundleConfidenceThresholdBelowZero(t *testi
 
 func TestUpdateTenantSettings_rejectsBundleConfidenceThresholdAboveOne(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", BundleConfidenceThreshold: 1.01})
 
@@ -90,7 +91,7 @@ func TestUpdateTenantSettings_rejectsBundleConfidenceThresholdAboveOne(t *testin
 
 func TestUpdateTenantSettings_allowsBundleConfidenceThresholdOfZero(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", BundleConfidenceThreshold: 0})
 
@@ -100,7 +101,7 @@ func TestUpdateTenantSettings_allowsBundleConfidenceThresholdOfZero(t *testing.T
 
 func TestUpdateTenantSettings_allowsBundleConfidenceThresholdOfOne(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", BundleConfidenceThreshold: 1})
 
@@ -110,7 +111,7 @@ func TestUpdateTenantSettings_allowsBundleConfidenceThresholdOfOne(t *testing.T)
 
 func TestUpdateTenantSettings_rejectsNegativeRecommendationsMinSupport(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", RecommendationsMinSupport: -1})
 
@@ -119,7 +120,7 @@ func TestUpdateTenantSettings_rejectsNegativeRecommendationsMinSupport(t *testin
 
 func TestUpdateTenantSettings_allowsRecommendationsMinSupportOfZero(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", RecommendationsMinSupport: 0})
 
@@ -129,7 +130,7 @@ func TestUpdateTenantSettings_allowsRecommendationsMinSupportOfZero(t *testing.T
 
 func TestUpdateTenantSettings_rejectsNegativeRecommendationsLookbackDays(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", RecommendationsLookbackDays: -1})
 
@@ -138,7 +139,7 @@ func TestUpdateTenantSettings_rejectsNegativeRecommendationsLookbackDays(t *test
 
 func TestUpdateTenantSettings_allowsRecommendationsLookbackDaysOfZero(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", RecommendationsLookbackDays: 0})
 
@@ -150,7 +151,7 @@ func TestUpdateTenantSettings_allowsMarkupOf100PercentAndAbove(t *testing.T) {
 	// Unlike margin (capped under 100%), markup has no upper bound --
 	// 10000 bps (100% markup, price = 2x cost) and above must be accepted.
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", DefaultTargetMarkupBasisPoints: 30000})
 
@@ -160,7 +161,7 @@ func TestUpdateTenantSettings_allowsMarkupOf100PercentAndAbove(t *testing.T) {
 
 func TestUpdateTenantSettings_setsPickingMode(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{PickingMode: "list"})
 
@@ -171,7 +172,7 @@ func TestUpdateTenantSettings_setsPickingMode(t *testing.T) {
 
 func TestUpdateTenantSettings_emptyPickingModeMeansScan(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{})
 
@@ -181,7 +182,7 @@ func TestUpdateTenantSettings_emptyPickingModeMeansScan(t *testing.T) {
 
 func TestUpdateTenantSettings_rejectsUnknownPickingMode(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{PickingMode: "barcode"})
 
@@ -191,7 +192,7 @@ func TestUpdateTenantSettings_rejectsUnknownPickingMode(t *testing.T) {
 
 func TestUpdateTenantSettings_rejectsUnknownTimezone(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{Timezone: "Mars/Olympus"})
 
@@ -201,7 +202,7 @@ func TestUpdateTenantSettings_rejectsUnknownTimezone(t *testing.T) {
 
 func TestUpdateTenantSettings_rejectsUnknownDateFormat(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{DateFormat: "D.M.YY"})
 
@@ -211,7 +212,7 @@ func TestUpdateTenantSettings_rejectsUnknownDateFormat(t *testing.T) {
 
 func TestUpdateTenantSettings_languageDefaultsToEnglish(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "EUR"})
 
@@ -221,7 +222,7 @@ func TestUpdateTenantSettings_languageDefaultsToEnglish(t *testing.T) {
 
 func TestUpdateTenantSettings_keepsSupportedLanguage(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{Language: "pt-BR"})
 
@@ -231,7 +232,7 @@ func TestUpdateTenantSettings_keepsSupportedLanguage(t *testing.T) {
 
 func TestUpdateTenantSettings_rejectsUnsupportedLanguage(t *testing.T) {
 	repo := &stubSettingsRepo{}
-	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{Language: "de"})
 

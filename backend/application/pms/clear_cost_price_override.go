@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -16,10 +17,11 @@ import (
 type ClearCostPriceOverrideUseCase struct {
 	db      *gorm.DB
 	skuRepo pmsDomain.SKURepository
+	outbox  eventrecord.Enqueuer
 }
 
-func NewClearCostPriceOverrideUseCase(db *gorm.DB, skuRepo pmsDomain.SKURepository) *ClearCostPriceOverrideUseCase {
-	return &ClearCostPriceOverrideUseCase{db: db, skuRepo: skuRepo}
+func NewClearCostPriceOverrideUseCase(db *gorm.DB, skuRepo pmsDomain.SKURepository, outbox eventrecord.Enqueuer) *ClearCostPriceOverrideUseCase {
+	return &ClearCostPriceOverrideUseCase{db: db, skuRepo: skuRepo, outbox: outbox}
 }
 
 func (uc *ClearCostPriceOverrideUseCase) Execute(ctx context.Context, skuID string) (*pmsDomain.SKU, error) {
@@ -33,8 +35,10 @@ func (uc *ClearCostPriceOverrideUseCase) Execute(ctx context.Context, skuID stri
 		if err := uc.skuRepo.ClearCostPriceOverride(ctx, skuID); err != nil {
 			return err
 		}
+		before := *sku
 		sku.CostPriceSource = pmsDomain.SKUCostPriceSourceComputed
-		return nil
+		return recordCostPriceChanged(ctx, uc.outbox, before, sku.CostPriceMinorUnits, sku.CostPriceSource,
+			CostPriceChangeReasonOverrideCleared, "", "")
 	})
 	if err != nil {
 		return nil, fmt.Errorf("clearCostPriceOverride: %w", err)

@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/adirkuhn/commerceos/domain/locale"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -30,11 +32,12 @@ type UpdateTenantSettingsInput struct {
 
 type UpdateTenantSettingsUseCase struct {
 	db   *gorm.DB
-	repo settingsDomain.Repository
+	repo   settingsDomain.Repository
+	outbox eventrecord.Enqueuer
 }
 
-func NewUpdateTenantSettingsUseCase(db *gorm.DB, repo settingsDomain.Repository) *UpdateTenantSettingsUseCase {
-	return &UpdateTenantSettingsUseCase{db: db, repo: repo}
+func NewUpdateTenantSettingsUseCase(db *gorm.DB, repo settingsDomain.Repository, outbox eventrecord.Enqueuer) *UpdateTenantSettingsUseCase {
+	return &UpdateTenantSettingsUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTenantSettingsInput) (*settingsDomain.TenantSettings, error) {
@@ -71,6 +74,10 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 
 	var result settingsDomain.TenantSettings
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		before, err := uc.repo.Get(ctx)
+		if err != nil {
+			return err
+		}
 		result = settingsDomain.TenantSettings{
 			TenantID:                       tenant.IDFromContext(ctx),
 			DefaultCurrency:                in.DefaultCurrency,
@@ -88,10 +95,30 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 			PickingMode:                    pickingMode,
 			UpdatedAt:                      time.Now(),
 		}
-		return uc.repo.Upsert(ctx, &result)
+		if err := uc.repo.Upsert(ctx, &result); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.TenantSettingsUpdated, result.TenantID, tenantSettingsChanges(*before, result))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateTenantSettings: %w", err)
 	}
 	return &result, nil
+}
+
+func tenantSettingsChanges(before, after settingsDomain.TenantSettings) eventrecord.Changes {
+	return eventrecord.NewChanges().
+		Set("default_currency", before.DefaultCurrency, after.DefaultCurrency).
+		Set("timezone", before.Timezone, after.Timezone).
+		Set("date_format", string(before.DateFormat), string(after.DateFormat)).
+		Set("language", string(before.Language), string(after.Language)).
+		Set("prices_include_tax", before.PricesIncludeTax, after.PricesIncludeTax).
+		Set("default_tax_country", before.DefaultTaxCountry, after.DefaultTaxCountry).
+		Set("inventory_sync_rules_enabled", before.InventorySyncRulesEnabled, after.InventorySyncRulesEnabled).
+		Set("batch_expiry_threshold_days", before.BatchExpiryThresholdDays, after.BatchExpiryThresholdDays).
+		Set("default_target_markup_basis_points", before.DefaultTargetMarkupBasisPoints, after.DefaultTargetMarkupBasisPoints).
+		Set("bundle_confidence_threshold", before.BundleConfidenceThreshold, after.BundleConfidenceThreshold).
+		Set("recommendations_min_support", before.RecommendationsMinSupport, after.RecommendationsMinSupport).
+		Set("recommendations_lookback_days", before.RecommendationsLookbackDays, after.RecommendationsLookbackDays).
+		Set("picking_mode", string(before.PickingMode), string(after.PickingMode))
 }

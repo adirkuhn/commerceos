@@ -41,7 +41,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	repo := repositories.NewReviewRepo(db)
 	h := NewHandler(
 		appreviews.NewListReviewsUseCase(db, repo),
-		appreviews.NewDeleteReviewUseCase(db, repo),
+		appreviews.NewDeleteReviewUseCase(db, repo, repositories.NewOutboxRepository(db)),
 	)
 	genreviews.RegisterHandlers(rg, h)
 }

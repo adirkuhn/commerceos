@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -51,6 +52,7 @@ type ApplyReceiptCostUseCase struct {
 	skuRepo     skuCostRepositoryForReceiptCost
 	ledgerRepo  pmsDomain.SKUCostPriceLedgerRepository
 	batchLister batchListerForCostPrice
+	outbox      eventrecord.Enqueuer
 }
 
 func NewApplyReceiptCostUseCase(
@@ -58,8 +60,9 @@ func NewApplyReceiptCostUseCase(
 	skuRepo skuCostRepositoryForReceiptCost,
 	ledgerRepo pmsDomain.SKUCostPriceLedgerRepository,
 	batchLister batchListerForCostPrice,
+	outbox eventrecord.Enqueuer,
 ) *ApplyReceiptCostUseCase {
-	return &ApplyReceiptCostUseCase{db: db, skuRepo: skuRepo, ledgerRepo: ledgerRepo, batchLister: batchLister}
+	return &ApplyReceiptCostUseCase{db: db, skuRepo: skuRepo, ledgerRepo: ledgerRepo, batchLister: batchLister, outbox: outbox}
 }
 
 func (uc *ApplyReceiptCostUseCase) Execute(ctx context.Context, in ApplyReceiptCostInput) error {
@@ -119,7 +122,11 @@ func (uc *ApplyReceiptCostUseCase) Execute(ctx context.Context, in ApplyReceiptC
 		if in.ReferenceID != "" {
 			entry.ReferenceID = &in.ReferenceID
 		}
-		return uc.ledgerRepo.Create(ctx, entry)
+		if err := uc.ledgerRepo.Create(ctx, entry); err != nil {
+			return err
+		}
+		return recordCostPriceChanged(ctx, uc.outbox, *sku, &newAvg, sku.CostPriceSource,
+			CostPriceChangeReasonReceipt, in.ReferenceType, in.ReferenceID)
 	})
 	if err != nil {
 		return fmt.Errorf("applyReceiptCost: %w", err)

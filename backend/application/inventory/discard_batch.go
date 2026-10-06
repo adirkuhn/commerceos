@@ -6,6 +6,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -45,6 +46,7 @@ type DiscardBatchUseCase struct {
 	batchRepo         invDomain.BatchRepository
 	markDamagedOrLost damagedOrLostRecorder
 	storage           invDomain.FileStorage
+	outbox            eventrecord.Enqueuer
 }
 
 func NewDiscardBatchUseCase(
@@ -52,8 +54,9 @@ func NewDiscardBatchUseCase(
 	batchRepo invDomain.BatchRepository,
 	markDamagedOrLost damagedOrLostRecorder,
 	storage invDomain.FileStorage,
+	outbox eventrecord.Enqueuer,
 ) *DiscardBatchUseCase {
-	return &DiscardBatchUseCase{db: db, batchRepo: batchRepo, markDamagedOrLost: markDamagedOrLost, storage: storage}
+	return &DiscardBatchUseCase{db: db, batchRepo: batchRepo, markDamagedOrLost: markDamagedOrLost, storage: storage, outbox: outbox}
 }
 
 // Execute uploads the optional photo (external I/O, outside any DB
@@ -95,7 +98,7 @@ func (uc *DiscardBatchUseCase) Execute(ctx context.Context, in DiscardBatchInput
 
 	if in.BatchID != nil {
 		err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-			return uc.batchRepo.MarkReviewed(ctx, *in.BatchID)
+			return markBatchReviewed(ctx, uc.batchRepo, uc.outbox, *in.BatchID, BatchReviewOutcomeDiscarded)
 		})
 		if err != nil {
 			return nil, fmt.Errorf("discardBatch: %w", err)

@@ -3,6 +3,7 @@ package inventory_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,7 @@ import (
 
 func TestUpdateWarehouse_renamesWarehouse(t *testing.T) {
 	repo := &stubWarehouseRepo{findResult: &invDomain.Warehouse{ID: "w1", Name: "Old name"}}
-	uc := appinv.NewUpdateWarehouseUseCase(newMockGormDB(t), repo)
+	uc := appinv.NewUpdateWarehouseUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appinv.UpdateWarehouseInput{ID: "w1", Name: "New name"})
 
@@ -25,7 +26,7 @@ func TestUpdateWarehouse_renamesWarehouse(t *testing.T) {
 
 func TestUpdateWarehouse_updatesAddressFields(t *testing.T) {
 	repo := &stubWarehouseRepo{findResult: &invDomain.Warehouse{ID: "w1", Name: "Main DC", City: "Old City"}}
-	uc := appinv.NewUpdateWarehouseUseCase(newMockGormDB(t), repo)
+	uc := appinv.NewUpdateWarehouseUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), appinv.UpdateWarehouseInput{
 		ID: "w1", Name: "Main DC", Address1: "1 Main St", City: "New City", Province: "IL",
@@ -42,7 +43,7 @@ func TestUpdateWarehouse_updatesAddressFields(t *testing.T) {
 
 func TestUpdateWarehouse_propagatesNotFound(t *testing.T) {
 	repo := &stubWarehouseRepo{findErr: invDomain.ErrWarehouseNotFound}
-	uc := appinv.NewUpdateWarehouseUseCase(newMockGormDB(t), repo)
+	uc := appinv.NewUpdateWarehouseUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appinv.UpdateWarehouseInput{ID: "missing", Name: "New name"})
 
@@ -52,7 +53,7 @@ func TestUpdateWarehouse_propagatesNotFound(t *testing.T) {
 
 func TestUpdateWarehouse_propagatesUpdateError(t *testing.T) {
 	repo := &stubWarehouseRepo{findResult: &invDomain.Warehouse{ID: "w1"}, updateErr: errors.New("db down")}
-	uc := appinv.NewUpdateWarehouseUseCase(newMockGormDB(t), repo)
+	uc := appinv.NewUpdateWarehouseUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appinv.UpdateWarehouseInput{ID: "w1", Name: "New name"})
 

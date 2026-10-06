@@ -52,7 +52,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		EnableVariants: apppms.NewUpdateProductUseCase(db, productRepo, variantRepo,
 			repositories.NewProductChannelListingRepo(db), outboxRepo, repositories.NewProductHistoryRepo(db)),
 		CreateSKU:   apppms.NewCreateSKUUseCase(db, variantRepo, skuRepo, repositories.NewSKUPriceHistoryRepo(db), outboxRepo),
-		CreateBatch: invapp.NewCreateBatchUseCase(db, batchRepo),
+		CreateBatch: invapp.NewCreateBatchUseCase(db, batchRepo, outboxRepo),
 		Portion:     invapp.NewPortionFromBulkUseCase(db, skuRepo, movementRepo, outboxRepo),
 		Stock:       invapp.NewGetScopedStockUseCase(db, movementRepo),
 	})

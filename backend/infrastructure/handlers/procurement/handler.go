@@ -286,7 +286,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 
 	costLedgerRepo := repositories.NewSKUCostPriceLedgerRepo(db)
 	batchListerForCost := invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo)
-	skuCostUpdater := skuCostUpdaterAdapter{uc: pmsapp.NewApplyReceiptCostUseCase(db, skuRepo, costLedgerRepo, batchListerForCost)}
+	skuCostUpdater := skuCostUpdaterAdapter{uc: pmsapp.NewApplyReceiptCostUseCase(db, skuRepo, costLedgerRepo, batchListerForCost, outboxRepo)}
 	costLedgerRecorder := costLedgerRecorderAdapter{uc: pmsapp.NewRecordCostLedgerMovementUseCase(db, skuRepo, costLedgerRepo, batchListerForCost)}
 
 	createPurchaseOrderUC := appprocurement.NewCreatePurchaseOrderUseCase(db, poRepo, outboxRepo)

@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-73 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+93 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -68,7 +68,13 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `inventory.batch.created` | action | A stock batch (lot) was created. data: sku_id, warehouse_id, lot_number, expiry_date. | envelope |
+| `inventory.batch.deleted` | action | An unused stock batch was deleted. data: sku_id, warehouse_id, lot_number. | envelope |
+| `inventory.batch.reviewed` | action | An expired batch was dealt with and leaves the expiry review list. data: sku_id, warehouse_id, outcome -- dismissed (kept as is), written_off (remaining stock written off as lost) or discarded (a quantity discarded by hand). | envelope |
 | `inventory.stock.changed` | typed | InventoryStockChanged is raised whenever a SKU's stock ledger changes — a movement recorded via adjust/recount/transfer/mark-damaged-lost. | `InventoryStockChanged`: event_id, occurred_at, tenant_id, sku_id |
+| `inventory.warehouse.created` | action | A warehouse was created. data: name, country, active. | envelope |
+| `inventory.warehouse.deleted` | action | A warehouse was deleted. data: name. | envelope |
+| `inventory.warehouse.updated` | action | A warehouse changed (changes: name, address1, address2, city, province, zip, country, phone, active). | envelope |
 
 ### newsletter
 
@@ -101,12 +107,24 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `pms.barcode_alias.created` | action | An extra barcode (e.g. a case barcode) was linked to a SKU. data: sku_id, code, units_per_scan. | envelope |
+| `pms.barcode_alias.deleted` | action | An extra barcode was unlinked from its SKU. | envelope |
 | `pms.category.changed` | typed | CategoryChanged is raised whenever a category's fields (name, parent, markup) change. | `CategoryChanged`: event_id, occurred_at, tenant_id, category_id |
+| `pms.category.created` | action | A product category was created. data: name, slug, parent_id. | envelope |
+| `pms.category.deleted` | action | A product category was deleted. data: name. | envelope |
+| `pms.media.deleted` | action | A product or variant image was deleted (its file removed from storage). data: product_id, variant_id. | envelope |
+| `pms.media.uploaded` | action | An image was uploaded for a product or variant. data: product_id, variant_id, url, position. | envelope |
 | `pms.product.changed` | typed | ProductChanged is raised whenever a product's core fields or its default SKU's price/weight/dimensions change. | `ProductChanged`: event_id, occurred_at, tenant_id, product_id |
 | `pms.product.deleted` | typed | ProductDeleted is raised after a product has been deleted. | `ProductDeleted`: event_id, occurred_at, tenant_id, product_id, listings |
+| `pms.product.duplicated` | action | A product was copied (as a draft) with its variants and SKUs; entity_id is the new product. data: source_product_id, variant_count, sku_count. | envelope |
 | `pms.product.merged` | typed | ProductMerged is raised after a duplicate product was merged into an existing one (see domain/pms.ProductMerge): every reference to each duplicate SKU now points at its matched existing SKU, and the duplicate product is deleted (its own pms.product.deleted is raised alongside). | `ProductMerged`: event_id, occurred_at, tenant_id, source_product_id, target_product_id, skus |
 | `pms.product.translated` | typed | ProductTranslated is raised when a product's translated name/description change. | `ProductTranslated`: event_id, occurred_at, tenant_id, product_id |
+| `pms.scale_code_alias.created` | action | An extra scale code (a second weighing scale's PLU) was linked to a SKU. data: sku_id, code. | envelope |
+| `pms.scale_code_alias.deleted` | action | An extra scale code was unlinked from its SKU. | envelope |
+| `pms.sku.cost_price_changed` | action | A SKU's cost price changed (changes: cost_price_minor_units, cost_price_source). data: reason -- receipt (stock received at a landed cost, moving average), correction (a value correction such as a corrected invoice), manual (set by hand, overrides computed cost) or override_cleared (back to the computed cost); reference_type, reference_id. | envelope |
 | `pms.sku.price_per_kilo_changed` | typed | SKUPricePerKiloChanged is raised when a scale-sold weight pool's price per kilo changes. | `SKUPricePerKiloChanged`: event_id, occurred_at, tenant_id, sku_id, old_price_per_kilo_minor_units, new_price_per_kilo_minor_units |
+| `pms.sku_currency_price.deleted` | action | A SKU's fixed price in another currency was removed -- it falls back to exchange-rate conversion (entity_id is the SKU). data: currency_code. | envelope |
+| `pms.sku_currency_price.saved` | action | A SKU's fixed price in another currency was set or changed (entity_id is the SKU; changes: price_minor_units, sale_price_minor_units, sale_end_date). data: currency_code. | envelope |
 | `pms.variant.unlisted` | typed | VariantUnlisted is raised when a variant can no longer be sold on the channels it was listed on -- the variant was deleted, or its last SKU was. | `VariantUnlisted`: event_id, occurred_at, tenant_id, product_id, variant_id, listings |
 
 ### procurement
@@ -138,11 +156,18 @@ Payload (`events.EntityAction`):
 | `procurement.receiving_record.created` | action | A supplier invoice was uploaded against a purchase order to check what was delivered. data: purchase_order_id, file_name, content_type, parsing_job_id, potential_duplicate. | envelope |
 | `procurement.receiving_record.parsed` | action | An uploaded invoice was compared with its purchase order (each difference also raises receiving_discrepancy.detected). data: purchase_order_id, parsing_job_id, discrepancy_count. | envelope |
 
+### reviews
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `reviews.review.deleted` | action | A product review was removed by moderation. | envelope |
+
 ### settings
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
 | `settings.company_profile.updated` | typed | CompanyProfileUpdated is raised when a tenant saves its company profile (legal name, VAT, address... -- the invoice seller block). | `CompanyProfileUpdated`: event_id, occurred_at, tenant_id |
+| `settings.tenant_settings.updated` | action | The tenant's settings changed; entity_id is the tenant (changes: default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, recommendations_min_support, recommendations_lookback_days, picking_mode). | envelope |
 
 ### shipping
 

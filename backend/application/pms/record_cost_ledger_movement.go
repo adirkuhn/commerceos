@@ -1,5 +1,7 @@
 package pms
 
+//events:none cost-ledger audit row mirroring a stock movement, which raises inventory.stock.changed itself; the SKU is not changed.
+
 import (
 	"context"
 	"fmt"

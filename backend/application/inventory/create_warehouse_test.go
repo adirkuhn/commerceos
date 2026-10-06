@@ -2,6 +2,7 @@ package inventory_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 
 func TestCreateWarehouse_setsNameAndTenant(t *testing.T) {
 	warehouseRepo := &stubWarehouseRepo{}
-	uc := appinv.NewCreateWarehouseUseCase(newMockGormDB(t), warehouseRepo)
+	uc := appinv.NewCreateWarehouseUseCase(newMockGormDB(t), warehouseRepo, &eventrecordtest.Outbox{})
 
 	w, err := uc.Execute(context.Background(), appinv.CreateWarehouseInput{Name: "Main DC"})
 
@@ -23,7 +24,7 @@ func TestCreateWarehouse_setsNameAndTenant(t *testing.T) {
 
 func TestCreateWarehouse_setsAddressFields(t *testing.T) {
 	warehouseRepo := &stubWarehouseRepo{}
-	uc := appinv.NewCreateWarehouseUseCase(newMockGormDB(t), warehouseRepo)
+	uc := appinv.NewCreateWarehouseUseCase(newMockGormDB(t), warehouseRepo, &eventrecordtest.Outbox{})
 
 	w, err := uc.Execute(context.Background(), appinv.CreateWarehouseInput{
 		Name: "Main DC", Address1: "1 Main St", Address2: "Suite 100", City: "Springfield",
@@ -43,7 +44,7 @@ func TestCreateWarehouse_setsAddressFields(t *testing.T) {
 
 func TestCreateWarehouse_propagatesRepoError(t *testing.T) {
 	warehouseRepo := &stubWarehouseRepo{createErr: invDomain.ErrWarehouseNotFound}
-	uc := appinv.NewCreateWarehouseUseCase(newMockGormDB(t), warehouseRepo)
+	uc := appinv.NewCreateWarehouseUseCase(newMockGormDB(t), warehouseRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appinv.CreateWarehouseInput{Name: "Main DC"})
 

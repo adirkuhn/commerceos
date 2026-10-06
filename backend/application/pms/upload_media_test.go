@@ -3,6 +3,7 @@ package pms_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"strings"
 	"testing"
 
@@ -17,7 +18,7 @@ func TestUploadMedia_rejectsWhenNoTargetGiven(t *testing.T) {
 	variantRepo := &stubMediaVariantRepo{}
 	mediaRepo := &stubMediaRepo{}
 	fileStorage := &stubFileStorage{}
-	uc := apppms.NewUploadMediaUseCase(newMockGormDBN(t, 0), productRepo, variantRepo, mediaRepo, fileStorage)
+	uc := apppms.NewUploadMediaUseCase(newMockGormDBN(t, 0), productRepo, variantRepo, mediaRepo, fileStorage, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.UploadMediaInput{
 		Filename: "photo.jpg", ContentType: "image/jpeg", Data: strings.NewReader("bytes"),
@@ -34,7 +35,7 @@ func TestUploadMedia_rejectsUnsupportedContentType(t *testing.T) {
 	variantRepo := &stubMediaVariantRepo{}
 	mediaRepo := &stubMediaRepo{}
 	fileStorage := &stubFileStorage{}
-	uc := apppms.NewUploadMediaUseCase(newMockGormDBN(t, 0), productRepo, variantRepo, mediaRepo, fileStorage)
+	uc := apppms.NewUploadMediaUseCase(newMockGormDBN(t, 0), productRepo, variantRepo, mediaRepo, fileStorage, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.UploadMediaInput{
 		ProductID: &productID, Filename: "doc.pdf", ContentType: "application/pdf", Data: strings.NewReader("bytes"),
@@ -51,7 +52,7 @@ func TestUploadMedia_propagatesProductNotFoundWithoutTouchingStorage(t *testing.
 	variantRepo := &stubMediaVariantRepo{}
 	mediaRepo := &stubMediaRepo{}
 	fileStorage := &stubFileStorage{}
-	uc := apppms.NewUploadMediaUseCase(newMockGormDBN(t, 1), productRepo, variantRepo, mediaRepo, fileStorage)
+	uc := apppms.NewUploadMediaUseCase(newMockGormDBN(t, 1), productRepo, variantRepo, mediaRepo, fileStorage, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.UploadMediaInput{
 		ProductID: &productID, Filename: "photo.jpg", ContentType: "image/jpeg", Data: strings.NewReader("bytes"),
@@ -68,7 +69,7 @@ func TestUploadMedia_uploadsForAProductAndAttachesTheResultingURL(t *testing.T) 
 	variantRepo := &stubMediaVariantRepo{}
 	mediaRepo := &stubMediaRepo{byProduct: []pmsDomain.Media{{ID: "existing-1"}}}
 	fileStorage := &stubFileStorage{returnedURL: "https://api.example.com/uploads/tenant-1/abc.jpg"}
-	uc := apppms.NewUploadMediaUseCase(newMockGormDBN(t, 2), productRepo, variantRepo, mediaRepo, fileStorage)
+	uc := apppms.NewUploadMediaUseCase(newMockGormDBN(t, 2), productRepo, variantRepo, mediaRepo, fileStorage, &eventrecordtest.Outbox{})
 
 	media, err := uc.Execute(context.Background(), apppms.UploadMediaInput{
 		ProductID: &productID, Filename: "photo.jpg", ContentType: "image/jpeg",
@@ -94,7 +95,7 @@ func TestUploadMedia_uploadsForAVariant(t *testing.T) {
 	variantRepo := &stubMediaVariantRepo{variant: &pmsDomain.Variant{ID: variantID, TenantID: "tenant-1"}}
 	mediaRepo := &stubMediaRepo{}
 	fileStorage := &stubFileStorage{}
-	uc := apppms.NewUploadMediaUseCase(newMockGormDBN(t, 2), productRepo, variantRepo, mediaRepo, fileStorage)
+	uc := apppms.NewUploadMediaUseCase(newMockGormDBN(t, 2), productRepo, variantRepo, mediaRepo, fileStorage, &eventrecordtest.Outbox{})
 
 	media, err := uc.Execute(context.Background(), apppms.UploadMediaInput{
 		VariantID: &variantID, Filename: "swatch.png", ContentType: "image/png", Data: strings.NewReader("bytes"),
@@ -111,7 +112,7 @@ func TestUploadMedia_doesNotAttachWhenStorageSaveFails(t *testing.T) {
 	variantRepo := &stubMediaVariantRepo{}
 	mediaRepo := &stubMediaRepo{}
 	fileStorage := &stubFileStorage{saveErr: errors.New("disk full")}
-	uc := apppms.NewUploadMediaUseCase(newMockGormDBN(t, 1), productRepo, variantRepo, mediaRepo, fileStorage)
+	uc := apppms.NewUploadMediaUseCase(newMockGormDBN(t, 1), productRepo, variantRepo, mediaRepo, fileStorage, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), apppms.UploadMediaInput{
 		ProductID: &productID, Filename: "photo.jpg", ContentType: "image/jpeg", Data: strings.NewReader("bytes"),

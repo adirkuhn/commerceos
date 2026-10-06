@@ -3,6 +3,7 @@ package inventory_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,7 @@ import (
 func TestDeleteBatch_deletesABatchWithNoMovements(t *testing.T) {
 	batchRepo := &stubBatchRepo{findResult: &invDomain.Batch{ID: "batch-1"}}
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewDeleteBatchUseCase(newMockGormDB(t), batchRepo, movementRepo)
+	uc := appinv.NewDeleteBatchUseCase(newMockGormDB(t), batchRepo, movementRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "batch-1")
 
@@ -25,7 +26,7 @@ func TestDeleteBatch_deletesABatchWithNoMovements(t *testing.T) {
 func TestDeleteBatch_rejectsABatchWithMovements(t *testing.T) {
 	batchRepo := &stubBatchRepo{findResult: &invDomain.Batch{ID: "batch-1"}}
 	movementRepo := &stubStockMovementRepo{byBatch: []invDomain.StockMovement{{ID: "movement-1", BatchID: strPtr("batch-1")}}}
-	uc := appinv.NewDeleteBatchUseCase(newMockGormDB(t), batchRepo, movementRepo)
+	uc := appinv.NewDeleteBatchUseCase(newMockGormDB(t), batchRepo, movementRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "batch-1")
 
@@ -37,7 +38,7 @@ func TestDeleteBatch_rejectsABatchWithMovements(t *testing.T) {
 func TestDeleteBatch_propagatesNotFound(t *testing.T) {
 	batchRepo := &stubBatchRepo{findErr: invDomain.ErrBatchNotFound}
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewDeleteBatchUseCase(newMockGormDB(t), batchRepo, movementRepo)
+	uc := appinv.NewDeleteBatchUseCase(newMockGormDB(t), batchRepo, movementRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 

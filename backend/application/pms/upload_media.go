@@ -6,6 +6,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -33,6 +35,7 @@ type UploadMediaUseCase struct {
 	variantRepo pmsDomain.VariantRepository
 	mediaRepo   pmsDomain.MediaRepository
 	storage     pmsDomain.FileStorage
+	outbox      eventrecord.Enqueuer
 }
 
 func NewUploadMediaUseCase(
@@ -41,8 +44,9 @@ func NewUploadMediaUseCase(
 	variantRepo pmsDomain.VariantRepository,
 	mediaRepo pmsDomain.MediaRepository,
 	storage pmsDomain.FileStorage,
+	outbox eventrecord.Enqueuer,
 ) *UploadMediaUseCase {
-	return &UploadMediaUseCase{db: db, productRepo: productRepo, variantRepo: variantRepo, mediaRepo: mediaRepo, storage: storage}
+	return &UploadMediaUseCase{db: db, productRepo: productRepo, variantRepo: variantRepo, mediaRepo: mediaRepo, storage: storage, outbox: outbox}
 }
 
 // Execute validates the target and content type, saves the file to storage,
@@ -100,7 +104,12 @@ func (uc *UploadMediaUseCase) Execute(ctx context.Context, in UploadMediaInput) 
 			AltText:   in.AltText,
 			CreatedAt: time.Now(),
 		}
-		return uc.mediaRepo.Attach(ctx, &media)
+		if err := uc.mediaRepo.Attach(ctx, &media); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.MediaUploaded, media.ID, eventrecord.Data{
+			"product_id": media.ProductID, "variant_id": media.VariantID, "url": media.URL, "position": media.Position,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("uploadMedia: %w", err)

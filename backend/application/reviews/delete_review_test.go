@@ -3,6 +3,7 @@ package reviews_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 
 func TestDeleteReview_deletesByID(t *testing.T) {
 	repo := &fakeReviewRepo{}
-	uc := appreviews.NewDeleteReviewUseCase(newMockGormDB(t, 1), repo)
+	uc := appreviews.NewDeleteReviewUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "review-1")
 
@@ -22,7 +23,7 @@ func TestDeleteReview_deletesByID(t *testing.T) {
 
 func TestDeleteReview_propagatesRepoError(t *testing.T) {
 	repo := &fakeReviewRepo{deleteErr: errors.New("boom")}
-	uc := appreviews.NewDeleteReviewUseCase(newMockGormDB(t, 1), repo)
+	uc := appreviews.NewDeleteReviewUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "review-1")
 

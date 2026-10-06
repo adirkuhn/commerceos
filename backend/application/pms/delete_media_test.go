@@ -3,6 +3,7 @@ package pms_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,7 @@ import (
 func TestDeleteMedia_deletesDBRowThenTheStoredFile(t *testing.T) {
 	mediaRepo := &stubMediaRepo{findResult: &pmsDomain.Media{ID: "media-1", URL: "https://api.example.com/uploads/t1/x.jpg"}}
 	fileStorage := &stubFileStorage{}
-	uc := apppms.NewDeleteMediaUseCase(newMockGormDBN(t, 1), mediaRepo, fileStorage)
+	uc := apppms.NewDeleteMediaUseCase(newMockGormDBN(t, 1), mediaRepo, fileStorage, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "media-1")
 
@@ -26,7 +27,7 @@ func TestDeleteMedia_deletesDBRowThenTheStoredFile(t *testing.T) {
 func TestDeleteMedia_propagatesNotFoundWithoutTouchingStorage(t *testing.T) {
 	mediaRepo := &stubMediaRepo{}
 	fileStorage := &stubFileStorage{}
-	uc := apppms.NewDeleteMediaUseCase(newMockGormDBN(t, 1), mediaRepo, fileStorage)
+	uc := apppms.NewDeleteMediaUseCase(newMockGormDBN(t, 1), mediaRepo, fileStorage, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 
@@ -38,7 +39,7 @@ func TestDeleteMedia_propagatesNotFoundWithoutTouchingStorage(t *testing.T) {
 func TestDeleteMedia_surfacesStorageDeleteFailureAfterDBRowIsAlreadyGone(t *testing.T) {
 	mediaRepo := &stubMediaRepo{findResult: &pmsDomain.Media{ID: "media-1", URL: "https://api.example.com/uploads/t1/x.jpg"}}
 	fileStorage := &stubFileStorage{deleteErr: errors.New("permission denied")}
-	uc := apppms.NewDeleteMediaUseCase(newMockGormDBN(t, 1), mediaRepo, fileStorage)
+	uc := apppms.NewDeleteMediaUseCase(newMockGormDBN(t, 1), mediaRepo, fileStorage, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "media-1")
 

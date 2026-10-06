@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -25,10 +27,11 @@ type CreateWarehouseInput struct {
 type CreateWarehouseUseCase struct {
 	db            *gorm.DB
 	warehouseRepo invDomain.WarehouseRepository
+	outbox        eventrecord.Enqueuer
 }
 
-func NewCreateWarehouseUseCase(db *gorm.DB, warehouseRepo invDomain.WarehouseRepository) *CreateWarehouseUseCase {
-	return &CreateWarehouseUseCase{db: db, warehouseRepo: warehouseRepo}
+func NewCreateWarehouseUseCase(db *gorm.DB, warehouseRepo invDomain.WarehouseRepository, outbox eventrecord.Enqueuer) *CreateWarehouseUseCase {
+	return &CreateWarehouseUseCase{db: db, warehouseRepo: warehouseRepo, outbox: outbox}
 }
 
 func (uc *CreateWarehouseUseCase) Execute(ctx context.Context, in CreateWarehouseInput) (*invDomain.Warehouse, error) {
@@ -49,7 +52,12 @@ func (uc *CreateWarehouseUseCase) Execute(ctx context.Context, in CreateWarehous
 			CreatedAt: now,
 			UpdatedAt: now,
 		}
-		return uc.warehouseRepo.Create(ctx, &warehouse)
+		if err := uc.warehouseRepo.Create(ctx, &warehouse); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.WarehouseCreated, warehouse.ID, eventrecord.Data{
+			"name": warehouse.Name, "country": warehouse.Country, "active": warehouse.Active,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createWarehouse: %w", err)

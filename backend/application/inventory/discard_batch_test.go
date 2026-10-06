@@ -2,6 +2,7 @@ package inventory_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"strings"
 	"testing"
 
@@ -12,10 +13,10 @@ import (
 )
 
 func TestDiscardBatch_recordsALostMovementViaMarkDamagedOrLost(t *testing.T) {
-	batchRepo := &stubBatchRepo{}
+	batchRepo := &stubBatchRepo{findResult: &invDomain.Batch{ID: "batch-1"}}
 	recorder := &stubDamagedOrLostRecorder{}
 	storage := &stubFileStorage{}
-	uc := appinv.NewDiscardBatchUseCase(newMockGormDB(t), batchRepo, recorder, storage)
+	uc := appinv.NewDiscardBatchUseCase(newMockGormDB(t), batchRepo, recorder, storage, &eventrecordtest.Outbox{})
 
 	batchID := "batch-1"
 	record, err := uc.Execute(context.Background(), appinv.DiscardBatchInput{
@@ -38,10 +39,10 @@ func TestDiscardBatch_recordsALostMovementViaMarkDamagedOrLost(t *testing.T) {
 }
 
 func TestDiscardBatch_generalLedgerDiscardHasNoBatchToMarkReviewed(t *testing.T) {
-	batchRepo := &stubBatchRepo{}
+	batchRepo := &stubBatchRepo{findResult: &invDomain.Batch{ID: "batch-1"}}
 	recorder := &stubDamagedOrLostRecorder{}
 	storage := &stubFileStorage{}
-	uc := appinv.NewDiscardBatchUseCase(newMockGormDB(t), batchRepo, recorder, storage)
+	uc := appinv.NewDiscardBatchUseCase(newMockGormDB(t), batchRepo, recorder, storage, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appinv.DiscardBatchInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", BatchID: nil, Quantity: 3, Reason: "expired",
@@ -53,10 +54,10 @@ func TestDiscardBatch_generalLedgerDiscardHasNoBatchToMarkReviewed(t *testing.T)
 }
 
 func TestDiscardBatch_uploadsAnOptionalPhotoBeforeRecordingTheDiscard(t *testing.T) {
-	batchRepo := &stubBatchRepo{}
+	batchRepo := &stubBatchRepo{findResult: &invDomain.Batch{ID: "batch-1"}}
 	recorder := &stubDamagedOrLostRecorder{}
 	storage := &stubFileStorage{saveURL: "https://example.com/photo.jpg"}
-	uc := appinv.NewDiscardBatchUseCase(newMockGormDB(t), batchRepo, recorder, storage)
+	uc := appinv.NewDiscardBatchUseCase(newMockGormDB(t), batchRepo, recorder, storage, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appinv.DiscardBatchInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Quantity: 2, Reason: "expired",
@@ -71,7 +72,7 @@ func TestDiscardBatch_uploadsAnOptionalPhotoBeforeRecordingTheDiscard(t *testing
 }
 
 func TestDiscardBatch_rejectsAnUnsupportedPhotoContentType(t *testing.T) {
-	uc := appinv.NewDiscardBatchUseCase(newMockGormDB(t), &stubBatchRepo{}, &stubDamagedOrLostRecorder{}, &stubFileStorage{})
+	uc := appinv.NewDiscardBatchUseCase(newMockGormDB(t), &stubBatchRepo{findResult: &invDomain.Batch{ID: "batch-1"}}, &stubDamagedOrLostRecorder{}, &stubFileStorage{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appinv.DiscardBatchInput{
 		SKUID: "sku-1", WarehouseID: "wh-1", Quantity: 2, Reason: "expired",
@@ -82,7 +83,7 @@ func TestDiscardBatch_rejectsAnUnsupportedPhotoContentType(t *testing.T) {
 }
 
 func TestDiscardBatch_rejectsNonPositiveQuantity(t *testing.T) {
-	uc := appinv.NewDiscardBatchUseCase(newMockGormDB(t), &stubBatchRepo{}, &stubDamagedOrLostRecorder{}, &stubFileStorage{})
+	uc := appinv.NewDiscardBatchUseCase(newMockGormDB(t), &stubBatchRepo{findResult: &invDomain.Batch{ID: "batch-1"}}, &stubDamagedOrLostRecorder{}, &stubFileStorage{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appinv.DiscardBatchInput{SKUID: "sku-1", WarehouseID: "wh-1", Quantity: 0})
 
@@ -91,7 +92,7 @@ func TestDiscardBatch_rejectsNonPositiveQuantity(t *testing.T) {
 
 func TestDiscardBatch_propagatesInsufficientStockFromTheMovementRecorder(t *testing.T) {
 	recorder := &stubDamagedOrLostRecorder{err: invDomain.ErrInsufficientStock}
-	uc := appinv.NewDiscardBatchUseCase(newMockGormDB(t), &stubBatchRepo{}, recorder, &stubFileStorage{})
+	uc := appinv.NewDiscardBatchUseCase(newMockGormDB(t), &stubBatchRepo{findResult: &invDomain.Batch{ID: "batch-1"}}, recorder, &stubFileStorage{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appinv.DiscardBatchInput{SKUID: "sku-1", WarehouseID: "wh-1", Quantity: 100})
 

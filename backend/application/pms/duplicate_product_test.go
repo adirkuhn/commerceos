@@ -3,6 +3,7 @@ package pms_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -100,7 +101,7 @@ func TestDuplicateProduct_clonesProductVariantsAndSKUsAsDraft(t *testing.T) {
 	productRepo := &stubDupProductRepo{source: source, takenSlugs: map[string]bool{}}
 	variantRepo := &stubDupVariantRepo{source: []pmsDomain.Variant{sourceVariant}}
 	skuRepo := &stubDupSKURepo{byVariant: map[string][]pmsDomain.SKU{"variant-1": {sourceSKU}}, takenCodes: map[string]bool{}}
-	uc := apppms.NewDuplicateProductUseCase(newMockGormDB(t), productRepo, variantRepo, skuRepo)
+	uc := apppms.NewDuplicateProductUseCase(newMockGormDB(t), productRepo, variantRepo, skuRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "source-1")
 
@@ -141,7 +142,7 @@ func TestDuplicateProduct_neverRaisesProductChanged(t *testing.T) {
 	productRepo := &stubDupProductRepo{source: source, takenSlugs: map[string]bool{}}
 	variantRepo := &stubDupVariantRepo{}
 	skuRepo := &stubDupSKURepo{}
-	_ = apppms.NewDuplicateProductUseCase(newMockGormDB(t), productRepo, variantRepo, skuRepo)
+	_ = apppms.NewDuplicateProductUseCase(newMockGormDB(t), productRepo, variantRepo, skuRepo, &eventrecordtest.Outbox{})
 }
 
 func TestDuplicateProduct_retriesNameOnSlugCollision(t *testing.T) {
@@ -149,7 +150,7 @@ func TestDuplicateProduct_retriesNameOnSlugCollision(t *testing.T) {
 	productRepo := &stubDupProductRepo{source: source, takenSlugs: map[string]bool{"widget-copy": true}}
 	variantRepo := &stubDupVariantRepo{}
 	skuRepo := &stubDupSKURepo{}
-	uc := apppms.NewDuplicateProductUseCase(newMockGormDB(t), productRepo, variantRepo, skuRepo)
+	uc := apppms.NewDuplicateProductUseCase(newMockGormDB(t), productRepo, variantRepo, skuRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "source-1")
 
@@ -167,7 +168,7 @@ func TestDuplicateProduct_retriesSKUCodeOnCollision(t *testing.T) {
 	productRepo := &stubDupProductRepo{source: source, takenSlugs: map[string]bool{}}
 	variantRepo := &stubDupVariantRepo{source: []pmsDomain.Variant{sourceVariant}}
 	skuRepo := &stubDupSKURepo{byVariant: map[string][]pmsDomain.SKU{"variant-1": {sourceSKU}}, takenCodes: map[string]bool{"WID-1-COPY": true}}
-	uc := apppms.NewDuplicateProductUseCase(newMockGormDB(t), productRepo, variantRepo, skuRepo)
+	uc := apppms.NewDuplicateProductUseCase(newMockGormDB(t), productRepo, variantRepo, skuRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "source-1")
 
@@ -178,7 +179,7 @@ func TestDuplicateProduct_retriesSKUCodeOnCollision(t *testing.T) {
 
 func TestDuplicateProduct_propagatesSourceNotFound(t *testing.T) {
 	productRepo := &stubDupProductRepo{findByIDErr: pmsDomain.ErrProductNotFound}
-	uc := apppms.NewDuplicateProductUseCase(newMockGormDB(t), productRepo, &stubDupVariantRepo{}, &stubDupSKURepo{})
+	uc := apppms.NewDuplicateProductUseCase(newMockGormDB(t), productRepo, &stubDupVariantRepo{}, &stubDupSKURepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing")
 

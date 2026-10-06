@@ -2,6 +2,7 @@ package pms_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,7 +12,7 @@ import (
 
 func TestDeleteSKUCurrencyPriceUseCase_Execute(t *testing.T) {
 	repo := &stubSKUCurrencyPriceRepo{}
-	uc := apppms.NewDeleteSKUCurrencyPriceUseCase(newMockGormDBN(t, 1), repo)
+	uc := apppms.NewDeleteSKUCurrencyPriceUseCase(newMockGormDBN(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "sku-1", "USD")
 	require.NoError(t, err)

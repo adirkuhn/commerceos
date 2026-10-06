@@ -3,6 +3,7 @@ package inventory_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,7 @@ import (
 
 func TestDeleteWarehouse_deletesExisting(t *testing.T) {
 	repo := &stubWarehouseRepo{findResult: &invDomain.Warehouse{ID: "w1"}}
-	uc := appinv.NewDeleteWarehouseUseCase(newMockGormDB(t), repo)
+	uc := appinv.NewDeleteWarehouseUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "w1")
 
@@ -23,7 +24,7 @@ func TestDeleteWarehouse_deletesExisting(t *testing.T) {
 
 func TestDeleteWarehouse_propagatesNotFound(t *testing.T) {
 	repo := &stubWarehouseRepo{findErr: invDomain.ErrWarehouseNotFound}
-	uc := appinv.NewDeleteWarehouseUseCase(newMockGormDB(t), repo)
+	uc := appinv.NewDeleteWarehouseUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 
@@ -34,7 +35,7 @@ func TestDeleteWarehouse_propagatesNotFound(t *testing.T) {
 
 func TestDeleteWarehouse_propagatesDeleteError(t *testing.T) {
 	repo := &stubWarehouseRepo{findResult: &invDomain.Warehouse{ID: "w1"}, deleteErr: errors.New("in use")}
-	uc := appinv.NewDeleteWarehouseUseCase(newMockGormDB(t), repo)
+	uc := appinv.NewDeleteWarehouseUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "w1")
 

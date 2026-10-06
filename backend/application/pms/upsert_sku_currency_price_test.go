@@ -2,6 +2,7 @@ package pms_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -14,14 +15,14 @@ import (
 
 func TestUpsertSKUCurrencyPriceUseCase_Execute(t *testing.T) {
 	t.Run("rejects an invalid currency code", func(t *testing.T) {
-		uc := apppms.NewUpsertSKUCurrencyPriceUseCase(newMockGormDBN(t, 0), &stubSKURepo{}, &stubSKUCurrencyPriceRepo{})
+		uc := apppms.NewUpsertSKUCurrencyPriceUseCase(newMockGormDBN(t, 0), &stubSKURepo{}, &stubSKUCurrencyPriceRepo{}, &eventrecordtest.Outbox{})
 
 		_, err := uc.Execute(context.Background(), apppms.UpsertSKUCurrencyPriceInput{SKUID: "sku-1", CurrencyCode: "usd", PriceMinorUnits: 1000})
 		require.ErrorIs(t, err, fxDomain.ErrInvalidCurrencyCode)
 	})
 
 	t.Run("rejects a sale price exceeding the regular price", func(t *testing.T) {
-		uc := apppms.NewUpsertSKUCurrencyPriceUseCase(newMockGormDBN(t, 0), &stubSKURepo{}, &stubSKUCurrencyPriceRepo{})
+		uc := apppms.NewUpsertSKUCurrencyPriceUseCase(newMockGormDBN(t, 0), &stubSKURepo{}, &stubSKUCurrencyPriceRepo{}, &eventrecordtest.Outbox{})
 
 		_, err := uc.Execute(context.Background(), apppms.UpsertSKUCurrencyPriceInput{
 			SKUID: "sku-1", CurrencyCode: "USD", PriceMinorUnits: 1000, SalePriceMinorUnits: int64Ptr(1200),
@@ -30,7 +31,7 @@ func TestUpsertSKUCurrencyPriceUseCase_Execute(t *testing.T) {
 	})
 
 	t.Run("rejects a sale end date with no sale price", func(t *testing.T) {
-		uc := apppms.NewUpsertSKUCurrencyPriceUseCase(newMockGormDBN(t, 0), &stubSKURepo{}, &stubSKUCurrencyPriceRepo{})
+		uc := apppms.NewUpsertSKUCurrencyPriceUseCase(newMockGormDBN(t, 0), &stubSKURepo{}, &stubSKUCurrencyPriceRepo{}, &eventrecordtest.Outbox{})
 		end := time.Now()
 
 		_, err := uc.Execute(context.Background(), apppms.UpsertSKUCurrencyPriceInput{
@@ -42,7 +43,7 @@ func TestUpsertSKUCurrencyPriceUseCase_Execute(t *testing.T) {
 	t.Run("upserts a valid override", func(t *testing.T) {
 		skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1"}}
 		repo := &stubSKUCurrencyPriceRepo{}
-		uc := apppms.NewUpsertSKUCurrencyPriceUseCase(newMockGormDBN(t, 1), skuRepo, repo)
+		uc := apppms.NewUpsertSKUCurrencyPriceUseCase(newMockGormDBN(t, 1), skuRepo, repo, &eventrecordtest.Outbox{})
 
 		price, err := uc.Execute(context.Background(), apppms.UpsertSKUCurrencyPriceInput{
 			SKUID: "sku-1", CurrencyCode: "USD", PriceMinorUnits: 1200, SalePriceMinorUnits: int64Ptr(999),
@@ -55,7 +56,7 @@ func TestUpsertSKUCurrencyPriceUseCase_Execute(t *testing.T) {
 
 	t.Run("propagates sku not found", func(t *testing.T) {
 		skuRepo := &stubSKURepo{findByIDErr: pmsDomain.ErrSKUNotFound}
-		uc := apppms.NewUpsertSKUCurrencyPriceUseCase(newMockGormDBN(t, 1), skuRepo, &stubSKUCurrencyPriceRepo{})
+		uc := apppms.NewUpsertSKUCurrencyPriceUseCase(newMockGormDBN(t, 1), skuRepo, &stubSKUCurrencyPriceRepo{}, &eventrecordtest.Outbox{})
 
 		_, err := uc.Execute(context.Background(), apppms.UpsertSKUCurrencyPriceInput{SKUID: "missing", CurrencyCode: "USD", PriceMinorUnits: 1000})
 		require.ErrorIs(t, err, pmsDomain.ErrSKUNotFound)

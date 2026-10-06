@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -26,10 +28,11 @@ type UpdateWarehouseInput struct {
 type UpdateWarehouseUseCase struct {
 	db            *gorm.DB
 	warehouseRepo invDomain.WarehouseRepository
+	outbox        eventrecord.Enqueuer
 }
 
-func NewUpdateWarehouseUseCase(db *gorm.DB, warehouseRepo invDomain.WarehouseRepository) *UpdateWarehouseUseCase {
-	return &UpdateWarehouseUseCase{db: db, warehouseRepo: warehouseRepo}
+func NewUpdateWarehouseUseCase(db *gorm.DB, warehouseRepo invDomain.WarehouseRepository, outbox eventrecord.Enqueuer) *UpdateWarehouseUseCase {
+	return &UpdateWarehouseUseCase{db: db, warehouseRepo: warehouseRepo, outbox: outbox}
 }
 
 func (uc *UpdateWarehouseUseCase) Execute(ctx context.Context, in UpdateWarehouseInput) (*invDomain.Warehouse, error) {
@@ -39,6 +42,7 @@ func (uc *UpdateWarehouseUseCase) Execute(ctx context.Context, in UpdateWarehous
 		if err != nil {
 			return err
 		}
+		before := *existing
 		existing.Name = in.Name
 		existing.Address1 = in.Address1
 		existing.Address2 = in.Address2
@@ -53,7 +57,16 @@ func (uc *UpdateWarehouseUseCase) Execute(ctx context.Context, in UpdateWarehous
 			return err
 		}
 		warehouse = *existing
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.WarehouseUpdated, warehouse.ID, eventrecord.NewChanges().
+			Set("name", before.Name, warehouse.Name).
+			Set("address1", before.Address1, warehouse.Address1).
+			Set("address2", before.Address2, warehouse.Address2).
+			Set("city", before.City, warehouse.City).
+			Set("province", before.Province, warehouse.Province).
+			Set("zip", before.Zip, warehouse.Zip).
+			Set("country", before.Country, warehouse.Country).
+			Set("phone", before.Phone, warehouse.Phone).
+			Set("active", before.Active, warehouse.Active))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateWarehouse: %w", err)
