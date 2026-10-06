@@ -1,6 +1,7 @@
 package scheduler_test
 
 import (
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"context"
 	"errors"
 	"testing"
@@ -17,7 +18,7 @@ func TestRunJobNow_runsAndRecordsSuccess(t *testing.T) {
 		"expired_sale_prices": {JobKey: "expired_sale_prices", IntervalMinutes: 1},
 	}}
 	runner := &stubJobRunner{}
-	uc := appscheduler.NewRunJobNowUseCase(newMockGormDBN(t, 2), jobRepo, map[string]appscheduler.JobRunner{"expired_sale_prices": runner})
+	uc := appscheduler.NewRunJobNowUseCase(newMockGormDBN(t, 2), jobRepo, map[string]appscheduler.JobRunner{"expired_sale_prices": runner}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "expired_sale_prices")
 
@@ -34,7 +35,7 @@ func TestRunJobNow_recordsFailureButStillReturnsTheRunError(t *testing.T) {
 		"expired_batches": {JobKey: "expired_batches", IntervalMinutes: 1},
 	}}
 	runner := &stubJobRunner{err: errors.New("db unreachable")}
-	uc := appscheduler.NewRunJobNowUseCase(newMockGormDBN(t, 2), jobRepo, map[string]appscheduler.JobRunner{"expired_batches": runner})
+	uc := appscheduler.NewRunJobNowUseCase(newMockGormDBN(t, 2), jobRepo, map[string]appscheduler.JobRunner{"expired_batches": runner}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "expired_batches")
 
@@ -46,9 +47,24 @@ func TestRunJobNow_recordsFailureButStillReturnsTheRunError(t *testing.T) {
 
 func TestRunJobNow_unknownJobKeyIsNotFound(t *testing.T) {
 	jobRepo := &stubJobRepo{}
-	uc := appscheduler.NewRunJobNowUseCase(newMockGormDB(t), jobRepo, map[string]appscheduler.JobRunner{})
+	uc := appscheduler.NewRunJobNowUseCase(newMockGormDB(t), jobRepo, map[string]appscheduler.JobRunner{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "not-a-real-job")
 
 	require.ErrorIs(t, err, schedulerDomain.ErrJobNotFound)
+}
+
+func TestRunJobNow_RecordsTheTriggeredRun(t *testing.T) {
+	jobRepo := &stubJobRepo{byKey: map[string]schedulerDomain.Job{"expired_batches": {JobKey: "expired_batches", IntervalMinutes: 1}}}
+	outbox := &eventrecordtest.Outbox{}
+	uc := appscheduler.NewRunJobNowUseCase(newMockGormDBN(t, 2), jobRepo,
+		map[string]appscheduler.JobRunner{"expired_batches": &stubJobRunner{err: errors.New("db locked")}}, outbox)
+
+	_ = uc.Execute(context.Background(), "expired_batches")
+
+	e, err := outbox.Only()
+	require.NoError(t, err)
+	require.Equal(t, "scheduler.job.run_triggered", e.Subject)
+	require.Equal(t, "expired_batches", e.Payload["entity_id"])
+	require.Equal(t, map[string]any{"status": "error", "error": "db locked"}, e.Data())
 }

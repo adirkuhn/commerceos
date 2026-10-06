@@ -1,6 +1,8 @@
 package channels
 
 import (
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"context"
 	"fmt"
 
@@ -18,15 +20,19 @@ import (
 type DismissFailedSyncUseCase struct {
 	db          *gorm.DB
 	syncLogRepo channelsDomain.SyncLogRepository
+	outbox      eventrecord.Enqueuer
 }
 
-func NewDismissFailedSyncUseCase(db *gorm.DB, syncLogRepo channelsDomain.SyncLogRepository) *DismissFailedSyncUseCase {
-	return &DismissFailedSyncUseCase{db: db, syncLogRepo: syncLogRepo}
+func NewDismissFailedSyncUseCase(db *gorm.DB, syncLogRepo channelsDomain.SyncLogRepository, outbox eventrecord.Enqueuer) *DismissFailedSyncUseCase {
+	return &DismissFailedSyncUseCase{db: db, syncLogRepo: syncLogRepo, outbox: outbox}
 }
 
 func (uc *DismissFailedSyncUseCase) Execute(ctx context.Context, syncLogEntryID string) error {
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.syncLogRepo.Dismiss(ctx, syncLogEntryID)
+		if err := uc.syncLogRepo.Dismiss(ctx, syncLogEntryID); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.SyncLogEntryDismissed, syncLogEntryID)
 	})
 	if err != nil {
 		return fmt.Errorf("dismissFailedSync: %w", err)

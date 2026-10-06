@@ -1,6 +1,8 @@
 package scheduler
 
 import (
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"context"
 	"fmt"
 	"time"
@@ -29,10 +31,11 @@ type RunJobNowUseCase struct {
 	db      *gorm.DB
 	jobRepo schedulerDomain.JobRepository
 	runners map[string]JobRunner
+	outbox  eventrecord.Enqueuer
 }
 
-func NewRunJobNowUseCase(db *gorm.DB, jobRepo schedulerDomain.JobRepository, runners map[string]JobRunner) *RunJobNowUseCase {
-	return &RunJobNowUseCase{db: db, jobRepo: jobRepo, runners: runners}
+func NewRunJobNowUseCase(db *gorm.DB, jobRepo schedulerDomain.JobRepository, runners map[string]JobRunner, outbox eventrecord.Enqueuer) *RunJobNowUseCase {
+	return &RunJobNowUseCase{db: db, jobRepo: jobRepo, runners: runners, outbox: outbox}
 }
 
 func (uc *RunJobNowUseCase) Execute(ctx context.Context, jobKey string) error {
@@ -61,7 +64,12 @@ func (uc *RunJobNowUseCase) Execute(ctx context.Context, jobKey string) error {
 	nextRunAt := ranAt.Add(time.Duration(job.IntervalMinutes) * time.Minute)
 
 	recordErr := tenant.WithTenant(adminCtx, uc.db, func(ctx context.Context) error {
-		return uc.jobRepo.RecordRunResult(ctx, jobKey, ranAt, status, errMsg, nextRunAt)
+		if err := uc.jobRepo.RecordRunResult(ctx, jobKey, ranAt, status, errMsg, nextRunAt); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.SchedulerJobRunTriggered, jobKey, eventrecord.Data{
+			"status": status, "error": errMsg,
+		})
 	})
 	if recordErr != nil {
 		return fmt.Errorf("runJobNow: %w", recordErr)

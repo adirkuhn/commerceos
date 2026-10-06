@@ -1,3 +1,4 @@
+//events:none writes nothing locally -- only asks the card provider for a payment intent; the order raises storefront.order.placed
 package storefront
 
 import (

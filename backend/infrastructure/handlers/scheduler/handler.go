@@ -123,7 +123,7 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 
 	h := NewHandler(
 		appscheduler.NewListJobsUseCase(db, jobRepo),
-		appscheduler.NewRunJobNowUseCase(db, jobRepo, runners),
+		appscheduler.NewRunJobNowUseCase(db, jobRepo, runners, repositories.NewOutboxRepository(db)),
 		appscheduler.NewUpdateJobConfigUseCase(db, jobRepo, outboxRepo),
 		appchannels.NewListAllSyncSchedulesUseCase(db, scheduleRepo, connRepo),
 		appchannels.NewTriggerSyncScheduleNowUseCase(db, scheduleRepo),

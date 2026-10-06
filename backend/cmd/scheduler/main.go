@@ -143,7 +143,7 @@ func main() {
 		schedulerDomain.JobCostPriceRecalculation: schedulerapp.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC),
 		schedulerDomain.JobPromotionActivation:    schedulerapp.NewRunPromotionActivationUseCase(db, promotionSKURepo, applyPromotionSKUUC, revertPromotionSKUUC, promotionSKURepo, finishClearanceLinesUC),
 	}
-	runJobNowUC := schedulerapp.NewRunJobNowUseCase(db, jobRepo, jobRunners)
+	runJobNowUC := schedulerapp.NewRunJobNowUseCase(db, jobRepo, jobRunners, outboxRepo)
 	categoryLinkRepo := repositories.NewExternalCategoryLinkRepo(db)
 	resolveCategoryLinkUC := channelsapp.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo, repositories.NewOutboxRepository(db))
 	pushUC := channelsapp.NewPushProductToWooUseCase(

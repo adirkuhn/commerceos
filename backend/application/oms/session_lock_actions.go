@@ -1,3 +1,4 @@
+//events:none releasing a picking/packing session lock is lock bookkeeping (2-minute TTL), not a business change
 package oms
 
 import (

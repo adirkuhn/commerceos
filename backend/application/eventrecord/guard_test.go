@@ -33,33 +33,66 @@ func TestEveryWriteRaisesAnEvent(t *testing.T) {
 		if !d.IsDir() {
 			continue
 		}
-		files := parsePackage(t, filepath.Join(root, d.Name()))
-		recorders := recordingFuncs(files)
-		for name, f := range files {
-			if needsEvent(f, recorders) {
-				violators = append(violators, d.Name()+"/"+name)
-			}
+		pkg := parsePackage(t, filepath.Join(root, d.Name()))
+		for _, v := range pkg.violations() {
+			violators = append(violators, d.Name()+"/"+v)
 		}
 	}
+	slices.Sort(violators)
 
 	for _, v := range violators {
-		assert.Contains(t, pendingEvents, v, "%s writes without raising an event -- record one (eventrecord.Record) or add an //events: directive", v)
+		assert.Contains(t, pendingEvents, v, "%s writes without raising an event -- record one (eventrecord.Record) or add an //events: directive to its file", v)
 	}
 	for _, p := range pendingEvents {
 		assert.True(t, slices.Contains(violators, p), "%s raises its event now -- remove it from pendingEvents", p)
 	}
 }
 
-type parsedFile struct {
-	ast       *ast.File
-	directive bool
+// writeMethod: repository calls that change state. notWrites are
+// write-looking names of non-persistence calls (time, maps, URLs, slices).
+var (
+	writeMethod = regexp.MustCompile(`^(Create|Update|Delete|Save|Upsert|Insert|Replace|Remove|Add|Set|Mark|Clear|Attach|Link|Unlink|Increment|Decrement|Append|Archive|Restore|Assign|Complete|Cancel|Reset|Move|Bulk|Revoke|Grant|Claim|Toggle|Approve|Reject|Publish|Unpublish|Activate|Deactivate|Enable|Disable|Expire|Confirm|Adjust|Transfer|Reserve|Release|Rename|Merge|Record|Touch|Purge|Prune|Dismiss|Acknowledge)`)
+	notWrites  = []string{"Add", "AddDate", "Set", "SetString", "Record", "Replace"}
+)
+
+// pkgFuncs is one application package: every function/method body by
+// name (methods as Type.Name), for following calls into unexported helpers.
+type pkgFuncs struct {
+	funcs     map[string]*ast.FuncDecl // "Type.method" or "func"
+	files     map[*ast.FuncDecl]string
+	directive map[string]bool // file has an //events: directive
 }
 
-func parsePackage(t *testing.T, dir string) map[string]parsedFile {
+func funcKey(fn *ast.FuncDecl) string {
+	if fn.Recv == nil {
+		return fn.Name.Name
+	}
+	return recvType(fn) + "." + fn.Name.Name
+}
+
+func recvType(fn *ast.FuncDecl) string {
+	t := fn.Recv.List[0].Type
+	if star, ok := t.(*ast.StarExpr); ok {
+		t = star.X
+	}
+	if id, ok := t.(*ast.Ident); ok {
+		return id.Name
+	}
+	return ""
+}
+
+func recvName(fn *ast.FuncDecl) string {
+	if fn.Recv == nil || len(fn.Recv.List[0].Names) == 0 {
+		return ""
+	}
+	return fn.Recv.List[0].Names[0].Name
+}
+
+func parsePackage(t *testing.T, dir string) pkgFuncs {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
 	require.NoError(t, err)
-	out := map[string]parsedFile{}
+	p := pkgFuncs{funcs: map[string]*ast.FuncDecl{}, files: map[*ast.FuncDecl]string{}, directive: map[string]bool{}}
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
 			continue
@@ -68,78 +101,101 @@ func parsePackage(t *testing.T, dir string) map[string]parsedFile {
 		require.NoError(t, err)
 		f, err := parser.ParseFile(token.NewFileSet(), e.Name(), src, 0)
 		require.NoError(t, err)
-		out[e.Name()] = parsedFile{ast: f, directive: strings.Contains(string(src), "//events:")}
-	}
-	return out
-}
-
-// recordingFuncs are the package's unexported helpers that record an event
-// themselves -- calling one counts as recording (e.g. collections'
-// Deps.changed). Exported names (a use case's Execute) don't: a call can't
-// be told apart from any other type's Execute, so delegating to another
-// use case is declared with //events:delegated instead.
-func recordingFuncs(files map[string]parsedFile) map[string]bool {
-	out := map[string]bool{}
-	for _, f := range files {
-		for _, decl := range f.ast.Decls {
-			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Body != nil && !fn.Name.IsExported() && callsRecord(fn.Body, nil) {
-				out[fn.Name.Name] = true
+		p.directive[e.Name()] = strings.Contains(string(src), "//events:")
+		for _, decl := range f.Decls {
+			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Body != nil {
+				p.funcs[funcKey(fn)] = fn
+				p.files[fn] = e.Name()
 			}
 		}
 	}
+	return p
+}
+
+// violations are the files with an exported use-case method that, through
+// itself or the package's unexported helpers it calls, writes inside
+// tenant.WithTenant without recording an event.
+func (p pkgFuncs) violations() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, fn := range p.funcs {
+		file := p.files[fn]
+		if !fn.Name.IsExported() || fn.Recv == nil || p.directive[file] || seen[file] {
+			continue
+		}
+		r := p.reach(fn, map[*ast.FuncDecl]bool{})
+		if r.tx && r.writes && !r.records {
+			seen[file] = true
+			out = append(out, file)
+		}
+	}
 	return out
 }
 
-func callsRecord(n ast.Node, recorders map[string]bool) bool {
-	found := false
-	ast.Inspect(n, func(n ast.Node) bool {
-		if call, ok := n.(*ast.CallExpr); ok && isRecordCall(call, recorders) {
-			found = true
+type reach struct{ tx, writes, records bool }
+
+// uniqueMethod is the "Type.name" key of the package's only method called
+// name, or "" when no type or several types have one.
+func (p pkgFuncs) uniqueMethod(name string) string {
+	found := ""
+	for key, fn := range p.funcs {
+		if fn.Recv != nil && fn.Name.Name == name {
+			if found != "" {
+				return ""
+			}
+			found = key
 		}
-		return !found
-	})
+	}
 	return found
 }
 
-func isRecordCall(call *ast.CallExpr, recorders map[string]bool) bool {
-	var name string
-	switch fn := call.Fun.(type) {
-	case *ast.Ident:
-		name = fn.Name
-	case *ast.SelectorExpr:
-		name = fn.Sel.Name
-		if pkg, ok := fn.X.(*ast.Ident); ok && pkg.Name == "eventrecord" && name == "Record" {
-			return true
-		}
+// reach follows fn's body and the unexported helpers it calls: a bare
+// call to a package function, or a call on fn's own receiver to another of
+// its type's methods (exported names are entry points, not helpers).
+func (p pkgFuncs) reach(fn *ast.FuncDecl, visiting map[*ast.FuncDecl]bool) reach {
+	var r reach
+	if visiting[fn] {
+		return r
 	}
-	return strings.Contains(strings.ToLower(name), "enqueue") || recorders[name]
-}
-
-var writeMethod = regexp.MustCompile(`^(Create|Update|Delete|Save|Upsert|Insert|Replace|Remove|Add|Set|Mark|Clear|Attach|Link|Unlink|Increment|Decrement|Append|Archive|Restore|Assign|Complete|Cancel|Reset|Move|Bulk)`)
-
-// notWrites are write-looking names of non-persistence calls (time, maps, URLs).
-var notWrites = []string{"Add", "AddDate", "Set", "SetString"}
-
-func needsEvent(f parsedFile, recorders map[string]bool) bool {
-	if f.directive {
-		return false
-	}
-	var inTx, writes bool
-	ast.Inspect(f.ast, func(n ast.Node) bool {
+	visiting[fn] = true
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true
 		}
-		sel, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok {
-			return true
+		var name, callee string
+		switch f := call.Fun.(type) {
+		case *ast.Ident:
+			name, callee = f.Name, f.Name
+		case *ast.SelectorExpr:
+			name = f.Sel.Name
+			if x, ok := f.X.(*ast.Ident); ok && fn.Recv != nil && x.Name == recvName(fn) {
+				callee = recvType(fn) + "." + name
+			} else if !ast.IsExported(name) {
+				callee = p.uniqueMethod(name) // e.g. uc.deps.changed()
+			}
+			if pkg, ok := f.X.(*ast.Ident); ok {
+				switch {
+				case pkg.Name == "tenant" && name == "WithTenant":
+					r.tx = true
+				case pkg.Name == "eventrecord" && name == "Record":
+					r.records = true
+				}
+			}
 		}
-		if pkg, ok := sel.X.(*ast.Ident); ok && pkg.Name == "tenant" && sel.Sel.Name == "WithTenant" {
-			inTx = true
-		} else if writeMethod.MatchString(sel.Sel.Name) && !slices.Contains(notWrites, sel.Sel.Name) {
-			writes = true
+		switch {
+		case strings.Contains(strings.ToLower(name), "enqueue"):
+			r.records = true
+		case writeMethod.MatchString(name) && !slices.Contains(notWrites, name):
+			if _, isSel := call.Fun.(*ast.SelectorExpr); isSel {
+				r.writes = true
+			}
+		}
+		if target, ok := p.funcs[callee]; ok && !ast.IsExported(name) {
+			sub := p.reach(target, visiting)
+			r.tx, r.writes, r.records = r.tx || sub.tx, r.writes || sub.writes, r.records || sub.records
 		}
 		return true
 	})
-	return inTx && writes && !callsRecord(f.ast, recorders)
+	return r
 }

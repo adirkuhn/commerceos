@@ -65,3 +65,6 @@ var (
 	ChannelSalePriceBackfilled = defineAction("channels.sale_price.backfilled",
 		"A SKU's missing sale price was filled in from its external shop listing (entity_id is the SKU). changes: sale_price_minor_units, sale_end_date. data: connection_id, external_id.")
 )
+
+var SyncLogEntryDismissed = defineAction("channels.sync_log_entry.dismissed",
+	"A failed channel sync was dismissed from the sync log (no data).")

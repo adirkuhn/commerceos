@@ -393,7 +393,7 @@ func Register(
 		appchannels.NewListAllSyncLogsUseCase(db, syncLogRepo, productRepo, connRepo),
 		appchannels.NewListSyncLogsNeedingAttentionUseCase(db, syncLogRepo, productRepo, connRepo),
 		appchannels.NewRetryFailedSyncUseCase(db, syncLogRepo, pushProductToWooUC),
-		appchannels.NewDismissFailedSyncUseCase(db, syncLogRepo),
+		appchannels.NewDismissFailedSyncUseCase(db, syncLogRepo, repositories.NewOutboxRepository(db)),
 		resyncProductToChannelsUC,
 		appintegrations.NewGetAIConnectionUseCase(db, aiConnRepo),
 		appintegrations.NewConnectAIProviderUseCase(db, aiConnRepo, encryptionSecret, outboxRepo),
