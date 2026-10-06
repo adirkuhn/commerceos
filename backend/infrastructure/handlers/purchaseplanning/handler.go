@@ -15,6 +15,7 @@ import (
 
 	genpurchaseplanning "github.com/adirkuhn/commerceos/api/purchaseplanning"
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	suppliersDomain "github.com/adirkuhn/commerceos/domain/suppliers"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
@@ -60,7 +61,7 @@ func NewHandler(ucs UseCases) *Handler {
 
 var _ genpurchaseplanning.ServerInterface = (*Handler)(nil)
 
-func Register(rg gin.IRouter, db *gorm.DB) {
+func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 	repo := repositories.NewPurchasePlanningRepo(db)
 	genpurchaseplanning.RegisterHandlers(rg, NewHandler(UseCases{
 		Recommendations: appprocurement.NewGetReorderRecommendationsUseCase(db, repo, repo, repo, time.Now),
@@ -70,6 +71,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 			Catalog: repo, Supply: repo, Suppliers: repositories.NewSupplierRepo(db),
 			Settings:       repositories.NewTenantSettingsRepo(db),
 			PurchaseOrders: repositories.NewPurchaseOrderRepo(db), LineItems: repositories.NewPurchaseOrderLineItemRepo(db),
+			Outbox: outboxRepo,
 		}),
 	}))
 }

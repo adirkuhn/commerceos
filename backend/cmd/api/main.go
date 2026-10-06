@@ -512,7 +512,7 @@ func main() {
 	purchaseplanningGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(purchaseplanningSpec, &ginmiddleware.Options{
 		SilenceServersWarning: true,
 	}))
-	purchaseplanninghandler.Register(purchaseplanningGroup, db)
+	purchaseplanninghandler.Register(purchaseplanningGroup, db, outboxRepo)
 
 	scanningSpec, err := genscanning.GetSpec()
 	if err != nil {

@@ -2,8 +2,10 @@ package procurement_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,10 +34,26 @@ func (s *stubTenantSettings) Get(context.Context) (*settingsDomain.TenantSetting
 	return &settingsDomain.TenantSettings{DefaultCurrency: s.currency}, nil
 }
 
+type planOutbox struct {
+	subjects []string
+	payloads [][]byte
+	err      error
+}
+
+func (o *planOutbox) Enqueue(_ context.Context, subject, _ string, payload []byte, _ time.Time) error {
+	if o.err != nil {
+		return o.err
+	}
+	o.subjects = append(o.subjects, subject)
+	o.payloads = append(o.payloads, payload)
+	return nil
+}
+
 type planOrderFixture struct {
-	po    *stubPurchaseOrderRepo
-	lines *stubLineItemRepo
-	uc    *appprocurement.CreatePurchaseOrderFromPlanUseCase
+	po     *stubPurchaseOrderRepo
+	lines  *stubLineItemRepo
+	outbox *planOutbox
+	uc     *appprocurement.CreatePurchaseOrderFromPlanUseCase
 }
 
 func newPlanOrderFixture(t *testing.T, suppliers *stubSupplierFinder) planOrderFixture {
@@ -51,10 +69,10 @@ func newPlanOrderFixture(t *testing.T, suppliers *stubSupplierFinder) planOrderF
 		"panettone": {SupplierID: "sup-1", UnitsPerPurchasedItem: 6, UnitCostMinorUnits: 450, CurrencyCode: "GBP"},
 		"colomba":   {SupplierID: "other", UnitsPerPurchasedItem: 12, UnitCostMinorUnits: 999, CurrencyCode: "BRL"},
 	}}
-	f := planOrderFixture{po: &stubPurchaseOrderRepo{}, lines: &stubLineItemRepo{}}
+	f := planOrderFixture{po: &stubPurchaseOrderRepo{}, lines: &stubLineItemRepo{}, outbox: &planOutbox{}}
 	f.uc = appprocurement.NewCreatePurchaseOrderFromPlanUseCase(newMockGormDB(t), appprocurement.PlanOrderDeps{
 		Catalog: catalog, Supply: supply, Suppliers: suppliers, Settings: &stubTenantSettings{currency: "EUR"},
-		PurchaseOrders: f.po, LineItems: f.lines,
+		PurchaseOrders: f.po, LineItems: f.lines, Outbox: f.outbox,
 	})
 	return f
 }
@@ -93,6 +111,28 @@ func TestCreatePurchaseOrderFromPlan_DraftWithSupplierPricesAndPackSizes(t *test
 
 	// A weight pool is bought per kg.
 	assert.Equal(t, int64(1000), f.lines.created[2].UnitsPerPurchasedItem)
+
+	require.Equal(t, []string{"procurement.purchase_order.created"}, f.outbox.subjects)
+	var event map[string]any
+	require.NoError(t, json.Unmarshal(f.outbox.payloads[0], &event))
+	assert.Equal(t, "po-1", event["purchase_order_id"])
+	assert.Equal(t, "sup-1", event["supplier_id"])
+	assert.Equal(t, "GBP", event["currency_code"])
+	assert.Equal(t, "purchase_planner", event["source"])
+	assert.Equal(t, float64(3), event["line_count"])
+	assert.NotEmpty(t, event["event_id"])
+}
+
+func TestCreatePurchaseOrderFromPlan_OutboxFailureFailsTheWhole(t *testing.T) {
+	f := newPlanOrderFixture(t, &stubSupplierFinder{})
+	boom := errors.New("outbox down")
+	f.outbox.err = boom
+
+	_, err := f.uc.Execute(context.Background(), appprocurement.PlanOrderInput{
+		SupplierID: "sup-1", Lines: []appprocurement.PlanOrderLine{{SKUID: "panettone", Quantity: 1}},
+	})
+
+	assert.ErrorIs(t, err, boom)
 }
 
 func TestCreatePurchaseOrderFromPlan_FallsBackToTenantCurrency(t *testing.T) {
