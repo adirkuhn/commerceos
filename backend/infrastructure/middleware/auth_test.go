@@ -257,3 +257,20 @@ func TestJWT_propagatesRoleToRequestContext(t *testing.T) {
 
 	assert.Equal(t, "customer_admin", w.Body.String())
 }
+
+func TestJWT_propagatesUserIDToRequestContext(t *testing.T) {
+	r := gin.New()
+	r.Use(middleware.JWT([]byte(testSecret)))
+	r.GET("/me", func(c *gin.Context) {
+		c.String(http.StatusOK, tenant.UserIDFromContext(c.Request.Context()))
+	})
+	claims := validClaims()
+	claims.UserID = "user-42"
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/me", nil)
+	req.Header.Set("Authorization", "Bearer "+makeToken(t, claims))
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, "user-42", w.Body.String())
+}

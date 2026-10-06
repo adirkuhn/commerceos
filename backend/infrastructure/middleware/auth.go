@@ -64,6 +64,7 @@ func JWT(secret []byte) gin.HandlerFunc {
 		ctx := c.Request.Context()
 		ctx = tenant.WithTenantID(ctx, claims.TenantID)
 		ctx = tenant.WithRole(ctx, claims.Role)
+		ctx = tenant.WithUserID(ctx, claims.UserID)
 		if claims.Role == RoleSuperAdmin {
 			ctx = tenant.WithSuperAdmin(ctx)
 		}
