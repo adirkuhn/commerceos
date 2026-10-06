@@ -41,6 +41,51 @@ func (e ForecastMethod) Valid() bool {
 	}
 }
 
+// Defines values for SeasonEventKey.
+const (
+	BlackFriday  SeasonEventKey = "black_friday"
+	Carnival     SeasonEventKey = "carnival"
+	Christmas    SeasonEventKey = "christmas"
+	Easter       SeasonEventKey = "easter"
+	FathersDayBr SeasonEventKey = "fathers_day_br"
+	FestaJunina  SeasonEventKey = "festa_junina"
+	MothersDay   SeasonEventKey = "mothers_day"
+	Sinterklaas  SeasonEventKey = "sinterklaas"
+	Valentines   SeasonEventKey = "valentines"
+)
+
+// Valid indicates whether the value is a known member of the SeasonEventKey enum.
+func (e SeasonEventKey) Valid() bool {
+	switch e {
+	case BlackFriday:
+		return true
+	case Carnival:
+		return true
+	case Christmas:
+		return true
+	case Easter:
+		return true
+	case FathersDayBr:
+		return true
+	case FestaJunina:
+		return true
+	case MothersDay:
+		return true
+	case Sinterklaas:
+		return true
+	case Valentines:
+		return true
+	default:
+		return false
+	}
+}
+
+// DateWindow Calendar days [start, end).
+type DateWindow struct {
+	End   openapi_types.Date `json:"end"`
+	Start openapi_types.Date `json:"start"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Data  interface{} `json:"data,omitempty"`
@@ -103,14 +148,20 @@ type RecommendationLine struct {
 	OrderByDate *openapi_types.Date `json:"order_by_date,omitempty"`
 
 	// OrderUnits purchase_quantity in stock units.
-	OrderUnits  int64  `json:"order_units"`
-	ProductName string `json:"product_name"`
+	OrderUnits int64 `json:"order_units"`
+
+	// PreSeason Season plan only -- forecast between today and the season start.
+	PreSeason   *Forecast `json:"pre_season,omitempty"`
+	ProductName string    `json:"product_name"`
 
 	// PurchaseQuantity Purchased items to order (needed units rounded up to whole items).
-	PurchaseQuantity int64  `json:"purchase_quantity"`
-	SafetyStock      int64  `json:"safety_stock"`
-	SkuCode          string `json:"sku_code"`
-	SkuId            string `json:"sku_id"`
+	PurchaseQuantity int64 `json:"purchase_quantity"`
+	SafetyStock      int64 `json:"safety_stock"`
+
+	// SeasonalLift Season plan only -- how many times its usual daily rate the product sold in last year's season. Null when it sold nothing before the season (or on a reorder plan).
+	SeasonalLift *float32 `json:"seasonal_lift,omitempty"`
+	SkuCode      string   `json:"sku_code"`
+	SkuId        string   `json:"sku_id"`
 
 	// StockoutDate When on hand + on order runs out at daily_demand.
 	StockoutDate *openapi_types.Date `json:"stockout_date,omitempty"`
@@ -133,6 +184,49 @@ type ReorderRecommendations struct {
 type ReorderRecommendationsResponse struct {
 	Data  *ReorderRecommendations `json:"data,omitempty"`
 	Error interface{}             `json:"error,omitempty"`
+}
+
+// SeasonEvent defines model for SeasonEvent.
+type SeasonEvent struct {
+	// Date The holiday itself.
+	Date openapi_types.Date `json:"date"`
+	Key  SeasonEventKey     `json:"key"`
+
+	// Window Calendar days [start, end).
+	Window DateWindow `json:"window"`
+	Year   int        `json:"year"`
+}
+
+// SeasonEventKey defines model for SeasonEventKey.
+type SeasonEventKey string
+
+// SeasonEventsResponse defines model for SeasonEventsResponse.
+type SeasonEventsResponse struct {
+	Data  *[]SeasonEvent `json:"data,omitempty"`
+	Error interface{}    `json:"error,omitempty"`
+}
+
+// SeasonPlan defines model for SeasonPlan.
+type SeasonPlan struct {
+	AsOf openapi_types.Date `json:"as_of"`
+
+	// Event Null for a custom range.
+	Event *SeasonEventKey `json:"event,omitempty"`
+
+	// LastYearWindow The matching part of last year's season.
+	LastYearWindow DateWindow               `json:"last_year_window"`
+	SafetyDays     int                      `json:"safety_days"`
+	Suppliers      []SupplierRecommendation `json:"suppliers"`
+
+	// Window The season -- what's left of it when it already started.
+	Window DateWindow `json:"window"`
+	Year   int        `json:"year"`
+}
+
+// SeasonPlanResponse defines model for SeasonPlanResponse.
+type SeasonPlanResponse struct {
+	Data  *SeasonPlan `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
 }
 
 // SupplierRecommendation defines model for SupplierRecommendation.
@@ -168,11 +262,38 @@ type GetReorderRecommendationsParams struct {
 	SupplierId *openapi_types.UUID `form:"supplier_id,omitempty" json:"supplier_id,omitempty"`
 }
 
+// ListSeasonEventsParams defines parameters for ListSeasonEvents.
+type ListSeasonEventsParams struct {
+	// Year List every event in this year; omitted = each event's next occurrence.
+	Year *int `form:"year,omitempty" json:"year,omitempty"`
+}
+
+// GetSeasonPlanParams defines parameters for GetSeasonPlan.
+type GetSeasonPlanParams struct {
+	Event *SeasonEventKey `form:"event,omitempty" json:"event,omitempty"`
+	Year  *int            `form:"year,omitempty" json:"year,omitempty"`
+
+	// From Custom season start (inclusive).
+	From *openapi_types.Date `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Custom season end (exclusive).
+	To          *openapi_types.Date `form:"to,omitempty" json:"to,omitempty"`
+	SafetyDays  *int                `form:"safety_days,omitempty" json:"safety_days,omitempty"`
+	SupplierId  *openapi_types.UUID `form:"supplier_id,omitempty" json:"supplier_id,omitempty"`
+	AllProducts *bool               `form:"all_products,omitempty" json:"all_products,omitempty"`
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// GetReorderRecommendations What to reorder now, grouped by supplier, most urgent first
 	// (GET /procurement/recommendations)
 	GetReorderRecommendations(c *gin.Context, params GetReorderRecommendationsParams)
+	// ListSeasonEvents Built-in season events (holidays) with their selling windows, soonest first
+	// (GET /procurement/season-events)
+	ListSeasonEvents(c *gin.Context, params ListSeasonEventsParams)
+	// GetSeasonPlan What to buy for a season (e.g. Christmas), grouped by supplier
+	// (GET /procurement/season-plan)
+	GetSeasonPlan(c *gin.Context, params GetSeasonPlanParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -227,6 +348,108 @@ func (siw *ServerInterfaceWrapper) GetReorderRecommendations(c *gin.Context) {
 	siw.Handler.GetReorderRecommendations(c, params)
 }
 
+// ListSeasonEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListSeasonEvents(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSeasonEventsParams
+
+	// ------------- Optional query parameter "year" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "year", c.Request.URL.Query(), &params.Year, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter year: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListSeasonEvents(c, params)
+}
+
+// GetSeasonPlan operation middleware
+func (siw *ServerInterfaceWrapper) GetSeasonPlan(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSeasonPlanParams
+
+	// ------------- Optional query parameter "event" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "event", c.Request.URL.Query(), &params.Event, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter event: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "year" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "year", c.Request.URL.Query(), &params.Year, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter year: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", c.Request.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter from: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", c.Request.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter to: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "safety_days" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "safety_days", c.Request.URL.Query(), &params.SafetyDays, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter safety_days: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "supplier_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "supplier_id", c.Request.URL.Query(), &params.SupplierId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter supplier_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "all_products" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "all_products", c.Request.URL.Query(), &params.AllProducts, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter all_products: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetSeasonPlan(c, params)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -255,6 +478,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.GET(options.BaseURL+"/procurement/recommendations", wrapper.GetReorderRecommendations)
+	router.GET(options.BaseURL+"/procurement/season-events", wrapper.ListSeasonEvents)
+	router.GET(options.BaseURL+"/procurement/season-plan", wrapper.GetSeasonPlan)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -262,38 +487,54 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"BKvESlxxyj/ciMfPj/8NAAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

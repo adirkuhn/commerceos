@@ -23,12 +23,22 @@ type reorderRecommendationsUC interface {
 	Execute(ctx context.Context, in appprocurement.ReorderRecommendationsInput) (*appprocurement.ReorderRecommendations, error)
 }
 
-type Handler struct {
-	recommendations reorderRecommendationsUC
+type seasonPlanUC interface {
+	Execute(ctx context.Context, in appprocurement.SeasonPlanInput) (*appprocurement.SeasonPlan, error)
 }
 
-func NewHandler(recommendations reorderRecommendationsUC) *Handler {
-	return &Handler{recommendations: recommendations}
+type seasonEventsUC interface {
+	Execute(year int) []appprocurement.SeasonEventOccurrence
+}
+
+type Handler struct {
+	recommendations reorderRecommendationsUC
+	seasonPlan      seasonPlanUC
+	seasonEvents    seasonEventsUC
+}
+
+func NewHandler(recommendations reorderRecommendationsUC, seasonPlan seasonPlanUC, seasonEvents seasonEventsUC) *Handler {
+	return &Handler{recommendations: recommendations, seasonPlan: seasonPlan, seasonEvents: seasonEvents}
 }
 
 var _ genpurchaseplanning.ServerInterface = (*Handler)(nil)
@@ -37,63 +47,9 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	repo := repositories.NewPurchasePlanningRepo(db)
 	genpurchaseplanning.RegisterHandlers(rg, NewHandler(
 		appprocurement.NewGetReorderRecommendationsUseCase(db, repo, repo, repo, time.Now),
+		appprocurement.NewGetSeasonPlanUseCase(db, repo, repo, repo, time.Now),
+		appprocurement.NewListSeasonEventsUseCase(time.Now),
 	))
-}
-
-func (h *Handler) GetReorderRecommendations(c *gin.Context, params genpurchaseplanning.GetReorderRecommendationsParams) {
-	in := appprocurement.ReorderRecommendationsInput{
-		CoverageDays: intOr(params.CoverageDays, appprocurement.DefaultPlanningCoverageDays),
-		SafetyDays:   intOr(params.SafetyDays, appprocurement.DefaultPlanningSafetyDays),
-	}
-	if params.SupplierId != nil {
-		id := params.SupplierId.String()
-		in.SupplierID = &id
-	}
-	out, err := h.recommendations.Execute(c.Request.Context(), in)
-	if err := mapError(c, err); err != nil {
-		return
-	}
-	middleware.OK(c, toGenRecommendations(out))
-}
-
-func toGenRecommendations(r *appprocurement.ReorderRecommendations) genpurchaseplanning.ReorderRecommendations {
-	out := genpurchaseplanning.ReorderRecommendations{
-		AsOf: openapi_types.Date{Time: r.AsOf}, CoverageDays: r.CoverageDays, SafetyDays: r.SafetyDays,
-		Suppliers: make([]genpurchaseplanning.SupplierRecommendation, len(r.Suppliers)),
-	}
-	for i, s := range r.Suppliers {
-		lines := make([]genpurchaseplanning.RecommendationLine, len(s.Lines))
-		for j, l := range s.Lines {
-			lines[j] = toGenLine(l)
-		}
-		out.Suppliers[i] = genpurchaseplanning.SupplierRecommendation{
-			SupplierId: s.SupplierID, SupplierName: s.SupplierName,
-			LeadTimeDays: s.LeadTimeDays, LeadTimeAssumed: s.LeadTimeAssumed, Lines: lines,
-			EstimatedCostMinorUnits: s.EstimatedCostMinorUnits, CurrencyCode: s.CurrencyCode,
-			EarliestOrderByDate: toDate(s.EarliestOrderByDate),
-		}
-	}
-	return out
-}
-
-func toGenLine(l appprocurement.PlannedLine) genpurchaseplanning.RecommendationLine {
-	recent, lastYear := l.RecentUnits, l.LastYearUnits
-	return genpurchaseplanning.RecommendationLine{
-		SkuId: l.SKUID, SkuCode: l.SKUCode, ProductName: l.ProductName, VariantName: l.VariantName,
-		IsWeightPool: l.IsWeightPool, OnHand: l.OnHand,
-		OnOrder: genpurchaseplanning.OnOrder{Sent: l.OnOrder.Sent, Draft: l.OnOrder.Draft},
-		Forecast: genpurchaseplanning.Forecast{
-			Units: l.Forecast.Units, Method: genpurchaseplanning.ForecastMethod(l.Forecast.Method),
-			GrowthFactor: float32(l.Forecast.GrowthFactor), Days: l.ForecastDays,
-			RecentUnits: &recent, LastYearUnits: &lastYear,
-		},
-		DailyDemand: float32(l.Reorder.DailyDemand), SafetyStock: l.Reorder.SafetyStock,
-		NeededUnits: l.Reorder.NeededUnits, PurchaseQuantity: l.Reorder.PurchaseQuantity,
-		UnitsPerPurchasedItem: l.UnitsPerPurchasedItem, OrderUnits: l.Reorder.OrderUnits,
-		UnitCostMinorUnits: l.UnitCostMinorUnits, EstimatedCostMinorUnits: l.EstimatedCostMinorUnits,
-		CurrencyCode: l.CurrencyCode, StockoutDate: toDate(l.Reorder.StockoutDate),
-		OrderByDate: toDate(l.Reorder.OrderByDate), LastOrderedAt: l.LastOrderedAt,
-	}
 }
 
 func toDate(t *time.Time) *openapi_types.Date {
@@ -115,7 +71,8 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, appprocurement.ErrInvalidPlanningWindow):
+	case errors.Is(err, appprocurement.ErrInvalidPlanningWindow), errors.Is(err, appprocurement.ErrInvalidSeason),
+		errors.Is(err, appprocurement.ErrSeasonOver), errors.Is(err, appprocurement.ErrUnknownSeasonEvent):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
 	default:
 		log.Printf("purchaseplanning: unhandled error: %v", err)

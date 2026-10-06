@@ -35,22 +35,53 @@ func (s *stubRecommendations) Execute(_ context.Context, in appprocurement.Reord
 	return s.out, s.err
 }
 
+type stubSeasonPlan struct {
+	out    *appprocurement.SeasonPlan
+	err    error
+	got    appprocurement.SeasonPlanInput
+	called bool
+}
+
+func (s *stubSeasonPlan) Execute(_ context.Context, in appprocurement.SeasonPlanInput) (*appprocurement.SeasonPlan, error) {
+	s.got, s.called = in, true
+	return s.out, s.err
+}
+
+type stubSeasonEvents struct {
+	out []appprocurement.SeasonEventOccurrence
+	got int
+}
+
+func (s *stubSeasonEvents) Execute(year int) []appprocurement.SeasonEventOccurrence {
+	s.got = year
+	return s.out
+}
+
 // newTestRouter mounts the handler behind the same OpenAPI request
 // validator cmd/api/main.go uses, so the contract itself is under test.
 func newTestRouter(t *testing.T, uc *stubRecommendations) *gin.Engine {
+	t.Helper()
+	return newSeasonRouter(t, uc, &stubSeasonPlan{}, &stubSeasonEvents{})
+}
+
+func newSeasonRouter(t *testing.T, uc *stubRecommendations, plan *stubSeasonPlan, events *stubSeasonEvents) *gin.Engine {
 	t.Helper()
 	spec, err := genpurchaseplanning.GetSpec()
 	require.NoError(t, err)
 	r := gin.New()
 	g := r.Group("/api/v1")
 	g.Use(ginmiddleware.OapiRequestValidatorWithOptions(spec, &ginmiddleware.Options{SilenceServersWarning: true}))
-	genpurchaseplanning.RegisterHandlers(g, purchaseplanninghandler.NewHandler(uc))
+	genpurchaseplanning.RegisterHandlers(g, purchaseplanninghandler.NewHandler(uc, plan, events))
 	return r
 }
 
 func get(r *gin.Engine, query string) *httptest.ResponseRecorder {
+	return getPath(r, "/api/v1/procurement/recommendations"+query)
+}
+
+func getPath(r *gin.Engine, path string) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/procurement/recommendations"+query, nil))
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 	return w
 }
 

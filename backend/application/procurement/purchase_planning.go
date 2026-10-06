@@ -38,6 +38,11 @@ type PlannedLine struct {
 	EstimatedCostMinorUnits *int64
 	CurrencyCode            string
 	LastOrderedAt           *time.Time
+	// PreSeason/SeasonalLift are set by a season plan only: the forecast
+	// between today and the season start, and how many times its usual
+	// daily rate the SKU sold in last year's season (nil = sold nothing before).
+	PreSeason    *planning.Forecast
+	SeasonalLift *float64
 }
 
 // SupplierPlan groups the lines to order from one supplier. SupplierID is

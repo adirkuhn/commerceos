@@ -64,7 +64,7 @@ func (uc *GetReorderRecommendationsUseCase) Execute(ctx context.Context, in Reor
 		in.SafetyDays < 0 || in.SafetyDays > maxPlanningSafetyDays {
 		return nil, fmt.Errorf("getReorderRecommendations: %w", ErrInvalidPlanningWindow)
 	}
-	asOf := startOfDay(uc.now())
+	asOf := startOfDay(uc.now().UTC())
 	lastYear := asOf.AddDate(-1, 0, 0)
 
 	var lines []plannedSourcedLine

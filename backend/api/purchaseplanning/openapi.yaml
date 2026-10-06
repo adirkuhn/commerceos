@@ -49,6 +49,79 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /procurement/season-events:
+    get:
+      operationId: listSeasonEvents
+      summary: Built-in season events (holidays) with their selling windows, soonest first
+      description: >-
+        Each event's selling window runs a fixed number of days before its
+        holiday through shortly after it. Moving holidays (Easter, Carnival,
+        Mother's Day, Black Friday) are computed per year.
+      parameters:
+        - name: year
+          in: query
+          description: List every event in this year; omitted = each event's next occurrence.
+          schema: { type: integer, minimum: 2000, maximum: 2100 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeasonEventsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /procurement/season-plan:
+    get:
+      operationId: getSeasonPlan
+      summary: What to buy for a season (e.g. Christmas), grouped by supplier
+      description: >-
+        Pass either `event` (+ optional `year`, default its next
+        occurrence) or a custom `from`/`to` range. The season is forecast
+        from last year's same season -- aligned on the holiday for an
+        event, the same dates for a custom range -- scaled by this year's
+        growth, plus what sells between today and the season start. The
+        order-by date makes the order arrive before the season starts (or
+        before stock runs out, if sooner). By default only products that
+        sold at least 1.5x their usual daily rate in last year's season
+        are listed; `all_products` lists every product that needs buying.
+      parameters:
+        - name: event
+          in: query
+          schema: { $ref: '#/components/schemas/SeasonEventKey' }
+        - name: year
+          in: query
+          schema: { type: integer, minimum: 2000, maximum: 2100 }
+        - name: from
+          in: query
+          description: Custom season start (inclusive).
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          description: Custom season end (exclusive).
+          schema: { type: string, format: date }
+        - name: safety_days
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 90, default: 7 }
+        - name: supplier_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: all_products
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeasonPlanResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -152,6 +225,17 @@ components:
           nullable: true
           description: Stockout date minus lead time -- in the past means already late.
         last_ordered_at: { type: string, format: date-time, nullable: true }
+        pre_season:
+          allOf: [{ $ref: '#/components/schemas/Forecast' }]
+          nullable: true
+          description: Season plan only -- forecast between today and the season start.
+        seasonal_lift:
+          type: number
+          nullable: true
+          description: >-
+            Season plan only -- how many times its usual daily rate the
+            product sold in last year's season. Null when it sold nothing
+            before the season (or on a reorder plan).
 
     SupplierRecommendation:
       type: object
@@ -192,6 +276,62 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/ReorderRecommendations' }
+        error: { nullable: true }
+
+    SeasonEventKey:
+      type: string
+      enum: [christmas, sinterklaas, black_friday, easter, carnival, valentines, mothers_day, fathers_day_br, festa_junina]
+
+    DateWindow:
+      type: object
+      required: [start, end]
+      description: Calendar days [start, end).
+      properties:
+        start: { type: string, format: date }
+        end: { type: string, format: date }
+
+    SeasonEvent:
+      type: object
+      required: [key, year, date, window]
+      properties:
+        key: { $ref: '#/components/schemas/SeasonEventKey' }
+        year: { type: integer }
+        date: { type: string, format: date, description: The holiday itself. }
+        window: { $ref: '#/components/schemas/DateWindow' }
+
+    SeasonEventsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/SeasonEvent' }
+        error: { nullable: true }
+
+    SeasonPlan:
+      type: object
+      required: [as_of, year, window, last_year_window, safety_days, suppliers]
+      properties:
+        as_of: { type: string, format: date }
+        event:
+          allOf: [{ $ref: '#/components/schemas/SeasonEventKey' }]
+          nullable: true
+          description: Null for a custom range.
+        year: { type: integer }
+        window:
+          allOf: [{ $ref: '#/components/schemas/DateWindow' }]
+          description: The season -- what's left of it when it already started.
+        last_year_window:
+          allOf: [{ $ref: '#/components/schemas/DateWindow' }]
+          description: The matching part of last year's season.
+        safety_days: { type: integer }
+        suppliers:
+          type: array
+          items: { $ref: '#/components/schemas/SupplierRecommendation' }
+
+    SeasonPlanResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SeasonPlan' }
         error: { nullable: true }
 
     ErrorResponse:
