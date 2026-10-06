@@ -47,6 +47,8 @@ type DeliverForwardedWebhooksResult struct {
 // single tenant driving this, unlike a SyncSchedule run): callers must pass
 // a ctx already under tenant.WithSuperAdmin, the same convention
 // cmd/scheduler's runDue uses for its own cross-tenant poll.
+//
+//events:none -- delivery attempt bookkeeping (delivered / failed / next attempt) for forwarded webhooks
 type DeliverForwardedWebhooksUseCase struct {
 	db           *gorm.DB
 	deliveryRepo webhooks.ForwardDeliveryRepository

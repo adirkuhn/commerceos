@@ -42,11 +42,12 @@ func NewHandler(listConversations listConversationsUC, listConversationMessages 
 var _ genwhatsapp.ServerInterface = (*Handler)(nil)
 
 func Register(rg gin.IRouter, db *gorm.DB) {
+	outboxRepo := repositories.NewOutboxRepository(db)
 	messageRepo := repositories.NewWhatsAppMessageRepo(db)
 	h := NewHandler(
 		appwhatsapp.NewListWhatsAppConversationsUseCase(db, messageRepo),
 		appwhatsapp.NewListWhatsAppMessagesByPhoneUseCase(db, messageRepo),
-		appwhatsapp.NewDeleteWhatsAppConversationUseCase(db, messageRepo),
+		appwhatsapp.NewDeleteWhatsAppConversationUseCase(db, messageRepo, outboxRepo),
 	)
 	genwhatsapp.RegisterHandlers(rg, h)
 }

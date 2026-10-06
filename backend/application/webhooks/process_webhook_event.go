@@ -50,6 +50,8 @@ type DispatchHandler interface {
 // transaction, so an event once durably received can never silently fail
 // to be queued for forwarding. Per-topic business-rule dispatch beyond
 // that is opt-in per provider -- see dispatchHandlers/DispatchHandler.
+//
+//events:none -- stores the inbound webhook (already the webhooks.received.<provider> event) and queues forward deliveries; the business change a dispatch handler makes raises its own events
 type ProcessWebhookEventUseCase struct {
 	db               *gorm.DB
 	eventRepo        webhooks.WebhookEventRepository

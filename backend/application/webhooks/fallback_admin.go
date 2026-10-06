@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 
 	"gorm.io/gorm"
 
@@ -65,10 +67,11 @@ type RetryWebhookFallbackEventUseCase struct {
 	db           *gorm.DB
 	fallbackRepo webhooks.FallbackEventRepository
 	publisher    Publisher
+	outbox       eventrecord.Enqueuer
 }
 
-func NewRetryWebhookFallbackEventUseCase(db *gorm.DB, fallbackRepo webhooks.FallbackEventRepository, publisher Publisher) *RetryWebhookFallbackEventUseCase {
-	return &RetryWebhookFallbackEventUseCase{db: db, fallbackRepo: fallbackRepo, publisher: publisher}
+func NewRetryWebhookFallbackEventUseCase(db *gorm.DB, fallbackRepo webhooks.FallbackEventRepository, publisher Publisher, outbox eventrecord.Enqueuer) *RetryWebhookFallbackEventUseCase {
+	return &RetryWebhookFallbackEventUseCase{db: db, fallbackRepo: fallbackRepo, publisher: publisher, outbox: outbox}
 }
 
 func (uc *RetryWebhookFallbackEventUseCase) Execute(ctx context.Context, id string) error {
@@ -99,7 +102,10 @@ func (uc *RetryWebhookFallbackEventUseCase) Execute(ctx context.Context, id stri
 	}
 
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.fallbackRepo.UpdateStatus(ctx, id, webhooks.FallbackStatusRepublished)
+		if err := uc.fallbackRepo.UpdateStatus(ctx, id, webhooks.FallbackStatusRepublished); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.FallbackEventRepublished, id, eventrecord.Data{"provider": event.Provider})
 	})
 	if err != nil {
 		return fmt.Errorf("retryWebhookFallbackEvent: mark republished: %w", err)
@@ -114,15 +120,23 @@ func (uc *RetryWebhookFallbackEventUseCase) Execute(ctx context.Context, id stri
 type AbandonWebhookFallbackEventUseCase struct {
 	db           *gorm.DB
 	fallbackRepo webhooks.FallbackEventRepository
+	outbox       eventrecord.Enqueuer
 }
 
-func NewAbandonWebhookFallbackEventUseCase(db *gorm.DB, fallbackRepo webhooks.FallbackEventRepository) *AbandonWebhookFallbackEventUseCase {
-	return &AbandonWebhookFallbackEventUseCase{db: db, fallbackRepo: fallbackRepo}
+func NewAbandonWebhookFallbackEventUseCase(db *gorm.DB, fallbackRepo webhooks.FallbackEventRepository, outbox eventrecord.Enqueuer) *AbandonWebhookFallbackEventUseCase {
+	return &AbandonWebhookFallbackEventUseCase{db: db, fallbackRepo: fallbackRepo, outbox: outbox}
 }
 
 func (uc *AbandonWebhookFallbackEventUseCase) Execute(ctx context.Context, id string) error {
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.fallbackRepo.UpdateStatus(ctx, id, webhooks.FallbackStatusAbandoned)
+		event, err := uc.fallbackRepo.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+		if err := uc.fallbackRepo.UpdateStatus(ctx, id, webhooks.FallbackStatusAbandoned); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.FallbackEventAbandoned, id, eventrecord.Data{"provider": event.Provider})
 	})
 	if err != nil {
 		return fmt.Errorf("abandonWebhookFallbackEvent: %w", err)
@@ -137,10 +151,11 @@ func (uc *AbandonWebhookFallbackEventUseCase) Execute(ctx context.Context, id st
 type AbandonAllWebhookFallbackEventsUseCase struct {
 	db           *gorm.DB
 	fallbackRepo webhooks.FallbackEventRepository
+	outbox       eventrecord.Enqueuer
 }
 
-func NewAbandonAllWebhookFallbackEventsUseCase(db *gorm.DB, fallbackRepo webhooks.FallbackEventRepository) *AbandonAllWebhookFallbackEventsUseCase {
-	return &AbandonAllWebhookFallbackEventsUseCase{db: db, fallbackRepo: fallbackRepo}
+func NewAbandonAllWebhookFallbackEventsUseCase(db *gorm.DB, fallbackRepo webhooks.FallbackEventRepository, outbox eventrecord.Enqueuer) *AbandonAllWebhookFallbackEventsUseCase {
+	return &AbandonAllWebhookFallbackEventsUseCase{db: db, fallbackRepo: fallbackRepo, outbox: outbox}
 }
 
 func (uc *AbandonAllWebhookFallbackEventsUseCase) Execute(ctx context.Context, status webhooks.FallbackStatus) (int64, error) {
@@ -151,7 +166,11 @@ func (uc *AbandonAllWebhookFallbackEventsUseCase) Execute(ctx context.Context, s
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
 		count, err = uc.fallbackRepo.UpdateStatusForAll(ctx, status, webhooks.FallbackStatusAbandoned)
-		return err
+		if err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.FallbackEventsBulkAbandoned, tenant.IDFromContext(ctx),
+			eventrecord.Data{"from_status": string(status), "count": count})
 	})
 	if err != nil {
 		return 0, fmt.Errorf("abandonAllWebhookFallbackEvents: %w", err)

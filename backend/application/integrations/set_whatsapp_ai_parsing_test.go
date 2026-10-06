@@ -2,6 +2,7 @@ package integrations_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,7 +28,7 @@ func TestSetWhatsAppAIParsing_enablesWhenAIConnectionConfigured(t *testing.T) {
 	aiConnRepo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
 		return &integrationsDomain.AIConnection{Provider: integrationsDomain.AIProviderGemini}, nil
 	}}
-	uc := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), connRepo, aiConnRepo)
+	uc := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), connRepo, aiConnRepo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "conn-1", true)
 
@@ -40,7 +41,7 @@ func TestSetWhatsAppAIParsing_refusesToEnableWithNoAIConnection(t *testing.T) {
 	conn := &integrationsDomain.Connection{ID: "conn-1", Provider: integrationsDomain.ProviderWhatsApp}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
 	aiConnRepo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) { return nil, nil }}
-	uc := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), connRepo, aiConnRepo)
+	uc := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), connRepo, aiConnRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "conn-1", true)
 
@@ -62,7 +63,7 @@ func TestSetWhatsAppAIParsing_disablingNeverChecksAIConnection(t *testing.T) {
 		aiConnRepoCalled = true
 		return nil, nil
 	}}
-	uc := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), connRepo, aiConnRepo)
+	uc := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), connRepo, aiConnRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "conn-1", false)
 
@@ -74,7 +75,7 @@ func TestSetWhatsAppAIParsing_disablingNeverChecksAIConnection(t *testing.T) {
 func TestSetWhatsAppAIParsing_rejectsNonWhatsAppConnection(t *testing.T) {
 	conn := &integrationsDomain.Connection{ID: "conn-1", Provider: integrationsDomain.ProviderWooCommerce}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	uc := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), connRepo, &mocks.AIConnectionRepo{})
+	uc := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), connRepo, &mocks.AIConnectionRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "conn-1", true)
 
@@ -85,7 +86,7 @@ func TestSetWhatsAppAIParsing_propagatesNotFound(t *testing.T) {
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) {
 		return nil, integrationsDomain.ErrConnectionNotFound
 	}}
-	uc := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), connRepo, &mocks.AIConnectionRepo{})
+	uc := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), connRepo, &mocks.AIConnectionRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing", true)
 

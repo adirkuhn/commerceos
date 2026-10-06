@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -25,10 +27,11 @@ type UpdateAutomationRuleUseCase struct {
 	db           *gorm.DB
 	repo         mcDomain.AutomationRuleRepository
 	templateRepo mcDomain.MessageTemplateRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewUpdateAutomationRuleUseCase(db *gorm.DB, repo mcDomain.AutomationRuleRepository, templateRepo mcDomain.MessageTemplateRepository) *UpdateAutomationRuleUseCase {
-	return &UpdateAutomationRuleUseCase{db: db, repo: repo, templateRepo: templateRepo}
+func NewUpdateAutomationRuleUseCase(db *gorm.DB, repo mcDomain.AutomationRuleRepository, templateRepo mcDomain.MessageTemplateRepository, outbox eventrecord.Enqueuer) *UpdateAutomationRuleUseCase {
+	return &UpdateAutomationRuleUseCase{db: db, repo: repo, templateRepo: templateRepo, outbox: outbox}
 }
 
 func (uc *UpdateAutomationRuleUseCase) Execute(ctx context.Context, in UpdateAutomationRuleInput) (*mcDomain.AutomationRule, error) {
@@ -45,6 +48,7 @@ func (uc *UpdateAutomationRuleUseCase) Execute(ctx context.Context, in UpdateAut
 		if _, err := uc.templateRepo.FindByID(ctx, in.TemplateID); err != nil {
 			return err
 		}
+		before := *existing
 		existing.Name = in.Name
 		existing.TriggerSubject = in.TriggerSubject
 		existing.Conditions = in.Conditions
@@ -56,7 +60,13 @@ func (uc *UpdateAutomationRuleUseCase) Execute(ctx context.Context, in UpdateAut
 			return err
 		}
 		rule = *existing
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.AutomationRuleUpdated, rule.ID, eventrecord.NewChanges().
+			Set("name", before.Name, rule.Name).
+			Set("trigger_subject", before.TriggerSubject, rule.TriggerSubject).
+			Set("conditions", before.Conditions, rule.Conditions).
+			Set("template_id", before.TemplateID, rule.TemplateID).
+			Set("channel_override", before.ChannelOverride, rule.ChannelOverride).
+			Set("enabled", before.Enabled, rule.Enabled))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateAutomationRule: %w", err)

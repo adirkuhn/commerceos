@@ -3,6 +3,7 @@ package integrations_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,7 +18,7 @@ func TestDisconnectAIConnection_deletesConnection(t *testing.T) {
 	repo := &mocks.AIConnectionRepo{
 		DeleteFn: func(_ context.Context) error { deleteCalled = true; return nil },
 	}
-	uc := appintegrations.NewDisconnectAIConnectionUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewDisconnectAIConnectionUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background())
 
@@ -29,7 +30,7 @@ func TestDisconnectAIConnection_propagatesRepoError(t *testing.T) {
 	repo := &mocks.AIConnectionRepo{
 		DeleteFn: func(_ context.Context) error { return errors.New("db down") },
 	}
-	uc := appintegrations.NewDisconnectAIConnectionUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewDisconnectAIConnectionUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background())
 

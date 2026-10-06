@@ -2,6 +2,7 @@ package scheduler_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,8 +12,8 @@ import (
 )
 
 func TestUpdateJobConfig_updatesEnabledAndInterval(t *testing.T) {
-	jobRepo := &stubJobRepo{}
-	uc := appscheduler.NewUpdateJobConfigUseCase(newMockGormDB(t), jobRepo)
+	jobRepo := &stubJobRepo{byKey: map[string]schedulerDomain.Job{"resync_all_products_to_channels": {JobKey: "resync_all_products_to_channels"}}}
+	uc := appscheduler.NewUpdateJobConfigUseCase(newMockGormDB(t), jobRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "resync_all_products_to_channels", true, 60)
 
@@ -22,7 +23,7 @@ func TestUpdateJobConfig_updatesEnabledAndInterval(t *testing.T) {
 
 func TestUpdateJobConfig_rejectsIntervalBelowOne(t *testing.T) {
 	jobRepo := &stubJobRepo{}
-	uc := appscheduler.NewUpdateJobConfigUseCase(newMockGormDBN(t, 0), jobRepo)
+	uc := appscheduler.NewUpdateJobConfigUseCase(newMockGormDBN(t, 0), jobRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "expired_batches", true, 0)
 
@@ -32,7 +33,7 @@ func TestUpdateJobConfig_rejectsIntervalBelowOne(t *testing.T) {
 
 func TestUpdateJobConfig_propagatesJobNotFound(t *testing.T) {
 	jobRepo := &stubJobRepo{updateConfigErr: schedulerDomain.ErrJobNotFound}
-	uc := appscheduler.NewUpdateJobConfigUseCase(newMockGormDB(t), jobRepo)
+	uc := appscheduler.NewUpdateJobConfigUseCase(newMockGormDB(t), jobRepo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing_job", true, 60)
 

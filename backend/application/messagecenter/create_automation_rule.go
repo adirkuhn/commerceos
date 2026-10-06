@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -50,10 +52,11 @@ type CreateAutomationRuleUseCase struct {
 	db           *gorm.DB
 	repo         mcDomain.AutomationRuleRepository
 	templateRepo mcDomain.MessageTemplateRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewCreateAutomationRuleUseCase(db *gorm.DB, repo mcDomain.AutomationRuleRepository, templateRepo mcDomain.MessageTemplateRepository) *CreateAutomationRuleUseCase {
-	return &CreateAutomationRuleUseCase{db: db, repo: repo, templateRepo: templateRepo}
+func NewCreateAutomationRuleUseCase(db *gorm.DB, repo mcDomain.AutomationRuleRepository, templateRepo mcDomain.MessageTemplateRepository, outbox eventrecord.Enqueuer) *CreateAutomationRuleUseCase {
+	return &CreateAutomationRuleUseCase{db: db, repo: repo, templateRepo: templateRepo, outbox: outbox}
 }
 
 func (uc *CreateAutomationRuleUseCase) Execute(ctx context.Context, in CreateAutomationRuleInput) (*mcDomain.AutomationRule, error) {
@@ -72,7 +75,12 @@ func (uc *CreateAutomationRuleUseCase) Execute(ctx context.Context, in CreateAut
 			Conditions: in.Conditions, TemplateID: in.TemplateID, ChannelOverride: in.ChannelOverride,
 			Enabled: true, CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.repo.Create(ctx, &rule)
+		if err := uc.repo.Create(ctx, &rule); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.AutomationRuleCreated, rule.ID, eventrecord.Data{
+			"name": rule.Name, "trigger_subject": rule.TriggerSubject, "template_id": rule.TemplateID,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createAutomationRule: %w", err)

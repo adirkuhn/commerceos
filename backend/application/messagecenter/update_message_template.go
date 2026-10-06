@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -24,10 +26,11 @@ type UpdateMessageTemplateInput struct {
 type UpdateMessageTemplateUseCase struct {
 	db   *gorm.DB
 	repo mcDomain.MessageTemplateRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewUpdateMessageTemplateUseCase(db *gorm.DB, repo mcDomain.MessageTemplateRepository) *UpdateMessageTemplateUseCase {
-	return &UpdateMessageTemplateUseCase{db: db, repo: repo}
+func NewUpdateMessageTemplateUseCase(db *gorm.DB, repo mcDomain.MessageTemplateRepository, outbox eventrecord.Enqueuer) *UpdateMessageTemplateUseCase {
+	return &UpdateMessageTemplateUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 func (uc *UpdateMessageTemplateUseCase) Execute(ctx context.Context, in UpdateMessageTemplateInput) (*mcDomain.MessageTemplate, error) {
@@ -41,6 +44,7 @@ func (uc *UpdateMessageTemplateUseCase) Execute(ctx context.Context, in UpdateMe
 		if err != nil {
 			return err
 		}
+		before := *existing
 		existing.Name = in.Name
 		existing.Category = in.Category
 		existing.Channels = in.Channels
@@ -52,7 +56,13 @@ func (uc *UpdateMessageTemplateUseCase) Execute(ctx context.Context, in UpdateMe
 			return err
 		}
 		tmpl = *existing
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.MessageTemplateUpdated, tmpl.ID, eventrecord.NewChanges().
+			Set("name", before.Name, tmpl.Name).
+			Set("category", string(before.Category), string(tmpl.Category)).
+			Set("channels", before.Channels, tmpl.Channels).
+			Set("subject", before.Subject, tmpl.Subject).
+			Set("body", before.Body, tmpl.Body).
+			Set("enabled", before.Enabled, tmpl.Enabled))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateMessageTemplate: %w", err)

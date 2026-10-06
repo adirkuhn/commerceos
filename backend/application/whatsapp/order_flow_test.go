@@ -3,6 +3,7 @@ package whatsapp_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,7 +44,7 @@ func newOrderFlowUseCase(t *testing.T, n int, convRepo *fakeConversationRepo, lo
 	if customerCreator == nil {
 		customerCreator = &fakeCustomerCreator{}
 	}
-	return appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, n), convRepo, orderFlowChannelRepo(), lookup, orderCreator, customerCreator, nil)
+	return appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, n), convRepo, orderFlowChannelRepo(), lookup, orderCreator, customerCreator, nil, &eventrecordtest.Outbox{})
 }
 
 func widgetInfo() appwhatsapp.ProductInfo {
@@ -387,7 +388,7 @@ func TestOrderFlow_confirmation_channelHasNoDefaultWarehouse_failsWithClearError
 	channelRepo := &fakeSalesChannelRepo{channels: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWhatsApp, Active: true},
 	}}
-	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 2), convRepo, channelRepo, &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, nil)
+	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 2), convRepo, channelRepo, &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, nil, &eventrecordtest.Outbox{})
 	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
 
 	_, _, err := uc.Execute(context.Background(), testPhone, customer, "YES")
@@ -470,7 +471,7 @@ func ptr[T any](v T) *T { return &v }
 func TestOrderFlow_confirmation_yes_paymentMethodConfigured_includesLinkInReply(t *testing.T) {
 	convRepo := awaitingConfirmationConv(false)
 	paymentGen := &fakePaymentLinkGenerator{ok: true, link: &integrationsDomain.PaymentLink{URL: "https://checkout.stripe.com/pay/cs_1"}}
-	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 3), convRepo, orderFlowChannelRepo(), &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen)
+	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 3), convRepo, orderFlowChannelRepo(), &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen, &eventrecordtest.Outbox{})
 	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
 
 	reply, handled, err := uc.Execute(context.Background(), testPhone, customer, "YES")
@@ -484,7 +485,7 @@ func TestOrderFlow_confirmation_yes_paymentMethodConfigured_includesLinkInReply(
 func TestOrderFlow_confirmation_yes_noPaymentMethodConfigured_omitsLink(t *testing.T) {
 	convRepo := awaitingConfirmationConv(false)
 	paymentGen := &fakePaymentLinkGenerator{ok: false}
-	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 3), convRepo, orderFlowChannelRepo(), &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen)
+	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 3), convRepo, orderFlowChannelRepo(), &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen, &eventrecordtest.Outbox{})
 	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
 
 	reply, handled, err := uc.Execute(context.Background(), testPhone, customer, "YES")
@@ -498,7 +499,7 @@ func TestOrderFlow_confirmation_yes_noPaymentMethodConfigured_omitsLink(t *testi
 func TestOrderFlow_confirmation_yes_paymentLinkGenerationFails_stillSucceedsWithoutLink(t *testing.T) {
 	convRepo := awaitingConfirmationConv(false)
 	paymentGen := &fakePaymentLinkGenerator{err: errors.New("stripe unreachable")}
-	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 3), convRepo, orderFlowChannelRepo(), &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen)
+	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 3), convRepo, orderFlowChannelRepo(), &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen, &eventrecordtest.Outbox{})
 	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
 
 	reply, handled, err := uc.Execute(context.Background(), testPhone, customer, "YES")

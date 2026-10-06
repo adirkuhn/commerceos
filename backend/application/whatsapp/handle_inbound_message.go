@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"log"
 	"strings"
 	"time"
@@ -82,6 +84,7 @@ type HandleInboundMessageUseCase struct {
 	messageRepo      messageRecorder
 	aiIntentResolver aiIntentResolver
 	resolveSKU       skuQueryResolver
+	outbox           eventrecord.Enqueuer
 }
 
 func NewHandleInboundMessageUseCase(
@@ -95,11 +98,13 @@ func NewHandleInboundMessageUseCase(
 	messageRepo messageRecorder,
 	aiIntentResolver aiIntentResolver,
 	resolveSKU skuQueryResolver,
+	outbox eventrecord.Enqueuer,
 ) *HandleInboundMessageUseCase {
 	return &HandleInboundMessageUseCase{
 		db: db, connRepo: connRepo, evolutionFactory: evolutionFactory, encryptionSecret: encryptionSecret,
 		lookupProduct: lookupProduct, customerRepo: customerRepo, orderFlow: orderFlow, messageRepo: messageRepo,
 		aiIntentResolver: aiIntentResolver, resolveSKU: resolveSKU,
+		outbox: outbox,
 	}
 }
 
@@ -143,10 +148,19 @@ func (uc *HandleInboundMessageUseCase) Execute(ctx context.Context, envelope web
 				return err
 			}
 		}
-		return uc.messageRepo.Create(ctx, &whatsappDomain.Message{
+		inbound := whatsappDomain.Message{
 			TenantID: envelope.TenantID, PhoneE164: phone, CustomerID: customerIDPtr(customer),
 			Direction: whatsappDomain.MessageDirectionInbound, Body: payload.text(),
 			WebhookEventID: &envelope.EventID,
+		}
+		if err := uc.messageRepo.Create(ctx, &inbound); err != nil {
+			return err
+		}
+		if inbound.ID == "" {
+			return nil // a redelivered webhook: already logged (and recorded) the first time
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.WhatsAppMessageReceived, inbound.ID, eventrecord.Data{
+			"customer_id": inbound.CustomerID, "webhook_event_id": envelope.EventID,
 		})
 	})
 	if err != nil {
@@ -180,10 +194,14 @@ func (uc *HandleInboundMessageUseCase) Execute(ctx context.Context, envelope web
 	// webhook nack -- that would redeliver this event and send a second,
 	// duplicate reply.
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.messageRepo.Create(ctx, &whatsappDomain.Message{
+		outbound := whatsappDomain.Message{
 			TenantID: envelope.TenantID, PhoneE164: phone, CustomerID: customerIDPtr(customer),
 			Direction: whatsappDomain.MessageDirectionOutbound, Body: reply,
-		})
+		}
+		if err := uc.messageRepo.Create(ctx, &outbound); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.WhatsAppMessageSent, outbound.ID, eventrecord.Data{"customer_id": outbound.CustomerID})
 	})
 	if err != nil {
 		log.Printf("handleInboundMessage: log outbound message: %v", err)

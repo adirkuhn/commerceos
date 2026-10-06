@@ -50,7 +50,14 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-180 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+208 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+
+### apikeys
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `apikeys.api_key.created` | action | An API key was created (e.g. for the WooCommerce plugin). data: name, sales_channel_id. | envelope |
+| `apikeys.api_key.revoked` | action | An API key was revoked and stops working. | envelope |
 
 ### channels
 
@@ -132,7 +139,15 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `integrations.ai_connection.connected` | action | The tenant's AI provider was connected or switched. data: provider, model, base_url, fallback_models. | envelope |
+| `integrations.ai_connection.disconnected` | action | The tenant's AI provider connection was removed. | envelope |
 | `integrations.connection.connected` | typed | IntegrationConnected is raised when a tenant successfully connects a new third-party integration (e.g. a WooCommerce store). | `IntegrationConnected`: event_id, occurred_at, tenant_id, provider, connection_id |
+| `integrations.connection.disconnected` | action | A third-party connection (WooCommerce, Bol, MyParcel, WhatsApp, ...) was removed. data: provider. | envelope |
+| `integrations.connection.tested` | action | A connection's credentials were tested against the provider (changes: status). data: provider, succeeded. | envelope |
+| `integrations.connection.updated` | action | A connection's settings changed (changes: default_currency, default_warehouse_id, bol_economic_operator_id, bol_delivery_code, whatsapp_test_mode_enabled, whatsapp_test_phone, whatsapp_ai_parsing_enabled, base_url, instance_name, api_key -- "changed" only, never the key). data: provider. | envelope |
+| `integrations.connection.webhook_secret_set` | action | A connection's webhook signing secret was set or rotated (the secret itself is never in the event). data: provider. | envelope |
+| `integrations.provider_webhook.created` | action | CommerceOS subscribed to a provider webhook (e.g. WooCommerce order.updated). data: connection_id, provider, topic. | envelope |
+| `integrations.provider_webhook.deleted` | action | A provider webhook subscription was removed. data: connection_id, provider. | envelope |
 
 ### inventory
 
@@ -146,12 +161,25 @@ Payload (`events.EntityAction`):
 | `inventory.warehouse.deleted` | action | A warehouse was deleted. data: name. | envelope |
 | `inventory.warehouse.updated` | action | A warehouse changed (changes: name, address1, address2, city, province, zip, country, phone, active). | envelope |
 
+### messagecenter
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `messagecenter.automation_rule.created` | action | An automation rule (send a template when an event happens) was created. data: name, trigger_subject, template_id. | envelope |
+| `messagecenter.automation_rule.deleted` | action | An automation rule was deleted. data: name. | envelope |
+| `messagecenter.automation_rule.updated` | action | An automation rule changed (changes: name, trigger_subject, conditions, template_id, channel_override, enabled). | envelope |
+| `messagecenter.message_template.created` | action | A message template was created. data: name, category, channels. | envelope |
+| `messagecenter.message_template.deleted` | action | A message template was deleted. data: name. | envelope |
+| `messagecenter.message_template.updated` | action | A message template changed (changes: name, category, channels, subject, body, enabled). | envelope |
+
 ### newsletter
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
 | `newsletter.subscriber.confirmed` | typed | NewsletterSubscriberConfirmed fires when an address completes double opt-in -- e.g. for a welcome email automation. | `NewsletterSubscriberConfirmed`: event_id, occurred_at, tenant_id, subscriber_id |
 | `newsletter.subscriber.erased` | typed | NewsletterSubscriberErased fires when a subscriber is deleted on request (right to erasure). | `NewsletterSubscriberErased`: event_id, occurred_at, tenant_id, subscriber_id |
+| `newsletter.subscriber.subscribed` | action | A shopper signed up for the newsletter and was sent a confirmation link (double opt-in, not confirmed yet). data: sales_channel_id, resubscribed (true when a previously unsubscribed address signed up again). | envelope |
+| `newsletter.subscriber.unsubscribed` | action | A subscriber unsubscribed through their unsubscribe link. | envelope |
 
 ### notifications
 
@@ -266,6 +294,12 @@ Payload (`events.EntityAction`):
 |---|---|---|---|
 | `reviews.review.deleted` | action | A product review was removed by moderation. | envelope |
 
+### scheduler
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `scheduler.job.updated` | action | A scheduled job's configuration changed (changes: enabled, interval_minutes). data: job_key. | envelope |
+
 ### settings
 
 | Subject | Kind | Description | Payload |
@@ -336,6 +370,25 @@ Payload (`events.EntityAction`):
 | `tax.tax_class.updated` | action | A tax class changed (changes: name, is_default). data.reason default_moved when it lost is_default because another class became the default. | envelope |
 | `tax.tax_rate.deleted` | action | A tax rate was removed. data: tax_class_id, country. | envelope |
 | `tax.tax_rate.set` | action | A tax class's rate for a country was set. data: tax_class_id, country, rate_basis_points. | envelope |
+
+### webhook_forwarding
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `webhook_forwarding.fallback_event.abandoned` | action | An admin chose not to process an inbound webhook that couldn't be queued (kept for audit). data: provider. | envelope |
+| `webhook_forwarding.fallback_event.bulk_abandoned` | action | An admin abandoned every inbound webhook waiting in one status at once. entity_id is the tenant. data: from_status, count. | envelope |
+| `webhook_forwarding.fallback_event.republished` | action | An inbound webhook that couldn't be queued when it arrived was published again by an admin. data: provider. | envelope |
+| `webhook_forwarding.forward_rule.created` | action | A rule forwarding a provider's inbound webhooks to another URL was added. data: provider, topic, target_host (the host only -- a target URL's path/query can carry secrets). | envelope |
+| `webhook_forwarding.forward_rule.deleted` | action | A webhook forward rule was removed. | envelope |
+
+### whatsapp
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `whatsapp.conversation.deleted` | action | An admin deleted a WhatsApp conversation's message log. entity_id is the phone number. | envelope |
+| `whatsapp.conversation.updated` | action | A WhatsApp ordering conversation moved on (cart changed, a question answered, an order placed). entity_id is the phone number. data: state, cart_item_count. | envelope |
+| `whatsapp.message.received` | action | A customer's WhatsApp message arrived and was logged. data: customer_id (null when the number isn't a known customer), webhook_event_id. | envelope |
+| `whatsapp.message.sent` | action | CommerceOS replied to a customer on WhatsApp. data: customer_id. | envelope |
 
 ## Legacy subjects
 

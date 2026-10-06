@@ -3,6 +3,7 @@ package integrations_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -25,7 +26,7 @@ func TestSetWhatsAppTestMode_enablesWithTestPhone(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewSetWhatsAppTestModeUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewSetWhatsAppTestModeUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "conn-1", true, "31612345678")
 
@@ -51,7 +52,7 @@ func TestSetWhatsAppTestMode_disablingClearsTheStoredNumber(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewSetWhatsAppTestModeUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewSetWhatsAppTestModeUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "conn-1", false, "")
 
@@ -63,7 +64,7 @@ func TestSetWhatsAppTestMode_disablingClearsTheStoredNumber(t *testing.T) {
 
 func TestSetWhatsAppTestMode_enablingWithNoPhoneIsRejected(t *testing.T) {
 	repo := &mocks.ConnectionRepo{}
-	uc := appintegrations.NewSetWhatsAppTestModeUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewSetWhatsAppTestModeUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "conn-1", true, "  ")
 
@@ -75,7 +76,7 @@ func TestSetWhatsAppTestMode_rejectsNonWhatsAppConnection(t *testing.T) {
 	repo := &mocks.ConnectionRepo{
 		FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil },
 	}
-	uc := appintegrations.NewSetWhatsAppTestModeUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewSetWhatsAppTestModeUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "conn-1", true, "31612345678")
 
@@ -88,7 +89,7 @@ func TestSetWhatsAppTestMode_propagatesNotFound(t *testing.T) {
 			return nil, integrationsDomain.ErrConnectionNotFound
 		},
 	}
-	uc := appintegrations.NewSetWhatsAppTestModeUseCase(newMockGormDB(t), repo)
+	uc := appintegrations.NewSetWhatsAppTestModeUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing", true, "31612345678")
 

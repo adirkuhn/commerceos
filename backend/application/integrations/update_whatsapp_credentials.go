@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -40,10 +41,11 @@ type UpdateWhatsAppCredentialsUseCase struct {
 	db               *gorm.DB
 	connRepo         integrationsDomain.ConnectionRepository
 	encryptionSecret string
+	outbox           eventrecord.Enqueuer
 }
 
-func NewUpdateWhatsAppCredentialsUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, encryptionSecret string) *UpdateWhatsAppCredentialsUseCase {
-	return &UpdateWhatsAppCredentialsUseCase{db: db, connRepo: connRepo, encryptionSecret: encryptionSecret}
+func NewUpdateWhatsAppCredentialsUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, encryptionSecret string, outbox eventrecord.Enqueuer) *UpdateWhatsAppCredentialsUseCase {
+	return &UpdateWhatsAppCredentialsUseCase{db: db, connRepo: connRepo, encryptionSecret: encryptionSecret, outbox: outbox}
 }
 
 func (uc *UpdateWhatsAppCredentialsUseCase) Execute(ctx context.Context, connectionID string, in UpdateWhatsAppCredentialsInput) (*integrationsDomain.Connection, error) {
@@ -61,6 +63,7 @@ func (uc *UpdateWhatsAppCredentialsUseCase) Execute(ctx context.Context, connect
 		if existing.Provider != integrationsDomain.ProviderWhatsApp {
 			return integrationsDomain.ErrNotWhatsAppConnection
 		}
+		before := *existing
 		existing.StoreURL = storeURL
 		existing.ConsumerKey = in.InstanceName
 		if in.APIKey != "" {
@@ -75,7 +78,13 @@ func (uc *UpdateWhatsAppCredentialsUseCase) Execute(ctx context.Context, connect
 			return err
 		}
 		result = existing
-		return nil
+		changes := eventrecord.NewChanges().
+			Set("base_url", before.StoreURL.String(), existing.StoreURL.String()).
+			Set("instance_name", before.ConsumerKey, existing.ConsumerKey)
+		if in.APIKey != "" {
+			changes = changes.Set("api_key", nil, secretChanged)
+		}
+		return recordConnectionUpdated(ctx, uc.outbox, *existing, changes)
 	})
 	if err != nil {
 		if errors.Is(err, integrationsDomain.ErrNotWhatsAppConnection) || errors.Is(err, integrationsDomain.ErrConnectionNotFound) {

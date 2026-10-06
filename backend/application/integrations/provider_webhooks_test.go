@@ -3,6 +3,7 @@ package integrations_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"io"
 	"testing"
 	"time"
@@ -306,7 +307,7 @@ func TestCreateProviderWebhookUseCase_woo_sendsIngestURLAndPlaintextSecret(t *te
 		return integrationsDomain.WooWebhook{ID: "1", Topic: topic, DeliveryURL: deliveryURL, Status: "active"}, nil
 	}}
 	wooFactory := &mocks.WooClientFactory{NewClientFn: func(_, _, _ string) (integrationsDomain.WooClient, error) { return wooClient, nil }}
-	uc := appintegrations.NewCreateProviderWebhookUseCase(newMockGormDB(t), connRepo, wooFactory, &fakeMyParcelClientFactory{}, testEncSecret, "https://api.example.com")
+	uc := appintegrations.NewCreateProviderWebhookUseCase(newMockGormDB(t), connRepo, wooFactory, &fakeMyParcelClientFactory{}, testEncSecret, "https://api.example.com", &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "conn-1", "order.updated")
 
@@ -327,7 +328,7 @@ func TestCreateProviderWebhookUseCase_myParcel_appendsTokenPathSegment(t *testin
 		gotHook, gotURL = hook, deliveryURL
 		return integrationsDomain.WebhookSubscription{ID: "9", Hook: hook, URL: deliveryURL}, nil
 	}}
-	uc := appintegrations.NewCreateProviderWebhookUseCase(newMockGormDB(t), connRepo, &mocks.WooClientFactory{}, &fakeMyParcelClientFactory{client: client}, testEncSecret, "https://api.example.com")
+	uc := appintegrations.NewCreateProviderWebhookUseCase(newMockGormDB(t), connRepo, &mocks.WooClientFactory{}, &fakeMyParcelClientFactory{client: client}, testEncSecret, "https://api.example.com", &eventrecordtest.Outbox{})
 
 	result, err := uc.Execute(context.Background(), "conn-1", "shipment_status_change")
 
@@ -340,7 +341,7 @@ func TestCreateProviderWebhookUseCase_myParcel_appendsTokenPathSegment(t *testin
 func TestCreateProviderWebhookUseCase_noWebhookSecretSet_returnsErrWebhookSecretNotSet(t *testing.T) {
 	conn := wooConn(nil) // WebhookSecretEncrypted left empty
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	uc := appintegrations.NewCreateProviderWebhookUseCase(newMockGormDB(t), connRepo, &mocks.WooClientFactory{}, &fakeMyParcelClientFactory{}, testEncSecret, "https://api.example.com")
+	uc := appintegrations.NewCreateProviderWebhookUseCase(newMockGormDB(t), connRepo, &mocks.WooClientFactory{}, &fakeMyParcelClientFactory{}, testEncSecret, "https://api.example.com", &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "conn-1", "order.updated")
 
@@ -353,7 +354,7 @@ func TestDeleteProviderWebhookUseCase_woo_deletesByID(t *testing.T) {
 	var gotID string
 	wooClient := &fakeFullWooClient{deleteWebhookFn: func(_ context.Context, id string) error { gotID = id; return nil }}
 	wooFactory := &mocks.WooClientFactory{NewClientFn: func(_, _, _ string) (integrationsDomain.WooClient, error) { return wooClient, nil }}
-	uc := appintegrations.NewDeleteProviderWebhookUseCase(newMockGormDB(t), connRepo, wooFactory, &fakeMyParcelClientFactory{}, testEncSecret)
+	uc := appintegrations.NewDeleteProviderWebhookUseCase(newMockGormDB(t), connRepo, wooFactory, &fakeMyParcelClientFactory{}, testEncSecret, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "conn-1", "42")
 
@@ -366,7 +367,7 @@ func TestDeleteProviderWebhookUseCase_myParcel_deletesByID(t *testing.T) {
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
 	var gotID string
 	client := &fakeFullMyParcelClient{deleteWebhookSubscriptionFn: func(_ context.Context, id string) error { gotID = id; return nil }}
-	uc := appintegrations.NewDeleteProviderWebhookUseCase(newMockGormDB(t), connRepo, &mocks.WooClientFactory{}, &fakeMyParcelClientFactory{client: client}, testEncSecret)
+	uc := appintegrations.NewDeleteProviderWebhookUseCase(newMockGormDB(t), connRepo, &mocks.WooClientFactory{}, &fakeMyParcelClientFactory{client: client}, testEncSecret, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "conn-1", "9")
 
@@ -379,7 +380,7 @@ func TestDeleteProviderWebhookUseCase_liveCallFailure_wrapsErrProviderWebhookReq
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
 	wooClient := &fakeFullWooClient{deleteWebhookFn: func(_ context.Context, id string) error { return errors.New("not found") }}
 	wooFactory := &mocks.WooClientFactory{NewClientFn: func(_, _, _ string) (integrationsDomain.WooClient, error) { return wooClient, nil }}
-	uc := appintegrations.NewDeleteProviderWebhookUseCase(newMockGormDB(t), connRepo, wooFactory, &fakeMyParcelClientFactory{}, testEncSecret)
+	uc := appintegrations.NewDeleteProviderWebhookUseCase(newMockGormDB(t), connRepo, wooFactory, &fakeMyParcelClientFactory{}, testEncSecret, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "conn-1", "42")
 

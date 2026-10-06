@@ -9,6 +9,8 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -39,10 +41,11 @@ type SetWebhookSecretUseCase struct {
 	db               *gorm.DB
 	connRepo         integrationsDomain.ConnectionRepository
 	encryptionSecret string
+	outbox           eventrecord.Enqueuer
 }
 
-func NewSetWebhookSecretUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, encryptionSecret string) *SetWebhookSecretUseCase {
-	return &SetWebhookSecretUseCase{db: db, connRepo: connRepo, encryptionSecret: encryptionSecret}
+func NewSetWebhookSecretUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, encryptionSecret string, outbox eventrecord.Enqueuer) *SetWebhookSecretUseCase {
+	return &SetWebhookSecretUseCase{db: db, connRepo: connRepo, encryptionSecret: encryptionSecret, outbox: outbox}
 }
 
 func (uc *SetWebhookSecretUseCase) Execute(ctx context.Context, connectionID string, providedSecret string) (*SetWebhookSecretResult, error) {
@@ -71,7 +74,8 @@ func (uc *SetWebhookSecretUseCase) Execute(ctx context.Context, connectionID str
 			return err
 		}
 		result = SetWebhookSecretResult{ConnectionID: existing.ID, PlaintextSecret: plaintext}
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.ConnectionWebhookSecretSet, existing.ID,
+			eventrecord.Data{"provider": string(existing.Provider)})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("setWebhookSecret: %w", err)

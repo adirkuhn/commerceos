@@ -2,6 +2,7 @@ package messagecenter_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,7 @@ func TestUpdateAutomationRule_success(t *testing.T) {
 		"rule-1": {ID: "rule-1", Name: "Old", TriggerSubject: "shipping.shipment.fulfillment_signal", TemplateID: "template-1", Enabled: true},
 	}}
 	templateRepo := &stubMessageTemplateRepo{byID: map[string]mcDomain.MessageTemplate{"template-1": {ID: "template-1"}}}
-	uc := appmc.NewUpdateAutomationRuleUseCase(newMockGormDB(t, 1), repo, templateRepo)
+	uc := appmc.NewUpdateAutomationRuleUseCase(newMockGormDB(t, 1), repo, templateRepo, &eventrecordtest.Outbox{})
 
 	rule, err := uc.Execute(context.Background(), appmc.UpdateAutomationRuleInput{
 		ID: "rule-1", Name: "New", TriggerSubject: "shipping.shipment.fulfillment_signal", TemplateID: "template-1", Enabled: false,
@@ -30,7 +31,7 @@ func TestUpdateAutomationRule_success(t *testing.T) {
 
 func TestUpdateAutomationRule_notFound(t *testing.T) {
 	repo := &stubAutomationRuleRepo{byID: map[string]mcDomain.AutomationRule{}}
-	uc := appmc.NewUpdateAutomationRuleUseCase(newMockGormDB(t, 1), repo, &stubMessageTemplateRepo{})
+	uc := appmc.NewUpdateAutomationRuleUseCase(newMockGormDB(t, 1), repo, &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.UpdateAutomationRuleInput{
 		ID: "missing", Name: "New", TriggerSubject: "shipping.shipment.fulfillment_signal", TemplateID: "template-1",

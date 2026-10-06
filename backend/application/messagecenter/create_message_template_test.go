@@ -2,6 +2,7 @@ package messagecenter_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ import (
 
 func TestCreateMessageTemplate_success(t *testing.T) {
 	repo := &stubMessageTemplateRepo{}
-	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 1), repo)
+	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	tmpl, err := uc.Execute(context.Background(), appmc.CreateMessageTemplateInput{
 		Name: "Order confirmed", Category: mcDomain.CategoryPurchase,
@@ -29,7 +30,7 @@ func TestCreateMessageTemplate_success(t *testing.T) {
 }
 
 func TestCreateMessageTemplate_rejectsEmptyName(t *testing.T) {
-	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 0), &stubMessageTemplateRepo{})
+	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 0), &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.CreateMessageTemplateInput{
 		Category: mcDomain.CategoryPurchase, Channels: []messaging.Channel{messaging.ChannelEmail}, Body: "x",
@@ -39,7 +40,7 @@ func TestCreateMessageTemplate_rejectsEmptyName(t *testing.T) {
 }
 
 func TestCreateMessageTemplate_rejectsInvalidCategory(t *testing.T) {
-	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 0), &stubMessageTemplateRepo{})
+	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 0), &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.CreateMessageTemplateInput{
 		Name: "X", Category: mcDomain.Category("bogus"), Channels: []messaging.Channel{messaging.ChannelEmail}, Body: "x",
@@ -49,7 +50,7 @@ func TestCreateMessageTemplate_rejectsInvalidCategory(t *testing.T) {
 }
 
 func TestCreateMessageTemplate_rejectsNoChannels(t *testing.T) {
-	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 0), &stubMessageTemplateRepo{})
+	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 0), &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.CreateMessageTemplateInput{
 		Name: "X", Category: mcDomain.CategoryPurchase, Body: "x",
@@ -59,7 +60,7 @@ func TestCreateMessageTemplate_rejectsNoChannels(t *testing.T) {
 }
 
 func TestCreateMessageTemplate_rejectsInvalidChannel(t *testing.T) {
-	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 0), &stubMessageTemplateRepo{})
+	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 0), &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.CreateMessageTemplateInput{
 		Name: "X", Category: mcDomain.CategoryPurchase, Channels: []messaging.Channel{"carrier-pigeon"}, Body: "x",
@@ -69,7 +70,7 @@ func TestCreateMessageTemplate_rejectsInvalidChannel(t *testing.T) {
 }
 
 func TestCreateMessageTemplate_rejectsEmptyBody(t *testing.T) {
-	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 0), &stubMessageTemplateRepo{})
+	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 0), &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appmc.CreateMessageTemplateInput{
 		Name: "X", Category: mcDomain.CategoryPurchase, Channels: []messaging.Channel{messaging.ChannelSMS},
@@ -80,7 +81,7 @@ func TestCreateMessageTemplate_rejectsEmptyBody(t *testing.T) {
 
 func TestCreateMessageTemplate_allThreeChannels_success(t *testing.T) {
 	repo := &stubMessageTemplateRepo{}
-	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 1), repo)
+	uc := appmc.NewCreateMessageTemplateUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	tmpl, err := uc.Execute(context.Background(), appmc.CreateMessageTemplateInput{
 		Name: "Broadcast", Category: mcDomain.CategoryCustom,

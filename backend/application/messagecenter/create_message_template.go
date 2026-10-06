@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -50,10 +52,11 @@ func validateMessageTemplateInput(name string, category mcDomain.Category, chann
 type CreateMessageTemplateUseCase struct {
 	db   *gorm.DB
 	repo mcDomain.MessageTemplateRepository
+	outbox eventrecord.Enqueuer
 }
 
-func NewCreateMessageTemplateUseCase(db *gorm.DB, repo mcDomain.MessageTemplateRepository) *CreateMessageTemplateUseCase {
-	return &CreateMessageTemplateUseCase{db: db, repo: repo}
+func NewCreateMessageTemplateUseCase(db *gorm.DB, repo mcDomain.MessageTemplateRepository, outbox eventrecord.Enqueuer) *CreateMessageTemplateUseCase {
+	return &CreateMessageTemplateUseCase{db: db, repo: repo, outbox: outbox}
 }
 
 func (uc *CreateMessageTemplateUseCase) Execute(ctx context.Context, in CreateMessageTemplateInput) (*mcDomain.MessageTemplate, error) {
@@ -69,7 +72,12 @@ func (uc *CreateMessageTemplateUseCase) Execute(ctx context.Context, in CreateMe
 			Channels: in.Channels, Subject: in.Subject, Body: in.Body,
 			Enabled: true, CreatedAt: now, UpdatedAt: now,
 		}
-		return uc.repo.Create(ctx, &tmpl)
+		if err := uc.repo.Create(ctx, &tmpl); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.MessageTemplateCreated, tmpl.ID, eventrecord.Data{
+			"name": tmpl.Name, "category": string(tmpl.Category), "channels": tmpl.Channels,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createMessageTemplate: %w", err)

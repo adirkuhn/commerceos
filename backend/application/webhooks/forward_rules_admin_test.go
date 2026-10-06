@@ -3,6 +3,7 @@ package webhooks_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -48,7 +49,7 @@ func (f *fakeForwardRuleRepoAdmin) Match(ctx context.Context, provider, topic st
 
 func TestCreateForwardRuleUseCase_createsRuleUnderCallersTenant(t *testing.T) {
 	repo := &fakeForwardRuleRepoAdmin{}
-	uc := appwebhooks.NewCreateForwardRuleUseCase(newMockGormDB(t, 1), repo)
+	uc := appwebhooks.NewCreateForwardRuleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	rule, err := uc.Execute(ctx, "woocommerce", "order.updated", "https://example.com/hook")
@@ -63,7 +64,7 @@ func TestCreateForwardRuleUseCase_createsRuleUnderCallersTenant(t *testing.T) {
 
 func TestCreateForwardRuleUseCase_rejectsNonHTTPTargetURL(t *testing.T) {
 	repo := &fakeForwardRuleRepoAdmin{}
-	uc := appwebhooks.NewCreateForwardRuleUseCase(newMockGormDB(t, 0), repo)
+	uc := appwebhooks.NewCreateForwardRuleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "woocommerce", "order.updated", "not-a-url")
 
@@ -74,7 +75,7 @@ func TestCreateForwardRuleUseCase_rejectsNonHTTPTargetURL(t *testing.T) {
 
 func TestCreateForwardRuleUseCase_rejectsFileSchemeTargetURL(t *testing.T) {
 	repo := &fakeForwardRuleRepoAdmin{}
-	uc := appwebhooks.NewCreateForwardRuleUseCase(newMockGormDB(t, 0), repo)
+	uc := appwebhooks.NewCreateForwardRuleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "woocommerce", "order.updated", "file:///etc/passwd")
 
@@ -84,7 +85,7 @@ func TestCreateForwardRuleUseCase_rejectsFileSchemeTargetURL(t *testing.T) {
 
 func TestCreateForwardRuleUseCase_requiresProvider(t *testing.T) {
 	repo := &fakeForwardRuleRepoAdmin{}
-	uc := appwebhooks.NewCreateForwardRuleUseCase(newMockGormDB(t, 0), repo)
+	uc := appwebhooks.NewCreateForwardRuleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "", "order.updated", "https://example.com/hook")
 
@@ -105,7 +106,7 @@ func TestListForwardRulesUseCase_listsRules(t *testing.T) {
 
 func TestDeleteForwardRuleUseCase_deletesRule(t *testing.T) {
 	repo := &fakeForwardRuleRepoAdmin{}
-	uc := appwebhooks.NewDeleteForwardRuleUseCase(newMockGormDB(t, 1), repo)
+	uc := appwebhooks.NewDeleteForwardRuleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "rule-1")
 
@@ -115,7 +116,7 @@ func TestDeleteForwardRuleUseCase_deletesRule(t *testing.T) {
 
 func TestDeleteForwardRuleUseCase_propagatesRepoError(t *testing.T) {
 	repo := &fakeForwardRuleRepoAdmin{err: errors.New("db down")}
-	uc := appwebhooks.NewDeleteForwardRuleUseCase(newMockGormDB(t, 1), repo)
+	uc := appwebhooks.NewDeleteForwardRuleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "rule-1")
 

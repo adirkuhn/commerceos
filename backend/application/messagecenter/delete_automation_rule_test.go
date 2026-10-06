@@ -2,6 +2,7 @@ package messagecenter_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 
 func TestDeleteAutomationRule_success(t *testing.T) {
 	repo := &stubAutomationRuleRepo{byID: map[string]mcDomain.AutomationRule{"rule-1": {ID: "rule-1"}}}
-	uc := appmc.NewDeleteAutomationRuleUseCase(newMockGormDB(t, 1), repo)
+	uc := appmc.NewDeleteAutomationRuleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "rule-1")
 
@@ -23,7 +24,7 @@ func TestDeleteAutomationRule_success(t *testing.T) {
 
 func TestDeleteAutomationRule_notFound(t *testing.T) {
 	repo := &stubAutomationRuleRepo{byID: map[string]mcDomain.AutomationRule{}}
-	uc := appmc.NewDeleteAutomationRuleUseCase(newMockGormDB(t, 1), repo)
+	uc := appmc.NewDeleteAutomationRuleUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 

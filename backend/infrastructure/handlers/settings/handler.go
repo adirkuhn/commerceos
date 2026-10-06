@@ -75,8 +75,8 @@ func Register(rg gin.IRouter, db *gorm.DB, outbox appsettings.EventEnqueuer) {
 		appsettings.NewGetTenantSettingsUseCase(db, repo),
 		appsettings.NewUpdateTenantSettingsUseCase(db, repo, outbox),
 		appapikeys.NewListAPIKeysUseCase(db, apiKeyRepo),
-		appapikeys.NewCreateAPIKeyUseCase(db, apiKeyRepo),
-		appapikeys.NewRevokeAPIKeyUseCase(db, apiKeyRepo),
+		appapikeys.NewCreateAPIKeyUseCase(db, apiKeyRepo, outbox),
+		appapikeys.NewRevokeAPIKeyUseCase(db, apiKeyRepo, outbox),
 		NewCompanyProfileHandler(
 			appsettings.NewGetCompanyProfileUseCase(db, companyRepo),
 			appsettings.NewUpdateCompanyProfileUseCase(db, companyRepo, outbox),

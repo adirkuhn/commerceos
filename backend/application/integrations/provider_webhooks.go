@@ -7,6 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -199,16 +201,18 @@ type CreateProviderWebhookUseCase struct {
 	myParcelFactory  integrationsDomain.MyParcelClientFactory
 	encSecret        string
 	publicAPIBaseURL string
+	outbox           eventrecord.Enqueuer
 }
 
 func NewCreateProviderWebhookUseCase(
 	db *gorm.DB, connRepo integrationsDomain.ConnectionRepository,
 	wooFactory integrationsDomain.WooClientFactory, myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret, publicAPIBaseURL string,
+	outbox eventrecord.Enqueuer,
 ) *CreateProviderWebhookUseCase {
 	return &CreateProviderWebhookUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, myParcelFactory: myParcelFactory,
-		encSecret: encryptionSecret, publicAPIBaseURL: publicAPIBaseURL,
+		encSecret: encryptionSecret, publicAPIBaseURL: publicAPIBaseURL, outbox: outbox,
 	}
 }
 
@@ -239,7 +243,7 @@ func (uc *CreateProviderWebhookUseCase) Execute(ctx context.Context, connectionI
 				return fmt.Errorf("%w: %w", integrationsDomain.ErrProviderWebhookRequestFailed, err)
 			}
 			out = integrationsDomain.ProviderWebhook{ID: hook.ID, Provider: conn.Provider, Topic: hook.Topic, DeliveryURL: hook.DeliveryURL, Status: hook.Status}
-			return nil
+			return recordProviderWebhookCreated(ctx, uc.outbox, conn.ID, out)
 		case integrationsDomain.ProviderMyParcel:
 			client, err := newMyParcelClientForConn(uc.myParcelFactory, uc.encSecret, *conn)
 			if err != nil {
@@ -251,7 +255,7 @@ func (uc *CreateProviderWebhookUseCase) Execute(ctx context.Context, connectionI
 				return fmt.Errorf("%w: %w", integrationsDomain.ErrProviderWebhookRequestFailed, err)
 			}
 			out = integrationsDomain.ProviderWebhook{ID: sub.ID, Provider: conn.Provider, Topic: sub.Hook, DeliveryURL: sub.URL, Status: "active"}
-			return nil
+			return recordProviderWebhookCreated(ctx, uc.outbox, conn.ID, out)
 		default:
 			return integrationsDomain.ErrProviderNotSupported
 		}
@@ -270,14 +274,16 @@ type DeleteProviderWebhookUseCase struct {
 	wooFactory      integrationsDomain.WooClientFactory
 	myParcelFactory integrationsDomain.MyParcelClientFactory
 	encSecret       string
+	outbox          eventrecord.Enqueuer
 }
 
 func NewDeleteProviderWebhookUseCase(
 	db *gorm.DB, connRepo integrationsDomain.ConnectionRepository,
 	wooFactory integrationsDomain.WooClientFactory, myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
+	outbox eventrecord.Enqueuer,
 ) *DeleteProviderWebhookUseCase {
-	return &DeleteProviderWebhookUseCase{db: db, connRepo: connRepo, wooFactory: wooFactory, myParcelFactory: myParcelFactory, encSecret: encryptionSecret}
+	return &DeleteProviderWebhookUseCase{db: db, connRepo: connRepo, wooFactory: wooFactory, myParcelFactory: myParcelFactory, encSecret: encryptionSecret, outbox: outbox}
 }
 
 func (uc *DeleteProviderWebhookUseCase) Execute(ctx context.Context, connectionID, webhookID string) error {
@@ -295,7 +301,7 @@ func (uc *DeleteProviderWebhookUseCase) Execute(ctx context.Context, connectionI
 			if err := client.DeleteWebhook(ctx, webhookID); err != nil {
 				return fmt.Errorf("%w: %w", integrationsDomain.ErrProviderWebhookRequestFailed, err)
 			}
-			return nil
+			return recordProviderWebhookDeleted(ctx, uc.outbox, *conn, webhookID)
 		case integrationsDomain.ProviderMyParcel:
 			client, err := newMyParcelClientForConn(uc.myParcelFactory, uc.encSecret, *conn)
 			if err != nil {
@@ -304,7 +310,7 @@ func (uc *DeleteProviderWebhookUseCase) Execute(ctx context.Context, connectionI
 			if err := client.DeleteWebhookSubscription(ctx, webhookID); err != nil {
 				return fmt.Errorf("%w: %w", integrationsDomain.ErrProviderWebhookRequestFailed, err)
 			}
-			return nil
+			return recordProviderWebhookDeleted(ctx, uc.outbox, *conn, webhookID)
 		default:
 			return integrationsDomain.ErrProviderNotSupported
 		}
@@ -337,4 +343,16 @@ func newMyParcelClientForConn(factory integrationsDomain.MyParcelClientFactory, 
 		return nil, fmt.Errorf("build myparcel client: %w", err)
 	}
 	return client, nil
+}
+
+func recordProviderWebhookCreated(ctx context.Context, outbox eventrecord.Enqueuer, connectionID string, hook integrationsDomain.ProviderWebhook) error {
+	return eventrecord.Record(ctx, outbox, events.ProviderWebhookCreated, hook.ID, eventrecord.Data{
+		"connection_id": connectionID, "provider": string(hook.Provider), "topic": hook.Topic,
+	})
+}
+
+func recordProviderWebhookDeleted(ctx context.Context, outbox eventrecord.Enqueuer, conn integrationsDomain.Connection, webhookID string) error {
+	return eventrecord.Record(ctx, outbox, events.ProviderWebhookDeleted, webhookID, eventrecord.Data{
+		"connection_id": conn.ID, "provider": string(conn.Provider),
+	})
 }

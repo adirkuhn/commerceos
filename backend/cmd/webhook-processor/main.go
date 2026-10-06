@@ -137,13 +137,13 @@ func main() {
 	)
 	orderFlowUC := appwhatsapp.NewOrderFlowUseCase(
 		db, repositories.NewWhatsAppConversationRepo(db), repositories.NewSalesChannelRepo(db), lookupProductInfo, createSalesOrderUC, createCustomerUC,
-		generatePaymentLinkUC,
+		generatePaymentLinkUC, outboxRepo,
 	)
 	whatsappHandler := appwhatsapp.NewHandleInboundMessageUseCase(
 		db, repositories.NewConnectionRepo(db), evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
 		lookupProductInfo, repositories.NewCustomerRepo(db), orderFlowUC, repositories.NewWhatsAppMessageRepo(db),
 		ai.NewWhatsAppIntentParserResolver(db, repositories.NewAIConnectionRepo(db), cfg.IntegrationsEncryptionSecret),
-		appwhatsapp.NewResolveSKUFromQueryUseCase(db, repositories.NewSKURepo(db), repositories.NewProductRepo(db), repositories.NewVariantRepo(db)),
+		appwhatsapp.NewResolveSKUFromQueryUseCase(db, repositories.NewSKURepo(db), repositories.NewProductRepo(db), repositories.NewVariantRepo(db)), outboxRepo,
 	)
 
 	stripePaymentHandler := apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewStripeEventParser(), updateSalesOrder, "stripe")
