@@ -38,6 +38,20 @@ func TestEditor_openDraftRunsAsTheSessionTenant(t *testing.T) {
 	assert.Equal(t, "tenant-1", tenant.IDFromContext(s.gotCtx))
 }
 
+// Editor changes are the merchant's own actions: the events they raise
+// name the user (and role) who opened the edit session, not "system".
+func TestEditor_actsAsTheSessionUser(t *testing.T) {
+	session := editSession()
+	session.Role = "customer_admin"
+	s := &stub{session: session}
+
+	w := do(newRouter(t, s), http.MethodPost, "/api/v1/theme-editor/draft", "", "good")
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Equal(t, "user-1", tenant.UserIDFromContext(s.gotCtx))
+	assert.Equal(t, tenant.RoleCustomerAdmin, tenant.RoleFromContext(s.gotCtx))
+}
+
 func TestEditor_saveDocumentMapsTreeAndRevision(t *testing.T) {
 	s := &stub{session: editSession()}
 	body := `{"expected_revision":3,"seo":{"title":"Loja"},"translations":{"en":{"seo":{"title":"Shop"}}},"root":{"id":"root","type":"root","children":[{"id":"h","type":"heading","props":{"text":"Hi","level":1},"translations":{"nl":{"text":"Hoi"}},"style":{"mobile":{"font_size":"xl"}}}]}}`

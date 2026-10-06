@@ -21,7 +21,7 @@ func bearer(c *gin.Context) string {
 }
 
 // editSession authenticates the editor's bearer token and scopes the
-// request context to the session's tenant.
+// request context to the session's tenant and user.
 func (h *Handler) editSession(c *gin.Context) (*theme.Session, bool) {
 	token := bearer(c)
 	if token == "" {
@@ -33,7 +33,13 @@ func (h *Handler) editSession(c *gin.Context) (*theme.Session, bool) {
 		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or expired edit session")
 		return nil, false
 	}
-	c.Request = c.Request.WithContext(tenant.WithTenantID(c.Request.Context(), s.TenantID))
+	// The merchant who opened the session is the one acting -- their user
+	// and role go into the context so the events editor changes raise
+	// name them, not the system.
+	ctx := tenant.WithTenantID(c.Request.Context(), s.TenantID)
+	ctx = tenant.WithUserID(ctx, s.UserID)
+	ctx = tenant.WithRole(ctx, tenant.Role(s.Role))
+	c.Request = c.Request.WithContext(ctx)
 	return s, true
 }
 
