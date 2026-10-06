@@ -3,6 +3,7 @@ package procurement_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,7 @@ import (
 func TestDeletePurchaseOrderDocument_deletesRowAndStoredFile(t *testing.T) {
 	documentRepo := &stubDocumentRepo{findResult: &procurementDomain.PurchaseOrderDocument{ID: "document-1", FileURL: "https://uploads.example.com/tenant-1/abc.pdf"}}
 	storage := &stubFileStorage{}
-	uc := appprocurement.NewDeletePurchaseOrderDocumentUseCase(newMockGormDB(t), documentRepo, storage)
+	uc := appprocurement.NewDeletePurchaseOrderDocumentUseCase(newMockGormDB(t), documentRepo, storage, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "document-1")
 
@@ -26,7 +27,7 @@ func TestDeletePurchaseOrderDocument_deletesRowAndStoredFile(t *testing.T) {
 
 func TestDeletePurchaseOrderDocument_propagatesNotFound(t *testing.T) {
 	documentRepo := &stubDocumentRepo{findErr: procurementDomain.ErrDocumentNotFound}
-	uc := appprocurement.NewDeletePurchaseOrderDocumentUseCase(newMockGormDB(t), documentRepo, &stubFileStorage{})
+	uc := appprocurement.NewDeletePurchaseOrderDocumentUseCase(newMockGormDB(t), documentRepo, &stubFileStorage{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 
@@ -39,7 +40,7 @@ func TestDeletePurchaseOrderDocument_doesNotDeleteStoredFile_whenRowDeleteFails(
 		deleteErr:  errors.New("db down"),
 	}
 	storage := &stubFileStorage{}
-	uc := appprocurement.NewDeletePurchaseOrderDocumentUseCase(newMockGormDB(t), documentRepo, storage)
+	uc := appprocurement.NewDeletePurchaseOrderDocumentUseCase(newMockGormDB(t), documentRepo, storage, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "document-1")
 

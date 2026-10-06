@@ -3,6 +3,7 @@ package procurement_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
@@ -28,7 +29,7 @@ func newReceivingJobFixture() (*stubReceivingRecordRepo, *stubLineItemRepo, *stu
 func TestRunReceivingParsingJob_noDiscrepanciesWhenInvoiceMatchesPO(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	recRepo, lineItemRepo, discrepancyRepo, storage := newReceivingJobFixture()
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil)
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -41,7 +42,7 @@ func TestRunReceivingParsingJob_quantityMismatch(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	recRepo, lineItemRepo, discrepancyRepo, storage := newReceivingJobFixture()
 	storage.getData = []byte("SKU,Description,Quantity\nWID-001,Widget A,8\n")
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil)
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -61,7 +62,7 @@ func TestRunReceivingParsingJob_missingItemWhenPOLineNotOnInvoice(t *testing.T) 
 	db := newMockGormDBN(t, 2)
 	recRepo, lineItemRepo, discrepancyRepo, storage := newReceivingJobFixture()
 	storage.getData = []byte("SKU,Description,Quantity\nOTHER-SKU,Other thing,5\n")
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil)
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -80,7 +81,7 @@ func TestRunReceivingParsingJob_expiryMismatchWhenExpiringSoon(t *testing.T) {
 	recRepo, lineItemRepo, discrepancyRepo, storage := newReceivingJobFixture()
 	soon := time.Now().AddDate(0, 0, 5).Format("2006-01-02")
 	storage.getData = []byte("SKU,Description,Quantity,Expiry\nWID-001,Widget A,10," + soon + "\n")
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil)
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -97,7 +98,7 @@ func TestRunReceivingParsingJob_expiryMismatchStoresExpiryDateAndDateFreeDetails
 	recRepo, lineItemRepo, discrepancyRepo, storage := newReceivingJobFixture()
 	soon := time.Now().AddDate(0, 0, 5).Format("2006-01-02")
 	storage.getData = []byte("SKU,Description,Quantity,Expiry\nWID-001,Widget A,10," + soon + "\n")
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil)
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -114,7 +115,7 @@ func TestRunReceivingParsingJob_noExpiryMismatchWhenExpiryFarInFuture(t *testing
 	db := newMockGormDBN(t, 2)
 	recRepo, lineItemRepo, discrepancyRepo, storage := newReceivingJobFixture()
 	storage.getData = []byte("SKU,Description,Quantity,Expiry\nWID-001,Widget A,10,2030-01-01\n")
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil)
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -125,7 +126,7 @@ func TestRunReceivingParsingJob_noExpiryMismatchWhenExpiryFarInFuture(t *testing
 func TestRunReceivingParsingJob_propagatesReceivingRecordNotFound(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	recRepo := &stubReceivingRecordRepo{findErr: procurementDomain.ErrReceivingRecordNotFound}
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, &stubLineItemRepo{}, &stubReceivingDiscrepancyRepo{}, &stubFileStorage{}, &stubPDFTextExtractor{}, nil)
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, &stubLineItemRepo{}, &stubReceivingDiscrepancyRepo{}, &stubFileStorage{}, &stubPDFTextExtractor{}, nil, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "missing"})
 
@@ -136,7 +137,7 @@ func TestRunReceivingParsingJob_propagatesStorageGetError(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	recRepo, lineItemRepo, discrepancyRepo, _ := newReceivingJobFixture()
 	storage := &stubFileStorage{getErr: errors.New("not found")}
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil)
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -150,7 +151,7 @@ func TestRunReceivingParsingJob_pdfWithNoAIParserConfiguredReturnsError(t *testi
 	recRepo.findResult.InvoiceFileName = "invoice.pdf"
 	storage.getData = []byte("not extractable as csv")
 	pdfExtractor := &stubPDFTextExtractor{text: "Widget A x10"}
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, &stubAIParserResolver{})
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, &stubAIParserResolver{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -177,7 +178,7 @@ func TestRunReceivingParsingJob_fuzzyDescriptionMatchWhenRawSKUMissingOnOneSide(
 		// no RawSKU captured this pass, description differs by case/spacing only
 		{RawSKU: "", RawDescription: "MANDIOQUINHA  COZIDA NO VAPOR VAPZA 12 X 500G", Quantity: 108},
 	}}
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser}, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -197,7 +198,7 @@ func TestRunReceivingParsingJob_duplicateRawSKUAcrossTwoPOLinesBothTracked(t *te
 		{ID: "line-2", RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 3},
 	}
 	storage.getData = []byte("SKU,Description,Quantity\nWID-001,Widget A,5\n")
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil)
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -229,7 +230,7 @@ func TestRunReceivingParsingJob_batchSplitInvoiceLinesAggregateAgainstOnePOLine(
 		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 50, BatchCode: "B1", ExpiryDate: &farFuture},
 		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 50, BatchCode: "B2", ExpiryDate: &farFuture},
 	}}
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser}, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -253,7 +254,7 @@ func TestRunReceivingParsingJob_batchSplitInvoiceLinesAggregateToSingleQuantityM
 		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 50, BatchCode: "B1", ExpiryDate: &farFuture},
 		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 40, BatchCode: "B2", ExpiryDate: &farFuture},
 	}}
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser}, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -273,7 +274,7 @@ func TestRunReceivingParsingJob_noPlausibleMatchStaysMissingAndUnexpected(t *tes
 	db := newMockGormDBN(t, 2)
 	recRepo, lineItemRepo, discrepancyRepo, storage := newReceivingJobFixture()
 	storage.getData = []byte("SKU,Description,Quantity\nOTHER-SKU,Other thing,5\n")
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil)
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, &stubPDFTextExtractor{}, nil, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -297,7 +298,7 @@ func TestRunReceivingParsingJob_pdfUsesAIParserWhenConfigured(t *testing.T) {
 	aiParser := &stubAIDocumentParser{out: []procurementDomain.ExtractedLineItem{
 		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 10},
 	}}
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser}, &eventrecordtest.Outbox{})
 
 	count, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 

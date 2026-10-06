@@ -3,6 +3,7 @@ package procurement_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"strings"
 	"testing"
 
@@ -18,7 +19,7 @@ func TestUploadInvoice_savesRecordAndEnqueuesJob(t *testing.T) {
 	recRepo := &stubReceivingRecordRepo{}
 	jobRepo := &stubReceivingParsingJobRepo{}
 	storage := &stubFileStorage{}
-	uc := appprocurement.NewUploadInvoiceUseCase(db, poRepo, recRepo, jobRepo, storage)
+	uc := appprocurement.NewUploadInvoiceUseCase(db, poRepo, recRepo, jobRepo, storage, &eventrecordtest.Outbox{})
 
 	job, err := uc.Execute(context.Background(), appprocurement.UploadInvoiceInput{
 		PurchaseOrderID: "po-1", FileName: "invoice.csv", ContentType: "text/csv", Data: strings.NewReader("sku,qty\nA,1"),
@@ -41,7 +42,7 @@ func TestUploadInvoice_flagsPotentialDuplicate_whenMatchFound(t *testing.T) {
 	recRepo := &stubReceivingRecordRepo{duplicateCandidates: []procurementDomain.ReceivingRecord{{ID: "receiving-record-0"}}}
 	jobRepo := &stubReceivingParsingJobRepo{}
 	storage := &stubFileStorage{}
-	uc := appprocurement.NewUploadInvoiceUseCase(db, poRepo, recRepo, jobRepo, storage)
+	uc := appprocurement.NewUploadInvoiceUseCase(db, poRepo, recRepo, jobRepo, storage, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.UploadInvoiceInput{
 		PurchaseOrderID: "po-1", FileName: "invoice.csv", ContentType: "text/csv", Data: strings.NewReader("sku,qty\nA,1"),
@@ -63,7 +64,7 @@ func TestUploadInvoice_notFlaggedAsDuplicate_whenNoMatchFound(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
 	recRepo := &stubReceivingRecordRepo{}
-	uc := appprocurement.NewUploadInvoiceUseCase(db, poRepo, recRepo, &stubReceivingParsingJobRepo{}, &stubFileStorage{})
+	uc := appprocurement.NewUploadInvoiceUseCase(db, poRepo, recRepo, &stubReceivingParsingJobRepo{}, &stubFileStorage{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.UploadInvoiceInput{
 		PurchaseOrderID: "po-1", FileName: "invoice.csv", ContentType: "text/csv", Data: strings.NewReader("sku,qty\nA,1"),
@@ -77,7 +78,7 @@ func TestUploadInvoice_notFlaggedAsDuplicate_whenNoMatchFound(t *testing.T) {
 func TestUploadInvoice_propagatesPurchaseOrderNotFound(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	poRepo := &stubPurchaseOrderRepo{findErr: procurementDomain.ErrPurchaseOrderNotFound}
-	uc := appprocurement.NewUploadInvoiceUseCase(db, poRepo, &stubReceivingRecordRepo{}, &stubReceivingParsingJobRepo{}, &stubFileStorage{})
+	uc := appprocurement.NewUploadInvoiceUseCase(db, poRepo, &stubReceivingRecordRepo{}, &stubReceivingParsingJobRepo{}, &stubFileStorage{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.UploadInvoiceInput{
 		PurchaseOrderID: "missing", FileName: "invoice.csv", ContentType: "text/csv", Data: strings.NewReader(""),
@@ -90,7 +91,7 @@ func TestUploadInvoice_propagatesStorageError(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
 	storage := &stubFileStorage{saveErr: errors.New("disk full")}
-	uc := appprocurement.NewUploadInvoiceUseCase(db, poRepo, &stubReceivingRecordRepo{}, &stubReceivingParsingJobRepo{}, storage)
+	uc := appprocurement.NewUploadInvoiceUseCase(db, poRepo, &stubReceivingRecordRepo{}, &stubReceivingParsingJobRepo{}, storage, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.UploadInvoiceInput{
 		PurchaseOrderID: "po-1", FileName: "invoice.csv", ContentType: "text/csv", Data: strings.NewReader(""),

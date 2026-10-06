@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-36 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+42 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### collections
 
@@ -118,10 +118,16 @@ Payload (`events.EntityAction`):
 | `procurement.purchase_order.deleted` | action | A purchase order was deleted with its line items. data: supplier_id, status. | envelope |
 | `procurement.purchase_order.updated` | action | A purchase order changed (changes: supplier_id, warehouse_id, status, currency_code, expected_date, notes). data.reason is set when the system changed it: line_items_resolved (needs_review -> draft once every product line is linked). | envelope |
 | `procurement.purchase_order_document.attached` | action | A supplier document (invoice / order confirmation file) was attached to a purchase order. data: purchase_order_id, file_name, content_type, parsing_job_id, duplicate_of_purchase_order_id (set when the same file is already on another PO; its lines are then copied instead of parsed). | envelope |
+| `procurement.purchase_order_document.deleted` | action | A supplier document was removed from a purchase order (its file deleted from storage). data: purchase_order_id, file_name. | envelope |
+| `procurement.purchase_order_document.parsed` | action | A supplier document was read into purchase order lines (each line also raises purchase_order_line_item.added, source document). data: purchase_order_id, parsing_job_id, line_count, unmatched_count, suggested_supplier_name, suggested_currency_code. | envelope |
+| `procurement.purchase_order_document.parsing_retried` | action | Parsing of a supplier document was requested again. data: purchase_order_id, parsing_job_id. | envelope |
 | `procurement.purchase_order_line_item.added` | action | A line was added to a purchase order. data: purchase_order_id, sku_id, quantity, units_per_purchased_item, unit_cost_minor_units, line_type, source -- manual, or duplicate_document (copied from the PO an identical document was already attached to). | envelope |
 | `procurement.purchase_order_line_item.linked` | action | A purchase order line was linked to a catalog SKU (changes: sku_id, units_per_purchased_item). data: purchase_order_id, source -- manual (a person picked the SKU) or supplier_alias (matched from the supplier's learned aliases). | envelope |
 | `procurement.purchase_order_line_item.removed` | action | A line was removed from a purchase order. data: purchase_order_id, sku_id. | envelope |
 | `procurement.purchase_order_line_item.updated` | action | A purchase order line changed (changes: sku_id, raw_sku, raw_description, quantity, units_per_purchased_item, unit_cost_minor_units, line_type). data: purchase_order_id. | envelope |
+| `procurement.receiving_discrepancy.detected` | action | An invoice differs from its purchase order. data: receiving_record_id, type (missing_item, quantity_mismatch, unexpected_item, expiry_mismatch), line_item_id, expected_qty, received_qty. | envelope |
+| `procurement.receiving_record.created` | action | A supplier invoice was uploaded against a purchase order to check what was delivered. data: purchase_order_id, file_name, content_type, parsing_job_id, potential_duplicate. | envelope |
+| `procurement.receiving_record.parsed` | action | An uploaded invoice was compared with its purchase order (each difference also raises receiving_discrepancy.detected). data: purchase_order_id, parsing_job_id, discrepancy_count. | envelope |
 
 ### settings
 

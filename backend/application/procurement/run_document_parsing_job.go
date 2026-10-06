@@ -6,6 +6,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -31,6 +33,7 @@ type RunDocumentParsingJobUseCase struct {
 	// hasn't configured one, and PDFs then fail clearly with
 	// ErrAIParsingNotConfigured instead of the job crashing.
 	aiParserResolver procurementDomain.AIParserResolver
+	outbox           eventrecord.Enqueuer
 }
 
 func NewRunDocumentParsingJobUseCase(
@@ -42,10 +45,11 @@ func NewRunDocumentParsingJobUseCase(
 	storage pmsDomain.FileStorage,
 	pdfExtractor procurementDomain.PDFTextExtractor,
 	aiParserResolver procurementDomain.AIParserResolver,
+	outbox eventrecord.Enqueuer,
 ) *RunDocumentParsingJobUseCase {
 	return &RunDocumentParsingJobUseCase{
 		db: db, poRepo: poRepo, lineItemRepo: lineItemRepo, documentRepo: documentRepo,
-		matchUC: matchUC, storage: storage, pdfExtractor: pdfExtractor, aiParserResolver: aiParserResolver,
+		matchUC: matchUC, storage: storage, pdfExtractor: pdfExtractor, aiParserResolver: aiParserResolver, outbox: outbox,
 	}
 }
 
@@ -85,6 +89,7 @@ func (uc *RunDocumentParsingJobUseCase) Execute(ctx context.Context, job procure
 	}
 
 	hasUnmatched := false
+	unmatched := 0
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		supplierID := ""
 		if po.SupplierID != nil {
@@ -120,10 +125,14 @@ func (uc *RunDocumentParsingJobUseCase) Execute(ctx context.Context, job procure
 			if err := uc.lineItemRepo.Create(ctx, &li); err != nil {
 				return err
 			}
+			if err := recordLineItemAdded(ctx, uc.outbox, li, LineItemSourceDocument); err != nil {
+				return err
+			}
 			// A charge row (shipping/discount/fee/credit note) is never
 			// "unmatched" -- it was never supposed to have a SKU.
 			if m.SKUID == nil && li.LineType.IsProduct() {
 				hasUnmatched = true
+				unmatched++
 			}
 		}
 
@@ -132,11 +141,21 @@ func (uc *RunDocumentParsingJobUseCase) Execute(ctx context.Context, job procure
 		// writing, which is exactly the hasUnmatched-without-supplier-issue
 		// case: draft -> needs_review.
 		if hasUnmatched && po.Status != procurementDomain.PurchaseOrderStatusNeedsReview {
+			before := *po
 			po.Status = procurementDomain.PurchaseOrderStatusNeedsReview
 			po.UpdatedAt = now
-			return uc.poRepo.Update(ctx, po)
+			if err := uc.poRepo.Update(ctx, po); err != nil {
+				return err
+			}
+			if err := eventrecord.Record(ctx, uc.outbox, events.PurchaseOrderUpdated, po.ID, purchaseOrderChanges(before, *po),
+				eventrecord.Data{"reason": PurchaseOrderChangeReasonLineItemsUnmatched}); err != nil {
+				return err
+			}
 		}
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.PurchaseOrderDocumentParsed, doc.ID, eventrecord.Data{
+			"purchase_order_id": po.ID, "parsing_job_id": job.ID, "line_count": len(matched), "unmatched_count": unmatched,
+			"suggested_supplier_name": extracted.SuggestedSupplierName, "suggested_currency_code": extracted.SuggestedCurrencyCode,
+		})
 	})
 	if err != nil {
 		return false, fmt.Errorf("runDocumentParsingJob: %w", err)

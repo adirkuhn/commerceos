@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -26,12 +28,14 @@ type RetryDocumentParsingJobUseCase struct {
 	db           *gorm.DB
 	documentRepo procurementDomain.PurchaseOrderDocumentRepository
 	jobRepo      procurementDomain.DocumentParsingJobRepository
+	outbox       eventrecord.Enqueuer
 }
 
 func NewRetryDocumentParsingJobUseCase(
 	db *gorm.DB, documentRepo procurementDomain.PurchaseOrderDocumentRepository, jobRepo procurementDomain.DocumentParsingJobRepository,
+	outbox eventrecord.Enqueuer,
 ) *RetryDocumentParsingJobUseCase {
-	return &RetryDocumentParsingJobUseCase{db: db, documentRepo: documentRepo, jobRepo: jobRepo}
+	return &RetryDocumentParsingJobUseCase{db: db, documentRepo: documentRepo, jobRepo: jobRepo, outbox: outbox}
 }
 
 func (uc *RetryDocumentParsingJobUseCase) Execute(ctx context.Context, documentID string) (*procurementDomain.DocumentParsingJob, error) {
@@ -45,7 +49,12 @@ func (uc *RetryDocumentParsingJobUseCase) Execute(ctx context.Context, documentI
 			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: doc.PurchaseOrderID, DocumentID: doc.ID,
 			Status: procurementDomain.DocumentParsingJobPending, CreatedAt: time.Now(),
 		}
-		return uc.jobRepo.Create(ctx, &job)
+		if err := uc.jobRepo.Create(ctx, &job); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.PurchaseOrderDocumentParsingRetried, doc.ID, eventrecord.Data{
+			"purchase_order_id": doc.PurchaseOrderID, "parsing_job_id": job.ID,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("retryDocumentParsingJob: %w", err)

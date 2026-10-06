@@ -9,6 +9,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -33,6 +35,7 @@ type UploadInvoiceUseCase struct {
 	recRepo procurementDomain.ReceivingRecordRepository
 	jobRepo procurementDomain.ReceivingParsingJobRepository
 	storage pmsDomain.FileStorage
+	outbox  eventrecord.Enqueuer
 }
 
 func NewUploadInvoiceUseCase(
@@ -41,8 +44,9 @@ func NewUploadInvoiceUseCase(
 	recRepo procurementDomain.ReceivingRecordRepository,
 	jobRepo procurementDomain.ReceivingParsingJobRepository,
 	storage pmsDomain.FileStorage,
+	outbox eventrecord.Enqueuer,
 ) *UploadInvoiceUseCase {
-	return &UploadInvoiceUseCase{db: db, poRepo: poRepo, recRepo: recRepo, jobRepo: jobRepo, storage: storage}
+	return &UploadInvoiceUseCase{db: db, poRepo: poRepo, recRepo: recRepo, jobRepo: jobRepo, storage: storage, outbox: outbox}
 }
 
 func (uc *UploadInvoiceUseCase) Execute(ctx context.Context, in UploadInvoiceInput) (*procurementDomain.ReceivingParsingJob, error) {
@@ -97,7 +101,13 @@ func (uc *UploadInvoiceUseCase) Execute(ctx context.Context, in UploadInvoiceInp
 			TenantID: tenant.IDFromContext(ctx), ReceivingRecordID: rec.ID,
 			Status: procurementDomain.ReceivingParsingJobPending, CreatedAt: now,
 		}
-		return uc.jobRepo.Create(ctx, &job)
+		if err := uc.jobRepo.Create(ctx, &job); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.ReceivingRecordCreated, rec.ID, eventrecord.Data{
+			"purchase_order_id": in.PurchaseOrderID, "file_name": rec.InvoiceFileName, "content_type": rec.ContentType,
+			"parsing_job_id": job.ID, "potential_duplicate": rec.IsPotentialDuplicate,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("uploadInvoice: %w", err)

@@ -2,6 +2,7 @@ package procurement_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
@@ -16,7 +17,7 @@ func TestRetryDocumentParsingJob_enqueuesANewPendingJobForTheSameDocument(t *tes
 		ID: "document-1", PurchaseOrderID: "po-1",
 	}}
 	jobRepo := &stubParsingJobRepo{}
-	uc := appprocurement.NewRetryDocumentParsingJobUseCase(db, documentRepo, jobRepo)
+	uc := appprocurement.NewRetryDocumentParsingJobUseCase(db, documentRepo, jobRepo, &eventrecordtest.Outbox{})
 
 	job, err := uc.Execute(context.Background(), "document-1")
 
@@ -32,7 +33,7 @@ func TestRetryDocumentParsingJob_propagatesDocumentNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	documentRepo := &stubDocumentRepo{findErr: procurementDomain.ErrDocumentNotFound}
 	jobRepo := &stubParsingJobRepo{}
-	uc := appprocurement.NewRetryDocumentParsingJobUseCase(db, documentRepo, jobRepo)
+	uc := appprocurement.NewRetryDocumentParsingJobUseCase(db, documentRepo, jobRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing")
 

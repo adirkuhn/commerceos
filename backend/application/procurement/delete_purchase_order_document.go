@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -14,14 +16,16 @@ type DeletePurchaseOrderDocumentUseCase struct {
 	db           *gorm.DB
 	documentRepo procurementDomain.PurchaseOrderDocumentRepository
 	storage      pmsDomain.FileStorage
+	outbox       eventrecord.Enqueuer
 }
 
 func NewDeletePurchaseOrderDocumentUseCase(
 	db *gorm.DB,
 	documentRepo procurementDomain.PurchaseOrderDocumentRepository,
 	storage pmsDomain.FileStorage,
+	outbox eventrecord.Enqueuer,
 ) *DeletePurchaseOrderDocumentUseCase {
-	return &DeletePurchaseOrderDocumentUseCase{db: db, documentRepo: documentRepo, storage: storage}
+	return &DeletePurchaseOrderDocumentUseCase{db: db, documentRepo: documentRepo, storage: storage, outbox: outbox}
 }
 
 // Execute deletes the DB row first, then the stored file -- same order as
@@ -39,7 +43,12 @@ func (uc *DeletePurchaseOrderDocumentUseCase) Execute(ctx context.Context, id st
 			return err
 		}
 		url = doc.FileURL
-		return uc.documentRepo.Delete(ctx, id)
+		if err := uc.documentRepo.Delete(ctx, id); err != nil {
+			return err
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.PurchaseOrderDocumentDeleted, id, eventrecord.Data{
+			"purchase_order_id": doc.PurchaseOrderID, "file_name": doc.FileName,
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("deletePurchaseOrderDocument: %w", err)

@@ -6,6 +6,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -36,6 +38,7 @@ type RunReceivingParsingJobUseCase struct {
 	// aiParserResolver mirrors RunDocumentParsingJobUseCase's field -- see
 	// its doc comment.
 	aiParserResolver procurementDomain.AIParserResolver
+	outbox           eventrecord.Enqueuer
 }
 
 func NewRunReceivingParsingJobUseCase(
@@ -46,10 +49,12 @@ func NewRunReceivingParsingJobUseCase(
 	storage pmsDomain.FileStorage,
 	pdfExtractor procurementDomain.PDFTextExtractor,
 	aiParserResolver procurementDomain.AIParserResolver,
+	outbox eventrecord.Enqueuer,
 ) *RunReceivingParsingJobUseCase {
 	return &RunReceivingParsingJobUseCase{
 		db: db, recRepo: recRepo, lineItemRepo: lineItemRepo,
 		discrepancyRepo: discrepancyRepo, storage: storage, pdfExtractor: pdfExtractor, aiParserResolver: aiParserResolver,
+		outbox: outbox,
 	}
 }
 
@@ -97,8 +102,13 @@ func (uc *RunReceivingParsingJobUseCase) Execute(ctx context.Context, job procur
 			if err := uc.discrepancyRepo.Create(ctx, &discrepancies[i]); err != nil {
 				return err
 			}
+			if err := recordDiscrepancyDetected(ctx, uc.outbox, discrepancies[i]); err != nil {
+				return err
+			}
 		}
-		return nil
+		return eventrecord.Record(ctx, uc.outbox, events.ReceivingRecordParsed, rec.ID, eventrecord.Data{
+			"purchase_order_id": rec.PurchaseOrderID, "parsing_job_id": job.ID, "discrepancy_count": len(discrepancies),
+		})
 	})
 	if err != nil {
 		return 0, fmt.Errorf("runReceivingParsingJob: %w", err)

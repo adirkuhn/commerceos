@@ -26,3 +26,18 @@ var (
 	PurchaseOrderDocumentAttached = defineAction("procurement.purchase_order_document.attached",
 		"A supplier document (invoice / order confirmation file) was attached to a purchase order. data: purchase_order_id, file_name, content_type, parsing_job_id, duplicate_of_purchase_order_id (set when the same file is already on another PO; its lines are then copied instead of parsed).")
 )
+
+var (
+	PurchaseOrderDocumentDeleted = defineAction("procurement.purchase_order_document.deleted",
+		"A supplier document was removed from a purchase order (its file deleted from storage). data: purchase_order_id, file_name.")
+	PurchaseOrderDocumentParsingRetried = defineAction("procurement.purchase_order_document.parsing_retried",
+		"Parsing of a supplier document was requested again. data: purchase_order_id, parsing_job_id.")
+	PurchaseOrderDocumentParsed = defineAction("procurement.purchase_order_document.parsed",
+		"A supplier document was read into purchase order lines (each line also raises purchase_order_line_item.added, source document). data: purchase_order_id, parsing_job_id, line_count, unmatched_count, suggested_supplier_name, suggested_currency_code.")
+	ReceivingRecordCreated = defineAction("procurement.receiving_record.created",
+		"A supplier invoice was uploaded against a purchase order to check what was delivered. data: purchase_order_id, file_name, content_type, parsing_job_id, potential_duplicate.")
+	ReceivingRecordParsed = defineAction("procurement.receiving_record.parsed",
+		"An uploaded invoice was compared with its purchase order (each difference also raises receiving_discrepancy.detected). data: purchase_order_id, parsing_job_id, discrepancy_count.")
+	ReceivingDiscrepancyDetected = defineAction("procurement.receiving_discrepancy.detected",
+		"An invoice differs from its purchase order. data: receiving_record_id, type (missing_item, quantity_mismatch, unexpected_item, expiry_mismatch), line_item_id, expected_qty, received_qty.")
+)

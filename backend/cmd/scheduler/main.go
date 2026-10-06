@@ -177,14 +177,14 @@ func main() {
 	aiConnRepo := repositories.NewAIConnectionRepo(db)
 	aiParserResolver := ai.NewParserResolver(db, aiConnRepo, cfg.IntegrationsEncryptionSecret)
 	runDocumentParsingJobUC := procurementapp.NewRunDocumentParsingJobUseCase(
-		db, poRepo, lineItemRepo, documentRepo, matchUC, fileStorage, pdfExtractor, aiParserResolver,
+		db, poRepo, lineItemRepo, documentRepo, matchUC, fileStorage, pdfExtractor, aiParserResolver, outboxRepo,
 	)
 
 	receivingRecordRepo := repositories.NewReceivingRecordRepo(db)
 	receivingJobRepo := repositories.NewReceivingParsingJobRepo(db)
 	discrepancyRepo := repositories.NewReceivingDiscrepancyRepo(db)
 	runReceivingParsingJobUC := procurementapp.NewRunReceivingParsingJobUseCase(
-		db, receivingRecordRepo, lineItemRepo, discrepancyRepo, fileStorage, pdfExtractor, aiParserResolver,
+		db, receivingRecordRepo, lineItemRepo, discrepancyRepo, fileStorage, pdfExtractor, aiParserResolver, outboxRepo,
 	)
 
 	processedEventRepo := repositories.NewProcessedEventRepo(db)

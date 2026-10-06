@@ -20,6 +20,10 @@ const (
 // unlinked product line got linked (needs_review -> draft).
 const PurchaseOrderChangeReasonLineItemsResolved = "line_items_resolved"
 
+// PurchaseOrderChangeReasonLineItemsUnmatched: the system put a PO in
+// needs_review because a parsed document had product lines it couldn't link.
+const PurchaseOrderChangeReasonLineItemsUnmatched = "line_items_unmatched"
+
 // purchaseOrderChanges are the fields an update changed on a PO.
 func purchaseOrderChanges(before, after procurementDomain.PurchaseOrder) eventrecord.Changes {
 	return eventrecord.NewChanges().
@@ -36,6 +40,7 @@ func purchaseOrderChanges(before, after procurementDomain.PurchaseOrder) eventre
 const (
 	LineItemSourceManual            = "manual"
 	LineItemSourceDuplicateDocument = "duplicate_document"
+	LineItemSourceDocument          = "document"
 )
 
 func recordLineItemAdded(ctx context.Context, outbox eventrecord.Enqueuer, li procurementDomain.PurchaseOrderLineItem, source string) error {
@@ -52,4 +57,11 @@ func recordLineItemLinked(ctx context.Context, outbox eventrecord.Enqueuer, befo
 		eventrecord.NewChanges().
 			Set("sku_id", before.SKUID, after.SKUID).
 			Set("units_per_purchased_item", before.UnitsPerPurchasedItem, after.UnitsPerPurchasedItem))
+}
+
+func recordDiscrepancyDetected(ctx context.Context, outbox eventrecord.Enqueuer, d procurementDomain.ReceivingDiscrepancy) error {
+	return eventrecord.Record(ctx, outbox, events.ReceivingDiscrepancyDetected, d.ID, eventrecord.Data{
+		"receiving_record_id": d.ReceivingRecordID, "type": string(d.Type), "line_item_id": d.LineItemID,
+		"expected_qty": d.ExpectedQty, "received_qty": d.ReceivedQty,
+	})
 }
