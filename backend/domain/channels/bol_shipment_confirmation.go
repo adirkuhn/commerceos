@@ -11,6 +11,7 @@ import (
 var (
 	ErrInvalidBolConfirmationStatus   = errors.New("invalid Bol shipment confirmation status")
 	ErrBolConfirmationAlreadyResolved = errors.New("Bol shipment confirmation already has a final result")
+	ErrBolConfirmationNotFound        = errors.New("Bol shipment confirmation not found")
 )
 
 // BolConfirmationStatus mirrors Bol's own process-status values -- a
