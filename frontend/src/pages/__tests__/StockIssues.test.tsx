@@ -18,6 +18,12 @@ vi.mock('../../oms/api', () => ({
   getSalesOrder: vi.fn(),
 }))
 
+vi.mock('../../oms/orderDifferences', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../oms/orderDifferences')>()),
+  listOrderDifferences: vi.fn().mockResolvedValue({ differences: [], total: 0 }),
+}))
+vi.mock('../../integrations/api', () => ({ listConnections: vi.fn().mockResolvedValue([]), disconnectConnection: vi.fn() }))
+
 import * as omsApi from '../../oms/api'
 
 function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {

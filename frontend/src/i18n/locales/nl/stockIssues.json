@@ -22,5 +22,26 @@
   "retry": "Voorraad opnieuw proberen",
   "retryFailed": "Voorraadafboeking opnieuw proberen is mislukt",
   "retrying": "Opnieuw proberen…",
-  "title": "Voorraadproblemen"
+  "title": "Voorraadproblemen",
+  "differences": {
+    "title": "Orderverschillen",
+    "count_one": "{{count}} orderverschil",
+    "count_other": "{{count}} orderverschillen",
+    "colDifference": "Verschil",
+    "dismiss": "Negeren",
+    "dismissFailed": "Het verschil kon niet worden genegeerd",
+    "empty": "Geen orderverschillen — elke vergeleken order komt overeen met het kanaal.",
+    "loadFailed": "Orderverschillen konden niet worden geladen",
+    "audit": "Alle orders vergelijken met Woo ({{store}})",
+    "auditFailed": "Orders konden niet met Woo worden vergeleken",
+    "auditing_one": "Vergelijken met Woo… {{count}} order gecontroleerd",
+    "auditing_other": "Vergelijken met Woo… {{count}} orders gecontroleerd",
+    "audited_one": "{{count}} order vergeleken met Woo.",
+    "audited_other": "{{count}} orders vergeleken met Woo.",
+    "kind": {
+      "missing": "Ontbreekt in CommerceOS: {{name}} ({{sku}}) × {{channel}}",
+      "quantity": "Aantal wijkt af: {{name}} ({{sku}}) — kanaal {{channel}}, CommerceOS {{local}}",
+      "total": "Ordertotaal in het kanaal {{channelTotal}}, maar de regels tellen op tot {{localTotal}} — er ontbreekt mogelijk een artikel"
+    }
+  }
 }

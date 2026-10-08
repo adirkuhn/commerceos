@@ -22,5 +22,26 @@
   "retry": "Retry stock",
   "retryFailed": "Failed to retry stock decrement",
   "retrying": "Retrying…",
-  "title": "Stock Issues"
+  "title": "Stock Issues",
+  "differences": {
+    "title": "Order differences",
+    "count_one": "{{count}} order difference",
+    "count_other": "{{count}} order differences",
+    "colDifference": "Difference",
+    "dismiss": "Dismiss",
+    "dismissFailed": "Could not dismiss the difference",
+    "empty": "No order differences — every compared order matches the channel.",
+    "loadFailed": "Could not load order differences",
+    "audit": "Compare all orders with Woo ({{store}})",
+    "auditFailed": "Could not compare orders with Woo",
+    "auditing_one": "Comparing with Woo… {{count}} order checked",
+    "auditing_other": "Comparing with Woo… {{count}} orders checked",
+    "audited_one": "Compared {{count}} order with Woo.",
+    "audited_other": "Compared {{count}} orders with Woo.",
+    "kind": {
+      "missing": "Missing in CommerceOS: {{name}} ({{sku}}) × {{channel}}",
+      "quantity": "Quantity differs: {{name}} ({{sku}}) — channel {{channel}}, CommerceOS {{local}}",
+      "total": "Channel order total {{channelTotal}}, but its lines add up to {{localTotal}} — an item may be missing"
+    }
+  }
 }

@@ -22,5 +22,26 @@
   "retry": "Tentar estoque de novo",
   "retryFailed": "Não foi possível tentar a baixa de estoque de novo",
   "retrying": "Tentando de novo…",
-  "title": "Problemas de estoque"
+  "title": "Problemas de estoque",
+  "differences": {
+    "title": "Diferenças de pedidos",
+    "count_one": "{{count}} diferença de pedido",
+    "count_other": "{{count}} diferenças de pedidos",
+    "colDifference": "Diferença",
+    "dismiss": "Dispensar",
+    "dismissFailed": "Não foi possível dispensar a diferença",
+    "empty": "Nenhuma diferença — todos os pedidos comparados batem com o canal.",
+    "loadFailed": "Não foi possível carregar as diferenças de pedidos",
+    "audit": "Comparar todos os pedidos com a Woo ({{store}})",
+    "auditFailed": "Não foi possível comparar os pedidos com a Woo",
+    "auditing_one": "Comparando com a Woo… {{count}} pedido verificado",
+    "auditing_other": "Comparando com a Woo… {{count}} pedidos verificados",
+    "audited_one": "{{count}} pedido comparado com a Woo.",
+    "audited_other": "{{count}} pedidos comparados com a Woo.",
+    "kind": {
+      "missing": "Faltando no CommerceOS: {{name}} ({{sku}}) × {{channel}}",
+      "quantity": "Quantidade diferente: {{name}} ({{sku}}) — canal {{channel}}, CommerceOS {{local}}",
+      "total": "Total do pedido no canal {{channelTotal}}, mas os itens somam {{localTotal}} — pode faltar um item"
+    }
+  }
 }
