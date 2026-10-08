@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-213 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+216 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -198,6 +198,9 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `oms.line_discrepancy.detected` | action | An imported order differs from the channel's own order (reported on Stock Issues, the order itself is not changed): an item missing, a different quantity, or the channel's lines not adding up to its own total. Also raised when a difference reopens or its numbers change. data: sales_order_id, kind (missing, quantity, total), sku_code, name, channel_quantity, local_quantity, channel_total_minor_units, local_total_minor_units. | envelope |
+| `oms.line_discrepancy.dismissed` | action | Staff dismissed a reported order difference. data: sales_order_id, kind, sku_code, name. | envelope |
+| `oms.line_discrepancy.resolved` | action | A reported order difference no longer shows when comparing with the channel (the order was fixed). data: sales_order_id, kind, sku_code, name. | envelope |
 | `oms.pack_scan.created` | action | An item was handled while packing. data: session_id, line_item_id, sku_id, action_type (pack, freebie, new_item, substitute, refund), quantity, price_minor_units, original_qty_covered, return_to_stock, reason. | envelope |
 | `oms.pack_scan.deleted` | action | A pack scan was undone. data: session_id, line_item_id, sku_id, action_type, quantity. | envelope |
 | `oms.packing_session.completed` | action | Packing was finished; staged order changes (substitutions, extra items, refunds) were applied. data: sales_order_id, completed_by, missing_item_count, change_count. | envelope |

@@ -17,6 +17,12 @@ var (
 		"A sales order line was linked to a catalog SKU (changes: sku_id). data: sales_order_id, source -- manual, or pick_scan (matched by product name when the SKU was scanned).")
 	SalesOrderActivityRecorded = defineAction("oms.sales_order_activity.recorded",
 		"An entry was added to a sales order's activity log. data: sales_order_id, activity_type, summary.")
+	LineDiscrepancyDetected = defineAction("oms.line_discrepancy.detected",
+		"An imported order differs from the channel's own order (reported on Stock Issues, the order itself is not changed): an item missing, a different quantity, or the channel's lines not adding up to its own total. Also raised when a difference reopens or its numbers change. data: sales_order_id, kind (missing, quantity, total), sku_code, name, channel_quantity, local_quantity, channel_total_minor_units, local_total_minor_units.")
+	LineDiscrepancyResolved = defineAction("oms.line_discrepancy.resolved",
+		"A reported order difference no longer shows when comparing with the channel (the order was fixed). data: sales_order_id, kind, sku_code, name.")
+	LineDiscrepancyDismissed = defineAction("oms.line_discrepancy.dismissed",
+		"Staff dismissed a reported order difference. data: sales_order_id, kind, sku_code, name.")
 
 	PickingSessionStarted = defineAction("oms.picking_session.started",
 		"Picking started for a sales order. data: sales_order_id.")

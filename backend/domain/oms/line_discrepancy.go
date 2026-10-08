@@ -128,6 +128,17 @@ func CompareChannelLines(channel []ChannelLine, local []SalesOrderLineItem) []Li
 	return out
 }
 
+// totalToleranceMinorUnits absorbs per-line tax rounding: a channel's
+// lines can add up to a cent or two off its own total.
+const totalToleranceMinorUnits = 2
+
+// ChannelTotalsDiffer reports whether a channel order's lines add up to
+// something other than its own total -- beyond rounding.
+func ChannelTotalsDiffer(channelTotal, linesTotal int64) bool {
+	diff := channelTotal - linesTotal
+	return diff > totalToleranceMinorUnits || diff < -totalToleranceMinorUnits
+}
+
 // TotalDiscrepancy reports that the channel's lines (and so the imported
 // lines) add up to localTotal while the channel's order total is
 // channelTotal.

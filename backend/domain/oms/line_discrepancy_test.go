@@ -196,3 +196,11 @@ func TestLineDiscrepancy_dismiss(t *testing.T) {
 	require.NotNil(t, d.DismissedAt)
 	assert.ErrorIs(t, d.Dismiss(discrepancyNow), omsDomain.ErrLineDiscrepancyNotOpen)
 }
+
+func TestChannelTotalsDiffer(t *testing.T) {
+	assert.False(t, omsDomain.ChannelTotalsDiffer(3641, 3641))
+	assert.False(t, omsDomain.ChannelTotalsDiffer(3641, 3639), "rounding")
+	assert.False(t, omsDomain.ChannelTotalsDiffer(3641, 3643), "rounding")
+	assert.True(t, omsDomain.ChannelTotalsDiffer(3641, 3294))
+	assert.True(t, omsDomain.ChannelTotalsDiffer(3641, 3644))
+}
