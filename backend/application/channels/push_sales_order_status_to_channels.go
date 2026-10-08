@@ -41,9 +41,9 @@ var wooStatusBySalesOrderStatus = map[omsDomain.SalesOrderStatus]string{
 // events.SalesOrderStatusChanged (see
 // infrastructure/consumers.SalesOrderStatusChangedConsumer) -- "the channel
 // decides what to do" for whatever source this order actually came from.
-// WooCommerce is the only channel with an outbound status push today;
-// pos/manual/bol orders are a deliberate no-op (nothing to push a status
-// to yet). Re-fetches the order's current Source/Status rather than
+// WooCommerce is the only channel with an outbound status push; pos/manual
+// orders have nowhere to push to, and Bol orders are confirmed on Bol by
+// ConfirmBolShipmentUseCase (its own consumer on the same event). Re-fetches the order's current Source/Status rather than
 // trusting a caller-supplied snapshot, same reasoning as ProductChanged's
 // consumer -- by the time this runs, the order that triggered the event may
 // have changed again.
@@ -93,9 +93,9 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) Execute(ctx context.Context, sa
 	case omsDomain.SalesOrderSourceWooCommerce:
 		return uc.pushToWoo(ctx, order)
 	default:
-		// pos/manual/bol: no outbound status push exists for these channels
-		// yet -- each channel's own logic decides, and today that's "do
-		// nothing", not an error.
+		// pos/manual: nothing to push to. bol: Bol has no order status to
+		// set -- a shipped Bol order is confirmed on Bol by its own
+		// consumer instead (ConfirmBolShipmentUseCase).
 		return nil
 	}
 }

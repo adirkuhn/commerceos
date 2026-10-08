@@ -25,6 +25,9 @@ const (
 	JobResyncAllProductsToChannels = "resync_all_products_to_channels"
 	JobPromotionActivation         = "promotion_activation"
 	JobReconcileFulfilledOrders    = "reconcile_fulfilled_orders"
+	// JobCheckBolShipmentConfirmations asks Bol for the result of every
+	// pending shipment confirmation (see application/channels.CheckBolShipmentConfirmationsUseCase).
+	JobCheckBolShipmentConfirmations = "check_bol_shipment_confirmations"
 )
 
 type Job struct {

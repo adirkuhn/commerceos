@@ -279,6 +279,18 @@ func main() {
 	)
 	jobRunners[schedulerDomain.JobReconcileFulfilledOrders] = schedulerapp.NewReconcileFulfilledOrdersUseCase(db, salesOrderRepo, updateSalesOrderUC)
 
+	// Bol orders: once shipped, tell Bol (transporter + track & trace) so
+	// the order closes there too, and poll Bol for the outcome.
+	bolClients := channelsapp.NewBolConnectionClients(db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret)
+	bolConfirmationRepo := repositories.NewBolShipmentConfirmationRepo(db)
+	confirmBolShipmentUC := channelsapp.NewConfirmBolShipmentUseCase(db, salesOrderRepo, repositories.NewShipmentRepo(db), bolConfirmationRepo, bolClients, outboxRepo, time.Now)
+	bolShipmentConfirmationConsumer := consumers.NewBolShipmentConfirmationConsumer(processedEventRepo, confirmBolShipmentUC, js)
+	if sub := subscribeConsumer(js, events.SalesOrderStatusChanged{}.EventName(), "bol-shipment-confirmation-scheduler",
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, bolShipmentConfirmationConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
+	}
+	jobRunners[schedulerDomain.JobCheckBolShipmentConfirmations] = channelsapp.NewCheckBolShipmentConfirmationsUseCase(db, bolConfirmationRepo, bolClients, outboxRepo, time.Now)
+
 	notifyOrderStatusUC := whatsappapp.NewNotifyOrderStatusUseCase(db, salesOrderRepo, customerRepo, connRepo, evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret)
 	whatsAppOrderStatusConsumer := consumers.NewWhatsAppOrderStatusConsumer(processedEventRepo, notifyOrderStatusUC, js)
 	if sub := subscribeConsumer(js, events.SalesOrderStatusChanged{}.EventName(), "whatsapp-order-status-scheduler",
