@@ -26,6 +26,7 @@ import (
 	gennewsletter "github.com/adirkuhn/commerceos/api/newsletter"
 	gennotifications "github.com/adirkuhn/commerceos/api/notifications"
 	genoms "github.com/adirkuhn/commerceos/api/oms"
+	genorderdifferences "github.com/adirkuhn/commerceos/api/orderdifferences"
 	genorderpayments "github.com/adirkuhn/commerceos/api/orderpayments"
 	genpms "github.com/adirkuhn/commerceos/api/pms"
 	genpos "github.com/adirkuhn/commerceos/api/pos"
@@ -62,6 +63,7 @@ import (
 	newsletterhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/newsletter"
 	notificationshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/notifications"
 	omshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/oms"
+	orderdifferenceshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/orderdifferences"
 	orderpaymentshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/orderpayments"
 	pmshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pms"
 	poshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pos"
@@ -383,6 +385,21 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	bolconfirmationshandler.Register(bolconfirmationsGroup, db)
+
+	orderdifferencesSpec, err := genorderdifferences.GetSpec()
+	if err != nil {
+		log.Fatalf("orderdifferences: load openapi spec: %v", err)
+	}
+	// Own sub-group so the orderdifferences-only spec validator never
+	// applies to the other modules' routes — same reasoning as pmsGroup
+	// above. Any authenticated role may read the list (tenant RLS is the
+	// boundary); dismissing and auditing against Woo are admin actions.
+	orderdifferencesGroup := v1.Group("")
+	orderdifferencesGroup.Use(middleware.RequireRoleForWrites(middleware.RoleCustomerOwner, middleware.RoleCustomerAdmin, middleware.RoleSuperAdmin))
+	orderdifferencesGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(orderdifferencesSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	orderdifferenceshandler.Register(orderdifferencesGroup, db, outboxRepo, wooFactory, cfg.IntegrationsEncryptionSecret)
 
 	orderpaymentsSpec, err := genorderpayments.GetSpec()
 	if err != nil {

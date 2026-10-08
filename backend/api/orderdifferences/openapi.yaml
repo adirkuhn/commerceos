@@ -1,0 +1,184 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Order Differences API
+  version: "1.0"
+  description: >-
+    Where an imported order differs from the channel's own order (e.g. an
+    item in the Woo order that the CommerceOS order doesn't have). Orders
+    are imported 1:1 and never changed automatically: differences are only
+    reported here, on the Stock Issues page. Staff fix the order by hand
+    (the difference then resolves itself on the next comparison) or
+    dismiss it. A separate small module (like api/weightportions) rather
+    than folded into api/oms' already large composed handler.
+servers:
+  - url: /api/v1
+
+paths:
+  /order-differences:
+    get:
+      operationId: listOrderDifferences
+      summary: Open order differences, newest first
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDifferencePageResponse'
+
+  /order-differences/{id}/dismiss:
+    post:
+      operationId: dismissOrderDifference
+      summary: Mark a difference as handled -- it stays dismissed unless its numbers change
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /integrations/connections/{id}/audit-woo-order-differences:
+    post:
+      operationId: auditWooOrderDifferences
+      summary: >-
+        Compare one batch of this Woo connection's already-imported orders
+        with Woo (read-only) and report differences. Repeat with next_cursor
+        until it comes back empty.
+      parameters:
+        # Named "id" to match every other /integrations/connections/{id}/...
+        # route (api/integrations) -- gin requires the same wildcard name at
+        # a given path position across all registered routes.
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditWooOrderDifferencesRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditWooOrderDifferencesResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+components:
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    OrderDifference:
+      type: object
+      required: [id, sales_order_id, order_number, customer_name, order_occurred_at, kind, sku_code, name, channel_quantity, local_quantity, channel_total_minor_units, local_total_minor_units, currency_code, detected_at]
+      properties:
+        id: { type: string }
+        sales_order_id: { type: string }
+        order_number: { type: string }
+        customer_name: { type: string }
+        order_occurred_at: { type: string, format: date-time }
+        kind:
+          type: string
+          enum: [missing, quantity, total]
+          description: >-
+            missing: the channel's order has an item this order doesn't.
+            quantity: both have it, in different quantities.
+            total: the channel's own lines don't add up to its own total.
+        sku_code: { type: string }
+        name: { type: string }
+        channel_quantity: { type: integer, format: int64 }
+        local_quantity: { type: integer, format: int64 }
+        channel_total_minor_units: { type: integer, format: int64 }
+        local_total_minor_units: { type: integer, format: int64 }
+        currency_code: { type: string }
+        detected_at: { type: string, format: date-time }
+
+    OrderDifferencePage:
+      type: object
+      required: [differences, total]
+      properties:
+        differences:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDifference'
+        total: { type: integer, format: int64 }
+
+    OrderDifferencePageResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/OrderDifferencePage'
+        error: { nullable: true }
+
+    AuditWooOrderDifferencesRequest:
+      type: object
+      properties:
+        cursor:
+          type: string
+          description: The previous call's next_cursor; omit to start from the newest order.
+
+    AuditWooOrderDifferencesResult:
+      type: object
+      required: [checked, errors, next_cursor]
+      properties:
+        checked: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+        next_cursor:
+          type: string
+          description: Empty once every order has been checked.
+
+    AuditWooOrderDifferencesResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AuditWooOrderDifferencesResult'
+        error: { nullable: true }
+
+    EmptyResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
