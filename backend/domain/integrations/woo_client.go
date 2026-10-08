@@ -144,17 +144,19 @@ type WooCategory struct {
 // the import use case, not here. Empty string means Woo has no value for
 // that field.
 type WooOrder struct {
-	ID                 int
-	Number             string
-	OrderKey           string
-	Status             string // woo: pending/processing/on-hold/completed/cancelled/refunded/failed -- byte-for-byte oms.SalesOrderStatus
-	CustomerID         int    // 0 = guest checkout, no linked Woo customer
-	Billing            WooAddress
-	Shipping           WooAddress
-	CustomerNote       string
-	Currency           string
-	DiscountTotal      string
-	ShippingTotal      string
+	ID            int
+	Number        string
+	OrderKey      string
+	Status        string // woo: pending/processing/on-hold/completed/cancelled/refunded/failed -- byte-for-byte oms.SalesOrderStatus
+	CustomerID    int    // 0 = guest checkout, no linked Woo customer
+	Billing       WooAddress
+	Shipping      WooAddress
+	CustomerNote  string
+	Currency      string
+	DiscountTotal string
+	ShippingTotal string
+	// ShippingTax is the tax on ShippingTotal (also inside TotalTax).
+	ShippingTax        string
 	TotalTax           string
 	Total              string
 	PaymentMethod      string
@@ -172,6 +174,16 @@ type WooOrder struct {
 	DatePaid            string // "" if unpaid
 	DateCompleted       string // "" if not completed
 	LineItems           []WooOrderLineItem
+	// FeeLines are the order's extra charges (e.g. a packaging fee) --
+	// part of Total, not imported as lines.
+	FeeLines []WooFeeLine
+}
+
+// WooFeeLine is one fee on a Woo order; Total/TotalTax are raw decimal strings.
+type WooFeeLine struct {
+	Name     string
+	Total    string
+	TotalTax string
 }
 
 type WooAddress struct {

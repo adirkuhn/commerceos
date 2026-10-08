@@ -138,6 +138,10 @@ func toWooOrder(o wc.Order) integrationsDomain.WooOrder {
 			MetaData: toWooOrderLineItemMetaData(li.MetaData),
 		}
 	}
+	feeLines := make([]integrationsDomain.WooFeeLine, len(o.FeeLines))
+	for i, f := range o.FeeLines {
+		feeLines[i] = integrationsDomain.WooFeeLine{Name: f.Name, Total: f.Total, TotalTax: f.TotalTax}
+	}
 	var shippingMethod, shippingMethodTitle string
 	if len(o.ShippingLines) > 0 {
 		shippingMethod = o.ShippingLines[0].MethodID
@@ -146,10 +150,10 @@ func toWooOrder(o wc.Order) integrationsDomain.WooOrder {
 	return integrationsDomain.WooOrder{
 		ID: o.ID, Number: o.Number, OrderKey: o.OrderKey, Status: o.Status, CustomerID: o.CustomerID,
 		Billing: toWooAddress(o.Billing), Shipping: toWooShippingAddress(o.Shipping), CustomerNote: o.CustomerNote,
-		Currency: o.Currency, DiscountTotal: o.DiscountTotal, ShippingTotal: o.ShippingTotal,
+		Currency: o.Currency, DiscountTotal: o.DiscountTotal, ShippingTotal: o.ShippingTotal, ShippingTax: o.ShippingTax,
 		TotalTax: o.TotalTax, Total: o.Total, PaymentMethod: o.PaymentMethod, PaymentMethodTitle: o.PaymentMethodTitle,
 		ShippingMethod: shippingMethod, ShippingMethodTitle: shippingMethodTitle,
 		TransactionID: o.TransactionID, DateCreated: o.DateCreatedGmt, DateModified: o.DateModifiedGmt,
-		DatePaid: o.DatePaidGmt, DateCompleted: o.DateCompletedGmt, LineItems: lineItems,
+		DatePaid: o.DatePaidGmt, DateCompleted: o.DateCompletedGmt, LineItems: lineItems, FeeLines: feeLines,
 	}
 }

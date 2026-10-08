@@ -2,6 +2,7 @@ package integrations
 
 import (
 	"context"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -339,6 +340,8 @@ func Register(
 		db, connRepo, wooFactory, encryptionSecret,
 		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
 		allocateStockUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo), repositories.NewOutboxRepository(db),
+		appoms.NewRecordChannelOrderDifferencesUseCase(db, salesOrderRepo, salesOrderLineItemRepo,
+			repositories.NewLineDiscrepancyRepo(db), outboxRepo, time.Now),
 	)
 
 	stockLevelUC := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db))

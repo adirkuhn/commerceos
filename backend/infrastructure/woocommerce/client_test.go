@@ -489,3 +489,13 @@ func TestDeleteWebhook_deletesByID(t *testing.T) {
 	require.Equal(t, http.MethodDelete, gotMethod)
 	require.Equal(t, "/wp-json/wc/v3/webhooks/7", gotPath)
 }
+
+func TestToWooOrder_mapsShippingTaxAndFeeLines(t *testing.T) {
+	result := toWooOrder(wc.Order{
+		ID: 25922, ShippingTax: "0.66",
+		FeeLines: []wc.FeeLine{{Name: "Ice pack", Total: "1.00", TotalTax: "0.09"}},
+	})
+
+	require.Equal(t, "0.66", result.ShippingTax)
+	require.Equal(t, []integrationsDomain.WooFeeLine{{Name: "Ice pack", Total: "1.00", TotalTax: "0.09"}}, result.FeeLines)
+}
