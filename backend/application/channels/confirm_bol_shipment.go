@@ -18,23 +18,34 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
-// ConfirmBolShipmentUseCase tells Bol that a Bol order shipped, so the
-// order closes on Bol's side too (POST /retailer/shipments with the
-// parcel's transporter code and track & trace). Runs on
-// oms.sales_order.status_changed (see
-// infrastructure/consumers.BolShipmentConfirmationConsumer) and only acts
-// on a Bol order that is now Shipped.
+// closedOrderStatuses: a Bol order in one of these is never confirmed on Bol.
+var closedOrderStatuses = map[omsDomain.SalesOrderStatus]bool{
+	omsDomain.SalesOrderStatusCancelled: true,
+	omsDomain.SalesOrderStatusRefunded:  true,
+	omsDomain.SalesOrderStatusFailed:    true,
+}
+
+// ConfirmBolShipmentUseCase tells Bol that a Bol order's parcel left, so the
+// order closes on Bol's side too. Runs on every shipment status update (see
+// infrastructure/consumers.BolShipmentConfirmationConsumer) and acts only
+// once the order's newest active shipment is in the carrier's hands
+// (shippingDomain.IsCarrierConfirmed) -- never on a label alone, which may
+// still be cancelled as a mistake.
 //
-// Every attempt is stored as a BolShipmentConfirmation so the order page
-// can show what happened: pending while Bol processes it (resolved later
-// by CheckBolShipmentConfirmationsUseCase), or failed right away when it
-// can't be sent -- Bol refused the request, or the carrier has no Bol
-// transporter code. Failures that a retry could fix (Bol or the network
-// unavailable) are returned instead, so the event is redelivered.
+// Then, for the items still open on Bol, it sends the shipment
+// (POST /retailer/shipments, transporter code + track & trace). When nothing
+// is open on Bol but CommerceOS told Bol about a different, since cancelled
+// shipment, the parcel was replaced: it corrects the transporter + track &
+// trace of the order's shipments on Bol (PUT /retailer/transports/{id}).
+// An order nothing was sent for (e.g. confirmed by hand on Bol) is left alone.
 //
-// Safe to run again for the same order: it sends only what is still open
-// on Bol, and never re-sends a shipment that already has a pending or
-// successful confirmation.
+// Every Bol request is stored as a BolShipmentConfirmation so the order page
+// can show what happened: pending while Bol processes it (resolved later by
+// CheckBolShipmentConfirmationsUseCase), or failed right away with the
+// reason when it can't be sent -- Bol refused the request, or the carrier
+// has no Bol transporter code. Failures a retry could fix (Bol or the
+// network unavailable) are returned instead, so the event is redelivered.
+// Never sends twice for a shipment Bol already has (pending or success).
 type ConfirmBolShipmentUseCase struct {
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
@@ -65,34 +76,33 @@ func (uc *ConfirmBolShipmentUseCase) Execute(ctx context.Context, salesOrderID s
 	if err != nil {
 		return fmt.Errorf("confirmBolShipment: %w", err)
 	}
-	if order.Source != omsDomain.SalesOrderSourceBol || order.Status != omsDomain.SalesOrderStatusShipped || order.ConnectionID == nil {
+	if order.Source != omsDomain.SalesOrderSourceBol || closedOrderStatuses[order.Status] || order.ConnectionID == nil {
 		return nil
 	}
 
-	shipment, alreadySent, err := uc.findShipmentToConfirm(ctx, order.ID)
+	shipments, confirmations, err := uc.loadShipments(ctx, order.ID)
 	if err != nil {
 		return fmt.Errorf("confirmBolShipment: %w", err)
 	}
+	shipment := newestActiveShipment(shipments)
 	if shipment == nil {
-		log.Printf("confirmBolShipment: order %s is shipped but has no active shipment with a barcode -- nothing to send to Bol", order.ID)
+		log.Printf("confirmBolShipment: order %s has no active shipment with a barcode -- nothing to send to Bol", order.ID)
 		return nil
 	}
-	if alreadySent {
+	if !shippingDomain.IsCarrierConfirmed(shipment.StatusMain) || toldBolAbout(confirmations, shipment.ID) {
 		return nil
 	}
 
-	confirmation := channelsDomain.BolShipmentConfirmation{
+	base := channelsDomain.BolShipmentConfirmation{
 		TenantID: order.TenantID, SalesOrderID: order.ID, ConnectionID: *order.ConnectionID, ShipmentID: shipment.ID,
-		ExternalOrderID: order.ExternalOrderID, TrackAndTrace: shipment.Barcode, CreatedAt: uc.now(),
+		ExternalOrderID: order.ExternalOrderID, Action: channelsDomain.BolActionCreateShipment,
+		TrackAndTrace: shipment.Barcode, CreatedAt: uc.now(),
 	}
-
 	transporterCode, err := channelsDomain.BolTransporterCode(shipment.Carrier, shipment.RecipientCC)
 	if err != nil {
-		confirmation.Status = channelsDomain.BolConfirmationFailure
-		confirmation.ErrorMessage = fmt.Sprintf("Bol has no transporter code for %s -- confirm this order in Bol yourself.", shipment.Carrier)
-		return uc.save(ctx, confirmation)
+		return uc.save(ctx, failed(base, fmt.Sprintf("Bol has no transporter code for %s -- confirm this order in Bol yourself.", shipment.Carrier)))
 	}
-	confirmation.TransporterCode = transporterCode
+	base.TransporterCode = transporterCode
 
 	client, err := uc.clients.ClientFor(ctx, *order.ConnectionID)
 	if err != nil {
@@ -102,32 +112,86 @@ func (uc *ConfirmBolShipmentUseCase) Execute(ctx context.Context, salesOrderID s
 	if err != nil {
 		return fmt.Errorf("confirmBolShipment: read bol order %s: %w", order.ExternalOrderID, err)
 	}
-	items := openBolOrderItems(bolOrder.OrderItems)
-	if len(items) == 0 {
-		return nil
+	if items := openBolOrderItems(bolOrder.OrderItems); len(items) > 0 {
+		return uc.createShipment(ctx, client, base, items)
 	}
+	if toldBolAboutAnother(confirmations, shipment.ID) {
+		return uc.correctTransports(ctx, client, base)
+	}
+	return nil
+}
 
+func (uc *ConfirmBolShipmentUseCase) createShipment(ctx context.Context, client integrationsDomain.BolClient, c channelsDomain.BolShipmentConfirmation, items []integrationsDomain.BolShipmentItem) error {
 	status, err := client.CreateShipment(ctx, integrationsDomain.BolShipmentInput{
-		OrderItems: items, ShipmentReference: order.ExternalOrderID,
-		TransporterCode: transporterCode, TrackAndTrace: shipment.Barcode,
+		OrderItems: items, ShipmentReference: c.ExternalOrderID,
+		TransporterCode: c.TransporterCode, TrackAndTrace: c.TrackAndTrace,
 	})
 	if errors.Is(err, integrationsDomain.ErrBolRequestRejected) {
-		confirmation.Status = channelsDomain.BolConfirmationFailure
-		confirmation.ErrorMessage = err.Error()
-		return uc.save(ctx, confirmation)
+		return uc.save(ctx, failed(c, err.Error()))
 	}
 	if err != nil {
-		return fmt.Errorf("confirmBolShipment: send shipment for bol order %s: %w", order.ExternalOrderID, err)
+		return fmt.Errorf("confirmBolShipment: send shipment for bol order %s: %w", c.ExternalOrderID, err)
+	}
+	accepted, err := uc.accepted(c, status)
+	if err != nil {
+		return err
+	}
+	return uc.save(ctx, accepted)
+}
+
+// correctTransports replaces the transporter + track & trace on every
+// shipment Bol has for the order. All requests are made before anything is
+// stored: a retryable failure returns an error with nothing saved, and the
+// retry repeats the (idempotent) updates.
+func (uc *ConfirmBolShipmentUseCase) correctTransports(ctx context.Context, client integrationsDomain.BolClient, base channelsDomain.BolShipmentConfirmation) error {
+	base.Action = channelsDomain.BolActionUpdateTransport
+	transportIDs, err := client.ListShipmentTransportIDs(ctx, base.ExternalOrderID)
+	if err != nil {
+		return fmt.Errorf("confirmBolShipment: list bol shipments for order %s: %w", base.ExternalOrderID, err)
+	}
+	if len(transportIDs) == 0 {
+		return uc.save(ctx, failed(base, fmt.Sprintf("Bol has no shipment for order %s to correct -- update the track & trace in Bol yourself.", base.ExternalOrderID)))
 	}
 
-	confirmation.ProcessStatusID = status.ID
-	confirmation.Status = channelsDomain.BolConfirmationPending
+	results := make([]channelsDomain.BolShipmentConfirmation, 0, len(transportIDs))
+	for _, transportID := range transportIDs {
+		c := base
+		c.TransportID = transportID
+		status, err := client.UpdateTransport(ctx, transportID, integrationsDomain.BolTransportInput{
+			TransporterCode: c.TransporterCode, TrackAndTrace: c.TrackAndTrace,
+		})
+		if errors.Is(err, integrationsDomain.ErrBolRequestRejected) {
+			results = append(results, failed(c, err.Error()))
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("confirmBolShipment: correct bol transport %s: %w", transportID, err)
+		}
+		accepted, err := uc.accepted(c, status)
+		if err != nil {
+			return err
+		}
+		results = append(results, accepted)
+	}
+	return uc.save(ctx, results...)
+}
+
+// accepted records Bol's process status; Bol may already have a final answer.
+func (uc *ConfirmBolShipmentUseCase) accepted(c channelsDomain.BolShipmentConfirmation, status integrationsDomain.BolProcessStatus) (channelsDomain.BolShipmentConfirmation, error) {
+	c.ProcessStatusID = status.ID
+	c.Status = channelsDomain.BolConfirmationPending
 	if final, err := channelsDomain.ParseBolConfirmationStatus(status.Status); err == nil && final != channelsDomain.BolConfirmationPending {
-		if err := confirmation.Resolve(final, status.ErrorMessage, uc.now()); err != nil {
-			return fmt.Errorf("confirmBolShipment: %w", err)
+		if err := c.Resolve(final, status.ErrorMessage, uc.now()); err != nil {
+			return c, fmt.Errorf("confirmBolShipment: %w", err)
 		}
 	}
-	return uc.save(ctx, confirmation)
+	return c, nil
+}
+
+func failed(c channelsDomain.BolShipmentConfirmation, reason string) channelsDomain.BolShipmentConfirmation {
+	c.Status = channelsDomain.BolConfirmationFailure
+	c.ErrorMessage = reason
+	return c
 }
 
 func (uc *ConfirmBolShipmentUseCase) loadOrder(ctx context.Context, salesOrderID string) (*omsDomain.SalesOrder, error) {
@@ -140,10 +204,7 @@ func (uc *ConfirmBolShipmentUseCase) loadOrder(ctx context.Context, salesOrderID
 	return order, err
 }
 
-// findShipmentToConfirm picks the order's newest active shipment that has
-// a barcode, and reports whether it was already sent to Bol (a pending or
-// successful confirmation exists for it).
-func (uc *ConfirmBolShipmentUseCase) findShipmentToConfirm(ctx context.Context, salesOrderID string) (*shippingDomain.Shipment, bool, error) {
+func (uc *ConfirmBolShipmentUseCase) loadShipments(ctx context.Context, salesOrderID string) ([]shippingDomain.Shipment, []channelsDomain.BolShipmentConfirmation, error) {
 	var shipments []shippingDomain.Shipment
 	var confirmations []channelsDomain.BolShipmentConfirmation
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -154,23 +215,36 @@ func (uc *ConfirmBolShipmentUseCase) findShipmentToConfirm(ctx context.Context, 
 		confirmations, err = uc.confirmations.ListBySalesOrder(ctx, salesOrderID)
 		return err
 	})
-	if err != nil {
-		return nil, false, err
-	}
+	return shipments, confirmations, err
+}
 
+// newestActiveShipment: shipments come newest first; the first one not
+// cancelled and with a barcode is the parcel that counts.
+func newestActiveShipment(shipments []shippingDomain.Shipment) *shippingDomain.Shipment {
 	for i := range shipments {
-		s := shipments[i]
-		if s.CancelledAt != nil || s.Barcode == "" {
-			continue
+		if shipments[i].CancelledAt == nil && shipments[i].Barcode != "" {
+			return &shipments[i]
 		}
-		for _, c := range confirmations {
-			if c.ShipmentID == s.ID && !c.NeedsManualAction() {
-				return &s, true, nil
-			}
-		}
-		return &s, false, nil
 	}
-	return nil, false, nil
+	return nil
+}
+
+func toldBolAbout(confirmations []channelsDomain.BolShipmentConfirmation, shipmentID string) bool {
+	for _, c := range confirmations {
+		if c.ShipmentID == shipmentID && c.ToldBol() {
+			return true
+		}
+	}
+	return false
+}
+
+func toldBolAboutAnother(confirmations []channelsDomain.BolShipmentConfirmation, shipmentID string) bool {
+	for _, c := range confirmations {
+		if c.ShipmentID != shipmentID && c.ToldBol() {
+			return true
+		}
+	}
+	return false
 }
 
 // openBolOrderItems lists what Bol still considers unshipped: per item,
@@ -185,17 +259,22 @@ func openBolOrderItems(items []integrationsDomain.BolOrderItem) []integrationsDo
 	return open
 }
 
-func (uc *ConfirmBolShipmentUseCase) save(ctx context.Context, c channelsDomain.BolShipmentConfirmation) error {
+func (uc *ConfirmBolShipmentUseCase) save(ctx context.Context, confirmations ...channelsDomain.BolShipmentConfirmation) error {
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		if err := uc.confirmations.Create(ctx, &c); err != nil {
-			return err
+		for _, c := range confirmations {
+			if err := uc.confirmations.Create(ctx, &c); err != nil {
+				return err
+			}
+			if err := eventrecord.Record(ctx, uc.outbox, events.BolShipmentConfirmationSent, c.ID, eventrecord.Data{
+				"sales_order_id": c.SalesOrderID, "shipment_id": c.ShipmentID, "connection_id": c.ConnectionID,
+				"external_order_id": c.ExternalOrderID, "action": string(c.Action), "transport_id": c.TransportID,
+				"transporter_code": c.TransporterCode, "track_and_trace": c.TrackAndTrace,
+				"process_status_id": c.ProcessStatusID, "status": string(c.Status), "error_message": c.ErrorMessage,
+			}); err != nil {
+				return err
+			}
 		}
-		return eventrecord.Record(ctx, uc.outbox, events.BolShipmentConfirmationSent, c.ID, eventrecord.Data{
-			"sales_order_id": c.SalesOrderID, "shipment_id": c.ShipmentID, "connection_id": c.ConnectionID,
-			"external_order_id": c.ExternalOrderID, "transporter_code": c.TransporterCode,
-			"track_and_trace": c.TrackAndTrace, "process_status_id": c.ProcessStatusID,
-			"status": string(c.Status), "error_message": c.ErrorMessage,
-		})
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("confirmBolShipment: save confirmation: %w", err)

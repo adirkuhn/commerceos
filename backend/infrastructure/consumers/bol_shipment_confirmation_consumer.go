@@ -8,6 +8,7 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"github.com/adirkuhn/commerceos/domain/events"
+	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -19,13 +20,14 @@ type bolShipmentConfirmer interface {
 
 const bolShipmentConfirmationConsumerName = "bol-shipment-confirmation"
 
-// BolShipmentConfirmationConsumer reacts to oms.sales_order.status_changed
-// by telling Bol that a shipped Bol order left the warehouse (see
-// ConfirmBolShipmentUseCase -- it ignores every other order and status).
-// An independent subscriber on the same subject as
-// SalesOrderStatusChangedConsumer, with its own durable and processed-event
-// key. Idempotent: ProcessedEventRepository skips redelivered events, and
-// the use case itself never re-sends a shipment Bol already has.
+// BolShipmentConfirmationConsumer reacts to shipping.shipment.fulfillment_signal
+// once the carrier has the parcel (any shipment status but "registered" --
+// a label alone may still be cancelled) by telling Bol about it (see
+// ConfirmBolShipmentUseCase -- it ignores non-Bol orders). An independent
+// subscriber on the same subject as ShipmentFulfillmentSignalConsumer, with
+// its own durable and processed-event key. Idempotent: ProcessedEventRepository
+// skips redelivered events, and the use case itself never re-sends a
+// shipment Bol already has.
 type BolShipmentConfirmationConsumer struct {
 	processed events.ProcessedEventRepository
 	confirmer bolShipmentConfirmer
@@ -37,9 +39,13 @@ func NewBolShipmentConfirmationConsumer(processed events.ProcessedEventRepositor
 }
 
 func (c *BolShipmentConfirmationConsumer) Handle(msg *nats.Msg) {
-	var event events.SalesOrderStatusChanged
+	var event events.ShipmentFulfillmentSignal
 	if err := json.Unmarshal(msg.Data, &event); err != nil {
 		log.Printf("bolShipmentConfirmationConsumer: invalid payload, dropping (not retryable): %v", err)
+		ackOrLog(msg, "bolShipmentConfirmationConsumer")
+		return
+	}
+	if event.Kind != events.ShipmentFulfillmentSignalKindShipmentStatus || !shippingDomain.IsCarrierConfirmed(event.StatusMain) {
 		ackOrLog(msg, "bolShipmentConfirmationConsumer")
 		return
 	}

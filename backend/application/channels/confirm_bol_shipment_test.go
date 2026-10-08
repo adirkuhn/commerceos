@@ -74,7 +74,7 @@ func shippedBolOrder() *omsDomain.SalesOrder {
 func postNLShipment() shippingDomain.Shipment {
 	return shippingDomain.Shipment{
 		ID: "ship-1", SalesOrderID: "so-1", Carrier: shippingDomain.CarrierPostNL,
-		Barcode: "3SMYPA859699114", RecipientCC: "NL",
+		Barcode: "3SMYPA859699114", RecipientCC: "NL", StatusMain: "handed_to_carrier",
 	}
 }
 
@@ -146,7 +146,7 @@ func TestConfirmBolShipment_shippedOrder_sendsShipmentToBolAndTracksIt(t *testin
 	c := f.confirmations.created[0]
 	assert.Equal(t, channelsDomain.BolShipmentConfirmation{
 		ID: "conf-1", TenantID: "tenant-1", SalesOrderID: "so-1", ConnectionID: "bol-conn-1", ShipmentID: "ship-1",
-		ExternalOrderID: "C000HLRF87", ProcessStatusID: "ps-77", TransporterCode: "TNT",
+		ExternalOrderID: "C000HLRF87", Action: channelsDomain.BolActionCreateShipment, ProcessStatusID: "ps-77", TransporterCode: "TNT",
 		TrackAndTrace: "3SMYPA859699114", Status: channelsDomain.BolConfirmationPending, CreatedAt: confirmNow,
 	}, c)
 
@@ -159,6 +159,7 @@ func TestConfirmBolShipment_shippedOrder_sendsShipmentToBolAndTracksIt(t *testin
 	assert.Equal(t, "pending", data["status"])
 	assert.Equal(t, "ps-77", data["process_status_id"])
 	assert.Equal(t, "TNT", data["transporter_code"])
+	assert.Equal(t, "create_shipment", data["action"])
 }
 
 func TestConfirmBolShipment_bolAnswersSynchronously_storesFinalResult(t *testing.T) {
@@ -199,8 +200,38 @@ func TestConfirmBolShipment_nothingOpenOnBol_doesNothing(t *testing.T) {
 	assert.Empty(t, f.outbox.Events)
 }
 
-func TestConfirmBolShipment_orderNotShipped_doesNothing(t *testing.T) {
-	for _, status := range []omsDomain.SalesOrderStatus{omsDomain.SalesOrderStatusProcessing, omsDomain.SalesOrderStatusCompleted, omsDomain.SalesOrderStatusCancelled} {
+func TestConfirmBolShipment_labelOnlyRegistered_waitsForTheCarrier(t *testing.T) {
+	f := newConfirmFixture()
+	f.shipments[0].StatusMain = "registered"
+
+	require.NoError(t, f.run(t))
+
+	assert.Empty(t, f.source.connectionID, "a label alone may still be cancelled -- Bol is told once the carrier has the parcel")
+	assert.Empty(t, f.confirmations.created)
+}
+
+func TestConfirmBolShipment_newestLabelNotScannedYet_waitsEvenIfAnOlderOneWas(t *testing.T) {
+	f := newConfirmFixture()
+	newer := postNLShipment()
+	newer.ID, newer.Barcode, newer.StatusMain = "ship-2", "3SSECOND", "registered"
+	f.shipments = []shippingDomain.Shipment{newer, postNLShipment()}
+
+	require.NoError(t, f.run(t))
+
+	assert.Empty(t, f.bol.createShipmentCalls)
+}
+
+func TestConfirmBolShipment_parcelScannedBeforeOrderIsMarkedShipped_stillSends(t *testing.T) {
+	f := newConfirmFixture()
+	f.order.Status = omsDomain.SalesOrderStatusProcessing
+
+	require.NoError(t, f.run(t))
+
+	assert.Len(t, f.bol.createShipmentCalls, 1)
+}
+
+func TestConfirmBolShipment_orderClosed_doesNothing(t *testing.T) {
+	for _, status := range []omsDomain.SalesOrderStatus{omsDomain.SalesOrderStatusCancelled, omsDomain.SalesOrderStatusRefunded, omsDomain.SalesOrderStatusFailed} {
 		f := newConfirmFixture()
 		f.order.Status = status
 
@@ -224,8 +255,8 @@ func TestConfirmBolShipment_noUsableShipment_doesNothing(t *testing.T) {
 	cancelledAt := confirmNow
 	cases := map[string][]shippingDomain.Shipment{
 		"no shipment":        nil,
-		"no barcode yet":     {{ID: "ship-1", Carrier: shippingDomain.CarrierPostNL}},
-		"shipment cancelled": {{ID: "ship-1", Carrier: shippingDomain.CarrierPostNL, Barcode: "3S1", CancelledAt: &cancelledAt}},
+		"no barcode yet":     {{ID: "ship-1", Carrier: shippingDomain.CarrierPostNL, StatusMain: "handed_to_carrier"}},
+		"shipment cancelled": {{ID: "ship-1", Carrier: shippingDomain.CarrierPostNL, Barcode: "3S1", StatusMain: "handed_to_carrier", CancelledAt: &cancelledAt}},
 	}
 	for name, shipments := range cases {
 		f := newConfirmFixture()
@@ -242,7 +273,7 @@ func TestConfirmBolShipment_skipsCancelledShipmentForTheActiveOne(t *testing.T) 
 	cancelledAt := confirmNow
 	f := newConfirmFixture()
 	f.shipments = []shippingDomain.Shipment{
-		{ID: "ship-new", Carrier: shippingDomain.CarrierDPD, Barcode: "DPD1", RecipientCC: "BE", CancelledAt: &cancelledAt},
+		{ID: "ship-new", Carrier: shippingDomain.CarrierDPD, Barcode: "DPD1", RecipientCC: "BE", StatusMain: "handed_to_carrier", CancelledAt: &cancelledAt},
 		postNLShipment(),
 	}
 
@@ -276,7 +307,7 @@ func TestConfirmBolShipment_previousAttemptFailed_sendsAgain(t *testing.T) {
 
 func TestConfirmBolShipment_carrierBolDoesNotKnow_recordsFailureForManualConfirmation(t *testing.T) {
 	f := newConfirmFixture()
-	f.shipments = []shippingDomain.Shipment{{ID: "ship-1", Carrier: shippingDomain.Carrier(99), Barcode: "X1"}}
+	f.shipments = []shippingDomain.Shipment{{ID: "ship-1", Carrier: shippingDomain.Carrier(99), Barcode: "X1", StatusMain: "handed_to_carrier"}}
 
 	require.NoError(t, f.run(t))
 
@@ -337,6 +368,126 @@ func TestConfirmBolShipment_cannotBuildClient_returnsError(t *testing.T) {
 func TestConfirmBolShipment_eventCannotBeRecorded_returnsError(t *testing.T) {
 	f := newConfirmFixture()
 	f.outbox.Err = errors.New("outbox down")
+
+	require.Error(t, f.run(t))
+}
+
+// ── correcting a shipment Bol already has ─────────────────────────────────────
+
+// replacedLabelFixture: Bol was told about ship-old (since cancelled -- the
+// wrong label); ship-1 is the replacement the carrier just scanned, and
+// nothing is open on Bol any more.
+func replacedLabelFixture() *confirmFixture {
+	cancelledAt := confirmNow.Add(-time.Hour)
+	f := newConfirmFixture()
+	f.shipments = []shippingDomain.Shipment{
+		postNLShipment(),
+		{ID: "ship-old", Carrier: shippingDomain.CarrierPostNL, Barcode: "3SWRONG", StatusMain: "handed_to_carrier", CancelledAt: &cancelledAt},
+	}
+	f.confirmations.existing = []channelsDomain.BolShipmentConfirmation{{
+		ID: "conf-old", ShipmentID: "ship-old", Action: channelsDomain.BolActionCreateShipment,
+		TrackAndTrace: "3SWRONG", Status: channelsDomain.BolConfirmationSuccess,
+	}}
+	f.bol.getOrderFn = openBolOrder(integrationsDomain.BolOrderItem{OrderItemID: "item-1", Quantity: 1, QuantityShipped: 1})
+	f.bol.transportIDsFn = func(context.Context, string) ([]string, error) { return []string{"t-1"}, nil }
+	return f
+}
+
+func TestConfirmBolShipment_replacedLabel_correctsTrackAndTraceOnBol(t *testing.T) {
+	f := replacedLabelFixture()
+
+	require.NoError(t, f.run(t))
+
+	assert.Empty(t, f.bol.createShipmentCalls)
+	require.Len(t, f.bol.updateTransportCalls, 1)
+	assert.Equal(t, fakeUpdateTransportCall{
+		TransportID: "t-1",
+		Input:       integrationsDomain.BolTransportInput{TransporterCode: "TNT", TrackAndTrace: "3SMYPA859699114"},
+	}, f.bol.updateTransportCalls[0])
+
+	require.Len(t, f.confirmations.created, 1)
+	c := f.confirmations.created[0]
+	assert.Equal(t, channelsDomain.BolActionUpdateTransport, c.Action)
+	assert.Equal(t, "t-1", c.TransportID)
+	assert.Equal(t, "ship-1", c.ShipmentID)
+	assert.Equal(t, "ps-t-1", c.ProcessStatusID)
+	assert.Equal(t, channelsDomain.BolConfirmationPending, c.Status)
+
+	event, err := f.outbox.Only()
+	require.NoError(t, err)
+	assert.Equal(t, "update_transport", event.Data()["action"])
+	assert.Equal(t, "t-1", event.Data()["transport_id"])
+}
+
+func TestConfirmBolShipment_replacedLabel_correctsEveryBolTransportOfTheOrder(t *testing.T) {
+	f := replacedLabelFixture()
+	f.bol.transportIDsFn = func(context.Context, string) ([]string, error) { return []string{"t-1", "t-2"}, nil }
+
+	require.NoError(t, f.run(t))
+
+	assert.Len(t, f.bol.updateTransportCalls, 2)
+	require.Len(t, f.confirmations.created, 2)
+	assert.Equal(t, "t-2", f.confirmations.created[1].TransportID)
+}
+
+func TestConfirmBolShipment_nothingOpenAndBolNeverToldByUs_leavesBolAlone(t *testing.T) {
+	f := replacedLabelFixture()
+	f.confirmations.existing = nil
+
+	require.NoError(t, f.run(t))
+
+	assert.Empty(t, f.bol.updateTransportCalls, "confirmed by hand on Bol -- not ours to change")
+	assert.Empty(t, f.confirmations.created)
+}
+
+func TestConfirmBolShipment_earlierAttemptRejected_isNotCorrected(t *testing.T) {
+	f := replacedLabelFixture()
+	f.confirmations.existing[0].Status = channelsDomain.BolConfirmationFailure
+
+	require.NoError(t, f.run(t))
+
+	assert.Empty(t, f.bol.updateTransportCalls, "Bol never took the wrong label, nothing to correct")
+}
+
+func TestConfirmBolShipment_correctionRejected_recordsFailureWithBolsReason(t *testing.T) {
+	f := replacedLabelFixture()
+	f.bol.updateTransportFn = func(context.Context, string, integrationsDomain.BolTransportInput) (integrationsDomain.BolProcessStatus, error) {
+		return integrationsDomain.BolProcessStatus{}, fmt.Errorf("%w: transport already delivered", integrationsDomain.ErrBolRequestRejected)
+	}
+
+	require.NoError(t, f.run(t))
+
+	require.Len(t, f.confirmations.created, 1)
+	assert.Equal(t, channelsDomain.BolConfirmationFailure, f.confirmations.created[0].Status)
+	assert.Contains(t, f.confirmations.created[0].ErrorMessage, "transport already delivered")
+	assert.Equal(t, channelsDomain.BolActionUpdateTransport, f.confirmations.created[0].Action)
+}
+
+func TestConfirmBolShipment_correctionButBolHasNoShipment_recordsFailure(t *testing.T) {
+	f := replacedLabelFixture()
+	f.bol.transportIDsFn = func(context.Context, string) ([]string, error) { return nil, nil }
+
+	require.NoError(t, f.run(t))
+
+	require.Len(t, f.confirmations.created, 1)
+	assert.Equal(t, channelsDomain.BolConfirmationFailure, f.confirmations.created[0].Status)
+	assert.Equal(t, channelsDomain.BolActionUpdateTransport, f.confirmations.created[0].Action)
+	assert.NotEmpty(t, f.confirmations.created[0].ErrorMessage)
+}
+
+func TestConfirmBolShipment_cannotListBolTransports_returnsErrorForRetry(t *testing.T) {
+	f := replacedLabelFixture()
+	f.bol.transportIDsFn = func(context.Context, string) ([]string, error) { return nil, errors.New("bol: 503") }
+
+	require.Error(t, f.run(t))
+	assert.Empty(t, f.confirmations.created)
+}
+
+func TestConfirmBolShipment_correctionUnavailable_returnsErrorForRetry(t *testing.T) {
+	f := replacedLabelFixture()
+	f.bol.updateTransportFn = func(context.Context, string, integrationsDomain.BolTransportInput) (integrationsDomain.BolProcessStatus, error) {
+		return integrationsDomain.BolProcessStatus{}, errors.New("bol: 503")
+	}
 
 	require.Error(t, f.run(t))
 }
