@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useSalesOrderDetail } from './hooks/useSalesOrderDetail'
 import { useSalesOrderActivities } from './hooks/useSalesOrderActivities'
+import { useBolShipmentConfirmations } from './hooks/useBolShipmentConfirmations'
 import type { SalesOrderStatus } from './types'
 import { PickingListPrintView } from '../pages/print/PickingListPrintView'
 import { InvoiceWithSeller } from '../pages/print/InvoiceWithSeller'
@@ -22,11 +23,16 @@ import { STATUS_OPTIONS, addressesEqual, customerName } from './salesOrderDispla
 import { salesOrderStatusLabel } from './statusLabel'
 import { OrderPaymentCard } from './OrderPaymentCard'
 import { ShipmentTrackingSection } from './ShipmentTrackingSection'
+import { BolConfirmationCard } from './BolConfirmationCard'
 import { SoldExpiryNote } from './SoldExpiryNote'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { formatMoney } from '../format/money'
 
 // ── Sales Order Detail Page ──────────────────────────────────────────────────
+
+// Statuses at which a Bol order's shipment should have been sent to Bol --
+// the Bol confirmation card shows from then on.
+const BOL_SHIPPED_STATUSES: SalesOrderStatus[] = ['shipped', 'completed']
 
 export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string; onClose: () => void }) {
   const { formatDateTime } = useDateFormat()
@@ -35,6 +41,8 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
   const { token } = useAuth()
   const { detail, loading, error, update, remove } = useSalesOrderDetail(token ?? '', salesOrderId)
   const { activities, refresh: refreshActivities } = useSalesOrderActivities(token ?? '', salesOrderId)
+  const isBolOrder = detail?.sales_order.source === 'bol'
+  const bolConfirmations = useBolShipmentConfirmations(token ?? '', salesOrderId, isBolOrder)
   const [savingStatus, setSavingStatus] = useState(false)
   const [actionError, setActionError] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -357,6 +365,10 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                     <p className="font-medium text-ink-2">{t('detail.shipments')}</p>
                     {shipments.map(s => <ShipmentTrackingSection key={s.id} token={token} shipment={s} onCancelled={loadShipments} />)}
                   </div>
+                )}
+
+                {isBolOrder && (BOL_SHIPPED_STATUSES.includes(detail.sales_order.status) || bolConfirmations.confirmations.length > 0) && (
+                  <BolConfirmationCard confirmations={bolConfirmations.confirmations} error={bolConfirmations.error} />
                 )}
 
                 {activities.length > 0 && (

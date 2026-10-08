@@ -209,5 +209,17 @@
     "refunded": "Terugbetaald",
     "partially_refunded": "Gedeeltelijk terugbetaald",
     "cancelled_unpaid": "Geannuleerd, onbetaald"
+  },
+  "bolConfirmation": {
+    "title": "Bol",
+    "notSent": "Nog niet naar Bol gestuurd",
+    "earlier": "Eerdere pogingen",
+    "manualAction": "De bestelling staat nog open bij Bol. Bevestig hem in het Bol-verkopersportaal (bestelling {{order}}).",
+    "status": {
+      "pending": "Naar Bol gestuurd, wacht op bevestiging van Bol",
+      "success": "Bevestigd bij Bol",
+      "failure": "Bol heeft de zending niet geaccepteerd",
+      "timeout": "Bol heeft niet op tijd geantwoord"
+    }
   }
 }

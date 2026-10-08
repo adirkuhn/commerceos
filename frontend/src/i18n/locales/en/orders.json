@@ -209,5 +209,17 @@
     "refunded": "Refunded",
     "partially_refunded": "Partially refunded",
     "cancelled_unpaid": "Cancelled, unpaid"
+  },
+  "bolConfirmation": {
+    "title": "Bol",
+    "notSent": "Not sent to Bol yet",
+    "earlier": "Earlier attempts",
+    "manualAction": "The order is still open on Bol. Confirm it in the Bol seller portal (order {{order}}).",
+    "status": {
+      "pending": "Sent to Bol, waiting for Bol to confirm",
+      "success": "Confirmed on Bol",
+      "failure": "Bol did not accept the shipment",
+      "timeout": "Bol did not answer in time"
+    }
   }
 }
