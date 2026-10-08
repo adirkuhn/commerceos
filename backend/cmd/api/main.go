@@ -12,6 +12,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
+	genbolconfirmations "github.com/adirkuhn/commerceos/api/bolconfirmations"
 	gencollections "github.com/adirkuhn/commerceos/api/collections"
 	gencoupons "github.com/adirkuhn/commerceos/api/coupons"
 	gencustomers "github.com/adirkuhn/commerceos/api/customers"
@@ -47,6 +48,7 @@ import (
 	genwhatsapp "github.com/adirkuhn/commerceos/api/whatsapp"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	bolconfirmationshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/bolconfirmations"
 	collectionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/collections"
 	couponshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/coupons"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
@@ -367,6 +369,20 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	weightportionshandler.Register(weightportionsGroup, db, outboxRepo)
+
+	bolconfirmationsSpec, err := genbolconfirmations.GetSpec()
+	if err != nil {
+		log.Fatalf("bolconfirmations: load openapi spec: %v", err)
+	}
+	// Own sub-group so the bolconfirmations-only spec validator never
+	// applies to the other modules' routes — same reasoning as pmsGroup
+	// above. Read-only, no RequireRole: any authenticated role may see an
+	// order's Bol confirmation status; tenant RLS is the isolation boundary.
+	bolconfirmationsGroup := v1.Group("")
+	bolconfirmationsGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(bolconfirmationsSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	bolconfirmationshandler.Register(bolconfirmationsGroup, db)
 
 	orderpaymentsSpec, err := genorderpayments.GetSpec()
 	if err != nil {

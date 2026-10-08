@@ -1,0 +1,99 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Bol Shipment Confirmations API
+  version: "1.0"
+  description: >-
+    When a Bol order ships, CommerceOS tells Bol (transporter code + track &
+    trace) so the order closes on Bol too. Bol processes that request later,
+    so each attempt is kept with Bol's answer: pending while Bol works on it,
+    then success, failure or timeout. A failure or timeout means the order
+    is still open on Bol and must be confirmed there by hand. A separate
+    small module (like api/weightportions) rather than folded into
+    api/integrations' already large composed handler.
+servers:
+  - url: /api/v1
+
+paths:
+  /sales-orders/{id}/bol-shipment-confirmations:
+    get:
+      operationId: listBolShipmentConfirmations
+      summary: Every attempt to confirm this order's shipment on Bol, newest first
+      parameters:
+        # Named "id" to match every other /sales-orders/{id}/... route
+        # (api/oms) -- gin requires the same wildcard name at a given path
+        # position across all registered routes.
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BolShipmentConfirmationListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+components:
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    BolShipmentConfirmation:
+      type: object
+      required: [id, shipment_id, external_order_id, transporter_code, track_and_trace, process_status_id, status, error_message, needs_manual_action, created_at]
+      properties:
+        id: { type: string }
+        shipment_id: { type: string }
+        external_order_id:
+          type: string
+          description: The Bol order number.
+        transporter_code:
+          type: string
+          description: Bol's transporter code sent (e.g. TNT for PostNL). Empty when the carrier has none.
+        track_and_trace: { type: string }
+        process_status_id:
+          type: string
+          description: Bol's id for processing this request. Empty when the request never reached Bol.
+        status:
+          type: string
+          enum: [pending, success, failure, timeout]
+        error_message:
+          type: string
+          description: Why Bol did not accept it (or why it could not be sent). Empty otherwise.
+        needs_manual_action:
+          type: boolean
+          description: True for failure/timeout -- the order is still open on Bol until confirmed there by hand.
+        created_at: { type: string, format: date-time }
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When Bol gave its final answer.
+
+    BolShipmentConfirmationListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BolShipmentConfirmation'
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
