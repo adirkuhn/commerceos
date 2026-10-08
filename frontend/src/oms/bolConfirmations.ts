@@ -4,16 +4,22 @@ import type { APIResponse } from './types'
 // attempt to tell Bol a Bol order shipped, and what Bol made of it.
 export type BolConfirmationStatus = 'pending' | 'success' | 'failure' | 'timeout'
 
+// create_shipment marks the order shipped on Bol; update_transport corrects
+// the track & trace Bol has after the parcel was cancelled and replaced.
+export type BolConfirmationAction = 'create_shipment' | 'update_transport'
+
 export interface BolShipmentConfirmation {
   id: string
   shipment_id: string
   external_order_id: string
+  action: BolConfirmationAction
+  transport_id: string
   transporter_code: string
   track_and_trace: string
   process_status_id: string
   status: BolConfirmationStatus
   error_message: string
-  // failure/timeout: the order is still open on Bol until confirmed there by hand.
+  // failure/timeout: Bol doesn't have the right details until fixed there by hand.
   needs_manual_action: boolean
   created_at: string
   resolved_at?: string | null

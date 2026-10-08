@@ -5,7 +5,7 @@ import type { BolShipmentConfirmation } from '../bolConfirmations'
 
 function confirmation(overrides: Partial<BolShipmentConfirmation> = {}): BolShipmentConfirmation {
   return {
-    id: 'conf-1', shipment_id: 'ship-1', external_order_id: 'C000HLRF87', transporter_code: 'TNT',
+    id: 'conf-1', shipment_id: 'ship-1', external_order_id: 'C000HLRF87', action: 'create_shipment', transport_id: '', transporter_code: 'TNT',
     track_and_trace: '3SMYPA859699114', process_status_id: 'ps-1', status: 'pending', error_message: '',
     needs_manual_action: false, created_at: '2026-10-07T14:11:00Z', resolved_at: null,
     ...overrides,

@@ -220,6 +220,13 @@
       "success": "Confirmed on Bol",
       "failure": "Bol did not accept the shipment",
       "timeout": "Bol did not answer in time"
+    },
+    "correctionManualAction": "Bol still has the old track & trace. Update it in the Bol seller portal (order {{order}}).",
+    "correction": {
+      "pending": "Track & trace correction sent to Bol, waiting for Bol",
+      "success": "Track & trace corrected on Bol",
+      "failure": "Bol did not accept the track & trace correction",
+      "timeout": "Bol did not answer the track & trace correction in time"
     }
   }
 }

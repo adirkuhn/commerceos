@@ -12,7 +12,7 @@ import { listBolShipmentConfirmations } from '../../bolConfirmations'
 
 function confirmation(status: BolShipmentConfirmation['status']): BolShipmentConfirmation {
   return {
-    id: 'conf-1', shipment_id: 'ship-1', external_order_id: 'C1', transporter_code: 'TNT', track_and_trace: '3S1',
+    id: 'conf-1', shipment_id: 'ship-1', external_order_id: 'C1', action: 'create_shipment', transport_id: '', transporter_code: 'TNT', track_and_trace: '3S1',
     process_status_id: 'ps-1', status, error_message: '', needs_manual_action: status === 'failure' || status === 'timeout',
     created_at: '2026-10-07T14:11:00Z', resolved_at: null,
   }

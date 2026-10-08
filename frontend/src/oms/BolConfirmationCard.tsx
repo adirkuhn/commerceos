@@ -1,13 +1,19 @@
 import { useTranslation } from 'react-i18next'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { latestBolConfirmation } from './bolConfirmations'
-import type { BolConfirmationStatus, BolShipmentConfirmation } from './bolConfirmations'
+import type { BolConfirmationAction, BolConfirmationStatus, BolShipmentConfirmation } from './bolConfirmations'
 
 const STATUS_TONE: Record<BolConfirmationStatus, string> = {
   pending: 'text-warning',
   success: 'text-success',
   failure: 'text-danger',
   timeout: 'text-danger',
+}
+
+// Status texts and the manual fix differ for a track & trace correction.
+const TEXTS: Record<BolConfirmationAction, { status: 'status' | 'correction'; manual: 'manualAction' | 'correctionManualAction' }> = {
+  create_shipment: { status: 'status', manual: 'manualAction' },
+  update_transport: { status: 'correction', manual: 'correctionManualAction' },
 }
 
 // Whether this Bol order's shipment was confirmed on Bol. The newest
@@ -28,7 +34,7 @@ export function BolConfirmationCard({ confirmations, error }: { confirmations: B
         <p className="text-ink-4">{t('bolConfirmation.notSent')}</p>
       ) : (
         <div role={latest.needs_manual_action ? 'alert' : undefined} className="space-y-1">
-          <p className={`font-medium ${STATUS_TONE[latest.status]}`}>{t(`bolConfirmation.status.${latest.status}`)}</p>
+          <p className={`font-medium ${STATUS_TONE[latest.status]}`}>{t(`bolConfirmation.${TEXTS[latest.action].status}.${latest.status}`)}</p>
           <p className="text-ink-3">
             {[latest.transporter_code, latest.track_and_trace].filter(Boolean).join(' · ')}
             {' — '}
@@ -36,7 +42,7 @@ export function BolConfirmationCard({ confirmations, error }: { confirmations: B
           </p>
           {latest.error_message && <p className="text-danger">{latest.error_message}</p>}
           {latest.needs_manual_action && (
-            <p className="text-ink">{t('bolConfirmation.manualAction', { order: latest.external_order_id })}</p>
+            <p className="text-ink">{t(`bolConfirmation.${TEXTS[latest.action].manual}`, { order: latest.external_order_id })}</p>
           )}
         </div>
       )}
@@ -46,7 +52,7 @@ export function BolConfirmationCard({ confirmations, error }: { confirmations: B
           <p className="text-ink-4">{t('bolConfirmation.earlier')}</p>
           {earlier.map(c => (
             <p key={c.id} className="text-ink-3">
-              {t(`bolConfirmation.status.${c.status}`)} · {formatDateTime(c.created_at)}
+              {t(`bolConfirmation.${TEXTS[c.action].status}.${c.status}`)} · {formatDateTime(c.created_at)}
               {c.error_message && ` · ${c.error_message}`}
             </p>
           ))}

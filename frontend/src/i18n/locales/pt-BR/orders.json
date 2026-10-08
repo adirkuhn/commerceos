@@ -223,6 +223,13 @@
       "success": "Confirmado na Bol",
       "failure": "A Bol não aceitou o envio",
       "timeout": "A Bol não respondeu a tempo"
+    },
+    "correctionManualAction": "A Bol ainda tem o código de rastreio antigo. Atualize-o no portal de vendedor da Bol (pedido {{order}}).",
+    "correction": {
+      "pending": "Correção do rastreio enviada à Bol, aguardando a Bol",
+      "success": "Rastreio corrigido na Bol",
+      "failure": "A Bol não aceitou a correção do rastreio",
+      "timeout": "A Bol não respondeu a tempo à correção do rastreio"
     }
   }
 }

@@ -6,7 +6,7 @@ import type { BolShipmentConfirmation } from '../bolConfirmations'
 
 function confirmation(overrides: Partial<BolShipmentConfirmation> = {}): BolShipmentConfirmation {
   return {
-    id: 'conf-1', shipment_id: 'ship-1', external_order_id: 'C000HLRF87', transporter_code: 'TNT',
+    id: 'conf-1', shipment_id: 'ship-1', external_order_id: 'C000HLRF87', action: 'create_shipment', transport_id: '', transporter_code: 'TNT',
     track_and_trace: '3SMYPA859699114', process_status_id: 'ps-1', status: 'pending', error_message: '',
     needs_manual_action: false, created_at: '2026-10-07T14:11:00Z', resolved_at: null,
     ...overrides,
@@ -61,6 +61,22 @@ describe('BolConfirmationCard', () => {
     expect(screen.getByText('Earlier attempts')).toBeInTheDocument()
     expect(screen.getByText(/Bol was down\./)).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('describes a track & trace correction after a replaced label', () => {
+    render(<BolConfirmationCard confirmations={[confirmation({ action: 'update_transport', transport_id: 't-1', status: 'success' })]} error={null} />)
+
+    expect(screen.getByText('Track & trace corrected on Bol')).toHaveClass('text-success')
+  })
+
+  it('says Bol still has the old track & trace when a correction failed', () => {
+    render(<BolConfirmationCard confirmations={[confirmation({
+      action: 'update_transport', transport_id: 't-1', status: 'failure', needs_manual_action: true, error_message: 'Transport already delivered.',
+    })]} error={null} />)
+
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.getByText('Bol did not accept the track & trace correction')).toHaveClass('text-danger')
+    expect(screen.getByText('Bol still has the old track & trace. Update it in the Bol seller portal (order C000HLRF87).')).toBeInTheDocument()
   })
 
   it('shows a loading error', () => {

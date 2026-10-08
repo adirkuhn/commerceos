@@ -220,6 +220,13 @@
       "success": "Bevestigd bij Bol",
       "failure": "Bol heeft de zending niet geaccepteerd",
       "timeout": "Bol heeft niet op tijd geantwoord"
+    },
+    "correctionManualAction": "Bol heeft nog de oude track & trace. Pas hem aan in het Bol-verkopersportaal (bestelling {{order}}).",
+    "correction": {
+      "pending": "Track & trace-correctie naar Bol gestuurd, wacht op Bol",
+      "success": "Track & trace gecorrigeerd bij Bol",
+      "failure": "Bol heeft de track & trace-correctie niet geaccepteerd",
+      "timeout": "Bol heeft niet op tijd op de track & trace-correctie geantwoord"
     }
   }
 }
