@@ -6,8 +6,11 @@ info:
     When a Bol order ships, CommerceOS tells Bol (transporter code + track &
     trace) so the order closes on Bol too. Bol processes that request later,
     so each attempt is kept with Bol's answer: pending while Bol works on it,
-    then success, failure or timeout. A failure or timeout means the order
-    is still open on Bol and must be confirmed there by hand. A separate
+    then success, failure or timeout. A failure or timeout means Bol does
+    not have the right shipment details and they must be fixed there by
+    hand. Bol is told once the carrier has the parcel, not when the label is
+    created; if the parcel Bol knows about is later replaced, the shipment on
+    Bol is corrected (action update_transport). A separate
     small module (like api/weightportions) rather than folded into
     api/integrations' already large composed handler.
 servers:
@@ -48,13 +51,24 @@ components:
   schemas:
     BolShipmentConfirmation:
       type: object
-      required: [id, shipment_id, external_order_id, transporter_code, track_and_trace, process_status_id, status, error_message, needs_manual_action, created_at]
+      required: [id, shipment_id, external_order_id, action, transport_id, transporter_code, track_and_trace, process_status_id, status, error_message, needs_manual_action, created_at]
       properties:
         id: { type: string }
         shipment_id: { type: string }
         external_order_id:
           type: string
           description: The Bol order number.
+        action:
+          type: string
+          enum: [create_shipment, update_transport]
+          description: >-
+            create_shipment marks the order's items shipped on Bol.
+            update_transport corrects the transporter + track & trace of a
+            shipment Bol already has, after the parcel Bol was told about was
+            cancelled and replaced.
+        transport_id:
+          type: string
+          description: Bol's transport corrected by an update_transport. Empty for create_shipment.
         transporter_code:
           type: string
           description: Bol's transporter code sent (e.g. TNT for PostNL). Empty when the carrier has none.

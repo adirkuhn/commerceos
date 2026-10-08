@@ -54,6 +54,7 @@ func (h *Handler) ListBolShipmentConfirmations(c *gin.Context, id string) {
 func toGen(c channelsDomain.BolShipmentConfirmation) genbolconfirmations.BolShipmentConfirmation {
 	return genbolconfirmations.BolShipmentConfirmation{
 		Id: c.ID, ShipmentId: c.ShipmentID, ExternalOrderId: c.ExternalOrderID,
+		Action: genbolconfirmations.BolShipmentConfirmationAction(c.Action), TransportId: c.TransportID,
 		TransporterCode: c.TransporterCode, TrackAndTrace: c.TrackAndTrace, ProcessStatusId: c.ProcessStatusID,
 		Status:       genbolconfirmations.BolShipmentConfirmationStatus(c.Status),
 		ErrorMessage: c.ErrorMessage, NeedsManualAction: c.NeedsManualAction(),

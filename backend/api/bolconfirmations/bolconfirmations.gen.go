@@ -19,6 +19,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for BolShipmentConfirmationAction.
+const (
+	CreateShipment  BolShipmentConfirmationAction = "create_shipment"
+	UpdateTransport BolShipmentConfirmationAction = "update_transport"
+)
+
+// Valid indicates whether the value is a known member of the BolShipmentConfirmationAction enum.
+func (e BolShipmentConfirmationAction) Valid() bool {
+	switch e {
+	case CreateShipment:
+		return true
+	case UpdateTransport:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BolShipmentConfirmationStatus.
 const (
 	Failure BolShipmentConfirmationStatus = "failure"
@@ -45,7 +63,9 @@ func (e BolShipmentConfirmationStatus) Valid() bool {
 
 // BolShipmentConfirmation defines model for BolShipmentConfirmation.
 type BolShipmentConfirmation struct {
-	CreatedAt time.Time `json:"created_at"`
+	// Action create_shipment marks the order's items shipped on Bol. update_transport corrects the transporter + track & trace of a shipment Bol already has, after the parcel Bol was told about was cancelled and replaced.
+	Action    BolShipmentConfirmationAction `json:"action"`
+	CreatedAt time.Time                     `json:"created_at"`
 
 	// ErrorMessage Why Bol did not accept it (or why it could not be sent). Empty otherwise.
 	ErrorMessage string `json:"error_message"`
@@ -66,9 +86,15 @@ type BolShipmentConfirmation struct {
 	Status        BolShipmentConfirmationStatus `json:"status"`
 	TrackAndTrace string                        `json:"track_and_trace"`
 
+	// TransportId Bol's transport corrected by an update_transport. Empty for create_shipment.
+	TransportId string `json:"transport_id"`
+
 	// TransporterCode Bol's transporter code sent (e.g. TNT for PostNL). Empty when the carrier has none.
 	TransporterCode string `json:"transporter_code"`
 }
+
+// BolShipmentConfirmationAction create_shipment marks the order's items shipped on Bol. update_transport corrects the transporter + track & trace of a shipment Bol already has, after the parcel Bol was told about was cancelled and replaced.
+type BolShipmentConfirmationAction string
 
 // BolShipmentConfirmationStatus defines model for BolShipmentConfirmation.Status.
 type BolShipmentConfirmationStatus string
@@ -167,24 +193,28 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"lqwdSy9+Qvx4SHvL3izMXFH4+NLsv+3/DAAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
