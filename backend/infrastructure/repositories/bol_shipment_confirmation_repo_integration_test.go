@@ -142,3 +142,32 @@ func TestBolShipmentConfirmationRepo_Integration_RLSHidesOtherTenants(t *testing
 
 	assert.Empty(t, got)
 }
+
+func TestBolShipmentConfirmationRepo_Integration_StoresActionAndTransport(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	orderID := seedSalesOrderForPickingDB(t, db, ctx, warehouseID)
+	repo := repositories.NewBolShipmentConfirmationRepo(db)
+	created := seedBolConfirmation(t, db, ctx, orderID, channelsDomain.BolConfirmationSuccess, time.Now().Add(-time.Hour))
+	correction := channelsDomain.BolShipmentConfirmation{
+		TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, ConnectionID: idgen.NewV4(), ShipmentID: idgen.NewV4(),
+		ExternalOrderID: "C000HLRF87", Action: channelsDomain.BolActionUpdateTransport, TransportID: "t-1",
+		ProcessStatusID: "ps-9", TransporterCode: "TNT", TrackAndTrace: "3SNEW", Status: channelsDomain.BolConfirmationPending,
+	}
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error { return repo.Create(ctx, &correction) }))
+
+	var got []channelsDomain.BolShipmentConfirmation
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		got, err = repo.ListBySalesOrder(ctx, orderID)
+		return err
+	}))
+
+	require.Len(t, got, 2)
+	assert.Equal(t, channelsDomain.BolActionUpdateTransport, got[0].Action)
+	assert.Equal(t, "t-1", got[0].TransportID)
+	assert.Equal(t, created.ID, got[1].ID)
+	assert.Equal(t, channelsDomain.BolActionCreateShipment, got[1].Action, "action defaults to create_shipment")
+	assert.Empty(t, got[1].TransportID)
+}

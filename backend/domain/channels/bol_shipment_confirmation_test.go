@@ -85,3 +85,15 @@ func TestBolShipmentConfirmation_needsManualAction(t *testing.T) {
 		assert.Equal(t, want, c.NeedsManualAction(), string(status))
 	}
 }
+
+func TestBolShipmentConfirmation_toldBol(t *testing.T) {
+	for status, want := range map[channelsDomain.BolConfirmationStatus]bool{
+		channelsDomain.BolConfirmationPending: true,
+		channelsDomain.BolConfirmationSuccess: true,
+		channelsDomain.BolConfirmationFailure: false,
+		channelsDomain.BolConfirmationTimeout: false,
+	} {
+		c := channelsDomain.BolShipmentConfirmation{Status: status}
+		assert.Equal(t, want, c.ToldBol(), string(status))
+	}
+}

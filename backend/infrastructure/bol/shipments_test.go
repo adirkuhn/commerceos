@@ -124,3 +124,70 @@ func TestAdapter_GetProcessStatus_readsStatusAndErrorMessage(t *testing.T) {
 	assert.Equal(t, "application/vnd.retailer.v10+json", gotAccept)
 	assert.Equal(t, integrationsDomain.BolProcessStatus{ID: "ps-77", Status: "FAILURE", ErrorMessage: "Invalid track and trace code."}, status)
 }
+
+// Pinned to Bol's Retailer API v10 spec: GET /retailer/shipments?order-id=
+// returns ReducedShipments whose transport carries only transportId.
+func TestAdapter_ListShipmentTransportIDs_readsTransportIDsForTheOrder(t *testing.T) {
+	var gotQuery string
+	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			writeToken(w)
+			return
+		}
+		require.Equal(t, "/shipments", r.URL.Path)
+		require.Equal(t, http.MethodGet, r.Method)
+		gotQuery = r.URL.RawQuery
+		_ = json.NewEncoder(w).Encode(map[string]any{"shipments": []map[string]any{
+			{"shipmentId": "s-1", "shipmentReference": "C1", "order": map[string]any{"orderId": "C1"}, "shipmentItems": []any{}, "transport": map[string]any{"transportId": "t-1"}},
+			{"shipmentId": "s-2", "shipmentReference": "C1", "order": map[string]any{"orderId": "C1"}, "shipmentItems": []any{}, "transport": map[string]any{"transportId": "t-2"}},
+		}})
+	})
+
+	ids, err := bol.NewAdapter(client).ListShipmentTransportIDs(t.Context(), "C1")
+
+	require.NoError(t, err)
+	assert.Equal(t, "order-id=C1", gotQuery)
+	assert.Equal(t, []string{"t-1", "t-2"}, ids)
+}
+
+// Pinned to Bol's Retailer API v10 spec: PUT /retailer/transports/{id}
+// with a ChangeTransportRequest, 202 + ProcessStatus.
+func TestAdapter_UpdateTransport_putsNewTransporterAndTrackAndTrace(t *testing.T) {
+	var gotMethod, gotPath string
+	var gotBody map[string]any
+	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			writeToken(w)
+			return
+		}
+		gotMethod, gotPath = r.Method, r.URL.Path
+		raw, _ := io.ReadAll(r.Body)
+		require.NoError(t, json.Unmarshal(raw, &gotBody))
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(map[string]any{"processStatusId": "ps-9", "status": "PENDING"})
+	})
+
+	status, err := bol.NewAdapter(client).UpdateTransport(t.Context(), "t-1", integrationsDomain.BolTransportInput{
+		TransporterCode: "TNT", TrackAndTrace: "3SNEW",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, http.MethodPut, gotMethod)
+	assert.Equal(t, "/transports/t-1", gotPath)
+	assert.Equal(t, map[string]any{"transporterCode": "TNT", "trackAndTrace": "3SNEW"}, gotBody)
+	assert.Equal(t, integrationsDomain.BolProcessStatus{ID: "ps-9", Status: "PENDING"}, status)
+}
+
+func TestAdapter_UpdateTransport_rejection_isPermanent(t *testing.T) {
+	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			writeToken(w)
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+	})
+
+	_, err := bol.NewAdapter(client).UpdateTransport(t.Context(), "t-1", integrationsDomain.BolTransportInput{TransporterCode: "TNT", TrackAndTrace: "X"})
+
+	assert.ErrorIs(t, err, integrationsDomain.ErrBolRequestRejected)
+}

@@ -61,6 +61,12 @@ func (s *stubBolClient) CreateShipment(context.Context, integrationsDomain.BolSh
 func (s *stubBolClient) GetProcessStatus(context.Context, string) (integrationsDomain.BolProcessStatus, error) {
 	panic("not used by ListBolEconomicOperatorsUseCase")
 }
+func (s *stubBolClient) ListShipmentTransportIDs(context.Context, string) ([]string, error) {
+	panic("not used by ListBolEconomicOperatorsUseCase")
+}
+func (s *stubBolClient) UpdateTransport(context.Context, string, integrationsDomain.BolTransportInput) (integrationsDomain.BolProcessStatus, error) {
+	panic("not used by ListBolEconomicOperatorsUseCase")
+}
 
 type stubBolClientFactory struct{ client integrationsDomain.BolClient }
 

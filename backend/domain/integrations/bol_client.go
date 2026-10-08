@@ -156,6 +156,13 @@ type BolShipmentInput struct {
 	TrackAndTrace     string
 }
 
+// BolTransportInput is the new transporter + track & trace for a
+// shipment Bol already has.
+type BolTransportInput struct {
+	TransporterCode string
+	TrackAndTrace   string
+}
+
 // BolProcessStatus is Bol's answer to an asynchronous request: Status is
 // PENDING until Bol has processed it, then SUCCESS, FAILURE or TIMEOUT
 // (ErrorMessage explains a failure).
@@ -211,6 +218,12 @@ type BolClient interface {
 	// request Bol refuses outright wraps ErrBolRequestRejected.
 	CreateShipment(ctx context.Context, in BolShipmentInput) (BolProcessStatus, error)
 	GetProcessStatus(ctx context.Context, processStatusID string) (BolProcessStatus, error)
+	// ListShipmentTransportIDs returns the transport id of every shipment
+	// Bol has for this order.
+	ListShipmentTransportIDs(ctx context.Context, orderID string) ([]string, error)
+	// UpdateTransport replaces a shipment's transporter + track & trace
+	// (asynchronous, like CreateShipment).
+	UpdateTransport(ctx context.Context, transportID string, in BolTransportInput) (BolProcessStatus, error)
 }
 
 // BolClientFactory builds a BolClient scoped to one connection's credentials.

@@ -41,6 +41,18 @@ func ParseBolConfirmationStatus(s string) (BolConfirmationStatus, error) {
 	return "", fmt.Errorf("%w: %q", ErrInvalidBolConfirmationStatus, s)
 }
 
+// BolConfirmationAction is which Bol request a confirmation made.
+type BolConfirmationAction string
+
+const (
+	// BolActionCreateShipment marks order items shipped (POST /shipments).
+	BolActionCreateShipment BolConfirmationAction = "create_shipment"
+	// BolActionUpdateTransport replaces the transporter + track & trace of
+	// a shipment Bol already has (PUT /transports/{id}) -- used when the
+	// parcel Bol was told about was cancelled and replaced by another.
+	BolActionUpdateTransport BolConfirmationAction = "update_transport"
+)
+
 // BolShipmentConfirmation records one attempt to tell Bol that a Bol order
 // shipped (POST /retailer/shipments) and what Bol made of it. Bol accepts
 // the request straight away but only decides later, so a confirmation
@@ -55,6 +67,10 @@ type BolShipmentConfirmation struct {
 	ConnectionID    string
 	ShipmentID      string
 	ExternalOrderID string
+	Action          BolConfirmationAction
+	// TransportID is Bol's transport updated by a BolActionUpdateTransport
+	// confirmation; empty for BolActionCreateShipment.
+	TransportID     string
 	ProcessStatusID string
 	TransporterCode string
 	TrackAndTrace   string
@@ -77,6 +93,12 @@ func (c *BolShipmentConfirmation) Resolve(status BolConfirmationStatus, errorMes
 	c.ErrorMessage = errorMessage
 	c.ResolvedAt = &now
 	return nil
+}
+
+// ToldBol is true while Bol has (or is processing) this shipment's
+// details -- pending or success.
+func (c BolShipmentConfirmation) ToldBol() bool {
+	return c.Status == BolConfirmationPending || c.Status == BolConfirmationSuccess
 }
 
 // NeedsManualAction is true when Bol did not accept the shipment, so the

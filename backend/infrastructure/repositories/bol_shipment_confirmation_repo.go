@@ -19,6 +19,8 @@ type bolShipmentConfirmationModel struct {
 	ConnectionID    string `gorm:"not null;type:uuid"`
 	ShipmentID      string `gorm:"not null;type:uuid"`
 	ExternalOrderID string `gorm:"not null"`
+	Action          string `gorm:"not null"`
+	TransportID     string `gorm:"not null"`
 	ProcessStatusID string `gorm:"not null"`
 	TransporterCode string `gorm:"not null"`
 	TrackAndTrace   string `gorm:"not null"`
@@ -33,7 +35,8 @@ func (bolShipmentConfirmationModel) TableName() string { return "bol_shipment_co
 func (m bolShipmentConfirmationModel) toDomain() channelsDomain.BolShipmentConfirmation {
 	return channelsDomain.BolShipmentConfirmation{
 		ID: m.ID, TenantID: m.TenantID, SalesOrderID: m.SalesOrderID, ConnectionID: m.ConnectionID,
-		ShipmentID: m.ShipmentID, ExternalOrderID: m.ExternalOrderID, ProcessStatusID: m.ProcessStatusID,
+		ShipmentID: m.ShipmentID, ExternalOrderID: m.ExternalOrderID,
+		Action: channelsDomain.BolConfirmationAction(m.Action), TransportID: m.TransportID, ProcessStatusID: m.ProcessStatusID,
 		TransporterCode: m.TransporterCode, TrackAndTrace: m.TrackAndTrace,
 		Status: channelsDomain.BolConfirmationStatus(m.Status), ErrorMessage: m.ErrorMessage,
 		CreatedAt: m.CreatedAt, ResolvedAt: m.ResolvedAt,
@@ -61,13 +64,18 @@ func (r *BolShipmentConfirmationRepo) Create(ctx context.Context, c *channelsDom
 	if err != nil {
 		return err
 	}
+	action := c.Action
+	if action == "" {
+		action = channelsDomain.BolActionCreateShipment
+	}
 	createdAt := c.CreatedAt
 	if createdAt.IsZero() {
 		createdAt = time.Now()
 	}
 	m := bolShipmentConfirmationModel{
 		TenantID: c.TenantID, SalesOrderID: c.SalesOrderID, ConnectionID: c.ConnectionID, ShipmentID: c.ShipmentID,
-		ExternalOrderID: c.ExternalOrderID, ProcessStatusID: c.ProcessStatusID, TransporterCode: c.TransporterCode,
+		ExternalOrderID: c.ExternalOrderID, Action: string(action), TransportID: c.TransportID,
+		ProcessStatusID: c.ProcessStatusID, TransporterCode: c.TransporterCode,
 		TrackAndTrace: c.TrackAndTrace, Status: string(c.Status), ErrorMessage: c.ErrorMessage,
 		CreatedAt: createdAt, ResolvedAt: c.ResolvedAt,
 	}
@@ -75,6 +83,7 @@ func (r *BolShipmentConfirmationRepo) Create(ctx context.Context, c *channelsDom
 		return fmt.Errorf("bolShipmentConfirmationRepo.Create: %w", err)
 	}
 	c.ID = m.ID
+	c.Action = action
 	c.CreatedAt = m.CreatedAt
 	return nil
 }

@@ -34,6 +34,9 @@ type fakeBolClient struct {
 	createShipmentFn        func(ctx context.Context, in integrationsDomain.BolShipmentInput) (integrationsDomain.BolProcessStatus, error)
 	createShipmentCalls     []integrationsDomain.BolShipmentInput
 	getProcessStatusFn      func(ctx context.Context, id string) (integrationsDomain.BolProcessStatus, error)
+	transportIDsFn          func(ctx context.Context, orderID string) ([]string, error)
+	updateTransportFn       func(ctx context.Context, transportID string, in integrationsDomain.BolTransportInput) (integrationsDomain.BolProcessStatus, error)
+	updateTransportCalls    []fakeUpdateTransportCall
 	setOnHoldCalls          []fakeSetOnHoldCall
 	setOnHoldErr            error
 }
@@ -103,6 +106,25 @@ func (f *fakeBolClient) CreateShipment(ctx context.Context, in integrationsDomai
 		return f.createShipmentFn(ctx, in)
 	}
 	return integrationsDomain.BolProcessStatus{ID: "ps-1", Status: "PENDING"}, nil
+}
+
+type fakeUpdateTransportCall struct {
+	TransportID string
+	Input       integrationsDomain.BolTransportInput
+}
+
+func (f *fakeBolClient) ListShipmentTransportIDs(ctx context.Context, orderID string) ([]string, error) {
+	if f.transportIDsFn != nil {
+		return f.transportIDsFn(ctx, orderID)
+	}
+	return nil, nil
+}
+func (f *fakeBolClient) UpdateTransport(ctx context.Context, transportID string, in integrationsDomain.BolTransportInput) (integrationsDomain.BolProcessStatus, error) {
+	f.updateTransportCalls = append(f.updateTransportCalls, fakeUpdateTransportCall{TransportID: transportID, Input: in})
+	if f.updateTransportFn != nil {
+		return f.updateTransportFn(ctx, transportID, in)
+	}
+	return integrationsDomain.BolProcessStatus{ID: "ps-" + transportID, Status: "PENDING"}, nil
 }
 func (f *fakeBolClient) GetProcessStatus(ctx context.Context, id string) (integrationsDomain.BolProcessStatus, error) {
 	if f.getProcessStatusFn != nil {
