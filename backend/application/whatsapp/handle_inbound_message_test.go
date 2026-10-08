@@ -194,6 +194,7 @@ func TestHandleInboundMessageUseCase_groupChatMessage_neverDispatched(t *testing
 // inbound WhatsApp text message on 2026-09-15 (event ID
 // 0000000000000000000000000000000A) -- captured directly from production
 // logs after every inbound message turned out to be silently dropped.
+// Identifiers (phone, LID, IDs, secret) are anonymised; the shape is real.
 // Sender is the gateway's own already-reconciled "<phone>@s.whatsapp.net"
 // (SenderAlt carries the alternate "<numeric>@lid" identity for this
 // particular LID-swap case, and must never be parsed as a phone number).
@@ -204,7 +205,7 @@ const realCapturedEvolutionAPIMessagePayload = `{
 			"ID": "0000000000000000000000000000000A",
 			"IsFromMe": false,
 			"IsGroup": false,
-			"PushName": "Adir Kuhn",
+			"PushName": "Test Customer",
 			"Sender": "31600000001@s.whatsapp.net",
 			"SenderAlt": "100000000000001@lid",
 			"Type": "text"
@@ -219,7 +220,7 @@ const realCapturedEvolutionAPIMessagePayload = `{
 	},
 	"event": "Message",
 	"instanceId": "00000000-0000-4000-8000-000000000001",
-	"instanceName": "Cantinho1"
+	"instanceName": "store-1"
 }`
 
 func TestHandleInboundMessageUseCase_parsesRealCapturedEvolutionAPIPayload(t *testing.T) {
