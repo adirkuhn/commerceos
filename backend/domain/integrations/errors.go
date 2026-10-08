@@ -51,6 +51,10 @@ var (
 	// 403 because the connection's app registration lacks the
 	// economic-operators.read/.manage OAuth scope, not a bug in this codebase.
 	ErrBolEconomicOperatorsRequestFailed = errors.New("failed to fetch economic operators from bol")
+	// ErrBolRequestRejected means Bol refused a request as invalid (a 4xx
+	// other than auth/rate limiting) -- sending it again won't help, so
+	// callers record it rather than retry.
+	ErrBolRequestRejected = errors.New("bol rejected the request")
 	// ErrWebhookSecretNotSet guards the provider-webhooks admin feature's
 	// create action (application/integrations.CreateProviderWebhookUseCase)
 	// -- a subscription can't be created before the tenant has a webhook

@@ -55,6 +55,12 @@ func (s *stubBolClient) ListEconomicOperators(context.Context) ([]integrationsDo
 func (s *stubBolClient) GetNotForSaleReasons(context.Context, string) ([]integrationsDomain.BolNotForSaleReason, error) {
 	panic("not used by ListBolEconomicOperatorsUseCase")
 }
+func (s *stubBolClient) CreateShipment(context.Context, integrationsDomain.BolShipmentInput) (integrationsDomain.BolProcessStatus, error) {
+	panic("not used by ListBolEconomicOperatorsUseCase")
+}
+func (s *stubBolClient) GetProcessStatus(context.Context, string) (integrationsDomain.BolProcessStatus, error) {
+	panic("not used by ListBolEconomicOperatorsUseCase")
+}
 
 type stubBolClientFactory struct{ client integrationsDomain.BolClient }
 

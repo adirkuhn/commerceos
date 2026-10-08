@@ -139,6 +139,32 @@ type BolNotForSaleReason struct {
 	MissingAttributes []string
 }
 
+// BolShipmentItem is one order item to mark as shipped, by Bol's own
+// orderItemId.
+type BolShipmentItem struct {
+	OrderItemID string
+	Quantity    int
+}
+
+// BolShipmentInput tells Bol that order items left the warehouse with a
+// transporter (Bol's transporter code, see channels.BolTransporterCode)
+// and track & trace code.
+type BolShipmentInput struct {
+	OrderItems        []BolShipmentItem
+	ShipmentReference string
+	TransporterCode   string
+	TrackAndTrace     string
+}
+
+// BolProcessStatus is Bol's answer to an asynchronous request: Status is
+// PENDING until Bol has processed it, then SUCCESS, FAILURE or TIMEOUT
+// (ErrorMessage explains a failure).
+type BolProcessStatus struct {
+	ID           string
+	Status       string
+	ErrorMessage string
+}
+
 // BolClient is one Bol connection's credentials + endpoints, adapted to
 // exactly what this codebase's use cases need (ISP) -- mirrors WooClient's
 // role. Implemented by infrastructure/bol.
@@ -180,6 +206,11 @@ type BolClient interface {
 	// across countries (one entry per country x reason) since callers here
 	// only ever display/store these, never need to group by country.
 	GetNotForSaleReasons(ctx context.Context, offerID string) ([]BolNotForSaleReason, error)
+	// CreateShipment tells Bol that order items shipped. Bol processes it
+	// asynchronously -- poll GetProcessStatus with the returned ID. A
+	// request Bol refuses outright wraps ErrBolRequestRejected.
+	CreateShipment(ctx context.Context, in BolShipmentInput) (BolProcessStatus, error)
+	GetProcessStatus(ctx context.Context, processStatusID string) (BolProcessStatus, error)
 }
 
 // BolClientFactory builds a BolClient scoped to one connection's credentials.

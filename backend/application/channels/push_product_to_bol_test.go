@@ -31,6 +31,9 @@ type fakeBolClient struct {
 	listEconomicOperatorsFn func(ctx context.Context) ([]integrationsDomain.BolEconomicOperator, error)
 	findOfferByEANFn        func(ctx context.Context, ean string) (string, bool, error)
 	notForSaleReasonsFn     func(ctx context.Context, offerID string) ([]integrationsDomain.BolNotForSaleReason, error)
+	createShipmentFn        func(ctx context.Context, in integrationsDomain.BolShipmentInput) (integrationsDomain.BolProcessStatus, error)
+	createShipmentCalls     []integrationsDomain.BolShipmentInput
+	getProcessStatusFn      func(ctx context.Context, id string) (integrationsDomain.BolProcessStatus, error)
 	setOnHoldCalls          []fakeSetOnHoldCall
 	setOnHoldErr            error
 }
@@ -93,6 +96,19 @@ func (f *fakeBolClient) GetNotForSaleReasons(ctx context.Context, offerID string
 		return f.notForSaleReasonsFn(ctx, offerID)
 	}
 	return nil, nil
+}
+func (f *fakeBolClient) CreateShipment(ctx context.Context, in integrationsDomain.BolShipmentInput) (integrationsDomain.BolProcessStatus, error) {
+	f.createShipmentCalls = append(f.createShipmentCalls, in)
+	if f.createShipmentFn != nil {
+		return f.createShipmentFn(ctx, in)
+	}
+	return integrationsDomain.BolProcessStatus{ID: "ps-1", Status: "PENDING"}, nil
+}
+func (f *fakeBolClient) GetProcessStatus(ctx context.Context, id string) (integrationsDomain.BolProcessStatus, error) {
+	if f.getProcessStatusFn != nil {
+		return f.getProcessStatusFn(ctx, id)
+	}
+	return integrationsDomain.BolProcessStatus{ID: id, Status: "PENDING"}, nil
 }
 
 // fakeNotifier is the default notifier newBolUseCase wires in -- tests that
