@@ -56,6 +56,10 @@ var (
 		"An imported order's stock could not be taken for some lines (marked pending, order flagged for stock review). data: pending_line_item_ids.")
 	ChannelOrderStatusPushed = defineAction("channels.order.status_pushed",
 		"A sales order's status was sent to the channel it came from. data: provider, connection_id, external_order_id, status, channel_status.")
+	BolShipmentConfirmationSent = defineAction("channels.bol_shipment_confirmation.sent",
+		"A shipped Bol order's shipment (transporter + track & trace) was sent to Bol so the order closes there. Status pending while Bol processes it; failure when it could not be sent (Bol refused it, or the carrier has no Bol transporter code) and must be confirmed by hand in Bol. data: sales_order_id, shipment_id, connection_id, external_order_id, transporter_code, track_and_trace, process_status_id, status (pending, success, failure, timeout), error_message.")
+	BolShipmentConfirmationResolved = defineAction("channels.bol_shipment_confirmation.resolved",
+		"Bol finished processing a shipment confirmation. changes: status (pending -> success, failure or timeout). data: sales_order_id, external_order_id, process_status_id, error_message.")
 	ChannelExternalProductDeleted = defineAction("channels.external_product.deleted",
 		"A deleted product was also deleted from an external shop (entity_id is the external id). data: provider, connection_id.")
 	ImportedProductDeleted = defineAction("channels.imported_product.deleted",

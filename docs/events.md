@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-211 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+213 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -63,6 +63,8 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `channels.bol_shipment_confirmation.resolved` | action | Bol finished processing a shipment confirmation. changes: status (pending -> success, failure or timeout). data: sales_order_id, external_order_id, process_status_id, error_message. | envelope |
+| `channels.bol_shipment_confirmation.sent` | action | A shipped Bol order's shipment (transporter + track & trace) was sent to Bol so the order closes there. Status pending while Bol processes it; failure when it could not be sent (Bol refused it, or the carrier has no Bol transporter code) and must be confirmed by hand in Bol. data: sales_order_id, shipment_id, connection_id, external_order_id, transporter_code, track_and_trace, process_status_id, status (pending, success, failure, timeout), error_message. | envelope |
 | `channels.category.imported` | action | A category was created from an external shop's category while importing its products. data: provider, external_id, name, slug, parent_id. | envelope |
 | `channels.customer.imported` | action | A customer was created from an external shop's customer. data: provider, external_customer_id, email, source (customer_import, order_import). | envelope |
 | `channels.external_category_link.deleted` | action | A category mapping to an external shop was removed. | envelope |
