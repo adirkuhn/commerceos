@@ -33,4 +33,4 @@ CREATE POLICY tenant_isolation ON sales_order_line_discrepancies
         OR tenant_id = NULLIF(current_setting('app.current_tenant', true), 'bypass_rls')::uuid);
 
 -- +goose Down
-DROP TABLE sales_order_line_discrepancies;
+DROP TABLE IF EXISTS sales_order_line_discrepancies;

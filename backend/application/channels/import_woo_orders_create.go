@@ -18,9 +18,7 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
-// createOne returns the order's ID -- the existing one when it lost a create
-// race -- or "" when nothing was imported.
-func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrdersInput, wo integrationsDomain.WooOrder, externalOrderID string, status omsDomain.SalesOrderStatus, customerID *string, result *ImportOrdersResult) string {
+func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrdersInput, wo integrationsDomain.WooOrder, externalOrderID string, status omsDomain.SalesOrderStatus, customerID *string, result *ImportOrdersResult) {
 	occurredAt, err := parseWooGMTTime(wo.DateCreated)
 	if err != nil {
 		occurredAt = time.Now()
@@ -140,15 +138,15 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			existing, findErr := uc.findExisting(ctx, externalOrderID)
 			if findErr != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", externalOrderID, findErr))
-				return ""
+				return
 			}
 			if existing != nil {
 				uc.routeToExisting(ctx, existing, wo, externalOrderID, status, customerID, result)
-				return existing.ID
+				return
 			}
 		}
 		result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", externalOrderID, err))
-		return ""
+		return
 	}
 	result.Created++
 	if skippedLines > 0 {
@@ -156,7 +154,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 	}
 
 	if !stockReducing {
-		return order.ID
+		return
 	}
 	var pendingLineItemIDs []string
 	for _, li := range createdLineItems {
@@ -197,7 +195,6 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", externalOrderID, err))
 		}
 	}
-	return order.ID
 }
 
 // resolveLineItemSKU matches one Woo order line item to a catalog SKU.

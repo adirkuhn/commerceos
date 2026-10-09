@@ -112,14 +112,6 @@ type ImportWooOrdersUseCase struct {
 	allocateStock    saleStockAllocator
 	updateOrder      updateSalesOrderUC
 	outbox           eventrecord.Enqueuer
-	differences      orderDifferenceRecorder
-}
-
-// orderDifferenceRecorder is application/oms.RecordChannelOrderDifferencesUseCase
-// narrowed to point of use (ISP): every imported order is compared with
-// Woo's own order and differences are reported, never applied.
-type orderDifferenceRecorder interface {
-	Execute(ctx context.Context, in appoms.RecordChannelOrderDifferencesInput) error
 }
 
 func NewImportWooOrdersUseCase(
@@ -135,13 +127,12 @@ func NewImportWooOrdersUseCase(
 	allocateStock saleStockAllocator,
 	updateOrder updateSalesOrderUC,
 	outbox eventrecord.Enqueuer,
-	differences orderDifferenceRecorder,
 ) *ImportWooOrdersUseCase {
 	return &ImportWooOrdersUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
 		salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo,
 		skuRepo: skuRepo, customerRepo: customerRepo, allocateStock: allocateStock, updateOrder: updateOrder,
-		outbox: outbox, differences: differences,
+		outbox: outbox,
 	}
 }
 
@@ -315,30 +306,12 @@ func (uc *ImportWooOrdersUseCase) importOne(ctx context.Context, in ImportWooOrd
 		return
 	}
 
-	salesOrderID := ""
 	if existing != nil {
 		uc.routeToExisting(ctx, existing, wo, externalOrderID, status, customerID, result)
-		salesOrderID = existing.ID
-	} else {
-		salesOrderID = uc.createOne(ctx, in, wo, externalOrderID, status, customerID, result)
+		return
 	}
-	if salesOrderID != "" {
-		uc.recordDifferences(ctx, salesOrderID, wo, result)
-	}
-}
 
-// recordDifferences compares the imported order with Woo's own order and
-// reports what differs on the Stock Issues page -- the order itself is
-// never changed. A failure here is reported but leaves the import standing.
-func (uc *ImportWooOrdersUseCase) recordDifferences(ctx context.Context, salesOrderID string, wo integrationsDomain.WooOrder, result *ImportOrdersResult) {
-	total, partsTotal := wooOrderTotals(wo)
-	err := uc.differences.Execute(ctx, appoms.RecordChannelOrderDifferencesInput{
-		SalesOrderID: salesOrderID, ChannelLines: wooChannelLines(wo),
-		ChannelTotalMinorUnits: total, ChannelLinesTotalMinorUnits: partsTotal,
-	})
-	if err != nil {
-		result.Errors = append(result.Errors, fmt.Sprintf("woo order %d: compare with woo: %v", wo.ID, err))
-	}
+	uc.createOne(ctx, in, wo, externalOrderID, status, customerID, result)
 }
 
 // routeToExisting sends an already-known order through UpdateSalesOrderUseCase

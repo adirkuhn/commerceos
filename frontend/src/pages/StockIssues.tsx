@@ -9,7 +9,6 @@ import type { SalesOrder, SalesOrderLineItem } from '../oms/types'
 import { useQueryPage } from '../routing/useQueryState'
 import { customerName } from '../oms/salesOrderDisplay'
 import { useDateFormat } from '../format/DateFormatProvider'
-import { OrderDifferencesSection } from '../oms/OrderDifferencesSection'
 
 const PAGE_SIZE = 20
 
@@ -203,10 +202,9 @@ export default function StockIssues() {
             ))}
           </tbody>
         </table>
-        <Pagination page={page} pageSize={PAGE_SIZE} totalItems={total} onPageChange={setPage} />
-
-        <OrderDifferencesSection token={token ?? ''} />
       </div>
+
+      <Pagination page={page} pageSize={PAGE_SIZE} totalItems={total} onPageChange={setPage} />
     </div>
   )
 }

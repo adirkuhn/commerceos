@@ -60,7 +60,6 @@ func (h *ordersHarness) newImportUseCase(t *testing.T, n int) *appchannels.Impor
 	return appchannels.NewImportWooOrdersUseCase(
 		newMockGormDB(t, n), h.connRepo, h.wooFactory, testEncryptionSecret,
 		h.salesOrderRepo, h.lineItemRepo, h.linkRepo, h.skuRepo, h.customerRepo, h.stock, h.updateOrder, &eventrecordtest.Outbox{},
-		&fakeDifferenceRecorder{},
 	)
 }
 

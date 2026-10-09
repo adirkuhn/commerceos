@@ -303,8 +303,6 @@ func main() {
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
 		allocateStockUC, updateSalesOrderUC, repositories.NewOutboxRepository(db),
-		appoms.NewRecordChannelOrderDifferencesUseCase(db, salesOrderRepo, salesOrderLineItemRepo,
-			repositories.NewLineDiscrepancyRepo(db), repositories.NewOutboxRepository(db), time.Now),
 	)
 	customersImportUC := channelsapp.NewImportWooCustomersUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, customerRepo, repositories.NewOutboxRepository(db))
 	runManualWooImportUC := channelsapp.NewRunManualWooImportUseCase(importUC, customersImportUC, ordersImportUC)

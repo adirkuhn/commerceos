@@ -99,7 +99,7 @@ func TestImportWooOrders_RecordsOrderAndItsNewCustomer(t *testing.T) {
 	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
 	outbox := &eventrecordtest.Outbox{}
 	uc := appchannels.NewImportWooOrdersUseCase(newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.salesOrderRepo, h.lineItemRepo, h.linkRepo, h.skuRepo, h.customerRepo, h.stock, h.updateOrder, outbox, &fakeDifferenceRecorder{})
+		h.salesOrderRepo, h.lineItemRepo, h.linkRepo, h.skuRepo, h.customerRepo, h.stock, h.updateOrder, outbox)
 
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1"})
 
@@ -149,7 +149,7 @@ func TestImportWooOrders_RecordsStockShortage(t *testing.T) {
 	h.stock.err = invDomain.ErrInsufficientStock
 	outbox := &eventrecordtest.Outbox{}
 	uc := appchannels.NewImportWooOrdersUseCase(newMockGormDB(t, 6), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.salesOrderRepo, h.lineItemRepo, h.linkRepo, h.skuRepo, h.customerRepo, h.stock, h.updateOrder, outbox, &fakeDifferenceRecorder{})
+		h.salesOrderRepo, h.lineItemRepo, h.linkRepo, h.skuRepo, h.customerRepo, h.stock, h.updateOrder, outbox)
 
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1"})
 

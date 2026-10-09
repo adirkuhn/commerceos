@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
-	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 )
 
 // wooOrderTotals returns a Woo order's own total and what its parts add up
@@ -33,14 +32,21 @@ func wooOrderTotals(wo integrationsDomain.WooOrder) (total, partsTotal int64) {
 	return total, partsTotal
 }
 
+// wooTotalToleranceMinorUnits absorbs per-line tax rounding: Woo's parts
+// can add up to a cent or two off its own total.
+const wooTotalToleranceMinorUnits = 2
+
 func wooOrderAddsUp(wo integrationsDomain.WooOrder) bool {
-	return !omsDomain.ChannelTotalsDiffer(wooOrderTotals(wo))
+	total, partsTotal := wooOrderTotals(wo)
+	diff := total - partsTotal
+	return diff >= -wooTotalToleranceMinorUnits && diff <= wooTotalToleranceMinorUnits
 }
 
 // completeWooOrder re-reads an order whose parts don't add up to its total
-// once, in case it was listed while Woo was still saving it. If the re-read
-// fails or doesn't add up either, the listed order is kept -- it is still
-// imported 1:1 and the gap is reported (see recordWooOrderDifferences).
+// once, in case it was listed while Woo was still saving it (its total
+// already saved, not all of its lines yet). If the re-read fails or doesn't
+// add up either, the listed order is kept: an order is always imported
+// exactly as Woo returns it.
 func completeWooOrder(ctx context.Context, client integrationsDomain.WooClient, wo integrationsDomain.WooOrder) integrationsDomain.WooOrder {
 	if wooOrderAddsUp(wo) {
 		return wo
@@ -51,12 +57,4 @@ func completeWooOrder(ctx context.Context, client integrationsDomain.WooClient, 
 		return wo
 	}
 	return *fresh
-}
-
-func wooChannelLines(wo integrationsDomain.WooOrder) []omsDomain.ChannelLine {
-	out := make([]omsDomain.ChannelLine, 0, len(wo.LineItems))
-	for _, li := range wo.LineItems {
-		out = append(out, omsDomain.ChannelLine{SKUCode: li.SKU, Name: li.Name, Quantity: li.Quantity})
-	}
-	return out
 }

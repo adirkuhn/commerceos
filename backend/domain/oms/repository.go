@@ -289,20 +289,3 @@ type MissingPaymentInfoCursor struct {
 type MissingPaymentInfoLister interface {
 	ListMissingPaymentInfo(ctx context.Context, connectionID string, after *MissingPaymentInfoCursor, limit int) ([]SalesOrder, error)
 }
-
-// OrderPageCursor resumes a newest-first (OccurredAt desc, ID desc) order
-// listing after the last order already seen.
-type OrderPageCursor = MissingPaymentInfoCursor
-
-// StatusesNotComparedWithChannel: orders that will never ship, so a
-// difference with the channel's order doesn't matter.
-var StatusesNotComparedWithChannel = []SalesOrderStatus{
-	SalesOrderStatusCancelled, SalesOrderStatusFailed, SalesOrderStatusRefunded,
-}
-
-// ChannelComparableOrderLister pages one connection's orders that are worth
-// comparing with the channel (not in StatusesNotComparedWithChannel),
-// newest first -- for auditing already-imported orders.
-type ChannelComparableOrderLister interface {
-	ListChannelComparableOrders(ctx context.Context, connectionID string, after *OrderPageCursor, limit int) ([]SalesOrder, error)
-}
