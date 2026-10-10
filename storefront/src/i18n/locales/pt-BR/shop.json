@@ -27,6 +27,7 @@
     "country": "País",
     "delivery": "Entrega",
     "deliveryAddress": "Endereço de entrega",
+    "failed": "Não foi possível fazer o seu pedido",
     "firstName": "Nome",
     "lastName": "Sobrenome",
     "paymentNote": "Você será levado ao nosso provedor de pagamento para pagar com segurança.",
@@ -42,6 +43,7 @@
     "email": "E-mail",
     "order": "Pedido",
     "remove": "Remover",
+    "somethingWrong": "Algo deu errado",
     "status": "Status",
     "store": "Loja",
     "total": "Total"

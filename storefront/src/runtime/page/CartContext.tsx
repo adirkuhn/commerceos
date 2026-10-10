@@ -53,7 +53,7 @@ export function CartProvider({ api, storeKey, children }: { api: StorefrontAPI; 
       }
       setCart(await fn(token))
     } catch (err) {
-      setError(shopperError(err, i18n, 'common.somethingWrong'))
+      setError(shopperError(err, i18n, i18n.t('common.somethingWrong')))
     } finally {
       setBusy(false)
     }

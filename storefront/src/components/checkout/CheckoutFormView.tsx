@@ -101,7 +101,7 @@ export function CheckoutFormView({ node, props, className }: RendererProps<Check
       cart.clear()
       env.navigate(safePaymentURL(result.payment_url) ?? env.storePath(`orders/${encodeURIComponent(result.order_number)}`))
     } catch (err) {
-      setError(shopperError(err, i18n, 'checkout.failed'))
+      setError(shopperError(err, i18n, t('checkout.failed')))
       setPlacing(false)
     }
   }

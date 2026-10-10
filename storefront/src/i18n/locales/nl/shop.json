@@ -27,6 +27,7 @@
     "country": "Land",
     "delivery": "Bezorging",
     "deliveryAddress": "Afleveradres",
+    "failed": "Je bestelling kon niet worden geplaatst",
     "firstName": "Voornaam",
     "lastName": "Achternaam",
     "paymentNote": "Je gaat naar onze betaalprovider om veilig te betalen.",
@@ -42,6 +43,7 @@
     "email": "E-mail",
     "order": "Bestelling",
     "remove": "Verwijderen",
+    "somethingWrong": "Er ging iets mis",
     "status": "Status",
     "store": "Winkel",
     "total": "Totaal"

@@ -27,6 +27,7 @@
     "country": "Country",
     "delivery": "Delivery",
     "deliveryAddress": "Delivery address",
+    "failed": "Your order could not be placed",
     "firstName": "First name",
     "lastName": "Last name",
     "paymentNote": "You’ll be taken to our payment provider to pay securely.",
@@ -42,6 +43,7 @@
     "email": "Email",
     "order": "Order",
     "remove": "Remove",
+    "somethingWrong": "Something went wrong",
     "status": "Status",
     "store": "Store",
     "total": "Total"

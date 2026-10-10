@@ -6,16 +6,24 @@ import { ApiError } from '../../api/storefront'
 describe('shopperError', () => {
   it('shows a known API error code in the shop language', () => {
     const nl = createI18n('nl')
-    expect(shopperError(new ApiError(422, 'INSUFFICIENT_STOCK', 'insufficient stock for requested quantity'), nl, 'common.somethingWrong'))
+    expect(shopperError(new ApiError(422, 'INSUFFICIENT_STOCK', 'insufficient stock for requested quantity'), nl, 'fallback'))
       .toBe(nl.t('errors.INSUFFICIENT_STOCK'))
     expect(nl.t('errors.INSUFFICIENT_STOCK')).not.toMatch(/insufficient/i)
   })
 
   it('never shows the raw English message for an unknown code', () => {
     const pt = createI18n('pt-BR')
-    expect(shopperError(new ApiError(500, 'INTERNAL', 'internal server error'), pt, 'checkout.failed')).toBe(pt.t('checkout.failed'))
-    expect(shopperError(new Error('fetch failed'), pt, 'common.somethingWrong')).toBe(pt.t('common.somethingWrong'))
-    expect(shopperError('boom', pt, 'common.somethingWrong')).toBe(pt.t('common.somethingWrong'))
+    expect(shopperError(new ApiError(500, 'INTERNAL', 'internal server error'), pt, 'fallback')).toBe('fallback')
+    expect(shopperError(new Error('fetch failed'), pt, 'fallback')).toBe('fallback')
+    expect(shopperError('boom', pt, 'fallback')).toBe('fallback')
+  })
+
+  it('keeps the generic texts the call sites fall back to', () => {
+    for (const lang of ['en', 'pt-BR', 'nl'] as const) {
+      const i18n = createI18n(lang)
+      expect(i18n.getResource(lang, 'shop', 'checkout.failed')).toBeTruthy()
+      expect(i18n.getResource(lang, 'shop', 'common.somethingWrong')).toBeTruthy()
+    }
   })
 
   it('has a text for every shopper error code in every language', () => {

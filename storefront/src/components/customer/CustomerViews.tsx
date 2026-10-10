@@ -44,7 +44,7 @@ export function LoginFormView({ node, props, className }: RendererProps<LoginFor
       await customer.requestLink(email)
       setState('sent')
     } catch (err) {
-      setError(shopperError(err, i18n, 'common.somethingWrong'))
+      setError(shopperError(err, i18n, t('common.somethingWrong')))
       setState('error')
     }
   }

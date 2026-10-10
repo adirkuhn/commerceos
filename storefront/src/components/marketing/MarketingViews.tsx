@@ -83,7 +83,7 @@ export function NewsletterSignupView({ node, props, className }: RendererProps<N
       await api.subscribeNewsletter(email, consent)
       setState('done')
     } catch (err) {
-      setError(shopperError(err, i18n, 'common.somethingWrong'))
+      setError(shopperError(err, i18n, t('common.somethingWrong')))
       setState('error')
     }
   }
