@@ -26,7 +26,9 @@
       "success": "Rastreio corrigido na Bol",
       "failure": "A Bol não aceitou a correção do rastreio",
       "timeout": "A Bol não respondeu a tempo à correção do rastreio"
-    }
+    },
+    "reasonNoTransporterCode": "O Bol não tem código de transportadora para esta transportadora, então nada foi enviado ao Bol.",
+    "reasonNoBolShipment": "O Bol não tem envio para este pedido a corrigir."
   },
   "create": {
     "addProduct": "Adicionar produto",

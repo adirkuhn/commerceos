@@ -57,6 +57,7 @@ func toGen(c channelsDomain.BolShipmentConfirmation) genbolconfirmations.BolShip
 		Action: genbolconfirmations.BolShipmentConfirmationAction(c.Action), TransportId: c.TransportID,
 		TransporterCode: c.TransporterCode, TrackAndTrace: c.TrackAndTrace, ProcessStatusId: c.ProcessStatusID,
 		Status:       genbolconfirmations.BolShipmentConfirmationStatus(c.Status),
+		FailureReason: genbolconfirmations.BolShipmentConfirmationFailureReason(c.FailureReason),
 		ErrorMessage: c.ErrorMessage, NeedsManualAction: c.NeedsManualAction(),
 		CreatedAt: c.CreatedAt, ResolvedAt: c.ResolvedAt,
 	}

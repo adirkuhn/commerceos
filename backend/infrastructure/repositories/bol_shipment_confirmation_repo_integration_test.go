@@ -171,3 +171,27 @@ func TestBolShipmentConfirmationRepo_Integration_StoresActionAndTransport(t *tes
 	assert.Equal(t, channelsDomain.BolActionCreateShipment, got[1].Action, "action defaults to create_shipment")
 	assert.Empty(t, got[1].TransportID)
 }
+
+func TestBolShipmentConfirmationRepo_Integration_StoresTheFailureReason(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	orderID := seedSalesOrderForPickingDB(t, db, ctx, warehouseID)
+	repo := repositories.NewBolShipmentConfirmationRepo(db)
+
+	c := channelsDomain.BolShipmentConfirmation{
+		TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, ConnectionID: idgen.NewV4(), ShipmentID: idgen.NewV4(),
+		ExternalOrderID: "C000HLRF87", Status: channelsDomain.BolConfirmationFailure,
+		FailureReason: channelsDomain.BolFailureNoTransporterCode, ErrorMessage: "Bol has no transporter code", CreatedAt: time.Now(),
+	}
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error { return repo.Create(ctx, &c) }))
+
+	var list []channelsDomain.BolShipmentConfirmation
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		list, err = repo.ListBySalesOrder(ctx, orderID)
+		return err
+	}))
+	require.Len(t, list, 1)
+	assert.Equal(t, channelsDomain.BolFailureNoTransporterCode, list[0].FailureReason)
+}

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useDateFormat } from '../format/DateFormatProvider'
-import { latestBolConfirmation } from './bolConfirmations'
+import { bolFailureText, latestBolConfirmation } from './bolConfirmations'
 import type { BolConfirmationAction, BolConfirmationStatus, BolShipmentConfirmation } from './bolConfirmations'
 
 const STATUS_TONE: Record<BolConfirmationStatus, string> = {
@@ -40,7 +40,7 @@ export function BolConfirmationCard({ confirmations, error }: { confirmations: B
             {' — '}
             {formatDateTime(latest.resolved_at ?? latest.created_at)}
           </p>
-          {latest.error_message && <p className="text-danger">{latest.error_message}</p>}
+          {bolFailureText(t, latest) && <p className="text-danger">{bolFailureText(t, latest)}</p>}
           {latest.needs_manual_action && (
             <p className="text-ink">{t(`bolConfirmation.${TEXTS[latest.action].manual}`, { order: latest.external_order_id })}</p>
           )}
@@ -53,7 +53,7 @@ export function BolConfirmationCard({ confirmations, error }: { confirmations: B
           {earlier.map(c => (
             <p key={c.id} className="text-ink-3">
               {t(`bolConfirmation.${TEXTS[c.action].status}.${c.status}`)} · {formatDateTime(c.created_at)}
-              {c.error_message && ` · ${c.error_message}`}
+              {bolFailureText(t, c) && ` · ${bolFailureText(t, c)}`}
             </p>
           ))}
         </div>

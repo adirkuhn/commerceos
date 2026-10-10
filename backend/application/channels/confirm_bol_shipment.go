@@ -100,7 +100,7 @@ func (uc *ConfirmBolShipmentUseCase) Execute(ctx context.Context, salesOrderID s
 	}
 	transporterCode, err := channelsDomain.BolTransporterCode(shipment.Carrier, shipment.RecipientCC)
 	if err != nil {
-		return uc.save(ctx, failed(base, fmt.Sprintf("Bol has no transporter code for %s -- confirm this order in Bol yourself.", shipment.Carrier)))
+		return uc.save(ctx, failed(base, channelsDomain.BolFailureNoTransporterCode, fmt.Sprintf("Bol has no transporter code for %s -- confirm this order in Bol yourself.", shipment.Carrier)))
 	}
 	base.TransporterCode = transporterCode
 
@@ -127,7 +127,7 @@ func (uc *ConfirmBolShipmentUseCase) createShipment(ctx context.Context, client 
 		TransporterCode: c.TransporterCode, TrackAndTrace: c.TrackAndTrace,
 	})
 	if errors.Is(err, integrationsDomain.ErrBolRequestRejected) {
-		return uc.save(ctx, failed(c, err.Error()))
+		return uc.save(ctx, failed(c, channelsDomain.BolFailureRejected, err.Error()))
 	}
 	if err != nil {
 		return fmt.Errorf("confirmBolShipment: send shipment for bol order %s: %w", c.ExternalOrderID, err)
@@ -150,7 +150,7 @@ func (uc *ConfirmBolShipmentUseCase) correctTransports(ctx context.Context, clie
 		return fmt.Errorf("confirmBolShipment: list bol shipments for order %s: %w", base.ExternalOrderID, err)
 	}
 	if len(transportIDs) == 0 {
-		return uc.save(ctx, failed(base, fmt.Sprintf("Bol has no shipment for order %s to correct -- update the track & trace in Bol yourself.", base.ExternalOrderID)))
+		return uc.save(ctx, failed(base, channelsDomain.BolFailureNoBolShipment, fmt.Sprintf("Bol has no shipment for order %s to correct -- update the track & trace in Bol yourself.", base.ExternalOrderID)))
 	}
 
 	results := make([]channelsDomain.BolShipmentConfirmation, 0, len(transportIDs))
@@ -161,7 +161,7 @@ func (uc *ConfirmBolShipmentUseCase) correctTransports(ctx context.Context, clie
 			TransporterCode: c.TransporterCode, TrackAndTrace: c.TrackAndTrace,
 		})
 		if errors.Is(err, integrationsDomain.ErrBolRequestRejected) {
-			results = append(results, failed(c, err.Error()))
+			results = append(results, failed(c, channelsDomain.BolFailureRejected, err.Error()))
 			continue
 		}
 		if err != nil {
@@ -188,9 +188,10 @@ func (uc *ConfirmBolShipmentUseCase) accepted(c channelsDomain.BolShipmentConfir
 	return c, nil
 }
 
-func failed(c channelsDomain.BolShipmentConfirmation, reason string) channelsDomain.BolShipmentConfirmation {
+func failed(c channelsDomain.BolShipmentConfirmation, reason, message string) channelsDomain.BolShipmentConfirmation {
 	c.Status = channelsDomain.BolConfirmationFailure
-	c.ErrorMessage = reason
+	c.FailureReason = reason
+	c.ErrorMessage = message
 	return c
 }
 

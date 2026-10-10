@@ -62,7 +62,7 @@ func TestListBolShipmentConfirmations_returnsContractShape(t *testing.T) {
 			ID: "conf-2", ShipmentID: "ship-1", ExternalOrderID: "C000HLRF87", TransporterCode: "TNT",
 			Action: channelsDomain.BolActionUpdateTransport, TransportID: "t-1",
 			TrackAndTrace: "3SMYPA859699114", ProcessStatusID: "ps-2", Status: channelsDomain.BolConfirmationFailure,
-			ErrorMessage: "Invalid track and trace code.", CreatedAt: created, ResolvedAt: &resolved,
+			FailureReason: channelsDomain.BolFailureRejected, ErrorMessage: "Invalid track and trace code.", CreatedAt: created, ResolvedAt: &resolved,
 		},
 		{
 			ID: "conf-1", ShipmentID: "ship-1", ExternalOrderID: "C000HLRF87", TransporterCode: "TNT",
@@ -87,7 +87,7 @@ func TestListBolShipmentConfirmations_returnsContractShape(t *testing.T) {
 		Id: "conf-2", ShipmentId: "ship-1", ExternalOrderId: "C000HLRF87", TransporterCode: "TNT",
 		Action: genbolconfirmations.UpdateTransport, TransportId: "t-1",
 		TrackAndTrace: "3SMYPA859699114", ProcessStatusId: "ps-2", Status: genbolconfirmations.Failure,
-		ErrorMessage: "Invalid track and trace code.", NeedsManualAction: true, CreatedAt: created, ResolvedAt: &resolved,
+		FailureReason: "rejected", ErrorMessage: "Invalid track and trace code.", NeedsManualAction: true, CreatedAt: created, ResolvedAt: &resolved,
 	}, body.Data[0])
 	assert.Equal(t, genbolconfirmations.Pending, body.Data[1].Status)
 	assert.Equal(t, genbolconfirmations.CreateShipment, body.Data[1].Action)

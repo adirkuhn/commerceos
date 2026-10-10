@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import i18next from 'i18next'
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { BolConfirmationCard } from '../BolConfirmationCard'
@@ -83,5 +84,19 @@ describe('BolConfirmationCard', () => {
     render(<BolConfirmationCard confirmations={[]} error="sales order not found" />)
 
     expect(screen.getByText('sales order not found')).toHaveClass('text-danger')
+  })
+
+  it('explains a failure CommerceOS knows the reason for in the reader’s language', async () => {
+    await i18next.changeLanguage('nl')
+    try {
+      render(<BolConfirmationCard error={null} confirmations={[confirmation({
+        status: 'failure', needs_manual_action: true, failure_reason: 'no_transporter_code',
+        error_message: 'Bol has no transporter code for Carrier 99 -- confirm this order in Bol yourself.',
+      })]} />)
+      expect(screen.getByText('Bol heeft geen vervoerderscode voor deze vervoerder, dus er is niets naar Bol gestuurd.')).toBeInTheDocument()
+      expect(screen.queryByText(/Carrier 99/)).not.toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 })

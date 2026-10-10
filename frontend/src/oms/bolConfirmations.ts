@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import type { APIResponse } from './types'
 
 // Mirrors api/bolconfirmations/openapi.yaml's BolShipmentConfirmation: one
@@ -18,6 +19,9 @@ export interface BolShipmentConfirmation {
   track_and_trace: string
   process_status_id: string
   status: BolConfirmationStatus
+  // Why it failed, when CommerceOS knows (see bolFailureText); '' otherwise.
+  failure_reason?: '' | 'no_transporter_code' | 'no_bol_shipment' | 'rejected'
+  // English or Bol's own words.
   error_message: string
   // failure/timeout: Bol doesn't have the right details until fixed there by hand.
   needs_manual_action: boolean
@@ -46,4 +50,14 @@ export function latestBolConfirmation(confirmations: BolShipmentConfirmation[]):
 // worth checking again shortly.
 export function isBolConfirmationPending(confirmations: BolShipmentConfirmation[]): boolean {
   return latestBolConfirmation(confirmations)?.status === 'pending'
+}
+
+// bolFailureText is why a confirmation failed, in the reader's language
+// when CommerceOS itself knows the reason; otherwise Bol's own message.
+export function bolFailureText(t: TFunction<'orders'>, c: BolShipmentConfirmation): string {
+  switch (c.failure_reason) {
+    case 'no_transporter_code': return t('bolConfirmation.reasonNoTransporterCode')
+    case 'no_bol_shipment': return t('bolConfirmation.reasonNoBolShipment')
+    default: return c.error_message
+  }
 }

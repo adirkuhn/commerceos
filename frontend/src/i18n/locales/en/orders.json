@@ -26,7 +26,9 @@
       "success": "Track & trace corrected on Bol",
       "failure": "Bol did not accept the track & trace correction",
       "timeout": "Bol did not answer the track & trace correction in time"
-    }
+    },
+    "reasonNoTransporterCode": "Bol has no transporter code for this carrier, so nothing was sent to Bol.",
+    "reasonNoBolShipment": "Bol has no shipment for this order to correct."
   },
   "create": {
     "addProduct": "Add product",

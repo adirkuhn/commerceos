@@ -75,9 +75,14 @@ type BolShipmentConfirmation struct {
 	TransporterCode string
 	TrackAndTrace   string
 	Status          BolConfirmationStatus
-	ErrorMessage    string
-	CreatedAt       time.Time
-	ResolvedAt      *time.Time
+	// FailureReason says why a confirmation failed before or when reaching
+	// Bol (see BolFailure*), so the admin can explain it in the reader's
+	// language; empty otherwise. ErrorMessage is the English (or Bol's
+	// own) wording.
+	FailureReason string
+	ErrorMessage  string
+	CreatedAt     time.Time
+	ResolvedAt    *time.Time
 }
 
 // Resolve records Bol's final answer. Only a pending confirmation can be
@@ -119,3 +124,16 @@ type BolShipmentConfirmationRepository interface {
 	// SaveResolution persists Status, ErrorMessage and ResolvedAt.
 	SaveResolution(ctx context.Context, c *BolShipmentConfirmation) error
 }
+
+// Why a Bol shipment confirmation failed -- BolShipmentConfirmation.FailureReason.
+const (
+	// BolFailureNoTransporterCode: Bol has no transporter code for the
+	// shipment's carrier, so nothing could be sent.
+	BolFailureNoTransporterCode = "no_transporter_code"
+	// BolFailureNoBolShipment: a replaced label needed correcting, but Bol
+	// has no shipment for the order to correct.
+	BolFailureNoBolShipment = "no_bol_shipment"
+	// BolFailureRejected: Bol rejected the request; ErrorMessage is Bol's
+	// own reason.
+	BolFailureRejected = "rejected"
+)

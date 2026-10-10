@@ -25,6 +25,7 @@ type bolShipmentConfirmationModel struct {
 	TransporterCode string `gorm:"not null"`
 	TrackAndTrace   string `gorm:"not null"`
 	Status          string `gorm:"not null"`
+	FailureReason   string `gorm:"column:failure_reason;not null;default:''"`
 	ErrorMessage    string `gorm:"not null"`
 	CreatedAt       time.Time
 	ResolvedAt      *time.Time
@@ -38,7 +39,7 @@ func (m bolShipmentConfirmationModel) toDomain() channelsDomain.BolShipmentConfi
 		ShipmentID: m.ShipmentID, ExternalOrderID: m.ExternalOrderID,
 		Action: channelsDomain.BolConfirmationAction(m.Action), TransportID: m.TransportID, ProcessStatusID: m.ProcessStatusID,
 		TransporterCode: m.TransporterCode, TrackAndTrace: m.TrackAndTrace,
-		Status: channelsDomain.BolConfirmationStatus(m.Status), ErrorMessage: m.ErrorMessage,
+		Status: channelsDomain.BolConfirmationStatus(m.Status), FailureReason: m.FailureReason, ErrorMessage: m.ErrorMessage,
 		CreatedAt: m.CreatedAt, ResolvedAt: m.ResolvedAt,
 	}
 }
@@ -76,7 +77,7 @@ func (r *BolShipmentConfirmationRepo) Create(ctx context.Context, c *channelsDom
 		TenantID: c.TenantID, SalesOrderID: c.SalesOrderID, ConnectionID: c.ConnectionID, ShipmentID: c.ShipmentID,
 		ExternalOrderID: c.ExternalOrderID, Action: string(action), TransportID: c.TransportID,
 		ProcessStatusID: c.ProcessStatusID, TransporterCode: c.TransporterCode,
-		TrackAndTrace: c.TrackAndTrace, Status: string(c.Status), ErrorMessage: c.ErrorMessage,
+		TrackAndTrace: c.TrackAndTrace, Status: string(c.Status), FailureReason: c.FailureReason, ErrorMessage: c.ErrorMessage,
 		CreatedAt: createdAt, ResolvedAt: c.ResolvedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -122,7 +123,7 @@ func (r *BolShipmentConfirmationRepo) SaveResolution(ctx context.Context, c *cha
 		return err
 	}
 	res := tx.Model(&bolShipmentConfirmationModel{}).Where("id = ?", c.ID).Updates(map[string]any{
-		"status": string(c.Status), "error_message": c.ErrorMessage, "resolved_at": c.ResolvedAt,
+		"status": string(c.Status), "failure_reason": c.FailureReason, "error_message": c.ErrorMessage, "resolved_at": c.ResolvedAt,
 	})
 	if res.Error != nil {
 		return fmt.Errorf("bolShipmentConfirmationRepo.SaveResolution: %w", res.Error)

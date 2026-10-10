@@ -51,7 +51,7 @@ components:
   schemas:
     BolShipmentConfirmation:
       type: object
-      required: [id, shipment_id, external_order_id, action, transport_id, transporter_code, track_and_trace, process_status_id, status, error_message, needs_manual_action, created_at]
+      required: [id, shipment_id, external_order_id, action, transport_id, transporter_code, track_and_trace, process_status_id, status, failure_reason, error_message, needs_manual_action, created_at]
       properties:
         id: { type: string }
         shipment_id: { type: string }
@@ -79,9 +79,18 @@ components:
         status:
           type: string
           enum: [pending, success, failure, timeout]
+        failure_reason:
+          type: string
+          enum: ['', no_transporter_code, no_bol_shipment, rejected]
+          description: >-
+            Why it failed, for a translated explanation: no_transporter_code
+            (Bol has no code for the carrier, nothing was sent),
+            no_bol_shipment (a replaced label had no Bol shipment to
+            correct), rejected (Bol refused -- error_message is Bol's own
+            reason). Empty otherwise, including Bol's later failure verdicts.
         error_message:
           type: string
-          description: Why Bol did not accept it (or why it could not be sent). Empty otherwise.
+          description: Why Bol did not accept it (or why it could not be sent), in English or Bol's own words. Empty otherwise.
         needs_manual_action:
           type: boolean
           description: True for failure/timeout -- the order is still open on Bol until confirmed there by hand.

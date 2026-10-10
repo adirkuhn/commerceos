@@ -316,6 +316,7 @@ func TestConfirmBolShipment_carrierBolDoesNotKnow_recordsFailureForManualConfirm
 	c := f.confirmations.created[0]
 	assert.Equal(t, channelsDomain.BolConfirmationFailure, c.Status)
 	assert.Contains(t, c.ErrorMessage, "Carrier 99")
+	assert.Equal(t, channelsDomain.BolFailureNoTransporterCode, c.FailureReason)
 	assert.Empty(t, c.ProcessStatusID)
 	event, err := f.outbox.Only()
 	require.NoError(t, err)
@@ -333,6 +334,7 @@ func TestConfirmBolShipment_bolRejectsRequest_recordsFailureWithBolsReason(t *te
 	require.Len(t, f.confirmations.created, 1)
 	assert.Equal(t, channelsDomain.BolConfirmationFailure, f.confirmations.created[0].Status)
 	assert.Contains(t, f.confirmations.created[0].ErrorMessage, "Order item has already been shipped.")
+	assert.Equal(t, channelsDomain.BolFailureRejected, f.confirmations.created[0].FailureReason)
 	assert.Equal(t, "TNT", f.confirmations.created[0].TransporterCode)
 }
 
@@ -473,6 +475,7 @@ func TestConfirmBolShipment_correctionButBolHasNoShipment_recordsFailure(t *test
 	assert.Equal(t, channelsDomain.BolConfirmationFailure, f.confirmations.created[0].Status)
 	assert.Equal(t, channelsDomain.BolActionUpdateTransport, f.confirmations.created[0].Action)
 	assert.NotEmpty(t, f.confirmations.created[0].ErrorMessage)
+	assert.Equal(t, channelsDomain.BolFailureNoBolShipment, f.confirmations.created[0].FailureReason)
 }
 
 func TestConfirmBolShipment_cannotListBolTransports_returnsErrorForRetry(t *testing.T) {

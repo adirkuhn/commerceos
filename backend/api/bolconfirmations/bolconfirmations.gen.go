@@ -37,6 +37,30 @@ func (e BolShipmentConfirmationAction) Valid() bool {
 	}
 }
 
+// Defines values for BolShipmentConfirmationFailureReason.
+const (
+	Empty             BolShipmentConfirmationFailureReason = ""
+	NoBolShipment     BolShipmentConfirmationFailureReason = "no_bol_shipment"
+	NoTransporterCode BolShipmentConfirmationFailureReason = "no_transporter_code"
+	Rejected          BolShipmentConfirmationFailureReason = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the BolShipmentConfirmationFailureReason enum.
+func (e BolShipmentConfirmationFailureReason) Valid() bool {
+	switch e {
+	case Empty:
+		return true
+	case NoBolShipment:
+		return true
+	case NoTransporterCode:
+		return true
+	case Rejected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BolShipmentConfirmationStatus.
 const (
 	Failure BolShipmentConfirmationStatus = "failure"
@@ -67,12 +91,15 @@ type BolShipmentConfirmation struct {
 	Action    BolShipmentConfirmationAction `json:"action"`
 	CreatedAt time.Time                     `json:"created_at"`
 
-	// ErrorMessage Why Bol did not accept it (or why it could not be sent). Empty otherwise.
+	// ErrorMessage Why Bol did not accept it (or why it could not be sent), in English or Bol's own words. Empty otherwise.
 	ErrorMessage string `json:"error_message"`
 
 	// ExternalOrderId The Bol order number.
 	ExternalOrderId string `json:"external_order_id"`
-	Id              string `json:"id"`
+
+	// FailureReason Why it failed, for a translated explanation: no_transporter_code (Bol has no code for the carrier, nothing was sent), no_bol_shipment (a replaced label had no Bol shipment to correct), rejected (Bol refused -- error_message is Bol's own reason). Empty otherwise, including Bol's later failure verdicts.
+	FailureReason BolShipmentConfirmationFailureReason `json:"failure_reason"`
+	Id            string                               `json:"id"`
 
 	// NeedsManualAction True for failure/timeout -- the order is still open on Bol until confirmed there by hand.
 	NeedsManualAction bool `json:"needs_manual_action"`
@@ -95,6 +122,9 @@ type BolShipmentConfirmation struct {
 
 // BolShipmentConfirmationAction create_shipment marks the order's items shipped on Bol. update_transport corrects the transporter + track & trace of a shipment Bol already has, after the parcel Bol was told about was cancelled and replaced.
 type BolShipmentConfirmationAction string
+
+// BolShipmentConfirmationFailureReason Why it failed, for a translated explanation: no_transporter_code (Bol has no code for the carrier, nothing was sent), no_bol_shipment (a replaced label had no Bol shipment to correct), rejected (Bol refused -- error_message is Bol's own reason). Empty otherwise, including Bol's later failure verdicts.
+type BolShipmentConfirmationFailureReason string
 
 // BolShipmentConfirmationStatus defines model for BolShipmentConfirmation.Status.
 type BolShipmentConfirmationStatus string
@@ -193,28 +223,31 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"rFfPj9u4Dv5XCL0HdAbPk0x/4B3yTp2ihwJFX7EdYA/dImAsJlZHllxSnjQY5H9fUHacTOxs97A3W5ZI",
-	"ivy+j/STKWPdxEAhiVk8GSZpYhDKL++ZI+tDGUOikPQRm8a7EpOLYf5dYtA1KSuqUZ/+zbQ2C/Ov+dHq",
-	"vPsq82ztt96+2e/3hbEkJbtGjZmFoexO1/sjavEu+i+Va2oK6V0Ma8c1dtufTMOxIU6uCxbLw/pzqyUT",
-	"JlpKbwRq5AeBVBFEtsQvBFyiWkA3NGQhBriLfgZtY/VcYgzSRE5QRmYqU3d2WCaG/+hb+QB/tLe3r/6b",
-	"XwjiGhAGp3fRA3omtDuoUArAtZ5USw1yST7v2KJAit4CrmKb8muJoSTvyQIGC0yNx5LszBSGQlubxdfz",
-	"+5nCnEduvhUm7RoyCyOJXdiYfdEfs0vMVV1HzatZGD15k1xNZuJMLtCyJhHc0DjTv1e7fA3rLISYAMuS",
-	"mgQuwVVk2FY7fSxj67vPKwKhkK5n8L5u0g5iqoi3Tmg26ftnIg7ol7lqS2fH/u8ryv7zDghtvSKetNUd",
-	"Hi0HIivLGkOLfnkJTvfcEqwjwxqdb5nmmiyt1s3NEVTgBCQ57yE2FHpIQRuS81B2KCar25lgpYgI9iTQ",
-	"VYyeMGhIDceSRJaSMLUyeeu76BXDNgfV73dhA6lyAkw/WpJ0SPG2opCj7Nch0CMxMGFZkc24n8oXk0T/",
-	"OIDlvOrUXW+DjwQuCaxdQA8YZNvlfxJcofUeV57MInFLE04PgF5eqFaXEv10YEJDwerHwkhbahrUd1cl",
-	"vVVXp0kyZP4uMdhlJu+kv4FOf1GFkViQ1fpiGKnJoSJatDMGT5bgRG+WZbT0ywiIQfdlisEVzTYzuP90",
-	"n/19jpI+fbwegaJEZkesAgUhhikeZjD8aB2T1Yw7a54XaoqnxUGaz3I4calxJaYoMNT+XJGmKfxM647V",
-	"j6vvVCbN7YUW89FJGtrVqN1YTLnj5ebxq9Z3qYnth2iQGXeDxqq95wQ5z3x2P3WZ5132Ythn1k/8Pt9/",
-	"wNoIkCddYIyRs6gmVlSFwzpekBM80XGFlxTwLtY1cUn//wKJvJe842oE96lefA0ST7S59FFIDqKcYpzl",
-	"hx5npP0d06CQHhNxoRZUJAFTolqbmsCDNretSxV01OsEbwG9DMG2cr5rSNuoI0cM4FKhgQToBao4dBGI",
-	"DL1AzeDtxCrUhKG7tI0kuYFWKrhZzd2mSsdhw1JC5yVPDKmiHdSt5Ha7dj9HbSebdP3cEUNJIyk4DilF",
-	"djvohccV5bM9v/4Hbn0+0jyEuJV+nnHSZXMYY3IyjnH3FVGDg3pedSQe6ee1pkmoQcZEIDV6D3W0rSe4",
-	"8u6BABs335ImRre7GOQaGPXuWt8A6+gtWXAhxbzXhUQbzrSUF8Os5pE3BJnRQjZnzPdDhUvKHnOCSw3+",
-	"QHM45bnA288fTGEeiaVD+cvZrZJIpwNsnFmY17Pb2WtVO0xVJt5c0JPcZMjK/MnZ/XwV/c0hWTflqX09",
-	"sKHcnJW8efGDNQujGnZBfCR7Y6wpEYtZfH0yTkPTCFRJsdbrZbk9Ck/Xq4/zfu3CRwqbVJnFy3Gz+FY8",
-	"/594dXv7j/1N/B3RnvjHiA+a9ze3by7ZHwLu/le635G2rpF3ZmHePxLvBhFI8TDNddPW4YfiDNEFBNqq",
-	"lqwdSy9+Qvx4SHvL3izMXFH4+NLsv+3/DAAA//8=",
+	"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",
+	"uTp8PfwTAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
