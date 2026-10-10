@@ -150,7 +150,7 @@ func (h *Handler) CancelShipment(c *gin.Context, shipmentId openapi_types.UUID) 
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": genshipping.CancelShipmentResult{
-		DeletedOnMyparcel: &result.DeletedOnMyParcel, Message: &result.Message,
+		DeletedOnMyparcel: &result.DeletedOnMyParcel, CarrierError: &result.CarrierError, Message: &result.Message,
 	}, "error": nil})
 }
 
@@ -160,6 +160,7 @@ func shipmentToResponse(s shippingDomain.Shipment) genshipping.Shipment {
 		Id: &s.ID, SalesOrderId: &s.SalesOrderID, ConnectionId: &s.ConnectionID, Carrier: &carrier,
 		Barcode: &s.Barcode, Status: &status, StatusMain: &s.StatusMain, TrackingUrl: &s.TrackingURL, LabelFormat: &s.LabelFormat,
 		CreatedAt: &s.CreatedAt, CancelledAt: s.CancelledAt, CancelNote: &s.CancelNote,
+		CancelDeletedOnCarrier: cancelDeletedOnCarrier(s), CancelCarrierError: cancelCarrierError(s),
 		Recipient: &genshipping.RecipientAddress{
 			Person: s.RecipientPerson, Company: &s.RecipientCompany, Street: s.RecipientStreet,
 			Number: &s.RecipientNumber, NumberSuffix: &s.RecipientNumberSuffix, PostalCode: &s.RecipientPostalCode,
@@ -167,4 +168,19 @@ func shipmentToResponse(s shippingDomain.Shipment) genshipping.Shipment {
 		},
 	}
 	return resp
+}
+
+func cancelDeletedOnCarrier(s shippingDomain.Shipment) *bool {
+	if s.CancelOutcome == nil {
+		return nil
+	}
+	return &s.CancelOutcome.DeletedOnCarrier
+}
+
+func cancelCarrierError(s shippingDomain.Shipment) *string {
+	e := ""
+	if s.CancelOutcome != nil {
+		e = s.CancelOutcome.CarrierError
+	}
+	return &e
 }

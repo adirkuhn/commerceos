@@ -192,7 +192,7 @@ type fakeShipmentRepo struct {
 	findBySalesOrderIDFn       func(ctx context.Context, salesOrderID string) ([]shippingDomain.Shipment, error)
 	findStaleNonTerminalFn     func(ctx context.Context, olderThan time.Time, limit int) ([]shippingDomain.Shipment, error)
 	updateStatusFn             func(ctx context.Context, id string, status int, statusMain, trackingURL, barcode string) error
-	markCancelledFn            func(ctx context.Context, id string, cancelledAt time.Time, note string) error
+	markCancelledFn func(ctx context.Context, id string, cancelledAt time.Time, outcome shippingDomain.CancelOutcome) error
 }
 
 func (f *fakeShipmentRepo) Create(ctx context.Context, s *shippingDomain.Shipment) error {
@@ -213,11 +213,11 @@ func (f *fakeShipmentRepo) FindStaleNonTerminal(ctx context.Context, olderThan t
 func (f *fakeShipmentRepo) UpdateStatus(ctx context.Context, id string, status int, statusMain, trackingURL, barcode string) error {
 	return f.updateStatusFn(ctx, id, status, statusMain, trackingURL, barcode)
 }
-func (f *fakeShipmentRepo) MarkCancelled(ctx context.Context, id string, cancelledAt time.Time, note string) error {
+func (f *fakeShipmentRepo) MarkCancelled(ctx context.Context, id string, cancelledAt time.Time, outcome shippingDomain.CancelOutcome) error {
 	if f.markCancelledFn == nil {
 		return nil
 	}
-	return f.markCancelledFn(ctx, id, cancelledAt, note)
+	return f.markCancelledFn(ctx, id, cancelledAt, outcome)
 }
 
 // --- ShipmentStatusEventRepository fake ---

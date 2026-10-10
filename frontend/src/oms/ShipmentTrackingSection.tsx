@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { myParcelStatusText } from '../shipping/myParcelStatusText'
+import { cancelOutcomeText, outcomeOfShipment } from '../shipping/cancelOutcomeText'
 import * as shippingApi from '../shipping/api'
 import type { Shipment, ShipmentTrackingEvent } from '../shipping/types'
 import { CARRIERS } from '../shipping/types'
@@ -58,7 +59,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
     setError('')
     try {
       const result = await shippingApi.cancelShipment(token, shipment.id)
-      setCancelMessage(result.message)
+      setCancelMessage(cancelOutcomeText(tShipping, { deleted: result.deleted_on_myparcel, carrierError: result.carrier_error ?? '' }, result.message))
       onCancelled()
     } catch (err) {
       setError(err instanceof Error ? err.message : t('tracking.failedCancel'))
@@ -66,6 +67,8 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
       setCancelling(false)
     }
   }
+
+  const cancelText = shipment.cancelled_at ? cancelOutcomeText(tShipping, outcomeOfShipment(shipment), shipment.cancel_note ?? '') || cancelMessage : cancelMessage
 
   const carrierLabel = CARRIERS.find(c => c.id === shipment.carrier)?.label ?? t('tracking.carrier', { id: shipment.carrier })
 
@@ -116,7 +119,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
         </div>
       </div>
 
-      {(shipment.cancel_note || cancelMessage) && <p className="text-warning">{shipment.cancel_note || cancelMessage}</p>}
+      {cancelText && <p className="text-warning">{cancelText}</p>}
       {error && <p className="text-danger">{error}</p>}
 
       {loading ? (

@@ -62,7 +62,11 @@ export interface Shipment {
   // cancel_note for the outcome recorded at cancel time (whether MyParcel
   // itself deleted it or rejected the request).
   cancelled_at?: string | null
+  // English; prefer the structured outcome below when set (see
+  // cancelOutcomeText).
   cancel_note?: string
+  cancel_deleted_on_carrier?: boolean | null
+  cancel_carrier_error?: string
 }
 
 // One status MyParcel has reported for a shipment -- the tracking

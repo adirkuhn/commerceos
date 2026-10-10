@@ -488,7 +488,7 @@ func (s *stubShipmentRepo) FindStaleNonTerminal(_ context.Context, _ time.Time, 
 func (s *stubShipmentRepo) UpdateStatus(_ context.Context, _ string, _ int, _ string, _ string, _ string) error {
 	return nil
 }
-func (s *stubShipmentRepo) MarkCancelled(_ context.Context, _ string, _ time.Time, _ string) error {
+func (s *stubShipmentRepo) MarkCancelled(_ context.Context, _ string, _ time.Time, _ shippingDomain.CancelOutcome) error {
 	return nil
 }
 

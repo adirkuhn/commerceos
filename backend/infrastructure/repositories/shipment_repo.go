@@ -40,6 +40,8 @@ type shipmentModel struct {
 	RecipientPhone            string
 	CancelledAt               *time.Time
 	CancelNote                string
+	CancelDeletedOnCarrier    *bool  `gorm:"column:cancel_deleted_on_carrier"`
+	CancelCarrierError        string `gorm:"column:cancel_carrier_error;not null;default:''"`
 	CreatedAt                 time.Time
 	UpdatedAt                 time.Time
 }
@@ -166,13 +168,17 @@ func (r *ShipmentRepo) UpdateStatus(ctx context.Context, id string, status int, 
 	return nil
 }
 
-func (r *ShipmentRepo) MarkCancelled(ctx context.Context, id string, cancelledAt time.Time, note string) error {
+func (r *ShipmentRepo) MarkCancelled(ctx context.Context, id string, cancelledAt time.Time, outcome shippingDomain.CancelOutcome) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return err
 	}
 	err = tx.Model(&shipmentModel{}).Where("id = ?", id).
-		Updates(map[string]any{"cancelled_at": cancelledAt, "cancel_note": note, "updated_at": time.Now()}).Error
+		Updates(map[string]any{
+			"cancelled_at": cancelledAt, "cancel_note": outcome.Note(),
+			"cancel_deleted_on_carrier": outcome.DeletedOnCarrier, "cancel_carrier_error": outcome.CarrierError,
+			"updated_at": time.Now(),
+		}).Error
 	if err != nil {
 		return fmt.Errorf("shipmentRepo.MarkCancelled: %w", err)
 	}
@@ -213,7 +219,7 @@ func toShipmentDomain(m shipmentModel) *shippingDomain.Shipment {
 		RecipientStreet: m.RecipientStreet, RecipientNumber: m.RecipientNumber, RecipientNumberSuffix: m.RecipientNumberSuffix,
 		RecipientPostalCode: m.RecipientPostalCode, RecipientCity: m.RecipientCity, RecipientCC: m.RecipientCC,
 		RecipientEmail: m.RecipientEmail, RecipientPhone: m.RecipientPhone,
-		CancelledAt: m.CancelledAt, CancelNote: m.CancelNote,
+		CancelledAt: m.CancelledAt, CancelNote: m.CancelNote, CancelOutcome: toCancelOutcome(m),
 		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }
@@ -271,4 +277,11 @@ func (r *ShipmentStatusEventRepo) ListByShipmentID(ctx context.Context, shipment
 		}
 	}
 	return out, nil
+}
+
+func toCancelOutcome(m shipmentModel) *shippingDomain.CancelOutcome {
+	if m.CancelDeletedOnCarrier == nil {
+		return nil
+	}
+	return &shippingDomain.CancelOutcome{DeletedOnCarrier: *m.CancelDeletedOnCarrier, CarrierError: m.CancelCarrierError}
 }

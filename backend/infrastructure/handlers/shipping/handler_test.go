@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -544,7 +545,7 @@ func TestLookupAddress_400WhenMissingRequiredQueryParam(t *testing.T) {
 
 func TestCancelShipment_200ReportsOutcomeEvenWhenMyParcelRejected(t *testing.T) {
 	cancel := &stubCancelShipment{result: &appshipping.CancelShipmentResult{
-		DeletedOnMyParcel: false, Message: "MyParcel could not delete this shipment (422); marked as cancelled locally.",
+		DeletedOnMyParcel: false, CarrierError: "422 label printed", Message: "MyParcel could not delete this shipment (422); marked as cancelled locally.",
 	}}
 	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, cancel, &stubGetDeliveryEstimate{})
 	r := newTestRouter(h)
@@ -557,6 +558,7 @@ func TestCancelShipment_200ReportsOutcomeEvenWhenMyParcelRejected(t *testing.T) 
 	assert.Equal(t, "11111111-1111-1111-1111-111111111111", cancel.gotIn.ShipmentID)
 	assert.Contains(t, w.Body.String(), `"deleted_on_myparcel":false`)
 	assert.Contains(t, w.Body.String(), "marked as cancelled locally")
+	assert.Contains(t, w.Body.String(), `"carrier_error":"422 label printed"`)
 }
 
 func TestCancelShipment_404WhenShipmentNotFound(t *testing.T) {
@@ -602,4 +604,23 @@ func TestGetDeliveryPriceEstimate_422WhenCountryUnsupported(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestListShipmentsForOrder_includesTheCancelOutcome(t *testing.T) {
+	cancelledAt := time.Now()
+	list := &stubListShipments{result: []shippingDomain.Shipment{
+		{ID: "s-1", CancelledAt: &cancelledAt, CancelNote: "x", CancelOutcome: &shippingDomain.CancelOutcome{CarrierError: "label printed"}},
+		{ID: "s-2"},
+	}}
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, list, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{})
+	r := newTestRouter(h)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/shipping/sales-orders/11111111-1111-1111-1111-111111111111/shipments", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"cancel_deleted_on_carrier":false`)
+	assert.Contains(t, w.Body.String(), `"cancel_carrier_error":"label printed"`)
+	assert.Equal(t, 1, strings.Count(w.Body.String(), `"cancel_deleted_on_carrier"`), "not cancelled: no outcome")
 }

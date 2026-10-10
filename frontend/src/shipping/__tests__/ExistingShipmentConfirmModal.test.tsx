@@ -54,6 +54,7 @@ describe('ExistingShipmentConfirmModal', () => {
   it('shows MyParcel\'s outcome and lets staff create a new shipment even when the delete was rejected', async () => {
     vi.mocked(shippingApi.cancelShipment).mockResolvedValue({
       deleted_on_myparcel: false,
+      carrier_error: '422 label already printed',
       message: "MyParcel could not delete this shipment (422); marked as cancelled locally.",
     })
     const onCreateNew = vi.fn()
@@ -63,7 +64,7 @@ describe('ExistingShipmentConfirmModal', () => {
     await user.click(screen.getByRole('button', { name: /Wrong carrier\? Delete & create new/ }))
 
     await waitFor(() => expect(shippingApi.cancelShipment).toHaveBeenCalledWith('tok', 'ship-1'))
-    expect(await screen.findByText(/could not delete this shipment/)).toBeInTheDocument()
+    expect(await screen.findByText(/could not delete this shipment \(422 label already printed\)/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Create new shipment' }))
     expect(onCreateNew).toHaveBeenCalled()

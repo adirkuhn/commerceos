@@ -21,6 +21,10 @@
     "title": "Verzendadres bevestigen",
     "useSuggested": "Suggestie gebruiken"
   },
+  "cancelOutcome": {
+    "deleted": "Zending verwijderd bij MyParcel.",
+    "notDeleted": "MyParcel kon deze zending niet verwijderen ({{error}}). Ze is geannuleerd in CommerceOS zodat een gecorrigeerde zending kan worden aangemaakt, maar de oude zending of het oude label kan bij MyParcel nog bestaan."
+  },
   "existing": {
     "cancelFailed": "Zending kon niet worden geannuleerd",
     "cancelled": "Zending geannuleerd",

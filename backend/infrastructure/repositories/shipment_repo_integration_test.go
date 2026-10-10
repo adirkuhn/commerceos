@@ -201,7 +201,7 @@ func TestShipmentRepo_Integration_MarkCancelled(t *testing.T) {
 
 	cancelledAt := time.Now()
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		return repo.MarkCancelled(ctx, shipmentID, cancelledAt, "MyParcel could not delete this shipment; cancelled locally.")
+		return repo.MarkCancelled(ctx, shipmentID, cancelledAt, shippingDomain.CancelOutcome{CarrierError: "label printed"})
 	})
 	require.NoError(t, err)
 
@@ -214,7 +214,8 @@ func TestShipmentRepo_Integration_MarkCancelled(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, found.CancelledAt)
 	require.False(t, found.IsActive())
-	require.Equal(t, "MyParcel could not delete this shipment; cancelled locally.", found.CancelNote)
+	require.Equal(t, shippingDomain.CancelOutcome{CarrierError: "label printed"}.Note(), found.CancelNote)
+	require.Equal(t, &shippingDomain.CancelOutcome{CarrierError: "label printed"}, found.CancelOutcome)
 }
 
 func TestShipmentStatusEventRepo_Integration_Append(t *testing.T) {

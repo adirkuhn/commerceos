@@ -28,8 +28,12 @@ type CancelShipmentInput struct {
 // MyParcel's side, distinct from the (always successful, unless an error is
 // returned) local cancellation -- see CancelShipmentUseCase's doc comment
 // for why these can diverge.
+// CancelShipmentResult: DeletedOnMyParcel and CarrierError (MyParcel's own
+// wording when it rejected the delete) let clients show the outcome in the
+// reader's language; Message is the English text.
 type CancelShipmentResult struct {
 	DeletedOnMyParcel bool
+	CarrierError      string
 	Message           string
 }
 
@@ -109,21 +113,15 @@ func (uc *CancelShipmentUseCase) Execute(ctx context.Context, in CancelShipmentI
 	}
 
 	deleteErr := client.CancelShipment(ctx, shipment.ExternalShipmentID)
-	result := &CancelShipmentResult{}
-	if deleteErr == nil {
-		result.DeletedOnMyParcel = true
-		result.Message = "Shipment deleted on MyParcel."
-	} else {
-		result.DeletedOnMyParcel = false
-		result.Message = fmt.Sprintf(
-			"MyParcel could not delete this shipment (%s). It has been cancelled in CommerceOS so a corrected shipment can be created, but the old shipment/label may still exist on MyParcel's own side.",
-			deleteErr.Error(),
-		)
+	outcome := shippingDomain.CancelOutcome{DeletedOnCarrier: deleteErr == nil}
+	if deleteErr != nil {
+		outcome.CarrierError = deleteErr.Error()
 	}
+	result := &CancelShipmentResult{DeletedOnMyParcel: outcome.DeletedOnCarrier, CarrierError: outcome.CarrierError, Message: outcome.Note()}
 
 	cancelledAt := uc.now()
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		if err := uc.shipmentRepo.MarkCancelled(ctx, shipment.ID, cancelledAt, result.Message); err != nil {
+		if err := uc.shipmentRepo.MarkCancelled(ctx, shipment.ID, cancelledAt, outcome); err != nil {
 			return err
 		}
 		return eventrecord.Record(ctx, uc.outbox, events.ShipmentCancelled, shipment.ID, eventrecord.Data{

@@ -21,6 +21,10 @@
     "title": "Confirm shipping address",
     "useSuggested": "Use suggested"
   },
+  "cancelOutcome": {
+    "deleted": "Shipment deleted on MyParcel.",
+    "notDeleted": "MyParcel could not delete this shipment ({{error}}). It has been cancelled in CommerceOS so a corrected shipment can be created, but the old shipment or label may still exist on MyParcel."
+  },
   "existing": {
     "cancelFailed": "Failed to cancel shipment",
     "cancelled": "Shipment cancelled",

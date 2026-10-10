@@ -40,7 +40,7 @@ type ShipmentRepository interface {
 	// MarkCancelled soft-cancels a shipment -- see Shipment.CancelledAt's
 	// doc comment. cancelledAt/note are set unconditionally by the caller
 	// (CancelShipmentUseCase), not derived here.
-	MarkCancelled(ctx context.Context, id string, cancelledAt time.Time, note string) error
+	MarkCancelled(ctx context.Context, id string, cancelledAt time.Time, outcome CancelOutcome) error
 }
 
 // ShipmentStatusEventRepository appends to and reads back a Shipment's

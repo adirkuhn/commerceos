@@ -618,7 +618,14 @@ components:
           description: Set once cancelShipment has been called for this shipment -- see CancelShipmentResponse for the outcome recorded at cancel time.
         cancel_note:
           type: string
-          description: Populated once cancelled_at is set -- whether MyParcel itself deleted the shipment or rejected the request.
+          description: Populated once cancelled_at is set -- whether MyParcel itself deleted the shipment or rejected the request. English; show the translated outcome from cancel_deleted_on_carrier/cancel_carrier_error when those are set.
+        cancel_deleted_on_carrier:
+          type: boolean
+          nullable: true
+          description: Whether MyParcel itself deleted the shipment. Omitted when not cancelled, or cancelled before this was recorded (then only cancel_note exists).
+        cancel_carrier_error:
+          type: string
+          description: MyParcel's own wording when it rejected the delete; empty otherwise.
 
     ShipmentResponse:
       type: object
@@ -632,9 +639,12 @@ components:
         deleted_on_myparcel:
           type: boolean
           description: True only if MyParcel actually deleted the shipment (it only allows this before a label exists). False means the shipment was cancelled locally so a new one can be created, but the old one may still exist/be trackable on MyParcel's own side -- see `message`.
+        carrier_error:
+          type: string
+          description: MyParcel's own wording when it rejected the delete; empty when deleted_on_myparcel is true.
         message:
           type: string
-          description: Human-readable outcome, safe to show directly to staff.
+          description: English outcome text -- clients show a translated outcome from deleted_on_myparcel/carrier_error.
 
     CancelShipmentResponse:
       type: object

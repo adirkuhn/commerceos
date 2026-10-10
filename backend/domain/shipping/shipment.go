@@ -212,6 +212,9 @@ type Shipment struct {
 	// still be live on MyParcel's own side.
 	CancelledAt *time.Time
 	CancelNote  string
+	// CancelOutcome is the structured form of CancelNote; nil when not
+	// cancelled, or cancelled before outcomes were stored.
+	CancelOutcome *CancelOutcome
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

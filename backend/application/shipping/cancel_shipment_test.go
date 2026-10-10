@@ -30,11 +30,11 @@ func TestCancelShipment_myParcelDeletesSuccessfully_marksCancelledLocally(t *tes
 		},
 	}
 	var markedID string
-	var markedNote string
+	var markedOutcome shippingDomain.CancelOutcome
 	shipmentRepo := &fakeShipmentRepo{
 		findByIDFn: func(_ context.Context, id string) (*shippingDomain.Shipment, error) { return &shipment, nil },
-		markCancelledFn: func(_ context.Context, id string, _ time.Time, note string) error {
-			markedID, markedNote = id, note
+		markCancelledFn: func(_ context.Context, id string, _ time.Time, outcome shippingDomain.CancelOutcome) error {
+			markedID, markedOutcome = id, outcome
 			return nil
 		},
 	}
@@ -51,7 +51,8 @@ func TestCancelShipment_myParcelDeletesSuccessfully_marksCancelledLocally(t *tes
 	assert.True(t, result.DeletedOnMyParcel)
 	assert.Contains(t, result.Message, "deleted on MyParcel")
 	assert.Equal(t, "shipment-1", markedID)
-	assert.Equal(t, result.Message, markedNote)
+	assert.Equal(t, shippingDomain.CancelOutcome{DeletedOnCarrier: true}, markedOutcome)
+	assert.Empty(t, result.CarrierError)
 
 	e, err := outbox.Only()
 	require.NoError(t, err)
@@ -71,10 +72,11 @@ func TestCancelShipment_myParcelRejectsDelete_stillCancelsLocallyAndInformsCalle
 		},
 	}
 	var markCancelledCalled bool
+	var markedOutcome shippingDomain.CancelOutcome
 	shipmentRepo := &fakeShipmentRepo{
 		findByIDFn: func(_ context.Context, id string) (*shippingDomain.Shipment, error) { return &shipment, nil },
-		markCancelledFn: func(_ context.Context, _ string, _ time.Time, _ string) error {
-			markCancelledCalled = true
+		markCancelledFn: func(_ context.Context, _ string, _ time.Time, outcome shippingDomain.CancelOutcome) error {
+			markCancelledCalled, markedOutcome = true, outcome
 			return nil
 		},
 	}
@@ -90,6 +92,8 @@ func TestCancelShipment_myParcelRejectsDelete_stillCancelsLocallyAndInformsCalle
 	assert.Contains(t, result.Message, "could not delete")
 	assert.Contains(t, result.Message, "Shipment cannot be deleted")
 	assert.True(t, markCancelledCalled, "local cancellation must proceed even when MyParcel rejects the delete")
+	assert.Contains(t, result.CarrierError, "Shipment cannot be deleted")
+	assert.Equal(t, shippingDomain.CancelOutcome{CarrierError: result.CarrierError}, markedOutcome)
 }
 
 func TestCancelShipment_alreadyCancelled_isIdempotentAndDoesNotCallMyParcelAgain(t *testing.T) {

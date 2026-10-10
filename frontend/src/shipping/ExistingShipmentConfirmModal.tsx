@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { cancelOutcomeText } from './cancelOutcomeText'
+import type { CancelShipmentResult } from './api'
 import type { Shipment } from './types'
 import * as shippingApi from './api'
 import { Dialog } from '../components/common/Dialog'
@@ -26,7 +28,7 @@ interface ExistingShipmentConfirmModalProps {
 // then let staff create a corrected one regardless of that outcome.
 export function ExistingShipmentConfirmModal({ token, shipment, onReprint, onCreateNew, onCancel }: ExistingShipmentConfirmModalProps) {
   const [cancelling, setCancelling] = useState(false)
-  const [cancelResult, setCancelResult] = useState<{ deleted_on_myparcel: boolean; message: string } | null>(null)
+  const [cancelResult, setCancelResult] = useState<CancelShipmentResult | null>(null)
   const [cancelError, setCancelError] = useState('')
   const { t } = useTranslation(['shipping', 'common'])
 
@@ -78,7 +80,7 @@ export function ExistingShipmentConfirmModal({ token, shipment, onReprint, onCre
         ) : (
           <>
             <h3 className="text-sm font-semibold text-ink mb-2">{t('existing.cancelled')}</h3>
-            <p className="text-xs text-ink-3 mb-4">{cancelResult.message}</p>
+            <p className="text-xs text-ink-3 mb-4">{cancelOutcomeText(t, { deleted: cancelResult.deleted_on_myparcel, carrierError: cancelResult.carrier_error ?? '' }, cancelResult.message)}</p>
             <div className="flex items-center gap-2">
               <button
                 type="button" onClick={onCancel}
