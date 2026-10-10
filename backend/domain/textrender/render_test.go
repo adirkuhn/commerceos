@@ -78,3 +78,26 @@ func TestRender_unclosedSectionIsLeftVisible(t *testing.T) {
 	out := mc.Render("a {{#items}}x", map[string]any{"items": []any{map[string]any{}}}, plain)
 	assert.True(t, strings.Contains(out, "{{#items}}"), out)
 }
+
+func TestRender_dataEachRepeatsTheElement(t *testing.T) {
+	data := map[string]any{"items": []any{map[string]any{"name": "A"}, map[string]any{"name": "B"}}}
+	out := mc.Render(`<table><tr><th>N</th></tr><tr data-each="items" style="x"><td>{{name}}</td></tr></table>`, data, plain)
+	assert.Equal(t, `<table><tr><th>N</th></tr><tr style="x"><td>A</td></tr><tr style="x"><td>B</td></tr></table>`, out)
+}
+
+func TestRender_dataEachHandlesNestedSameTags(t *testing.T) {
+	data := map[string]any{"rows": []any{map[string]any{"v": "1"}}}
+	out := mc.Render(`<div data-each="rows"><div>{{v}}</div></div><div>after</div>`, data, plain)
+	assert.Equal(t, `<div><div>1</div></div><div>after</div>`, out)
+}
+
+func TestRender_dataEachOnEmptyListRendersNothing(t *testing.T) {
+	out := mc.Render(`<ul><li data-each='items'>{{name}}</li></ul>`, map[string]any{"items": []any{}}, plain)
+	assert.Equal(t, `<ul></ul>`, out)
+}
+
+func TestExpandEach(t *testing.T) {
+	assert.Equal(t, `{{#items}}<tr><td>{{name}}</td></tr>{{/items}}`, mc.ExpandEach(`<tr data-each="items"><td>{{name}}</td></tr>`))
+	assert.Equal(t, `no markers`, mc.ExpandEach(`no markers`))
+	assert.Equal(t, `<tr data-each="x"><td>`, mc.ExpandEach(`<tr data-each="x"><td>`), "unclosed element left as is")
+}

@@ -45,8 +45,7 @@ var stockExpiryTexts = map[locale.Locale]stockExpiryText{
 <table style="border-collapse:collapse;width:100%;font-size:14px">
 <thead><tr style="background:#f5f5f5"><th style="padding:8px;text-align:left">Photo</th><th style="padding:8px;text-align:left">Product</th><th style="padding:8px;text-align:left">SKU</th><th style="padding:8px;text-align:right">Qty</th><th style="padding:8px;text-align:left">Expires</th><th style="padding:8px;text-align:right">Price</th></tr></thead>
 <tbody>
-{{#items}}
-<tr>
+<tr data-each="items">
 <td style="padding:8px;border-bottom:1px solid #eee;width:64px">{{#image_url}}<img src="{{image_url}}" alt="" width="56" height="56" style="display:block;width:56px;height:56px;object-fit:cover;border-radius:6px">{{/image_url}}</td>
 <td style="padding:8px;border-bottom:1px solid #eee">{{product_name}}</td>
 <td style="padding:8px;border-bottom:1px solid #eee;font-family:monospace">{{sku}}</td>
@@ -54,7 +53,6 @@ var stockExpiryTexts = map[locale.Locale]stockExpiryText{
 <td style="padding:8px;border-bottom:1px solid #eee">{{expiry_date}} ({{days_left}} days)</td>
 <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">{{#sale_price}}<s>{{price}}</s> <strong>{{sale_price}}</strong>{{/sale_price}}{{^sale_price}}{{price}}{{/sale_price}}</td>
 </tr>
-{{/items}}
 </tbody>
 </table>
 </div>`,
@@ -69,8 +67,7 @@ var stockExpiryTexts = map[locale.Locale]stockExpiryText{
 <table style="border-collapse:collapse;width:100%;font-size:14px">
 <thead><tr style="background:#f5f5f5"><th style="padding:8px;text-align:left">Foto</th><th style="padding:8px;text-align:left">Produto</th><th style="padding:8px;text-align:left">SKU</th><th style="padding:8px;text-align:right">Qtd</th><th style="padding:8px;text-align:left">Vence em</th><th style="padding:8px;text-align:right">Preço</th></tr></thead>
 <tbody>
-{{#items}}
-<tr>
+<tr data-each="items">
 <td style="padding:8px;border-bottom:1px solid #eee;width:64px">{{#image_url}}<img src="{{image_url}}" alt="" width="56" height="56" style="display:block;width:56px;height:56px;object-fit:cover;border-radius:6px">{{/image_url}}</td>
 <td style="padding:8px;border-bottom:1px solid #eee">{{product_name}}</td>
 <td style="padding:8px;border-bottom:1px solid #eee;font-family:monospace">{{sku}}</td>
@@ -78,7 +75,6 @@ var stockExpiryTexts = map[locale.Locale]stockExpiryText{
 <td style="padding:8px;border-bottom:1px solid #eee">{{expiry_date}} ({{days_left}} dias)</td>
 <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">{{#sale_price}}<s>{{price}}</s> <strong>{{sale_price}}</strong>{{/sale_price}}{{^sale_price}}{{price}}{{/sale_price}}</td>
 </tr>
-{{/items}}
 </tbody>
 </table>
 </div>`,
@@ -93,8 +89,7 @@ var stockExpiryTexts = map[locale.Locale]stockExpiryText{
 <table style="border-collapse:collapse;width:100%;font-size:14px">
 <thead><tr style="background:#f5f5f5"><th style="padding:8px;text-align:left">Foto</th><th style="padding:8px;text-align:left">Product</th><th style="padding:8px;text-align:left">SKU</th><th style="padding:8px;text-align:right">Aantal</th><th style="padding:8px;text-align:left">Vervalt</th><th style="padding:8px;text-align:right">Prijs</th></tr></thead>
 <tbody>
-{{#items}}
-<tr>
+<tr data-each="items">
 <td style="padding:8px;border-bottom:1px solid #eee;width:64px">{{#image_url}}<img src="{{image_url}}" alt="" width="56" height="56" style="display:block;width:56px;height:56px;object-fit:cover;border-radius:6px">{{/image_url}}</td>
 <td style="padding:8px;border-bottom:1px solid #eee">{{product_name}}</td>
 <td style="padding:8px;border-bottom:1px solid #eee;font-family:monospace">{{sku}}</td>
@@ -102,7 +97,6 @@ var stockExpiryTexts = map[locale.Locale]stockExpiryText{
 <td style="padding:8px;border-bottom:1px solid #eee">{{expiry_date}} ({{days_left}} dagen)</td>
 <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">{{#sale_price}}<s>{{price}}</s> <strong>{{sale_price}}</strong>{{/sale_price}}{{^sale_price}}{{price}}{{/sale_price}}</td>
 </tr>
-{{/items}}
 </tbody>
 </table>
 </div>`,

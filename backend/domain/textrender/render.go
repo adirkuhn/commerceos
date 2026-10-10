@@ -21,8 +21,13 @@ import (
 // Empty means missing, nil, false, 0, "" or an empty list. escape is applied
 // to every value (never to the template's own text), e.g. html.EscapeString
 // for email so product names cannot break the merchant's HTML.
+//
+// An element with data-each="name" (e.g. <tr data-each="items">) repeats
+// like {{#name}}...{{/name}} around it -- the form visual HTML editors
+// keep intact where loose {{#name}} text between table rows would be moved
+// out of the table. See ExpandEach.
 func Render(template string, data map[string]any, escape func(string) string) string {
-	nodes := parseTemplate(template)
+	nodes := parseTemplate(ExpandEach(template))
 	r := renderer{escape: escape}
 	r.render(nodes, []map[string]any{data})
 	return string(r.out)
@@ -189,4 +194,44 @@ func formatValue(v any) string {
 	default:
 		return fmt.Sprint(x)
 	}
+}
+
+var eachAttr = regexp.MustCompile(`<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*?\sdata-each=["']([A-Za-z0-9_.]+)["'][^>]*>`)
+
+// ExpandEach rewrites every element carrying data-each="name" into
+// {{#name}}<element without the attribute>{{/name}}. An element whose
+// closing tag can't be found is left untouched.
+func ExpandEach(html string) string {
+	for {
+		m := eachAttr.FindStringSubmatchIndex(html)
+		if m == nil {
+			return html
+		}
+		tag, name := html[m[2]:m[3]], html[m[4]:m[5]]
+		end := matchingClose(html, m[1], tag)
+		if end < 0 {
+			return html
+		}
+		open := regexp.MustCompile(`\sdata-each=["'][^"']*["']`).ReplaceAllString(html[m[0]:m[1]], "")
+		html = html[:m[0]] + "{{#" + name + "}}" + open + html[m[1]:end] + "{{/" + name + "}}" + html[end:]
+	}
+}
+
+// matchingClose returns the index just after the </tag> closing the element
+// whose start tag ends at from, counting nested same-name elements; -1 when
+// there is none.
+func matchingClose(html string, from int, tag string) int {
+	tagRe := regexp.MustCompile(`(?i)<(/?)` + regexp.QuoteMeta(tag) + `\b[^>]*>`)
+	depth := 1
+	for _, m := range tagRe.FindAllStringSubmatchIndex(html[from:], -1) {
+		if html[from+m[2]:from+m[3]] == "/" {
+			depth--
+			if depth == 0 {
+				return from + m[1]
+			}
+		} else {
+			depth++
+		}
+	}
+	return -1
 }
