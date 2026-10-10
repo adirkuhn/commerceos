@@ -35,6 +35,10 @@
     "placeOrder": "Bestelling plaatsen",
     "placing": "Bestelling plaatsen…",
     "postcode": "Postcode",
+    "shippingEvening": "Avondbezorging",
+    "shippingMorning": "Ochtendbezorging",
+    "shippingPickup": "Afhalen bij een ophaalpunt",
+    "shippingStandard": "Standaard bezorging",
     "street": "Straat en huisnummer"
   },
   "common": {

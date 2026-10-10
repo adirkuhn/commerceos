@@ -35,6 +35,10 @@
     "placeOrder": "Place order",
     "placing": "Placing order…",
     "postcode": "Postcode",
+    "shippingEvening": "Evening delivery",
+    "shippingMorning": "Morning delivery",
+    "shippingPickup": "Pick up at a collection point",
+    "shippingStandard": "Standard delivery",
     "street": "Street and number"
   },
   "common": {

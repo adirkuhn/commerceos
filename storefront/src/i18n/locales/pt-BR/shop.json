@@ -35,6 +35,10 @@
     "placeOrder": "Fazer pedido",
     "placing": "Enviando pedido…",
     "postcode": "CEP / código postal",
+    "shippingEvening": "Entrega à noite",
+    "shippingMorning": "Entrega pela manhã",
+    "shippingPickup": "Retirar em um ponto de coleta",
+    "shippingStandard": "Entrega padrão",
     "street": "Rua e número"
   },
   "common": {

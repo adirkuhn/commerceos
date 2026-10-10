@@ -5,6 +5,7 @@ import { useStorefrontAPI } from '../../api/ApiContext'
 import type { Address, ShippingOption } from '../../api/storefront'
 import { useShopFormat } from '../../i18n/format'
 import { shopperError } from '../../i18n/shopperError'
+import { shippingMethodName } from './shippingMethodName'
 import { useRenderEnv } from '../../runtime/RenderContext'
 import { useCart } from '../../runtime/page/CartContext'
 import { useCustomer } from '../../runtime/page/CustomerContext'
@@ -134,7 +135,7 @@ export function CheckoutFormView({ node, props, className }: RendererProps<Check
           {options.map(o => (
             <label key={o.title} className="cos-radio">
               <input type="radio" name={`${node.id}-shipping`} checked={shipping === o.title} onChange={() => setShipping(o.title)} />
-              {`${o.title} — ${price(o.amount_minor_units, o.currency_code)}`}
+              {`${shippingMethodName(t, o.title)} — ${price(o.amount_minor_units, o.currency_code)}`}
             </label>
           ))}
         </fieldset>
