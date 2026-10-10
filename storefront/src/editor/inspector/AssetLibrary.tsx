@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { editorErrorText } from '../editorErrorText'
 import type { Asset } from '../api'
 import { useEditorServices } from '../services'
 
@@ -16,10 +17,10 @@ export function AssetLibrary({ onPick, onClose }: Props) {
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
-  const { t } = useTranslation('editor')
+  const { t, i18n } = useTranslation('editor')
 
   useEffect(() => {
-    api.listAssets().then(r => setItems(r.items), e => setError(e.message)).finally(() => setLoading(false))
+    api.listAssets().then(r => setItems(r.items), e => setError(editorErrorText(e, i18n, t('media.loadFailed')))).finally(() => setLoading(false))
   }, [api])
 
   const remember = (a: Asset) => store.merge({ [a.id]: { url: a.url, width: a.width, height: a.height, alt: a.alt } })
@@ -34,7 +35,7 @@ export function AssetLibrary({ onPick, onClose }: Props) {
       remember(a)
       setItems(list => [a, ...list])
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('media.uploadFailed'))
+      setError(editorErrorText(e, i18n, t('media.uploadFailed')))
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -46,7 +47,7 @@ export function AssetLibrary({ onPick, onClose }: Props) {
       await api.deleteAsset(a.id)
       setItems(list => list.filter(i => i.id !== a.id))
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('media.removeFailed'))
+      setError(editorErrorText(e, i18n, t('media.removeFailed')))
     }
   }
 

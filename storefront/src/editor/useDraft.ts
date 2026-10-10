@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { editorErrorText } from './editorErrorText'
 import type { Editor } from 'grapesjs'
 import type { DocumentKind, ThemeSettings } from '../core/document'
 import { registry } from '../components/registry'
@@ -70,9 +71,9 @@ export function useDraft(api: EditorAPI, editor: Editor | undefined, assets: Ass
     } else if (err instanceof EditorApiError && err.nodeId && editor) {
       const target = editor.getWrapper()?.find('*').find(c => c.get('cosId') === err.nodeId)
       if (target) editor.select(target)
-      setStatus({ kind: 'error', message: t('status.cantSave', { message: err.message }) })
+      setStatus({ kind: 'error', message: t('status.cantSave', { message: editorErrorText(err, i18n, err.message) }) })
     } else {
-      setStatus({ kind: 'error', message: err instanceof Error ? err.message : t('status.somethingWrong') })
+      setStatus({ kind: 'error', message: editorErrorText(err, i18n, t('status.somethingWrong')) })
     }
   }
 

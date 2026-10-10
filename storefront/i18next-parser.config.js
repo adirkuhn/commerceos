@@ -16,7 +16,7 @@ export default {
   keepRemoved: [
     // Patterns see the whole key, or just "ns:group" when a group is gone.
     /^shop:hint(\.|$)/, /^shop:errors(\.|$)/, /^shop:product\.(inStock|percentOff|chooseOptions)$/,
-    /^editor:(components|categories|style|documents)(\.|$)/,
+    /^editor:(components|categories|style|documents|errors)(\.|$)/,
   ],
   defaultValue: (locale, _ns, key, value) => (locale === 'en' ? value || key : ''),
 }

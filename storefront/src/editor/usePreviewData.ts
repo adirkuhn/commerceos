@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { editorErrorText } from './editorErrorText'
 import type { Collection, StorefrontAPI } from '../api/storefront'
 import type { ListingPage } from '../runtime/page/ListingContext'
 import type { PreviewStore } from './previewStore'
@@ -25,7 +26,7 @@ export function usePreviewData(store: StorefrontAPI | undefined, preview: Previe
   const [productSlug, setProductSlug] = useState<string>()
   const [collectionSlug, setCollectionSlug] = useState<string>()
   const [error, setError] = useState('')
-  const { t } = useTranslation('editor')
+  const { t, i18n } = useTranslation('editor')
   const kind = doc.kind === 'template' ? doc.key : ''
 
   useEffect(() => {
@@ -45,7 +46,7 @@ export function usePreviewData(store: StorefrontAPI | undefined, preview: Previe
         preview.set({})
       }
     }
-    load().then(() => !cancelled && setError(''), e => !cancelled && setError(e instanceof Error ? e.message : t('previewBar.loadFailed')))
+    load().then(() => !cancelled && setError(''), e => !cancelled && setError(editorErrorText(e, i18n, t('previewBar.loadFailed'))))
     return () => { cancelled = true }
   }, [store, preview, kind, productSlug, collectionSlug])
 
