@@ -789,6 +789,7 @@ func TestGetStorefrontProductHandler_notAvailableIs404(t *testing.T) {
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/products/unknown-id", "", "test-key")
 
 	require.Equal(t, http.StatusNotFound, w.Code)
+	assert.Contains(t, w.Body.String(), `"code":"PRODUCT_NOT_AVAILABLE"`)
 	assert.Equal(t, "channel-1", get.gotChan)
 	assert.Equal(t, "unknown-id", get.gotID)
 }

@@ -51,8 +51,12 @@ func toGenCollection(c appstorefront.StorefrontCollection) genstorefront.Storefr
 }
 
 func notFound(c *gin.Context, err error) bool {
-	if errors.Is(err, collections.ErrCollectionNotFound) || errors.Is(err, storefrontDomain.ErrProductNotAvailable) {
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+	if errors.Is(err, collections.ErrCollectionNotFound) {
+		middleware.Fail(c, http.StatusNotFound, "COLLECTION_NOT_FOUND", collections.ErrCollectionNotFound.Error())
+		return true
+	}
+	if errors.Is(err, storefrontDomain.ErrProductNotAvailable) {
+		middleware.Fail(c, http.StatusNotFound, "PRODUCT_NOT_AVAILABLE", storefrontDomain.ErrProductNotAvailable.Error())
 		return true
 	}
 	return false

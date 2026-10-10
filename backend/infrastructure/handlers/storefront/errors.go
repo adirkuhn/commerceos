@@ -15,38 +15,53 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 )
 
+// shopperError is how one domain error reaches the storefront: an HTTP
+// status and a stable code the storefront translates into the shop's
+// language (shop.json errors.<code>). The message is the English sentence
+// without internal call-site prefixes, for logs and API clients.
+type shopperError struct {
+	err    error
+	status int
+	code   string
+}
+
+var shopperErrors = []shopperError{
+	{appreports.ErrCartEmpty, http.StatusUnprocessableEntity, "CART_EMPTY"},
+	{storefrontDomain.ErrCartEmpty, http.StatusUnprocessableEntity, "CART_EMPTY"},
+	{storefrontDomain.ErrInsufficientStock, http.StatusUnprocessableEntity, "INSUFFICIENT_STOCK"},
+	{storefrontDomain.ErrProductNotAvailable, http.StatusUnprocessableEntity, "PRODUCT_NOT_AVAILABLE"},
+	{storefrontDomain.ErrNoInternalChannel, http.StatusUnprocessableEntity, "STORE_NOT_AVAILABLE"},
+	{storefrontDomain.ErrChannelWarehouseNotConfigured, http.StatusUnprocessableEntity, "STORE_NOT_AVAILABLE"},
+	{couponsDomain.ErrCouponNotRedeemable, http.StatusUnprocessableEntity, "COUPON_NOT_REDEEMABLE"},
+	{couponsDomain.ErrCouponMinSubtotalNotMet, http.StatusUnprocessableEntity, "COUPON_MIN_SUBTOTAL_NOT_MET"},
+	{reviewsDomain.ErrCustomerNameRequired, http.StatusUnprocessableEntity, "REVIEW_NAME_REQUIRED"},
+	{reviewsDomain.ErrCustomerEmailRequired, http.StatusUnprocessableEntity, "REVIEW_EMAIL_REQUIRED"},
+	{reviewsDomain.ErrInvalidRating, http.StatusUnprocessableEntity, "REVIEW_INVALID_RATING"},
+	{reviewsDomain.ErrReviewBodyRequired, http.StatusUnprocessableEntity, "REVIEW_BODY_REQUIRED"},
+	{storefrontDomain.ErrInvalidOrExpiredMagicLink, http.StatusUnprocessableEntity, "SIGN_IN_LINK_INVALID"},
+	{storefrontDomain.ErrCardPaymentNotSupported, http.StatusUnprocessableEntity, "CARD_PAYMENT_NOT_SUPPORTED"},
+	{storefrontDomain.ErrCardPaymentMismatch, http.StatusUnprocessableEntity, "CARD_PAYMENT_MISMATCH"},
+	{channelsDomain.ErrSignInNotConfigured, http.StatusUnprocessableEntity, "SIGN_IN_NOT_CONFIGURED"},
+	{storefrontDomain.ErrCartNotFound, http.StatusNotFound, "CART_NOT_FOUND"},
+	{storefrontDomain.ErrOrderNotFound, http.StatusNotFound, "ORDER_NOT_FOUND"},
+	{storefrontDomain.ErrWishlistNotFound, http.StatusNotFound, "WISHLIST_NOT_FOUND"},
+	{storefrontDomain.ErrSessionNotFound, http.StatusNotFound, "SESSION_NOT_FOUND"},
+	{couponsDomain.ErrCouponNotFound, http.StatusNotFound, "COUPON_NOT_FOUND"},
+	{channelsDomain.ErrSalesChannelNotFound, http.StatusNotFound, "STORE_NOT_AVAILABLE"},
+	{storefrontDomain.ErrCartAlreadyCheckedOut, http.StatusConflict, "CART_ALREADY_CHECKED_OUT"},
+}
+
 func mapError(c *gin.Context, err error) error {
 	if err == nil {
 		return nil
 	}
-	switch {
-	case errors.Is(err, appreports.ErrCartEmpty),
-		errors.Is(err, storefrontDomain.ErrCartEmpty),
-		errors.Is(err, storefrontDomain.ErrInsufficientStock),
-		errors.Is(err, storefrontDomain.ErrProductNotAvailable),
-		errors.Is(err, storefrontDomain.ErrNoInternalChannel),
-		errors.Is(err, couponsDomain.ErrCouponNotRedeemable),
-		errors.Is(err, couponsDomain.ErrCouponMinSubtotalNotMet),
-		errors.Is(err, reviewsDomain.ErrCustomerNameRequired),
-		errors.Is(err, reviewsDomain.ErrCustomerEmailRequired),
-		errors.Is(err, reviewsDomain.ErrInvalidRating),
-		errors.Is(err, reviewsDomain.ErrReviewBodyRequired),
-		errors.Is(err, storefrontDomain.ErrInvalidOrExpiredMagicLink),
-		errors.Is(err, storefrontDomain.ErrCardPaymentNotSupported),
-		errors.Is(err, storefrontDomain.ErrCardPaymentMismatch):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
-	case errors.Is(err, channelsDomain.ErrSignInNotConfigured):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "SIGN_IN_NOT_CONFIGURED", err.Error())
-	case errors.Is(err, storefrontDomain.ErrCartNotFound), errors.Is(err, storefrontDomain.ErrOrderNotFound),
-		errors.Is(err, storefrontDomain.ErrWishlistNotFound), errors.Is(err, storefrontDomain.ErrSessionNotFound),
-		errors.Is(err, couponsDomain.ErrCouponNotFound),
-		errors.Is(err, channelsDomain.ErrSalesChannelNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
-	case errors.Is(err, storefrontDomain.ErrCartAlreadyCheckedOut):
-		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
-	default:
-		log.Printf("storefront: unhandled error: %v", err)
-		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
+	for _, se := range shopperErrors {
+		if errors.Is(err, se.err) {
+			middleware.Fail(c, se.status, se.code, se.err.Error())
+			return err
+		}
 	}
+	log.Printf("storefront: unhandled error: %v", err)
+	middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
 	return err
 }

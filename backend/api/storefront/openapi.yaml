@@ -840,8 +840,26 @@ components:
         error:
           type: object
           properties:
-            code: { type: string }
-            message: { type: string }
+            code:
+              type: string
+              description: >-
+                Stable code to show the shopper a translated message for
+                (the storefront's shop.json errors.<code>). Shopper errors:
+                CART_EMPTY, INSUFFICIENT_STOCK, PRODUCT_NOT_AVAILABLE,
+                STORE_NOT_AVAILABLE, COUPON_NOT_REDEEMABLE,
+                COUPON_MIN_SUBTOTAL_NOT_MET, COUPON_NOT_FOUND,
+                REVIEW_NAME_REQUIRED, REVIEW_EMAIL_REQUIRED,
+                REVIEW_INVALID_RATING, REVIEW_BODY_REQUIRED,
+                SIGN_IN_LINK_INVALID, SIGN_IN_NOT_CONFIGURED,
+                CARD_PAYMENT_NOT_SUPPORTED, CARD_PAYMENT_MISMATCH,
+                CART_NOT_FOUND, ORDER_NOT_FOUND, WISHLIST_NOT_FOUND,
+                COLLECTION_NOT_FOUND,
+                SESSION_NOT_FOUND, CART_ALREADY_CHECKED_OUT. Also
+                VALIDATION_ERROR (malformed request), UNAUTHORIZED and
+                INTERNAL.
+            message:
+              type: string
+              description: English sentence for logs and API clients -- not for display.
 
     CartItem:
       type: object

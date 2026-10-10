@@ -58,7 +58,7 @@ func (h *Handler) SubmitStorefrontReview(c *gin.Context, id string) {
 		Title: strPtrOr(req.Title), Body: req.Body,
 	})
 	if errors.Is(err, storefrontDomain.ErrProductNotAvailable) {
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.Fail(c, http.StatusNotFound, "PRODUCT_NOT_AVAILABLE", storefrontDomain.ErrProductNotAvailable.Error())
 		return
 	}
 	if err := mapError(c, err); err != nil {

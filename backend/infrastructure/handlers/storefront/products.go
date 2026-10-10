@@ -76,7 +76,7 @@ func (h *Handler) GetStorefrontProduct(c *gin.Context, id string, params genstor
 		// A GET-by-id 404s for "doesn't exist" -- unlike a cart line's SKU
 		// code (a request-body field, so the same error is a 422 there),
 		// this is a plain resource lookup.
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.Fail(c, http.StatusNotFound, "PRODUCT_NOT_AVAILABLE", storefrontDomain.ErrProductNotAvailable.Error())
 		return
 	}
 	if err := mapError(c, err); err != nil {
