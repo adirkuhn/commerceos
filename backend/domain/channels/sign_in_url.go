@@ -1,7 +1,7 @@
 package channels
 
 import (
-	"errors"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"net/url"
 	"strings"
 )
@@ -10,13 +10,13 @@ import (
 const maxSignInURLLength = 2000
 
 var (
-	ErrInvalidSignInURL = errors.New("sign-in page must be an absolute https URL without credentials or fragment")
+	ErrInvalidSignInURL = errs.New("SIGN_IN_URL_INVALID", "sign-in page must be an absolute https URL without credentials or fragment")
 	// ErrSignInURLRequiresInternal: shopper accounts only exist on
 	// CommerceOS' own storefront channels.
-	ErrSignInURLRequiresInternal = errors.New("only internal sales channels have a shopper sign-in page")
+	ErrSignInURLRequiresInternal = errs.New("SIGN_IN_URL_REQUIRES_INTERNAL", "only internal sales channels have a shopper sign-in page")
 	// ErrSignInNotConfigured: a headless channel whose merchant hasn't set
 	// the page that completes sign-in.
-	ErrSignInNotConfigured = errors.New("this store has no sign-in page configured")
+	ErrSignInNotConfigured = errs.New("SIGN_IN_NOT_CONFIGURED", "this store has no sign-in page configured")
 )
 
 // ResolveSignInURL validates the page a headless storefront completes

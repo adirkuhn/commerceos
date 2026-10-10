@@ -2,8 +2,8 @@ package channels
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"strconv"
 	"strings"
 	"time"
@@ -21,7 +21,7 @@ import (
 // empty.
 const BackfillWooOrderPaymentsBatchSize = 25
 
-var ErrInvalidBackfillCursor = errors.New("invalid backfill cursor")
+var ErrInvalidBackfillCursor = errs.New("BACKFILL_CURSOR_INVALID", "invalid backfill cursor")
 
 type BackfillWooOrderPaymentsInput struct {
 	ConnectionID string

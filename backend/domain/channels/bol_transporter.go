@@ -1,8 +1,8 @@
 package channels
 
 import (
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"strings"
 
 	"github.com/adirkuhn/commerceos/domain/shipping"
@@ -11,7 +11,7 @@ import (
 // ErrBolTransporterUnsupported means a shipment's carrier has no Bol
 // transporter code, so Bol can't be told about it automatically -- the
 // merchant has to confirm that order by hand in Bol's seller portal.
-var ErrBolTransporterUnsupported = errors.New("carrier has no Bol transporter code")
+var ErrBolTransporterUnsupported = errs.New("BOL_TRANSPORTER_UNSUPPORTED", "carrier has no Bol transporter code")
 
 // bolTransporterRule picks a Bol transporter code for one carrier. Most
 // carriers map to a single code; DPD is the exception, with one code per

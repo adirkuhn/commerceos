@@ -1,6 +1,8 @@
 package channels
 
-import "errors"
+import (
+	"github.com/adirkuhn/commerceos/domain/errs"
+)
 
 // StorefrontMode is how an internal channel faces shoppers: headless means
 // the merchant brings their own frontend and uses only the /storefront/v1
@@ -15,11 +17,11 @@ const (
 )
 
 var (
-	ErrInvalidStorefrontMode = errors.New("invalid storefront mode")
+	ErrInvalidStorefrontMode = errs.New("STOREFRONT_MODE_INVALID", "invalid storefront mode")
 	// ErrThemedStorefrontRequiresInternal guards against a WooCommerce/Bol/
 	// WhatsApp channel claiming a hosted storefront -- their shop front
 	// lives on the external platform.
-	ErrThemedStorefrontRequiresInternal = errors.New("only internal sales channels can host a themed storefront")
+	ErrThemedStorefrontRequiresInternal = errs.New("THEMED_STOREFRONT_REQUIRES_INTERNAL", "only internal sales channels can host a themed storefront")
 )
 
 func (m StorefrontMode) Valid() bool {

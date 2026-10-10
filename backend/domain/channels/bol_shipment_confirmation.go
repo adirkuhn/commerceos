@@ -2,16 +2,16 @@ package channels
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"strings"
 	"time"
 )
 
 var (
-	ErrInvalidBolConfirmationStatus   = errors.New("invalid Bol shipment confirmation status")
-	ErrBolConfirmationAlreadyResolved = errors.New("Bol shipment confirmation already has a final result")
-	ErrBolConfirmationNotFound        = errors.New("Bol shipment confirmation not found")
+	ErrInvalidBolConfirmationStatus   = errs.New("BOL_CONFIRMATION_STATUS_INVALID", "invalid Bol shipment confirmation status")
+	ErrBolConfirmationAlreadyResolved = errs.New("BOL_CONFIRMATION_ALREADY_RESOLVED", "Bol shipment confirmation already has a final result")
+	ErrBolConfirmationNotFound        = errs.New("BOL_CONFIRMATION_NOT_FOUND", "Bol shipment confirmation not found")
 )
 
 // BolConfirmationStatus mirrors Bol's own process-status values -- a

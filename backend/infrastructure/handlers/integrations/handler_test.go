@@ -3047,7 +3047,7 @@ func TestPushProductToBolHandler_missingEAN_returns422NotInternal(t *testing.T) 
 	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/conn-1/push-product-bol", map[string]string{"product_id": "prod-1"})
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
-	assert.Contains(t, w.Body.String(), "VALIDATION_ERROR")
+	assert.Contains(t, w.Body.String(), `"code":"BOL_MISSING_EAN"`)
 }
 
 func TestPushProductToBolHandler_bulkPoolSKU_returns422NotInternal(t *testing.T) {
@@ -3058,7 +3058,7 @@ func TestPushProductToBolHandler_bulkPoolSKU_returns422NotInternal(t *testing.T)
 	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/conn-1/push-product-bol", map[string]string{"product_id": "prod-1"})
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
-	assert.Contains(t, w.Body.String(), "VALIDATION_ERROR")
+	assert.Contains(t, w.Body.String(), `"code":"PUSH_NO_SELLABLE_VARIANT"`)
 }
 
 func TestGetBolProductOverrideHandler_returnsNullWhenNoneExists(t *testing.T) {
@@ -3130,7 +3130,7 @@ func TestGetBolCommissionHandler_missingEAN_returns422NotInternal(t *testing.T) 
 	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/bol-commission/prod-1/sku-1", nil)
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
-	assert.Contains(t, w.Body.String(), "VALIDATION_ERROR")
+	assert.Contains(t, w.Body.String(), `"code":"BOL_MISSING_EAN"`)
 }
 
 func TestGetBolCommissionHandler_skuNotFound_returns404NotInternal(t *testing.T) {
@@ -3152,7 +3152,7 @@ func TestGetBolCommissionHandler_bolAPIFailure_returns502NotInternal(t *testing.
 	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/bol-commission/prod-1/sku-1", nil)
 
 	require.Equal(t, http.StatusBadGateway, w.Code)
-	assert.Contains(t, w.Body.String(), "UPSTREAM_ERROR")
+	assert.Contains(t, w.Body.String(), `"code":"BOL_COMMISSION_REQUEST_FAILED"`)
 }
 
 func TestListBolEconomicOperatorsHandler_success(t *testing.T) {
