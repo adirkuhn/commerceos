@@ -24,8 +24,8 @@ type UpdateMessageTemplateInput struct {
 }
 
 type UpdateMessageTemplateUseCase struct {
-	db   *gorm.DB
-	repo mcDomain.MessageTemplateRepository
+	db     *gorm.DB
+	repo   mcDomain.MessageTemplateRepository
 	outbox eventrecord.Enqueuer
 }
 

@@ -50,8 +50,8 @@ func validateMessageTemplateInput(name string, category mcDomain.Category, chann
 }
 
 type CreateMessageTemplateUseCase struct {
-	db   *gorm.DB
-	repo mcDomain.MessageTemplateRepository
+	db     *gorm.DB
+	repo   mcDomain.MessageTemplateRepository
 	outbox eventrecord.Enqueuer
 }
 

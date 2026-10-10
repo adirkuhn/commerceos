@@ -67,7 +67,7 @@ func TestDeleteMessageTemplate_RecordsDeleted(t *testing.T) {
 
 func TestCreateAutomationRule_RecordsCreated(t *testing.T) {
 	outbox := &eventrecordtest.Outbox{}
-	subject := mcDomain.KnownTriggerSubjects[0]
+	subject := mcDomain.KnownTriggerSubjects()[0]
 
 	_, err := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 1), &stubAutomationRuleRepo{}, templateRepoWith(mcDomain.MessageTemplate{ID: "t-1"}), outbox).
 		Execute(context.Background(), appmc.CreateAutomationRuleInput{Name: "Notify", TriggerSubject: subject, TemplateID: "t-1"})
@@ -81,7 +81,7 @@ func TestCreateAutomationRule_RecordsCreated(t *testing.T) {
 
 func TestUpdateAutomationRule_RecordsChangedFields(t *testing.T) {
 	outbox := &eventrecordtest.Outbox{}
-	subject := mcDomain.KnownTriggerSubjects[0]
+	subject := mcDomain.KnownTriggerSubjects()[0]
 	rules := &stubAutomationRuleRepo{byID: map[string]mcDomain.AutomationRule{"r-1": {ID: "r-1", Name: "Notify", TriggerSubject: subject, TemplateID: "t-1", Enabled: true}}}
 
 	_, err := appmc.NewUpdateAutomationRuleUseCase(newMockGormDB(t, 1), rules, templateRepoWith(mcDomain.MessageTemplate{ID: "t-1"}), outbox).

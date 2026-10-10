@@ -68,6 +68,24 @@ func (e Channel) Valid() bool {
 	}
 }
 
+// Defines values for MessageTriggerAudience.
+const (
+	Customer MessageTriggerAudience = "customer"
+	Staff    MessageTriggerAudience = "staff"
+)
+
+// Valid indicates whether the value is a known member of the MessageTriggerAudience enum.
+func (e MessageTriggerAudience) Valid() bool {
+	switch e {
+	case Customer:
+		return true
+	case Staff:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Operator.
 const (
 	Eq  Operator = "eq"
@@ -95,11 +113,30 @@ func (e Operator) Valid() bool {
 	}
 }
 
+// Defines values for TemplateVariableType.
+const (
+	List TemplateVariableType = "list"
+	Text TemplateVariableType = "text"
+)
+
+// Valid indicates whether the value is a known member of the TemplateVariableType enum.
+func (e TemplateVariableType) Valid() bool {
+	switch e {
+	case List:
+		return true
+	case Text:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TriggerSubject.
 const (
 	IntegrationsConnectionConnected     TriggerSubject = "integrations.connection.connected"
 	InventoryStockChanged               TriggerSubject = "inventory.stock.changed"
 	InventoryStockCloseToExpiryReported TriggerSubject = "inventory.stock.close_to_expiry_reported"
+	OmsSalesOrderCreated                TriggerSubject = "oms.sales_order.created"
 	OmsSalesOrderStatusChanged          TriggerSubject = "oms.sales_order.status_changed"
 	PaymentsRefundIssued                TriggerSubject = "payments.refund.issued"
 	PaymentsRefundManualReviewRequired  TriggerSubject = "payments.refund.manual_review_required"
@@ -118,6 +155,8 @@ func (e TriggerSubject) Valid() bool {
 	case InventoryStockChanged:
 		return true
 	case InventoryStockCloseToExpiryReported:
+		return true
+	case OmsSalesOrderCreated:
 		return true
 	case OmsSalesOrderStatusChanged:
 		return true
@@ -240,8 +279,51 @@ type MessageTemplateResponse struct {
 	Error interface{}      `json:"error,omitempty"`
 }
 
+// MessageTrigger defines model for MessageTrigger.
+type MessageTrigger struct {
+	// Audience customer -- the order's customer (billing contact for guests); staff -- a notification category's email recipients.
+	Audience MessageTriggerAudience `json:"audience"`
+
+	// HasOrder The trigger carries a sales order, so order and customer variables are filled.
+	HasOrder bool `json:"has_order"`
+
+	// SampleData Example data for every variable, for previews.
+	SampleData map[string]interface{} `json:"sample_data"`
+
+	// Subject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects. Most go to the customer of the event's sales order; inventory.stock.close_to_expiry_reported (the daily stock-close-to-expiry report, payload window_days, min_days_left, item_count and items[] with product_name, sku, image_url, quantity, expiry_date, days_left, price, sale_price) goes to the stock notification email recipients instead.
+	Subject   TriggerSubject     `json:"subject"`
+	Variables []TemplateVariable `json:"variables"`
+}
+
+// MessageTriggerAudience customer -- the order's customer (billing contact for guests); staff -- a notification category's email recipients.
+type MessageTriggerAudience string
+
+// MessageTriggerListResponse defines model for MessageTriggerListResponse.
+type MessageTriggerListResponse struct {
+	Data  *[]MessageTrigger `json:"data,omitempty"`
+	Error interface{}       `json:"error,omitempty"`
+}
+
 // Operator defines model for Operator.
 type Operator string
+
+// TemplateVariable defines model for TemplateVariable.
+type TemplateVariable struct {
+	// Example Sample value used by previews (any JSON value; null for a list).
+	Example interface{} `json:"example"`
+
+	// Fields For a list, the fields each repetition offers; empty otherwise.
+	Fields []TemplateVariable `json:"fields"`
+
+	// Name Example: order_number
+	Name string `json:"name"`
+
+	// Type text is printed as {{name}}; list is repeated with {{#name}}...{{/name}}.
+	Type TemplateVariableType `json:"type"`
+}
+
+// TemplateVariableType text is printed as {{name}}; list is repeated with {{#name}}...{{/name}}.
+type TemplateVariableType string
 
 // TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects. Most go to the customer of the event's sales order; inventory.stock.close_to_expiry_reported (the daily stock-close-to-expiry report, payload window_days, min_days_left, item_count and items[] with product_name, sku, image_url, quantity, expiry_date, days_left, price, sale_price) goes to the stock notification email recipients instead.
 type TriggerSubject string
@@ -315,6 +397,9 @@ type ServerInterface interface {
 	// UpdateMessageTemplate Update a message template
 	// (PATCH /message-templates/{id})
 	UpdateMessageTemplate(c *gin.Context, id Id)
+	// ListMessageTriggers Every event a rule can fire on, with the variables its templates can use
+	// (GET /message-triggers)
+	ListMessageTriggers(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -478,6 +563,19 @@ func (siw *ServerInterfaceWrapper) UpdateMessageTemplate(c *gin.Context) {
 	siw.Handler.UpdateMessageTemplate(c, id)
 }
 
+// ListMessageTriggers operation middleware
+func (siw *ServerInterfaceWrapper) ListMessageTriggers(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListMessageTriggers(c)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -505,6 +603,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
+	router.GET(options.BaseURL+"/message-triggers", wrapper.ListMessageTriggers)
 	router.GET(options.BaseURL+"/message-templates", wrapper.ListMessageTemplates)
 	router.POST(options.BaseURL+"/message-templates", wrapper.CreateMessageTemplate)
 	router.DELETE(options.BaseURL+"/message-templates/:id", wrapper.DeleteMessageTemplate)
@@ -520,39 +619,47 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

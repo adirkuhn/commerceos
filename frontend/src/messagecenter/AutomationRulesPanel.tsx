@@ -29,6 +29,7 @@ const triggerLabels = (t: T): Record<TriggerSubject, string> => ({
   'inventory.stock.changed': t('trigger.stockChanged'),
   'shipping.shipment.fulfillment_signal': t('trigger.shipmentUpdate'),
   'inventory.stock.close_to_expiry_reported': t('trigger.stockCloseToExpiry'),
+  'oms.sales_order.created': t('trigger.orderCreated'),
 })
 
 // Triggers addressed to the tenant's own team (backend
@@ -39,7 +40,7 @@ const ALL_TRIGGERS: TriggerSubject[] = [
   'pms.product.deleted', 'storefront.order.placed', 'pms.category.changed', 'pms.product.changed',
   'payments.refund.manual_review_required', 'payments.refund.issued', 'integrations.connection.connected',
   'oms.sales_order.status_changed', 'inventory.stock.changed', 'shipping.shipment.fulfillment_signal',
-  'inventory.stock.close_to_expiry_reported',
+  'inventory.stock.close_to_expiry_reported', 'oms.sales_order.created',
 ]
 const ALL_OPERATORS: Operator[] = ['eq', 'neq', 'in', 'gt', 'lt']
 const operatorLabels = (t: T): Record<Operator, string> => ({ eq: t('operator.eq'), neq: t('operator.neq'), in: t('operator.in'), gt: '>', lt: '<' })
@@ -295,6 +296,9 @@ export default function AutomationRulesPanel() {
                 </select>
                 {STAFF_TRIGGERS.includes(form.triggerSubject) && (
                   <p className="text-2xs text-ink-4 mt-1">{t('rules.staffAudience')}</p>
+                )}
+                {form.triggerSubject === 'oms.sales_order.created' && (
+                  <p className="text-2xs text-ink-4 mt-1">{t('rules.orderCreatedHint')}</p>
                 )}
               </div>
 

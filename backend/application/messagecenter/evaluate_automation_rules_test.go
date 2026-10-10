@@ -14,6 +14,8 @@ import (
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
+	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 )
 
 type evalDeps struct {
@@ -26,7 +28,37 @@ type evalDeps struct {
 	emailClient  *fakeEmailClient
 	emailFactory *fakeEmailClientFactory
 	staff        *stubCategoryRecipients
+	lines        map[string][]omsDomain.SalesOrderLineItem
+	shipments    map[string][]shippingDomain.Shipment
+	profile      *settingsDomain.CompanyProfile
+	settings     *settingsDomain.TenantSettings
 }
+
+type fakeLineItems struct{ bySO map[string][]omsDomain.SalesOrderLineItem }
+
+func (f fakeLineItems) ListBySalesOrder(_ context.Context, id string) ([]omsDomain.SalesOrderLineItem, error) {
+	return f.bySO[id], nil
+}
+
+type fakeShipments struct{ bySO map[string][]shippingDomain.Shipment }
+
+func (f fakeShipments) FindBySalesOrderID(_ context.Context, id string) ([]shippingDomain.Shipment, error) {
+	return f.bySO[id], nil
+}
+
+type noCarrierOverrides struct{}
+
+func (noCarrierOverrides) FindByConnectionAndCarrier(context.Context, string, shippingDomain.Carrier) (*shippingDomain.ShippingCarrierOverride, error) {
+	return nil, nil
+}
+
+type fixedProfile struct{ p *settingsDomain.CompanyProfile }
+
+func (f fixedProfile) Get(context.Context) (*settingsDomain.CompanyProfile, error) { return f.p, nil }
+
+type fixedSettings struct{ s *settingsDomain.TenantSettings }
+
+func (f fixedSettings) Get(context.Context) (*settingsDomain.TenantSettings, error) { return f.s, nil }
 
 type evalHarness struct {
 	uc *appmc.EvaluateAutomationRulesUseCase
@@ -57,8 +89,25 @@ func newEvalUseCase(t *testing.T, d evalDeps) *appmc.EvaluateAutomationRulesUseC
 	if d.emailFactory == nil {
 		d.emailFactory = &fakeEmailClientFactory{client: &fakeEmailClient{}}
 	}
+	if d.salesOrders == nil {
+		d.salesOrders = &fakeSalesOrderRepo{}
+	}
+	if d.customers == nil {
+		d.customers = &fakeCustomerRepo{}
+	}
+	if d.profile == nil {
+		d.profile = &settingsDomain.CompanyProfile{TradingName: "Cantinho"}
+	}
+	if d.settings == nil {
+		d.settings = &settingsDomain.TenantSettings{}
+	}
+	orders := appmc.OrderSources{
+		SalesOrders: d.salesOrders, Customers: d.customers, LineItems: fakeLineItems{bySO: d.lines},
+		Shipments: fakeShipments{bySO: d.shipments}, CarrierOverrides: noCarrierOverrides{},
+	}
+	store := appmc.StoreSources{CompanyProfile: fixedProfile{d.profile}, Settings: fixedSettings{d.settings}}
 	return appmc.NewEvaluateAutomationRulesUseCase(
-		newMockGormDB(t, 1), d.ruleRepo, d.templateRepo, d.salesOrders, d.customers, d.conns,
+		newMockGormDB(t, 1), d.ruleRepo, d.templateRepo, orders, store, d.conns,
 		&fakeEvolutionAPIClientFactory{client: d.evoClient}, testEncryptionSecret,
 		d.emailFactory, d.emailClient, d.staff,
 	)

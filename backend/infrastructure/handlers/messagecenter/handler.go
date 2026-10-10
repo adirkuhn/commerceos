@@ -198,6 +198,29 @@ func (h *Handler) DeleteAutomationRule(c *gin.Context, id genmc.Id) {
 	middleware.OK(c, nil)
 }
 
+func (h *Handler) ListMessageTriggers(c *gin.Context) {
+	triggers := appmc.ListTriggers()
+	out := make([]genmc.MessageTrigger, len(triggers))
+	for i, t := range triggers {
+		out[i] = genmc.MessageTrigger{
+			Subject: genmc.TriggerSubject(t.Subject), Audience: genmc.MessageTriggerAudience(t.Audience.Kind),
+			HasOrder: t.OrderIDField != "", Variables: toGenVariables(t.Variables()), SampleData: t.SampleData(),
+		}
+	}
+	middleware.OK(c, out)
+}
+
+func toGenVariables(vs []mcDomain.Variable) []genmc.TemplateVariable {
+	out := make([]genmc.TemplateVariable, len(vs))
+	for i, v := range vs {
+		example := v.Example
+		out[i] = genmc.TemplateVariable{
+			Name: v.Name, Type: genmc.TemplateVariableType(v.Type), Example: &example, Fields: toGenVariables(v.Fields),
+		}
+	}
+	return out
+}
+
 func toGenRule(r mcDomain.AutomationRule) genmc.AutomationRule {
 	conditions := make([]genmc.Condition, len(r.Conditions))
 	for i, c := range r.Conditions {

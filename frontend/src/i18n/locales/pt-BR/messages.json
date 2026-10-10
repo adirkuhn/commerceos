@@ -46,6 +46,7 @@
     "needTemplate": "Crie um modelo de mensagem primeiro",
     "new": "Nova regra",
     "newTitle": "Nova regra de automação",
+    "orderCreatedHint": "Dispara para todo pedido novo, inclusive os importados do WooCommerce, Bol e PDV. Para ignorar pedidos importados, adicione a condição source ≠ woocommerce.",
     "removeCondition": "Remover condição",
     "selectTemplate": "Escolha um modelo",
     "staffAudience": "Vai para os destinatários de e-mail de Estoque em Configurações › Notificações (quando o e-mail de Estoque está ativo), mais os e-mails extras abaixo.",
@@ -90,6 +91,7 @@
   "trigger": {
     "categoryChanged": "Categoria alterada",
     "integrationConnected": "Integração conectada",
+    "orderCreated": "Pedido criado (qualquer origem)",
     "orderStatusChanged": "Status do pedido alterado",
     "productChanged": "Produto alterado",
     "productDeleted": "Produto excluído",

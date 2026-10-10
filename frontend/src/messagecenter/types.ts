@@ -38,6 +38,7 @@ export type TriggerSubject =
   | 'inventory.stock.changed'
   | 'shipping.shipment.fulfillment_signal'
   | 'inventory.stock.close_to_expiry_reported'
+  | 'oms.sales_order.created'
 
 export type Operator = 'eq' | 'neq' | 'in' | 'gt' | 'lt'
 

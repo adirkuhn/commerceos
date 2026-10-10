@@ -7,26 +7,12 @@ import (
 	"log"
 	"strings"
 
-	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"github.com/adirkuhn/commerceos/domain/messaging"
-	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
-
-// salesOrderFinder is oms.SalesOrderRepository narrowed to point of use
-// (ISP) -- EvaluateAutomationRulesUseCase only ever needs to resolve one
-// order's customer, given the triggering event's sales_order_id.
-type salesOrderFinder interface {
-	FindByID(ctx context.Context, id string) (*omsDomain.SalesOrder, error)
-}
-
-// customerFinder is customers.CustomerRepository narrowed to point of use.
-type customerFinder interface {
-	FindByID(ctx context.Context, id string) (*customersDomain.Customer, error)
-}
 
 // connectionLister is integrations.ConnectionRepository narrowed to point
 // of use -- finds the tenant's WhatsApp/Email connections, same narrowing
@@ -63,6 +49,8 @@ type EvaluateAutomationRulesUseCase struct {
 	ruleRepo           mcDomain.AutomationRuleRepository
 	templateRepo       mcDomain.MessageTemplateRepository
 	audiences          map[mcDomain.AudienceKind]audienceResolver
+	orders             OrderSources
+	store              StoreSources
 	connRepo           connectionLister
 	evolutionFactory   integrationsDomain.EvolutionAPIClientFactory
 	encryptionSecret   string
@@ -77,7 +65,7 @@ type EvaluateAutomationRulesUseCase struct {
 
 func NewEvaluateAutomationRulesUseCase(
 	db *gorm.DB, ruleRepo mcDomain.AutomationRuleRepository, templateRepo mcDomain.MessageTemplateRepository,
-	salesOrderRepo salesOrderFinder, customerRepo customerFinder, connRepo connectionLister,
+	orders OrderSources, store StoreSources, connRepo connectionLister,
 	evolutionFactory integrationsDomain.EvolutionAPIClientFactory, encryptionSecret string,
 	emailClientFactory messaging.EmailClientFactory, fallbackEmailClient messaging.Client,
 	staffRecipients categoryEmailRecipients,
@@ -85,9 +73,10 @@ func NewEvaluateAutomationRulesUseCase(
 	return &EvaluateAutomationRulesUseCase{
 		db: db, ruleRepo: ruleRepo, templateRepo: templateRepo,
 		audiences: map[mcDomain.AudienceKind]audienceResolver{
-			mcDomain.AudienceCustomer: customerAudience{salesOrderRepo: salesOrderRepo, customerRepo: customerRepo},
+			mcDomain.AudienceCustomer: customerAudience{},
 			mcDomain.AudienceStaff:    staffAudience{recipients: staffRecipients},
 		},
+		orders: orders, store: store,
 		connRepo:         connRepo,
 		evolutionFactory: evolutionFactory, encryptionSecret: encryptionSecret,
 		emailClientFactory: emailClientFactory, fallbackEmailClient: fallbackEmailClient,
@@ -107,16 +96,22 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 			return nil
 		}
 
-		target := mcDomain.AudienceFor(subject)
-		resolver, ok := uc.audiences[target.Kind]
+		trigger, ok := mcDomain.TriggerFor(subject)
 		if !ok {
-			return fmt.Errorf("no audience resolver for %q", target.Kind)
+			return fmt.Errorf("unknown trigger %q", subject)
 		}
-		aud, err := resolver.resolve(ctx, target, payload)
+		data, order, err := uc.messageData(ctx, trigger, payload)
 		if err != nil {
 			return err
 		}
-		data := templateData(payload, aud.vars)
+		resolver, ok := uc.audiences[trigger.Audience.Kind]
+		if !ok {
+			return fmt.Errorf("no audience resolver for %q", trigger.Audience.Kind)
+		}
+		aud, err := resolver.resolve(ctx, trigger.Audience, order)
+		if err != nil {
+			return err
+		}
 
 		conns, err = uc.connRepo.ListByTenant(ctx)
 		if err != nil {
@@ -125,7 +120,7 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 		whatsappConnected := findWhatsAppConnection(conns) != nil
 
 		for _, rule := range rules {
-			if !rule.Matches(payload) {
+			if !rule.Matches(data) {
 				continue
 			}
 			template, err := uc.templateRepo.FindByID(ctx, rule.TemplateID)
@@ -163,6 +158,41 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 	}
 
 	return uc.dispatch(ctx, sends, conns)
+}
+
+// messageData is everything a template and a rule's conditions see: the
+// event's payload (an EntityAction's data fields lifted to the top), the
+// store's details, and -- for a trigger with a sales order -- the order's
+// (see domain/messagecenter.Trigger.Variables). order is nil when the
+// trigger has none.
+func (uc *EvaluateAutomationRulesUseCase) messageData(ctx context.Context, trigger mcDomain.Trigger, payload map[string]any) (map[string]any, *loadedOrder, error) {
+	settings, err := uc.store.Settings.Get(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	profile, err := uc.store.CompanyProfile.Get(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	var order *loadedOrder
+	if id, _ := payload[trigger.OrderIDField].(string); trigger.OrderIDField != "" && id != "" {
+		if order, err = uc.orders.load(ctx, id); err != nil {
+			return nil, nil, err
+		}
+	}
+	data := templateData(payload)
+	merge(data, storeVars(profile))
+	if order != nil {
+		merge(data, orderVars(order, settings.Language, settings.DateFormat))
+	}
+	merge(data, eventVars(payload, order, settings.Language))
+	return data, order, nil
+}
+
+func merge(into, from map[string]any) {
+	for k, v := range from {
+		into[k] = v
+	}
 }
 
 // channelAddresses is every distinct address one channel's message goes

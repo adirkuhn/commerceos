@@ -12,8 +12,8 @@ import (
 )
 
 type DeleteAutomationRuleUseCase struct {
-	db   *gorm.DB
-	repo mcDomain.AutomationRuleRepository
+	db     *gorm.DB
+	repo   mcDomain.AutomationRuleRepository
 	outbox eventrecord.Enqueuer
 }
 

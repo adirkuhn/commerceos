@@ -7,16 +7,18 @@ import (
 	"github.com/adirkuhn/commerceos/domain/messaging"
 )
 
-// templateData is what a template renders against: every payload field
-// under its own JSON key (e.g. {{status_code}}, or {{#items}} for a list),
-// generic across trigger subjects, plus the audience's own values (e.g.
-// {{customer_name}}), which never live in an event payload.
-func templateData(payload, audienceVars map[string]any) map[string]any {
-	data := make(map[string]any, len(payload)+len(audienceVars))
-	for k, v := range payload {
-		data[k] = v
+// templateData is an event's payload as template data: every payload
+// field under its own JSON key (e.g. {{status_code}}, or {{#items}} for a
+// list), with an EntityAction's data fields (e.g. {{source}}) lifted to
+// the top -- the store's and the order's values are added on top.
+func templateData(payload map[string]any) map[string]any {
+	data := make(map[string]any, len(payload))
+	if nested, ok := payload["data"].(map[string]any); ok {
+		for k, v := range nested {
+			data[k] = v
+		}
 	}
-	for k, v := range audienceVars {
+	for k, v := range payload {
 		data[k] = v
 	}
 	return data

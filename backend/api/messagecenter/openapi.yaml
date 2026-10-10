@@ -12,6 +12,24 @@ servers:
   - url: /api/v1
 
 paths:
+  /message-triggers:
+    get:
+      operationId: listMessageTriggers
+      summary: Every event a rule can fire on, with the variables its templates can use
+      description: >-
+        For each trigger: who its messages go to, whether it carries a sales
+        order (then order and customer variables are available), every
+        variable a template can use ({{name}}, or {{#name}}...{{/name}} for a
+        list, with the fields each repetition offers), and sample data for
+        previews.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageTriggerListResponse'
+
   /message-templates:
     get:
       operationId: listMessageTemplates
@@ -253,6 +271,52 @@ components:
         - inventory.stock.changed
         - shipping.shipment.fulfillment_signal
         - inventory.stock.close_to_expiry_reported
+        - oms.sales_order.created
+
+    TemplateVariable:
+      type: object
+      required: [name, type, example, fields]
+      properties:
+        name: { type: string, example: order_number }
+        type:
+          type: string
+          enum: [text, list]
+          description: text is printed as {{name}}; list is repeated with {{#name}}...{{/name}}.
+        example:
+          description: Sample value used by previews (any JSON value; null for a list).
+          nullable: true
+        fields:
+          type: array
+          description: For a list, the fields each repetition offers; empty otherwise.
+          items: { $ref: '#/components/schemas/TemplateVariable' }
+
+    MessageTrigger:
+      type: object
+      required: [subject, audience, has_order, variables, sample_data]
+      properties:
+        subject: { $ref: '#/components/schemas/TriggerSubject' }
+        audience:
+          type: string
+          enum: [customer, staff]
+          description: customer -- the order's customer (billing contact for guests); staff -- a notification category's email recipients.
+        has_order:
+          type: boolean
+          description: The trigger carries a sales order, so order and customer variables are filled.
+        variables:
+          type: array
+          items: { $ref: '#/components/schemas/TemplateVariable' }
+        sample_data:
+          type: object
+          additionalProperties: true
+          description: Example data for every variable, for previews.
+
+    MessageTriggerListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/MessageTrigger' }
+        error: { nullable: true }
 
     Operator:
       type: string

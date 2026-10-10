@@ -3,7 +3,6 @@ package messagecenter
 import (
 	"context"
 
-	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
@@ -28,50 +27,34 @@ func (r recipient) address(ch messaging.Channel) string {
 	}
 }
 
-// audience is who an event's messages go to, plus the template values that
-// come with them (e.g. customer_name).
+// audience is who an event's messages go to.
 type audience struct {
 	recipients []recipient
-	vars       map[string]any
 }
 
-// audienceResolver resolves one mcDomain.AudienceKind for an event.
+// audienceResolver resolves one mcDomain.AudienceKind for an event; order
+// is the trigger's sales order (nil when it has none).
 type audienceResolver interface {
-	resolve(ctx context.Context, a mcDomain.Audience, payload map[string]any) (audience, error)
+	resolve(ctx context.Context, a mcDomain.Audience, order *loadedOrder) (audience, error)
 }
 
-// customerAudience is the customer of the event's sales order, found from
-// a "sales_order_id" payload field. No order or no customer means nobody
-// (rules still send to their extra recipients).
-type customerAudience struct {
-	salesOrderRepo salesOrderFinder
-	customerRepo   customerFinder
-}
+// customerAudience is the customer of the trigger's sales order -- the
+// order's billing contact for a guest order. No order means nobody (rules
+// still send to their extra recipients).
+type customerAudience struct{}
 
-func (r customerAudience) resolve(ctx context.Context, _ mcDomain.Audience, payload map[string]any) (audience, error) {
-	customer, err := r.findCustomer(ctx, payload)
-	if err != nil || customer == nil {
-		return audience{vars: map[string]any{"customer_name": ""}}, err
+func (customerAudience) resolve(_ context.Context, _ mcDomain.Audience, order *loadedOrder) (audience, error) {
+	if order == nil {
+		return audience{}, nil
 	}
-	return audience{
-		recipients: []recipient{{email: customer.Email, phone: customer.PhoneE164}},
-		vars:       map[string]any{"customer_name": customer.FirstName},
-	}, nil
-}
-
-func (r customerAudience) findCustomer(ctx context.Context, payload map[string]any) (*customersDomain.Customer, error) {
-	salesOrderID, ok := payload["sales_order_id"].(string)
-	if !ok || salesOrderID == "" {
-		return nil, nil
+	r := recipient{email: order.order.Billing.Email}
+	if c := order.customer; c != nil {
+		r.phone = c.PhoneE164
+		if c.Email != "" {
+			r.email = c.Email
+		}
 	}
-	order, err := r.salesOrderRepo.FindByID(ctx, salesOrderID)
-	if err != nil {
-		return nil, err
-	}
-	if order.CustomerID == nil {
-		return nil, nil
-	}
-	return r.customerRepo.FindByID(ctx, *order.CustomerID)
+	return audience{recipients: []recipient{r}}, nil
 }
 
 // categoryEmailRecipients is application/notifications'
@@ -86,7 +69,7 @@ type staffAudience struct {
 	recipients categoryEmailRecipients
 }
 
-func (r staffAudience) resolve(ctx context.Context, a mcDomain.Audience, _ map[string]any) (audience, error) {
+func (r staffAudience) resolve(ctx context.Context, a mcDomain.Audience, _ *loadedOrder) (audience, error) {
 	emails, err := r.recipients.Execute(ctx, notificationsDomain.Category(a.StaffCategory))
 	if err != nil {
 		return audience{}, err

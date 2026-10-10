@@ -321,3 +321,19 @@ func TestCreateAutomationRuleHandler_malformedExtraRecipientIsUnprocessable(t *t
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
+
+func TestListMessageTriggersHandler_listsVariablesAndSampleData(t *testing.T) {
+	h := newHandler(nil, nil, nil, nil, nil, nil, nil, nil)
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/message-triggers", "")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, `"subject":"storefront.order.placed"`)
+	assert.Contains(t, body, `"audience":"customer"`)
+	assert.Contains(t, body, `"has_order":true`)
+	assert.Contains(t, body, `"name":"order_number"`)
+	assert.Contains(t, body, `"type":"list"`)
+	assert.Contains(t, body, `"subject":"inventory.stock.close_to_expiry_reported"`)
+	assert.Contains(t, body, `"audience":"staff"`)
+	assert.Contains(t, body, `"sample_data":{`)
+}

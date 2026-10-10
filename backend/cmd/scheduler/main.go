@@ -359,11 +359,16 @@ func main() {
 	}
 	evaluateAutomationRulesUC := messagecenterapp.NewEvaluateAutomationRulesUseCase(
 		db, repositories.NewAutomationRuleRepo(db), repositories.NewMessageTemplateRepo(db),
-		salesOrderRepo, customerRepo, connRepo, evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
+		messagecenterapp.OrderSources{
+			SalesOrders: salesOrderRepo, LineItems: salesOrderLineItemRepo, Customers: customerRepo,
+			Shipments: repositories.NewShipmentRepo(db), CarrierOverrides: repositories.NewShippingCarrierOverrideRepo(db),
+		},
+		messagecenterapp.StoreSources{CompanyProfile: repositories.NewCompanyProfileRepo(db), Settings: settingsRepo},
+		connRepo, evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
 		smtp.NewClientFactory(), automationEmailClient,
 		notificationsapp.NewCategoryEmailRecipientsUseCase(db, repositories.NewNotificationPreferencesRepo(db)),
 	)
-	for _, subject := range mcDomain.KnownTriggerSubjects {
+	for _, subject := range mcDomain.KnownTriggerSubjects() {
 		automationEngineConsumer := consumers.NewAutomationEngineConsumer(subject, processedEventRepo, evaluateAutomationRulesUC, js)
 		// JetStream durable names may not contain "." (see nats.go's
 		// checkConsumerName) -- subject itself keeps its dots (that's the

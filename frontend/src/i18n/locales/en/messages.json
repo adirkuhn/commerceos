@@ -45,6 +45,7 @@
     "needTemplate": "Create a message template first",
     "new": "New rule",
     "newTitle": "New automation rule",
+    "orderCreatedHint": "Fires for every new order, including ones imported from WooCommerce, Bol and POS. To skip imported orders, add the condition source ≠ woocommerce.",
     "removeCondition": "Remove condition",
     "selectTemplate": "Select a template",
     "staffAudience": "Goes to the Stock email recipients in Settings › Notifications (when Stock email is on), plus the extra emails below.",
@@ -88,6 +89,7 @@
   "trigger": {
     "categoryChanged": "Category changed",
     "integrationConnected": "Integration connected",
+    "orderCreated": "Order created (any source)",
     "orderStatusChanged": "Order status changed",
     "productChanged": "Product changed",
     "productDeleted": "Product deleted",

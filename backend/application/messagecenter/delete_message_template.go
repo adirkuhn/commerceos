@@ -12,8 +12,8 @@ import (
 )
 
 type DeleteMessageTemplateUseCase struct {
-	db   *gorm.DB
-	repo mcDomain.MessageTemplateRepository
+	db     *gorm.DB
+	repo   mcDomain.MessageTemplateRepository
 	outbox eventrecord.Enqueuer
 }
 

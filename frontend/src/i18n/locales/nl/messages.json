@@ -45,6 +45,7 @@
     "needTemplate": "Maak eerst een berichtsjabloon",
     "new": "Nieuwe regel",
     "newTitle": "Nieuwe automatiseringsregel",
+    "orderCreatedHint": "Gaat af bij elke nieuwe order, ook die uit WooCommerce, Bol en de kassa. Voeg de voorwaarde source ≠ woocommerce toe om geïmporteerde orders over te slaan.",
     "removeCondition": "Voorwaarde verwijderen",
     "selectTemplate": "Kies een sjabloon",
     "staffAudience": "Gaat naar de e-mailontvangers voor Voorraad in Instellingen › Meldingen (als Voorraad-e-mail aan staat), plus de extra adressen hieronder.",
@@ -88,6 +89,7 @@
   "trigger": {
     "categoryChanged": "Categorie gewijzigd",
     "integrationConnected": "Integratie gekoppeld",
+    "orderCreated": "Order aangemaakt (elke bron)",
     "orderStatusChanged": "Orderstatus gewijzigd",
     "productChanged": "Product gewijzigd",
     "productDeleted": "Product verwijderd",
