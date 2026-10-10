@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { DiscardRecordReport, ListDiscardsParams } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseDiscardsState {
   discards: DiscardRecordReport[]
@@ -27,7 +28,7 @@ export function useDiscards(token: string, params: ListDiscardsParams = {}): Use
       setDiscards(result.discards)
       setTotal(result.total)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('inventory:errors.unknown'))
+      setError(apiErrorText(e) ?? i18next.t('inventory:errors.unknown'))
     } finally {
       setLoading(false)
     }

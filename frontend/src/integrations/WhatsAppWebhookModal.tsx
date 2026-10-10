@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import * as api from './api'
 import type { Connection } from './types'
 import { Dialog } from '../components/common/Dialog'
+import { apiErrorText } from '../api/apiErrorText'
 
 // The webhook receiver lives outside VITE_API_BASE_URL's per-domain
 // convention -- see integrations/WooCommerceSyncSettingsPage.tsx's own
@@ -40,7 +41,7 @@ export function WhatsAppWebhookModal({ connection, tenantId, onClose }: {
       const result = await api.setWebhookSecret(token ?? '', connection.id)
       setSecret(result.webhook_secret)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('whatsappWebhook.failed'))
+      setError(apiErrorText(err) ?? t('whatsappWebhook.failed'))
     } finally {
       setGenerating(false)
     }

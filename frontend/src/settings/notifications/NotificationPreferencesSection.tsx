@@ -7,6 +7,7 @@ import { NotificationPreferencesError } from './api'
 import { useNotificationPreferences } from './useNotificationPreferences'
 import type { NotificationCategory, NotificationCategoryPreference, NotificationPreferencesInput } from './types'
 import { useDateFormat } from '../../format/DateFormatProvider'
+import { apiErrorText } from '../../api/apiErrorText'
 
 function categoryText(t: TFunction<['settings', 'common']>, category: NotificationCategory): { name: string; description: string } {
   switch (category) {
@@ -66,7 +67,7 @@ export function NotificationPreferencesSection() {
       setSavedAt(formatTime(new Date()))
     } catch (err) {
       if (err instanceof NotificationPreferencesError && err.isRecipientError) setRecipientError(err.message)
-      else setFormError(err instanceof Error ? err.message : t('notifications.saveFailed'))
+      else setFormError(apiErrorText(err) ?? t('notifications.saveFailed'))
     } finally {
       setSaving(false)
     }

@@ -13,6 +13,7 @@ import { CURRENCIES, poStatusLabel, todayDateString } from './procurementHelpers
 import { DocumentsSection } from './DocumentsSection'
 import { LineItemsSection } from './LineItemsSection'
 import { ReceivingSection } from './ReceivingSection'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Purchase Order Edit Page ────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, on
       if (updated.supplier_id) setSupplierId(updated.supplier_id)
       await refreshDetail()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('po.confirmSupplierFailed'))
+      setFormError(apiErrorText(err) ?? t('po.confirmSupplierFailed'))
     } finally {
       setConfirmingSuggestedSupplier(false)
     }
@@ -138,7 +139,7 @@ export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, on
         await updateHeader(input)
       }
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('po.saveFailed'))
+      setFormError(apiErrorText(err) ?? t('po.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -350,7 +351,7 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAs
       const po = await procurementApi.createSupplierAndAssignToPurchaseOrder(token ?? '', purchaseOrderId, { name })
       if (po.supplier_id) onAssigned(po.supplier_id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('missing.createFailed'))
+      setError(apiErrorText(err) ?? t('missing.createFailed'))
     } finally {
       setSaving(false)
     }

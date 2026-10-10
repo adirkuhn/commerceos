@@ -1,6 +1,7 @@
 import i18next from 'i18next'
 import { useCallback, useState } from 'react'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 export interface BackfillProgress {
   checked: number
@@ -33,7 +34,7 @@ export function useBackfillOrderPayments(token: string, connectionId: string) {
       } while (cursor)
       setDone(true)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('integrations:woo.backfillPaymentsFailed'))
+      setError(apiErrorText(e) ?? i18next.t('integrations:woo.backfillPaymentsFailed'))
     } finally {
       setRunning(false)
     }

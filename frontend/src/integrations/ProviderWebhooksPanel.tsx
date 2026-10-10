@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { useProviderWebhooks } from './hooks/useProviderWebhooks'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Lists what's actually registered at the provider (WooCommerce/MyParcel)
 // for this connection, and lets an admin register a new subscription
@@ -26,7 +27,7 @@ export default function ProviderWebhooksPanel({ token, connectionId }: { token: 
       await create(topic.trim())
       setTopic('')
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('providerWebhooks.createFailed'))
+      setFormError(apiErrorText(err) ?? t('providerWebhooks.createFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -37,7 +38,7 @@ export default function ProviderWebhooksPanel({ token, connectionId }: { token: 
     try {
       await remove(id)
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('providerWebhooks.removeFailed'))
+      setFormError(apiErrorText(err) ?? t('providerWebhooks.removeFailed'))
     } finally {
       setBusyId(null)
     }

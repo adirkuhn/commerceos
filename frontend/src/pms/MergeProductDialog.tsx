@@ -7,6 +7,7 @@ import { formatMoney } from '../format/money'
 import * as api from './api'
 import { useProductMerge } from './hooks/useProductMerge'
 import type { MergePreviewSKU, Product, ProductMergeResult } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface MergeProductDialogProps {
   token: string
@@ -48,7 +49,7 @@ export function MergeProductDialog({ token, duplicate, currency, targetId, onCho
     try {
       onMerged(await merge())
     } catch (e) {
-      setMergeError(e instanceof Error ? e.message : t('merge.failed'))
+      setMergeError(apiErrorText(e) ?? t('merge.failed'))
     } finally {
       setMerging(false)
     }
@@ -176,7 +177,7 @@ function TargetSearch({ token, excludeId, onPick }: { token: string; excludeId: 
     const timeout = setTimeout(() => {
       api.listProducts(token, { search: query.trim(), perPage: 10 })
         .then(r => { if (!cancelled) setResults(r.products.filter(p => p.id !== excludeId)) })
-        .catch((e: unknown) => { if (!cancelled) setError(e instanceof Error ? e.message : t('merge.searchFailed')) })
+        .catch((e: unknown) => { if (!cancelled) setError(apiErrorText(e) ?? t('merge.searchFailed')) })
     }, 250)
     return () => { cancelled = true; clearTimeout(timeout) }
   }, [token, query, excludeId])

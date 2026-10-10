@@ -5,6 +5,7 @@ import type { CancelShipmentResult } from './api'
 import type { Shipment } from './types'
 import * as shippingApi from './api'
 import { Dialog } from '../components/common/Dialog'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface ExistingShipmentConfirmModalProps {
   token: string
@@ -39,7 +40,7 @@ export function ExistingShipmentConfirmModal({ token, shipment, onReprint, onCre
       const result = await shippingApi.cancelShipment(token, shipment.id)
       setCancelResult(result)
     } catch (err) {
-      setCancelError(err instanceof Error ? err.message : t('existing.cancelFailed'))
+      setCancelError(apiErrorText(err) ?? t('existing.cancelFailed'))
     } finally {
       setCancelling(false)
     }

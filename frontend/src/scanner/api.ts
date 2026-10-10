@@ -6,6 +6,7 @@ import type {
   ResolvePickScanCodeResult, CompletePickingResult, StockShortfallResolution,
   PackingSession, PackingSessionDetail, ScanPackItemInput, ScanPackItemResult, CompletePackingResult,
 } from './types'
+import { CodedApiError } from '../api/codedApiError'
 
 function base(): string {
   return import.meta.env.VITE_API_BASE_URL as string
@@ -41,7 +42,7 @@ async function request<T>(path: string, options: RequestInit, token?: string): P
   }
   const body: APIResponse<T> = await res.json()
   if (!res.ok || body.error) {
-    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   }
   if (token) onTokenActivity?.(token)
   return body.data as T

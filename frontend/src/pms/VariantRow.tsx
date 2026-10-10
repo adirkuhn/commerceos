@@ -12,6 +12,7 @@ import { VariantEditPanel } from './VariantEditPanel'
 import { VariantImagePicker } from './VariantImagePicker'
 import { VariantSkuPanel } from './VariantSkuPanel'
 import { VariantAddSkuPanel } from './VariantAddSkuPanel'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface VariantRowProps {
   variant: VariantWithSKUs
@@ -58,7 +59,7 @@ export function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
       })
       setPickerOpen(false)
     } catch (err) {
-      setImageError(err instanceof Error ? err.message : t('variant.imageFailed'))
+      setImageError(apiErrorText(err) ?? t('variant.imageFailed'))
     }
   }
 

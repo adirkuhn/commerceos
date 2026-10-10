@@ -13,6 +13,7 @@ import { Dialog } from '../components/common/Dialog'
 import { useConfirm } from '../components/common/useConfirm'
 import { ExtraRecipientsField } from './ExtraRecipientsField'
 import { parseEmailList } from './emailList'
+import { apiErrorText } from '../api/apiErrorText'
 
 type T = TFunction<'messages'>
 
@@ -157,7 +158,7 @@ export default function AutomationRulesPanel() {
       }
       closeForm()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('common:status.error'))
+      setFormError(apiErrorText(err) ?? t('common:status.error'))
     } finally {
       setSaving(false)
     }
@@ -169,7 +170,7 @@ export default function AutomationRulesPanel() {
     try {
       await remove(r.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('common:status.error'))
+      setActionError(apiErrorText(err) ?? t('common:status.error'))
     }
   }
 

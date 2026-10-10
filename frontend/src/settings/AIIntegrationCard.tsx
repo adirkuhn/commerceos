@@ -10,6 +10,7 @@ import type { AIProvider } from '../integrations/types'
 import { Dialog } from '../components/common/Dialog'
 import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_STYLES } from './IntegrationsSettingsSection'
+import { apiErrorText } from '../api/apiErrorText'
 
 const AI_PROVIDERS: AIProvider[] = ['openai', 'anthropic', 'gemini', 'ollama']
 
@@ -58,7 +59,7 @@ export function AIIntegrationCard() {
       await connect({ provider, apiKey, baseUrl, model, fallbackModels })
       setConfiguring(false)
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('ai.connectFailed'))
+      setFormError(apiErrorText(err) ?? t('ai.connectFailed'))
     } finally {
       setSaving(false)
     }

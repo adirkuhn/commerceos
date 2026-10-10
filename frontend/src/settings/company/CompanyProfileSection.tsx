@@ -7,6 +7,7 @@ import { countryOptions } from './countries'
 import { useCompanyProfile } from './useCompanyProfile'
 import type { CompanyProfileField, CompanyProfileInput } from './types'
 import { useDateFormat } from '../../format/DateFormatProvider'
+import { apiErrorText } from '../../api/apiErrorText'
 
 const EMPTY: CompanyProfileInput = {
   legal_name: '', trading_name: '', vat_number: '', chamber_of_commerce: '', email: '', phone: '', iban: '',
@@ -85,7 +86,7 @@ export function CompanyProfileSection() {
       setSavedAt(formatTime(new Date()))
     } catch (err) {
       if (err instanceof CompanyProfileError && err.field) setFieldError({ field: err.field, message: err.message })
-      else setFormError(err instanceof Error ? err.message : t('company.saveFailed'))
+      else setFormError(apiErrorText(err) ?? t('company.saveFailed'))
     } finally {
       setSaving(false)
     }

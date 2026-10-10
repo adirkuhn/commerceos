@@ -14,6 +14,7 @@ import { useMemberNames } from '../team/hooks/useMemberNames'
 import { ReadOnlyOrderItems } from './ReadOnlyOrderItems'
 import { customerName } from '../oms/salesOrderDisplay'
 import { PickItemRow } from './PickItemRow'
+import { apiErrorText } from '../api/apiErrorText'
 
 // The picking module's list mode (Settings > Fulfillment): no scanning, no
 // session. Pickers open an order (?order=<id>, so refresh/Back work), fetch
@@ -49,7 +50,7 @@ export function PickingListMode({ token }: { token: string }) {
       closeOrder(null)
       await refresh()
     } catch (err) {
-      setMarkError(err instanceof Error ? err.message : t('errors.markPicked'))
+      setMarkError(apiErrorText(err) ?? t('errors.markPicked'))
     } finally {
       setMarking(false)
     }

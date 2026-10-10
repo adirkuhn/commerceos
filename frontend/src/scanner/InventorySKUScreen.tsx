@@ -9,6 +9,7 @@ import type { SKU } from '../pms/types'
 import { formatPrice, parsePriceToMinorUnits } from './InventoryFormat'
 import { RowActionSheet } from './InventoryRowActionSheet'
 import { AddBatchSheet, PriceSheet } from './InventoryBatchSheets'
+import { apiErrorText } from '../api/apiErrorText'
 
 // A tapped row -- either a real batch or a warehouse's general ledger --
 // scopes the action sheet to that specific batch/warehouse, instead of
@@ -39,7 +40,7 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
       await fn()
       setSelectedRow(null)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('errors.action'))
+      setActionError(apiErrorText(err) ?? t('errors.action'))
     }
   }
 
@@ -51,7 +52,7 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
     try {
       await removeBatch(batchId)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : t('errors.deleteBatch'))
+      setDeleteError(apiErrorText(err) ?? t('errors.deleteBatch'))
     }
   }
 
@@ -64,7 +65,7 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
       }
       setAddBatchOpen(false)
     } catch (err) {
-      setAddBatchError(err instanceof Error ? err.message : t('errors.addBatch'))
+      setAddBatchError(apiErrorText(err) ?? t('errors.addBatch'))
     }
   }
 
@@ -93,7 +94,7 @@ export function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBa
       onSKUUpdated(updated)
       setPriceOpen(false)
     } catch (err) {
-      setPriceError(err instanceof Error ? err.message : t('errors.updatePrice'))
+      setPriceError(apiErrorText(err) ?? t('errors.updatePrice'))
     }
   }
 

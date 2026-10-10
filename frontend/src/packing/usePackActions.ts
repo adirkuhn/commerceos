@@ -5,6 +5,7 @@ import type { PackingSessionDetail, PickingSessionLineItem } from '../scanner/ty
 import type { SubstituteRowInput } from './LineChangePanel'
 import type { AddItemInput } from './AddItemPanel'
 import { playErrorSound } from '../scanner/errorSound'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface PackActionsOptions {
   token: string | null
@@ -47,7 +48,7 @@ export function usePackActions({ token, session, loadSession, setError }: PackAc
       await loadSession(session.session.id)
     } catch (err) {
       playErrorSound()
-      setScanErrorAlert(err instanceof Error ? err.message : i18next.t('packing:errors.notOnOrder'))
+      setScanErrorAlert(apiErrorText(err) ?? i18next.t('packing:errors.notOnOrder'))
     } finally {
       setBusy(false)
       codeRef.current?.focus()
@@ -87,7 +88,7 @@ export function usePackActions({ token, session, loadSession, setError }: PackAc
       setAddItemOpen(false)
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : failure)
+      setError(apiErrorText(err) ?? failure)
     } finally {
       setBusy(false)
       codeRef.current?.focus()
@@ -132,7 +133,7 @@ export function usePackActions({ token, session, loadSession, setError }: PackAc
       await packingApi.deletePackScan(token, session.session.id, scanId)
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('packing:errors.removeScan'))
+      setError(apiErrorText(err) ?? i18next.t('packing:errors.removeScan'))
     }
   }
 

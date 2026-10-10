@@ -9,6 +9,7 @@ import type {
 } from '../types'
 import * as api from '../api'
 import { useInvalidateStock, useOnStockInvalidated } from '../stockInvalidation'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseSKUStockState {
   level: StockLevel | null
@@ -60,7 +61,7 @@ export function useSKUStock(token: string, skuId: string | null): UseSKUStockSta
       setLevel(levelResult)
       setBatches(batchesResult)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('inventory:errors.unknown'))
+      setError(apiErrorText(e) ?? i18next.t('inventory:errors.unknown'))
     } finally {
       setLoading(false)
     }

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { TenantSettings } from '../../settings/types'
 import type { CreateSKUPayload } from '../types'
 import { emptyVariantSkuDraft, variantSkuAddPayload, type VariantSkuDraft } from '../variantSkuForms'
+import { apiErrorText } from '../../api/apiErrorText'
 
 export type SetVariantSkuDraftField = <K extends keyof VariantSkuDraft>(key: K, value: VariantSkuDraft[K]) => void
 export type PatchVariantSkuDraft = (patch: Partial<VariantSkuDraft>) => void
@@ -40,7 +41,7 @@ export function useVariantAddSku(
       setOpen(false)
       setDraft(emptyVariantSkuDraft(tenantSettings?.default_currency || 'USD'))
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('pms:errors.addSku'))
+      setError(apiErrorText(err) ?? i18next.t('pms:errors.addSku'))
     } finally {
       setSubmitting(false)
     }

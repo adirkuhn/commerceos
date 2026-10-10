@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ProductMergePreview, ProductMergeResult, SKUMergePair } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 // Merging a duplicate product into a chosen existing one: the server's
 // preview (stock and cost after), the user's SKU matching (seeded from the
@@ -31,7 +32,7 @@ export function useProductMerge(token: string, duplicateId: string, targetId: st
       setPreview(next)
       if (!skuMapping) setMapping(Object.fromEntries(next.sku_mapping.map(p => [p.source_sku_id, p.target_sku_id])))
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('pms:errors.mergePreview'))
+      setError(apiErrorText(e) ?? i18next.t('pms:errors.mergePreview'))
     } finally {
       setLoading(false)
     }

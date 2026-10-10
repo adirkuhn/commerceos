@@ -3,6 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from './hooks/useTenantSettings'
 import { toInput } from './tenantSettingsInput'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Tunes the FP-Growth cross-sell mining GetCartRecommendationsUseCase runs
 // for every storefront (e.g. the WooCommerce plugin) request -- lives next
@@ -59,7 +60,7 @@ export function RecommendationsSettingsCard() {
       })
       setSaved(true)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t('recommendations.saveFailed'))
+      setSaveError(apiErrorText(err) ?? t('recommendations.saveFailed'))
     } finally {
       setSaving(false)
     }

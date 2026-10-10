@@ -4,6 +4,7 @@ import i18next from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { SalesChannel, QuantityBreak } from '../types'
 import type { UpdateSalesChannelPayload } from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 // priceAdjustmentBasisPointsOrError converts the form's percent string to
 // basis points (e.g. "20" -> 2000), or throws a message-carrying Error for
@@ -82,7 +83,7 @@ export function PricingSection({ channel, update }: PricingSectionProps) {
       })
       setDirty(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('pricing.saveFailed'))
+      setError(apiErrorText(err) ?? t('pricing.saveFailed'))
     } finally {
       setSaving(false)
     }

@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState } from 'react'
 import * as packingApi from '../scanner/api'
 import type { PackingSessionDetail, CompletePackingResult, StockShortfall, StockShortfallResolution } from '../scanner/types'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface PackingFinishOptions {
   token: string | null
@@ -40,7 +41,7 @@ export function usePackingFinish({ token, session, loadSession, setError, closeP
       closePanels()
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('packing:errors.reset'))
+      setError(apiErrorText(err) ?? i18next.t('packing:errors.reset'))
     } finally {
       setResetting(false)
     }
@@ -62,7 +63,7 @@ export function usePackingFinish({ token, session, loadSession, setError, closeP
       setConfirmingFinish(false)
       await onCompleted()
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('packing:errors.complete'))
+      setError(apiErrorText(err) ?? i18next.t('packing:errors.complete'))
     } finally {
       setCompleting(false)
     }

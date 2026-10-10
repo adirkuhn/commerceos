@@ -16,6 +16,7 @@ import { BookingDiscrepanciesPage } from '../procurement/BookingDiscrepanciesPag
 import { CreateFromDocumentModal } from '../procurement/CreateFromDocumentModal'
 import { PurchaseOrderEditPage } from '../procurement/PurchaseOrderEditPage'
 import { formatMoney } from '../format/money'
+import { apiErrorText } from '../api/apiErrorText'
 
 const STATUS_TABS: readonly (PurchaseOrderStatus | 'all')[] = ['all', 'draft', 'sent', 'partially_received', 'received', 'needs_review', 'cancelled']
 
@@ -60,7 +61,7 @@ export default function Procurement() {
     try {
       await remove(po.id)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : t('errors.unknown'))
+      setDeleteError(apiErrorText(err) ?? t('errors.unknown'))
     }
   }
 

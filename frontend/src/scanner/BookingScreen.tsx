@@ -14,6 +14,7 @@ import { BookLineSheet, WarehouseSheet } from './BookingLineSheet'
 import { computeMissingItems, effectiveUnitsPerPurchasedItem, pendingBatchesForSKU, scannedPurchasedItems, scannedQuantityBySKU } from './bookingHelpers'
 import { ProductThumb, SCANNER_THUMB } from '../pms/ProductThumb'
 import { isAuthError } from '../auth/isAuthError'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface BookingScreenProps {
   token: string
@@ -57,7 +58,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       setWarehouses(whs)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : t('errors.loadBooking'))
+      setError(apiErrorText(err) ?? t('errors.loadBooking'))
     } finally {
       setLoading(false)
     }
@@ -80,7 +81,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       setWarehouseSheetOpen(false)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : t('errors.changeWarehouse'))
+      setError(apiErrorText(err) ?? t('errors.changeWarehouse'))
     } finally {
       setChangingWarehouse(false)
     }
@@ -103,7 +104,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : t('errors.scanFailed'))
+      setError(apiErrorText(err) ?? t('errors.scanFailed'))
     } finally {
       setScanning(false)
       codeInputRef.current?.focus()
@@ -179,7 +180,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       } catch {
         // fall through to the original resolve error below
       }
-      setError(err instanceof Error ? err.message : t('errors.scanFailed'))
+      setError(apiErrorText(err) ?? t('errors.scanFailed'))
     } finally {
       setScanning(false)
       codeInputRef.current?.focus()
@@ -234,7 +235,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : t('errors.deleteScan'))
+      setError(apiErrorText(err) ?? t('errors.deleteScan'))
     }
   }
 
@@ -244,7 +245,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       onExit()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : t('errors.pause'))
+      setError(apiErrorText(err) ?? t('errors.pause'))
     }
   }
 
@@ -255,7 +256,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       setConfirmingFinish(false)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : t('errors.complete'))
+      setError(apiErrorText(err) ?? t('errors.complete'))
     } finally {
       setFinishing(false)
     }

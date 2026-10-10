@@ -7,6 +7,7 @@ import type { WooTaxClass } from './types'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useExternalTaxClassLinks } from '../tax/hooks/useExternalTaxClassLinks'
 import type { ExternalTaxClassLink } from '../tax/types'
+import { apiErrorText } from '../api/apiErrorText'
 
 const WOO_PROVIDER = 'woocommerce'
 
@@ -33,7 +34,7 @@ export function WooTaxesTab({ token, connectionId }: { token: string; connection
     setWooTaxesError('')
     api.listWooTaxes(token, connectionId)
       .then(result => { if (!cancelled) setWooTaxes(result) })
-      .catch(err => { if (!cancelled) setWooTaxesError(err instanceof Error ? err.message : t('wooTaxes.loadFailed')) })
+      .catch(err => { if (!cancelled) setWooTaxesError(apiErrorText(err) ?? t('wooTaxes.loadFailed')) })
       .finally(() => { if (!cancelled) setWooTaxesLoading(false) })
     return () => { cancelled = true }
   }, [token, connectionId, t])
@@ -43,7 +44,7 @@ export function WooTaxesTab({ token, connectionId }: { token: string; connection
     try {
       await upsertLink({ provider: link.provider, external_slug: link.external_slug, tax_class_id: taxClassId })
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('wooTaxes.updateFailed'))
+      setRowError(apiErrorText(err) ?? t('wooTaxes.updateFailed'))
     }
   }
 
@@ -55,7 +56,7 @@ export function WooTaxesTab({ token, connectionId }: { token: string; connection
       setNewSlug('')
       setNewClassId('')
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('wooTaxes.addFailed'))
+      setRowError(apiErrorText(err) ?? t('wooTaxes.addFailed'))
     }
   }
 
@@ -64,7 +65,7 @@ export function WooTaxesTab({ token, connectionId }: { token: string; connection
     try {
       await removeLink(id)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('wooTaxes.deleteFailed'))
+      setRowError(apiErrorText(err) ?? t('wooTaxes.deleteFailed'))
     }
   }
 

@@ -12,6 +12,7 @@ import { useWhatsAppConversationMessages } from './hooks/useWhatsAppConversation
 import type { WhatsAppConversation } from './types'
 import { useConfirm } from '../components/common/useConfirm'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 function conversationLabel(conv: WhatsAppConversation): string {
   return conv.customer_name || conv.phone_e164
@@ -53,7 +54,7 @@ export default function WhatsAppConversationsPanel() {
       await deleteConversation(selected.phone_e164)
       setSelectedPhone(null)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : t('whatsapp.deleteFailed'))
+      setDeleteError(apiErrorText(err) ?? t('whatsapp.deleteFailed'))
     } finally {
       setDeleting(false)
     }

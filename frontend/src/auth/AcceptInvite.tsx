@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { acceptInvite } from '../team/api'
 import { AuthLayout, inputClass, labelClass, primaryButtonClass } from './AuthLayout'
+import { apiErrorText } from '../api/apiErrorText'
 
 export function AcceptInvite() {
   const { t } = useTranslation('auth')
@@ -33,7 +34,7 @@ export function AcceptInvite() {
       await acceptInvite({ token, firstName, lastName, password })
       setDone(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('invite.unknownError'))
+      setError(apiErrorText(err) ?? t('invite.unknownError'))
     } finally {
       setSubmitting(false)
     }

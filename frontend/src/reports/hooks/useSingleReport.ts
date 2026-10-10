@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect } from 'react'
 import { dateRange, type ReportsPeriod } from '../period'
 import { useDateFormat } from '../../format/DateFormatProvider'
+import { apiErrorText } from '../../api/apiErrorText'
 
 // useReport fetches one report for an explicit [from, to) range -- the
 // building block behind useSingleReport below. Pages with their own range
@@ -25,7 +26,7 @@ export function useReport<T>(
     setError(null)
     fetchFn(token, from, to)
       .then(result => { if (!cancelled) setData(result) })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : i18next.t('ui:errors.unknown')) })
+      .catch(e => { if (!cancelled) setError(apiErrorText(e) ?? i18next.t('ui:errors.unknown')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token, from, to, fetchFn])
@@ -57,7 +58,7 @@ export function useSingleReport<T>(
     const { from, to } = dateRange(period, new Date(), timeZone)
     fetchFn(token, from, to)
       .then(result => { if (!cancelled) setData(result) })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : i18next.t('ui:errors.unknown')) })
+      .catch(e => { if (!cancelled) setError(apiErrorText(e) ?? i18next.t('ui:errors.unknown')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token, period, timeZone, fetchFn])

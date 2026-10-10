@@ -17,6 +17,7 @@ import { CreateSalesOrderPage } from '../oms/CreateSalesOrderPage'
 import { SalesOrderDetailPage } from '../oms/SalesOrderDetailPage'
 import { formatMoney } from '../format/money'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 const PAGE_SIZE = 20
 
@@ -204,7 +205,7 @@ export default function SalesOrders() {
         setBulkFulfilled('')
       }
     } catch (err) {
-      setBulkError(err instanceof Error ? err.message : t('list.bulkFailed'))
+      setBulkError(apiErrorText(err) ?? t('list.bulkFailed'))
     } finally {
       setBulkApplying(false)
     }

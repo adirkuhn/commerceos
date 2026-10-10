@@ -7,6 +7,7 @@ import type { SKU } from '../pms/types'
 import type { Batch, StockMovement } from './types'
 import { movementTypeLabel } from './inventoryFormat'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 type ProductMovementRow = StockMovement & { skuCode: string; balance: number }
 
@@ -41,7 +42,7 @@ export function ProductMovementHistoryPage({ token, productName, skus, warehouse
         setRows(withBalance.reverse())
         setBatches(perSKU.flatMap(p => p.batches))
       })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : t('errors.historyLoad')) })
+      .catch(e => { if (!cancelled) setError(apiErrorText(e) ?? t('errors.historyLoad')) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- skusKey is the stable dependency; skus itself is a new array every render
   }, [token, skusKey])
@@ -119,7 +120,7 @@ export function SKUMovementHistoryPage({ token, sku, warehouses, onClose }: {
     let cancelled = false
     Promise.all([inventoryApi.listStockMovements(token, sku.id), inventoryApi.listBatches(token, sku.id)])
       .then(([m, b]) => { if (!cancelled) { setMovements(m); setBatches(b) } })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : t('errors.historyLoad')) })
+      .catch(e => { if (!cancelled) setError(apiErrorText(e) ?? t('errors.historyLoad')) })
     return () => { cancelled = true }
   }, [token, sku.id])
 
@@ -193,7 +194,7 @@ export function BatchMovementHistoryPage({ token, sku, batch, warehouses, onClos
     let cancelled = false
     inventoryApi.listBatchMovements(token, batch.id)
       .then(m => { if (!cancelled) setMovements(m) })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : t('errors.historyLoad')) })
+      .catch(e => { if (!cancelled) setError(apiErrorText(e) ?? t('errors.historyLoad')) })
     return () => { cancelled = true }
   }, [token, batch.id])
 

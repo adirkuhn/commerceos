@@ -18,6 +18,7 @@ import { formatSKUQuantity, isExpired, isExpiringSoon, parseOptionalPriceToMinor
 import { BatchRowActionModal, NewBatchModal, PriceModal } from './BatchActionModals'
 import { DamagedLostModal, SplitCaseModal, TransferModal } from './TransferStockModals'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 export function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUpdated, onStockChanged, onViewHistory, onViewBatchHistory }: {
   token: string; productId: string; sku: SKU; variantName?: string; warehouses: { id: string; name: string }[]
@@ -115,7 +116,7 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
       await removeBatch(id)
       onStockChanged()
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : t('sku.deleteFailed'))
+      setDeleteError(apiErrorText(e) ?? t('sku.deleteFailed'))
     }
   }
 

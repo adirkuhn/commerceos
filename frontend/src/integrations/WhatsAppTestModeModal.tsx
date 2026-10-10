@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import * as api from './api'
 import type { Connection } from './types'
 import { Dialog } from '../components/common/Dialog'
+import { apiErrorText } from '../api/apiErrorText'
 
 // While enabled, every outbound WhatsApp send from this connection
 // (inbound-message replies, order-status/shipment-delivery notifications,
@@ -30,7 +31,7 @@ export function WhatsAppTestModeModal({ connection, onClose, onSaved }: {
       onSaved(updated)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('saveFailed'))
+      setError(apiErrorText(err) ?? t('saveFailed'))
     } finally {
       setSaving(false)
     }

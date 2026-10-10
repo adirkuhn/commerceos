@@ -12,6 +12,7 @@ import type { SKU } from './types'
 import type { StockLevel } from '../inventory/types'
 import { VariantRow } from './VariantRow'
 import { linkedSkuLabel } from './linkedSkuLabel'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Variants + SKUs section (only shown when the product has variants) ───────
 
@@ -41,7 +42,7 @@ export function VariantsSection({ detail, productId }: VariantsSectionProps) {
     try {
       await detail.addVariant({ name: variantName })
     } catch (err) {
-      setAddError(err instanceof Error ? err.message : t('variant.addFailed'))
+      setAddError(apiErrorText(err) ?? t('variant.addFailed'))
       setSubmitting(false)
       return
     }

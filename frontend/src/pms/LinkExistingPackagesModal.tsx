@@ -4,6 +4,7 @@ import { Modal } from '../inventory/components/Modal'
 import { formatMoney } from '../format/money'
 import * as pmsApi from './api'
 import type { LinkExistingWeightPackagesResult } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Adopts packages made by hand (variants carrying this pool's scale label)
 // as the pool's packages -- previews first (dry run), links on confirm.
@@ -25,7 +26,7 @@ export function LinkExistingPackagesModal({ token, bulkSkuId, currencyCode, onLi
     let cancelled = false
     pmsApi.linkExistingWeightPackages(token, bulkSkuId, true)
       .then(r => { if (!cancelled) setPreview(r) })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : t('split.linkFailed')) })
+      .catch(e => { if (!cancelled) setError(apiErrorText(e) ?? t('split.linkFailed')) })
     return () => { cancelled = true }
   }, [token, bulkSkuId, t])
 
@@ -37,7 +38,7 @@ export function LinkExistingPackagesModal({ token, bulkSkuId, currencyCode, onLi
       setDone(result)
       onLinked()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('split.linkFailed'))
+      setError(apiErrorText(e) ?? t('split.linkFailed'))
     } finally {
       setLinking(false)
     }

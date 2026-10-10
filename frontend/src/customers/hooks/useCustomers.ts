@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { Customer, CustomerInput } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseCustomersState {
   customers: Customer[]
@@ -30,7 +31,7 @@ export function useCustomers(token: string): UseCustomersState & UseCustomersAct
       const data = await api.listCustomers(token)
       setCustomers(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('customers:errors.unknown'))
+      setError(apiErrorText(e) ?? i18next.t('customers:errors.unknown'))
     } finally {
       setLoading(false)
     }

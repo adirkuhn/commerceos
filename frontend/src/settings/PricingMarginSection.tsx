@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from './hooks/useTenantSettings'
 import { toInput } from './tenantSettingsInput'
+import { apiErrorText } from '../api/apiErrorText'
 
 export function PricingMarginSection() {
   const { token } = useAuth()
@@ -33,7 +34,7 @@ export function PricingMarginSection() {
       await save({ ...toInput(settings), default_target_markup_basis_points: basisPoints })
       setSaved(true)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t('markup.saveFailed'))
+      setSaveError(apiErrorText(err) ?? t('markup.saveFailed'))
     } finally {
       setSaving(false)
     }

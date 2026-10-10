@@ -10,6 +10,7 @@ import type { UpdateSalesChannelPayload } from '../api'
 import Pagination from '../../components/common/Pagination'
 import { INTERNAL_TYPE, enrollmentLabel } from './salesChannelConstants'
 import { PricingSection } from './PricingSection'
+import { apiErrorText } from '../../api/apiErrorText'
 
 const PER_PAGE = 20
 
@@ -55,7 +56,7 @@ export function ChannelProductsPanel({ channel, onClose, update, categories }: C
         active: channel.active,
       })
     } catch (err) {
-      setBulkError(err instanceof Error ? err.message : t('products.ruleFailed'))
+      setBulkError(apiErrorText(err) ?? t('products.ruleFailed'))
     } finally {
       setBulkSaving(false)
     }

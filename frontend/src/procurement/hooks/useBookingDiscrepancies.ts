@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { BookingDiscrepancyReport } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseBookingDiscrepanciesState {
   report: BookingDiscrepancyReport
@@ -26,7 +27,7 @@ export function useBookingDiscrepancies(token: string): UseBookingDiscrepanciesS
       const data = await api.listBookingDiscrepancies(token)
       setReport(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('procurement:errors.unknown'))
+      setError(apiErrorText(e) ?? i18next.t('procurement:errors.unknown'))
     } finally {
       setLoading(false)
     }

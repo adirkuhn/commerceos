@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import * as api from '../scheduler/api'
 import type { Job, SyncScheduleRow } from '../scheduler/types'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 function StatusBadge({ status }: { status: string }) {
   const { t } = useTranslation('settings')
@@ -51,7 +52,7 @@ export default function ScheduledJobs() {
       setSchedules(schedulesResult)
       setEdits(Object.fromEntries(jobsResult.map(j => [j.job_key, { enabled: j.enabled, interval_minutes: String(j.interval_minutes) }])))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('jobs.loadFailed'))
+      setError(apiErrorText(err) ?? t('jobs.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -66,7 +67,7 @@ export default function ScheduledJobs() {
       await api.runJobNow(token ?? '', jobKey)
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('jobs.runFailed'))
+      setError(apiErrorText(err) ?? t('jobs.runFailed'))
     } finally {
       setRunningKey(null)
     }
@@ -79,7 +80,7 @@ export default function ScheduledJobs() {
       await api.runSyncScheduleNow(token ?? '', id)
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('jobs.triggerFailed'))
+      setError(apiErrorText(err) ?? t('jobs.triggerFailed'))
     } finally {
       setRunningKey(null)
     }
@@ -104,7 +105,7 @@ export default function ScheduledJobs() {
       await api.updateJobConfig(token ?? '', j.job_key, edit.enabled, intervalMinutes)
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('jobs.saveFailed'))
+      setError(apiErrorText(err) ?? t('jobs.saveFailed'))
     } finally {
       setSavingKey(null)
     }

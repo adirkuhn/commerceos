@@ -9,6 +9,7 @@ import type { SalesOrder, SalesOrderLineItem } from '../oms/types'
 import { useQueryPage } from '../routing/useQueryState'
 import { customerName } from '../oms/salesOrderDisplay'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 const PAGE_SIZE = 20
 
@@ -57,7 +58,7 @@ export default function StockIssues() {
       const detail = await api.getSalesOrder(token ?? '', order.id)
       setLineItemsById(prev => ({ ...prev, [order.id]: detail.line_items }))
     } catch (err) {
-      setDetailError(err instanceof Error ? err.message : t('lineItemsFailed'))
+      setDetailError(apiErrorText(err) ?? t('lineItemsFailed'))
     } finally {
       setDetailLoadingId(null)
     }
@@ -74,7 +75,7 @@ export default function StockIssues() {
       setLineItemsById(prev => { const next = { ...prev }; delete next[id]; return next })
       await refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('retryFailed'))
+      setActionError(apiErrorText(err) ?? t('retryFailed'))
     } finally {
       setBusyId(null)
       setBusyAction(null)
@@ -92,7 +93,7 @@ export default function StockIssues() {
       setLineItemsById(prev => { const next = { ...prev }; delete next[id]; return next })
       await refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('forceFailed'))
+      setActionError(apiErrorText(err) ?? t('forceFailed'))
     } finally {
       setBusyId(null)
       setBusyAction(null)

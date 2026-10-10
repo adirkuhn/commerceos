@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { ExchangeRate, UpsertExchangeRateInput } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseExchangeRatesState {
   rates: ExchangeRate[]
@@ -28,7 +29,7 @@ export function useExchangeRates(token: string): UseExchangeRatesState & UseExch
       const data = await api.listExchangeRates(token)
       setRates(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('settings:unknownError'))
+      setError(apiErrorText(e) ?? i18next.t('settings:unknownError'))
     } finally {
       setLoading(false)
     }

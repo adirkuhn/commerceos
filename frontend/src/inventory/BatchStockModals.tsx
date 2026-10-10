@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { Batch, MovementType } from './types'
 import { Modal, inputClass, labelClass } from './components/Modal'
 import { stockUnitFor, type StockUnit } from './stockUnit'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Modal/inputClass/labelClass live in ../inventory/components/Modal (see
 // import above) -- shared by every stock-action modal in this file.
@@ -56,7 +57,7 @@ export function BatchFormModal({
       await onSave({ warehouse_id: warehouseId, lot_number: lotNumber, expiry_date: expiryDate || null })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('modal.saveBatchFailed'))
+      setError(apiErrorText(e) ?? t('modal.saveBatchFailed'))
     } finally {
       setSaving(false)
     }
@@ -128,7 +129,7 @@ export function AdjustStockModal({
       await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, type, quantity_delta: delta, reason })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('modal.movementFailed'))
+      setError(apiErrorText(e) ?? t('modal.movementFailed'))
     } finally {
       setSaving(false)
     }
@@ -222,7 +223,7 @@ export function RecountModal({
       await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, counted_quantity: n, reason })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('modal.recountFailed'))
+      setError(apiErrorText(e) ?? t('modal.recountFailed'))
     } finally {
       setSaving(false)
     }

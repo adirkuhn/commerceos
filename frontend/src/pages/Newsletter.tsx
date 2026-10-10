@@ -11,6 +11,7 @@ import { downloadBlob } from '../newsletter/download'
 import { SUBSCRIBER_STATUSES, type Subscriber, type SubscriberStatus } from '../newsletter/types'
 import { useSubscribers } from '../newsletter/useSubscribers'
 import { useQueryEnum, useQueryPage, useQueryString } from '../routing/useQueryState'
+import { apiErrorText } from '../api/apiErrorText'
 
 const PAGE_SIZE = 50
 const SEARCH_DELAY_MS = 300
@@ -54,7 +55,7 @@ export default function Newsletter() {
     try {
       downloadBlob(await exportSubscribersCSV(token ?? ''), 'newsletter-subscribers.csv')
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('list.exportFailed'))
+      setActionError(apiErrorText(err) ?? t('list.exportFailed'))
     } finally {
       setExporting(false)
     }
@@ -70,7 +71,7 @@ export default function Newsletter() {
     try {
       await erase(s.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('list.eraseFailed'))
+      setActionError(apiErrorText(err) ?? t('list.eraseFailed'))
     }
   }
 

@@ -28,6 +28,7 @@ import { BolConfirmationCard } from './BolConfirmationCard'
 import { SoldExpiryNote } from './SoldExpiryNote'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { formatMoney } from '../format/money'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Sales Order Detail Page ──────────────────────────────────────────────────
 
@@ -63,7 +64,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
       await update({ customer_note: noteDraft })
       setEditingNote(false)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('detail.failedSaveNote'))
+      setActionError(apiErrorText(err) ?? t('detail.failedSaveNote'))
     } finally {
       setSavingNote(false)
     }
@@ -142,7 +143,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
     try {
       setLabelTab(await openShipmentLabel(token, shipmentId, labelSize))
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('detail.failedLoadLabel'))
+      setActionError(apiErrorText(err) ?? t('detail.failedLoadLabel'))
     }
   }
 
@@ -171,7 +172,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
     try {
       setLabelTab(await loadShipmentLabelIntoTab(tab, token, shipment.id, labelSize))
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('detail.failedLoadLabel'))
+      setActionError(apiErrorText(err) ?? t('detail.failedLoadLabel'))
     }
     refreshActivities()
     loadShipments()
@@ -191,7 +192,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
     try {
       await update({ status })
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('detail.failedUpdateStatus'))
+      setActionError(apiErrorText(err) ?? t('detail.failedUpdateStatus'))
     } finally {
       setSavingStatus(false)
     }
@@ -206,7 +207,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
       await remove()
       onClose()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('detail.failedDelete'))
+      setActionError(apiErrorText(err) ?? t('detail.failedDelete'))
       setDeleting(false)
     }
   }

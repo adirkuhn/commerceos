@@ -9,6 +9,7 @@ import { toInput } from './tenantSettingsInput'
 import { useConfirm } from '../components/common/useConfirm'
 import { applyCompanyLanguage } from '../i18n/i18n'
 import { DEFAULT_LOCALE, LOCALE_NAMES, LOCALES } from '../i18n/locale'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Localization settings section ─────────────────────────────────────────────
 
@@ -61,7 +62,7 @@ export function LocalizationSettingsSection() {
       await applyCompanyLanguage(next.language)
       setSaved(true)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t('saveFailed'))
+      setSaveError(apiErrorText(err) ?? t('saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -143,7 +144,7 @@ function ExchangeRatesCard() {
       setCurrencyCode('')
       setRateValue('')
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('fx.saveFailed'))
+      setFormError(apiErrorText(err) ?? t('fx.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -155,7 +156,7 @@ function ExchangeRatesCard() {
     try {
       await remove(code)
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('fx.deleteFailed'))
+      setFormError(apiErrorText(err) ?? t('fx.deleteFailed'))
     }
   }
 

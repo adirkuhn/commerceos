@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from './hooks/useTenantSettings'
 import { toInput } from './tenantSettingsInput'
+import { apiErrorText } from '../api/apiErrorText'
 
 export function InventorySyncRulesSection() {
   const { token } = useAuth()
@@ -30,7 +31,7 @@ export function InventorySyncRulesSection() {
       await save({ ...toInput(settings), inventory_sync_rules_enabled: enabled, batch_expiry_threshold_days: thresholdDays })
       setSaved(true)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t('syncRules.saveFailed'))
+      setSaveError(apiErrorText(err) ?? t('syncRules.saveFailed'))
     } finally {
       setSaving(false)
     }

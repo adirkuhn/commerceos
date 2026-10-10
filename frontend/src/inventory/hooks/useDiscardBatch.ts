@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useCallback } from 'react'
 import type { DiscardBatchInput, DiscardRecord } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 // Mutation-only -- shared by every list that can discard a row (the
 // expired-review queue, the "expiring soon" report, and the scanner's
@@ -21,7 +22,7 @@ export function useDiscardBatch(token: string): {
     try {
       return await api.discardBatch(token, skuId, input)
     } catch (e) {
-      const message = e instanceof Error ? e.message : i18next.t('inventory:errors.unknown')
+      const message = apiErrorText(e) ?? i18next.t('inventory:errors.unknown')
       setError(message)
       throw e
     } finally {

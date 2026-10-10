@@ -9,6 +9,7 @@ import type { PurchaseOrderLineItem, ReceivingDiscrepancy } from './types'
 import type { Warehouse } from '../inventory/types'
 import { discrepancyLabel } from './procurementHelpers'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface DiscrepancyRowProps {
   discrepancy: ReceivingDiscrepancy
@@ -51,7 +52,7 @@ export function DiscrepancyRow({
       await procurementApi.acknowledgeReceivingDiscrepancy(token ?? '', discrepancy.id)
       await onReload()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('disc.ackFailed'))
+      setActionError(apiErrorText(err) ?? t('disc.ackFailed'))
     } finally {
       setActing(false)
     }
@@ -69,7 +70,7 @@ export function DiscrepancyRow({
       setLinkOpen(false)
       await onReload()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('disc.linkFailed'))
+      setActionError(apiErrorText(err) ?? t('disc.linkFailed'))
     } finally {
       setActing(false)
     }
@@ -196,7 +197,7 @@ export function FlagDamagedItemForm({ recordId, lineItems, onDone, onCancel }: F
       await procurementApi.flagDamagedLineItem(token ?? '', recordId, lineItemId, damagedQty, note)
       onDone()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('damaged.failed'))
+      setError(apiErrorText(err) ?? t('damaged.failed'))
       setSaving(false)
     }
   }
@@ -285,7 +286,7 @@ function ReceiveDiscrepancyForm({ skuId, warehouseId, warehouses, onAssignWareho
       })
       setDone(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('receive.failed'))
+      setError(apiErrorText(err) ?? t('receive.failed'))
     } finally {
       setSaving(false)
     }

@@ -10,6 +10,7 @@ import type { PurchaseOrder } from '../procurement/types'
 import type { Supplier } from '../suppliers/types'
 import type { Warehouse } from '../inventory/types'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface PurchaseOrderPickerScreenProps {
   token: string
@@ -53,7 +54,7 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
         setSuppliers(sups)
         setWarehouses(whs)
       })
-      .catch(err => setError(err instanceof Error ? err.message : t('errors.loadPurchaseOrders')))
+      .catch(err => setError(apiErrorText(err) ?? t('errors.loadPurchaseOrders')))
       .finally(() => setLoading(false))
   }, [token, t])
 
@@ -70,7 +71,7 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
       const booking = await api.startOrResumeBooking(token, po.id, warehouseId)
       onBookingStarted(booking.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('errors.startBooking'))
+      setError(apiErrorText(err) ?? t('errors.startBooking'))
       setStartingId(null)
     }
   }

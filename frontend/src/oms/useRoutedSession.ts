@@ -5,6 +5,7 @@ import * as omsApi from './api'
 import { idFromPath } from '../routes'
 import { useStackNavigation } from '../routing/useStackNavigation'
 import type { SalesOrder } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface SessionDetailShape {
   session: { id: string; sales_order_id: string }
@@ -69,7 +70,7 @@ export function useRoutedSession<D extends SessionDetailShape>(opts: RoutedSessi
           : (await omsApi.getSalesOrder(token, detail.session.sales_order_id)).sales_order
         if (current) latest.current.onLoaded(order, detail)
       } catch (err) {
-        if (current) latest.current.onError(err instanceof Error ? err.message : i18next.t('orders:errors.loadSession'))
+        if (current) latest.current.onError(apiErrorText(err) ?? i18next.t('orders:errors.loadSession'))
       }
     })()
     return () => { current = false }

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"errors"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -48,3 +49,14 @@ var (
 	ErrNotFound      = errors.New("resource not found")
 	ErrUnprocessable = errors.New("unprocessable entity")
 )
+
+// FailErr responds with a domain error: a coded error (domain/errs) sends
+// its own code and plain sentence, which clients translate; any other
+// error sends fallbackCode with err's text.
+func FailErr(c *gin.Context, status int, fallbackCode string, err error) {
+	if code, message, ok := errs.CodeOf(err); ok {
+		Fail(c, status, code, message)
+		return
+	}
+	Fail(c, status, fallbackCode, err.Error())
+}

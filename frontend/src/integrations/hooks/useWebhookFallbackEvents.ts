@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { WebhookFallbackEvent } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 const PER_PAGE = 20
 
@@ -43,7 +44,7 @@ export function useWebhookFallbackEvents(token: string): UseWebhookFallbackEvent
       setEvents(result.events)
       setTotal(result.total)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('integrations:unknownError'))
+      setError(apiErrorText(e) ?? i18next.t('integrations:unknownError'))
     } finally {
       setLoading(false)
     }

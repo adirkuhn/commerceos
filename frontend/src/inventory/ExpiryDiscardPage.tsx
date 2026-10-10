@@ -10,6 +10,7 @@ import { useDiscardBatch } from './hooks/useDiscardBatch'
 import type { ExpiringBatch, ExpiredBatchReview } from './types'
 import { Dialog } from '../components/common/Dialog'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 // A single discard target, whichever tab it was opened from -- carries
 // everything DiscardBatchInput needs plus enough to refresh the right
@@ -153,7 +154,7 @@ export function ExpiryDiscardPage({
       await extend(batchId, newExpiryDate)
       setExtendingBatchId(null)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('expiry.extendFailed'))
+      setRowError(apiErrorText(err) ?? t('expiry.extendFailed'))
     } finally {
       setActingBatchId(null)
     }
@@ -165,7 +166,7 @@ export function ExpiryDiscardPage({
     try {
       await dismiss(batchId)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('expiry.dismissFailed'))
+      setRowError(apiErrorText(err) ?? t('expiry.dismissFailed'))
     } finally {
       setActingBatchId(null)
     }

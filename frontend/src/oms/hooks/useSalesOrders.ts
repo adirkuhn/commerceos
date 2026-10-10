@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput, SalesOrderSortField, SortDirection, SalesOrderSource, SalesOrderStatus } from '../types'
 import * as api from '../api'
 import type { BulkUpdateSalesOrdersInput, BulkUpdateSalesOrdersResult } from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseSalesOrdersState {
   salesOrders: SalesOrder[]
@@ -55,7 +56,7 @@ export function useSalesOrders(
       setSalesOrders(result.salesOrders)
       setTotal(result.total)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('orders:errors.unknown'))
+      setError(apiErrorText(e) ?? i18next.t('orders:errors.unknown'))
     } finally {
       setLoading(false)
     }

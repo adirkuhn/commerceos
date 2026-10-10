@@ -11,6 +11,7 @@ import type { SKU } from '../pms/types'
 import { useQueryPage } from '../routing/useQueryState'
 import { customerName } from '../oms/salesOrderDisplay'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 const PAGE_SIZE = 20
 
@@ -92,7 +93,7 @@ function UnmatchedLineItems({ salesOrderId, onLinked }: { salesOrderId: string; 
       await refresh()
       onLinked()
     } catch (err) {
-      setLinkError(err instanceof Error ? err.message : t('unmatched.linkFailed'))
+      setLinkError(apiErrorText(err) ?? t('unmatched.linkFailed'))
     } finally {
       setLinkingId(null)
     }

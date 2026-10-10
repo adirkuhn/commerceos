@@ -31,7 +31,7 @@ describe('useNotificationPreferences', () => {
   it('exposes load errors and rethrows save errors', async () => {
     vi.mocked(api.getNotificationPreferences).mockRejectedValue(new NotificationPreferencesError('INTERNAL', 'boom'))
     const { result } = renderHook(() => useNotificationPreferences('tok'))
-    await waitFor(() => expect(result.current.error).toBe('boom'))
+    await waitFor(() => expect(result.current.error).toBe('Something went wrong on our side. Please try again.'))
 
     vi.mocked(api.updateNotificationPreferences).mockRejectedValue(new NotificationPreferencesError('INVALID_RECIPIENT', 'bad'))
     await expect(result.current.save({ categories: [], email_recipients: ['x'] })).rejects.toBeInstanceOf(NotificationPreferencesError)

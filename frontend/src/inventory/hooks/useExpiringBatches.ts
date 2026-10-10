@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { ExpiringBatch } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseExpiringBatchesState {
   batches: ExpiringBatch[]
@@ -22,7 +23,7 @@ export function useExpiringBatches(token: string, withinDays = 30): UseExpiringB
       const data = await api.listExpiringBatches(token, withinDays)
       setBatches(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('inventory:errors.unknown'))
+      setError(apiErrorText(e) ?? i18next.t('inventory:errors.unknown'))
     } finally {
       setLoading(false)
     }

@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Group, CreateGroupPayload, UpdateGroupPayload } from '../types'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface Props {
   group?: Group | null
@@ -33,7 +34,7 @@ export function GroupForm({ group, onSubmit, onCancel }: Props) {
     try {
       await onSubmit({ name: name.trim(), description: description.trim() })
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('unexpectedError'))
+      setError(apiErrorText(e) ?? t('unexpectedError'))
     } finally {
       setSubmitting(false)
     }

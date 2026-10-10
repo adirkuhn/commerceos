@@ -9,6 +9,7 @@ import type { Review } from '../reviews/types'
 import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { useConfirm } from '../components/common/useConfirm'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 const PAGE_SIZE = 20
 
@@ -52,7 +53,7 @@ export default function Reviews() {
     try {
       await remove(r.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('common:status.error'))
+      setActionError(apiErrorText(err) ?? t('common:status.error'))
     }
   }
 

@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as couponsApi from './api'
 import type { Coupon, CouponInput, DiscountType, CouponCurrencyAmount } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
 
@@ -29,7 +30,7 @@ function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
     setLoading(true)
     couponsApi.listCouponCurrencyAmounts(token, couponId)
       .then(setAmounts)
-      .catch(err => setError(err instanceof Error ? err.message : t('overrides.loadFailed')))
+      .catch(err => setError(apiErrorText(err) ?? t('overrides.loadFailed')))
       .finally(() => setLoading(false))
   }, [token, couponId])
 
@@ -47,7 +48,7 @@ function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
       setAmounts(prev => (prev.some(a => a.currency_code === result.currency_code) ? prev.map(a => (a.currency_code === result.currency_code ? result : a)) : [...prev, result]))
       setNewAmount('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('overrides.saveFailed'))
+      setError(apiErrorText(err) ?? t('overrides.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -60,7 +61,7 @@ function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
       await couponsApi.deleteCouponCurrencyAmount(token, couponId, currencyCode)
       setAmounts(prev => prev.filter(a => a.currency_code !== currencyCode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('overrides.deleteFailed'))
+      setError(apiErrorText(err) ?? t('overrides.deleteFailed'))
     }
   }
 
@@ -165,7 +166,7 @@ export function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEd
       }
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('edit.saveFailed'))
+      setFormError(apiErrorText(err) ?? t('edit.saveFailed'))
     } finally {
       setSaving(false)
     }

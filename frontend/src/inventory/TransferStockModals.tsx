@@ -4,6 +4,7 @@ import type { Batch } from './types'
 import { Modal, inputClass, labelClass } from './components/Modal'
 import { BatchScope, LockedField } from './BatchStockModals'
 import { stockUnitFor, type StockUnit } from './stockUnit'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Transfer (also covers general-ledger <-> batch moves) ───────────────────
 
@@ -45,7 +46,7 @@ export function TransferModal({
       })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('transfer.failed'))
+      setError(apiErrorText(e) ?? t('transfer.failed'))
     } finally {
       setSaving(false)
     }
@@ -153,7 +154,7 @@ export function SplitCaseModal({
       await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, cases_to_split: n, reason })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('split.failed'))
+      setError(apiErrorText(e) ?? t('split.failed'))
     } finally {
       setSaving(false)
     }
@@ -248,7 +249,7 @@ export function DamagedLostModal({
       await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, quantity: n, type, reason })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('writeOff.failed'))
+      setError(apiErrorText(e) ?? t('writeOff.failed'))
     } finally {
       setSaving(false)
     }

@@ -9,6 +9,7 @@ import { quantityToPick } from '../oms/pickable'
 import type { SalesOrderDetail } from '../oms/types'
 import { orderNumber } from '../packing/orderDisplay'
 import { customerName } from '../oms/salesOrderDisplay'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface PickOrderListScreenProps {
   token: string
@@ -35,7 +36,7 @@ export function PickOrderListScreen({ token, orderId, onDone, onBack }: PickOrde
     try {
       setDetail(await omsApi.getSalesOrder(token, orderId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('errors.loadOrder'))
+      setError(apiErrorText(err) ?? t('errors.loadOrder'))
     }
   }, [token, orderId, t])
 
@@ -48,7 +49,7 @@ export function PickOrderListScreen({ token, orderId, onDone, onBack }: PickOrde
       await omsApi.markOrderPicked(token, orderId)
       onDone()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('errors.markPicked'))
+      setError(apiErrorText(err) ?? t('errors.markPicked'))
       setMarking(false)
     }
   }

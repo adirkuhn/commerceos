@@ -12,6 +12,7 @@ import { useDateFormat } from '../../format/DateFormatProvider'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 import { useQueryString } from '../../routing/useQueryState'
+import { apiErrorText } from '../../api/apiErrorText'
 
 const SEARCH_DEBOUNCE_MS = 300
 const SEARCH_MIN_LENGTH = 2
@@ -106,7 +107,7 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
       setSearchError(null)
       pmsApi.listProducts(token, { search: query.trim(), perPage: 8 })
         .then(res => { if (!cancelled) setResults(res.products) })
-        .catch(e => { if (!cancelled) setSearchError(e instanceof Error ? e.message : t('fbt.unknownError')) })
+        .catch(e => { if (!cancelled) setSearchError(apiErrorText(e) ?? t('fbt.unknownError')) })
         .finally(() => { if (!cancelled) setSearching(false) })
     }, SEARCH_DEBOUNCE_MS)
     return () => { cancelled = true; clearTimeout(timer) }
@@ -143,7 +144,7 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
         setSkuOptions(options)
         if (options.length === 1) setSelectedSkuId(options[0].sku.id)
       })
-      .catch(e => { if (!cancelled) setSearchError(e instanceof Error ? e.message : t('fbt.unknownError')) })
+      .catch(e => { if (!cancelled) setSearchError(apiErrorText(e) ?? t('fbt.unknownError')) })
       .finally(() => { if (!cancelled) setLoadingSkus(false) })
     return () => { cancelled = true }
   }, [token, productId, setSelectedSkuId])
@@ -156,7 +157,7 @@ function ProductRecommendationsSearch({ token, period }: { token: string; period
     const { from, to } = dateRange(period, new Date(), timeZone)
     reportsApi.getProductRecommendations(token, selectedSkuId, from, to)
       .then(r => { if (!cancelled) setRecommendations(r) })
-      .catch(e => { if (!cancelled) setRecError(e instanceof Error ? e.message : t('fbt.unknownError')) })
+      .catch(e => { if (!cancelled) setRecError(apiErrorText(e) ?? t('fbt.unknownError')) })
       .finally(() => { if (!cancelled) setRecLoading(false) })
     return () => { cancelled = true }
   }, [token, selectedSkuId, period, timeZone])

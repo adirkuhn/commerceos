@@ -12,6 +12,7 @@ import { Dialog } from '../components/common/Dialog'
 import { DISCREPANCY_TYPES, RECEIVING_STATUS_STYLE, discrepancyLabel, receivingStatusLabel } from './procurementHelpers'
 import { DiscrepancyRow, FlagDamagedItemForm } from './DiscrepancyRow'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Receiving ────────────────────────────────────────────────────────────────
 
@@ -50,7 +51,7 @@ export function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onA
       }
       refresh()
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : t('receiving.uploadFailed'))
+      setUploadError(apiErrorText(err) ?? t('receiving.uploadFailed'))
     } finally {
       setUploadStatus('idle')
     }
@@ -149,7 +150,7 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
     try {
       setDetail(await procurementApi.getReceivingRecord(token ?? '', recordId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('receiving.loadFailed'))
+      setError(apiErrorText(err) ?? t('receiving.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -165,7 +166,7 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
       await load()
       onCompleted()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('receiving.completeFailed'))
+      setError(apiErrorText(err) ?? t('receiving.completeFailed'))
     } finally {
       setCompleting(false)
     }

@@ -1,6 +1,7 @@
 import i18next from 'i18next'
 import { useState } from 'react'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 type SubmitHandler = (e: React.FormEvent) => Promise<void>
 
@@ -78,7 +79,7 @@ export interface ConnectForms {
   paymentWebhook: PaymentWebhookState
 }
 
-const errorMessage = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback)
+const errorMessage = (err: unknown, fallback: string) => (apiErrorText(err) ?? fallback)
 
 // Field values + submit handlers for every form in the "Browse
 // integrations" catalog. Owned by the catalog dialog, so everything resets

@@ -89,7 +89,7 @@ describe('CompanyProfileSection', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('internal server error')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong on our side. Please try again.')
   })
 
   it('is read-only for users who cannot change settings', async () => {
@@ -104,6 +104,6 @@ describe('CompanyProfileSection', () => {
   it('reports a load failure', async () => {
     vi.mocked(api.getCompanyProfile).mockRejectedValue(new CompanyProfileError('INTERNAL', 'internal server error'))
     render(<CompanyProfileSection />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('internal server error')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong on our side. Please try again.')
   })
 })

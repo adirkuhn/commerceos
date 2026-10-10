@@ -12,6 +12,7 @@ import { currentLocale } from '../i18n/i18n'
 import { useThemes } from './useThemes'
 import { VersionHistory } from './VersionHistory'
 import type { Theme, ThemePreset, VersionSummary } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface Props {
   channel: SalesChannel
@@ -43,7 +44,7 @@ export function ThemesPanel({ channel, onClose }: Props) {
       await create(name.trim(), preset)
       setName('')
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('errors.create'))
+      setActionError(apiErrorText(err) ?? t('errors.create'))
     } finally {
       setCreating(false)
     }
@@ -61,7 +62,7 @@ export function ThemesPanel({ channel, onClose }: Props) {
       }
     } catch (err) {
       win?.close()
-      setActionError(err instanceof Error ? err.message : t('errors.openEditor'))
+      setActionError(apiErrorText(err) ?? t('errors.openEditor'))
     }
   }
 
@@ -77,7 +78,7 @@ export function ThemesPanel({ channel, onClose }: Props) {
     try {
       await remove(theme.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('errors.delete'))
+      setActionError(apiErrorText(err) ?? t('errors.delete'))
     }
   }
 
@@ -86,7 +87,7 @@ export function ThemesPanel({ channel, onClose }: Props) {
     try {
       await makeLive(theme.id, version.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('errors.makeLive'))
+      setActionError(apiErrorText(err) ?? t('errors.makeLive'))
     }
   }
 

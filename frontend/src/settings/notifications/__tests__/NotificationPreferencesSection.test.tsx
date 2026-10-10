@@ -92,6 +92,6 @@ describe('NotificationPreferencesSection', () => {
   it('reports a load failure', async () => {
     vi.mocked(api.getNotificationPreferences).mockRejectedValue(new NotificationPreferencesError('INTERNAL', 'internal server error'))
     render(<NotificationPreferencesSection />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('internal server error')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong on our side. Please try again.')
   })
 })

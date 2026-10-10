@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { Notification } from '../types'
 import * as api from '../api'
 import { subscribeNotificationsChanged } from '../notificationsBus'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseNotificationsState {
   notifications: Notification[]
@@ -30,7 +31,7 @@ export function useNotifications(token: string): UseNotificationsState & UseNoti
       const data = await api.listNotifications(token)
       setNotifications(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('ui:errors.unknown'))
+      setError(apiErrorText(e) ?? i18next.t('ui:errors.unknown'))
     } finally {
       setLoading(false)
     }

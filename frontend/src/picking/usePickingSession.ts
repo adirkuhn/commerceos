@@ -7,6 +7,7 @@ import type { SalesOrder } from '../oms/types'
 import * as pickingApi from '../scanner/api'
 import type { PickingSessionDetail, CompletePickingResult, StockShortfall, StockShortfallResolution } from '../scanner/types'
 import { PICKING_PATH } from './pickingDisplay'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface PickingSessionOptions {
   token: string | null
@@ -50,7 +51,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
     try {
       setSession(await pickingApi.getPickingSession(token, sessionId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('picking:errors.loadSession'))
+      setError(apiErrorText(err) ?? i18next.t('picking:errors.loadSession'))
     } finally {
       setSessionLoading(false)
     }
@@ -75,7 +76,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
       await pickingApi.takeOverPickingSession(token, session.session.id)
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('picking:errors.takeOver'))
+      setError(apiErrorText(err) ?? i18next.t('picking:errors.takeOver'))
     }
   }
 
@@ -118,7 +119,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
       const newSession = await pickingApi.startOrResumePicking(token ?? '', order.id)
       if (showSession(newSession.id)) await loadSession(newSession.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('picking:errors.start'))
+      setError(apiErrorText(err) ?? i18next.t('picking:errors.start'))
       setSessionLoading(false)
     }
   }
@@ -142,7 +143,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
       backToOrders()
       await refreshQueue()
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('picking:errors.pause'))
+      setError(apiErrorText(err) ?? i18next.t('picking:errors.pause'))
     } finally {
       setPausing(false)
     }
@@ -162,7 +163,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
       onSelectionReset()
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('picking:errors.reset'))
+      setError(apiErrorText(err) ?? i18next.t('picking:errors.reset'))
     } finally {
       setResetting(false)
     }
@@ -188,7 +189,7 @@ export function usePickingSession({ token, userId, refreshQueue, onSelectionRese
       setConfirmingFinish(false)
       await refreshQueue()
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('picking:errors.complete'))
+      setError(apiErrorText(err) ?? i18next.t('picking:errors.complete'))
     } finally {
       setCompleting(false)
     }

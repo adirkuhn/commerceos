@@ -5,6 +5,7 @@ import * as integrationsApi from '../integrations/api'
 import type { SalesChannel } from '../integrations/types'
 import * as settingsApi from './api'
 import type { ApiKey } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Tenant-wide, not tied to any one Connection -- a storefront (e.g. the
 // WooCommerce plugin) calls CommerceOS' cart-recommendations API with one
@@ -33,7 +34,7 @@ export function ApiKeysCard() {
     let cancelled = false
     Promise.all([settingsApi.listApiKeys(token ?? ''), integrationsApi.listSalesChannels(token ?? '')])
       .then(([keysResult, channelsResult]) => { if (!cancelled) { setKeys(keysResult); setChannels(channelsResult) } })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : t('apiKeys.loadFailed')) })
+      .catch(err => { if (!cancelled) setError(apiErrorText(err) ?? t('apiKeys.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token, t])
@@ -50,7 +51,7 @@ export function ApiKeysCard() {
       setDescription('')
       setSalesChannelId('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('apiKeys.createFailed'))
+      setError(apiErrorText(err) ?? t('apiKeys.createFailed'))
     } finally {
       setCreating(false)
     }
@@ -68,7 +69,7 @@ export function ApiKeysCard() {
       await settingsApi.revokeApiKey(token ?? '', id)
       setKeys(prev => prev.map(k => (k.id === id ? { ...k, revoked_at: new Date().toISOString() } : k)))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('apiKeys.revokeFailed'))
+      setError(apiErrorText(err) ?? t('apiKeys.revokeFailed'))
     } finally {
       setBusyId(null)
     }

@@ -6,6 +6,7 @@ import { useAIConnection } from './hooks/useAIConnection'
 import * as api from './api'
 import type { Connection } from './types'
 import { Dialog } from '../components/common/Dialog'
+import { apiErrorText } from '../api/apiErrorText'
 
 // AI-assisted parsing: when a customer's message doesn't match the rigid
 // "STOCK <code>"/"PRICE <code>"/etc format, the tenant's connected AI
@@ -34,7 +35,7 @@ export function WhatsAppAIParsingModal({ connection, onClose, onSaved }: {
       onSaved(updated)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('saveFailed'))
+      setError(apiErrorText(err) ?? t('saveFailed'))
     } finally {
       setSaving(false)
     }

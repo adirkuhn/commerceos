@@ -10,6 +10,7 @@ import { ManualProducts } from './ManualProducts'
 import { RulesEditor } from './RulesEditor'
 import { inputClass, labelClass } from './styles'
 import type { Collection, CollectionInput, CollectionSort } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 const sorts = (t: TFunction<'collections'>): { value: CollectionSort; label: string; manualOnly?: boolean }[] => [
   { value: 'manual', label: t('sort.manual'), manualOnly: true },
@@ -58,7 +59,7 @@ export function CollectionEditPage({ collection, onSave, onClose, onSaved }: Pro
       const saved = await onSave(collection?.id ?? null, input, input.type === 'manual' ? productIds : undefined)
       onSaved(saved.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('edit.saveFailed'))
+      setError(apiErrorText(err) ?? t('edit.saveFailed'))
     } finally {
       setSaving(false)
     }

@@ -6,6 +6,7 @@ import { fieldInputClass, fieldLabelClass } from './formStyles'
 import { variantEditFormFrom, variantEditSkuPayload, type VariantEditForm } from './variantSkuForms'
 import { DimensionInputsGrid } from './DimensionInputsGrid'
 import type { SKU, SKUStatus, UpdateSKUPayload, UpdateVariantPayload, VariantWithSKUs } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface VariantEditPanelProps {
   variant: VariantWithSKUs
@@ -44,7 +45,7 @@ export function VariantEditPanel({ variant, sku, updateVariant, updateSKU, onClo
       if (sku) await updateSKU(sku.id, variantEditSkuPayload(form, sku))
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('variant.saveFailed'))
+      setError(apiErrorText(err) ?? t('variant.saveFailed'))
     } finally {
       setSaving(false)
     }

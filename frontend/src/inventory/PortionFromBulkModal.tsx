@@ -6,6 +6,7 @@ import * as inventoryApi from './api'
 import type { Batch } from './types'
 import type { DateInput } from '../format/date'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 function formatBatchOption(b: Batch, formatDate: (value: DateInput) => string): string {
   const label = b.lot_number || b.id
@@ -48,7 +49,7 @@ export function PortionFromBulkModal({
     let cancelled = false
     inventoryApi.listBatches(token, bulkSkuId)
       .then(result => { if (!cancelled) setBatches(result) })
-      .catch(e => { if (!cancelled) setBatchesError(e instanceof Error ? e.message : t('portion.batchesFailed')) })
+      .catch(e => { if (!cancelled) setBatchesError(apiErrorText(e) ?? t('portion.batchesFailed')) })
     return () => { cancelled = true }
   }, [token, bulkSkuId])
 
@@ -68,7 +69,7 @@ export function PortionFromBulkModal({
       await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, weight_grams: weight, reason })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('portion.failed'))
+      setError(apiErrorText(e) ?? t('portion.failed'))
     } finally {
       setSaving(false)
     }

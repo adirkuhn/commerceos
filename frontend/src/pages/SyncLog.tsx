@@ -10,6 +10,7 @@ import * as api from '../integrations/api'
 import type { SyncLogStatus } from '../integrations/types'
 import { useQueryEnum, useQueryPage } from '../routing/useQueryState'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 const PAGE_SIZE = 20
 
@@ -60,7 +61,7 @@ export default function SyncLog() {
       await api.retryFailedSync(token ?? '', id)
       await needingAttention.refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('syncLog.retryFailed'))
+      setActionError(apiErrorText(err) ?? t('syncLog.retryFailed'))
     } finally {
       setBusyId(null)
       setBusyAction(null)
@@ -75,7 +76,7 @@ export default function SyncLog() {
       await api.dismissFailedSync(token ?? '', id)
       await needingAttention.refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('syncLog.dismissFailed'))
+      setActionError(apiErrorText(err) ?? t('syncLog.dismissFailed'))
     } finally {
       setBusyId(null)
       setBusyAction(null)

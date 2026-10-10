@@ -6,6 +6,7 @@ import type { TenantSettings } from '../../settings/types'
 import { useProductDetail } from './useProductDetail'
 import { productFieldsFromProduct, type ProductFields, type SetProductField } from '../productFields'
 import { EMPTY_FLAT_SKU_FORM, flatSkuBasePayload, flatSkuCreatePayload, flatSkuFormFromSKU, flatSkuUpdatePayload, type FlatSkuForm, type PatchFlatSku, type SetFlatSkuField } from '../flatSkuForm'
+import { apiErrorText } from '../../api/apiErrorText'
 
 export interface ProductWritePayload {
   name: string
@@ -148,7 +149,7 @@ export function useProductEditForm({ token, productId, tenantSettings, onCreate,
       if (!savedProductId) await createProduct()
       else await updateProduct(savedProductId)
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : i18next.t('pms:errors.saveProduct'))
+      setFormError(apiErrorText(err) ?? i18next.t('pms:errors.saveProduct'))
     } finally {
       setSaving(false)
     }
@@ -174,7 +175,7 @@ export function useProductEditForm({ token, productId, tenantSettings, onCreate,
       await onUpdate(savedProductId, { name: fields.name, description: fields.description, category_id: fields.categoryId || null, status: fields.status, has_variants: true, tags: fields.tags })
       setVariantsMode(true)
     } catch (err) {
-      setEnableVariantsError(err instanceof Error ? err.message : i18next.t('pms:errors.enableVariants'))
+      setEnableVariantsError(apiErrorText(err) ?? i18next.t('pms:errors.enableVariants'))
     } finally {
       setEnablingVariants(false)
     }

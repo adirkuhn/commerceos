@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { SalesChannelProductEnrollment } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseSalesChannelProductsState {
   items: SalesChannelProductEnrollment[]
@@ -41,7 +42,7 @@ export function useSalesChannelProducts(
       setItems(result.items)
       setTotal(result.total)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('integrations:unknownError'))
+      setError(apiErrorText(e) ?? i18next.t('integrations:unknownError'))
     } finally {
       setLoading(false)
     }

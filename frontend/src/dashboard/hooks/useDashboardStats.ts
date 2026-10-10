@@ -5,6 +5,7 @@ import * as omsApi from '../../oms/api'
 import * as inventoryApi from '../../inventory/api'
 import * as dashboardApi from '../api'
 import type { DailyStockFlow, ChannelRevenue, TopProduct } from '../types'
+import { apiErrorText } from '../../api/apiErrorText'
 
 export interface DashboardStats {
   totalProducts: number
@@ -58,7 +59,7 @@ export function useDashboardStats(token: string): UseDashboardStatsState & { ref
         topProductsThisMonth: report.top_products_this_month,
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('dashboard:errors.unknown'))
+      setError(apiErrorText(e) ?? i18next.t('dashboard:errors.unknown'))
     } finally {
       setLoading(false)
     }

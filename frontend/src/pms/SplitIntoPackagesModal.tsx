@@ -10,6 +10,7 @@ import type { PackedWeightLine } from './types'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { formatMoney } from '../format/money'
 import { addPackageLine, formatKg, packagePriceMinorUnits, summarizePackages, type PackageLine } from './weightPackages'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Where the packages are drawn from: a real lot (batchId) or a warehouse's
 // general-ledger stock (batchId '').
@@ -65,7 +66,7 @@ export function SplitIntoPackagesModal({
         const preferred = withStock.find(b => !b.is_general_ledger) ?? withStock[0]
         setSourceKey(key => key || (preferred ? scopeKey(batchScope(preferred)) : ''))
       })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : t('split.loadFailed')) })
+      .catch(e => { if (!cancelled) setError(apiErrorText(e) ?? t('split.loadFailed')) })
     return () => { cancelled = true }
   }, [token, bulkSkuId, initialKey, t])
 
@@ -112,7 +113,7 @@ export function SplitIntoPackagesModal({
       setPacked(result.lines)
       onPacked(result.lines)
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('split.failed'))
+      setError(apiErrorText(e) ?? t('split.failed'))
     } finally {
       setSaving(false)
     }

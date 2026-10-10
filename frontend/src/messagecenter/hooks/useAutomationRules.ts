@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { AutomationRule, CreateAutomationRuleInput, UpdateAutomationRuleInput } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseAutomationRulesState {
   rules: AutomationRule[]
@@ -30,7 +31,7 @@ export function useAutomationRules(token: string): UseAutomationRulesState & Use
       const data = await api.listAutomationRules(token)
       setRules(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('common:status.error'))
+      setError(apiErrorText(e) ?? i18next.t('common:status.error'))
     } finally {
       setLoading(false)
     }

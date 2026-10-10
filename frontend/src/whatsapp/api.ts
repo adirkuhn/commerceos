@@ -1,4 +1,5 @@
 import type { WhatsAppConversation, WhatsAppConversationMessage, APIResponse } from './types'
+import { CodedApiError } from '../api/codedApiError'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/whatsapp`
@@ -11,7 +12,7 @@ async function request<T>(path: string, token: string, method: string = 'GET'): 
   })
   const body: APIResponse<T> = await res.json()
   if (!res.ok || body.error) {
-    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   }
   return body.data as T
 }

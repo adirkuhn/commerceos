@@ -7,6 +7,7 @@ import type {
   PortionFromBulkInput, PortionFromBulkResult, ExpiredBatchReview, ExtendBatchExpiryInput,
   DiscardBatchInput, DiscardRecord, DiscardRecordReport, ListDiscardsParams, ListDiscardsResult,
 } from './types'
+import { CodedApiError } from '../api/codedApiError'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/inventory`
@@ -27,7 +28,7 @@ async function request<T>(
   })
   const body: APIResponse<T> = await res.json()
   if (!res.ok || body.error) {
-    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   }
   return body.data as T
 }
@@ -162,7 +163,7 @@ export async function discardBatch(token: string, skuId: string, input: DiscardB
   })
   const body: APIResponse<DiscardRecord> = await res.json()
   if (!res.ok || body.error) {
-    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   }
   return body.data as DiscardRecord
 }
@@ -183,7 +184,7 @@ export async function listDiscards(token: string, params: ListDiscardsParams = {
   })
   const body: APIResponse<DiscardRecordReport[]> & { total?: number } = await res.json()
   if (!res.ok || body.error) {
-    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   }
   return { discards: body.data ?? [], total: body.total ?? 0 }
 }

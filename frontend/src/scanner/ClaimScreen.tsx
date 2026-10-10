@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import * as api from './api'
 import { CameraScanner } from './CameraScanner'
 import { hasLoginUrl, APP_ID, lm2Origin } from '../auth/loginConfig'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface ClaimScreenProps {
   onClaimed: (token: string) => void
@@ -35,7 +36,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
       const { token } = await api.claimPairingCode(code.trim())
       onClaimed(token)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('claim.failed'))
+      setError(apiErrorText(err) ?? t('claim.failed'))
       setClaiming(false)
     }
   }
@@ -47,7 +48,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
       const { token } = await api.claimPairingCodeByToken(value.trim())
       onClaimed(token)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('claim.failed'))
+      setError(apiErrorText(err) ?? t('claim.failed'))
       setClaiming(false)
     }
   }
@@ -78,7 +79,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
       if (!res.ok) throw new Error(body.error?.message ?? body.message ?? t('claim.googleUnavailable'))
       window.location.href = body.data.url
     } catch (err) {
-      setGoogleError(err instanceof Error ? err.message : t('claim.googleUnavailable'))
+      setGoogleError(apiErrorText(err) ?? t('claim.googleUnavailable'))
       setGoogleLoading(false)
     }
   }

@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from './hooks/useTenantSettings'
 import { toInput } from './tenantSettingsInput'
 import type { PickingMode } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 
 // Settings > Fulfillment: how the picking module works for this tenant.
@@ -31,7 +32,7 @@ export function PickingModeSection() {
       await save({ ...toInput(settings), picking_mode: mode })
       setSaved(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('picking.saveFailed'))
+      setError(apiErrorText(err) ?? t('picking.saveFailed'))
     } finally {
       setSaving(false)
     }

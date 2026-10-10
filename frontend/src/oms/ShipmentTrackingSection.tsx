@@ -8,6 +8,7 @@ import type { Shipment, ShipmentTrackingEvent } from '../shipping/types'
 import { CARRIERS } from '../shipping/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 // One shipment's carrier/barcode header plus its full tracking timeline
 // (newest first) and a "Refresh from provider" button -- fetches the
@@ -30,7 +31,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
     setLoading(true)
     shippingApi.listShipmentTrackingEvents(token, shipment.id)
       .then(setEvents)
-      .catch(err => setError(err instanceof Error ? err.message : t('tracking.failedLoad')))
+      .catch(err => setError(apiErrorText(err) ?? t('tracking.failedLoad')))
       .finally(() => setLoading(false))
   }, [token, shipment.id])
   useEffect(() => { load() }, [load])
@@ -42,7 +43,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
       const event = await shippingApi.refreshShipmentTracking(token, shipment.id)
       setEvents(prev => [event, ...prev])
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('tracking.failedFetch'))
+      setError(apiErrorText(err) ?? t('tracking.failedFetch'))
     } finally {
       setRefreshing(false)
     }
@@ -62,7 +63,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
       setCancelMessage(cancelOutcomeText(tShipping, { deleted: result.deleted_on_myparcel, carrierError: result.carrier_error ?? '' }, result.message))
       onCancelled()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('tracking.failedCancel'))
+      setError(apiErrorText(err) ?? t('tracking.failedCancel'))
     } finally {
       setCancelling(false)
     }

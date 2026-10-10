@@ -4,6 +4,7 @@ import { Copy } from 'lucide-react'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { PaymentStatusBadge } from './PaymentStatusBadge'
 import type { SalesOrder } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 // The order detail's "Payment" card: did the payment succeed, how, its
 // transaction id (to look it up at the payment provider) and when.
@@ -22,7 +23,7 @@ export function OrderPaymentCard({ order }: { order: SalesOrder }) {
       setCopied(true)
       setCopyError('')
     } catch (e) {
-      setCopyError(e instanceof Error ? e.message : String(e))
+      setCopyError(apiErrorText(e) ?? String(e))
     }
   }
 

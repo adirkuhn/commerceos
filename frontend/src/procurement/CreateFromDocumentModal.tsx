@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import * as procurementApi from './api'
 import { Dialog } from '../components/common/Dialog'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Create-from-document modal ──────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ export function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocume
       // freeze this modal waiting for it.
       onCreated(job.purchase_order_id, job.id)
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('upload.failed'))
+      setFormError(apiErrorText(err) ?? t('upload.failed'))
       setStatus('idle')
     }
   }

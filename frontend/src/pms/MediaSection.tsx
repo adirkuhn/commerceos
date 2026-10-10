@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useProductMedia } from './hooks/useProductMedia'
 import type { Media } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Media section ─────────────────────────────────────────────────────────────
 
@@ -42,7 +43,7 @@ export function MediaSection({ productId }: { productId: string }) {
         await upload(file)
       }
     } catch (e) {
-      setUploadError(e instanceof Error ? e.message : t('media.uploadFailed'))
+      setUploadError(apiErrorText(e) ?? t('media.uploadFailed'))
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -69,7 +70,7 @@ export function MediaSection({ productId }: { productId: string }) {
       await update(editingId, titleDraft)
       setEditingId(null)
     } catch (e) {
-      setTitleError(e instanceof Error ? e.message : t('media.titleFailed'))
+      setTitleError(apiErrorText(e) ?? t('media.titleFailed'))
     } finally {
       setTitleSaving(false)
     }

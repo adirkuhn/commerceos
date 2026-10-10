@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { useAllProviderWebhooks } from '../integrations/hooks/useAllProviderWebhooks'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Screen 2: what's actually subscribed right now, across every connection
 // -- the "give me visibility" ask. Read-only list + Remove; Create still
@@ -29,7 +30,7 @@ export function SubscriptionsTab({
     try {
       await remove(connectionId, webhookId)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('subscriptions.removeFailed'))
+      setRowError(apiErrorText(err) ?? t('subscriptions.removeFailed'))
     } finally {
       setBusyKey(null)
     }

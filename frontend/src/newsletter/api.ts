@@ -1,4 +1,5 @@
 import type { Subscriber, SubscriberQuery } from './types'
+import { CodedApiError } from '../api/codedApiError'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/newsletter/subscribers`
@@ -14,7 +15,7 @@ async function send(path: string, init: RequestInit, token: string): Promise<Res
   const res = await fetch(`${base()}${path}`, { ...init, headers: { Authorization: `Bearer ${token}`, ...init.headers } })
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as Envelope<unknown> | null
-    throw new Error(body?.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body?.error?.code ?? 'HTTP_ERROR', body?.error?.message ?? `HTTP ${res.status}`)
   }
   return res
 }

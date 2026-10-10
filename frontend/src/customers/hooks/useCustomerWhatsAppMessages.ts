@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { WhatsAppMessage } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseCustomerWhatsAppMessagesState {
   messages: WhatsAppMessage[]
@@ -27,7 +28,7 @@ export function useCustomerWhatsAppMessages(token: string, customerId: string | 
       const data = await api.listCustomerWhatsAppMessages(token, customerId)
       setMessages(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('customers:errors.unknown'))
+      setError(apiErrorText(e) ?? i18next.t('customers:errors.unknown'))
     } finally {
       setLoading(false)
     }

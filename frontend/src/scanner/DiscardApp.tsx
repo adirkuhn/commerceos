@@ -15,6 +15,7 @@ import { useStackNavigation } from '../routing/useStackNavigation'
 import type { Resolved } from './InventoryScanScreens'
 import type { Batch } from '../inventory/types'
 import { Dialog } from '../components/common/Dialog'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface DiscardAppProps {
   token: string
@@ -80,7 +81,7 @@ function DiscardScanScreen({ token, onResolved, onExit }: { token: string; onRes
       } catch {
         // fall through to the original resolveBarcode error below
       }
-      setError(err instanceof Error ? err.message : t('errors.resolveCode'))
+      setError(apiErrorText(err) ?? t('errors.resolveCode'))
     } finally {
       setLoading(false)
     }

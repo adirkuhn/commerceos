@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import * as api from '../api'
 import type { UserActivity } from '../types'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseUserActivitiesState {
   activities: UserActivity[]
@@ -21,7 +22,7 @@ export function useUserActivities(token: string, userId: string): UseUserActivit
       const data = await api.getUserActivities(token, userId)
       setActivities(data.activities)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('iam:unknownError'))
+      setError(apiErrorText(e) ?? i18next.t('iam:unknownError'))
     } finally {
       setLoading(false)
     }

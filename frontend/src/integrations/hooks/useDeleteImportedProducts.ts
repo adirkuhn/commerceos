@@ -3,6 +3,7 @@ import { useState } from 'react'
 import * as api from '../api'
 import type { Connection, DeleteAllImportedProductsResult } from '../types'
 import { notifyProductsChanged } from '../../pms/productsBus'
+import { apiErrorText } from '../../api/apiErrorText'
 
 export const DELETE_CONFIRMATION_WORD = 'DELETE'
 
@@ -23,7 +24,7 @@ export function useDeleteImportedProducts(token: string, connection: Connection 
       setResult(await api.deleteAllImportedProducts(token, connection.id))
       notifyProductsChanged()
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('integrations:deleteImported.failed'))
+      setError(apiErrorText(err) ?? i18next.t('integrations:deleteImported.failed'))
     } finally {
       setDeleting(false)
     }

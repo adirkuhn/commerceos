@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState } from 'react'
 import type { SKU, UpdateSKUPayload } from '../types'
 import { skuPassThroughPayload } from '../skuPayloads'
+import { apiErrorText } from '../../api/apiErrorText'
 
 // Inline edit of an existing SKU's barcode (Bol, for one, treats it as the
 // EAN, so it must stay fixable after creation). Saves immediately, sending
@@ -27,7 +28,7 @@ export function useSkuBarcodeEdit(sku: SKU | undefined, updateSKU: (id: string, 
     try {
       await updateSKU(sku.id, { ...skuPassThroughPayload(sku), barcode: value || undefined })
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('pms:errors.updateBarcode'))
+      setError(apiErrorText(err) ?? i18next.t('pms:errors.updateBarcode'))
     } finally {
       setSaving(false)
     }

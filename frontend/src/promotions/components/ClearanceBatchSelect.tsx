@@ -5,6 +5,7 @@ import { listBatches } from '../../inventory/api'
 import type { Batch } from '../../inventory/types'
 import type { DateInput } from '../../format/date'
 import { useDateFormat } from '../../format/DateFormatProvider'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface ClearanceBatchSelectProps {
   token: string
@@ -40,7 +41,7 @@ export function ClearanceBatchSelect({ token, skuId, value, onChange }: Clearanc
     setError('')
     listBatches(token, skuId)
       .then(rows => { if (!cancelled) setBatches(rows) })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : t('batch.loadFailed')) })
+      .catch(err => { if (!cancelled) setError(apiErrorText(err) ?? t('batch.loadFailed')) })
     return () => { cancelled = true }
   }, [token, skuId])
 

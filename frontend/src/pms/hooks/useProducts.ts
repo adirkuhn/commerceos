@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { Product, CreateProductPayload, UpdateProductPayload } from '../types'
 import * as api from '../api'
 import { notifyProductsChanged, subscribeProductsChanged } from '../productsBus'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseProductsState {
   products: Product[]
@@ -34,7 +35,7 @@ export function useProducts(token: string, params: { page?: number; perPage?: nu
       setProducts(result.products)
       setTotal(result.total)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('common:status.error'))
+      setError(apiErrorText(e) ?? i18next.t('common:status.error'))
     } finally {
       setLoading(false)
     }

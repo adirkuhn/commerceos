@@ -12,6 +12,7 @@ import { useCollections } from '../collections/hooks/useCollections'
 import type { Collection } from '../collections/types'
 import { NEW_RECORD, useRoutedEditor } from '../routing/useRoutedEditor'
 import { useResource } from '../routing/useResource'
+import { apiErrorText } from '../api/apiErrorText'
 
 function describe(t: TFunction<'collections'>, c: Collection): string {
   if (c.type === 'manual') return t('list.handPicked')
@@ -45,7 +46,7 @@ export default function Collections() {
     try {
       await remove(c.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('list.deleteFailed'))
+      setActionError(apiErrorText(err) ?? t('list.deleteFailed'))
     }
   }
 

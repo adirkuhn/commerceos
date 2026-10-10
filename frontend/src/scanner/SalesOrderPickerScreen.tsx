@@ -10,6 +10,7 @@ import type { SalesOrder } from '../oms/types'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { customerName } from '../oms/salesOrderDisplay'
 import { unknownCustomerLabel } from './scannerLabels'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface SalesOrderPickerScreenProps {
   token: string
@@ -59,7 +60,7 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onOrderChosenF
       const session = await api.startOrResumePicking(token, order.id)
       onPickingStarted(session.id, order)
     } catch (err) {
-      setStartError(err instanceof Error ? err.message : t('errors.startPicking'))
+      setStartError(apiErrorText(err) ?? t('errors.startPicking'))
       setStartingId(null)
     }
   }

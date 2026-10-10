@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { ProviderWebhook } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseProviderWebhooksState {
   webhooks: ProviderWebhook[]
@@ -31,7 +32,7 @@ export function useProviderWebhooks(token: string, connectionId: string): UsePro
     try {
       setWebhooks(await api.listProviderWebhooks(token, connectionId))
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('integrations:unknownError'))
+      setError(apiErrorText(e) ?? i18next.t('integrations:unknownError'))
     } finally {
       setLoading(false)
     }

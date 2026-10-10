@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import type { PurchaseOrderLineItem, AddLineItemInput, LineItemType } from './types'
 import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
 import { LINE_TYPES, isChargeLineType, lineTypeLabel, signedLineItemAmount, unitsPerPurchasedItemOnLink } from './procurementHelpers'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface LineItemFormRowProps {
   initial?: PurchaseOrderLineItem
@@ -48,7 +49,7 @@ export function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRow
         line_type: lineType,
       })
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('lineForm.saveFailed'))
+      setRowError(apiErrorText(err) ?? t('lineForm.saveFailed'))
     } finally {
       setSaving(false)
     }

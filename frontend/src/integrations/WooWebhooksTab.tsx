@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import * as api from './api'
 import ProviderWebhooksPanel from './ProviderWebhooksPanel'
+import { apiErrorText } from '../api/apiErrorText'
 
 // The webhook receiver itself lives at a URL outside VITE_API_BASE_URL's
 // per-domain convention (see ../api.ts's base()) -- it's the single
@@ -27,7 +28,7 @@ export function WebhooksTab({ token, connectionId, tenantId, provider }: { token
       const result = await api.setWebhookSecret(token, connectionId)
       setSecret(result.webhook_secret)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('wooWebhooks.failed'))
+      setError(apiErrorText(err) ?? t('wooWebhooks.failed'))
     } finally {
       setGenerating(false)
     }

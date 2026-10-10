@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react'
 import i18next from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { Customer, CustomerInput, Address } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Customer Edit Page ───────────────────────────────────────────────────────
 
@@ -59,7 +60,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
       }
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('edit.failed'))
+      setFormError(apiErrorText(err) ?? t('edit.failed'))
     } finally {
       setSaving(false)
     }

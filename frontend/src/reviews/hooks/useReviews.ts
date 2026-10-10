@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { Review } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseReviewsState {
   reviews: Review[]
@@ -27,7 +28,7 @@ export function useReviews(token: string): UseReviewsState & UseReviewsActions {
       const data = await api.listReviews(token)
       setReviews(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('common:status.error'))
+      setError(apiErrorText(e) ?? i18next.t('common:status.error'))
     } finally {
       setLoading(false)
     }

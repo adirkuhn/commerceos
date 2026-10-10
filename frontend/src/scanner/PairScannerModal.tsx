@@ -6,6 +6,7 @@ import JsBarcode from 'jsbarcode'
 import * as api from './api'
 import type { ScannerPairingCode } from './types'
 import { Dialog } from '../components/common/Dialog'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface PairScannerModalProps {
   token: string
@@ -57,7 +58,7 @@ export function PairScannerModal({ token, onClose }: PairScannerModalProps) {
   useEffect(() => {
     api.generatePairingCode(token)
       .then(setPairing)
-      .catch(err => setError(err instanceof Error ? err.message : t('pair.generateFailed')))
+      .catch(err => setError(apiErrorText(err) ?? t('pair.generateFailed')))
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

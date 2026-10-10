@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Merge, RefreshCw } from 'lucide-react'
 import * as integrationsApi from '../integrations/api'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface ProductEditHeaderProps {
   token: string | null
@@ -30,7 +31,7 @@ export function ProductEditHeader({ token, savedProductId, name, showResync, sav
       await integrationsApi.resyncProductToChannels(token ?? '', savedProductId)
       setResyncMessage(t('header.resyncStarted'))
     } catch (err) {
-      setResyncMessage(err instanceof Error ? err.message : t('header.resyncFailed'))
+      setResyncMessage(apiErrorText(err) ?? t('header.resyncFailed'))
     } finally {
       setResyncing(false)
     }

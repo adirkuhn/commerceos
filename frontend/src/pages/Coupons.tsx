@@ -13,6 +13,7 @@ import type { Coupon } from '../coupons/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { CouponEditPage } from '../coupons/CouponEditPage'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 const PAGE_SIZE = 20
 
@@ -49,7 +50,7 @@ export default function Coupons() {
     try {
       await remove(c.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('common:status.error'))
+      setActionError(apiErrorText(err) ?? t('common:status.error'))
     }
   }
 

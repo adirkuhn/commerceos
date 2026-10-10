@@ -6,6 +6,7 @@ import type { SKU } from '../pms/types'
 import { Modal, inputClass, labelClass } from './components/Modal'
 import { formatMinorUnitsAsInput } from './inventoryFormat'
 import { BatchFormModal, BatchScope } from './BatchStockModals'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Price / sale price (owned by pms, edited here as a convenience — same
 // pattern as ATUM's inventory screen writing back to WooCommerce's own
@@ -28,7 +29,7 @@ export function PriceModal({ sku, onSave, onClose }: {
       await onSave(price, salePrice, saleEndDate)
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('price.updateFailed'))
+      setError(apiErrorText(e) ?? t('price.updateFailed'))
     } finally {
       setSaving(false)
     }

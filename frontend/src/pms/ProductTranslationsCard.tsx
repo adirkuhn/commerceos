@@ -8,6 +8,7 @@ import { setProductTranslations } from './api'
 import { FormCard } from './FormCard'
 import { inputClass, labelClass } from './formStyles'
 import type { Product, ProductTexts } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 type Translations = Partial<Record<Locale, ProductTexts>>
 
@@ -42,7 +43,7 @@ export function ProductTranslationsCard({ product }: { product: Product }) {
       setValues(p.translations ?? {})
       setSaved(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('translations.saveFailed'))
+      setError(apiErrorText(err) ?? t('translations.saveFailed'))
     } finally {
       setSaving(false)
     }

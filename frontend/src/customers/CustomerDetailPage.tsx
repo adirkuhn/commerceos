@@ -11,6 +11,7 @@ import { formatMoney } from '../format/money'
 import { addressesEqual } from '../oms/salesOrderDisplay'
 import { fullName } from '../format/personName'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 // "3 days ago" style formatting for the "Last order placed" stat -- no
 // shared relative-time utility exists elsewhere in the app to reuse.
@@ -103,7 +104,7 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
       .catch(err => {
         setOrders([])
         setOrdersTotal(0)
-        setOrdersError(err instanceof Error ? err.message : t('detail.failedOrders'))
+        setOrdersError(apiErrorText(err) ?? t('detail.failedOrders'))
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, customer?.id])
@@ -125,7 +126,7 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
       await onSaveNote(noteDraft)
       setEditingNote(false)
     } catch (err) {
-      setNoteError(err instanceof Error ? err.message : t('detail.failedNote'))
+      setNoteError(apiErrorText(err) ?? t('detail.failedNote'))
     } finally {
       setSavingNote(false)
     }

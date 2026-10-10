@@ -10,6 +10,7 @@ import type { SalesOrder } from '../oms/types'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { customerName } from '../oms/salesOrderDisplay'
 import { unknownCustomerLabel } from './scannerLabels'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface SalesOrderPackerScreenProps {
   token: string
@@ -53,7 +54,7 @@ export function SalesOrderPackerScreen({ token, onPackingStarted, onLogout, onBa
       const session = await api.startOrResumePacking(token, order.id)
       onPackingStarted(session.id, order)
     } catch (err) {
-      setStartError(err instanceof Error ? err.message : t('errors.startPacking'))
+      setStartError(apiErrorText(err) ?? t('errors.startPacking'))
       setStartingId(null)
     }
   }

@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { PurchaseOrderDetail, UpdatePurchaseOrderInput, AddLineItemInput, UpdateLineItemInput } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UsePurchaseOrderDetailState {
   detail: PurchaseOrderDetail | null
@@ -36,7 +37,7 @@ export function usePurchaseOrderDetail(token: string, purchaseOrderId: string | 
       const data = await api.getPurchaseOrder(token, purchaseOrderId)
       setDetail(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('procurement:errors.unknown'))
+      setError(apiErrorText(e) ?? i18next.t('procurement:errors.unknown'))
     } finally {
       setLoading(false)
     }

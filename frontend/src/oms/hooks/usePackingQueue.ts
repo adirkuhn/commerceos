@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useCallback, useEffect, useState } from 'react'
 import type { OrderQueue, QueueEntry } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 // Locks change as people start/finish orders -- re-poll so "who has it and
 // for how long" stays current without a manual refresh.
@@ -39,7 +40,7 @@ function useOrderQueue(token: string, fetchQueue: QueueFetcher): UsePackingQueue
       setEntries(queue.entries)
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('orders:errors.loadOrders'))
+      setError(apiErrorText(err) ?? i18next.t('orders:errors.loadOrders'))
     } finally {
       setLoading(false)
     }

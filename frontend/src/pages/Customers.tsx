@@ -15,6 +15,7 @@ import { useConfirm } from '../components/common/useConfirm'
 import { CustomerDetailPage } from '../customers/CustomerDetailPage'
 import { CustomerEditPage } from '../customers/CustomerEditPage'
 import { fullName } from '../format/personName'
+import { apiErrorText } from '../api/apiErrorText'
 
 const PAGE_SIZE = 20
 
@@ -74,7 +75,7 @@ export default function Customers() {
     try {
       await remove(c.id)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : t('errors.unknown'))
+      setDeleteError(apiErrorText(err) ?? t('errors.unknown'))
     }
   }
 

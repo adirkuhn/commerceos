@@ -1,5 +1,6 @@
 import type { SyncSchedule, ProductChannelListing, SyncLogEntry, APIResponse } from '../types'
 import { base, request } from './client'
+import { CodedApiError } from '../../api/codedApiError'
 
 export function listSyncSchedules(token: string, connectionId: string): Promise<SyncSchedule[]> {
   return request<SyncSchedule[]>(`${base()}/connections/${connectionId}/sync-schedules`, { method: 'GET' }, token)
@@ -26,7 +27,7 @@ export async function getProductChannelListing(token: string, connectionId: stri
   }
   const body: APIResponse<ProductChannelListing> = await res.json()
   if (!res.ok || body.error) {
-    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   }
   return body.data
 }
@@ -66,7 +67,7 @@ export async function listAllSyncLogs(token: string, params: ListAllSyncLogsPara
   })
   const body: APIResponse<SyncLogEntry[]> & { total?: number } = await res.json()
   if (!res.ok || body.error) {
-    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   }
   return { entries: body.data ?? [], total: body.total ?? 0 }
 }
@@ -86,7 +87,7 @@ export async function listSyncLogsNeedingAttention(token: string, params: ListAl
   })
   const body: APIResponse<SyncLogEntry[]> & { total?: number } = await res.json()
   if (!res.ok || body.error) {
-    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   }
   return { entries: body.data ?? [], total: body.total ?? 0 }
 }

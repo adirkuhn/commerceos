@@ -8,6 +8,7 @@ import type { WebhookEvent } from '../integrations/types'
 import { useQueryEnum } from '../routing/useQueryState'
 import { providerLabel } from './providerLabel'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 const MESSAGE_VIEWS = ['all', 'needsAttention'] as const
 
@@ -51,7 +52,7 @@ export function MessagesTab({
       const updated = await api.retryWebhookEventDispatch(token, eventId)
       updateEvent(updated)
     } catch (err) {
-      setRetryError(err instanceof Error ? err.message : t('messages.retryFailed'))
+      setRetryError(apiErrorText(err) ?? t('messages.retryFailed'))
     } finally {
       setRetryingId(null)
     }
@@ -70,7 +71,7 @@ export function MessagesTab({
           const updated = await api.retryWebhookEventDispatch(token, e.id)
           updateEvent(updated)
         } catch (err) {
-          setRetryError(err instanceof Error ? err.message : t('messages.retryAllFailed'))
+          setRetryError(apiErrorText(err) ?? t('messages.retryAllFailed'))
         }
       }
     } finally {

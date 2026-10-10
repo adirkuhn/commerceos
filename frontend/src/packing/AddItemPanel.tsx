@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { Gift, PackagePlus, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
+import { apiErrorText } from '../api/apiErrorText'
 
 export interface AddItemInput {
   skuId: string
@@ -43,7 +44,7 @@ export function AddItemPanel({ busy, resolveCode, onAdd, onClose }: AddItemPanel
       setProduct({ skuId: r.sku_id, name: r.product_name })
       setCode('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('errors.scanNotRecognized'))
+      setError(apiErrorText(err) ?? t('errors.scanNotRecognized'))
     }
   }
 

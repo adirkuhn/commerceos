@@ -1,0 +1,5 @@
+{
+  "FORBIDDEN": "Você não tem permissão para fazer isso.",
+  "INTERNAL": "Algo deu errado do nosso lado. Tente novamente.",
+  "UNAUTHORIZED": "Sua sessão expirou. Entre novamente."
+}

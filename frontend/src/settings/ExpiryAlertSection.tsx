@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from './hooks/useTenantSettings'
 import { toInput } from './tenantSettingsInput'
 import { EXPIRY_ALERT_WINDOWS, type ExpiryAlertWindow } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Settings > Inventory: the daily stock-close-to-expiry report. The email
 // itself is a Message Center template + rule; this only turns the report on
@@ -41,7 +42,7 @@ export function ExpiryAlertSection() {
       await save({ ...toInput(settings), expiry_alert_enabled: enabled, expiry_alert_windows: windows })
       setSaved(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('expiryAlert.saveFailed'))
+      setError(apiErrorText(err) ?? t('expiryAlert.saveFailed'))
     } finally {
       setSaving(false)
     }

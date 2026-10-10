@@ -1,0 +1,5 @@
+{
+  "FORBIDDEN": "Je hebt geen toestemming om dit te doen.",
+  "INTERNAL": "Er ging iets mis aan onze kant. Probeer het opnieuw.",
+  "UNAUTHORIZED": "Je sessie is verlopen. Log opnieuw in."
+}

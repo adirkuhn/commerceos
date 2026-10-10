@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { AIConnection } from '../types'
 import * as api from '../api'
 import type { ConnectAIProviderPayload } from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseAIConnectionState {
   connection: AIConnection | null
@@ -29,7 +30,7 @@ export function useAIConnection(token: string): UseAIConnectionState & UseAIConn
       const data = await api.getAIConnection(token)
       setConnection(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('integrations:unknownError'))
+      setError(apiErrorText(e) ?? i18next.t('integrations:unknownError'))
     } finally {
       setLoading(false)
     }

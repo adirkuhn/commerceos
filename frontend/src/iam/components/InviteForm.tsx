@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { MemberRole } from '../../team/types'
+import { apiErrorText } from '../../api/apiErrorText'
 
 export function InviteForm({ onSubmit, onCancel }: { onSubmit: (email: string, role: MemberRole) => Promise<void>; onCancel: () => void }) {
   const { t } = useTranslation(['iam', 'common'])
@@ -17,7 +18,7 @@ export function InviteForm({ onSubmit, onCancel }: { onSubmit: (email: string, r
       await onSubmit(email, role)
       onCancel()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('unknownError'))
+      setError(apiErrorText(e) ?? t('unknownError'))
     } finally {
       setSubmitting(false)
     }

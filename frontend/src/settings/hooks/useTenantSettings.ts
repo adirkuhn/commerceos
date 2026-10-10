@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import i18next from 'i18next'
 import type { TenantSettings, TenantSettingsInput } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseTenantSettingsState {
   settings: TenantSettings | null
@@ -27,7 +28,7 @@ export function useTenantSettings(token: string): UseTenantSettingsState & UseTe
       const data = await api.getTenantSettings(token)
       setSettings(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('settings:unknownError'))
+      setError(apiErrorText(e) ?? i18next.t('settings:unknownError'))
     } finally {
       setLoading(false)
     }

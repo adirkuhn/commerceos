@@ -1,5 +1,6 @@
 import type { APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, QuantityBreak, StorefrontLocale, StorefrontMode } from '../types'
 import { base, request } from './client'
+import { CodedApiError } from '../../api/codedApiError'
 
 export function listSalesChannels(token: string): Promise<SalesChannel[]> {
   return request<SalesChannel[]>(`${base()}/sales-channels`, { method: 'GET' }, token)
@@ -133,7 +134,7 @@ export async function listSalesChannelProducts(token: string, channelId: string,
   })
   const body: APIResponse<SalesChannelProductEnrollment[]> & { total?: number } = await res.json()
   if (!res.ok || body.error) {
-    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   }
   return { items: body.data ?? [], total: body.total ?? 0 }
 }

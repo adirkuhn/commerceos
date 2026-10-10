@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import { listBolShipmentConfirmations, isBolConfirmationPending } from '../bolConfirmations'
 import type { BolShipmentConfirmation } from '../bolConfirmations'
+import { apiErrorText } from '../../api/apiErrorText'
 
 // Bol usually answers within a minute or two; the backend job checks every
 // 5 minutes, so re-reading every 30s while pending shows the result soon
@@ -32,7 +33,7 @@ export function useBolShipmentConfirmations(token: string, salesOrderId: string 
     try {
       setConfirmations(await listBolShipmentConfirmations(token, salesOrderId))
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('orders:errors.unknown'))
+      setError(apiErrorText(e) ?? i18next.t('orders:errors.unknown'))
     } finally {
       setLoading(false)
     }

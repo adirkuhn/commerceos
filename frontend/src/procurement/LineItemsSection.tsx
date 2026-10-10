@@ -14,6 +14,7 @@ import { useConfirm } from '../components/common/useConfirm'
 import { friendlyParsingError, lineTypeLabel, isChargeLineType, signedLineItemAmount, unitsPerPurchasedItemOnLink } from './procurementHelpers'
 import { LineItemFormRow } from './LineItemFormRow'
 import { formatMoney } from '../format/money'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Line Items ───────────────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ export function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, ini
         onRefresh()
       })
       .catch(err => {
-        if (!cancelled) setUploadError(err instanceof Error ? err.message : t('parsing.failed'))
+        if (!cancelled) setUploadError(apiErrorText(err) ?? t('parsing.failed'))
       })
       .finally(() => {
         if (!cancelled) { setUploadStatus('idle'); setParsingSlow(false) }
@@ -113,7 +114,7 @@ export function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, ini
       // be opened for manual entry.
       onRefresh()
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : t('lines.uploadFailed'))
+      setUploadError(apiErrorText(err) ?? t('lines.uploadFailed'))
     } finally {
       setUploadStatus('idle')
       setParsingSlow(false)
@@ -358,7 +359,7 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
       })
       onResolved()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('review.linkFailed'))
+      setError(apiErrorText(err) ?? t('review.linkFailed'))
       setSaving(false)
     }
   }
@@ -375,7 +376,7 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
       })
       onResolved()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('review.createFailed'))
+      setError(apiErrorText(err) ?? t('review.createFailed'))
       setSaving(false)
     }
   }

@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { WhatsAppConversation } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseWhatsAppConversationsState {
   conversations: WhatsAppConversation[]
@@ -28,7 +29,7 @@ export function useWhatsAppConversations(token: string): UseWhatsAppConversation
       const data = await api.listWhatsAppConversations(token)
       setConversations(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('common:status.error'))
+      setError(apiErrorText(e) ?? i18next.t('common:status.error'))
     } finally {
       setLoading(false)
     }

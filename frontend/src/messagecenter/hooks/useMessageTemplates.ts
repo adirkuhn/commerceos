@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { MessageTemplate, CreateMessageTemplateInput, UpdateMessageTemplateInput } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseMessageTemplatesState {
   templates: MessageTemplate[]
@@ -30,7 +31,7 @@ export function useMessageTemplates(token: string): UseMessageTemplatesState & U
       const data = await api.listMessageTemplates(token)
       setTemplates(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('common:status.error'))
+      setError(apiErrorText(e) ?? i18next.t('common:status.error'))
     } finally {
       setLoading(false)
     }

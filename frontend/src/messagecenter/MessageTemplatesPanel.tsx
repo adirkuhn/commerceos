@@ -9,6 +9,7 @@ import { useMessageTemplates } from './hooks/useMessageTemplates'
 import type { MessageTemplate, MessageChannel, MessageCategory } from './types'
 import { Dialog } from '../components/common/Dialog'
 import { useConfirm } from '../components/common/useConfirm'
+import { apiErrorText } from '../api/apiErrorText'
 
 
 const CHANNEL_ICONS: Record<MessageChannel, typeof Mail> = {
@@ -88,7 +89,7 @@ export default function MessageTemplatesPanel() {
       }
       closeForm()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('common:status.error'))
+      setFormError(apiErrorText(err) ?? t('common:status.error'))
     } finally {
       setSaving(false)
     }
@@ -100,7 +101,7 @@ export default function MessageTemplatesPanel() {
     try {
       await remove(tpl.id)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('common:status.error'))
+      setActionError(apiErrorText(err) ?? t('common:status.error'))
     }
   }
 

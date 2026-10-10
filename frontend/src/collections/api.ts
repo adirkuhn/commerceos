@@ -1,4 +1,5 @@
 import type { Collection, CollectionInput } from './types'
+import { CodedApiError } from '../api/codedApiError'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/collections`
@@ -16,7 +17,7 @@ async function request<T>(path: string, options: RequestInit, token: string): Pr
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers },
   })
   const body: Envelope<T> = await res.json()
-  if (!res.ok || body.error) throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+  if (!res.ok || body.error) throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   return body
 }
 

@@ -7,6 +7,7 @@ import { CARRIERS, PACKAGE_TYPES } from './types'
 import type { ShippingCarrierOverride } from './types'
 import * as integrationsApi from '../integrations/api'
 import ProviderWebhooksPanel from '../integrations/ProviderWebhooksPanel'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Same tier as WooCommerceSyncSettingsPage's webhook-secret tab -- exposes
 // a signing secret + the ability to register/remove live provider
@@ -87,7 +88,7 @@ export default function MyParcelSyncSettingsPage({
       const result = await integrationsApi.setWebhookSecret(token ?? '', connectionId)
       setWebhookSecret(result.webhook_secret)
     } catch (err) {
-      setWebhookSecretError(err instanceof Error ? err.message : t('myparcel.secretFailed'))
+      setWebhookSecretError(apiErrorText(err) ?? t('myparcel.secretFailed'))
     } finally {
       setGeneratingSecret(false)
     }
@@ -111,7 +112,7 @@ export default function MyParcelSyncSettingsPage({
       setRegisterWebhookDone(true)
       setWebhooksPanelKey(k => k + 1)
     } catch (err) {
-      setRegisterWebhookError(err instanceof Error ? err.message : t('myparcel.registerFailed'))
+      setRegisterWebhookError(apiErrorText(err) ?? t('myparcel.registerFailed'))
     } finally {
       setRegisteringWebhook(false)
     }
@@ -150,7 +151,7 @@ export default function MyParcelSyncSettingsPage({
         }
         setOverrides(result.carrier_overrides)
       })
-      .catch(err => setSettingsError(err instanceof Error ? err.message : t('myparcel.loadFailed')))
+      .catch(err => setSettingsError(apiErrorText(err) ?? t('myparcel.loadFailed')))
       .finally(() => setSettingsLoading(false))
   }, [connectionId, token])
 
@@ -182,7 +183,7 @@ export default function MyParcelSyncSettingsPage({
       setConnectionId(conn.connection_id)
       onConnected?.()
     } catch (err) {
-      setConnectError(err instanceof Error ? err.message : t('myparcel.connectFailed'))
+      setConnectError(apiErrorText(err) ?? t('myparcel.connectFailed'))
     } finally {
       setConnecting(false)
     }
@@ -207,7 +208,7 @@ export default function MyParcelSyncSettingsPage({
       })
       setSavedNote(t('myparcel.saved'))
     } catch (err) {
-      setSettingsError(err instanceof Error ? err.message : t('myparcel.saveFailed'))
+      setSettingsError(apiErrorText(err) ?? t('myparcel.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -236,7 +237,7 @@ export default function MyParcelSyncSettingsPage({
         return next
       })
     } catch (err) {
-      setSettingsError(err instanceof Error ? err.message : t('myparcel.overrideFailed'))
+      setSettingsError(apiErrorText(err) ?? t('myparcel.overrideFailed'))
     }
   }
 

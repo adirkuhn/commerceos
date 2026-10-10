@@ -10,6 +10,7 @@ import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 import { useConfirm } from '../components/common/useConfirm'
+import { apiErrorText } from '../api/apiErrorText'
 
 const PAGE_SIZE = 20
 
@@ -51,7 +52,7 @@ export default function Suppliers() {
     try {
       await remove(s.id)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : t('unknownError'))
+      setDeleteError(apiErrorText(err) ?? t('unknownError'))
     }
   }
 
@@ -226,7 +227,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
       }
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('saveFailed'))
+      setFormError(apiErrorText(err) ?? t('saveFailed'))
     } finally {
       setSaving(false)
     }

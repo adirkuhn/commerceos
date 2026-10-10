@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import type { RecipientAddress } from './types'
 import { CARRIERS, PACKAGE_TYPES } from './types'
 import { Dialog } from '../components/common/Dialog'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface LabelPreviewModalProps {
   recipient: RecipientAddress
@@ -44,7 +45,7 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
     try {
       await onPrint()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('preview.createFailed'))
+      setError(apiErrorText(err) ?? t('preview.createFailed'))
       setPrinting(false)
     }
     // No `finally` -- on success the caller unmounts this modal (moves on

@@ -9,6 +9,7 @@ import { ClearanceBatchSelect } from './components/ClearanceBatchSelect'
 import type { SKU } from '../pms/types'
 import { PromotionPerformanceCard } from './PromotionPerformanceCard'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Promotion Edit Page ──────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
         setEndsAt(detail.ends_at ? detail.ends_at.slice(0, 16) : '')
         setLines((detail.lines ?? []).map(l => ({ ...l, product_name: '' })))
       })
-      .catch(err => { if (!cancelled) setFormError(err instanceof Error ? err.message : t('edit.loadFailed')) })
+      .catch(err => { if (!cancelled) setFormError(apiErrorText(err) ?? t('edit.loadFailed')) })
       .finally(() => { if (!cancelled) setLoadingDetail(false) })
     return () => { cancelled = true }
   }, [token, promotionId])
@@ -69,7 +70,7 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
       const result = await resolveBarcode(token, code)
       if (addLine(result.sku.id, result.sku.sku_code, result.product_name)) setSkuCode('')
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('edit.resolveFailed'))
+      setFormError(apiErrorText(err) ?? t('edit.resolveFailed'))
     } finally {
       setResolving(false)
     }
@@ -131,7 +132,7 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
       }
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('edit.saveFailed'))
+      setFormError(apiErrorText(err) ?? t('edit.saveFailed'))
     } finally {
       setSaving(false)
     }

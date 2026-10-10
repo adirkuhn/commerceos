@@ -5,6 +5,7 @@ import { readClaims } from '../auth/jwtClaims'
 import { useMemberNames } from '../team/hooks/useMemberNames'
 import { isAuthError } from '../auth/isAuthError'
 import { useWakeLock } from './useWakeLock'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface ScanSessionDetail {
   session: { status: string; locked_by?: string | null; locked_at?: string | null }
@@ -41,7 +42,7 @@ export function useScanSession<D extends ScanSessionDetail>(
       setDetail(await sessionApi.get(token, sessionId))
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : sessionApi.messages.loadFailed)
+      setError(apiErrorText(err) ?? sessionApi.messages.loadFailed)
     } finally {
       setLoading(false)
     }
@@ -70,7 +71,7 @@ export function useScanSession<D extends ScanSessionDetail>(
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : i18next.t('scanner:errors.takeOver'))
+      setError(apiErrorText(err) ?? i18next.t('scanner:errors.takeOver'))
     }
   }
   useWakeLock()
@@ -89,7 +90,7 @@ export function useScanSession<D extends ScanSessionDetail>(
         onAuthError()
         return false
       }
-      setError(err instanceof Error ? err.message : failure)
+      setError(apiErrorText(err) ?? failure)
       return false
     } finally {
       setScanning(false)
@@ -103,7 +104,7 @@ export function useScanSession<D extends ScanSessionDetail>(
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : i18next.t('scanner:errors.deleteScan'))
+      setError(apiErrorText(err) ?? i18next.t('scanner:errors.deleteScan'))
     }
   }
 
@@ -117,7 +118,7 @@ export function useScanSession<D extends ScanSessionDetail>(
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : sessionApi.messages.resetFailed)
+      setError(apiErrorText(err) ?? sessionApi.messages.resetFailed)
     } finally {
       setResetting(false)
     }

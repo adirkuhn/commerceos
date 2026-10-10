@@ -4,6 +4,7 @@ import Pagination from '../components/common/Pagination'
 import { useWebhookFallbackEvents } from './hooks/useWebhookFallbackEvents'
 import { useConfirm } from '../components/common/useConfirm'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 export function WebhookFallbackEventsTable({
   events, total, page, perPage, loading, error, setPage, retry, abandon, abandonAll,
@@ -21,7 +22,7 @@ export function WebhookFallbackEventsTable({
     try {
       await retry(id)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('fallback.retryFailed'))
+      setRowError(apiErrorText(err) ?? t('fallback.retryFailed'))
     } finally {
       setBusyId(null)
     }
@@ -33,7 +34,7 @@ export function WebhookFallbackEventsTable({
     try {
       await abandon(id)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('fallback.abandonFailed'))
+      setRowError(apiErrorText(err) ?? t('fallback.abandonFailed'))
     } finally {
       setBusyId(null)
     }
@@ -48,7 +49,7 @@ export function WebhookFallbackEventsTable({
     try {
       await abandonAll()
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('fallback.abandonAllFailed'))
+      setRowError(apiErrorText(err) ?? t('fallback.abandonAllFailed'))
     } finally {
       setAbandoningAll(false)
     }

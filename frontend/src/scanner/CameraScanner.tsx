@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { X, Camera } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface CameraScannerProps {
   onDecode: (text: string) => void
@@ -41,7 +42,7 @@ export function CameraScanner({ onDecode, onClose, frameShape = 'square', varian
           onDecode(result.getText())
         })
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : t('camera.unavailable'))
+        if (!cancelled) setError(apiErrorText(err) ?? t('camera.unavailable'))
       }
     }
     start()

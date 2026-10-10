@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next'
 import type { APIResponse } from './types'
+import { CodedApiError } from '../api/codedApiError'
 
 // Mirrors api/bolconfirmations/openapi.yaml's BolShipmentConfirmation: one
 // attempt to tell Bol a Bol order shipped, and what Bol made of it.
@@ -37,7 +38,7 @@ export async function listBolShipmentConfirmations(token: string, salesOrderId: 
   })
   const body: APIResponse<BolShipmentConfirmation[]> = await res.json()
   if (!res.ok || body.error) {
-    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   }
   return body.data ?? []
 }

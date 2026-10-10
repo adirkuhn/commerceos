@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { Media } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseProductMediaState {
   media: Media[]
@@ -34,7 +35,7 @@ export function useProductMedia(token: string, productId: string | null): UsePro
       const data = await api.listProductMedia(token, productId)
       setMedia(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('common:status.error'))
+      setError(apiErrorText(e) ?? i18next.t('common:status.error'))
     } finally {
       setLoading(false)
     }

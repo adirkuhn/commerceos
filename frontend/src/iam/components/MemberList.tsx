@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface Props {
   groupId: string
@@ -26,7 +27,7 @@ export function MemberList({ members, loading, error, onAdd, onRemove }: Props) 
       await onAdd(uid)
       setNewUserId('')
     } catch (e) {
-      setAddError(e instanceof Error ? e.message : t('members.addFailed'))
+      setAddError(apiErrorText(e) ?? t('members.addFailed'))
     } finally {
       setAdding(false)
     }

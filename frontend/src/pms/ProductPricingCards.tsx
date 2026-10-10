@@ -7,6 +7,7 @@ import type { Category, SKUMarginInsight, SKUPriceHistoryEntry, SKUPriceHistoryR
 import { formatPrice, parsePriceToMinorUnits } from './productFormat'
 import { FormCard } from './FormCard'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Shared form layout primitives ────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesI
     setError('')
     pmsApi.getSKUMarginInsight(token, skuId)
       .then(result => { if (!cancelled) setInsight(result) })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : t('insight.loadFailed')) })
+      .catch(err => { if (!cancelled) setError(apiErrorText(err) ?? t('insight.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }
@@ -167,7 +168,7 @@ export function PriceHistoryCard({ skuId, currency }: { skuId: string; currency:
     setError('')
     pmsApi.listSKUPriceHistory(token, skuId)
       .then(result => { if (!cancelled) setHistory(result) })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : t('priceHistory.loadFailed')) })
+      .catch(err => { if (!cancelled) setError(apiErrorText(err) ?? t('priceHistory.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token, skuId])
@@ -233,7 +234,7 @@ export function ProductHistoryCard({ productId }: { productId: string }) {
     setError('')
     pmsApi.listProductHistory(token, productId)
       .then(result => { if (!cancelled) setHistory(result) })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : t('changeHistory.loadFailed')) })
+      .catch(err => { if (!cancelled) setError(apiErrorText(err) ?? t('changeHistory.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token, productId])
@@ -303,7 +304,7 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
       setValue('')
       onChanged()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('insight.setFailed'))
+      setError(apiErrorText(err) ?? t('insight.setFailed'))
     } finally {
       setSaving(false)
     }
@@ -317,7 +318,7 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
       await pmsApi.clearCostPriceOverride(token, skuId)
       onChanged()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('insight.revertFailed'))
+      setError(apiErrorText(err) ?? t('insight.revertFailed'))
     } finally {
       setSaving(false)
     }

@@ -7,6 +7,7 @@ import { ScanCodeScreen } from './ScanCodeScreen'
 import { ProductCandidateRow } from './ProductCandidateRow'
 import { useQueryEnum } from '../routing/useQueryState'
 import type { SKU } from '../pms/types'
+import { apiErrorText } from '../api/apiErrorText'
 
 export interface Resolved {
   sku: SKU
@@ -47,7 +48,7 @@ export function InventoryScanScreen({ token, onResolved, onExit }: { token: stri
       } catch {
         // fall through to the original resolveBarcode error below
       }
-      setError(err instanceof Error ? err.message : t('errors.resolveCode'))
+      setError(apiErrorText(err) ?? t('errors.resolveCode'))
     } finally {
       setLoading(false)
     }
@@ -127,7 +128,7 @@ function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r
       }
       setCandidates(found)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('errors.search'))
+      setError(apiErrorText(err) ?? t('errors.search'))
     } finally {
       setLoading(false)
     }

@@ -6,6 +6,7 @@ import * as api from './api'
 import { useCategories } from '../pms/hooks/useCategories'
 import { useExternalCategoryLinks } from './hooks/useExternalCategoryLinks'
 import type { WooCategory, ExternalCategoryLink } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 export function WooCategoriesTab({ token, connectionId }: { token: string; connectionId: string }) {
   const { categories } = useCategories(token)
@@ -29,7 +30,7 @@ export function WooCategoriesTab({ token, connectionId }: { token: string; conne
     setWooCategoriesError('')
     api.listWooCategories(token, connectionId)
       .then(result => { if (!cancelled) setWooCategories(result) })
-      .catch(err => { if (!cancelled) setWooCategoriesError(err instanceof Error ? err.message : t('wooCategories.loadFailed')) })
+      .catch(err => { if (!cancelled) setWooCategoriesError(apiErrorText(err) ?? t('wooCategories.loadFailed')) })
       .finally(() => { if (!cancelled) setWooCategoriesLoading(false) })
     return () => { cancelled = true }
   }, [token, connectionId, t])
@@ -48,7 +49,7 @@ export function WooCategoriesTab({ token, connectionId }: { token: string; conne
     try {
       await upsertLink(externalId, link.category_id)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('wooCategories.updateFailed'))
+      setRowError(apiErrorText(err) ?? t('wooCategories.updateFailed'))
     }
   }
 
@@ -60,7 +61,7 @@ export function WooCategoriesTab({ token, connectionId }: { token: string; conne
       setNewCategoryId('')
       setNewExternalId('')
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('wooCategories.addFailed'))
+      setRowError(apiErrorText(err) ?? t('wooCategories.addFailed'))
     }
   }
 
@@ -69,7 +70,7 @@ export function WooCategoriesTab({ token, connectionId }: { token: string; conne
     try {
       await removeLink(id)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('wooCategories.deleteFailed'))
+      setRowError(apiErrorText(err) ?? t('wooCategories.deleteFailed'))
     }
   }
 

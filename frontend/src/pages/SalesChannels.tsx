@@ -22,6 +22,7 @@ import StorefrontModeField from '../integrations/salesChannels/StorefrontModeFie
 import StorefrontLanguagesField from '../integrations/salesChannels/StorefrontLanguagesField'
 import { ThemesPanel } from '../themes/ThemesPanel'
 import { ChannelProductsPanel } from '../integrations/salesChannels/ChannelProductsPanel'
+import { apiErrorText } from '../api/apiErrorText'
 
 export default function SalesChannels() {
   const { token } = useAuth()
@@ -127,7 +128,7 @@ export default function SalesChannels() {
       }
       closeForm()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('errors.save'))
+      setFormError(apiErrorText(err) ?? t('errors.save'))
     } finally {
       setSaving(false)
     }
@@ -141,7 +142,7 @@ export default function SalesChannels() {
       await remove(deletingChannel.id)
       setDeletingChannel(null)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : t('errors.delete'))
+      setDeleteError(apiErrorText(err) ?? t('errors.delete'))
     } finally {
       setDeleting(false)
     }

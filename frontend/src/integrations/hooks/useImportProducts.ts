@@ -5,6 +5,7 @@ import type { Connection, ImportJob } from '../types'
 import { useInitOnce } from '../../routing/useInitOnce'
 import { normalizeCurrency } from '../integrationsPageHelpers'
 import { notifyNotificationsChanged } from '../../notifications/notificationsBus'
+import { apiErrorText } from '../../api/apiErrorText'
 
 // State for the "Import products" modal of one WooCommerce connection.
 export function useImportProducts(token: string, connection: Connection | null, tenantDefaultCurrency: string | undefined) {
@@ -39,7 +40,7 @@ export function useImportProducts(token: string, connection: Connection | null, 
       setJob(started)
       notifyNotificationsChanged()
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('integrations:import.failed'))
+      setError(apiErrorText(err) ?? i18next.t('integrations:import.failed'))
     } finally {
       setImporting(false)
     }

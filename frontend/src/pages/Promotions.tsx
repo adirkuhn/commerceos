@@ -11,6 +11,7 @@ import type { Promotion, PromotionStatus } from '../promotions/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { PromotionEditPage } from '../promotions/PromotionEditPage'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 const PAGE_SIZE = 20
 
@@ -48,7 +49,7 @@ export default function Promotions() {
     try {
       await remove(p.id)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : t('common:status.error'))
+      setDeleteError(apiErrorText(err) ?? t('common:status.error'))
     }
   }
 

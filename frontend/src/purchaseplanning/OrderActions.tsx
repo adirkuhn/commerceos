@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { Supplier } from '../suppliers/types'
 import { SELECT } from './PlanControls'
 import type { PlanOrderLine } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface Props {
   // Null for products never bought on a PO -- a supplier is picked here.
@@ -26,7 +27,7 @@ export function OrderActions({ supplierId, suppliers, lines, onCreateOrder }: Pr
     try {
       await onCreateOrder(orderFrom, lines)
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('errors.unknown'))
+      setError(apiErrorText(e) ?? t('errors.unknown'))
     } finally {
       setCreating(false)
     }

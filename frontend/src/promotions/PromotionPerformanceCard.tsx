@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import { getPromotionPerformanceReport } from '../reports/api'
 import type { PromotionPerformanceReport } from '../reports/types'
 import { formatMoney } from '../format/money'
+import { apiErrorText } from '../api/apiErrorText'
 
 // PromotionPerformanceCard compares the promotion's covered SKUs' revenue/
 // units during its active window (capped at "now" if still ongoing)
@@ -21,7 +22,7 @@ export function PromotionPerformanceCard({ token, promotionId }: { token: string
     setError('')
     getPromotionPerformanceReport(token, promotionId)
       .then(result => { if (!cancelled) setReport(result) })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : t('performance.loadFailed')) })
+      .catch(err => { if (!cancelled) setError(apiErrorText(err) ?? t('performance.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token, promotionId])

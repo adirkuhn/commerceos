@@ -5,6 +5,7 @@ import type { PickingSessionDetail } from '../scanner/types'
 import { pickedQuantityByLineItem } from '../scanner/pickingMissingItems'
 import { playErrorSound } from '../scanner/errorSound'
 import type { PickLineSheet } from './usePickLineSheet'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface PickScanEntryOptions {
   token: string | null
@@ -94,7 +95,7 @@ export function usePickScanEntry({ token, session, loadSession, setError, sheet 
       sheet.close()
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('picking:errors.recordPick'))
+      setError(apiErrorText(err) ?? i18next.t('picking:errors.recordPick'))
     } finally {
       setBusy(false)
       codeRef.current?.focus()
@@ -108,7 +109,7 @@ export function usePickScanEntry({ token, session, loadSession, setError, sheet 
       await pickingApi.deletePickScan(token, session.session.id, scanId)
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('picking:errors.removeScan'))
+      setError(apiErrorText(err) ?? i18next.t('picking:errors.removeScan'))
     }
   }
 

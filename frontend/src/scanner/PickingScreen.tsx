@@ -25,6 +25,7 @@ import { ScanSessionLockBanner } from './ScanSessionLockBanner'
 import { ScanSessionScanForm } from './ScanSessionScanForm'
 import { SCANNER_SOLD_EXPIRY_CLASS, ScanSessionLineRow } from './ScanSessionLines'
 import { ScanErrorDialog, StartOverDialog } from './ScanSessionDialogs'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface PickingScreenProps {
   token: string
@@ -77,7 +78,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
       onExit()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : t('errors.pauseFailed'))
+      setError(apiErrorText(err) ?? t('errors.pauseFailed'))
     }
   }
 
@@ -88,7 +89,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
       onContinueToPacking(packingSession.id, order)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : t('errors.startPacking'))
+      setError(apiErrorText(err) ?? t('errors.startPacking'))
       setStartingPacking(false)
     }
   }

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useWebhookForwardRules } from '../integrations/hooks/useWebhookForwardRules'
 import type { AvailableWebhookTopics } from '../integrations/api'
 import { providerLabel } from './providerLabel'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Screen 1: CommerceOS's own fan-out configuration -- "also POST every
 // provider/topic webhook to this URL". Topic left blank matches every
@@ -52,7 +53,7 @@ export function FanOutTab({
       setTopic('')
       setTargetUrl('')
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('fanout.addFailed'))
+      setFormError(apiErrorText(err) ?? t('fanout.addFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -63,7 +64,7 @@ export function FanOutTab({
     try {
       await remove(id)
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('fanout.removeFailed'))
+      setFormError(apiErrorText(err) ?? t('fanout.removeFailed'))
     } finally {
       setBusyId(null)
     }

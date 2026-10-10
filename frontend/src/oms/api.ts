@@ -1,4 +1,5 @@
 import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity, PickList, OrderQueue } from './types'
+import { CodedApiError } from '../api/codedApiError'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/sales-orders`
@@ -12,7 +13,7 @@ async function request<T>(path: string, token: string, options: RequestInit = {}
   if (res.status === 204) return null as T
   const body: APIResponse<T> = await res.json()
   if (!res.ok || body.error) {
-    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   }
   return body.data as T
 }

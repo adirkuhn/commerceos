@@ -6,6 +6,7 @@ import { useSessionLock } from '../fulfillment/useSessionLock'
 import type { SalesOrder } from '../oms/types'
 import * as packingApi from '../scanner/api'
 import type { PackingSessionDetail } from '../scanner/types'
+import { apiErrorText } from '../api/apiErrorText'
 
 export const PACKING_PATH = '/packing'
 
@@ -37,7 +38,7 @@ export function usePackingSession({ token, me, onSelect, onCleared }: PackingSes
     try {
       setSession(await packingApi.getPackingSession(token, sessionId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('packing:errors.loadSession'))
+      setError(apiErrorText(err) ?? i18next.t('packing:errors.loadSession'))
     } finally {
       setSessionLoading(false)
     }
@@ -61,7 +62,7 @@ export function usePackingSession({ token, me, onSelect, onCleared }: PackingSes
       await packingApi.takeOverPackingSession(token, session.session.id)
       await loadSession(session.session.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('packing:errors.takeOver'))
+      setError(apiErrorText(err) ?? i18next.t('packing:errors.takeOver'))
     }
   }
 
@@ -75,7 +76,7 @@ export function usePackingSession({ token, me, onSelect, onCleared }: PackingSes
       await loadSession(session.session.id)
       return true
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('packing:errors.someoneElse'))
+      setError(apiErrorText(err) ?? i18next.t('packing:errors.someoneElse'))
       return false
     }
   }
@@ -109,7 +110,7 @@ export function usePackingSession({ token, me, onSelect, onCleared }: PackingSes
       const newSession = await packingApi.startOrResumePacking(token ?? '', order.id)
       if (showSession(newSession.id)) await loadSession(newSession.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('packing:errors.start'))
+      setError(apiErrorText(err) ?? i18next.t('packing:errors.start'))
       setSessionLoading(false)
     }
   }
@@ -129,7 +130,7 @@ export function usePackingSession({ token, me, onSelect, onCleared }: PackingSes
       })
       .catch(err => {
         if (!current) return
-        setError(err instanceof Error ? err.message : i18next.t('packing:errors.start'))
+        setError(apiErrorText(err) ?? i18next.t('packing:errors.start'))
         setSessionLoading(false)
       })
     return () => { current = false }

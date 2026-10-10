@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import * as api from './api'
 import type { Connection } from './types'
 import { Dialog } from '../components/common/Dialog'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Edits a WhatsApp connection's base URL/instance name/API key in place --
 // the only way to rotate a wrong/expired API key without disconnecting
@@ -34,7 +35,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
       onSaved(updated)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('saveFailed'))
+      setError(apiErrorText(err) ?? t('saveFailed'))
     } finally {
       setSaving(false)
     }

@@ -10,6 +10,7 @@ import * as api from './api'
 import type { Connection, SyncSchedule, SyncEntityType, SyncDirection } from './types'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { INTERVAL_OPTIONS, directionLabel, runStatusLabel } from './wooSyncSettingsHelpers'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Only three rows, unlike Woo's five -- Bol has no category import/export
 // and no order push-back. bol_products/bol_stock are both export-only and
@@ -127,7 +128,7 @@ export default function BolSyncSettingsPage({
         setOperatorChoices(operators)
       }
     } catch (err) {
-      setFetchOperatorsError(err instanceof Error ? err.message : t('bol.fetchFailed'))
+      setFetchOperatorsError(apiErrorText(err) ?? t('bol.fetchFailed'))
     } finally {
       setFetchingOperators(false)
     }
@@ -142,7 +143,7 @@ export default function BolSyncSettingsPage({
       await api.updateConnectionSettings(token, connectionId, '', null, configEconomicOperatorId || null, configDeliveryCode || null)
       setConfigSaved(true)
     } catch (err) {
-      setConfigSaveError(err instanceof Error ? err.message : t('bol.configSaveFailed'))
+      setConfigSaveError(apiErrorText(err) ?? t('bol.configSaveFailed'))
     } finally {
       setConfigSaving(false)
     }
@@ -158,7 +159,7 @@ export default function BolSyncSettingsPage({
       setConnectionId(conn.id)
       onConnected()
     } catch (err) {
-      setConnectError(err instanceof Error ? err.message : t('connect.failed'))
+      setConnectError(apiErrorText(err) ?? t('connect.failed'))
     } finally {
       setConnecting(false)
     }
@@ -214,7 +215,7 @@ export default function BolSyncSettingsPage({
       )
       await save(payload)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t('schedule.saveFailed'))
+      setSaveError(apiErrorText(err) ?? t('schedule.saveFailed'))
     } finally {
       setSaving(false)
     }

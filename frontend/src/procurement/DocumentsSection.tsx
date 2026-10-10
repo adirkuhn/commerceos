@@ -7,6 +7,7 @@ import * as procurementApi from './api'
 import type { PurchaseOrderDocument } from './types'
 import { useConfirm } from '../components/common/useConfirm'
 import { friendlyParsingError } from './procurementHelpers'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Documents ────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ export function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSe
       }
       onRefresh()
     } catch (err) {
-      setReparseError({ id: doc.id, message: err instanceof Error ? err.message : t('docs.reparseFailed') })
+      setReparseError({ id: doc.id, message: apiErrorText(err) ?? t('docs.reparseFailed') })
     } finally {
       setReparsingId(null)
     }

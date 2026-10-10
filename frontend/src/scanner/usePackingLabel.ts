@@ -7,6 +7,7 @@ import type { RecipientAddress, Shipment } from '../shipping/types'
 import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLabel'
 import { isAuthError } from '../auth/isAuthError'
 import type { SalesOrder } from '../oms/types'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface PackingLabelOptions {
   token: string
@@ -61,7 +62,7 @@ export function usePackingLabel({ token, sessionId, order, finished, reload, onA
         await reload()
       } catch (err) {
         if (isAuthError(err)) return onAuthError()
-        setError(err instanceof Error ? err.message : i18next.t('scanner:errors.someoneElsePacking'))
+        setError(apiErrorText(err) ?? i18next.t('scanner:errors.someoneElsePacking'))
         return
       }
     }
@@ -78,7 +79,7 @@ export function usePackingLabel({ token, sessionId, order, finished, reload, onA
     try {
       setLabelTab(await openShipmentLabel(token, shipmentId, labelSize))
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('scanner:errors.loadLabel'))
+      setError(apiErrorText(err) ?? i18next.t('scanner:errors.loadLabel'))
     }
   }
 
@@ -102,7 +103,7 @@ export function usePackingLabel({ token, sessionId, order, finished, reload, onA
     try {
       setLabelTab(await loadShipmentLabelIntoTab(tab, token, shipment.id, labelSize))
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('scanner:errors.loadLabel'))
+      setError(apiErrorText(err) ?? i18next.t('scanner:errors.loadLabel'))
     }
   }
 

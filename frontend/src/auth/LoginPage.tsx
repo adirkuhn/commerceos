@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { hasLoginUrl, APP_ID, lm2Origin } from './loginConfig'
 import { AuthLayout, primaryButtonClass, secondaryButtonClass } from './AuthLayout'
+import { apiErrorText } from '../api/apiErrorText'
 
 const LM2_LOGIN_URL = import.meta.env.VITE_LM2_LOGIN_URL as string
 const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
@@ -44,7 +45,7 @@ export function LoginPage() {
       if (!res.ok) throw new Error(body.error?.message ?? body.message ?? t('login.googleUnavailable'))
       window.location.href = body.data.url
     } catch (e) {
-      setGoogleError(e instanceof Error ? e.message : t('login.googleUnavailable'))
+      setGoogleError(apiErrorText(e) ?? t('login.googleUnavailable'))
       setGoogleLoading(false)
     }
   }

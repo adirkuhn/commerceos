@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useEffect, useState } from 'react'
 import * as settingsApi from '../settings/api'
 import type { PickingMode } from '../settings/types'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface UsePickingMode {
   // null until the tenant's settings load, so callers don't flash the
@@ -23,7 +24,7 @@ export function usePickingMode(token: string): UsePickingMode {
       .then(s => { if (!cancelled) setMode(s.picking_mode ?? 'scan') })
       .catch(err => {
         if (cancelled) return
-        setError(err instanceof Error ? err.message : i18next.t('picking:errors.loadMode'))
+        setError(apiErrorText(err) ?? i18next.t('picking:errors.loadMode'))
         setMode('scan')
       })
     return () => { cancelled = true }

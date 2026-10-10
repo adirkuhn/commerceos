@@ -29,6 +29,7 @@ import { FlatSkuShippingCard } from './FlatSkuShippingCard'
 import { MergeProductDialog } from './MergeProductDialog'
 import { notifyProductsChanged } from './productsBus'
 import { isTenantAdmin } from '../auth/roles'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Product Edit Page ────────────────────────────────────────────────────────
 //
@@ -88,7 +89,7 @@ export function ProductEditPage({ productId, categories, onCreateCategory, onUpd
       setField('categoryId', category.id)
       return true
     } catch (err) {
-      form.setFormError(err instanceof Error ? err.message : t('sidebar.createCategoryFailed'))
+      form.setFormError(apiErrorText(err) ?? t('sidebar.createCategoryFailed'))
       return false
     }
   }

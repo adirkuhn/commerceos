@@ -12,6 +12,7 @@ import { Dialog } from '../components/common/Dialog'
 import { toInput } from './tenantSettingsInput'
 import { useConfirm } from '../components/common/useConfirm'
 import { TAX_CLASSES_PATH } from './settingsPaths'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface TaxClassFormState {
   name: string
@@ -47,7 +48,7 @@ export function TaxSettingsSection() {
       await save({ ...toInput(settings), prices_include_tax: pricesIncludeTax, default_tax_country: defaultTaxCountry })
       setDefaultsSaved(true)
     } catch (err) {
-      setDefaultsError(err instanceof Error ? err.message : t('tax.saveDefaultsFailed'))
+      setDefaultsError(apiErrorText(err) ?? t('tax.saveDefaultsFailed'))
     } finally {
       setSavingDefaults(false)
     }
@@ -86,7 +87,7 @@ export function TaxSettingsSection() {
       }
       closeClassForm()
     } catch (err) {
-      setClassFormError(err instanceof Error ? err.message : t('tax.saveClassFailed'))
+      setClassFormError(apiErrorText(err) ?? t('tax.saveClassFailed'))
     } finally {
       setClassSaving(false)
     }
@@ -98,7 +99,7 @@ export function TaxSettingsSection() {
     try {
       await remove(c.id)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('tax.deleteClassFailed'))
+      setRowError(apiErrorText(err) ?? t('tax.deleteClassFailed'))
     }
   }
 
@@ -107,7 +108,7 @@ export function TaxSettingsSection() {
     try {
       await upsert({ tax_class_id: taxClassId, country, rate_basis_points: Math.round(parseFloat(ratePercent) * 100) })
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('tax.saveRateFailed'))
+      setRowError(apiErrorText(err) ?? t('tax.saveRateFailed'))
     }
   }
 
@@ -116,7 +117,7 @@ export function TaxSettingsSection() {
     try {
       await removeRate(id)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : t('tax.deleteRateFailed'))
+      setRowError(apiErrorText(err) ?? t('tax.deleteRateFailed'))
     }
   }
 

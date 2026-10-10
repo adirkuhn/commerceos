@@ -9,6 +9,7 @@ import type { UpsertBolProductContentPayload } from '../integrations/api'
 import type { SKU } from './types'
 import { skinTypeOptions, shelfLifeClosedOptions, shelfLifeAfterOpeningOptions, countryOfOriginOptions, hazardStatementsOptions, substanceOptions, precautionStatementsOptions } from './bolContentLovs'
 import { ContentCheckField, ContentNumberField, ContentSelectField, ContentTextField, defaultBolProductContent, inputClass, labelClass } from './BolContentFields'
+import { apiErrorText } from '../api/apiErrorText'
 
 // Brand name, not translated.
 const BRAND = 'Bol.com'
@@ -85,7 +86,7 @@ export function ProductBolTab({
     try {
       await onSaveBarcode(sku.id, barcodeEdit)
     } catch (err) {
-      setBarcodeError(err instanceof Error ? err.message : t('bol.barcodeFailed'))
+      setBarcodeError(apiErrorText(err) ?? t('bol.barcodeFailed'))
     } finally {
       setBarcodeSaving(false)
     }
@@ -154,7 +155,7 @@ export function ProductBolTab({
         const { product_id: _productId, connection_id: _connectionId, ...fields } = result
         setContent(prev => ({ ...prev, ...fields }))
       })
-      .catch(err => { if (!cancelled) setContentLoadError(err instanceof Error ? err.message : t('bol.contentLoadFailed')) })
+      .catch(err => { if (!cancelled) setContentLoadError(apiErrorText(err) ?? t('bol.contentLoadFailed')) })
       .finally(() => { if (!cancelled) setContentLoading(false) })
     return () => { cancelled = true }
   }, [token, connection.id, productId])
@@ -169,7 +170,7 @@ export function ProductBolTab({
       setContent(prev => ({ ...prev, ...fields }))
       setContentSaved(true)
     } catch (err) {
-      setContentSaveError(err instanceof Error ? err.message : t('bol.contentSaveFailed'))
+      setContentSaveError(apiErrorText(err) ?? t('bol.contentSaveFailed'))
     } finally {
       setContentSaving(false)
     }
@@ -197,7 +198,7 @@ export function ProductBolTab({
           }
         }
       })
-      .catch(err => { if (!cancelled) setLoadError(err instanceof Error ? err.message : t('bol.loadFailed')) })
+      .catch(err => { if (!cancelled) setLoadError(apiErrorText(err) ?? t('bol.loadFailed')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [token, connection.id, productId])
@@ -212,7 +213,7 @@ export function ProductBolTab({
         setCommission(result)
         if (!commissionOverridden) setCommissionPercentInput(fmt(result.percentage))
       })
-      .catch(err => { if (!cancelled) setCommissionError(err instanceof Error ? err.message : t('bol.commissionFailed')) })
+      .catch(err => { if (!cancelled) setCommissionError(apiErrorText(err) ?? t('bol.commissionFailed')) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, connection.id, productId, sku?.id, commissionRefreshKey])
@@ -237,7 +238,7 @@ export function ProductBolTab({
       setOverride(result)
       setCommissionRefreshKey(k => k + 1)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t('bol.saveFailed'))
+      setSaveError(apiErrorText(err) ?? t('bol.saveFailed'))
     } finally {
       setSaving(false)
     }

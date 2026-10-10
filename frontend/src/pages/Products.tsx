@@ -14,6 +14,7 @@ import type { Product, UpdateProductPayload } from '../pms/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_STYLES, formatPrice } from '../pms/productFormat'
 import { ProductEditPage } from '../pms/ProductEditPage'
+import { apiErrorText } from '../api/apiErrorText'
 const PAGE_SIZE = 20
 
 const PRODUCT_HAS_HISTORY = 'PRODUCT_HAS_HISTORY'
@@ -79,7 +80,7 @@ export default function Products() {
       await removeProduct(p.id)
     } catch (err) {
       if (!(err instanceof CodedApiError && err.code === PRODUCT_HAS_HISTORY)) {
-        setDeleteError(err instanceof Error ? err.message : t('list.deleteFailed'))
+        setDeleteError(apiErrorText(err) ?? t('list.deleteFailed'))
         return
       }
       const archive = await confirm({
@@ -106,7 +107,7 @@ export default function Products() {
       const detail = await pmsApi.duplicateProduct(token, id)
       openEditor(detail.product.id)
     } catch (err) {
-      setDuplicateError(err instanceof Error ? err.message : t('list.duplicateFailed'))
+      setDuplicateError(apiErrorText(err) ?? t('list.duplicateFailed'))
     } finally {
       setDuplicatingId(null)
     }

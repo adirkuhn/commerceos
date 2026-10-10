@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { ReceivingParsingJob, ReceivingRecord } from '../types'
 import * as api from '../api'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface UseReceivingRecordsState {
   records: ReceivingRecord[]
@@ -32,7 +33,7 @@ export function useReceivingRecords(token: string, purchaseOrderId: string | nul
       const data = await api.listReceivingRecords(token, purchaseOrderId)
       setRecords(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : i18next.t('procurement:errors.unknown'))
+      setError(apiErrorText(e) ?? i18next.t('procurement:errors.unknown'))
     } finally {
       setLoading(false)
     }

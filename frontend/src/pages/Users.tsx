@@ -16,6 +16,7 @@ import { GroupsPanel } from '../iam/components/GroupsPanel'
 import { InviteForm } from '../iam/components/InviteForm'
 import { fullName } from '../format/personName'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 function roleLabel(t: TFunction<['iam', 'common']>, role: MemberRole): string {
   return role === 'customer_owner' ? t('users.roleOwner') : t('users.roleUser')
@@ -100,7 +101,7 @@ export default function Users() {
     try {
       await membersState.remove(m.membership_id)
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : t('unknownError'))
+      setActionError(apiErrorText(e) ?? t('unknownError'))
     }
   }
 

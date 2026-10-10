@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { apiErrorText } from '../../api/apiErrorText'
 
 interface Props {
   permissions: string[]
@@ -32,7 +33,7 @@ export function PermissionList({ permissions, loading, error, onAssign, onRevoke
       await onAssign(rule)
       setNewRule('')
     } catch (e) {
-      setAssignError(e instanceof Error ? e.message : t('permissions.assignFailed'))
+      setAssignError(apiErrorText(e) ?? t('permissions.assignFailed'))
     } finally {
       setAssigning(false)
     }

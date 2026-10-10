@@ -14,6 +14,7 @@ import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { STATUS_OPTIONS } from './salesOrderDisplay'
 import { salesOrderStatusLabel } from './statusLabel'
 import { formatMoney } from '../format/money'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── Create Sales Order Page ──────────────────────────────────────────────────
 
@@ -128,7 +129,7 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
       await onCreate(input)
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('create.failed'))
+      setFormError(apiErrorText(err) ?? t('create.failed'))
     } finally {
       setSaving(false)
     }

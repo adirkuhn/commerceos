@@ -1,5 +1,6 @@
 import type { APIResponse, WebhookFallbackEvent, WebhookFallbackStatus, WebhookForwardRule, WebhookForwardDelivery, WebhookEvent, ProviderWebhook } from '../types'
 import { base, request } from './client'
+import { CodedApiError } from '../../api/codedApiError'
 
 export interface ListWebhookFallbackEventsResult {
   events: WebhookFallbackEvent[]
@@ -22,7 +23,7 @@ export async function listWebhookFallbackEvents(
   })
   const body: APIResponse<WebhookFallbackEvent[]> & { total?: number } = await res.json()
   if (!res.ok || body.error) {
-    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
   }
   return { events: body.data ?? [], total: body.total ?? 0 }
 }

@@ -7,6 +7,7 @@ import type ns_common from './locales/en/common.json'
 import type ns_coupons from './locales/en/coupons.json'
 import type ns_customers from './locales/en/customers.json'
 import type ns_dashboard from './locales/en/dashboard.json'
+import type ns_errors from './locales/en/errors.json'
 import type ns_iam from './locales/en/iam.json'
 import type ns_integrations from './locales/en/integrations.json'
 import type ns_inventory from './locales/en/inventory.json'
@@ -44,6 +45,7 @@ declare module 'i18next' {
       coupons: typeof ns_coupons
       customers: typeof ns_customers
       dashboard: typeof ns_dashboard
+      errors: typeof ns_errors
       iam: typeof ns_iam
       integrations: typeof ns_integrations
       inventory: typeof ns_inventory

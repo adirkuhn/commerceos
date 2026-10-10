@@ -1,5 +1,6 @@
 import i18next from 'i18next'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { apiErrorText } from '../../api/apiErrorText'
 
 export interface RequestState<T> {
   data: T | null
@@ -30,7 +31,7 @@ export function useLatestRequest<T>(token: string, key: string, fetch: (token: s
     } catch (e) {
       if (call === latest.current) {
         setData(null)
-        setError(e instanceof Error ? e.message : i18next.t('purchasePlanning:errors.unknown'))
+        setError(apiErrorText(e) ?? i18next.t('purchasePlanning:errors.unknown'))
       }
     } finally {
       if (call === latest.current) setLoading(false)

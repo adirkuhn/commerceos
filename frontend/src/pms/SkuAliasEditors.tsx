@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import * as pmsApi from './api'
 import type { SKUCurrencyPrice, BarcodeAlias, ScaleCodeAlias } from './types'
 import { CURRENCIES, formatPrice, normalizeScaleCodeInput } from './productFormat'
+import { apiErrorText } from '../api/apiErrorText'
 
 // SKUCurrencyPricesEditor manages this SKU's manual per-currency price
 // overrides -- absent one, a sales channel running in that currency prices
@@ -28,7 +29,7 @@ export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
     setError('')
     pmsApi.listSKUCurrencyPrices(token, skuId)
       .then(setPrices)
-      .catch(err => setError(err instanceof Error ? err.message : t('alias.currencyLoadFailed')))
+      .catch(err => setError(apiErrorText(err) ?? t('alias.currencyLoadFailed')))
       .finally(() => setLoading(false))
   }, [open, token, skuId])
 
@@ -49,7 +50,7 @@ export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
       setNewPrice('')
       setNewSalePrice('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('alias.currencySaveFailed'))
+      setError(apiErrorText(err) ?? t('alias.currencySaveFailed'))
     } finally {
       setSaving(false)
     }
@@ -62,7 +63,7 @@ export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
       await pmsApi.deleteSKUCurrencyPrice(token, skuId, currencyCode)
       setPrices(prev => prev.filter(p => p.currency_code !== currencyCode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('alias.currencyDeleteFailed'))
+      setError(apiErrorText(err) ?? t('alias.currencyDeleteFailed'))
     }
   }
 
@@ -140,7 +141,7 @@ export function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
     setError('')
     pmsApi.listBarcodeAliases(token, skuId)
       .then(setAliases)
-      .catch(err => setError(err instanceof Error ? err.message : t('alias.barcodesLoadFailed')))
+      .catch(err => setError(apiErrorText(err) ?? t('alias.barcodesLoadFailed')))
       .finally(() => setLoading(false))
   }, [open, token, skuId])
 
@@ -160,7 +161,7 @@ export function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
       setNewCode('')
       setNewUnitsPerScan('1')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('alias.barcodeAddFailed'))
+      setError(apiErrorText(err) ?? t('alias.barcodeAddFailed'))
     } finally {
       setSaving(false)
     }
@@ -173,7 +174,7 @@ export function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
       await pmsApi.deleteBarcodeAlias(token, aliasId)
       setAliases(prev => prev.filter(a => a.id !== aliasId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('alias.barcodeDeleteFailed'))
+      setError(apiErrorText(err) ?? t('alias.barcodeDeleteFailed'))
     }
   }
 
@@ -235,7 +236,7 @@ export function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
     setError('')
     pmsApi.listScaleCodeAliases(token, skuId)
       .then(setAliases)
-      .catch(err => setError(err instanceof Error ? err.message : t('alias.scaleLoadFailed')))
+      .catch(err => setError(apiErrorText(err) ?? t('alias.scaleLoadFailed')))
       .finally(() => setLoading(false))
   }, [open, token, skuId])
 
@@ -251,7 +252,7 @@ export function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
       setAliases(prev => [...prev, result])
       setNewCode('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('alias.scaleAddFailed'))
+      setError(apiErrorText(err) ?? t('alias.scaleAddFailed'))
     } finally {
       setSaving(false)
     }
@@ -264,7 +265,7 @@ export function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
       await pmsApi.deleteScaleCodeAlias(token, aliasId)
       setAliases(prev => prev.filter(a => a.id !== aliasId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('alias.scaleDeleteFailed'))
+      setError(apiErrorText(err) ?? t('alias.scaleDeleteFailed'))
     }
   }
 

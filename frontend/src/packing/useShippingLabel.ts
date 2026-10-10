@@ -5,6 +5,7 @@ import { useConnections } from '../integrations/hooks/useConnections'
 import * as shippingApi from '../shipping/api'
 import type { RecipientAddress, Shipment } from '../shipping/types'
 import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLabel'
+import { apiErrorText } from '../api/apiErrorText'
 
 export type LabelStep = 'address' | 'preview'
 
@@ -79,7 +80,7 @@ export function useShippingLabel({ token, activeOrder, beforeCreate, onError }: 
     try {
       setLabelTab(await openShipmentLabel(token, shipmentId, labelSize))
     } catch (err) {
-      onError(err instanceof Error ? err.message : i18next.t('packing:errors.loadLabel'))
+      onError(apiErrorText(err) ?? i18next.t('packing:errors.loadLabel'))
     }
   }
 
@@ -103,7 +104,7 @@ export function useShippingLabel({ token, activeOrder, beforeCreate, onError }: 
     try {
       setLabelTab(await loadShipmentLabelIntoTab(tab, token, shipment.id, labelSize))
     } catch (err) {
-      onError(err instanceof Error ? err.message : i18next.t('packing:errors.loadLabel'))
+      onError(apiErrorText(err) ?? i18next.t('packing:errors.loadLabel'))
     }
   }
 

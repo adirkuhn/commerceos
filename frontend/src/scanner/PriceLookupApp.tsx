@@ -11,6 +11,7 @@ import { SkuRoute } from './SkuRoute'
 import { scannerPaths } from './scannerRoutes'
 import { useStackNavigation } from '../routing/useStackNavigation'
 import type { Resolved } from './InventoryScanScreens'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface PriceLookupAppProps {
   token: string
@@ -103,7 +104,7 @@ function PriceLookupScan({ token, onResolved }: { token: string; onResolved: (r:
       } catch {
         // fall through to the original resolveBarcode error below
       }
-      setError(err instanceof Error ? err.message : t('errors.resolveCode'))
+      setError(apiErrorText(err) ?? t('errors.resolveCode'))
     } finally {
       setLoading(false)
     }

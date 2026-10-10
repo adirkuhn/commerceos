@@ -33,7 +33,7 @@ describe('useCompanyProfile', () => {
     vi.mocked(api.getCompanyProfile).mockRejectedValue(new CompanyProfileError('INTERNAL', 'boom'))
     const { result } = renderHook(() => useCompanyProfile('tok'))
 
-    await waitFor(() => expect(result.current.error).toBe('boom'))
+    await waitFor(() => expect(result.current.error).toBe('Something went wrong on our side. Please try again.'))
     expect(result.current.profile).toBeNull()
   })
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import i18next from 'i18next'
 import * as api from './api'
 import type { Theme, ThemePreset } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 export function useThemes(token: string, salesChannelId: string) {
   const [themes, setThemes] = useState<Theme[]>([])
@@ -14,7 +15,7 @@ export function useThemes(token: string, salesChannelId: string) {
       setThemes((await api.listThemes(token, salesChannelId)).items)
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('themes:errors.load'))
+      setError(apiErrorText(err) ?? i18next.t('themes:errors.load'))
     } finally {
       setLoading(false)
     }

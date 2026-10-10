@@ -7,6 +7,7 @@ import * as integrationsApi from '../integrations/api'
 import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
 import type { VariantWithSKUs, SKU } from './types'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 // ── WooCommerce tab ───────────────────────────────────────────────────────────
 //
@@ -49,7 +50,7 @@ export function ProductWooCommerceTab({
       const result = await integrationsApi.listProductChannelListings(token, connection.id, productId)
       setListings(result)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('woo.loadFailed'))
+      setError(apiErrorText(err) ?? t('woo.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -79,7 +80,7 @@ export function ProductWooCommerceTab({
       setListings([result])
       setLinkSku('')
     } catch (err) {
-      setLinkError(err instanceof Error ? err.message : t('woo.linkFailed'))
+      setLinkError(apiErrorText(err) ?? t('woo.linkFailed'))
     } finally {
       setLinking(false)
     }

@@ -7,6 +7,7 @@ import { CaseOfSKUPicker } from './VariantsSection'
 import { skuPassThroughPayload } from './skuPayloads'
 import type { SKU, SKUUnitType, UpdateSKUPayload } from './types'
 import { linkedSkuLabel } from './linkedSkuLabel'
+import { apiErrorText } from '../api/apiErrorText'
 
 interface VariantSkuWeightPoolControlsProps {
   token: string
@@ -37,7 +38,7 @@ export function VariantSkuWeightPoolControls({ token, sku, updateSKU, onPortions
       await updateSKU(sku.id, { ...skuPassThroughPayload(sku), unit_type: next.unitType, portioned_from_sku_id: next.portionedFromSkuId })
       setExistingPortionPickerOpen(false)
     } catch (err) {
-      setBulkError(err instanceof Error ? err.message : t('variant.poolFailed'))
+      setBulkError(apiErrorText(err) ?? t('variant.poolFailed'))
     } finally {
       setBulkSaving(false)
     }

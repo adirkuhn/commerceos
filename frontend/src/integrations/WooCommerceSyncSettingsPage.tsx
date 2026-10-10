@@ -17,6 +17,7 @@ import { WooCategoriesTab } from './WooCategoriesTab'
 import { WebhooksTab } from './WooWebhooksTab'
 import { CURRENCIES, CellState, DIRECTIONS, INTERVAL_OPTIONS, ROWS, cellKey, defaultCell, directionLabel, normalizeCurrency, runStatusLabel } from './wooSyncSettingsHelpers'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { apiErrorText } from '../api/apiErrorText'
 
 const TABS = ['sync', 'taxes', 'categories', 'webhooks'] as const
 type Tab = typeof TABS[number]
@@ -67,7 +68,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       await api.updateConnectionSettings(token, connection.id, storeCurrency, storeWarehouse || null)
       setCurrencySaved(true)
     } catch (err) {
-      setCurrencyError(err instanceof Error ? err.message : t('woo.currencySaveFailed'))
+      setCurrencyError(apiErrorText(err) ?? t('woo.currencySaveFailed'))
     } finally {
       setSavingCurrency(false)
     }
@@ -88,7 +89,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       const result = await api.fetchWooOrder(token, connection.id, fetchOrderNumber.trim())
       setFetchOrderResult(result)
     } catch (err) {
-      setFetchOrderError(err instanceof Error ? err.message : t('woo.fetchOrderFailed'))
+      setFetchOrderError(apiErrorText(err) ?? t('woo.fetchOrderFailed'))
     } finally {
       setFetchingOrder(false)
     }
@@ -117,7 +118,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       setDeleteResult(result)
       notifyProductsChanged()
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : t('deleteImported.failed'))
+      setDeleteError(apiErrorText(err) ?? t('deleteImported.failed'))
     } finally {
       setDeleting(false)
     }
@@ -190,7 +191,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       )
       await save(payload)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t('schedule.saveFailed'))
+      setSaveError(apiErrorText(err) ?? t('schedule.saveFailed'))
     } finally {
       setSaving(false)
     }

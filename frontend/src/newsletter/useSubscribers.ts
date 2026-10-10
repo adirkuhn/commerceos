@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useCallback, useEffect, useState } from 'react'
 import * as api from './api'
 import type { Subscriber, SubscriberQuery } from './types'
+import { apiErrorText } from '../api/apiErrorText'
 
 export function useSubscribers(token: string, query: SubscriberQuery) {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([])
@@ -18,7 +19,7 @@ export function useSubscribers(token: string, query: SubscriberQuery) {
       setTotal(res.total)
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18next.t('newsletter:list.loadFailed'))
+      setError(apiErrorText(err) ?? i18next.t('newsletter:list.loadFailed'))
     } finally {
       setLoading(false)
     }

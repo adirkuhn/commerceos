@@ -9,6 +9,7 @@ import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import type { Warehouse, WarehouseInput } from '../inventory/types'
 import { useConfirm } from '../components/common/useConfirm'
+import { apiErrorText } from '../api/apiErrorText'
 
 const PAGE_SIZE = 20
 
@@ -39,7 +40,7 @@ export default function Warehouses() {
     try {
       await remove(w.id)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : t('unknownError'))
+      setDeleteError(apiErrorText(err) ?? t('unknownError'))
     }
   }
 
@@ -191,7 +192,7 @@ function WarehouseEditPage({ warehouse, onCreate, onUpdate, onClose }: Warehouse
       }
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t('saveFailed'))
+      setFormError(apiErrorText(err) ?? t('saveFailed'))
     } finally {
       setSaving(false)
     }

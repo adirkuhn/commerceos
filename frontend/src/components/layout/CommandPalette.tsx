@@ -10,6 +10,7 @@ import { Dialog } from '../common/Dialog'
 import type { GlobalSearchResult } from '../../search/types'
 import type { NavItem } from '../../types'
 import { HOME_LINK, navGroupsForRole, navTitle, shortcutFor } from './navConfig'
+import { apiErrorText } from '../../api/apiErrorText'
 
 // MIN_QUERY_LENGTH_FOR_SEARCH: a single character against every entity
 // table is both slow and useless (hundreds of near-random matches) --
@@ -82,7 +83,7 @@ export default function CommandPalette() {
     const timer = setTimeout(() => {
       globalSearch(token, trimmed)
         .then(setResults)
-        .catch(err => setSearchError(err instanceof Error ? err.message : t('ui.searchFailed')))
+        .catch(err => setSearchError(apiErrorText(err) ?? t('ui.searchFailed')))
         .finally(() => setSearching(false))
     }, SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(timer)
