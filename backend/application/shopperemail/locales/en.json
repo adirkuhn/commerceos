@@ -6,6 +6,9 @@
     "subject": "Confirm your subscription to {{store}}",
     "unsubscribe": "Unsubscribe"
   },
+  "payment": {
+    "description": "Order #{{number}}"
+  },
   "signIn": {
     "button": "Sign in",
     "intro": "Click the link below to sign in. It expires in 15 minutes and can only be used once.",

@@ -2,6 +2,7 @@ package storefront
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/domain/locale"
 
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
@@ -38,8 +39,14 @@ func (uc *CheckoutCartUseCase) loadOpenCart(ctx context.Context, token string) (
 // NOT NULL FK), and unlike a WooCommerce/Bol import (which carries its
 // own Connection.DefaultWarehouseID), an internal-storefront checkout has
 // no other source for one.
-func (uc *CheckoutCartUseCase) resolveWarehouse(ctx context.Context, salesChannelID string) (string, error) {
-	var warehouseID string
+// checkoutChannel is what checkout needs from the cart's sales channel.
+type checkoutChannel struct {
+	warehouseID string
+	language    locale.Locale
+}
+
+func (uc *CheckoutCartUseCase) resolveChannel(ctx context.Context, salesChannelID string) (checkoutChannel, error) {
+	var out checkoutChannel
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		channel, err := findInternalChannel(ctx, uc.channelRepo, salesChannelID)
 		if err != nil {
@@ -48,10 +55,10 @@ func (uc *CheckoutCartUseCase) resolveWarehouse(ctx context.Context, salesChanne
 		if channel.DefaultWarehouseID == nil {
 			return storefrontDomain.ErrChannelWarehouseNotConfigured
 		}
-		warehouseID = *channel.DefaultWarehouseID
+		out = checkoutChannel{warehouseID: *channel.DefaultWarehouseID, language: channel.StorefrontLocale}
 		return nil
 	})
-	return warehouseID, err
+	return out, err
 }
 
 func (uc *CheckoutCartUseCase) resolveCustomer(ctx context.Context, email string, billing, shipping CheckoutAddressInput) (string, error) {

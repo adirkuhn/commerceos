@@ -1,5 +1,6 @@
-// Package shopperemail writes the emails shoppers get (sign-in link,
-// newsletter confirmation) in their store's language. Texts live in
+// Package shopperemail writes the texts the backend sends shoppers (sign-in
+// link and newsletter confirmation emails, the payment-page description)
+// in their store's language. Texts live in
 // locales/<lang>.json -- the same shape as the frontends' translation
 // files -- so translators edit them the same way (see docs/i18n.md).
 package shopperemail
@@ -82,4 +83,10 @@ func NewsletterConfirmation(l locale.Locale, storeName, confirmURL, unsubscribeU
 		fmt.Sprintf(`<p>%s</p><p><a href="%s">%s</a></p><p>%s</p><p style="font-size:12px;color:#666"><a href="%s">%s</a></p>`,
 			escaped(l, "newsletterConfirm.intro", store), html.EscapeString(confirmURL), escaped(l, "newsletterConfirm.button", nil),
 			escaped(l, "newsletterConfirm.ignore", nil), html.EscapeString(unsubscribeURL), escaped(l, "newsletterConfirm.unsubscribe", nil))
+}
+
+// PaymentDescription is what the shopper's payment page (Stripe, Revolut)
+// shows for an order, e.g. "Bestelling #1001".
+func PaymentDescription(l locale.Locale, orderNumber string) string {
+	return text(l, "payment.description", map[string]string{"number": orderNumber})
 }

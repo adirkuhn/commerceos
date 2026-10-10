@@ -15,6 +15,7 @@ import (
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
@@ -53,9 +54,10 @@ func (f *fakeCustomerCreator) Execute(_ context.Context, in appcustomers.CreateC
 }
 
 type fakePaymentLinkGenerator struct {
-	link *integrationsDomain.PaymentLink
-	ok   bool
-	err  error
+	link           *integrationsDomain.PaymentLink
+	ok             bool
+	err            error
+	gotDescription string
 }
 
 // Execute is nil-receiver-safe -- passing a nil *fakePaymentLinkGenerator
@@ -63,10 +65,11 @@ type fakePaymentLinkGenerator struct {
 // exercising "channel has no payment method wired at all" do) would
 // otherwise wrap a non-nil interface around a nil pointer, the classic
 // typed-nil trap, rather than behave like a real "not configured" case.
-func (f *fakePaymentLinkGenerator) Execute(_ context.Context, _ string, _ int64, _, _, _ string) (*integrationsDomain.PaymentLink, bool, error) {
+func (f *fakePaymentLinkGenerator) Execute(_ context.Context, _ string, _ int64, _, description, _ string) (*integrationsDomain.PaymentLink, bool, error) {
 	if f == nil {
 		return nil, false, nil
 	}
+	f.gotDescription = description
 	return f.link, f.ok, f.err
 }
 
@@ -557,4 +560,25 @@ func TestCheckoutCart_noCouponAttachedSkipsCouponResolutionEntirely(t *testing.T
 	require.NoError(t, err)
 	require.Zero(t, createOrder.got.DiscountTotalMinorUnits)
 	require.Empty(t, createOrder.got.CouponCode)
+}
+
+func TestCheckoutCart_paymentLinkDescriptionIsInTheStoreLanguage(t *testing.T) {
+	for lang, want := range map[locale.Locale]string{locale.English: "Order #", locale.Dutch: "Bestelling #", locale.Portuguese: "Pedido #"} {
+		cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": openCartWithOneItem()}}
+		customerRepo := &fakeCustomerRepo{byEmail: map[string]customersDomain.Customer{"shopper@example.com": {ID: "existing-customer-1"}}}
+		paymentGen := &fakePaymentLinkGenerator{link: &integrationsDomain.PaymentLink{URL: "https://pay.example/abc"}, ok: true}
+		channel := internalChannelWithWarehouse("channel-1", "wh-1")
+		channel.StorefrontLocale = lang
+		createOrder := &fakeSalesOrderCreator{}
+		uc := appstorefront.NewCheckoutCartUseCase(
+			newMockGormDB(t, checkoutTxnCount), cartRepo, &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": channel}},
+			customerRepo, &fakeCustomerCreator{}, createOrder, &fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, paymentGen,
+			nil, nil, nil, nil, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, nil,
+		)
+
+		result, err := uc.Execute(context.Background(), "token-1", validCheckoutInput())
+
+		require.NoError(t, err)
+		require.Equal(t, want+result.OrderNumber, paymentGen.gotDescription, lang)
+	}
 }

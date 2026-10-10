@@ -13,6 +13,7 @@ import (
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
+	"github.com/adirkuhn/commerceos/application/shopperemail"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
@@ -186,7 +187,7 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 		return nil, fmt.Errorf("checkoutCart: %w", err)
 	}
 
-	warehouseID, err := uc.resolveWarehouse(ctx, cart.SalesChannelID)
+	channel, err := uc.resolveChannel(ctx, cart.SalesChannelID)
 	if err != nil {
 		return nil, fmt.Errorf("checkoutCart: %w", err)
 	}
@@ -233,7 +234,7 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 	result, err := uc.createSalesOrder.Execute(ctx, appoms.CreateSalesOrderInput{
 		Source: omsDomain.SalesOrderSourceInternal, Number: orderNumber, OrderKey: orderNumber,
 		Status: status, CustomerID: &customerID, SalesChannelID: &cart.SalesChannelID,
-		WarehouseID:             warehouseID,
+		WarehouseID:             channel.warehouseID,
 		Billing:                 toOMSAddress(in.Billing, in.Email),
 		Shipping:                toOMSAddress(in.Shipping, ""),
 		CurrencyCode:            totals.CurrencyCode,
@@ -279,7 +280,7 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 	// already paid via an embedded card payment above -- no redirect link
 	// is needed for an order that's already Processing.
 	if uc.generatePaymentLink != nil && paymentExternalID == "" {
-		link, ok, linkErr := uc.generatePaymentLink.Execute(ctx, cart.SalesChannelID, totals.TotalMinorUnits, totals.CurrencyCode, "Order #"+result.SalesOrder.Number, result.SalesOrder.Number)
+		link, ok, linkErr := uc.generatePaymentLink.Execute(ctx, cart.SalesChannelID, totals.TotalMinorUnits, totals.CurrencyCode, shopperemail.PaymentDescription(channel.language, result.SalesOrder.Number), result.SalesOrder.Number)
 		if linkErr == nil && ok {
 			checkoutResult.PaymentURL = &link.URL
 		}

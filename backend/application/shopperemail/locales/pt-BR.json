@@ -6,6 +6,9 @@
     "subject": "Confirme sua inscrição em {{store}}",
     "unsubscribe": "Cancelar inscrição"
   },
+  "payment": {
+    "description": "Pedido #{{number}}"
+  },
   "signIn": {
     "button": "Entrar",
     "intro": "Clique no link abaixo para entrar. Ele expira em 15 minutos e só pode ser usado uma vez.",

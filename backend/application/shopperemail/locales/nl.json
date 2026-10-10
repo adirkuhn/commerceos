@@ -6,6 +6,9 @@
     "subject": "Bevestig je inschrijving bij {{store}}",
     "unsubscribe": "Uitschrijven"
   },
+  "payment": {
+    "description": "Bestelling #{{number}}"
+  },
   "signIn": {
     "button": "Inloggen",
     "intro": "Klik op de link hieronder om in te loggen. Hij verloopt na 15 minuten en werkt maar één keer.",

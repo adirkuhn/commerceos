@@ -51,3 +51,10 @@ func TestUnknownLanguageFallsBackToEnglish(t *testing.T) {
 	subject, _ := shopperemail.SignIn("de", "https://x")
 	assert.Equal(t, "Your sign-in link", subject)
 }
+
+func TestPaymentDescription(t *testing.T) {
+	assert.Equal(t, "Order #1001", shopperemail.PaymentDescription(locale.English, "1001"))
+	assert.Equal(t, "Pedido #1001", shopperemail.PaymentDescription(locale.Portuguese, "1001"))
+	assert.Equal(t, "Bestelling #1001", shopperemail.PaymentDescription(locale.Dutch, "1001"))
+	assert.Equal(t, "Order #1001", shopperemail.PaymentDescription("", "1001"))
+}
