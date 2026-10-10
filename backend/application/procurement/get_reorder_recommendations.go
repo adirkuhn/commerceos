@@ -2,8 +2,8 @@ package procurement
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"time"
 
 	"github.com/adirkuhn/commerceos/domain/procurement/planning"
@@ -18,7 +18,7 @@ const (
 	maxPlanningSafetyDays       = 90
 )
 
-var ErrInvalidPlanningWindow = errors.New("coverage_days must be 1-365 and safety_days 0-90")
+var ErrInvalidPlanningWindow = errs.New("PLANNING_WINDOW_INVALID", "coverage_days must be 1-365 and safety_days 0-90")
 
 type ReorderRecommendationsInput struct {
 	// CoverageDays is how long an order placed today should last once it

@@ -2,8 +2,8 @@ package procurement
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"time"
 
 	"github.com/adirkuhn/commerceos/domain/procurement/planning"
@@ -14,9 +14,9 @@ import (
 const maxCustomSeasonDays = 366
 
 var (
-	ErrInvalidSeason      = errors.New("pick either a season event (with a year up to next year) or a custom date range of at most 366 days")
-	ErrUnknownSeasonEvent = errors.New("unknown season event")
-	ErrSeasonOver         = errors.New("this season is already over")
+	ErrInvalidSeason      = errs.New("PLANNING_SEASON_INVALID", "pick either a season event (with a year up to next year) or a custom date range of at most 366 days")
+	ErrUnknownSeasonEvent = errs.New("PLANNING_UNKNOWN_SEASON_EVENT", "unknown season event")
+	ErrSeasonOver         = errs.New("PLANNING_SEASON_OVER", "this season is already over")
 )
 
 type SeasonPlanInput struct {

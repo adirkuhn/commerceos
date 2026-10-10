@@ -36,3 +36,11 @@ func TestFailErr_uncodedErrorKeepsTheFallbackCode(t *testing.T) {
 
 	assert.JSONEq(t, `{"data":null,"error":{"code":"NOT_FOUND","message":"something else"}}`, w.Body.String())
 }
+
+var errProviderDown = errs.NewWithCause("TEST_PROVIDER_FAILED", "provider request failed")
+
+func TestFailErr_causeErrorAlsoSendsTheDetail(t *testing.T) {
+	w := failErr(fmt.Errorf("sync: %w", fmt.Errorf("%w: 503 service unavailable", errProviderDown)))
+
+	assert.JSONEq(t, `{"data":null,"error":{"code":"TEST_PROVIDER_FAILED","message":"provider request failed","detail":"503 service unavailable"}}`, w.Body.String())
+}

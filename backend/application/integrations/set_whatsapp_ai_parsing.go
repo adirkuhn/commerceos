@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"time"
 
 	"gorm.io/gorm"
@@ -17,7 +18,7 @@ import (
 // -- enabling AI-assisted parsing with no AI connection configured would
 // silently do nothing (HandleInboundMessageUseCase's resolver just returns
 // nil, nil), so it's refused up front instead.
-var ErrAIConnectionRequiredForWhatsAppParsing = errors.New("integrations: connect an AI provider before enabling whatsapp AI parsing")
+var ErrAIConnectionRequiredForWhatsAppParsing = errs.New("WHATSAPP_AI_PARSING_NEEDS_AI_CONNECTION", "integrations: connect an AI provider before enabling whatsapp AI parsing")
 
 // SetWhatsAppAIParsingUseCase toggles a WhatsApp connection's AI-assisted
 // message parsing -- see domain/integrations.Connection.WhatsAppAIParsingEnabled's

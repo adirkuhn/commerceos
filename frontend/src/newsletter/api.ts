@@ -15,7 +15,7 @@ async function send(path: string, init: RequestInit, token: string): Promise<Res
   const res = await fetch(`${base()}${path}`, { ...init, headers: { Authorization: `Bearer ${token}`, ...init.headers } })
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as Envelope<unknown> | null
-    throw new CodedApiError(body?.error?.code ?? 'HTTP_ERROR', body?.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body?.error, res.status)
   }
   return res
 }

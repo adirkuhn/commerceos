@@ -2,7 +2,7 @@ package theme
 
 import (
 	"context"
-	"errors"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"io"
 	"regexp"
 	"strings"
@@ -16,10 +16,10 @@ const MaxAssetBytes = 10 << 20
 const maxAltLength = 250
 
 var (
-	ErrAssetNotFound        = errors.New("asset not found")
-	ErrUnsupportedAssetType = errors.New("only JPEG, PNG, WebP, GIF and ICO images can be uploaded")
-	ErrAssetTooLarge        = errors.New("images can be at most 10 MB")
-	ErrInvalidAssetAlt      = errors.New("image description must be at most 250 characters")
+	ErrAssetNotFound        = errs.New("THEME_ASSET_NOT_FOUND", "asset not found")
+	ErrUnsupportedAssetType = errs.New("THEME_ASSET_TYPE_UNSUPPORTED", "only JPEG, PNG, WebP, GIF and ICO images can be uploaded")
+	ErrAssetTooLarge        = errs.New("THEME_ASSET_TOO_LARGE", "images can be at most 10 MB")
+	ErrInvalidAssetAlt      = errs.New("THEME_ASSET_ALT_TOO_LONG", "image description must be at most 250 characters")
 )
 
 // SVG is deliberately excluded: it can carry scripts. Values are the file

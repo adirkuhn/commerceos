@@ -37,3 +37,19 @@ func TestNew_rejectsBadOrDuplicateCodes(t *testing.T) {
 	assert.Panics(t, func() { errs.New("lower_case", "x") })
 	assert.Panics(t, func() { errs.New("SAMPLE_THING_MISSING", "again") })
 }
+
+var errUpstream = errs.NewWithCause("SAMPLE_UPSTREAM_FAILED", "upstream request failed")
+
+func TestNewWithCause_exposesTheWrappedDetail(t *testing.T) {
+	err := fmt.Errorf("testConnection: %w", fmt.Errorf("%w: 401 unauthorized", errUpstream))
+
+	detail, ok := errs.DetailOf(err)
+	assert.True(t, ok)
+	assert.Equal(t, "401 unauthorized", detail)
+
+	_, ok = errs.DetailOf(fmt.Errorf("x: %w", errSample))
+	assert.False(t, ok, "only errors created with NewWithCause expose a detail")
+
+	_, ok = errs.DetailOf(errUpstream)
+	assert.False(t, ok, "nothing wrapped, no detail")
+}

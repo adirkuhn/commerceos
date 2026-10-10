@@ -24,4 +24,10 @@ describe('apiErrorText', () => {
   it('translates generic server failures', () => {
     expect(apiErrorText(new CodedApiError('INTERNAL', 'internal server error'))).toBe('Something went wrong on our side. Please try again.')
   })
+
+  it('adds an upstream provider’s own reason after the translated text', async () => {
+    i18next.addResource('nl', 'errors', 'TEST_PROVIDER_FAILED', 'Verzoek aan provider mislukt.')
+    await i18next.changeLanguage('nl')
+    expect(apiErrorText(new CodedApiError('TEST_PROVIDER_FAILED', 'x', '503 service unavailable'))).toBe('Verzoek aan provider mislukt. (503 service unavailable)')
+  })
 })

@@ -11,6 +11,9 @@ import (
 type APIError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+	// Detail is an upstream provider's own reason for a coded error that
+	// carries one (errs.NewWithCause), shown after the translated text.
+	Detail string `json:"detail,omitempty"`
 }
 
 type APIResponse struct {
@@ -55,7 +58,8 @@ var (
 // error sends fallbackCode with err's text.
 func FailErr(c *gin.Context, status int, fallbackCode string, err error) {
 	if code, message, ok := errs.CodeOf(err); ok {
-		Fail(c, status, code, message)
+		detail, _ := errs.DetailOf(err)
+		c.AbortWithStatusJSON(status, APIResponse{Error: &APIError{Code: code, Message: message, Detail: detail}})
 		return
 	}
 	Fail(c, status, fallbackCode, err.Error())

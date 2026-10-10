@@ -38,7 +38,7 @@ export async function listBolShipmentConfirmations(token: string, salesOrderId: 
   })
   const body: APIResponse<BolShipmentConfirmation[]> = await res.json()
   if (!res.ok || body.error) {
-    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return body.data ?? []
 }

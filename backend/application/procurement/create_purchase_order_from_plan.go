@@ -2,8 +2,8 @@ package procurement
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"time"
 
 	"github.com/adirkuhn/commerceos/application/eventrecord"
@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	ErrInvalidPlanOrder = errors.New("a planned order needs at least one line, each SKU once with a quantity above 0")
-	ErrSKUNotPlannable  = errors.New("SKU can't be bought: unknown, inactive, or a weight pool's package")
+	ErrInvalidPlanOrder = errs.New("PLAN_ORDER_INVALID", "a planned order needs at least one line, each SKU once with a quantity above 0")
+	ErrSKUNotPlannable  = errs.New("SKU_NOT_PLANNABLE", "SKU can't be bought: unknown, inactive, or a weight pool's package")
 )
 
 type PlanOrderLine struct {

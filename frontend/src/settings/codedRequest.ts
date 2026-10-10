@@ -19,7 +19,7 @@ export async function codedRequest<T>(method: 'GET' | 'PUT', url: string, token:
   })
   const envelope: Envelope<T> = await res.json()
   if (!res.ok || envelope.error) {
-    throw new CodedApiError(envelope.error?.code ?? 'HTTP_ERROR', envelope.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(envelope.error, res.status)
   }
   return envelope.data as T
 }

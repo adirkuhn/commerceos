@@ -23,7 +23,7 @@ export async function listWebhookFallbackEvents(
   })
   const body: APIResponse<WebhookFallbackEvent[]> & { total?: number } = await res.json()
   if (!res.ok || body.error) {
-    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return { events: body.data ?? [], total: body.total ?? 0 }
 }

@@ -1,14 +1,14 @@
 package procurement
 
 import (
-	"errors"
+	"github.com/adirkuhn/commerceos/domain/errs"
 
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 )
 
 // ErrLineItemNotOnPurchaseOrder guards AllocateLandedUnitCost: the target
 // line item ID must actually be one of the supplied lineItems.
-var ErrLineItemNotOnPurchaseOrder = errors.New("line item does not belong to this purchase order's line items")
+var ErrLineItemNotOnPurchaseOrder = errs.New("LINE_ITEM_NOT_ON_PURCHASE_ORDER", "line item does not belong to this purchase order's line items")
 
 // AllocateLandedUnitCost computes a product line item's landed per-unit
 // cost: its own UnitCostMinorUnits plus a proportional share of the

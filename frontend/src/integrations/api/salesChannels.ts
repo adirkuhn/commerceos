@@ -134,7 +134,7 @@ export async function listSalesChannelProducts(token: string, channelId: string,
   })
   const body: APIResponse<SalesChannelProductEnrollment[]> & { total?: number } = await res.json()
   if (!res.ok || body.error) {
-    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return { items: body.data ?? [], total: body.total ?? 0 }
 }

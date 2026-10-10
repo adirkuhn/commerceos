@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -18,6 +19,9 @@ import (
 type Coded struct {
 	code    string
 	message string
+	// showCause: the text wrapped after this error (e.g. an upstream
+	// provider's own reason) is useful to the reader -- see DetailOf.
+	showCause bool
 }
 
 func (e *Coded) Error() string { return e.message }
@@ -44,6 +48,30 @@ func New(code, message string) *Coded {
 	}
 	registry[code] = true
 	return &Coded{code: code, message: message}
+}
+
+// NewWithCause is New for errors whose wrapped detail the reader needs,
+// e.g. a provider's reason in fmt.Errorf("%w: 401 unauthorized", err).
+func NewWithCause(code, message string) *Coded {
+	c := New(code, message)
+	c.showCause = true
+	return c
+}
+
+// DetailOf returns the detail wrapped after a NewWithCause error in err's
+// chain ("401 unauthorized" above), if there is one.
+func DetailOf(err error) (string, bool) {
+	var c *Coded
+	if !errors.As(err, &c) || !c.showCause {
+		return "", false
+	}
+	full := err.Error()
+	i := strings.Index(full, c.message+": ")
+	if i < 0 {
+		return "", false
+	}
+	detail := full[i+len(c.message)+2:]
+	return detail, detail != ""
 }
 
 // CodeOf finds the coded error in err's chain: its code and its own

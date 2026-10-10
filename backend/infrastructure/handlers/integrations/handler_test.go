@@ -3178,5 +3178,5 @@ func TestListBolEconomicOperatorsHandler_bolAPIFailure_returns502NotInternal(t *
 	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/bol-economic-operators", nil)
 
 	require.Equal(t, http.StatusBadGateway, w.Code)
-	assert.Contains(t, w.Body.String(), "UPSTREAM_ERROR")
+	assert.Contains(t, w.Body.String(), `"code":"BOL_ECONOMIC_OPERATORS_REQUEST_FAILED"`)
 }

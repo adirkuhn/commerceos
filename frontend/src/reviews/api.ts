@@ -20,7 +20,7 @@ async function request<T>(
   })
   const body: APIResponse<T> = await res.json()
   if (!res.ok || body.error) {
-    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return body.data as T
 }

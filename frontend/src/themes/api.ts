@@ -17,7 +17,7 @@ async function request<T>(path: string, options: RequestInit, token: string): Pr
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers },
   })
   const body: Envelope<T> = await res.json()
-  if (!res.ok || body.error) throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+  if (!res.ok || body.error) throw CodedApiError.fromEnvelope(body.error, res.status)
   return body
 }
 

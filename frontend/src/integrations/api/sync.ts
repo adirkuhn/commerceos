@@ -27,7 +27,7 @@ export async function getProductChannelListing(token: string, connectionId: stri
   }
   const body: APIResponse<ProductChannelListing> = await res.json()
   if (!res.ok || body.error) {
-    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return body.data
 }
@@ -67,7 +67,7 @@ export async function listAllSyncLogs(token: string, params: ListAllSyncLogsPara
   })
   const body: APIResponse<SyncLogEntry[]> & { total?: number } = await res.json()
   if (!res.ok || body.error) {
-    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return { entries: body.data ?? [], total: body.total ?? 0 }
 }
@@ -87,7 +87,7 @@ export async function listSyncLogsNeedingAttention(token: string, params: ListAl
   })
   const body: APIResponse<SyncLogEntry[]> & { total?: number } = await res.json()
   if (!res.ok || body.error) {
-    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return { entries: body.data ?? [], total: body.total ?? 0 }
 }

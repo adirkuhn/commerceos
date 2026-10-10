@@ -35,7 +35,7 @@ async function request<T>(
   })
   const body: APIResponse<T> = await res.json()
   if (!res.ok || body.error) {
-    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return body.data as T
 }
@@ -83,7 +83,7 @@ export async function listProducts(token: string, params: ListProductsParams = {
   })
   const body: APIResponse<Product[]> & { total?: number } = await res.json()
   if (!res.ok || body.error) {
-    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return { products: body.data ?? [], total: body.total ?? 0 }
 }
@@ -230,7 +230,7 @@ export async function listMarginReport(token: string, params: ListMarginReportPa
   })
   const body: APIResponse<MarginReportRow[]> & { meta?: { total?: number } } = await res.json()
   if (!res.ok || body.error) {
-    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return { rows: body.data ?? [], total: body.meta?.total ?? 0 }
 }
@@ -263,7 +263,7 @@ export async function uploadProductMedia(token: string, productId: string, file:
   })
   const body: APIResponse<Media> = await res.json()
   if (!res.ok || body.error) {
-    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return body.data as Media
 }

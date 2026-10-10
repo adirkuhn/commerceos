@@ -13,7 +13,7 @@ async function request<T>(path: string, token: string, options: RequestInit = {}
   if (res.status === 204) return null as T
   const body: APIResponse<T> = await res.json()
   if (!res.ok || body.error) {
-    throw new CodedApiError(body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`)
+    throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return body.data as T
 }
