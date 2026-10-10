@@ -130,6 +130,8 @@
   "MEDIA_TYPE_UNSUPPORTED": "Dit bestandstype wordt niet ondersteund.",
   "MESSAGE_INVALID_CHANNEL": "Dit berichtkanaal is niet geldig.",
   "MESSAGE_TEMPLATE_BODY_REQUIRED": "Schrijf de sjabloontekst.",
+  "MESSAGE_TEMPLATE_IMAGE_TOO_LARGE": "Afbeeldingen mogen maximaal 5 MB zijn.",
+  "MESSAGE_TEMPLATE_IMAGE_TYPE_UNSUPPORTED": "Alleen JPEG-, PNG-, GIF- en WebP-afbeeldingen kunnen worden geüpload.",
   "MESSAGE_TEMPLATE_INVALID_CATEGORY": "Kies een geldige sjablooncategorie.",
   "MESSAGE_TEMPLATE_NAME_REQUIRED": "Geef het sjabloon een naam.",
   "MESSAGE_TEMPLATE_NOT_FOUND": "Berichtsjabloon niet gevonden.",

@@ -3,6 +3,8 @@ package messagecenter_test
 import (
 	"bytes"
 	"context"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -350,4 +352,90 @@ func TestCreateMessageTemplateHandler_passesTextBodyAndDesign(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"text_body":"Hi"`)
 	assert.Contains(t, w.Body.String(), `"design":{"pages":[]}`)
 	assert.Contains(t, w.Body.String(), `"default_key":"order_confirmation"`)
+}
+
+type stubPreview struct {
+	got appmc.PreviewTemplateInput
+	out *appmc.PreviewTemplate
+	err error
+}
+
+func (s *stubPreview) Execute(_ context.Context, in appmc.PreviewTemplateInput) (*appmc.PreviewTemplate, error) {
+	s.got = in
+	return s.out, s.err
+}
+
+type stubUploadImage struct {
+	gotBytes []byte
+	url      string
+	err      error
+}
+
+func (s *stubUploadImage) Execute(_ context.Context, file io.Reader) (string, error) {
+	s.gotBytes, _ = io.ReadAll(file)
+	return s.url, s.err
+}
+
+func TestPreviewMessageTemplateHandler(t *testing.T) {
+	preview := &stubPreview{out: &appmc.PreviewTemplate{Subject: "Order 1001", HTML: "<p>x</p>", Text: "x"}}
+	h := newHandler(nil, nil, nil, nil, nil, nil, nil, nil).WithTemplateTools(preview, &stubUploadImage{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/message-templates/preview",
+		`{"trigger_subject":"storefront.order.placed","subject":"Order {{order_number}}","body":"<p>x</p>"}`)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "storefront.order.placed", preview.got.TriggerSubject)
+	assert.Contains(t, w.Body.String(), `"subject":"Order 1001"`)
+	assert.Contains(t, w.Body.String(), `"html":"\u003cp\u003ex\u003c/p\u003e"`)
+}
+
+func TestPreviewMessageTemplateHandler_unknownTriggerIs422(t *testing.T) {
+	h := newHandler(nil, nil, nil, nil, nil, nil, nil, nil).WithTemplateTools(&stubPreview{err: mcDomain.ErrInvalidTriggerSubject}, &stubUploadImage{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/message-templates/preview", `{"trigger_subject":"storefront.order.placed"}`)
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func multipartImage(t *testing.T, field string, data []byte) (*bytes.Buffer, string) {
+	t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	if field != "" {
+		fw, err := mw.CreateFormFile(field, "logo.png")
+		require.NoError(t, err)
+		_, _ = fw.Write(data)
+	}
+	require.NoError(t, mw.Close())
+	return &buf, mw.FormDataContentType()
+}
+
+func TestUploadMessageTemplateImageHandler(t *testing.T) {
+	upload := &stubUploadImage{url: "https://cdn/x.png"}
+	h := newHandler(nil, nil, nil, nil, nil, nil, nil, nil).WithTemplateTools(&stubPreview{}, upload)
+	body, ctype := multipartImage(t, "file", []byte("PNGDATA"))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/message-templates/images", body)
+	req.Header.Set("Content-Type", ctype)
+	w := httptest.NewRecorder()
+	newTestRouter(h).ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, []byte("PNGDATA"), upload.gotBytes)
+	assert.Contains(t, w.Body.String(), `"url":"https://cdn/x.png"`)
+}
+
+func TestUploadMessageTemplateImageHandler_errors(t *testing.T) {
+	h := newHandler(nil, nil, nil, nil, nil, nil, nil, nil).WithTemplateTools(&stubPreview{}, &stubUploadImage{err: mcDomain.ErrTemplateImageTooLarge})
+	body, ctype := multipartImage(t, "file", []byte("x"))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/message-templates/images", body)
+	req.Header.Set("Content-Type", ctype)
+	w := httptest.NewRecorder()
+	newTestRouter(h).ServeHTTP(w, req)
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), `"code":"MESSAGE_TEMPLATE_IMAGE_TOO_LARGE"`)
+
+	body, ctype = multipartImage(t, "", nil)
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/message-templates/images", body)
+	req.Header.Set("Content-Type", ctype)
+	w = httptest.NewRecorder()
+	newTestRouter(h).ServeHTTP(w, req)
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), `"code":"FILE_REQUIRED"`)
 }

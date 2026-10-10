@@ -130,6 +130,8 @@
   "MEDIA_TYPE_UNSUPPORTED": "This file type isn’t supported.",
   "MESSAGE_INVALID_CHANNEL": "This message channel isn’t valid.",
   "MESSAGE_TEMPLATE_BODY_REQUIRED": "Write the template text.",
+  "MESSAGE_TEMPLATE_IMAGE_TOO_LARGE": "Images can be at most 5 MB.",
+  "MESSAGE_TEMPLATE_IMAGE_TYPE_UNSUPPORTED": "Only JPEG, PNG, GIF and WebP images can be uploaded.",
   "MESSAGE_TEMPLATE_INVALID_CATEGORY": "Choose a valid template category.",
   "MESSAGE_TEMPLATE_NAME_REQUIRED": "Give the template a name.",
   "MESSAGE_TEMPLATE_NOT_FOUND": "Message template not found.",

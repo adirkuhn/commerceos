@@ -5,13 +5,15 @@ import (
 )
 
 var (
-	ErrTemplateNotFound     = errs.New("MESSAGE_TEMPLATE_NOT_FOUND", "message template not found")
-	ErrTemplateNameRequired = errs.New("MESSAGE_TEMPLATE_NAME_REQUIRED", "template name is required")
-	ErrInvalidCategory      = errs.New("MESSAGE_TEMPLATE_INVALID_CATEGORY", "invalid template category")
-	ErrNoChannelsSelected   = errs.New("MESSAGE_TEMPLATE_NO_CHANNELS", "at least one channel must be selected")
-	ErrInvalidChannel       = errs.New("MESSAGE_INVALID_CHANNEL", "invalid message channel")
-	ErrTemplateTextRequired = errs.New("MESSAGE_TEMPLATE_TEXT_REQUIRED", "a text message is required for WhatsApp/SMS")
-	ErrTemplateBodyRequired = errs.New("MESSAGE_TEMPLATE_BODY_REQUIRED", "template body is required")
+	ErrTemplateNotFound             = errs.New("MESSAGE_TEMPLATE_NOT_FOUND", "message template not found")
+	ErrTemplateNameRequired         = errs.New("MESSAGE_TEMPLATE_NAME_REQUIRED", "template name is required")
+	ErrInvalidCategory              = errs.New("MESSAGE_TEMPLATE_INVALID_CATEGORY", "invalid template category")
+	ErrNoChannelsSelected           = errs.New("MESSAGE_TEMPLATE_NO_CHANNELS", "at least one channel must be selected")
+	ErrInvalidChannel               = errs.New("MESSAGE_INVALID_CHANNEL", "invalid message channel")
+	ErrTemplateImageTypeUnsupported = errs.New("MESSAGE_TEMPLATE_IMAGE_TYPE_UNSUPPORTED", "only JPEG, PNG, GIF and WebP images can be uploaded")
+	ErrTemplateImageTooLarge        = errs.New("MESSAGE_TEMPLATE_IMAGE_TOO_LARGE", "images can be at most 5 MB")
+	ErrTemplateTextRequired         = errs.New("MESSAGE_TEMPLATE_TEXT_REQUIRED", "a text message is required for WhatsApp/SMS")
+	ErrTemplateBodyRequired         = errs.New("MESSAGE_TEMPLATE_BODY_REQUIRED", "template body is required")
 
 	ErrRuleNotFound           = errs.New("AUTOMATION_RULE_NOT_FOUND", "automation rule not found")
 	ErrRuleNameRequired       = errs.New("AUTOMATION_RULE_NAME_REQUIRED", "rule name is required")

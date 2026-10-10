@@ -30,6 +30,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/MessageTriggerListResponse'
 
+  /message-templates/preview:
+    post:
+      operationId: previewMessageTemplate
+      summary: Render a (possibly unsaved) template with a trigger's sample data
+      description: >-
+        Uses the trigger's sample data (see /message-triggers) and the
+        store's real details, through the same renderer as real sends.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewMessageTemplateRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageTemplatePreviewResponse'
+        '422':
+          description: Unknown trigger (AUTOMATION_RULE_INVALID_TRIGGER).
+
+  /message-templates/images:
+    post:
+      operationId: uploadMessageTemplateImage
+      summary: Upload an image for a message template (logo, banner)
+      description: >-
+        Returns the image's public URL to use in a template. JPEG, PNG, GIF
+        or WebP, at most 5 MB (422 MESSAGE_TEMPLATE_IMAGE_TYPE_UNSUPPORTED /
+        MESSAGE_TEMPLATE_IMAGE_TOO_LARGE; FILE_REQUIRED without a file).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageTemplateImageResponse'
+        '422':
+          description: Not an accepted image.
+
   /message-templates:
     get:
       operationId: listMessageTemplates
@@ -305,6 +355,39 @@ components:
         - shipping.shipment.fulfillment_signal
         - inventory.stock.close_to_expiry_reported
         - oms.sales_order.created
+
+    PreviewMessageTemplateRequest:
+      type: object
+      required: [trigger_subject]
+      properties:
+        trigger_subject: { $ref: '#/components/schemas/TriggerSubject' }
+        subject: { type: string }
+        body: { type: string, description: Email HTML. }
+        text_body: { type: string, description: WhatsApp/SMS text; empty means body. }
+
+    MessageTemplatePreview:
+      type: object
+      required: [subject, html, text]
+      properties:
+        subject: { type: string }
+        html: { type: string, description: The email body as sent. }
+        text: { type: string, description: The WhatsApp/SMS text as sent. }
+
+    MessageTemplatePreviewResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/MessageTemplatePreview' }
+        error: { nullable: true }
+
+    MessageTemplateImageResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          required: [url]
+          properties:
+            url: { type: string, description: Public URL of the uploaded image. }
+        error: { nullable: true }
 
     TemplateVariable:
       type: object

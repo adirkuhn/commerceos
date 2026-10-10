@@ -341,7 +341,7 @@ func main() {
 	messagecenterGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(messagecenterSpec, &ginmiddleware.Options{
 		SilenceServersWarning: true,
 	}))
-	messagecenterhandler.Register(messagecenterGroup, db)
+	messagecenterhandler.Register(messagecenterGroup, db, fileStorage)
 
 	emailintegrationSpec, err := genemailintegration.GetSpec()
 	if err != nil {

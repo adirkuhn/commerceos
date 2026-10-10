@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 
@@ -17,6 +18,8 @@ import (
 	appmc "github.com/adirkuhn/commerceos/application/messagecenter"
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"github.com/adirkuhn/commerceos/domain/messaging"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -54,6 +57,8 @@ type deleteAutomationRuleUC interface {
 }
 
 type Handler struct {
+	preview        previewTemplateUC
+	uploadImage    uploadTemplateImageUC
 	listTemplates  listMessageTemplatesUC
 	createTemplate createMessageTemplateUC
 	updateTemplate updateMessageTemplateUC
@@ -76,7 +81,57 @@ func NewHandler(
 
 var _ genmc.ServerInterface = (*Handler)(nil)
 
-func Register(rg gin.IRouter, db *gorm.DB) {
+type previewTemplateUC interface {
+	Execute(ctx context.Context, in appmc.PreviewTemplateInput) (*appmc.PreviewTemplate, error)
+}
+type uploadTemplateImageUC interface {
+	Execute(ctx context.Context, file io.Reader) (string, error)
+}
+
+// WithTemplateTools adds the template editor's preview and image upload.
+func (h *Handler) WithTemplateTools(preview previewTemplateUC, upload uploadTemplateImageUC) *Handler {
+	h.preview, h.uploadImage = preview, upload
+	return h
+}
+
+func (h *Handler) PreviewMessageTemplate(c *gin.Context) {
+	var req genmc.PreviewMessageTemplateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		return
+	}
+	out, err := h.preview.Execute(c.Request.Context(), appmc.PreviewTemplateInput{
+		TriggerSubject: string(req.TriggerSubject), Subject: stringValue(req.Subject),
+		Body: stringValue(req.Body), TextBody: stringValue(req.TextBody),
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, genmc.MessageTemplatePreview{Subject: out.Subject, Html: out.HTML, Text: out.Text})
+}
+
+func (h *Handler) UploadMessageTemplateImage(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrFileRequired)
+		return
+	}
+	f, err := file.Open()
+	if err != nil {
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrUploadUnreadable)
+		return
+	}
+	defer f.Close()
+	url, err := h.uploadImage.Execute(c.Request.Context(), f)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, gin.H{"url": url})
+}
+
+// Register wires the Message Center routes; storage keeps uploaded
+// template images.
+func Register(rg gin.IRouter, db *gorm.DB, storage pmsDomain.FileStorage) {
 	templateRepo := repositories.NewMessageTemplateRepo(db)
 	ruleRepo := repositories.NewAutomationRuleRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
@@ -89,6 +144,10 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appmc.NewCreateAutomationRuleUseCase(db, ruleRepo, templateRepo, outboxRepo),
 		appmc.NewUpdateAutomationRuleUseCase(db, ruleRepo, templateRepo, outboxRepo),
 		appmc.NewDeleteAutomationRuleUseCase(db, ruleRepo, outboxRepo),
+	)
+	h.WithTemplateTools(
+		appmc.NewPreviewTemplateUseCase(db, repositories.NewCompanyProfileRepo(db)),
+		appmc.NewUploadTemplateImageUseCase(storage),
 	)
 	genmc.RegisterHandlers(rg, h)
 }
@@ -347,7 +406,8 @@ func mapError(c *gin.Context, err error) error {
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, mcDomain.ErrTemplateNameRequired), errors.Is(err, mcDomain.ErrInvalidCategory),
 		errors.Is(err, mcDomain.ErrNoChannelsSelected), errors.Is(err, mcDomain.ErrInvalidChannel),
-		errors.Is(err, mcDomain.ErrTemplateBodyRequired), errors.Is(err, mcDomain.ErrTemplateTextRequired), errors.Is(err, mcDomain.ErrRuleNameRequired),
+		errors.Is(err, mcDomain.ErrTemplateBodyRequired), errors.Is(err, mcDomain.ErrTemplateTextRequired),
+		errors.Is(err, mcDomain.ErrTemplateImageTypeUnsupported), errors.Is(err, mcDomain.ErrTemplateImageTooLarge), errors.Is(err, mcDomain.ErrRuleNameRequired),
 		errors.Is(err, mcDomain.ErrInvalidTriggerSubject), errors.Is(err, mcDomain.ErrTemplateIDRequired),
 		errors.Is(err, mcDomain.ErrInvalidCondition), errors.Is(err, mcDomain.ErrInvalidExtraRecipient),
 		errors.Is(err, mcDomain.ErrTooManyExtraRecipients):

@@ -130,6 +130,8 @@
   "MEDIA_TYPE_UNSUPPORTED": "Este tipo de arquivo não é suportado.",
   "MESSAGE_INVALID_CHANNEL": "Este canal de mensagem não é válido.",
   "MESSAGE_TEMPLATE_BODY_REQUIRED": "Escreva o texto do modelo.",
+  "MESSAGE_TEMPLATE_IMAGE_TOO_LARGE": "As imagens podem ter no máximo 5 MB.",
+  "MESSAGE_TEMPLATE_IMAGE_TYPE_UNSUPPORTED": "Só é possível enviar imagens JPEG, PNG, GIF e WebP.",
   "MESSAGE_TEMPLATE_INVALID_CATEGORY": "Escolha uma categoria de modelo válida.",
   "MESSAGE_TEMPLATE_NAME_REQUIRED": "Dê um nome ao modelo.",
   "MESSAGE_TEMPLATE_NOT_FOUND": "Modelo de mensagem não encontrado.",
