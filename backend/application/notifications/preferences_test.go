@@ -123,7 +123,7 @@ func TestUpdatePreferences_invalidInputWritesNothing(t *testing.T) {
 
 func deliverInput() appnotifications.CreateNotificationInput {
 	return appnotifications.CreateNotificationInput{
-		Type: notificationsDomain.TypeImportFailed, Title: "Import failed", Message: "Woo returned 500", Link: "/sync-log",
+		Type: notificationsDomain.TypeImportFailed, Params: map[string]any{"error": "Woo returned 500"}, Link: "/sync-log",
 	}
 }
 

@@ -31,11 +31,20 @@ type Notification struct {
 	Id        string    `json:"id"`
 
 	// Link Frontend-relative deep link (e.g. "/products/<id>") to navigate to on click. Empty string means no link.
-	Link    *string `json:"link,omitempty"`
-	Message string  `json:"message"`
-	Read    bool    `json:"read"`
-	Title   string  `json:"title"`
-	Type    string  `json:"type"`
+	Link *string `json:"link,omitempty"`
+
+	// Message English fallback text.
+	Message string `json:"message"`
+
+	// Params Values the type's translated text is filled with, e.g. {"count": 4, "window_days": 30}. Empty for older notifications.
+	Params map[string]interface{} `json:"params"`
+	Read   bool                   `json:"read"`
+
+	// Title English fallback text.
+	Title string `json:"title"`
+
+	// Type e.g. import.completed, inventory.stock.close_to_expiry. Clients translate a known type with params (admin i18n key notifications:types.<type>.title / message / message_one / parts.<param>) and fall back to title/message otherwise.
+	Type string `json:"type"`
 }
 
 // NotificationListResponse defines model for NotificationListResponse.
@@ -157,19 +166,23 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

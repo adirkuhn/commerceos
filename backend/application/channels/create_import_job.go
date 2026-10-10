@@ -103,9 +103,7 @@ func (uc *CreateImportJobUseCase) Execute(ctx context.Context, in CreateImportJo
 	// run it) and the "started" notification is a courtesy, not required
 	// for correctness.
 	if _, err := uc.notifier.Execute(ctx, appnotifications.CreateNotificationInput{
-		Type:    notificationsDomain.TypeImportStarted,
-		Title:   "Import started",
-		Message: "Importing WooCommerce products…",
+		Type: notificationsDomain.TypeImportStarted,
 	}); err != nil {
 		log.Printf("createImportJob: notify started: %v", err)
 	}

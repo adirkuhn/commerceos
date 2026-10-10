@@ -244,10 +244,9 @@ func (uc *PushProductToBolUseCase) checkNotForSale(ctx context.Context, client i
 // succeeded.
 func (uc *PushProductToBolUseCase) notifyNotForSale(ctx context.Context, product pmsDomain.Product, note string) {
 	if _, err := uc.notifier.Execute(ctx, appnotifications.CreateNotificationInput{
-		Type:    notificationsDomain.TypeBolNotForSale,
-		Title:   "Bol: \"" + product.Name + "\" is not for sale",
-		Message: note,
-		Link:    "/products/" + product.ID,
+		Type:   notificationsDomain.TypeBolNotForSale,
+		Params: map[string]any{"product": product.Name, "reason": note},
+		Link:   "/products/" + product.ID,
 	}); err != nil {
 		log.Printf("pushProductToBol: notify not-for-sale for product %s: %v", product.ID, err)
 	}

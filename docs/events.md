@@ -189,7 +189,7 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
-| `notifications.email.requested` | typed | NotificationEmailRequested is raised when a notification must also go out by email (its category has email delivery on). | `NotificationEmailRequested`: event_id, occurred_at, tenant_id, type, recipients, subject, body, link |
+| `notifications.email.requested` | typed | NotificationEmailRequested is raised when a notification must also go out by email (its category has email delivery on). | `NotificationEmailRequested`: event_id, occurred_at, tenant_id, type, recipients, params, subject, body, link |
 | `notifications.notification.all_read` | action | Every notification of the tenant was marked as read. entity_id is the tenant id. | envelope |
 | `notifications.notification.created` | action | An in-app notification (bell) was created. data: type, title, link. | envelope |
 | `notifications.notification.read` | action | A notification was marked as read. | envelope |

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -103,20 +102,20 @@ func runImportJob(
 		}); markErr != nil {
 			log.Printf("mark import job %s failed: %v", job.ID, markErr)
 		}
-		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeImportFailed, "Import failed", err.Error())
+		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeImportFailed, map[string]any{"error": err.Error()})
 		return
 	}
 
 	products := result.Products
 	errs := products.Errors
-	message := fmt.Sprintf("Imported %d products (%d already linked, %d skipped)", products.Imported, products.AlreadyLinked, products.SkippedType)
+	params := map[string]any{"products": products.Imported, "already_linked": products.AlreadyLinked, "skipped": products.SkippedType}
 	if result.Customers != nil {
 		errs = append(errs, result.Customers.Errors...)
-		message += fmt.Sprintf(", %d customers", result.Customers.Created)
+		params["customers"] = result.Customers.Created
 	}
 	if result.Orders != nil {
 		errs = append(errs, result.Orders.Errors...)
-		message += fmt.Sprintf(", %d orders", result.Orders.Created)
+		params["orders"] = result.Orders.Created
 	}
 
 	if markErr := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
@@ -124,13 +123,15 @@ func runImportJob(
 	}); markErr != nil {
 		log.Printf("mark import job %s completed: %v", job.ID, markErr)
 	}
-	notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeImportCompleted, "Import completed", message)
+	notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeImportCompleted, params)
 }
 
 // notifyBestEffort never aborts the caller — a notification failing to
 // write shouldn't hide that the actual import job did complete or fail.
-func notifyBestEffort(ctx context.Context, notifyUC *notificationsapp.DeliverNotificationUseCase, t notificationsDomain.Type, title, message string) {
-	if _, err := notifyUC.Execute(ctx, notificationsapp.CreateNotificationInput{Type: t, Title: title, Message: message}); err != nil {
+// Its text is the type's translation filled with params (see
+// notificationsDomain.Type.Render).
+func notifyBestEffort(ctx context.Context, notifyUC *notificationsapp.DeliverNotificationUseCase, t notificationsDomain.Type, params map[string]any) {
+	if _, err := notifyUC.Execute(ctx, notificationsapp.CreateNotificationInput{Type: t, Params: params}); err != nil {
 		log.Printf("notify %s: %v", t, err)
 	}
 }

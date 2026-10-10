@@ -9,9 +9,13 @@ type NotificationEmailRequested struct {
 	TenantID   string   `json:"tenant_id"`
 	Type       string   `json:"type"`
 	Recipients []string `json:"recipients"`
-	Subject    string   `json:"subject"`
-	Body       string   `json:"body"`
-	Link       string   `json:"link"`
+	// Params fill the type's translated text (notifications.Type.Render),
+	// sent in the tenant's language; Subject/Body are the English
+	// fallback for untranslated types.
+	Params  map[string]any `json:"params,omitempty"`
+	Subject string         `json:"subject"`
+	Body    string         `json:"body"`
+	Link    string         `json:"link"`
 }
 
 func (NotificationEmailRequested) EventName() string { return "notifications.email.requested" }

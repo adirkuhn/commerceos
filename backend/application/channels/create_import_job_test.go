@@ -10,6 +10,7 @@ import (
 
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -29,7 +30,7 @@ func TestCreateImportJob_createsPendingJobAndStartedNotification(t *testing.T) {
 	require.Equal(t, "tenant-1", job.TenantID)
 	require.Len(t, jobRepo.created, 1)
 	require.Len(t, notif.calls, 1)
-	require.Contains(t, notif.calls[0].Title, "started")
+	require.Equal(t, notificationsDomain.TypeImportStarted, notif.calls[0].Type)
 }
 
 func TestCreateImportJob_setsIsFirstImportWhenConnectionHasNoListingsYet(t *testing.T) {

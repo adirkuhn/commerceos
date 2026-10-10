@@ -24,12 +24,8 @@ func NewNotifyStockCloseToExpiryUseCase(deliver notificationDeliverer) *NotifySt
 }
 
 func (uc *NotifyStockCloseToExpiryUseCase) Execute(ctx context.Context, windowDays, itemCount int) error {
-	message := fmt.Sprintf("%d products expire within %d days", itemCount, windowDays)
-	if itemCount == 1 {
-		message = fmt.Sprintf("1 product expires within %d days", windowDays)
-	}
 	_, err := uc.deliver.Execute(ctx, CreateNotificationInput{
-		Type: notificationsDomain.TypeStockCloseToExpiry, Title: "Stock close to expiry", Message: message, Link: "/inventory",
+		Type: notificationsDomain.TypeStockCloseToExpiry, Params: map[string]any{"count": itemCount, "window_days": windowDays}, Link: "/inventory",
 	})
 	if err != nil {
 		return fmt.Errorf("notifyStockCloseToExpiry: %w", err)

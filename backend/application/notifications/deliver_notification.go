@@ -38,12 +38,13 @@ func (uc *DeliverNotificationUseCase) Execute(ctx context.Context, in CreateNoti
 			return err
 		}
 		channels := prefs.ForType(in.Type)
+		params, title, message := in.storedText()
 		now := time.Now()
 		tenantID := tenant.IDFromContext(ctx)
 
 		if channels.InApp {
 			n := notificationsDomain.Notification{
-				TenantID: tenantID, Type: in.Type, Title: in.Title, Message: in.Message, Link: in.Link, CreatedAt: now,
+				TenantID: tenantID, Type: in.Type, Params: params, Title: title, Message: message, Link: in.Link, CreatedAt: now,
 			}
 			if err := uc.repo.Create(ctx, &n); err != nil {
 				return err
@@ -56,8 +57,9 @@ func (uc *DeliverNotificationUseCase) Execute(ctx context.Context, in CreateNoti
 				TenantID:   tenantID,
 				Type:       string(in.Type),
 				Recipients: prefs.EmailRecipients,
-				Subject:    in.Title,
-				Body:       in.Message,
+				Params:     params,
+				Subject:    title,
+				Body:       message,
 				Link:       in.Link,
 			})
 		}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -89,7 +88,7 @@ func runDocumentParsingJob(
 		}); markErr != nil {
 			log.Printf("mark document parsing job %s failed: %v", job.ID, markErr)
 		}
-		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeDocumentParsingFailed, "Document parsing failed", err.Error())
+		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeDocumentParsingFailed, map[string]any{"error": err.Error()})
 		return
 	}
 
@@ -100,12 +99,10 @@ func runDocumentParsingJob(
 	}
 
 	if needsReview {
-		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypePurchaseOrderNeedsReview, "Purchase order needs review",
-			"Some line items couldn't be matched to a product automatically — review and link them.")
+		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypePurchaseOrderNeedsReview, nil)
 		return
 	}
-	notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeDocumentParsingCompleted, "Document parsed",
-		"All line items were matched to products automatically.")
+	notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeDocumentParsingCompleted, nil)
 }
 
 // recoverOrphanedReceivingParsingJobs mirrors recoverOrphanedDocumentParsingJobs
@@ -183,7 +180,7 @@ func runReceivingParsingJob(
 		}); markErr != nil {
 			log.Printf("mark receiving parsing job %s failed: %v", job.ID, markErr)
 		}
-		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeReceivingParsingFailed, "Invoice parsing failed", err.Error())
+		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeReceivingParsingFailed, map[string]any{"error": err.Error()})
 		return
 	}
 
@@ -194,10 +191,8 @@ func runReceivingParsingJob(
 	}
 
 	if discrepancyCount > 0 {
-		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeReceivingDiscrepanciesFound, "Receiving discrepancies found",
-			fmt.Sprintf("The invoice didn't fully match the purchase order (%d discrepancies) — review and reconcile.", discrepancyCount))
+		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeReceivingDiscrepanciesFound, map[string]any{"count": discrepancyCount})
 		return
 	}
-	notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeReceivingParsingCompleted, "Invoice parsed",
-		"The invoice matched the purchase order exactly.")
+	notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeReceivingParsingCompleted, nil)
 }

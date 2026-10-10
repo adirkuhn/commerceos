@@ -30,8 +30,8 @@ func TestNotifyStockCloseToExpiry_raisesABellNotification(t *testing.T) {
 	require.NoError(t, uc.Execute(tctx(), 7, 1))
 
 	assert.Equal(t, []appnotifications.CreateNotificationInput{
-		{Type: notificationsDomain.TypeStockCloseToExpiry, Title: "Stock close to expiry", Message: "4 products expire within 30 days", Link: "/inventory"},
-		{Type: notificationsDomain.TypeStockCloseToExpiry, Title: "Stock close to expiry", Message: "1 product expires within 7 days", Link: "/inventory"},
+		{Type: notificationsDomain.TypeStockCloseToExpiry, Params: map[string]any{"count": 4, "window_days": 30}, Link: "/inventory"},
+		{Type: notificationsDomain.TypeStockCloseToExpiry, Params: map[string]any{"count": 1, "window_days": 7}, Link: "/inventory"},
 	}, d.got)
 }
 

@@ -60,12 +60,28 @@ components:
   schemas:
     Notification:
       type: object
-      required: [id, type, title, message, read, created_at]
+      required: [id, type, params, title, message, read, created_at]
       properties:
         id: { type: string }
-        type: { type: string }
-        title: { type: string }
-        message: { type: string }
+        type:
+          type: string
+          description: >-
+            e.g. import.completed, inventory.stock.close_to_expiry. Clients
+            translate a known type with params (admin i18n key
+            notifications:types.<type>.title / message / message_one /
+            parts.<param>) and fall back to title/message otherwise.
+        params:
+          type: object
+          additionalProperties: true
+          description: >-
+            Values the type's translated text is filled with, e.g.
+            {"count": 4, "window_days": 30}. Empty for older notifications.
+        title:
+          type: string
+          description: English fallback text.
+        message:
+          type: string
+          description: English fallback text.
         link:
           type: string
           description: >-

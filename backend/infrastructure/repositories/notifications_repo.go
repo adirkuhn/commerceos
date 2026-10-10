@@ -13,13 +13,14 @@ import (
 )
 
 type notificationModel struct {
-	ID        string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID  string `gorm:"not null;type:uuid"`
-	Type      string `gorm:"not null"`
-	Title     string `gorm:"not null"`
-	Message   string `gorm:"not null"`
-	Link      string `gorm:"not null"`
-	Read      bool   `gorm:"not null"`
+	ID        string                     `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID  string                     `gorm:"not null;type:uuid"`
+	Type      string                     `gorm:"not null"`
+	Params    jsonbValue[map[string]any] `gorm:"column:params;type:jsonb;not null"`
+	Title     string                     `gorm:"not null"`
+	Message   string                     `gorm:"not null"`
+	Link      string                     `gorm:"not null"`
+	Read      bool                       `gorm:"not null"`
 	CreatedAt time.Time
 }
 
@@ -43,7 +44,7 @@ func (r *NotificationRepo) Create(ctx context.Context, n *notificationsDomain.No
 		return err
 	}
 	m := notificationModel{
-		TenantID: n.TenantID, Type: string(n.Type), Title: n.Title, Message: n.Message, Link: n.Link,
+		TenantID: n.TenantID, Type: string(n.Type), Params: jsonbValue[map[string]any]{V: nonNilParams(n.Params)}, Title: n.Title, Message: n.Message, Link: n.Link,
 		Read: n.Read, CreatedAt: n.CreatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -93,7 +94,14 @@ func (r *NotificationRepo) MarkAllRead(ctx context.Context) error {
 
 func toNotificationDomain(m notificationModel) *notificationsDomain.Notification {
 	return &notificationsDomain.Notification{
-		ID: m.ID, TenantID: m.TenantID, Type: notificationsDomain.Type(m.Type),
+		ID: m.ID, TenantID: m.TenantID, Type: notificationsDomain.Type(m.Type), Params: nonNilParams(m.Params.V),
 		Title: m.Title, Message: m.Message, Link: m.Link, Read: m.Read, CreatedAt: m.CreatedAt,
 	}
+}
+
+func nonNilParams(p map[string]any) map[string]any {
+	if p == nil {
+		return map[string]any{}
+	}
+	return p
 }

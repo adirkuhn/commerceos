@@ -1,4 +1,4 @@
-package messagecenter_test
+package textrender_test
 
 import (
 	"html"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	mc "github.com/adirkuhn/commerceos/domain/messagecenter"
+	mc "github.com/adirkuhn/commerceos/domain/textrender"
 )
 
 func plain(s string) string { return s }

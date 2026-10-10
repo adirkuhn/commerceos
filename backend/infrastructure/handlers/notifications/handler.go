@@ -85,7 +85,7 @@ func (h *Handler) MarkAllNotificationsRead(c *gin.Context) {
 func toGenNotification(n notificationsDomain.Notification) gennotifications.Notification {
 	link := n.Link
 	return gennotifications.Notification{
-		Id: n.ID, Type: string(n.Type), Title: n.Title, Message: n.Message, Link: &link,
+		Id: n.ID, Type: string(n.Type), Params: nonNilParams(n.Params), Title: n.Title, Message: n.Message, Link: &link,
 		Read: n.Read, CreatedAt: n.CreatedAt,
 	}
 }
@@ -97,4 +97,11 @@ func mapError(c *gin.Context, err error) error {
 	log.Printf("notifications: unhandled error: %v", err)
 	middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
 	return err
+}
+
+func nonNilParams(p map[string]any) map[string]any {
+	if p == nil {
+		return map[string]any{}
+	}
+	return p
 }

@@ -58,8 +58,13 @@ type Notification struct {
 	ID       string
 	TenantID string
 	Type     Type
-	Title    string
-	Message  string
+	// Params are the values the type's translated text is filled with
+	// (see Type.Render) -- each reader sees it in their own language.
+	// Title/Message keep the English text for types without translations
+	// and for clients that predate Params.
+	Params  map[string]any
+	Title   string
+	Message string
 	// Link is a frontend-relative deep link (e.g. "/products/<id>") the
 	// notification navigates to on click -- empty means no link, click
 	// just marks it read (every notification before this field existed
