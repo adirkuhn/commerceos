@@ -2,7 +2,7 @@ package settings
 
 import (
 	"context"
-	"errors"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"math/big"
 	"net/mail"
 	"regexp"
@@ -11,11 +11,11 @@ import (
 )
 
 var (
-	ErrLegalNameRequired   = errors.New("company legal name is required")
-	ErrInvalidCompanyEmail = errors.New("company email is not a valid address")
-	ErrInvalidVATNumber    = errors.New("VAT number must be a 2-letter country prefix followed by 2-13 letters or digits")
-	ErrInvalidIBAN         = errors.New("IBAN is not valid")
-	ErrInvalidCountryCode  = errors.New("country must be a 2-letter ISO 3166 code")
+	ErrLegalNameRequired   = errs.New("COMPANY_LEGAL_NAME_REQUIRED", "company legal name is required")
+	ErrInvalidCompanyEmail = errs.New("COMPANY_INVALID_EMAIL", "company email is not a valid address")
+	ErrInvalidVATNumber    = errs.New("COMPANY_INVALID_VAT_NUMBER", "VAT number must be a 2-letter country prefix followed by 2-13 letters or digits")
+	ErrInvalidIBAN         = errs.New("COMPANY_INVALID_IBAN", "IBAN is not valid")
+	ErrInvalidCountryCode  = errs.New("COMPANY_INVALID_COUNTRY", "country must be a 2-letter ISO 3166 code")
 )
 
 // CompanyAddress is the seller's registered address, as printed on invoices.

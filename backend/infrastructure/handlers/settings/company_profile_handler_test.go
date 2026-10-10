@@ -113,11 +113,11 @@ func TestUpdateCompanyProfile_passesInputAndReturnsSaved(t *testing.T) {
 
 func TestUpdateCompanyProfile_mapsEachValidationErrorToItsCode(t *testing.T) {
 	cases := map[error]string{
-		settingsDomain.ErrLegalNameRequired:   "LEGAL_NAME_REQUIRED",
-		settingsDomain.ErrInvalidCompanyEmail: "INVALID_EMAIL",
-		settingsDomain.ErrInvalidVATNumber:    "INVALID_VAT_NUMBER",
-		settingsDomain.ErrInvalidIBAN:         "INVALID_IBAN",
-		settingsDomain.ErrInvalidCountryCode:  "INVALID_COUNTRY_CODE",
+		settingsDomain.ErrLegalNameRequired:   "COMPANY_LEGAL_NAME_REQUIRED",
+		settingsDomain.ErrInvalidCompanyEmail: "COMPANY_INVALID_EMAIL",
+		settingsDomain.ErrInvalidVATNumber:    "COMPANY_INVALID_VAT_NUMBER",
+		settingsDomain.ErrInvalidIBAN:         "COMPANY_INVALID_IBAN",
+		settingsDomain.ErrInvalidCountryCode:  "COMPANY_INVALID_COUNTRY",
 	}
 	for domainErr, code := range cases {
 		t.Run(code, func(t *testing.T) {

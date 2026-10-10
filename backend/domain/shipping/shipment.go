@@ -6,8 +6,8 @@
 package shipping
 
 import (
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	neturl "net/url"
 	"strings"
 	"time"
@@ -144,10 +144,10 @@ func IsCarrierConfirmed(statusMain string) bool {
 }
 
 var (
-	ErrShipmentNotFound    = errors.New("shipping: shipment not found")
-	ErrSettingsNotFound    = errors.New("shipping: connection settings not found")
-	ErrMissingRecipient    = errors.New("shipping: recipient address is incomplete")
-	ErrWebhookSecretNotSet = errors.New("shipping: connection has no webhook secret set yet")
+	ErrShipmentNotFound    = errs.New("SHIPMENT_NOT_FOUND", "shipping: shipment not found")
+	ErrSettingsNotFound    = errs.New("SHIPPING_SETTINGS_NOT_FOUND", "shipping: connection settings not found")
+	ErrMissingRecipient    = errs.New("SHIPMENT_RECIPIENT_INCOMPLETE", "shipping: recipient address is incomplete")
+	ErrWebhookSecretNotSet = errs.New("SHIPPING_WEBHOOK_SECRET_NOT_SET", "shipping: connection has no webhook secret set yet")
 )
 
 // Shipment is one MyParcel shipment created for a SalesOrder. Recipient_*

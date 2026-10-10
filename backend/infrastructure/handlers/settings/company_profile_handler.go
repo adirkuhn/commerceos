@@ -65,21 +65,20 @@ func (h *CompanyProfileHandler) UpdateCompanyProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gensettings.CompanyProfileResponse{Data: &resp})
 }
 
-var companyProfileErrorCodes = []struct {
-	err  error
-	code string
-}{
-	{settingsDomain.ErrLegalNameRequired, "LEGAL_NAME_REQUIRED"},
-	{settingsDomain.ErrInvalidCompanyEmail, "INVALID_EMAIL"},
-	{settingsDomain.ErrInvalidVATNumber, "INVALID_VAT_NUMBER"},
-	{settingsDomain.ErrInvalidIBAN, "INVALID_IBAN"},
-	{settingsDomain.ErrInvalidCountryCode, "INVALID_COUNTRY_CODE"},
+// companyProfileValidationErrors answer 422 with their own code
+// (domain/errs), e.g. COMPANY_INVALID_IBAN.
+var companyProfileValidationErrors = []error{
+	settingsDomain.ErrLegalNameRequired,
+	settingsDomain.ErrInvalidCompanyEmail,
+	settingsDomain.ErrInvalidVATNumber,
+	settingsDomain.ErrInvalidIBAN,
+	settingsDomain.ErrInvalidCountryCode,
 }
 
 func failCompanyProfile(c *gin.Context, err error) {
-	for _, m := range companyProfileErrorCodes {
-		if errors.Is(err, m.err) {
-			middleware.Fail(c, http.StatusUnprocessableEntity, m.code, m.err.Error())
+	for _, known := range companyProfileValidationErrors {
+		if errors.Is(err, known) {
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 			return
 		}
 	}

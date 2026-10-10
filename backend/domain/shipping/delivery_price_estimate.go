@@ -1,6 +1,8 @@
 package shipping
 
-import "errors"
+import (
+	"github.com/adirkuhn/commerceos/domain/errs"
+)
 
 // ErrDeliveryEstimateUnsupportedCountry is returned when CC isn't NL or BE
 // -- MyParcel's own GET /delivery_options endpoint (the only pre-shipment
@@ -8,7 +10,7 @@ import "errors"
 // codes; every other destination has no live pre-creation price quote
 // available from MyParcel, only the actual price returned after a shipment
 // is created (see infrastructure/myparcel's package doc comment).
-var ErrDeliveryEstimateUnsupportedCountry = errors.New("shipping: delivery price estimate is only available for NL/BE addresses")
+var ErrDeliveryEstimateUnsupportedCountry = errs.New("DELIVERY_ESTIMATE_UNSUPPORTED_COUNTRY", "shipping: delivery price estimate is only available for NL/BE addresses")
 
 // DeliveryPriceOption is one priced delivery slot MyParcel offers for a
 // given address/carrier (e.g. standard, morning, evening) -- callers

@@ -3,8 +3,8 @@ package shipping
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 
 	"gorm.io/gorm"
 
@@ -22,7 +22,7 @@ import (
 // "processed" -- the only other value actually observed in production --
 // isn't even among those), so an unrecognized value is treated as "needs a
 // human to look at this and extend the mapping," not silently ignored.
-var ErrUnrecognizedMyParcelOrderStatus = errors.New("shipping: unrecognized myparcel order status")
+var ErrUnrecognizedMyParcelOrderStatus = errs.New("MYPARCEL_UNKNOWN_ORDER_STATUS", "shipping: unrecognized myparcel order status")
 
 type myParcelOrderStatusHook struct {
 	Order  string `json:"order"`

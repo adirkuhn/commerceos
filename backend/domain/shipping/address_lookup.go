@@ -2,17 +2,17 @@ package shipping
 
 import (
 	"context"
-	"errors"
+	"github.com/adirkuhn/commerceos/domain/errs"
 )
 
 // ErrAddressNotFound is returned when no address matches the given postal
 // code + house number -- a normal, expected outcome (typo, new-build not
 // yet in the registry), not a fault.
-var ErrAddressNotFound = errors.New("shipping: no address found for that postal code and house number")
+var ErrAddressNotFound = errs.New("SHIPPING_ADDRESS_NOT_FOUND", "shipping: no address found for that postal code and house number")
 
 // ErrInvalidAddressLookupInput is returned when postal code or house
 // number is blank -- both required for a lookup to mean anything.
-var ErrInvalidAddressLookupInput = errors.New("shipping: postal code and house number are both required")
+var ErrInvalidAddressLookupInput = errs.New("SHIPPING_ADDRESS_LOOKUP_INCOMPLETE", "shipping: postal code and house number are both required")
 
 // AddressLookupResult is one confirmed street/city for a postal code +
 // house number.

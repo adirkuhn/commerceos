@@ -85,7 +85,7 @@ export function CompanyProfileSection() {
       setEdits(null)
       setSavedAt(formatTime(new Date()))
     } catch (err) {
-      if (err instanceof CompanyProfileError && err.field) setFieldError({ field: err.field, message: err.message })
+      if (err instanceof CompanyProfileError && err.field) setFieldError({ field: err.field, message: apiErrorText(err) ?? err.message })
       else setFormError(apiErrorText(err) ?? t('company.saveFailed'))
     } finally {
       setSaving(false)

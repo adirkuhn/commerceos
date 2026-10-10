@@ -5,7 +5,7 @@
 package webhooks
 
 import (
-	"errors"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"time"
 )
 
@@ -13,13 +13,13 @@ var (
 	// ErrWebhookEventNotFound is returned by WebhookEventRepository.FindByID
 	// when no row matches -- typed so handlers can map it to 404 instead of
 	// leaking a generic DB error.
-	ErrWebhookEventNotFound = errors.New("webhooks: webhook event not found")
+	ErrWebhookEventNotFound = errs.New("WEBHOOK_EVENT_NOT_FOUND", "webhooks: webhook event not found")
 	// ErrWebhookEventNotDispatchable is returned by a retry action
 	// (RetryWebhookEventDispatchUseCase) for an event whose provider/topic
 	// has no dispatch handler at all (myparcel shipment_status_change and
 	// order_status_change are the only two today) -- retrying it could
 	// never do anything.
-	ErrWebhookEventNotDispatchable = errors.New("webhooks: this event's provider/topic has no dispatch handler to retry")
+	ErrWebhookEventNotDispatchable = errs.New("WEBHOOK_EVENT_NOT_DISPATCHABLE", "webhooks: this event's provider/topic has no dispatch handler to retry")
 )
 
 // Envelope is the payload published to the COMMERCEOS_WEBHOOKS stream (and

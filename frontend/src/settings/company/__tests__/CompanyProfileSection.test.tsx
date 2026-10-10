@@ -69,7 +69,7 @@ describe('CompanyProfileSection', () => {
   })
 
   it('shows a validation error next to its field and moves focus there', async () => {
-    vi.mocked(api.updateCompanyProfile).mockRejectedValue(new CompanyProfileError('INVALID_IBAN', 'IBAN is not valid'))
+    vi.mocked(api.updateCompanyProfile).mockRejectedValue(new CompanyProfileError('COMPANY_INVALID_IBAN', 'IBAN is not valid'))
     render(<CompanyProfileSection />)
     const iban = await screen.findByLabelText('IBAN')
     await userEvent.clear(iban)
@@ -78,7 +78,7 @@ describe('CompanyProfileSection', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => expect(iban).toHaveAttribute('aria-invalid', 'true'))
-    expect(iban).toHaveAccessibleDescription('IBAN is not valid')
+    expect(iban).toHaveAccessibleDescription('This IBAN isn’t valid.')
     expect(iban).toHaveFocus()
   })
 

@@ -39,12 +39,12 @@ describe('company profile api', () => {
   })
 
   it('rejects with the error code and the field it belongs to', async () => {
-    respond(422, { data: null, error: { code: 'INVALID_IBAN', message: 'IBAN is not valid' } })
+    respond(422, { data: null, error: { code: 'COMPANY_INVALID_IBAN', message: 'IBAN is not valid' } })
 
     const err = await updateCompanyProfile(TOKEN, input).catch(e => e)
 
     expect(err).toBeInstanceOf(CompanyProfileError)
-    expect(err.code).toBe('INVALID_IBAN')
+    expect(err.code).toBe('COMPANY_INVALID_IBAN')
     expect(err.field).toBe('iban')
     expect(err.message).toBe('IBAN is not valid')
   })

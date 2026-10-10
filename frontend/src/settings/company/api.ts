@@ -8,11 +8,11 @@ function url(): string {
 // Backend error code -> the form field it belongs to (see
 // backend/infrastructure/handlers/settings/company_profile_handler.go).
 const FIELD_BY_CODE: Readonly<Record<string, CompanyProfileField>> = {
-  LEGAL_NAME_REQUIRED: 'legal_name',
-  INVALID_EMAIL: 'email',
-  INVALID_VAT_NUMBER: 'vat_number',
-  INVALID_IBAN: 'iban',
-  INVALID_COUNTRY_CODE: 'address.country',
+  COMPANY_LEGAL_NAME_REQUIRED: 'legal_name',
+  COMPANY_INVALID_EMAIL: 'email',
+  COMPANY_INVALID_VAT_NUMBER: 'vat_number',
+  COMPANY_INVALID_IBAN: 'iban',
+  COMPANY_INVALID_COUNTRY: 'address.country',
 }
 
 export class CompanyProfileError extends CodedApiError {

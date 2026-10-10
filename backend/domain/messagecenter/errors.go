@@ -1,20 +1,22 @@
 package messagecenter
 
-import "errors"
+import (
+	"github.com/adirkuhn/commerceos/domain/errs"
+)
 
 var (
-	ErrTemplateNotFound     = errors.New("message template not found")
-	ErrTemplateNameRequired = errors.New("template name is required")
-	ErrInvalidCategory      = errors.New("invalid template category")
-	ErrNoChannelsSelected   = errors.New("at least one channel must be selected")
-	ErrInvalidChannel       = errors.New("invalid message channel")
-	ErrTemplateBodyRequired = errors.New("template body is required")
+	ErrTemplateNotFound     = errs.New("MESSAGE_TEMPLATE_NOT_FOUND", "message template not found")
+	ErrTemplateNameRequired = errs.New("MESSAGE_TEMPLATE_NAME_REQUIRED", "template name is required")
+	ErrInvalidCategory      = errs.New("MESSAGE_TEMPLATE_INVALID_CATEGORY", "invalid template category")
+	ErrNoChannelsSelected   = errs.New("MESSAGE_TEMPLATE_NO_CHANNELS", "at least one channel must be selected")
+	ErrInvalidChannel       = errs.New("MESSAGE_INVALID_CHANNEL", "invalid message channel")
+	ErrTemplateBodyRequired = errs.New("MESSAGE_TEMPLATE_BODY_REQUIRED", "template body is required")
 
-	ErrRuleNotFound           = errors.New("automation rule not found")
-	ErrRuleNameRequired       = errors.New("rule name is required")
-	ErrInvalidTriggerSubject  = errors.New("invalid trigger subject")
-	ErrTemplateIDRequired     = errors.New("template id is required")
-	ErrInvalidCondition       = errors.New("invalid condition")
-	ErrInvalidExtraRecipient  = errors.New("extra recipient is not a valid email address")
-	ErrTooManyExtraRecipients = errors.New("at most 20 extra recipients per rule")
+	ErrRuleNotFound           = errs.New("AUTOMATION_RULE_NOT_FOUND", "automation rule not found")
+	ErrRuleNameRequired       = errs.New("AUTOMATION_RULE_NAME_REQUIRED", "rule name is required")
+	ErrInvalidTriggerSubject  = errs.New("AUTOMATION_RULE_INVALID_TRIGGER", "invalid trigger subject")
+	ErrTemplateIDRequired     = errs.New("AUTOMATION_RULE_TEMPLATE_REQUIRED", "template id is required")
+	ErrInvalidCondition       = errs.New("AUTOMATION_RULE_INVALID_CONDITION", "invalid condition")
+	ErrInvalidExtraRecipient  = errs.New("AUTOMATION_RULE_INVALID_EXTRA_RECIPIENT", "extra recipient is not a valid email address")
+	ErrTooManyExtraRecipients = errs.New("AUTOMATION_RULE_TOO_MANY_EXTRA_RECIPIENTS", "at most 20 extra recipients per rule")
 )

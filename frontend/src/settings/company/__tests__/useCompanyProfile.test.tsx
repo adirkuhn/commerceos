@@ -50,7 +50,7 @@ describe('useCompanyProfile', () => {
 
   it('save rethrows so the form can place the error', async () => {
     vi.mocked(api.getCompanyProfile).mockResolvedValue(saved)
-    vi.mocked(api.updateCompanyProfile).mockRejectedValue(new CompanyProfileError('INVALID_IBAN', 'bad'))
+    vi.mocked(api.updateCompanyProfile).mockRejectedValue(new CompanyProfileError('COMPANY_INVALID_IBAN', 'bad'))
     const { result } = renderHook(() => useCompanyProfile('tok'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
