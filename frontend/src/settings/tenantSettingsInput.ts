@@ -17,5 +17,6 @@ export function toInput(s: TenantSettings | null): TenantSettingsInput {
     recommendations_min_support: s.recommendations_min_support,
     recommendations_lookback_days: s.recommendations_lookback_days,
     picking_mode: s.picking_mode,
+    expiry_alert_enabled: s.expiry_alert_enabled, expiry_alert_windows: s.expiry_alert_windows,
   }
 }

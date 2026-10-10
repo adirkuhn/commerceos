@@ -69,6 +69,17 @@
     "tradingName": "Nome fantasia",
     "vatNumber": "Número de IVA (VAT)"
   },
+  "expiryAlert": {
+    "title": "Estoque perto do vencimento",
+    "subtitle": "Todo dia, envia por e-mail um relatório do estoque prestes a vencer. O envio usa a regra “Estoque perto do vencimento” da Central de Mensagens, para os destinatários de e-mail de Estoque em Notificações e os e-mails extras dessa regra.",
+    "enable": "Relatar estoque perto do vencimento",
+    "windows": "Janelas do relatório",
+    "windowsHelp": "Um relatório por janela. As janelas não se sobrepõem: com 90 e 30 marcados, o relatório de 90 dias lista o estoque com 31 a 90 dias restantes.",
+    "days": "{{count}} dias",
+    "windowRequired": "Escolha pelo menos uma janela para ativar o relatório.",
+    "save": "Salvar relatório de vencimento",
+    "saveFailed": "Falha ao salvar o relatório de vencimento"
+  },
   "fx": {
     "addUpdate": "Adicionar / atualizar",
     "deleteConfirm": "Excluir taxa",
@@ -202,9 +213,9 @@
     "supportNegative": "O suporte mínimo não pode ser negativo.",
     "title": "Recomendações de venda cruzada"
   },
+  "saveFailed": "Não foi possível salvar as configurações",
   "savedAt": "Salvo às {{time}}",
   "savedMessage": "Salvo.",
-  "saveFailed": "Não foi possível salvar as configurações",
   "sections": {
     "automation": "Automação",
     "automationText": "Regras e fluxos por gatilho",

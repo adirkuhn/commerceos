@@ -16,6 +16,7 @@ import { lm2Origin } from '../auth/loginConfig'
 import { SETTINGS_PATH } from '../settings/settingsPaths'
 import { IntegrationsSettingsSection } from '../settings/IntegrationsSettingsSection'
 import { InventorySyncRulesSection } from '../settings/InventorySyncRulesSection'
+import { ExpiryAlertSection } from '../settings/ExpiryAlertSection'
 import { PricingMarginSection } from '../settings/PricingMarginSection'
 import { LocalizationSettingsSection } from '../settings/LocalizationSettingsSection'
 import { TaxSettingsSection } from '../settings/TaxSettingsSection'
@@ -122,6 +123,7 @@ export default function Settings() {
             </div>
 
             <InventorySyncRulesSection />
+            <ExpiryAlertSection />
 
             <div className="bg-raised rounded-xl border border-line overflow-hidden">
               <div className="px-4 py-3 border-b border-line">

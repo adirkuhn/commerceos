@@ -69,6 +69,17 @@
     "tradingName": "Handelsnaam",
     "vatNumber": "Btw-nummer"
   },
+  "expiryAlert": {
+    "title": "Voorraad bijna over datum",
+    "subtitle": "Stuurt elke dag een e-mailrapport van voorraad die bijna verloopt. Verzonden via de Message Center-regel “Voorraad bijna over datum”, naar de e-mailontvangers voor Voorraad in Meldingen plus extra e-mailadressen op die regel.",
+    "enable": "Voorraad bijna over datum melden",
+    "windows": "Rapportvensters",
+    "windowsHelp": "Eén rapport per venster. Vensters overlappen niet: met 90 en 30 gekozen toont het 90-dagenrapport voorraad met nog 31–90 dagen.",
+    "days": "{{count}} dagen",
+    "windowRequired": "Kies minstens één venster om het rapport aan te zetten.",
+    "save": "Vervaldatumrapport opslaan",
+    "saveFailed": "Vervaldatumrapport opslaan mislukt"
+  },
   "fx": {
     "addUpdate": "Toevoegen / bijwerken",
     "deleteConfirm": "Koers verwijderen",
@@ -200,9 +211,9 @@
     "supportNegative": "De minimale ondersteuning kan niet negatief zijn.",
     "title": "Cross-sell-aanbevelingen"
   },
+  "saveFailed": "Instellingen opslaan mislukt",
   "savedAt": "Opgeslagen om {{time}}",
   "savedMessage": "Opgeslagen.",
-  "saveFailed": "Instellingen opslaan mislukt",
   "sections": {
     "automation": "Automatisering",
     "automationText": "Regels en workflows op basis van triggers",

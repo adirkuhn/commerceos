@@ -38,6 +38,11 @@ export interface TenantSettings {
   // Optional for the same fixture reason as bundle_confidence_threshold --
   // a real response always includes it; missing means scan.
   picking_mode?: PickingMode
+  // Daily stock-close-to-expiry report (see backend
+  // domain/settings.ExpiryAlert). Optional for the same fixture reason as
+  // bundle_confidence_threshold -- missing means off / no window.
+  expiry_alert_enabled?: boolean
+  expiry_alert_windows?: ExpiryAlertWindow[]
   updated_at: string
 }
 
@@ -55,7 +60,13 @@ export interface TenantSettingsInput {
   recommendations_min_support?: number
   recommendations_lookback_days?: number
   picking_mode?: PickingMode
+  expiry_alert_enabled?: boolean
+  expiry_alert_windows?: ExpiryAlertWindow[]
 }
+
+// Days before expiry a stock report covers. Reports never overlap.
+export const EXPIRY_ALERT_WINDOWS = [90, 30, 15, 7] as const
+export type ExpiryAlertWindow = typeof EXPIRY_ALERT_WINDOWS[number]
 
 // scan: pickers scan each item into a session. list: pickers see the
 // order's items and mark the whole order picked in one action.

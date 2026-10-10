@@ -69,6 +69,17 @@
     "tradingName": "Trading name",
     "vatNumber": "VAT number"
   },
+  "expiryAlert": {
+    "title": "Stock close to expiry",
+    "subtitle": "Every day, email a report of stock about to expire. It goes out through the Message Center rule “Stock close to expiry”, to the Stock email recipients from Notifications plus any extra emails on that rule.",
+    "enable": "Report stock close to expiry",
+    "windows": "Report windows",
+    "windowsHelp": "One report per window. Windows don’t overlap: with 90 and 30 picked, the 90-day report lists stock with 31–90 days left.",
+    "days": "{{count}} days",
+    "windowRequired": "Pick at least one window to turn the report on.",
+    "save": "Save expiry report",
+    "saveFailed": "Failed to save expiry report"
+  },
   "fx": {
     "addUpdate": "Add / update",
     "deleteConfirm": "Delete rate",
@@ -200,9 +211,9 @@
     "supportNegative": "Minimum support cannot be negative.",
     "title": "Cross-sell recommendations"
   },
+  "saveFailed": "Failed to save settings",
   "savedAt": "Saved at {{time}}",
   "savedMessage": "Saved.",
-  "saveFailed": "Failed to save settings",
   "sections": {
     "automation": "Automation",
     "automationText": "Trigger-based rules and workflows",
