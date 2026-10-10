@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { myParcelStatusText } from '../shipping/myParcelStatusText'
 import * as shippingApi from '../shipping/api'
 import type { Shipment, ShipmentTrackingEvent } from '../shipping/types'
 import { CARRIERS } from '../shipping/types'
@@ -15,6 +16,7 @@ import { useDateFormat } from '../format/DateFormatProvider'
 export function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: string; shipment: Shipment; onCancelled: () => void }) {
   const { formatDateTime } = useDateFormat()
   const { t } = useTranslation(['orders', 'common'])
+  const { t: tShipping } = useTranslation('shipping')
   const { confirm, confirmDialog } = useConfirm()
   const [events, setEvents] = useState<ShipmentTrackingEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -125,7 +127,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
         <div className="space-y-1">
           {events.map(e => (
             <div key={e.id} className="flex justify-between gap-3 text-ink-3">
-              <span className="text-ink">{e.status_label}</span>
+              <span className="text-ink">{myParcelStatusText(tShipping, e.status, e.status_label)}</span>
               <span className="shrink-0">{formatDateTime(e.occurred_at)} · {e.source}</span>
             </div>
           ))}

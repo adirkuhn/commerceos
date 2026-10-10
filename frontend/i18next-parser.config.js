@@ -15,7 +15,7 @@ export default {
   // Shared texts are used from every module; keep them even when unused.
   // notifications:types.* are looked up by notification type at runtime
   // (see src/notifications/notificationText.ts) and mirror the backend's
-  // email texts.
-  keepRemoved: [/^common:/, /^notifications:types(\.|$)/],
+  // email texts. shipping:myparcelStatus.* are looked up by status code.
+  keepRemoved: [/^common:/, /^notifications:types(\.|$)/, /^shipping:myparcelStatus\./],
   defaultValue: (locale, _ns, key, value) => (locale === 'en' ? value || key : ''),
 }
