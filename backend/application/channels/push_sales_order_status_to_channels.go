@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/adirkuhn/commerceos/application/eventrecord"
+	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	"github.com/adirkuhn/commerceos/domain/events"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"log"
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
@@ -56,6 +58,8 @@ type PushSalesOrderStatusToChannelsUseCase struct {
 	wooFactory          integrationsDomain.WooClientFactory
 	encryptionSecret    string
 	outbox              eventrecord.Enqueuer
+	// settings gives the company language the shipment note is written in.
+	settings companySettingsReader
 }
 
 func NewPushSalesOrderStatusToChannelsUseCase(
@@ -67,10 +71,11 @@ func NewPushSalesOrderStatusToChannelsUseCase(
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
 	outbox eventrecord.Enqueuer,
+	settings companySettingsReader,
 ) *PushSalesOrderStatusToChannelsUseCase {
 	return &PushSalesOrderStatusToChannelsUseCase{
 		db: db, salesOrderRepo: salesOrderRepo, shipmentRepo: shipmentRepo, carrierOverrideRepo: carrierOverrideRepo,
-		connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
+		connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret, settings: settings,
 		outbox: outbox,
 	}
 }
@@ -163,10 +168,19 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) pushToWoo(ctx context.Context, 
 // note is a courtesy on top of it.
 func (uc *PushSalesOrderStatusToChannelsUseCase) addShipmentNote(ctx context.Context, client integrationsDomain.WooClient, order omsDomain.SalesOrder) {
 	var shipments []shippingDomain.Shipment
+	var lang locale.Locale
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
 		shipments, err = uc.shipmentRepo.FindBySalesOrderID(ctx, order.ID)
-		return err
+		if err != nil {
+			return err
+		}
+		s, err := uc.settings.Get(ctx)
+		if err != nil {
+			return err
+		}
+		lang = s.Language
+		return nil
 	})
 	if err != nil {
 		log.Printf("pushSalesOrderStatusToChannels: shipment note: list shipments for order %s: %v", order.ID, err)
@@ -178,10 +192,7 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) addShipmentNote(ctx context.Con
 	// FindBySalesOrderID returns newest first -- the most recent shipment is
 	// the one that actually triggered this fulfillment.
 	s := shipments[0]
-	note := fmt.Sprintf("Shipped via %s, tracking %s", s.Carrier, s.Barcode)
-	if link := uc.resolveTrackingLink(ctx, s); link != "" {
-		note += fmt.Sprintf(" - %s", link)
-	}
+	note := channelsDomain.ShipmentNote(lang, s.Carrier.String(), s.Barcode, uc.resolveTrackingLink(ctx, s))
 	if err := client.AddOrderNote(ctx, order.ExternalOrderID, note); err != nil {
 		log.Printf("pushSalesOrderStatusToChannels: shipment note: order %s: %v", order.ID, err)
 	}

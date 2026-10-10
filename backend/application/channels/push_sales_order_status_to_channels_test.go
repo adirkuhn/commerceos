@@ -11,6 +11,7 @@ import (
 
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/crypto"
@@ -28,7 +29,7 @@ func newPushSalesOrderStatusUseCaseWithShipments(t *testing.T, n int, salesOrder
 
 func newPushSalesOrderStatusUseCaseWithOverrides(t *testing.T, n int, salesOrderRepo *stubOrdersSalesOrderRepo, shipmentRepo *stubShipmentRepo, overrideRepo *stubCarrierOverrideRepo, connRepo *stubConnectionRepo, wooFactory *stubWooClientFactory) *appchannels.PushSalesOrderStatusToChannelsUseCase {
 	t.Helper()
-	return appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, n), salesOrderRepo, shipmentRepo, overrideRepo, connRepo, wooFactory, testEncryptionSecret, &eventrecordtest.Outbox{})
+	return appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, n), salesOrderRepo, shipmentRepo, overrideRepo, connRepo, wooFactory, testEncryptionSecret, &eventrecordtest.Outbox{}, &stubTenantSettings{})
 }
 
 func TestPushSalesOrderStatusToChannels_wooOrder_pushesMappedStatus(t *testing.T) {
@@ -237,4 +238,27 @@ func TestPushSalesOrderStatusToChannels_propagatesSalesOrderNotFound(t *testing.
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, omsDomain.ErrSalesOrderNotFound)
+}
+
+func TestPushSalesOrderStatus_shipmentNoteIsInTheCompanyLanguage(t *testing.T) {
+	connID := "conn-1"
+	order := &omsDomain.SalesOrder{
+		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
+		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusShipped,
+	}
+	shipmentRepo := &stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{
+		"so-1": {{ID: "ship-1", Carrier: shippingDomain.CarrierPostNL, Barcode: "3SMYPA1"}},
+	}}
+	encrypted, err := crypto.Encrypt(testEncryptionSecret, "consumer-secret")
+	require.NoError(t, err)
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
+	wooClient := &stubWooClient{}
+	uc := appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, 5), &stubOrdersSalesOrderRepo{findByIDResult: order}, shipmentRepo,
+		&stubCarrierOverrideRepo{}, connRepo, &stubWooClientFactory{client: wooClient}, testEncryptionSecret, &eventrecordtest.Outbox{},
+		&stubTenantSettings{language: locale.Dutch})
+
+	require.NoError(t, uc.Execute(context.Background(), "so-1"))
+
+	require.Len(t, wooClient.addOrderNoteCalls, 1)
+	assert.Equal(t, "Verzonden met PostNL, track & trace 3SMYPA1", wooClient.addOrderNoteCalls[0].note)
 }

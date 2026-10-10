@@ -270,7 +270,7 @@ func main() {
 		defer sub.Unsubscribe()
 	}
 
-	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), repositories.NewShippingCarrierOverrideRepo(db), connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, repositories.NewOutboxRepository(db))
+	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), repositories.NewShippingCarrierOverrideRepo(db), connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, repositories.NewOutboxRepository(db), settingsRepo)
 	salesOrderStatusChangedConsumer := consumers.NewSalesOrderStatusChangedConsumer(processedEventRepo, pushSalesOrderStatusUC, js)
 	if sub := subscribeConsumer(js, events.SalesOrderStatusChanged{}.EventName(), "sales-order-status-changed-scheduler",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, salesOrderStatusChangedConsumer.Handle); sub != nil {

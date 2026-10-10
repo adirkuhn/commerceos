@@ -224,7 +224,7 @@ func TestPushSalesOrderStatusToChannels_RecordsStatusPushed(t *testing.T) {
 	outbox := &eventrecordtest.Outbox{}
 	uc := appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, 3), &stubOrdersSalesOrderRepo{findByIDResult: order},
 		&stubShipmentRepo{}, &stubCarrierOverrideRepo{}, &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}},
-		&stubWooClientFactory{client: &stubWooClient{}}, testEncryptionSecret, outbox)
+		&stubWooClientFactory{client: &stubWooClient{}}, testEncryptionSecret, outbox, &stubTenantSettings{})
 
 	require.NoError(t, uc.Execute(context.Background(), "so-1"))
 
