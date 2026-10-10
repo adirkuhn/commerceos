@@ -3,6 +3,7 @@ package insights
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	appreports "github.com/adirkuhn/commerceos/application/reports"
@@ -20,10 +21,13 @@ const (
 // Insights Dashboard" -- deliberately distinct from application/dashboard
 // (a fixed "this month" snapshot screen, not a rules engine). Code is a
 // stable machine-readable identifier for the rule that fired, letting the
-// frontend key/style/dismiss by rule without parsing Message.
+// frontend key/style/dismiss by rule without parsing Message. Params are
+// the rule's numbers (count, percent) the admin fills its translated text
+// with (reports.json insights.<code>); Message is the English fallback.
 type Insight struct {
 	Code     string
 	Severity InsightSeverity
+	Params   map[string]any
 	Message  string
 }
 
@@ -122,7 +126,7 @@ func revenueDecliningInsight(sales *appreports.SalesSummaryReport) *Insight {
 		return nil
 	}
 	return &Insight{
-		Code: "revenue_declining", Severity: InsightSeverityWarning,
+		Code: "revenue_declining", Severity: InsightSeverityWarning, Params: map[string]any{"percent": oneDecimal(-*sales.RevenueChangePercent)},
 		Message: fmt.Sprintf("Revenue is down %.1f%% vs the previous period.", -*sales.RevenueChangePercent),
 	}
 }
@@ -133,7 +137,7 @@ func slowMovingStockInsight(slowMoving *appreports.SlowMovingProductsReport) *In
 		return nil
 	}
 	return &Insight{
-		Code: "slow_moving_stock", Severity: InsightSeverityWarning,
+		Code: "slow_moving_stock", Severity: InsightSeverityWarning, Params: map[string]any{"count": n},
 		Message: fmt.Sprintf("%d product(s) have stock on hand but zero sales this period.", n),
 	}
 }
@@ -145,7 +149,7 @@ func incompleteCostDataInsight(profit *appreports.ProfitabilityReport) *Insight 
 	}
 	coveragePercent := float64(s.CostKnownRevenueMinorUnits) * 100 / float64(s.RevenueMinorUnits)
 	return &Insight{
-		Code: "incomplete_cost_data", Severity: InsightSeverityInfo,
+		Code: "incomplete_cost_data", Severity: InsightSeverityInfo, Params: map[string]any{"percent": oneDecimal(coveragePercent)},
 		Message: fmt.Sprintf("Only %.1f%% of revenue has a known cost price; profit/margin figures cover only that subset.", coveragePercent),
 	}
 }
@@ -156,7 +160,7 @@ func hiddenGemProductsInsight(matrix *appreports.ProductPerformanceMatrix) *Insi
 		return nil
 	}
 	return &Insight{
-		Code: "hidden_gem_products", Severity: InsightSeverityInfo,
+		Code: "hidden_gem_products", Severity: InsightSeverityInfo, Params: map[string]any{"count": n},
 		Message: fmt.Sprintf("%d hidden-gem product(s) (high margin, low revenue) -- consider promoting.", n),
 	}
 }
@@ -167,7 +171,7 @@ func problemProductsInsight(matrix *appreports.ProductPerformanceMatrix) *Insigh
 		return nil
 	}
 	return &Insight{
-		Code: "problem_products", Severity: InsightSeverityWarning,
+		Code: "problem_products", Severity: InsightSeverityWarning, Params: map[string]any{"count": n},
 		Message: fmt.Sprintf("%d problem product(s) (low revenue, low margin) -- consider discontinuing.", n),
 	}
 }
@@ -195,7 +199,10 @@ func restockRiskInsight(inventorySales *appreports.InventorySalesReport) *Insigh
 		return nil
 	}
 	return &Insight{
-		Code: "restock_risk", Severity: InsightSeverityWarning,
+		Code: "restock_risk", Severity: InsightSeverityWarning, Params: map[string]any{"count": n},
 		Message: fmt.Sprintf("%d product(s) sold through 100%% or more of their stock on hand this period -- restock risk.", n),
 	}
 }
+
+// oneDecimal rounds a percentage the way the message shows it.
+func oneDecimal(f float64) float64 { return math.Round(f*10) / 10 }

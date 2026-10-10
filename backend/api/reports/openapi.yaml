@@ -1100,13 +1100,25 @@ components:
 
     Insight:
       type: object
-      required: [code, severity, message]
+      required: [code, severity, params, message]
       properties:
         code:
           type: string
-          description: Stable machine-readable id for the rule that fired, e.g. "revenue_declining".
+          description: >-
+            Stable machine-readable id for the rule that fired:
+            revenue_declining, slow_moving_stock, incomplete_cost_data,
+            hidden_gem_products, problem_products, restock_risk. Clients
+            show the code's translated text filled with params.
         severity: { $ref: '#/components/schemas/InsightSeverity' }
-        message: { type: string }
+        params:
+          type: object
+          additionalProperties: true
+          description: >-
+            The rule's numbers -- {"percent": 12.5} for revenue_declining
+            and incomplete_cost_data, {"count": 3} for the others.
+        message:
+          type: string
+          description: English fallback text.
 
     BusinessInsightsReport:
       type: object

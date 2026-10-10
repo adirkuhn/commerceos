@@ -53,6 +53,18 @@
     "title": "Vaak samen gekocht",
     "unknownError": "Onbekende fout"
   },
+  "insights": {
+    "hiddenGemProducts_one": "{{count}} verborgen parel (hoge marge, lage omzet) — overweeg die te promoten.",
+    "hiddenGemProducts_other": "{{count}} verborgen parels (hoge marge, lage omzet) — overweeg die te promoten.",
+    "incompleteCostData": "Slechts {{percent}}% van de omzet heeft een bekende kostprijs; winst- en margecijfers gelden alleen voor dat deel.",
+    "problemProducts_one": "{{count}} probleemproduct (lage omzet, lage marge) — overweeg ermee te stoppen.",
+    "problemProducts_other": "{{count}} probleemproducten (lage omzet, lage marge) — overweeg ermee te stoppen.",
+    "restockRisk_one": "{{count}} product heeft deze periode 100% of meer van zijn voorraad verkocht — risico op tekort.",
+    "restockRisk_other": "{{count}} producten hebben deze periode 100% of meer van hun voorraad verkocht — risico op tekort.",
+    "revenueDeclining": "De omzet is {{percent}}% lager dan de vorige periode.",
+    "slowMovingStock_one": "{{count}} product heeft voorraad maar geen verkopen deze periode.",
+    "slowMovingStock_other": "{{count}} producten hebben voorraad maar geen verkopen deze periode."
+  },
   "inventorySales": {
     "desc": "Voorraad vs. verkochte stuks in de geselecteerde periode, gesorteerd op omloop",
     "empty": "Geen SKU’s op voorraad of verkocht in deze periode",

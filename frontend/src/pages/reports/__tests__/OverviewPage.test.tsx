@@ -98,13 +98,13 @@ describe('OverviewPage', () => {
 
   it('shows business insight banners when the report has any', async () => {
     vi.mocked(reportsApi.getBusinessInsights).mockResolvedValue(businessInsights({
-      insights: [{ code: 'revenue_declining', severity: 'warning', message: 'Revenue is down' }],
+      insights: [{ code: 'revenue_declining', severity: 'warning', params: { percent: 12.5 }, message: 'Revenue is down 12.5% vs the previous period.' }],
     }))
 
     renderAt(<OverviewPage />, '/reports')
 
     expect(await screen.findByTestId('business-insights')).toBeInTheDocument()
-    expect(screen.getByText('Revenue is down')).toBeInTheDocument()
+    expect(screen.getByText('Revenue is down 12.5% vs the previous period.')).toBeInTheDocument()
   })
 
   it('shows the profitability summary by default', async () => {

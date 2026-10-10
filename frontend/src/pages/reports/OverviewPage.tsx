@@ -7,6 +7,7 @@ import { channelSeriesColor, seriesColor, useChartTheme } from '../../charts/cha
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useReport } from '../../reports/hooks/useSingleReport'
+import { insightText } from '../../reports/insightText'
 import { dateRange, customDateRange, REPORTS_PERIODS, DEFAULT_REPORTS_PERIOD, type ReportsPeriod } from '../../reports/period'
 import { useQueryEnum, useQueryString } from '../../routing/useQueryState'
 import type { ChannelRevenuePoint, ProfitabilityPoint } from '../../reports/types'
@@ -26,7 +27,7 @@ function isIsoDate(value: string | null): value is string {
 export default function OverviewPage() {
   const chart = useChartTheme()
   const { token } = useAuth()
-  const { t } = useTranslation('reports')
+  const { t, i18n } = useTranslation('reports')
   const { formatDate, formatMonthDay, settings: { timeZone } } = useDateFormat()
   // Range (?period=, plus ?from=&to= for a custom range) and the
   // summary/daily view (?view=daily) live in the URL -- a refresh or a
@@ -143,7 +144,7 @@ export default function OverviewPage() {
               )}
             >
               {insight.severity === 'warning' ? <AlertTriangle size={14} className="shrink-0 mt-0.5" /> : <Info size={14} className="shrink-0 mt-0.5" />}
-              <span>{insight.message}</span>
+              <span>{insightText(t, insight, i18n.language)}</span>
             </div>
           ))}
         </div>

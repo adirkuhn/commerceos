@@ -55,6 +55,18 @@
     "title": "Comprados juntos com frequência",
     "unknownError": "Erro desconhecido"
   },
+  "insights": {
+    "hiddenGemProducts_one": "{{count}} joia escondida (margem alta, receita baixa) — considere promovê-la.",
+    "hiddenGemProducts_other": "{{count}} joias escondidas (margem alta, receita baixa) — considere promovê-las.",
+    "incompleteCostData": "Só {{percent}}% da receita tem preço de custo conhecido; lucro e margem cobrem apenas essa parte.",
+    "problemProducts_one": "{{count}} produto problemático (receita baixa, margem baixa) — considere descontinuá-lo.",
+    "problemProducts_other": "{{count}} produtos problemáticos (receita baixa, margem baixa) — considere descontinuá-los.",
+    "restockRisk_one": "{{count}} produto vendeu 100% ou mais do seu estoque neste período — risco de falta.",
+    "restockRisk_other": "{{count}} produtos venderam 100% ou mais do seu estoque neste período — risco de falta.",
+    "revenueDeclining": "A receita caiu {{percent}}% em relação ao período anterior.",
+    "slowMovingStock_one": "{{count}} produto tem estoque mas nenhuma venda neste período.",
+    "slowMovingStock_other": "{{count}} produtos têm estoque mas nenhuma venda neste período."
+  },
   "inventorySales": {
     "desc": "Estoque atual vs. unidades vendidas no período selecionado, ordenado por giro",
     "empty": "Nenhum SKU em estoque ou vendido neste período",

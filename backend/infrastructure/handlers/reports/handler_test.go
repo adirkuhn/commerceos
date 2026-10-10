@@ -534,7 +534,7 @@ func TestGetInventorySalesReportHandler_validationError(t *testing.T) {
 func TestGetBusinessInsightsHandler_success(t *testing.T) {
 	get := &stubGetBusinessInsights{out: &appinsights.BusinessInsightsReport{
 		Insights: []appinsights.Insight{
-			{Code: "revenue_declining", Severity: appinsights.InsightSeverityWarning, Message: "Revenue is down 12.5% vs the previous period."},
+			{Code: "revenue_declining", Severity: appinsights.InsightSeverityWarning, Params: map[string]any{"percent": 12.5}, Message: "Revenue is down 12.5% vs the previous period."},
 		},
 	}}
 	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, &stubGetProductPerformanceReport{}, &stubGetProductPerformanceMatrix{}, &stubGetCustomerPerformanceReport{}, &stubGetCategoryPerformanceReport{}, &stubGetSlowMovingProductsReport{}, &stubGetProfitabilityReport{}, &stubGetInventorySalesReport{}, get, &stubGetSalesTrendsReport{}, &stubGetProductLifecycleReport{}, &stubGetCustomerCohortsReport{}, &stubGetPromotionPerformanceReport{}, &stubGetCustomerRFMReport{}, &stubGetFrequentlyBoughtTogetherReport{}, &stubGetStockoutRiskReport{}, &stubGetProductRecommendations{}, &stubGetProfitabilityTrendReport{}, &stubGetRevenueByChannelReport{})
@@ -543,6 +543,7 @@ func TestGetBusinessInsightsHandler_success(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"code":"revenue_declining"`)
 	assert.Contains(t, w.Body.String(), `"severity":"warning"`)
+	assert.Contains(t, w.Body.String(), `"params":{"percent":12.5}`)
 }
 
 func TestGetBusinessInsightsHandler_validationError(t *testing.T) {

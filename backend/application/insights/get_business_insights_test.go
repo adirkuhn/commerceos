@@ -113,6 +113,7 @@ func TestGetBusinessInsights_flagsRevenueDecline(t *testing.T) {
 	require.Len(t, result.Insights, 1)
 	require.Equal(t, "revenue_declining", result.Insights[0].Code)
 	require.Equal(t, appinsights.InsightSeverityWarning, result.Insights[0].Severity)
+	require.Equal(t, map[string]any{"percent": 12.5}, result.Insights[0].Params)
 }
 
 func TestGetBusinessInsights_ignoresRevenueGrowth(t *testing.T) {
@@ -140,6 +141,7 @@ func TestGetBusinessInsights_flagsSlowMovingStock(t *testing.T) {
 	require.Len(t, result.Insights, 1)
 	require.Equal(t, "slow_moving_stock", result.Insights[0].Code)
 	require.Contains(t, result.Insights[0].Message, "2")
+	require.Equal(t, map[string]any{"count": 2}, result.Insights[0].Params)
 }
 
 func TestGetBusinessInsights_flagsIncompleteCostData(t *testing.T) {
@@ -155,6 +157,7 @@ func TestGetBusinessInsights_flagsIncompleteCostData(t *testing.T) {
 	require.Len(t, result.Insights, 1)
 	require.Equal(t, "incomplete_cost_data", result.Insights[0].Code)
 	require.Equal(t, appinsights.InsightSeverityInfo, result.Insights[0].Severity)
+	require.Equal(t, map[string]any{"percent": 40.0}, result.Insights[0].Params)
 }
 
 func TestGetBusinessInsights_doesNotFlagCompleteCostData(t *testing.T) {
@@ -205,6 +208,7 @@ func TestGetBusinessInsights_flagsRestockRisk(t *testing.T) {
 	require.Len(t, result.Insights, 1)
 	require.Equal(t, "restock_risk", result.Insights[0].Code)
 	require.Contains(t, result.Insights[0].Message, "1")
+	require.Equal(t, map[string]any{"count": 1}, result.Insights[0].Params)
 }
 
 func TestGetBusinessInsights_rejectsToBeforeFrom(t *testing.T) {

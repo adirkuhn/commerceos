@@ -53,6 +53,18 @@
     "title": "Frequently Bought Together",
     "unknownError": "Unknown error"
   },
+  "insights": {
+    "hiddenGemProducts_one": "{{count}} hidden-gem product (high margin, low revenue) — consider promoting it.",
+    "hiddenGemProducts_other": "{{count}} hidden-gem products (high margin, low revenue) — consider promoting them.",
+    "incompleteCostData": "Only {{percent}}% of revenue has a known cost price; profit and margin figures cover only that part.",
+    "problemProducts_one": "{{count}} problem product (low revenue, low margin) — consider discontinuing it.",
+    "problemProducts_other": "{{count}} problem products (low revenue, low margin) — consider discontinuing them.",
+    "restockRisk_one": "{{count}} product sold through 100% or more of its stock on hand this period — restock risk.",
+    "restockRisk_other": "{{count}} products sold through 100% or more of their stock on hand this period — restock risk.",
+    "revenueDeclining": "Revenue is down {{percent}}% vs the previous period.",
+    "slowMovingStock_one": "{{count}} product has stock on hand but zero sales this period.",
+    "slowMovingStock_other": "{{count}} products have stock on hand but zero sales this period."
+  },
   "inventorySales": {
     "desc": "Stock on hand vs. units sold in the selected period, sorted by turnover",
     "empty": "No stocked or sold SKUs in this period",

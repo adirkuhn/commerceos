@@ -173,6 +173,9 @@ export interface Insight {
   // Stable machine-readable id for the rule that fired, e.g. "revenue_declining".
   code: string
   severity: InsightSeverity
+  // The rule's numbers ({count} or {percent}) -- see insightText.
+  params?: Record<string, unknown>
+  // English fallback.
   message: string
 }
 

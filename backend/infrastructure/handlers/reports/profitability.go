@@ -52,7 +52,7 @@ func (h *Handler) GetBusinessInsights(c *gin.Context, params genreports.GetBusin
 	insights := make([]genreports.Insight, len(report.Insights))
 	for i, insight := range report.Insights {
 		insights[i] = genreports.Insight{
-			Code: insight.Code, Message: insight.Message, Severity: genreports.InsightSeverity(insight.Severity),
+			Code: insight.Code, Params: insight.Params, Message: insight.Message, Severity: genreports.InsightSeverity(insight.Severity),
 		}
 	}
 	middleware.OK(c, genreports.BusinessInsightsReport{Insights: insights})
