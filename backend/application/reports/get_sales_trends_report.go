@@ -2,8 +2,8 @@ package reports
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"time"
 
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -14,7 +14,7 @@ import (
 
 // ErrInvalidGranularity guards GetSalesTrendsReportUseCase.Execute's
 // granularity argument.
-var ErrInvalidGranularity = errors.New("granularity must be one of day, week, month")
+var ErrInvalidGranularity = errs.New("REPORT_INVALID_GRANULARITY", "granularity must be one of day, week, month")
 
 // SalesTrendsReport is the Phase 0 "Sales Trends & Seasonality" report --
 // a bucketed revenue/orders/units time series (Points) plus a breakdown of

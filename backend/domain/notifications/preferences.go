@@ -2,17 +2,17 @@ package notifications
 
 import (
 	"context"
-	"errors"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"net/mail"
 	"strings"
 	"time"
 )
 
 var (
-	ErrInvalidRecipient        = errors.New("notification email recipient is not a valid address")
-	ErrTooManyRecipients       = errors.New("at most 10 notification email recipients")
-	ErrEmailRecipientsRequired = errors.New("add at least one email recipient to send notifications by email")
-	ErrUnknownCategory         = errors.New("unknown notification category")
+	ErrInvalidRecipient        = errs.New("NOTIFICATION_RECIPIENT_INVALID", "notification email recipient is not a valid address")
+	ErrTooManyRecipients       = errs.New("NOTIFICATION_TOO_MANY_RECIPIENTS", "at most 10 notification email recipients")
+	ErrEmailRecipientsRequired = errs.New("NOTIFICATION_RECIPIENTS_REQUIRED", "add at least one email recipient to send notifications by email")
+	ErrUnknownCategory         = errs.New("NOTIFICATION_UNKNOWN_CATEGORY", "unknown notification category")
 )
 
 // Category groups notification Types into the buckets people choose

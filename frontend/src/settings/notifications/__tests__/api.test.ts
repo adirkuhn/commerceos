@@ -23,10 +23,10 @@ describe('notification preferences api', () => {
   })
 
   it('keeps the error code and marks recipient errors', async () => {
-    respond(422, { data: null, error: { code: 'INVALID_RECIPIENT', message: 'bad' } })
+    respond(422, { data: null, error: { code: 'NOTIFICATION_RECIPIENT_INVALID', message: 'bad' } })
     const err = await updateNotificationPreferences('tok', { categories: [], email_recipients: ['x'] }).catch(e => e)
     expect(err).toBeInstanceOf(NotificationPreferencesError)
-    expect(err.code).toBe('INVALID_RECIPIENT')
+    expect(err.code).toBe('NOTIFICATION_RECIPIENT_INVALID')
     expect(err.isRecipientError).toBe(true)
   })
 })

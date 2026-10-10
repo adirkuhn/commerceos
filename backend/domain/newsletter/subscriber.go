@@ -8,17 +8,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"net/mail"
 	"strings"
 	"time"
 )
 
 var (
-	ErrInvalidEmail       = errors.New("enter a valid email address")
-	ErrConsentRequired    = errors.New("consent is required to subscribe")
-	ErrInvalidToken       = errors.New("this link is invalid or has expired")
-	ErrSubscriberNotFound = errors.New("subscriber not found")
+	ErrInvalidEmail       = errs.New("NEWSLETTER_INVALID_EMAIL", "enter a valid email address")
+	ErrConsentRequired    = errs.New("NEWSLETTER_CONSENT_REQUIRED", "consent is required to subscribe")
+	ErrInvalidToken       = errs.New("NEWSLETTER_LINK_INVALID", "this link is invalid or has expired")
+	ErrSubscriberNotFound = errs.New("SUBSCRIBER_NOT_FOUND", "subscriber not found")
 )
 
 type Status string

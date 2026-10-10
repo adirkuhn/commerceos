@@ -66,7 +66,7 @@ export function NotificationPreferencesSection() {
       setEditedRecipients(null)
       setSavedAt(formatTime(new Date()))
     } catch (err) {
-      if (err instanceof NotificationPreferencesError && err.isRecipientError) setRecipientError(err.message)
+      if (err instanceof NotificationPreferencesError && err.isRecipientError) setRecipientError(apiErrorText(err) ?? err.message)
       else setFormError(apiErrorText(err) ?? t('notifications.saveFailed'))
     } finally {
       setSaving(false)

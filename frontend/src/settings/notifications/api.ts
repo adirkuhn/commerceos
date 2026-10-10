@@ -5,7 +5,7 @@ function url(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/settings/notification-preferences`
 }
 
-const RECIPIENT_CODES = new Set(['INVALID_RECIPIENT', 'TOO_MANY_RECIPIENTS', 'EMAIL_RECIPIENTS_REQUIRED'])
+const RECIPIENT_CODES = new Set(['NOTIFICATION_RECIPIENT_INVALID', 'NOTIFICATION_TOO_MANY_RECIPIENTS', 'NOTIFICATION_RECIPIENTS_REQUIRED'])
 
 export class NotificationPreferencesError extends CodedApiError {
   // The error is about the recipients list (shown on that field).

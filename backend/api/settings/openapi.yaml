@@ -120,8 +120,9 @@ paths:
           $ref: '#/components/responses/Error'
         '422':
           description: >
-            Validation failed. error.code is one of INVALID_RECIPIENT,
-            TOO_MANY_RECIPIENTS, EMAIL_RECIPIENTS_REQUIRED, UNKNOWN_CATEGORY.
+            Validation failed. error.code is one of
+            NOTIFICATION_RECIPIENT_INVALID, NOTIFICATION_TOO_MANY_RECIPIENTS,
+            NOTIFICATION_RECIPIENTS_REQUIRED, NOTIFICATION_UNKNOWN_CATEGORY.
           content:
             application/json:
               schema:

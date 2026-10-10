@@ -63,20 +63,19 @@ func (h *NotificationPreferencesHandler) UpdateNotificationPreferences(c *gin.Co
 	c.JSON(http.StatusOK, gensettings.NotificationPreferencesResponse{Data: &resp})
 }
 
-var notificationPreferencesErrorCodes = []struct {
-	err  error
-	code string
-}{
-	{notificationsDomain.ErrInvalidRecipient, "INVALID_RECIPIENT"},
-	{notificationsDomain.ErrTooManyRecipients, "TOO_MANY_RECIPIENTS"},
-	{notificationsDomain.ErrEmailRecipientsRequired, "EMAIL_RECIPIENTS_REQUIRED"},
-	{notificationsDomain.ErrUnknownCategory, "UNKNOWN_CATEGORY"},
+// notificationPreferencesValidationErrors answer 422 with their own code
+// (domain/errs), e.g. NOTIFICATION_RECIPIENT_INVALID.
+var notificationPreferencesValidationErrors = []error{
+	notificationsDomain.ErrInvalidRecipient,
+	notificationsDomain.ErrTooManyRecipients,
+	notificationsDomain.ErrEmailRecipientsRequired,
+	notificationsDomain.ErrUnknownCategory,
 }
 
 func failNotificationPreferences(c *gin.Context, err error) {
-	for _, m := range notificationPreferencesErrorCodes {
-		if errors.Is(err, m.err) {
-			middleware.Fail(c, http.StatusUnprocessableEntity, m.code, m.err.Error())
+	for _, known := range notificationPreferencesValidationErrors {
+		if errors.Is(err, known) {
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 			return
 		}
 	}

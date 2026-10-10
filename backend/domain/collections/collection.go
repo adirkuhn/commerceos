@@ -7,8 +7,8 @@
 package collections
 
 import (
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"regexp"
 	"strings"
 	"time"
@@ -18,10 +18,10 @@ import (
 )
 
 var (
-	ErrInvalidCollection  = errors.New("invalid collection")
-	ErrCollectionNotFound = errors.New("collection not found")
-	ErrSlugTaken          = errors.New("another collection already uses this URL")
-	ErrNotManual          = errors.New("only a manual collection has hand-picked products")
+	ErrInvalidCollection  = errs.New("COLLECTION_INVALID", "invalid collection")
+	ErrCollectionNotFound = errs.New("COLLECTION_NOT_FOUND", "collection not found")
+	ErrSlugTaken          = errs.New("COLLECTION_SLUG_TAKEN", "another collection already uses this URL")
+	ErrNotManual          = errs.New("COLLECTION_NOT_MANUAL", "only a manual collection has hand-picked products")
 )
 
 type Type string

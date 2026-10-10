@@ -1,11 +1,13 @@
 package reviews
 
-import "errors"
+import (
+	"github.com/adirkuhn/commerceos/domain/errs"
+)
 
 var (
-	ErrReviewNotFound        = errors.New("review not found")
-	ErrCustomerNameRequired  = errors.New("customer name is required")
-	ErrCustomerEmailRequired = errors.New("customer email is required")
-	ErrInvalidRating         = errors.New("rating must be between 1 and 5")
-	ErrReviewBodyRequired    = errors.New("review body is required")
+	ErrReviewNotFound        = errs.New("REVIEW_NOT_FOUND", "review not found")
+	ErrCustomerNameRequired  = errs.New("REVIEW_CUSTOMER_NAME_REQUIRED", "customer name is required")
+	ErrCustomerEmailRequired = errs.New("REVIEW_CUSTOMER_EMAIL_REQUIRED", "customer email is required")
+	ErrInvalidRating         = errs.New("REVIEW_INVALID_RATING", "rating must be between 1 and 5")
+	ErrReviewBodyRequired    = errs.New("REVIEW_BODY_REQUIRED", "review body is required")
 )

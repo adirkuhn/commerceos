@@ -68,7 +68,7 @@ describe('NotificationPreferencesSection', () => {
 
   it('puts a recipient error on the recipients field', async () => {
     vi.mocked(api.updateNotificationPreferences).mockRejectedValue(
-      new NotificationPreferencesError('EMAIL_RECIPIENTS_REQUIRED', 'add at least one email recipient to send notifications by email'),
+      new NotificationPreferencesError('NOTIFICATION_RECIPIENTS_REQUIRED', 'add at least one email recipient to send notifications by email'),
     )
     render(<NotificationPreferencesSection />)
 
@@ -77,7 +77,7 @@ describe('NotificationPreferencesSection', () => {
 
     const field = screen.getByLabelText('Email recipients')
     await waitFor(() => expect(field).toHaveAttribute('aria-invalid', 'true'))
-    expect(field).toHaveAccessibleDescription(expect.stringContaining('add at least one email recipient'))
+    expect(field).toHaveAccessibleDescription(expect.stringContaining('Add at least one email recipient to send notifications by email.'))
     expect(field).toHaveFocus()
   })
 

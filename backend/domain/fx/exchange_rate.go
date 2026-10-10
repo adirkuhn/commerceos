@@ -8,7 +8,7 @@
 package fx
 
 import (
-	"errors"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"time"
 )
 
@@ -18,9 +18,9 @@ var (
 	// callers doing price resolution treat as their own typed error (see
 	// application/pms.ErrExchangeRateRequired) so a misconfigured channel
 	// fails clearly rather than silently pricing at parity.
-	ErrExchangeRateNotFound = errors.New("exchange rate not found")
-	ErrInvalidCurrencyCode  = errors.New("currency code must be 3 uppercase letters")
-	ErrInvalidRate          = errors.New("exchange rate must be a positive number")
+	ErrExchangeRateNotFound = errs.New("EXCHANGE_RATE_NOT_FOUND", "exchange rate not found")
+	ErrInvalidCurrencyCode  = errs.New("EXCHANGE_RATE_INVALID_CURRENCY", "currency code must be 3 uppercase letters")
+	ErrInvalidRate          = errs.New("EXCHANGE_RATE_INVALID", "exchange rate must be a positive number")
 )
 
 // ExchangeRate converts 1 minor-unit of the tenant's default currency into

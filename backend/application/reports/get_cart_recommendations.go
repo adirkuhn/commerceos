@@ -2,8 +2,8 @@ package reports
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"sort"
 	"time"
 
@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var ErrCartEmpty = errors.New("cart is empty")
+var ErrCartEmpty = errs.New("RECOMMENDATIONS_CART_EMPTY", "cart is empty")
 
 const (
 	cartRecommendationsMaxItemsetSize = 5

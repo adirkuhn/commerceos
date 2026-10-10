@@ -2,8 +2,8 @@ package reports
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"time"
 
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -13,7 +13,7 @@ import (
 )
 
 // ErrToBeforeFrom guards GetSalesSummaryReportUseCase.Execute's date range.
-var ErrToBeforeFrom = errors.New("report end date must be after the start date")
+var ErrToBeforeFrom = errs.New("REPORT_END_BEFORE_START", "report end date must be after the start date")
 
 // SalesSummaryReport compares an arbitrary [From, To) period against the
 // immediately preceding period of equal length (e.g. "this month" queried

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"time"
 
 	"gorm.io/gorm"
@@ -18,14 +19,14 @@ import (
 // ErrNoWhatsAppChannel is returned when the tenant has no active
 // ChannelTypeWhatsApp SalesChannel -- WhatsApp ordering/lookup was never
 // set up, distinct from ErrProductNotFound/ErrProductNotEnrolled below.
-var ErrNoWhatsAppChannel = errors.New("whatsapp: no active whatsapp sales channel configured for this tenant")
+var ErrNoWhatsAppChannel = errs.New("WHATSAPP_CHANNEL_NOT_CONFIGURED", "whatsapp: no active whatsapp sales channel configured for this tenant")
 
 // ErrProductNotFound covers both "no SKU with this code" and "SKU exists
 // but its product isn't enrolled in the WhatsApp channel" -- deliberately
 // the same error/message for both (see LookupProductInfoUseCase's doc
 // comment), so an inbound message can never be used to probe which SKU
 // codes exist in the catalog beyond what's actually WhatsApp-enrolled.
-var ErrProductNotFound = errors.New("whatsapp: product not found")
+var ErrProductNotFound = errs.New("WHATSAPP_PRODUCT_NOT_FOUND", "whatsapp: product not found")
 
 // stockLevelGetter is *application/inventory.GetSKUStockLevelUseCase
 // narrowed to point of use (ISP) -- lets this package stay decoupled from

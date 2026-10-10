@@ -2,9 +2,9 @@ package whatsapp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"github.com/adirkuhn/commerceos/domain/events"
 	"log"
 	"strings"
@@ -28,7 +28,7 @@ import (
 // DefaultWarehouseID set before an order can be placed through it -- found
 // live via the equivalent internal-storefront checkout bug, see
 // application/storefront.ErrChannelWarehouseNotConfigured's doc comment.
-var ErrChannelWarehouseNotConfigured = errors.New("whatsapp: no default warehouse configured for this channel")
+var ErrChannelWarehouseNotConfigured = errs.New("WHATSAPP_CHANNEL_WAREHOUSE_NOT_CONFIGURED", "whatsapp: no default warehouse configured for this channel")
 
 // salesOrderCreator is *application/oms.CreateSalesOrderUseCase narrowed to
 // point of use (ISP).

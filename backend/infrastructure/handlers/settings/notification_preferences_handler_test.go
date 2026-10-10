@@ -95,10 +95,10 @@ func TestUpdateNotificationPreferences_passesInputThrough(t *testing.T) {
 
 func TestUpdateNotificationPreferences_mapsValidationErrors(t *testing.T) {
 	cases := map[error]string{
-		notificationsDomain.ErrInvalidRecipient:        "INVALID_RECIPIENT",
-		notificationsDomain.ErrTooManyRecipients:       "TOO_MANY_RECIPIENTS",
-		notificationsDomain.ErrEmailRecipientsRequired: "EMAIL_RECIPIENTS_REQUIRED",
-		notificationsDomain.ErrUnknownCategory:         "UNKNOWN_CATEGORY",
+		notificationsDomain.ErrInvalidRecipient:        "NOTIFICATION_RECIPIENT_INVALID",
+		notificationsDomain.ErrTooManyRecipients:       "NOTIFICATION_TOO_MANY_RECIPIENTS",
+		notificationsDomain.ErrEmailRecipientsRequired: "NOTIFICATION_RECIPIENTS_REQUIRED",
+		notificationsDomain.ErrUnknownCategory:         "NOTIFICATION_UNKNOWN_CATEGORY",
 	}
 	for domainErr, code := range cases {
 		t.Run(code, func(t *testing.T) {

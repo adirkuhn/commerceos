@@ -2,8 +2,8 @@ package reports
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"sort"
 	"time"
 
@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var ErrSKUIDRequired = errors.New("sku id is required")
+var ErrSKUIDRequired = errs.New("SKU_ID_REQUIRED", "sku id is required")
 
 const (
 	productRecommendationsDefaultMinSupport = 2

@@ -8,12 +8,12 @@ package scheduler
 
 import (
 	"context"
-	"errors"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"time"
 )
 
-var ErrJobNotFound = errors.New("scheduled job not found")
-var ErrInvalidIntervalMinutes = errors.New("interval_minutes must be at least 1")
+var ErrJobNotFound = errs.New("SCHEDULED_JOB_NOT_FOUND", "scheduled job not found")
+var ErrInvalidIntervalMinutes = errs.New("SCHEDULED_JOB_INVALID_INTERVAL", "interval_minutes must be at least 1")
 
 // Known job keys -- application/scheduler's use cases are keyed by these,
 // and cmd/scheduler dispatches to them the same way dispatch.go's runners

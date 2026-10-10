@@ -3,7 +3,9 @@
 // BCP 47 tags, matching the frontends' translation files.
 package locale
 
-import "errors"
+import (
+	"github.com/adirkuhn/commerceos/domain/errs"
+)
 
 type Locale string
 
@@ -13,7 +15,7 @@ const (
 	Dutch      Locale = "nl"
 )
 
-var ErrUnsupported = errors.New("unsupported language")
+var ErrUnsupported = errs.New("LANGUAGE_UNSUPPORTED", "unsupported language")
 
 func (l Locale) Valid() bool {
 	switch l {

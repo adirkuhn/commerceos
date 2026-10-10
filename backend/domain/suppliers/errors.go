@@ -1,7 +1,9 @@
 package suppliers
 
-import "errors"
+import (
+	"github.com/adirkuhn/commerceos/domain/errs"
+)
 
 var (
-	ErrSupplierNotFound = errors.New("supplier not found")
+	ErrSupplierNotFound = errs.New("SUPPLIER_NOT_FOUND", "supplier not found")
 )
