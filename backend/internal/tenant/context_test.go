@@ -33,3 +33,11 @@ func TestWithSuperAdmin_does_not_overwrite_tenant(t *testing.T) {
 	assert.Equal(t, "tenant-xyz", tenant.IDFromContext(ctx))
 	assert.True(t, tenant.IsSuperAdmin(ctx))
 }
+func TestAsTenant_scopesToTheTenantAndDropsSuperAdmin(t *testing.T) {
+	admin := tenant.WithSuperAdmin(context.Background())
+
+	ctx := tenant.AsTenant(admin, "t-1")
+
+	assert.Equal(t, "t-1", tenant.IDFromContext(ctx))
+	assert.False(t, tenant.IsSuperAdmin(ctx))
+}

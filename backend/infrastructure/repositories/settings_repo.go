@@ -136,3 +136,23 @@ func nonNilWindows(w []int) []int {
 	}
 	return w
 }
+
+func (r *TenantSettingsRepo) ListExpiryAlertEnabled(ctx context.Context) ([]settingsDomain.TenantSettings, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []tenantSettingsModel
+	if err := tx.Where("expiry_alert_enabled").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("tenantSettingsRepo.ListExpiryAlertEnabled: %w", err)
+	}
+	out := make([]settingsDomain.TenantSettings, 0, len(rows))
+	for _, m := range rows {
+		s, err := toTenantSettingsDomain(m)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *s)
+	}
+	return out, nil
+}

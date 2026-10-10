@@ -28,6 +28,9 @@ const (
 	// JobCheckBolShipmentConfirmations asks Bol for the result of every
 	// pending shipment confirmation (see application/channels.CheckBolShipmentConfirmationsUseCase).
 	JobCheckBolShipmentConfirmations = "check_bol_shipment_confirmations"
+	// JobStockExpiryReport is the daily stock-close-to-expiry report for
+	// every tenant that turned it on (see application/scheduler.RunStockExpiryReportUseCase).
+	JobStockExpiryReport = "stock_expiry_report"
 )
 
 type Job struct {

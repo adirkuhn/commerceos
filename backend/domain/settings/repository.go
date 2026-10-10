@@ -16,3 +16,10 @@ type Repository interface {
 	Get(ctx context.Context) (*TenantSettings, error)
 	Upsert(ctx context.Context, s *TenantSettings) error
 }
+
+// ExpiryAlertTenantLister lists the settings of every tenant with the
+// stock-close-to-expiry alert on -- across tenants, so callers run it with
+// RLS bypassed (the scheduler's super-admin context).
+type ExpiryAlertTenantLister interface {
+	ListExpiryAlertEnabled(ctx context.Context) ([]TenantSettings, error)
+}

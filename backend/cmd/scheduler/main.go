@@ -290,6 +290,8 @@ func main() {
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, bolShipmentConfirmationConsumer.Handle); sub != nil {
 		defer sub.Unsubscribe()
 	}
+	jobRunners[schedulerDomain.JobStockExpiryReport] = schedulerapp.NewRunStockExpiryReportUseCase(db, settingsRepo,
+		invapp.NewReportStockCloseToExpiryUseCase(db, repositories.NewExpiringStockRepo(db), outboxRepo, time.Now))
 	jobRunners[schedulerDomain.JobCheckBolShipmentConfirmations] = channelsapp.NewCheckBolShipmentConfirmationsUseCase(db, bolConfirmationRepo, bolClients, outboxRepo, time.Now)
 
 	notifyOrderStatusUC := whatsappapp.NewNotifyOrderStatusUseCase(db, salesOrderRepo, customerRepo, connRepo, evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret)

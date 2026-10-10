@@ -24,6 +24,13 @@ func WithSuperAdmin(ctx context.Context) context.Context {
 	return context.WithValue(ctx, superAdminKey, true)
 }
 
+// AsTenant scopes ctx to tenantID only, dropping any super-admin flag --
+// for a cross-tenant job (run with WithSuperAdmin) handing one tenant's
+// work to code that must not see other tenants' rows.
+func AsTenant(ctx context.Context, tenantID string) context.Context {
+	return context.WithValue(WithTenantID(ctx, tenantID), superAdminKey, false)
+}
+
 func IDFromContext(ctx context.Context) string {
 	v, _ := ctx.Value(tenantKey).(string)
 	return v

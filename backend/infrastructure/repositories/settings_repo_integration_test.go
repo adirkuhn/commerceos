@@ -167,3 +167,37 @@ func TestTenantSettingsRepo_Integration_UpsertRoundTripsExpiryAlert(t *testing.T
 	}))
 	require.Equal(t, alert, get())
 }
+
+func TestTenantSettingsRepo_Integration_ListExpiryAlertEnabled(t *testing.T) {
+	db := newIntegrationDB(t)
+	repo := repositories.NewTenantSettingsRepo(db)
+	onID, onCtx := newTestTenant()
+	offID, offCtx := newTestTenant()
+	save := func(ctx context.Context, id string, enabled bool) {
+		alert := settingsDomain.ExpiryAlert{Enabled: enabled, Windows: []int{30}}
+		require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			return repo.Upsert(ctx, &settingsDomain.TenantSettings{TenantID: id, ExpiryAlert: alert, UpdatedAt: time.Now()})
+		}))
+	}
+	save(onCtx, onID, true)
+	save(offCtx, offID, false)
+
+	var found []settingsDomain.TenantSettings
+	require.NoError(t, tenant.WithTenant(tenant.WithSuperAdmin(context.Background()), db, func(ctx context.Context) error {
+		var err error
+		found, err = repo.ListExpiryAlertEnabled(ctx)
+		return err
+	}))
+
+	var ids []string
+	for _, s := range found {
+		ids = append(ids, s.TenantID)
+	}
+	require.Contains(t, ids, onID)
+	require.NotContains(t, ids, offID)
+	for _, s := range found {
+		if s.TenantID == onID {
+			require.Equal(t, []int{30}, s.ExpiryAlert.Windows)
+		}
+	}
+}

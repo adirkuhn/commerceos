@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -119,6 +120,8 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 		schedulerDomain.JobExpiredBatches:              appscheduler.NewRunExpiredBatchesUseCase(db, batchRepo, expireBatchUC),
 		schedulerDomain.JobCostPriceRecalculation:      appscheduler.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC),
 		schedulerDomain.JobResyncAllProductsToChannels: appscheduler.NewRunResyncProductsToChannelsUseCase(db, listingRepo, resyncProductToChannelsUC),
+		schedulerDomain.JobStockExpiryReport: appscheduler.NewRunStockExpiryReportUseCase(db, repositories.NewTenantSettingsRepo(db),
+			appinventory.NewReportStockCloseToExpiryUseCase(db, repositories.NewExpiringStockRepo(db), repositories.NewOutboxRepository(db), time.Now)),
 	}
 
 	h := NewHandler(
