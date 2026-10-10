@@ -13,6 +13,7 @@ import type ns_inventory from './locales/en/inventory.json'
 import type ns_layout from './locales/en/layout.json'
 import type ns_messages from './locales/en/messages.json'
 import type ns_newsletter from './locales/en/newsletter.json'
+import type ns_notifications from './locales/en/notifications.json'
 import type ns_orders from './locales/en/orders.json'
 import type ns_packing from './locales/en/packing.json'
 import type ns_picking from './locales/en/picking.json'
@@ -49,6 +50,7 @@ declare module 'i18next' {
       layout: typeof ns_layout
       messages: typeof ns_messages
       newsletter: typeof ns_newsletter
+      notifications: typeof ns_notifications
       orders: typeof ns_orders
       packing: typeof ns_packing
       picking: typeof ns_picking

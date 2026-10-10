@@ -1,0 +1,74 @@
+{
+  "types": {
+    "bol": {
+      "offer": {
+        "not_for_sale": {
+          "message": "{{reason}}",
+          "title": "Bol: \"{{product}}\" is not for sale"
+        }
+      }
+    },
+    "import": {
+      "completed": {
+        "message": "Imported {{products}} products ({{already_linked}} already linked, {{skipped}} skipped)",
+        "parts": {
+          "customers": ", {{customers}} customers",
+          "orders": ", {{orders}} orders"
+        },
+        "title": "Import completed"
+      },
+      "failed": {
+        "message": "{{error}}",
+        "title": "Import failed"
+      },
+      "started": {
+        "message": "Importing WooCommerce products…",
+        "title": "Import started"
+      }
+    },
+    "inventory": {
+      "stock": {
+        "close_to_expiry": {
+          "message": "{{count}} products expire within {{window_days}} days",
+          "messageOne": "1 product expires within {{window_days}} days",
+          "title": "Stock close to expiry"
+        }
+      }
+    },
+    "procurement": {
+      "document_parsing": {
+        "completed": {
+          "message": "All line items were matched to products automatically.",
+          "title": "Document parsed"
+        },
+        "failed": {
+          "message": "{{error}}",
+          "title": "Document parsing failed"
+        }
+      },
+      "purchase_order": {
+        "needs_review": {
+          "message": "Some line items couldn't be matched to a product automatically — review and link them.",
+          "title": "Purchase order needs review"
+        }
+      },
+      "receiving": {
+        "discrepancies_found": {
+          "message": "The invoice didn't fully match the purchase order ({{count}} discrepancies) — review and reconcile.",
+          "messageOne": "The invoice didn't fully match the purchase order (1 discrepancy) — review and reconcile.",
+          "title": "Receiving discrepancies found"
+        }
+      },
+      "receiving_parsing": {
+        "completed": {
+          "message": "The invoice matched the purchase order exactly.",
+          "title": "Invoice parsed"
+        },
+        "failed": {
+          "message": "{{error}}",
+          "title": "Invoice parsing failed"
+        }
+      }
+    }
+  }
+}

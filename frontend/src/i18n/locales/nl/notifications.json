@@ -1,0 +1,74 @@
+{
+  "types": {
+    "bol": {
+      "offer": {
+        "not_for_sale": {
+          "message": "{{reason}}",
+          "title": "Bol: \"{{product}}\" is niet te koop"
+        }
+      }
+    },
+    "import": {
+      "completed": {
+        "message": "{{products}} producten geïmporteerd ({{already_linked}} al gekoppeld, {{skipped}} overgeslagen)",
+        "parts": {
+          "customers": ", {{customers}} klanten",
+          "orders": ", {{orders}} orders"
+        },
+        "title": "Import voltooid"
+      },
+      "failed": {
+        "message": "{{error}}",
+        "title": "Import mislukt"
+      },
+      "started": {
+        "message": "WooCommerce-producten worden geïmporteerd…",
+        "title": "Import gestart"
+      }
+    },
+    "inventory": {
+      "stock": {
+        "close_to_expiry": {
+          "message": "{{count}} producten verlopen binnen {{window_days}} dagen",
+          "messageOne": "1 product verloopt binnen {{window_days}} dagen",
+          "title": "Voorraad bijna over datum"
+        }
+      }
+    },
+    "procurement": {
+      "document_parsing": {
+        "completed": {
+          "message": "Alle regels zijn automatisch aan producten gekoppeld.",
+          "title": "Document gelezen"
+        },
+        "failed": {
+          "message": "{{error}}",
+          "title": "Document lezen mislukt"
+        }
+      },
+      "purchase_order": {
+        "needs_review": {
+          "message": "Sommige regels konden niet automatisch aan een product worden gekoppeld — controleer en koppel ze.",
+          "title": "Inkooporder moet worden nagekeken"
+        }
+      },
+      "receiving": {
+        "discrepancies_found": {
+          "message": "De factuur komt niet helemaal overeen met de inkooporder ({{count}} verschillen) — controleer en stem af.",
+          "messageOne": "De factuur komt niet helemaal overeen met de inkooporder (1 verschil) — controleer en stem af.",
+          "title": "Verschillen bij ontvangst gevonden"
+        }
+      },
+      "receiving_parsing": {
+        "completed": {
+          "message": "De factuur komt precies overeen met de inkooporder.",
+          "title": "Factuur gelezen"
+        },
+        "failed": {
+          "message": "{{error}}",
+          "title": "Factuur lezen mislukt"
+        }
+      }
+    }
+  }
+}

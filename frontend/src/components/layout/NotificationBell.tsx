@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import { useNotifications } from '../../notifications/hooks/useNotifications'
 import type { Notification } from '../../notifications/types'
+import { notificationText } from '../../notifications/notificationText'
 import { useDateFormat } from '../../format/DateFormatProvider'
 
 export default function NotificationBell() {
@@ -72,25 +73,28 @@ export default function NotificationBell() {
               {!loading && !error && notifications.length === 0 && (
                 <p className="p-4 text-xs text-center text-ink-4">{t('ui.noNotifications')}</p>
               )}
-              {notifications.map(n => (
-                <button
-                  key={n.id}
-                  onClick={() => handleClick(n)}
-                  className={clsx(
-                    'w-full text-left px-3 py-2.5 border-b border-line/60 hover:bg-sunken transition-colors',
-                    !n.read && 'bg-accent/10',
-                  )}
-                >
-                  <div className="flex items-start gap-2">
-                    {!n.read && <span className="mt-1 w-1.5 h-1.5 rounded-full bg-accent-solid shrink-0" />}
-                    <div className={clsx('min-w-0 flex-1', n.read && 'pl-3.5')}>
-                      <p className="text-xs font-medium text-ink truncate">{n.title}</p>
-                      {n.message && <p className="text-2xs text-ink-4 mt-0.5 line-clamp-2">{n.message}</p>}
-                      <p className="text-2xs text-ink-4 mt-1">{formatDateTime(n.created_at)}</p>
+              {notifications.map(n => {
+                const text = notificationText(n)
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => handleClick(n)}
+                    className={clsx(
+                      'w-full text-left px-3 py-2.5 border-b border-line/60 hover:bg-sunken transition-colors',
+                      !n.read && 'bg-accent/10',
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      {!n.read && <span className="mt-1 w-1.5 h-1.5 rounded-full bg-accent-solid shrink-0" />}
+                      <div className={clsx('min-w-0 flex-1', n.read && 'pl-3.5')}>
+                        <p className="text-xs font-medium text-ink truncate">{text.title}</p>
+                        {text.message && <p className="text-2xs text-ink-4 mt-0.5 line-clamp-2">{text.message}</p>}
+                        <p className="text-2xs text-ink-4 mt-1">{formatDateTime(n.created_at)}</p>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                )
+              })}
             </div>
           </div>
         </>

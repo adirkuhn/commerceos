@@ -1,0 +1,74 @@
+{
+  "types": {
+    "bol": {
+      "offer": {
+        "not_for_sale": {
+          "message": "{{reason}}",
+          "title": "Bol: \"{{product}}\" não está à venda"
+        }
+      }
+    },
+    "import": {
+      "completed": {
+        "message": "{{products}} produtos importados ({{already_linked}} já vinculados, {{skipped}} ignorados)",
+        "parts": {
+          "customers": ", {{customers}} clientes",
+          "orders": ", {{orders}} pedidos"
+        },
+        "title": "Importação concluída"
+      },
+      "failed": {
+        "message": "{{error}}",
+        "title": "Falha na importação"
+      },
+      "started": {
+        "message": "Importando produtos do WooCommerce…",
+        "title": "Importação iniciada"
+      }
+    },
+    "inventory": {
+      "stock": {
+        "close_to_expiry": {
+          "message": "{{count}} produtos vencem em até {{window_days}} dias",
+          "messageOne": "1 produto vence em até {{window_days}} dias",
+          "title": "Estoque perto do vencimento"
+        }
+      }
+    },
+    "procurement": {
+      "document_parsing": {
+        "completed": {
+          "message": "Todos os itens foram vinculados a produtos automaticamente.",
+          "title": "Documento lido"
+        },
+        "failed": {
+          "message": "{{error}}",
+          "title": "Falha ao ler o documento"
+        }
+      },
+      "purchase_order": {
+        "needs_review": {
+          "message": "Alguns itens não puderam ser vinculados a um produto automaticamente — revise e vincule-os.",
+          "title": "Pedido de compra precisa de revisão"
+        }
+      },
+      "receiving": {
+        "discrepancies_found": {
+          "message": "A fatura não corresponde totalmente ao pedido de compra ({{count}} divergências) — revise e concilie.",
+          "messageOne": "A fatura não corresponde totalmente ao pedido de compra (1 divergência) — revise e concilie.",
+          "title": "Divergências no recebimento"
+        }
+      },
+      "receiving_parsing": {
+        "completed": {
+          "message": "A fatura corresponde exatamente ao pedido de compra.",
+          "title": "Fatura lida"
+        },
+        "failed": {
+          "message": "{{error}}",
+          "title": "Falha ao ler a fatura"
+        }
+      }
+    }
+  }
+}

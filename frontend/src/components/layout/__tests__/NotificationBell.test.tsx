@@ -3,6 +3,7 @@ import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
+import i18next from 'i18next'
 import NotificationBell from '../NotificationBell'
 import type { Notification } from '../../../notifications/types'
 
@@ -28,7 +29,7 @@ import { notifyNotificationsChanged } from '../../../notifications/notifications
 
 function notification(overrides: Partial<Notification> = {}): Notification {
   return {
-    id: 'notif-1', type: 'import.started', title: 'Import started', message: 'Importing…',
+    id: 'notif-1', type: 'test.untranslated', params: {}, title: 'Import started', message: 'Importing…',
     read: false, created_at: '2026-08-03T00:00:00Z', ...overrides,
   }
 }
@@ -135,5 +136,21 @@ describe('NotificationBell', () => {
     act(() => { notifyNotificationsChanged() })
 
     await waitFor(() => expect(notificationsApi.listNotifications).toHaveBeenCalledTimes(2))
+  })
+
+  it('shows a translated notification in the admin language', async () => {
+    vi.mocked(notificationsApi.listNotifications).mockResolvedValue([notification({
+      type: 'inventory.stock.close_to_expiry', params: { count: 4, window_days: 30 }, title: 'Stock close to expiry', message: '4 products expire within 30 days',
+    })])
+    await i18next.changeLanguage('nl')
+    try {
+      renderBell()
+      await userEvent.click(await screen.findByRole('button', { name: /meldingen|notifications/i }))
+
+      expect(await screen.findByText('Voorraad bijna over datum')).toBeInTheDocument()
+      expect(screen.getByText('4 producten verlopen binnen 30 dagen')).toBeInTheDocument()
+    } finally {
+      await i18next.changeLanguage('en')
+    }
   })
 })

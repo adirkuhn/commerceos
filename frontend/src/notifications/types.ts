@@ -1,6 +1,9 @@
 export interface Notification {
   id: string
   type: string
+  // Values the type's translated text is filled with (see
+  // notificationText); title/message are the English fallback.
+  params?: Record<string, unknown>
   title: string
   message: string
   // Frontend-relative deep link (e.g. "/products/<id>") -- empty/absent
