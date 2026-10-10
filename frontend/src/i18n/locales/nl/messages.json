@@ -11,6 +11,49 @@
     "sms": "SMS",
     "whatsapp": "WhatsApp"
   },
+  "design": {
+    "variables": "Variabelen",
+    "variablesHint": "Klik om in te voegen bij de cursor of in het geselecteerde blok. Lijsten voegen een regel toe die per item herhaalt.",
+    "insert": "Invoegen",
+    "listOf": "Lijst van: {{fields}}",
+    "previewAs": "Voorbeeld als",
+    "preview": "Voorbeeld",
+    "previewTitle": "E-mailvoorbeeld",
+    "previewSubject": "Onderwerp",
+    "previewText": "WhatsApp- / sms-tekst",
+    "uploadFailed": "De afbeelding kon niet worden geüpload.",
+    "loadFailed": "De variabelen konden niet worden geladen.",
+    "saveFailed": "Het ontwerp kon niet worden opgeslagen.",
+    "previewFailed": "Het voorbeeld kon niet worden gemaakt.",
+    "designEmail": "E-mail ontwerpen",
+    "notFound": "Dit sjabloon bestaat niet meer.",
+    "blocks": {
+      "header": "Winkelkop",
+      "greeting": "Begroeting",
+      "orderSummary": "Orderoverzicht",
+      "orderItems": "Orderregels",
+      "orderTotals": "Ordertotalen",
+      "shippingAddress": "Verzendadres",
+      "tracking": "Track & trace-knop",
+      "stockItems": "Lijst bijna verlopen voorraad",
+      "footer": "Winkelvoet"
+    },
+    "blockTexts": {
+      "hi": "Hoi",
+      "thanks": "Bedankt voor je bestelling.",
+      "order": "Bestelling",
+      "product": "Product",
+      "qty": "Aantal",
+      "total": "Totaal",
+      "subtotal": "Subtotaal",
+      "shipping": "Verzending",
+      "discount": "Korting",
+      "shippingTo": "Verzenden naar",
+      "track": "Volg je pakket",
+      "expires": "Vervalt",
+      "price": "Prijs"
+    }
+  },
   "operator": {
     "eq": "is gelijk aan",
     "in": "is een van",
@@ -76,6 +119,7 @@
     "deleteConfirm": "Sjabloon verwijderen",
     "deleteMessage": "Dit kan niet ongedaan worden gemaakt.",
     "deleteTitle": "Sjabloon \"{{name}}\" verwijderen?",
+    "designHint": "De e-mailtekst is HTML. Gebruik de ontwerpknop (palet) in de lijst voor de visuele editor.",
     "editTitle": "Berichtsjabloon bewerken",
     "empty": "Nog geen berichtsjablonen",
     "enabled": "Ingeschakeld",
@@ -84,6 +128,7 @@
     "newTitle": "Nieuw berichtsjabloon",
     "search": "Sjablonen zoeken...",
     "subject": "Onderwerp (alleen e-mail)",
+    "textBody": "WhatsApp- / sms-tekst",
     "tokensHint": "Gebruik {{token}}-variabelen -- welke beschikbaar zijn hangt af van de gebeurtenis die dit sjabloon verstuurt. Herhaal een lijst met {{loop}}; toon tekst alleen als een waarde gevuld is met {{ifSet}}, of alleen als die leeg is met {{ifEmpty}}."
   },
   "trigger": {

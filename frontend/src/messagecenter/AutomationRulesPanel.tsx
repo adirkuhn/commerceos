@@ -11,26 +11,13 @@ import { useMessageTemplates } from './hooks/useMessageTemplates'
 import type { AutomationRule, Condition, Operator, TriggerSubject, MessageChannel } from './types'
 import { Dialog } from '../components/common/Dialog'
 import { useConfirm } from '../components/common/useConfirm'
+import { triggerLabels } from './triggerLabels'
 import { ExtraRecipientsField } from './ExtraRecipientsField'
 import { parseEmailList } from './emailList'
 import { apiErrorText } from '../api/apiErrorText'
 
 type T = TFunction<'messages'>
 
-const triggerLabels = (t: T): Record<TriggerSubject, string> => ({
-  'pms.product.deleted': t('trigger.productDeleted'),
-  'storefront.order.placed': t('trigger.storefrontOrderPlaced'),
-  'pms.category.changed': t('trigger.categoryChanged'),
-  'pms.product.changed': t('trigger.productChanged'),
-  'payments.refund.manual_review_required': t('trigger.refundReview'),
-  'payments.refund.issued': t('trigger.refundIssued'),
-  'integrations.connection.connected': t('trigger.integrationConnected'),
-  'oms.sales_order.status_changed': t('trigger.orderStatusChanged'),
-  'inventory.stock.changed': t('trigger.stockChanged'),
-  'shipping.shipment.fulfillment_signal': t('trigger.shipmentUpdate'),
-  'inventory.stock.close_to_expiry_reported': t('trigger.stockCloseToExpiry'),
-  'oms.sales_order.created': t('trigger.orderCreated'),
-})
 
 // Triggers addressed to the tenant's own team (backend
 // domain/messagecenter.AudienceFor), not to the order's customer.

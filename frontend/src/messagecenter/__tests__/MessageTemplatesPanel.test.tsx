@@ -17,6 +17,10 @@ vi.mock('../api', () => ({
   deleteMessageTemplate: vi.fn(),
 }))
 
+vi.mock('../design/EmailDesignEditor', () => ({
+  EmailDesignEditor: ({ template }: { template: MessageTemplate }) => <div data-testid="design-editor">{template.id}</div>,
+}))
+
 import * as messagecenterApi from '../api'
 import { acceptConfirm } from '../../test/confirm'
 
@@ -74,13 +78,54 @@ describe('MessageTemplatesPanel', () => {
     await userEvent.click(screen.getByText('New template'))
     await userEvent.type(await screen.findByLabelText('Name'), 'Welcome message')
     await userEvent.click(screen.getByLabelText('WhatsApp'))
-    await userEvent.type(await screen.findByLabelText('Body'), 'Welcome!')
+    expect(screen.queryByLabelText('Body')).not.toBeInTheDocument()
+    await userEvent.type(await screen.findByLabelText('WhatsApp / SMS text'), 'Welcome!')
     await userEvent.click(screen.getByText('Create template'))
 
     await waitFor(() => expect(messagecenterApi.createMessageTemplate).toHaveBeenCalledWith(
       'test-token',
-      expect.objectContaining({ name: 'Welcome message', channels: ['whatsapp'], body: 'Welcome!' }),
+      expect.objectContaining({ name: 'Welcome message', channels: ['whatsapp'], text_body: 'Welcome!' }),
     ))
+  })
+
+  it('lists an email body as plain text, not markup', async () => {
+    vi.mocked(messagecenterApi.listMessageTemplates).mockResolvedValue([template({ body: '<table><tr><td>Hello <b>there</b></td></tr></table>' })])
+
+    renderAt(<MessageTemplatesPanel />, '/message-center')
+
+    expect(await screen.findByText('Hello there')).toBeInTheDocument()
+  })
+
+  it('editing keeps the text body and enabled flag', async () => {
+    vi.mocked(messagecenterApi.listMessageTemplates).mockResolvedValue([template({ text_body: 'Hi on WhatsApp' })])
+    vi.mocked(messagecenterApi.updateMessageTemplate).mockResolvedValue(template())
+
+    renderAt(<MessageTemplatesPanel />, '/message-center/templates/template-1')
+    expect(await screen.findByLabelText('WhatsApp / SMS text')).toHaveValue('Hi on WhatsApp')
+    await userEvent.click(screen.getByText('Save changes'))
+
+    await waitFor(() => expect(messagecenterApi.updateMessageTemplate).toHaveBeenCalledWith(
+      'test-token', 'template-1',
+      expect.objectContaining({ body: 'Hi {{customer_name}}', text_body: 'Hi on WhatsApp', enabled: true }),
+    ))
+  })
+
+  it('the design button opens the visual editor for email templates only', async () => {
+    vi.mocked(messagecenterApi.listMessageTemplates).mockResolvedValue([
+      template(), template({ id: 'template-2', name: 'Text only', channels: ['sms'], body: '', text_body: 'Hi' }),
+    ])
+
+    renderAt(<MessageTemplatesPanel />, '/message-center')
+
+    expect(await screen.findAllByTitle('Design email')).toHaveLength(1)
+    await userEvent.click(screen.getByTitle('Design email'))
+    expect(await screen.findByTestId('design-editor')).toHaveTextContent('template-1')
+  })
+
+  it('a design URL for a missing template says so', async () => {
+    renderAt(<MessageTemplatesPanel />, '/message-center/templates/gone/design')
+
+    expect(await screen.findByText('This template doesn’t exist any more.')).toBeInTheDocument()
   })
 
   it('deleting a template calls deleteMessageTemplate', async () => {

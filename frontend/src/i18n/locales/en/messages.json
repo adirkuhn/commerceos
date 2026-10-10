@@ -11,6 +11,49 @@
     "sms": "SMS",
     "whatsapp": "WhatsApp"
   },
+  "design": {
+    "variables": "Variables",
+    "variablesHint": "Click to insert at the cursor, or into the selected block. Lists add a row that repeats per item.",
+    "insert": "Insert",
+    "listOf": "List of: {{fields}}",
+    "previewAs": "Preview as",
+    "preview": "Preview",
+    "previewTitle": "Email preview",
+    "previewSubject": "Subject",
+    "previewText": "WhatsApp / SMS text",
+    "uploadFailed": "The image couldn’t be uploaded.",
+    "loadFailed": "Couldn’t load the variables.",
+    "saveFailed": "Couldn’t save the design.",
+    "previewFailed": "Couldn’t build the preview.",
+    "designEmail": "Design email",
+    "notFound": "This template doesn’t exist any more.",
+    "blocks": {
+      "header": "Store header",
+      "greeting": "Greeting",
+      "orderSummary": "Order summary",
+      "orderItems": "Order items",
+      "orderTotals": "Order totals",
+      "shippingAddress": "Shipping address",
+      "tracking": "Tracking button",
+      "stockItems": "Expiring stock list",
+      "footer": "Store footer"
+    },
+    "blockTexts": {
+      "hi": "Hi",
+      "thanks": "Thank you for your order.",
+      "order": "Order",
+      "product": "Product",
+      "qty": "Qty",
+      "total": "Total",
+      "subtotal": "Subtotal",
+      "shipping": "Shipping",
+      "discount": "Discount",
+      "shippingTo": "Shipping to",
+      "track": "Track your package",
+      "expires": "Expires",
+      "price": "Price"
+    }
+  },
   "operator": {
     "eq": "equals",
     "in": "is one of",
@@ -76,6 +119,7 @@
     "deleteConfirm": "Delete template",
     "deleteMessage": "This cannot be undone.",
     "deleteTitle": "Delete template \"{{name}}\"?",
+    "designHint": "The email body is HTML. Use the design button (palette) in the list for the visual editor.",
     "editTitle": "Edit message template",
     "empty": "No message templates yet",
     "enabled": "Enabled",
@@ -84,6 +128,7 @@
     "newTitle": "New message template",
     "search": "Search templates...",
     "subject": "Subject (email only)",
+    "textBody": "WhatsApp / SMS text",
     "tokensHint": "Use {{token}} placeholders -- available tokens depend on which event sends this template. Repeat a list with {{loop}}; show text only when a value is set with {{ifSet}}, or only when it is empty with {{ifEmpty}}."
   },
   "trigger": {

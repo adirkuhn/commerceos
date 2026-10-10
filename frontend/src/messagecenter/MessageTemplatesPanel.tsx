@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Plus, Pencil, Trash2, X, Mail, MessageSquare, Phone } from 'lucide-react'
+import { Search, Plus, Pencil, Trash2, X, Mail, MessageSquare, Phone, Palette } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { subPathSegments } from '../routes'
 import { useAuth } from '../auth/AuthContext'
 import { TEMPLATES_PATH } from './messageCenterPaths'
 import { useRoutedEditor, NEW_RECORD } from '../routing/useRoutedEditor'
@@ -10,6 +12,9 @@ import type { MessageTemplate, MessageChannel, MessageCategory } from './types'
 import { Dialog } from '../components/common/Dialog'
 import { useConfirm } from '../components/common/useConfirm'
 import { apiErrorText } from '../api/apiErrorText'
+import { EmailDesignEditor } from './design/EmailDesignEditor'
+import { DESIGN_VIEW, templateDesignPath } from './messageCenterPaths'
+import { plainTextExcerpt } from './design/designHelpers'
 
 
 const CHANNEL_ICONS: Record<MessageChannel, typeof Mail> = {
@@ -27,15 +32,16 @@ interface FormState {
   channels: MessageChannel[]
   subject: string
   body: string
+  textBody: string
   enabled: boolean
 }
 
 function emptyForm(): FormState {
-  return { name: '', category: 'purchase', channels: [], subject: '', body: '', enabled: true }
+  return { name: '', category: 'purchase', channels: [], subject: '', body: '', textBody: '', enabled: true }
 }
 
 function toForm(tpl: MessageTemplate): FormState {
-  return { name: tpl.name, category: tpl.category, channels: tpl.channels, subject: tpl.subject, body: tpl.body, enabled: tpl.enabled }
+  return { name: tpl.name, category: tpl.category, channels: tpl.channels, subject: tpl.subject, body: tpl.body, textBody: tpl.text_body ?? '', enabled: tpl.enabled }
 }
 
 export default function MessageTemplatesPanel() {
@@ -49,7 +55,12 @@ export default function MessageTemplatesPanel() {
   const CHANNEL_LABELS: Record<MessageChannel, string> = { email: t('channel.email'), sms: t('channel.sms'), whatsapp: t('channel.whatsapp') }
   const { templates, loading, error, create, update, remove } = useMessageTemplates(token ?? '')
 
+  const location = useLocation()
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  // /message-center/templates/<id>/design opens the visual email editor.
+  const [designId, view] = subPathSegments(location.pathname, TEMPLATES_PATH)
+  const designing = view === DESIGN_VIEW ? templates.find(tpl => tpl.id === designId) ?? null : null
   // Editor open state is the URL (/message-center/templates/<new|id>).
   const editor = useRoutedEditor(TEMPLATES_PATH)
   const creating = editor.editingId === NEW_RECORD
@@ -82,10 +93,11 @@ export default function MessageTemplatesPanel() {
     setSaving(true)
     setFormError('')
     try {
+      const content = { name: form.name, category: form.category, channels: form.channels, subject: form.subject, body: form.body, text_body: form.textBody }
       if (editingTemplate) {
-        await update(editingTemplate.id, { ...form })
+        await update(editingTemplate.id, { ...content, enabled: form.enabled })
       } else {
-        await create({ name: form.name, category: form.category, channels: form.channels, subject: form.subject, body: form.body })
+        await create(content)
       }
       closeForm()
     } catch (err) {
@@ -103,6 +115,17 @@ export default function MessageTemplatesPanel() {
     } catch (err) {
       setActionError(apiErrorText(err) ?? t('common:status.error'))
     }
+  }
+
+  async function saveDesign(tpl: MessageTemplate, changes: { subject: string; body: string; design: Record<string, unknown> }) {
+    await update(tpl.id, {
+      name: tpl.name, category: tpl.category, channels: tpl.channels, text_body: tpl.text_body, enabled: tpl.enabled, ...changes,
+    })
+  }
+
+  if (view === DESIGN_VIEW) {
+    if (designing) return <EmailDesignEditor key={designing.id} template={designing} onSave={saveDesign} onBack={() => navigate(TEMPLATES_PATH)} />
+    return <p className="p-6 text-xs text-ink-4">{loading ? t('common:status.loading') : t('design.notFound')}</p>
   }
 
   return (
@@ -139,7 +162,7 @@ export default function MessageTemplatesPanel() {
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colChannels')}</th>
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colBody')}</th>
               <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colStatus')}</th>
-              <th className="px-3 py-2.5 w-16" />
+              <th className="px-3 py-2.5 w-24" />
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
@@ -161,7 +184,7 @@ export default function MessageTemplatesPanel() {
                     })}
                   </div>
                 </td>
-                <td className="px-3 py-2.5 max-w-[320px] truncate text-ink-3">{tpl.body}</td>
+                <td className="px-3 py-2.5 max-w-[320px] truncate text-ink-3">{plainTextExcerpt(tpl.body || tpl.text_body || '')}</td>
                 <td className="px-3 py-2.5">
                   <span className={tpl.enabled ? 'text-success' : 'text-ink-4'}>
                     {tpl.enabled ? t('common:status.enabled') : t('common:status.disabled')}
@@ -169,6 +192,15 @@ export default function MessageTemplatesPanel() {
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                    {tpl.channels.includes('email') && (
+                      <button aria-label={t('design.designEmail')}
+                        onClick={() => navigate(templateDesignPath(tpl.id))}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
+                        title={t('design.designEmail')}
+                      >
+                        <Palette size={12} className="text-ink-3" />
+                      </button>
+                    )}
                     <button aria-label={t('common:actions.edit')}
                       onClick={() => openEdit(tpl)}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover transition-colors"
@@ -269,23 +301,43 @@ export default function MessageTemplatesPanel() {
                 </div>
               )}
 
-              <div>
-                <label htmlFor="template-body" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
-                  {t('templates.body')}
-                </label>
-                <textarea
-                  id="template-body"
-                  required
-                  rows={4}
-                  value={form.body}
-                  onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-                  placeholder={t('templates.bodyPlaceholder', { customer: '{{customer_name}}', order: '{{order_number}}' })}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
-                />
-                <p className="text-2xs text-ink-4 mt-1">
-                  {t('templates.tokensHint', { token: '{{token}}', loop: '{{#items}}…{{/items}}', ifSet: '{{#sale_price}}…{{/sale_price}}', ifEmpty: '{{^sale_price}}…{{/sale_price}}' })}
-                </p>
-              </div>
+              {form.channels.includes('email') && (
+                <div>
+                  <label htmlFor="template-body" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                    {t('templates.body')}
+                  </label>
+                  <textarea
+                    id="template-body"
+                    required
+                    rows={4}
+                    value={form.body}
+                    onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
+                    placeholder={t('templates.bodyPlaceholder', { customer: '{{customer_name}}', order: '{{order_number}}' })}
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 font-mono outline-none focus:ring-1 focus:ring-focus"
+                  />
+                  {editingTemplate && <p className="text-2xs text-ink-4 mt-1">{t('templates.designHint')}</p>}
+                </div>
+              )}
+
+              {form.channels.some(ch => ch !== 'email') && (
+                <div>
+                  <label htmlFor="template-text" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                    {t('templates.textBody')}
+                  </label>
+                  <textarea
+                    id="template-text"
+                    rows={4}
+                    value={form.textBody}
+                    onChange={e => setForm(f => ({ ...f, textBody: e.target.value }))}
+                    placeholder={t('templates.bodyPlaceholder', { customer: '{{customer_name}}', order: '{{order_number}}' })}
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
+                  />
+                </div>
+              )}
+
+              <p className="text-2xs text-ink-4">
+                {t('templates.tokensHint', { token: '{{token}}', loop: '{{#items}}…{{/items}}', ifSet: '{{#sale_price}}…{{/sale_price}}', ifEmpty: '{{^sale_price}}…{{/sale_price}}' })}
+              </p>
 
               {editingTemplate && (
                 <div className="flex items-center justify-between">

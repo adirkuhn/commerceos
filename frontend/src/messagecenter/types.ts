@@ -8,7 +8,14 @@ export interface MessageTemplate {
   category: MessageCategory
   channels: MessageChannel[]
   subject: string
+  // Email body: HTML with {{token}} placeholders.
   body: string
+  // WhatsApp/SMS text; empty means body is used.
+  text_body?: string
+  // The visual email editor's project data body was built from.
+  design?: Record<string, unknown> | null
+  // The built-in default this template came from ('' when none).
+  default_key?: string
   enabled: boolean
   created_at: string
   updated_at: string
@@ -19,7 +26,9 @@ export interface CreateMessageTemplateInput {
   category: MessageCategory
   channels: MessageChannel[]
   subject?: string
-  body: string
+  body?: string
+  text_body?: string
+  design?: Record<string, unknown> | null
 }
 
 export interface UpdateMessageTemplateInput extends CreateMessageTemplateInput {
@@ -83,4 +92,35 @@ export interface APIError {
 export interface APIResponse<T> {
   data: T | null
   error: APIError | null
+}
+
+export interface TemplateVariable {
+  name: string
+  type: 'text' | 'list'
+  example: unknown
+  // For a list: what each repetition offers.
+  fields: TemplateVariable[]
+}
+
+// A domain event a rule can fire on, with what its templates can use
+// (backend GET /message-triggers).
+export interface MessageTrigger {
+  subject: TriggerSubject
+  audience: 'customer' | 'staff'
+  has_order: boolean
+  variables: TemplateVariable[]
+  sample_data: Record<string, unknown>
+}
+
+export interface PreviewTemplateInput {
+  trigger_subject: TriggerSubject
+  subject?: string
+  body?: string
+  text_body?: string
+}
+
+export interface TemplatePreview {
+  subject: string
+  html: string
+  text: string
 }

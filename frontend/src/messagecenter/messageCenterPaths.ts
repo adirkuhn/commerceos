@@ -3,6 +3,7 @@
 //   /message-center                     Templates tab (default)
 //   /message-center/rules|conversations other tabs
 //   /message-center/templates/<new|id>  template editor
+//   /message-center/templates/<id>/design  visual email editor
 //   /message-center/rules/<new|id>      automation rule editor
 //   /message-center/conversations/<e164>  selected WhatsApp thread
 export const MESSAGE_CENTER_PATH = '/message-center'
@@ -18,3 +19,9 @@ export function messageCenterTabPath(tab: MessageCenterTab): string {
 export const TEMPLATES_PATH = `${MESSAGE_CENTER_PATH}/templates`
 export const RULES_PATH = `${MESSAGE_CENTER_PATH}/rules`
 export const CONVERSATIONS_PATH = `${MESSAGE_CENTER_PATH}/conversations`
+
+export const DESIGN_VIEW = 'design'
+
+export function templateDesignPath(id: string): string {
+  return `${TEMPLATES_PATH}/${encodeURIComponent(id)}/${DESIGN_VIEW}`
+}

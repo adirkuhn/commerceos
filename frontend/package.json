@@ -17,6 +17,8 @@
   "dependencies": {
     "@zxing/browser": "^0.2.1",
     "clsx": "^2.1.1",
+    "grapesjs": "^0.22.16",
+    "grapesjs-preset-newsletter": "^1.0.2",
     "i18next": "^26.4.2",
     "jsbarcode": "^3.12.3",
     "lucide-react": "^0.460.0",

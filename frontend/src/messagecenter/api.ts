@@ -1,5 +1,6 @@
 import type {
   MessageTemplate, CreateMessageTemplateInput, UpdateMessageTemplateInput,
+  MessageTrigger, PreviewTemplateInput, TemplatePreview,
   AutomationRule, CreateAutomationRuleInput, UpdateAutomationRuleInput,
   APIResponse,
 } from './types'
@@ -67,4 +68,23 @@ export function updateAutomationRule(token: string, id: string, input: UpdateAut
 
 export function deleteAutomationRule(token: string, id: string): Promise<null> {
   return request<null>(`${rulesBase()}/${id}`, { method: 'DELETE' }, token)
+}
+
+export function listMessageTriggers(token: string): Promise<MessageTrigger[]> {
+  return request<MessageTrigger[]>(`${apiBase()}/message-triggers`, { method: 'GET' }, token)
+}
+
+export function previewMessageTemplate(token: string, input: PreviewTemplateInput): Promise<TemplatePreview> {
+  return request<TemplatePreview>(`${base()}/preview`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+// uploadMessageTemplateImage stores an image (logo, banner) for templates
+// and returns its public URL.
+export async function uploadMessageTemplateImage(token: string, file: File): Promise<string> {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`${base()}/images`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
+  const body: APIResponse<{ url: string }> = await res.json()
+  if (!res.ok || body.error || !body.data) throw CodedApiError.fromEnvelope(body.error, res.status)
+  return body.data.url
 }
