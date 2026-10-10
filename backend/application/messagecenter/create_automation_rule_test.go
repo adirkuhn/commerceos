@@ -102,3 +102,30 @@ func TestCreateAutomationRule_propagatesTemplateNotFound(t *testing.T) {
 
 	assert.ErrorIs(t, err, mcDomain.ErrTemplateNotFound)
 }
+
+func TestCreateAutomationRule_storesNormalizedExtraRecipients(t *testing.T) {
+	repo := &stubAutomationRuleRepo{}
+	templateRepo := &stubMessageTemplateRepo{byID: map[string]mcDomain.MessageTemplate{"template-1": {ID: "template-1"}}}
+	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 1), repo, templateRepo, &eventrecordtest.Outbox{})
+
+	rule, err := uc.Execute(context.Background(), appmc.CreateAutomationRuleInput{
+		Name: "Copy to the shop", TriggerSubject: "storefront.order.placed", TemplateID: "template-1",
+		ExtraRecipients: []string{" shop@example.nl", "SHOP@example.nl"},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"shop@example.nl"}, rule.ExtraRecipients)
+	assert.Equal(t, []string{"shop@example.nl"}, repo.created[0].ExtraRecipients)
+}
+
+func TestCreateAutomationRule_rejectsInvalidExtraRecipient(t *testing.T) {
+	repo := &stubAutomationRuleRepo{}
+	uc := appmc.NewCreateAutomationRuleUseCase(newMockGormDB(t, 0), repo, &stubMessageTemplateRepo{}, &eventrecordtest.Outbox{})
+
+	_, err := uc.Execute(context.Background(), appmc.CreateAutomationRuleInput{
+		Name: "X", TriggerSubject: "storefront.order.placed", TemplateID: "template-1", ExtraRecipients: []string{"nope"},
+	})
+
+	assert.ErrorIs(t, err, mcDomain.ErrInvalidExtraRecipient)
+	assert.Empty(t, repo.created)
+}

@@ -2,7 +2,9 @@ package messagecenter
 
 import (
 	"fmt"
+	"net/mail"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/adirkuhn/commerceos/domain/messaging"
@@ -80,9 +82,38 @@ type AutomationRule struct {
 	// channel for this specific trigger -- e.g. a template enabled for
 	// email+whatsapp, but this rule only ever sends it by whatsapp.
 	ChannelOverride *messaging.Channel
+	// ExtraRecipients are email addresses that always get this rule's
+	// email, on top of whoever the trigger resolves to (the order's
+	// customer, or a staff category's notification recipients). See
+	// NormalizeExtraRecipients.
+	ExtraRecipients []string
 	Enabled         bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+}
+
+const maxExtraRecipients = 20
+
+// NormalizeExtraRecipients trims, drops blanks and case-insensitive
+// duplicates, and requires bare email addresses (no "Name <addr>").
+func NormalizeExtraRecipients(raw []string) ([]string, error) {
+	out := make([]string, 0, len(raw))
+	seen := make(map[string]bool, len(raw))
+	for _, r := range raw {
+		addr := strings.TrimSpace(r)
+		if addr == "" || seen[strings.ToLower(addr)] {
+			continue
+		}
+		if parsed, err := mail.ParseAddress(addr); err != nil || parsed.Address != addr {
+			return nil, ErrInvalidExtraRecipient
+		}
+		seen[strings.ToLower(addr)] = true
+		out = append(out, addr)
+	}
+	if len(out) > maxExtraRecipients {
+		return nil, ErrTooManyExtraRecipients
+	}
+	return out, nil
 }
 
 // Matches reports whether every condition holds against payload (flat AND).

@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"gorm.io/gorm"
 
 	genmc "github.com/adirkuhn/commerceos/api/messagecenter"
@@ -164,6 +165,7 @@ func (h *Handler) CreateAutomationRule(c *gin.Context) {
 	rule, err := h.createRule.Execute(c.Request.Context(), appmc.CreateAutomationRuleInput{
 		Name: req.Name, TriggerSubject: string(req.TriggerSubject), Conditions: toDomainConditions(req.Conditions),
 		TemplateID: req.TemplateId, ChannelOverride: toDomainChannelPtr(req.ChannelOverride),
+		ExtraRecipients: fromGenEmails(req.ExtraRecipients),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -180,6 +182,7 @@ func (h *Handler) UpdateAutomationRule(c *gin.Context, id genmc.Id) {
 	rule, err := h.updateRule.Execute(c.Request.Context(), appmc.UpdateAutomationRuleInput{
 		ID: id, Name: req.Name, TriggerSubject: string(req.TriggerSubject), Conditions: toDomainConditions(req.Conditions),
 		TemplateID: req.TemplateId, ChannelOverride: toDomainChannelPtr(req.ChannelOverride), Enabled: req.Enabled,
+		ExtraRecipients: fromGenEmails(req.ExtraRecipients),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -207,9 +210,28 @@ func toGenRule(r mcDomain.AutomationRule) genmc.AutomationRule {
 	}
 	return genmc.AutomationRule{
 		Id: r.ID, Name: r.Name, TriggerSubject: genmc.TriggerSubject(r.TriggerSubject), Conditions: conditions,
-		TemplateId: r.TemplateID, ChannelOverride: channelOverride, Enabled: r.Enabled,
-		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		TemplateId: r.TemplateID, ChannelOverride: channelOverride, ExtraRecipients: toGenEmails(r.ExtraRecipients),
+		Enabled: r.Enabled, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 	}
+}
+
+func fromGenEmails(in *[]openapi_types.Email) []string {
+	if in == nil {
+		return nil
+	}
+	out := make([]string, len(*in))
+	for i, e := range *in {
+		out[i] = string(e)
+	}
+	return out
+}
+
+func toGenEmails(in []string) []openapi_types.Email {
+	out := make([]openapi_types.Email, len(in))
+	for i, e := range in {
+		out[i] = openapi_types.Email(e)
+	}
+	return out
 }
 
 func toDomainConditions(conditions *[]genmc.Condition) []mcDomain.Condition {
@@ -268,7 +290,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, mcDomain.ErrNoChannelsSelected), errors.Is(err, mcDomain.ErrInvalidChannel),
 		errors.Is(err, mcDomain.ErrTemplateBodyRequired), errors.Is(err, mcDomain.ErrRuleNameRequired),
 		errors.Is(err, mcDomain.ErrInvalidTriggerSubject), errors.Is(err, mcDomain.ErrTemplateIDRequired),
-		errors.Is(err, mcDomain.ErrInvalidCondition):
+		errors.Is(err, mcDomain.ErrInvalidCondition), errors.Is(err, mcDomain.ErrInvalidExtraRecipient),
+		errors.Is(err, mcDomain.ErrTooManyExtraRecipients):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
 	default:
 		log.Printf("messagecenter: unhandled error: %v", err)

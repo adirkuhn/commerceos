@@ -20,6 +20,7 @@ type UpdateAutomationRuleInput struct {
 	Conditions      []mcDomain.Condition
 	TemplateID      string
 	ChannelOverride *messaging.Channel
+	ExtraRecipients []string
 	Enabled         bool
 }
 
@@ -27,7 +28,7 @@ type UpdateAutomationRuleUseCase struct {
 	db           *gorm.DB
 	repo         mcDomain.AutomationRuleRepository
 	templateRepo mcDomain.MessageTemplateRepository
-	outbox eventrecord.Enqueuer
+	outbox       eventrecord.Enqueuer
 }
 
 func NewUpdateAutomationRuleUseCase(db *gorm.DB, repo mcDomain.AutomationRuleRepository, templateRepo mcDomain.MessageTemplateRepository, outbox eventrecord.Enqueuer) *UpdateAutomationRuleUseCase {
@@ -38,9 +39,13 @@ func (uc *UpdateAutomationRuleUseCase) Execute(ctx context.Context, in UpdateAut
 	if err := validateAutomationRuleInput(in.Name, in.TriggerSubject, in.Conditions, in.TemplateID); err != nil {
 		return nil, fmt.Errorf("updateAutomationRule: %w", err)
 	}
+	extraRecipients, err := mcDomain.NormalizeExtraRecipients(in.ExtraRecipients)
+	if err != nil {
+		return nil, fmt.Errorf("updateAutomationRule: %w", err)
+	}
 
 	var rule mcDomain.AutomationRule
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		existing, err := uc.repo.FindByID(ctx, in.ID)
 		if err != nil {
 			return err
@@ -54,6 +59,7 @@ func (uc *UpdateAutomationRuleUseCase) Execute(ctx context.Context, in UpdateAut
 		existing.Conditions = in.Conditions
 		existing.TemplateID = in.TemplateID
 		existing.ChannelOverride = in.ChannelOverride
+		existing.ExtraRecipients = extraRecipients
 		existing.Enabled = in.Enabled
 		existing.UpdatedAt = time.Now()
 		if err := uc.repo.Update(ctx, existing); err != nil {
@@ -66,10 +72,20 @@ func (uc *UpdateAutomationRuleUseCase) Execute(ctx context.Context, in UpdateAut
 			Set("conditions", before.Conditions, rule.Conditions).
 			Set("template_id", before.TemplateID, rule.TemplateID).
 			Set("channel_override", before.ChannelOverride, rule.ChannelOverride).
+			Set("extra_recipients", nonNilStrings(before.ExtraRecipients), rule.ExtraRecipients).
 			Set("enabled", before.Enabled, rule.Enabled))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateAutomationRule: %w", err)
 	}
 	return &rule, nil
+}
+
+// nonNilStrings makes a rule saved before extra recipients existed (nil)
+// compare equal to an explicitly empty list.
+func nonNilStrings(v []string) []string {
+	if v == nil {
+		return []string{}
+	}
+	return v
 }

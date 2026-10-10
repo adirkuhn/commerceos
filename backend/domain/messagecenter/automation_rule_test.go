@@ -1,9 +1,11 @@
 package messagecenter_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/adirkuhn/commerceos/domain/messagecenter"
 )
@@ -86,4 +88,31 @@ func TestAutomationRule_Matches_multipleConditionsAreAND(t *testing.T) {
 	}}
 	assert.True(t, r.Matches(map[string]any{"status_main": "delivered", "kind": "shipment_status"}))
 	assert.False(t, r.Matches(map[string]any{"status_main": "delivered", "kind": "order_processed"}))
+}
+
+func TestNormalizeExtraRecipients(t *testing.T) {
+	got, err := messagecenter.NormalizeExtraRecipients([]string{" ops@example.nl ", "", "OPS@example.nl", "boss@example.nl"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ops@example.nl", "boss@example.nl"}, got)
+
+	got, err = messagecenter.NormalizeExtraRecipients(nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{}, got)
+}
+
+func TestNormalizeExtraRecipients_rejectsInvalidAddress(t *testing.T) {
+	_, err := messagecenter.NormalizeExtraRecipients([]string{"not-an-email"})
+	assert.ErrorIs(t, err, messagecenter.ErrInvalidExtraRecipient)
+
+	_, err = messagecenter.NormalizeExtraRecipients([]string{"Jane <jane@example.nl>"})
+	assert.ErrorIs(t, err, messagecenter.ErrInvalidExtraRecipient, "bare addresses only")
+}
+
+func TestNormalizeExtraRecipients_rejectsTooMany(t *testing.T) {
+	many := make([]string, 21)
+	for i := range many {
+		many[i] = fmt.Sprintf("user%d@example.nl", i)
+	}
+	_, err := messagecenter.NormalizeExtraRecipients(many)
+	assert.ErrorIs(t, err, messagecenter.ErrTooManyExtraRecipients)
 }

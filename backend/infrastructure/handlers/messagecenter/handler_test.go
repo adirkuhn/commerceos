@@ -82,9 +82,11 @@ func (s *stubCreateRule) Execute(_ context.Context, in appmc.CreateAutomationRul
 type stubUpdateRule struct {
 	out *mcDomain.AutomationRule
 	err error
+	got appmc.UpdateAutomationRuleInput
 }
 
-func (s *stubUpdateRule) Execute(_ context.Context, _ appmc.UpdateAutomationRuleInput) (*mcDomain.AutomationRule, error) {
+func (s *stubUpdateRule) Execute(_ context.Context, in appmc.UpdateAutomationRuleInput) (*mcDomain.AutomationRule, error) {
+	s.got = in
 	return s.out, s.err
 }
 
@@ -277,4 +279,45 @@ func TestDeleteAutomationRuleHandler_notFound(t *testing.T) {
 	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/automation-rules/missing", "")
 
 	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestCreateAutomationRuleHandler_passesExtraRecipients(t *testing.T) {
+	create := &stubCreateRule{out: &mcDomain.AutomationRule{ID: "rule-1", ExtraRecipients: []string{"ops@example.nl"}, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	h := newHandler(nil, nil, nil, nil, nil, create, nil, nil)
+	body := `{"name":"R","trigger_subject":"storefront.order.placed","template_id":"template-1","extra_recipients":["ops@example.nl"]}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/automation-rules", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, []string{"ops@example.nl"}, create.got.ExtraRecipients)
+	assert.Contains(t, w.Body.String(), `"extra_recipients":["ops@example.nl"]`)
+}
+
+func TestUpdateAutomationRuleHandler_passesExtraRecipients(t *testing.T) {
+	update := &stubUpdateRule{out: &mcDomain.AutomationRule{ID: "rule-1", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	h := newHandler(nil, nil, nil, nil, nil, nil, update, nil)
+	body := `{"name":"R","trigger_subject":"storefront.order.placed","template_id":"template-1","enabled":true,"extra_recipients":["a@example.nl","b@example.nl"]}`
+	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/automation-rules/rule-1", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, []string{"a@example.nl", "b@example.nl"}, update.got.ExtraRecipients)
+	assert.Contains(t, w.Body.String(), `"extra_recipients":[]`, "a rule without extras lists none, not null")
+}
+
+func TestCreateAutomationRuleHandler_invalidExtraRecipientIsUnprocessable(t *testing.T) {
+	for _, domainErr := range []error{mcDomain.ErrInvalidExtraRecipient, mcDomain.ErrTooManyExtraRecipients} {
+		create := &stubCreateRule{err: domainErr}
+		h := newHandler(nil, nil, nil, nil, nil, create, nil, nil)
+		body := `{"name":"R","trigger_subject":"storefront.order.placed","template_id":"template-1","extra_recipients":["ops@example.nl"]}`
+		w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/automation-rules", body)
+
+		require.Equal(t, http.StatusUnprocessableEntity, w.Code, domainErr.Error())
+	}
+}
+
+func TestCreateAutomationRuleHandler_malformedExtraRecipientIsUnprocessable(t *testing.T) {
+	h := newHandler(nil, nil, nil, nil, nil, &stubCreateRule{}, nil, nil)
+	body := `{"name":"R","trigger_subject":"storefront.order.placed","template_id":"template-1","extra_recipients":["not-an-email"]}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/automation-rules", body)
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }

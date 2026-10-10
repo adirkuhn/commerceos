@@ -52,6 +52,7 @@ type automationRuleModel struct {
 	Conditions      automationRuleConditions `gorm:"column:conditions;type:jsonb;not null"`
 	TemplateID      string                   `gorm:"column:template_id;not null;type:uuid"`
 	ChannelOverride *string                  `gorm:"column:channel_override"`
+	ExtraRecipients jsonbValue[[]string]     `gorm:"column:extra_recipients;type:jsonb;not null"`
 	Enabled         bool                     `gorm:"column:enabled;not null"`
 	CreatedAt       time.Time                `gorm:"column:created_at"`
 	UpdatedAt       time.Time                `gorm:"column:updated_at"`
@@ -141,7 +142,7 @@ func (r *AutomationRuleRepo) Update(ctx context.Context, rule *mcDomain.Automati
 	m := toAutomationRuleModel(*rule)
 	if err := tx.Model(&automationRuleModel{}).Where("id = ?", rule.ID).Updates(map[string]any{
 		"name": m.Name, "trigger_subject": m.TriggerSubject, "conditions": m.Conditions,
-		"template_id": m.TemplateID, "channel_override": m.ChannelOverride, "enabled": m.Enabled, "updated_at": m.UpdatedAt,
+		"template_id": m.TemplateID, "channel_override": m.ChannelOverride, "extra_recipients": m.ExtraRecipients, "enabled": m.Enabled, "updated_at": m.UpdatedAt,
 	}).Error; err != nil {
 		return fmt.Errorf("automationRuleRepo.Update: %w", err)
 	}
@@ -168,7 +169,8 @@ func toAutomationRuleModel(r mcDomain.AutomationRule) automationRuleModel {
 	return automationRuleModel{
 		ID: r.ID, TenantID: r.TenantID, Name: r.Name, TriggerSubject: r.TriggerSubject,
 		Conditions: automationRuleConditions(r.Conditions), TemplateID: r.TemplateID,
-		ChannelOverride: channelOverride, Enabled: r.Enabled, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		ChannelOverride: channelOverride, ExtraRecipients: jsonbValue[[]string]{V: nonNilStrings(r.ExtraRecipients)},
+		Enabled: r.Enabled, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 	}
 }
 
@@ -181,6 +183,15 @@ func toAutomationRuleDomain(m automationRuleModel) mcDomain.AutomationRule {
 	return mcDomain.AutomationRule{
 		ID: m.ID, TenantID: m.TenantID, Name: m.Name, TriggerSubject: m.TriggerSubject,
 		Conditions: []mcDomain.Condition(m.Conditions), TemplateID: m.TemplateID,
-		ChannelOverride: channelOverride, Enabled: m.Enabled, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
+		ChannelOverride: channelOverride, ExtraRecipients: nonNilStrings(m.ExtraRecipients.V),
+		Enabled: m.Enabled, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
+}
+
+// nonNilStrings keeps an empty list as [] (never JSON null / Go nil).
+func nonNilStrings(v []string) []string {
+	if v == nil {
+		return []string{}
+	}
+	return v
 }

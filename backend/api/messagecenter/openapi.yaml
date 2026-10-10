@@ -263,7 +263,7 @@ components:
 
     AutomationRule:
       type: object
-      required: [id, name, trigger_subject, conditions, template_id, enabled, created_at, updated_at]
+      required: [id, name, trigger_subject, conditions, template_id, extra_recipients, enabled, created_at, updated_at]
       properties:
         id: { type: string }
         name: { type: string }
@@ -276,6 +276,16 @@ components:
         template_id: { type: string }
         channel_override:
           $ref: '#/components/schemas/Channel'
+        extra_recipients:
+          type: array
+          items: { type: string, format: email }
+          description: >-
+            Email addresses that always get this rule's email (when it uses
+            the email channel), on top of whoever the trigger resolves to --
+            the order's customer, or for staff triggers like the stock
+            close-to-expiry report, the notification recipients of that
+            category when its email toggle is on. A disabled rule sends to
+            nobody.
         enabled: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -294,6 +304,14 @@ components:
         template_id: { type: string }
         channel_override:
           $ref: '#/components/schemas/Channel'
+        extra_recipients:
+          type: array
+          maxItems: 20
+          items: { type: string, format: email, maxLength: 254 }
+          description: >-
+            Bare email addresses (no "Name <addr>"); trimmed and
+            de-duplicated case-insensitively. Omitted means none. An invalid
+            address or more than 20 returns 422 INVALID_REQUEST.
 
     UpdateAutomationRuleRequest:
       type: object
@@ -309,6 +327,14 @@ components:
         template_id: { type: string }
         channel_override:
           $ref: '#/components/schemas/Channel'
+        extra_recipients:
+          type: array
+          maxItems: 20
+          items: { type: string, format: email, maxLength: 254 }
+          description: >-
+            Bare email addresses (no "Name <addr>"); trimmed and
+            de-duplicated case-insensitively. Omitted means none. An invalid
+            address or more than 20 returns 422 INVALID_REQUEST.
         enabled: { type: boolean }
 
     AutomationRuleResponse:

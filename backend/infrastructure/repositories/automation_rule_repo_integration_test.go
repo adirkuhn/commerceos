@@ -43,6 +43,7 @@ func TestAutomationRuleRepo_Integration_CreateFindUpdateDeleteRoundTrip(t *testi
 			Conditions:      []mcDomain.Condition{{Field: "status_code", Operator: mcDomain.OperatorIn, Value: []any{float64(8), float64(19)}}},
 			TemplateID:      template.ID,
 			ChannelOverride: &override,
+			ExtraRecipients: []string{"ops@example.nl"},
 			Enabled:         true, CreatedAt: now, UpdatedAt: now,
 		}
 		return repo.Create(ctx, &created)
@@ -63,6 +64,7 @@ func TestAutomationRuleRepo_Integration_CreateFindUpdateDeleteRoundTrip(t *testi
 	assert.Equal(t, mcDomain.OperatorIn, found.Conditions[0].Operator)
 	require.NotNil(t, found.ChannelOverride)
 	assert.Equal(t, messaging.ChannelWhatsApp, *found.ChannelOverride)
+	assert.Equal(t, []string{"ops@example.nl"}, found.ExtraRecipients)
 
 	var bySubject []mcDomain.AutomationRule
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
@@ -75,7 +77,16 @@ func TestAutomationRuleRepo_Integration_CreateFindUpdateDeleteRoundTrip(t *testi
 
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		found.Enabled = false
+		found.ExtraRecipients = []string{"a@example.nl", "b@example.nl"}
 		return repo.Update(ctx, found)
+	})
+	require.NoError(t, err)
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		updated, err := repo.FindByID(ctx, created.ID)
+		if err == nil {
+			assert.Equal(t, []string{"a@example.nl", "b@example.nl"}, updated.ExtraRecipients)
+		}
+		return err
 	})
 	require.NoError(t, err)
 

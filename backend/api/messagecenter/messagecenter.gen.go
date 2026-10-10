@@ -17,6 +17,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for Category.
@@ -142,9 +143,12 @@ type AutomationRule struct {
 	Conditions      []Condition `json:"conditions"`
 	CreatedAt       time.Time   `json:"created_at"`
 	Enabled         bool        `json:"enabled"`
-	Id              string      `json:"id"`
-	Name            string      `json:"name"`
-	TemplateId      string      `json:"template_id"`
+
+	// ExtraRecipients Email addresses that always get this rule's email (when it uses the email channel), on top of whoever the trigger resolves to -- the order's customer, or for staff triggers like the stock close-to-expiry report, the notification recipients of that category when its email toggle is on. A disabled rule sends to nobody.
+	ExtraRecipients []openapi_types.Email `json:"extra_recipients"`
+	Id              string                `json:"id"`
+	Name            string                `json:"name"`
+	TemplateId      string                `json:"template_id"`
 
 	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects.
 	TriggerSubject TriggerSubject `json:"trigger_subject"`
@@ -180,8 +184,11 @@ type Condition struct {
 type CreateAutomationRuleRequest struct {
 	ChannelOverride *Channel     `json:"channel_override,omitempty"`
 	Conditions      *[]Condition `json:"conditions,omitempty"`
-	Name            string       `json:"name"`
-	TemplateId      string       `json:"template_id"`
+
+	// ExtraRecipients Bare email addresses (no "Name <addr>"); trimmed and de-duplicated case-insensitively. Omitted means none. An invalid address or more than 20 returns 422 INVALID_REQUEST.
+	ExtraRecipients *[]openapi_types.Email `json:"extra_recipients,omitempty"`
+	Name            string                 `json:"name"`
+	TemplateId      string                 `json:"template_id"`
 
 	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects.
 	TriggerSubject TriggerSubject `json:"trigger_subject"`
@@ -241,8 +248,11 @@ type UpdateAutomationRuleRequest struct {
 	ChannelOverride *Channel     `json:"channel_override,omitempty"`
 	Conditions      *[]Condition `json:"conditions,omitempty"`
 	Enabled         bool         `json:"enabled"`
-	Name            string       `json:"name"`
-	TemplateId      string       `json:"template_id"`
+
+	// ExtraRecipients Bare email addresses (no "Name <addr>"); trimmed and de-duplicated case-insensitively. Omitted means none. An invalid address or more than 20 returns 422 INVALID_REQUEST.
+	ExtraRecipients *[]openapi_types.Email `json:"extra_recipients,omitempty"`
+	Name            string                 `json:"name"`
+	TemplateId      string                 `json:"template_id"`
 
 	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects.
 	TriggerSubject TriggerSubject `json:"trigger_subject"`
@@ -507,31 +517,36 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"JSeLC958bv4JAAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

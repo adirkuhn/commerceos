@@ -19,6 +19,7 @@ type CreateAutomationRuleInput struct {
 	Conditions      []mcDomain.Condition
 	TemplateID      string
 	ChannelOverride *messaging.Channel
+	ExtraRecipients []string
 }
 
 // validateAutomationRuleInput is shared by Create and Update -- same field
@@ -52,7 +53,7 @@ type CreateAutomationRuleUseCase struct {
 	db           *gorm.DB
 	repo         mcDomain.AutomationRuleRepository
 	templateRepo mcDomain.MessageTemplateRepository
-	outbox eventrecord.Enqueuer
+	outbox       eventrecord.Enqueuer
 }
 
 func NewCreateAutomationRuleUseCase(db *gorm.DB, repo mcDomain.AutomationRuleRepository, templateRepo mcDomain.MessageTemplateRepository, outbox eventrecord.Enqueuer) *CreateAutomationRuleUseCase {
@@ -63,9 +64,13 @@ func (uc *CreateAutomationRuleUseCase) Execute(ctx context.Context, in CreateAut
 	if err := validateAutomationRuleInput(in.Name, in.TriggerSubject, in.Conditions, in.TemplateID); err != nil {
 		return nil, fmt.Errorf("createAutomationRule: %w", err)
 	}
+	extraRecipients, err := mcDomain.NormalizeExtraRecipients(in.ExtraRecipients)
+	if err != nil {
+		return nil, fmt.Errorf("createAutomationRule: %w", err)
+	}
 
 	var rule mcDomain.AutomationRule
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		if _, err := uc.templateRepo.FindByID(ctx, in.TemplateID); err != nil {
 			return err
 		}
@@ -73,7 +78,8 @@ func (uc *CreateAutomationRuleUseCase) Execute(ctx context.Context, in CreateAut
 		rule = mcDomain.AutomationRule{
 			TenantID: tenant.IDFromContext(ctx), Name: in.Name, TriggerSubject: in.TriggerSubject,
 			Conditions: in.Conditions, TemplateID: in.TemplateID, ChannelOverride: in.ChannelOverride,
-			Enabled: true, CreatedAt: now, UpdatedAt: now,
+			ExtraRecipients: extraRecipients,
+			Enabled:         true, CreatedAt: now, UpdatedAt: now,
 		}
 		if err := uc.repo.Create(ctx, &rule); err != nil {
 			return err
