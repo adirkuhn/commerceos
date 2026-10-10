@@ -14,6 +14,7 @@ import (
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	messagecenterapp "github.com/adirkuhn/commerceos/application/messagecenter"
 	notificationsapp "github.com/adirkuhn/commerceos/application/notifications"
+	settingsapp "github.com/adirkuhn/commerceos/application/settings"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	pmsapp "github.com/adirkuhn/commerceos/application/pms"
 	procurementapp "github.com/adirkuhn/commerceos/application/procurement"
@@ -252,6 +253,20 @@ func main() {
 	clearancePromotionStockConsumer := consumers.NewClearancePromotionStockConsumer(processedEventRepo, finishClearanceLinesUC, js)
 	if sub := subscribeConsumer(js, events.InventoryStockChanged{}.EventName(), "inventory-stock-changed-clearance-promotions",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, clearancePromotionStockConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
+	}
+
+	stockExpiryBellConsumer := consumers.NewStockExpiryBellConsumer(processedEventRepo, notificationsapp.NewNotifyStockCloseToExpiryUseCase(notifyUC), js)
+	if sub := subscribeConsumer(js, events.StockCloseToExpiryReported{}.EventName(), consumers.StockExpiryBellConsumerName,
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, stockExpiryBellConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
+	}
+
+	ensureStockExpiryDefaultsUC := messagecenterapp.NewEnsureStockExpiryDefaultsUseCase(db, repositories.NewAutomationRuleRepo(db), repositories.NewMessageTemplateRepo(db),
+		outboxRepo, settingsapp.NewGetTenantSettingsUseCase(db, settingsRepo))
+	stockExpiryDefaultsConsumer := consumers.NewStockExpiryDefaultsConsumer(processedEventRepo, ensureStockExpiryDefaultsUC, js)
+	if sub := subscribeConsumer(js, events.TenantSettingsUpdated.Subject, consumers.StockExpiryDefaultsConsumerName,
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, stockExpiryDefaultsConsumer.Handle); sub != nil {
 		defer sub.Unsubscribe()
 	}
 
