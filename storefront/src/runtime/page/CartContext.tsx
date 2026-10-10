@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { shopperError } from '../../i18n/shopperError'
 import type { Cart, StorefrontAPI } from '../../api/storefront'
 
 export interface CartState {
@@ -52,7 +53,7 @@ export function CartProvider({ api, storeKey, children }: { api: StorefrontAPI; 
       }
       setCart(await fn(token))
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n.t('common.somethingWrong'))
+      setError(shopperError(err, i18n, 'common.somethingWrong'))
     } finally {
       setBusy(false)
     }

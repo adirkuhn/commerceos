@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useStorefrontAPI } from '../../api/ApiContext'
 import type { Address, ShippingOption } from '../../api/storefront'
 import { useShopFormat } from '../../i18n/format'
+import { shopperError } from '../../i18n/shopperError'
 import { useRenderEnv } from '../../runtime/RenderContext'
 import { useCart } from '../../runtime/page/CartContext'
 import { useCustomer } from '../../runtime/page/CustomerContext'
@@ -100,7 +101,7 @@ export function CheckoutFormView({ node, props, className }: RendererProps<Check
       cart.clear()
       env.navigate(safePaymentURL(result.payment_url) ?? env.storePath(`orders/${encodeURIComponent(result.order_number)}`))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('checkout.failed'))
+      setError(shopperError(err, i18n, 'checkout.failed'))
       setPlacing(false)
     }
   }

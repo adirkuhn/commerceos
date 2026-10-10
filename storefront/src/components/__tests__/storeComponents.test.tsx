@@ -7,7 +7,7 @@ import { Suspense, type ReactNode } from 'react'
 import { rendererFor } from '../renderers'
 import { RenderProvider, type RenderEnv } from '../../runtime/RenderContext'
 import { ApiProvider } from '../../api/ApiContext'
-import { StorefrontAPI, type Cart, type ProductDetail } from '../../api/storefront'
+import { ApiError, StorefrontAPI, type Cart, type ProductDetail } from '../../api/storefront'
 import { CartProvider } from '../../runtime/page/CartContext'
 import { CustomerProvider } from '../../runtime/page/CustomerContext'
 import { WishlistProvider } from '../../runtime/page/WishlistContext'
@@ -109,12 +109,22 @@ describe('checkout form', () => {
 
   it('shows why an order could not be placed', async () => {
     const api = fakeAPI()
-    api.checkout = vi.fn(async () => { throw new Error('Out of stock') })
+    api.checkout = vi.fn(async () => { throw new ApiError(422, 'INSUFFICIENT_STOCK', 'checkoutCart: insufficient stock for requested quantity') })
     const Form = R('checkout-form')
     setup(<Form node={node('checkout-form')} props={{ button_label: 'Pay' }} className="" />, { api })
     await fillAddress()
     await userEvent.click(screen.getByRole('button', { name: 'Pay' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Out of stock')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Sorry, there isn’t enough stock for that quantity.')
+  })
+
+  it('never shows a raw technical error to the shopper', async () => {
+    const api = fakeAPI()
+    api.checkout = vi.fn(async () => { throw new Error('fetch failed: ECONNRESET') })
+    const Form = R('checkout-form')
+    setup(<Form node={node('checkout-form')} props={{ button_label: 'Pay' }} className="" />, { api })
+    await fillAddress()
+    await userEvent.click(screen.getByRole('button', { name: 'Pay' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your order could not be placed')
   })
 })
 

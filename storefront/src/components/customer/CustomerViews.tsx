@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useStorefrontAPI } from '../../api/ApiContext'
 import type { AccountOrder } from '../../api/storefront'
 import { Trans, useTranslation } from 'react-i18next'
+import { shopperError } from '../../i18n/shopperError'
 import { useShopFormat } from '../../i18n/format'
 import { orderStatusLabel } from '../../i18n/orderStatus'
 import { useRenderEnv } from '../../runtime/RenderContext'
@@ -17,7 +18,7 @@ import type { AccountOverviewProps, LoginFormProps, WishlistButtonProps, Wishlis
 export function LoginFormView({ node, props, className }: RendererProps<LoginFormProps>) {
   const env = useRenderEnv()
   const customer = useCustomer()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [email, setEmail] = useState('')
   const [state, setState] = useState<'idle' | 'busy' | 'sent' | 'signing-in' | 'error'>('idle')
   const [error, setError] = useState('')
@@ -43,7 +44,7 @@ export function LoginFormView({ node, props, className }: RendererProps<LoginFor
       await customer.requestLink(email)
       setState('sent')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.somethingWrong'))
+      setError(shopperError(err, i18n, 'common.somethingWrong'))
       setState('error')
     }
   }

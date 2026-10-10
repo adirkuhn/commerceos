@@ -15,7 +15,7 @@ export default {
   // from code by `npm run i18n:registry` (component and style texts).
   keepRemoved: [
     // Patterns see the whole key, or just "ns:group" when a group is gone.
-    /^shop:hint(\.|$)/, /^shop:product\.(inStock|percentOff|chooseOptions)$/,
+    /^shop:hint(\.|$)/, /^shop:errors(\.|$)/, /^shop:product\.(inStock|percentOff|chooseOptions)$/,
     /^editor:(components|categories|style|documents)(\.|$)/,
   ],
   defaultValue: (locale, _ns, key, value) => (locale === 'en' ? value || key : ''),

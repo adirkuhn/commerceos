@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { shopperError } from '../../i18n/shopperError'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useStorefrontAPI } from '../../api/ApiContext'
 import { resolveAssetRef, useRenderEnv } from '../../runtime/RenderContext'
@@ -69,7 +70,7 @@ export function NewsletterSignupView({ node, props, className }: RendererProps<N
   const env = useRenderEnv()
   const [email, setEmail] = useState('')
   const [consent, setConsent] = useState(false)
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
   const [error, setError] = useState('')
   const id = `${node.id}-newsletter`
@@ -82,7 +83,7 @@ export function NewsletterSignupView({ node, props, className }: RendererProps<N
       await api.subscribeNewsletter(email, consent)
       setState('done')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.somethingWrong'))
+      setError(shopperError(err, i18n, 'common.somethingWrong'))
       setState('error')
     }
   }
