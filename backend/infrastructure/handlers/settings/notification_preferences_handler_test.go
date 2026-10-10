@@ -66,7 +66,8 @@ func TestGetNotificationPreferences_listsEveryCategoryInOrder(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	var body prefsEnvelope
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	require.Len(t, body.Data.Categories, 4)
+	require.Len(t, body.Data.Categories, 5)
+	assert.Equal(t, "stock", body.Data.Categories[3].Category)
 	assert.Equal(t, "imports", body.Data.Categories[0].Category)
 	assert.True(t, body.Data.Categories[0].InApp)
 	assert.False(t, body.Data.Categories[0].Email)
