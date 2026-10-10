@@ -80,6 +80,48 @@ paths:
         '422':
           description: Not an accepted image.
 
+  /message-template-defaults:
+    get:
+      operationId: listMessageTemplateDefaults
+      summary: Built-in default templates in the store's language
+      description: >-
+        Ready-made templates (order confirmation, status update, shipped,
+        refunds, stock close to expiry) to start a template from: create it
+        with their content and default_key, then customize freely.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageTemplateDefaultListResponse'
+
+  /message-templates/{id}/reset:
+    post:
+      operationId: resetMessageTemplate
+      summary: Put a template made from a default back to that default
+      description: >-
+        Replaces subject, body and text_body with the default's (store
+        language) and clears the visual design; name, channels and enabled
+        are kept.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageTemplateResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          description: The template was not made from a default (MESSAGE_TEMPLATE_HAS_NO_DEFAULT).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /message-templates:
     get:
       operationId: listMessageTemplates
@@ -289,6 +331,9 @@ components:
           additionalProperties: true
           nullable: true
           description: The visual editor's project data.
+        default_key:
+          type: string
+          description: Key of the default (GET /message-template-defaults) this template starts from; unknown keys are 422 MESSAGE_TEMPLATE_DEFAULT_UNKNOWN.
 
     UpdateMessageTemplateRequest:
       type: object
@@ -313,8 +358,38 @@ components:
           type: object
           additionalProperties: true
           nullable: true
-          description: The visual editor's project data. Omitted keeps the stored design.
+          description: >-
+            The visual editor's project data. Omitted keeps the stored design,
+            unless body changes -- then the design is cleared so the editor
+            reopens from the new body.
         enabled: { type: boolean }
+
+    MessageTemplateDefault:
+      type: object
+      required: [key, trigger_subject, name, category, channels, subject, body, text_body]
+      properties:
+        key: { type: string }
+        trigger_subject:
+          $ref: '#/components/schemas/TriggerSubject'
+        name: { type: string }
+        category:
+          $ref: '#/components/schemas/Category'
+        channels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Channel'
+        subject: { type: string }
+        body: { type: string, description: Email HTML. }
+        text_body: { type: string, description: WhatsApp/SMS text. }
+
+    MessageTemplateDefaultListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageTemplateDefault'
+        error: { nullable: true }
 
     MessageTemplateResponse:
       type: object

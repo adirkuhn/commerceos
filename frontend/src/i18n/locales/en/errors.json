@@ -387,5 +387,7 @@
   "WISHLIST_NOT_FOUND": "Wishlist not found.",
   "WOO_DUPLICATE_SKU": "WooCommerce already has a product with this SKU.",
   "WOO_PRODUCT_NOT_FOUND_BY_SKU": "No WooCommerce product has this SKU.",
-  "WOO_REQUEST_FAILED": "The request to WooCommerce failed."
+  "WOO_REQUEST_FAILED": "The request to WooCommerce failed.",
+  "MESSAGE_TEMPLATE_DEFAULT_UNKNOWN": "That default template doesn’t exist.",
+  "MESSAGE_TEMPLATE_HAS_NO_DEFAULT": "This template wasn’t made from a default, so it can’t be reset."
 }

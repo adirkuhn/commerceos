@@ -16,6 +16,7 @@ import (
 
 	genmc "github.com/adirkuhn/commerceos/api/messagecenter"
 	appmc "github.com/adirkuhn/commerceos/application/messagecenter"
+	appsettings "github.com/adirkuhn/commerceos/application/settings"
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -59,6 +60,8 @@ type deleteAutomationRuleUC interface {
 type Handler struct {
 	preview        previewTemplateUC
 	uploadImage    uploadTemplateImageUC
+	listDefaults   listTemplateDefaultsUC
+	resetTemplate  resetTemplateUC
 	listTemplates  listMessageTemplatesUC
 	createTemplate createMessageTemplateUC
 	updateTemplate updateMessageTemplateUC
@@ -149,6 +152,11 @@ func Register(rg gin.IRouter, db *gorm.DB, storage pmsDomain.FileStorage) {
 		appmc.NewPreviewTemplateUseCase(db, repositories.NewCompanyProfileRepo(db)),
 		appmc.NewUploadTemplateImageUseCase(storage),
 	)
+	settings := appsettings.NewGetTenantSettingsUseCase(db, repositories.NewTenantSettingsRepo(db))
+	h.WithDefaults(
+		appmc.NewListMessageTemplateDefaultsUseCase(settings),
+		appmc.NewResetMessageTemplateUseCase(db, templateRepo, outboxRepo, settings),
+	)
 	genmc.RegisterHandlers(rg, h)
 }
 
@@ -173,7 +181,7 @@ func (h *Handler) CreateMessageTemplate(c *gin.Context) {
 	tmpl, err := h.createTemplate.Execute(c.Request.Context(), appmc.CreateMessageTemplateInput{
 		Name: req.Name, Category: mcDomain.Category(req.Category), Channels: toDomainChannels(req.Channels),
 		Subject: stringValue(req.Subject), Body: stringValue(req.Body), TextBody: stringValue(req.TextBody),
-		Design: designBytes(req.Design),
+		Design: designBytes(req.Design), DefaultKey: stringValue(req.DefaultKey),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -338,13 +346,17 @@ func toDomainChannelPtr(ch *genmc.Channel) *messaging.Channel {
 	return &v
 }
 
-func toGenTemplate(t mcDomain.MessageTemplate) genmc.MessageTemplate {
+func toGenChannels(t mcDomain.MessageTemplate) []genmc.Channel {
 	channels := make([]genmc.Channel, len(t.Channels))
 	for i, ch := range t.Channels {
 		channels[i] = genmc.Channel(ch)
 	}
+	return channels
+}
+
+func toGenTemplate(t mcDomain.MessageTemplate) genmc.MessageTemplate {
 	return genmc.MessageTemplate{
-		Id: t.ID, Name: t.Name, Category: genmc.Category(t.Category), Channels: channels,
+		Id: t.ID, Name: t.Name, Category: genmc.Category(t.Category), Channels: toGenChannels(t),
 		Subject: t.Subject, Body: t.Body, TextBody: t.TextBody, Design: designMap(t.Design), DefaultKey: t.DefaultKey,
 		Enabled: t.Enabled, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
 	}
@@ -410,7 +422,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, mcDomain.ErrTemplateImageTypeUnsupported), errors.Is(err, mcDomain.ErrTemplateImageTooLarge), errors.Is(err, mcDomain.ErrRuleNameRequired),
 		errors.Is(err, mcDomain.ErrInvalidTriggerSubject), errors.Is(err, mcDomain.ErrTemplateIDRequired),
 		errors.Is(err, mcDomain.ErrInvalidCondition), errors.Is(err, mcDomain.ErrInvalidExtraRecipient),
-		errors.Is(err, mcDomain.ErrTooManyExtraRecipients):
+		errors.Is(err, mcDomain.ErrTooManyExtraRecipients),
+		errors.Is(err, mcDomain.ErrUnknownDefaultTemplate), errors.Is(err, mcDomain.ErrTemplateHasNoDefault):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 	default:
 		log.Printf("messagecenter: unhandled error: %v", err)

@@ -34,13 +34,17 @@ type evalDeps struct {
 	settings     *settingsDomain.TenantSettings
 }
 
-type fakeLineItems struct{ bySO map[string][]omsDomain.SalesOrderLineItem }
+type fakeLineItems struct {
+	bySO map[string][]omsDomain.SalesOrderLineItem
+}
 
 func (f fakeLineItems) ListBySalesOrder(_ context.Context, id string) ([]omsDomain.SalesOrderLineItem, error) {
 	return f.bySO[id], nil
 }
 
-type fakeShipments struct{ bySO map[string][]shippingDomain.Shipment }
+type fakeShipments struct {
+	bySO map[string][]shippingDomain.Shipment
+}
 
 func (f fakeShipments) FindBySalesOrderID(_ context.Context, id string) ([]shippingDomain.Shipment, error) {
 	return f.bySO[id], nil
@@ -52,11 +56,15 @@ func (noCarrierOverrides) FindByConnectionAndCarrier(context.Context, string, sh
 	return nil, nil
 }
 
-type fixedProfile struct{ p *settingsDomain.CompanyProfile }
+type fixedProfile struct {
+	p *settingsDomain.CompanyProfile
+}
 
 func (f fixedProfile) Get(context.Context) (*settingsDomain.CompanyProfile, error) { return f.p, nil }
 
-type fixedSettings struct{ s *settingsDomain.TenantSettings }
+type fixedSettings struct {
+	s *settingsDomain.TenantSettings
+}
 
 func (f fixedSettings) Get(context.Context) (*settingsDomain.TenantSettings, error) { return f.s, nil }
 

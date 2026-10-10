@@ -24,7 +24,7 @@ func DefaultStockExpiry(lang locale.Locale) DefaultMessage {
 	return DefaultMessage{
 		Template: MessageTemplate{
 			Name: t.templateName, Category: CategoryStockInfo, Channels: []messaging.Channel{messaging.ChannelEmail},
-			Subject: t.subject, Body: t.body, Enabled: true,
+			Subject: t.subject, Body: t.body, DefaultKey: DefaultStockCloseToExpiry, Enabled: true,
 		},
 		Rule: AutomationRule{Name: t.ruleName, TriggerSubject: TriggerStockCloseToExpiry, Enabled: true},
 	}

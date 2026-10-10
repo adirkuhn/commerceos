@@ -60,11 +60,11 @@ func TestUpdateMessageTemplate_keepsDesignWhenOmittedAndReplacesWhenGiven(t *tes
 	}}}
 	uc := appmc.NewUpdateMessageTemplateUseCase(newMockGormDB(t, 2), repo, &eventrecordtest.Outbox{})
 	in := appmc.UpdateMessageTemplateInput{ID: "template-1", Name: "Order", Category: mcDomain.CategoryOrderStatus,
-		Channels: []messaging.Channel{messaging.ChannelEmail}, Body: "<p>new</p>", TextBody: "new", Enabled: true}
+		Channels: []messaging.Channel{messaging.ChannelEmail}, Body: "<p>old</p>", TextBody: "new", Enabled: true}
 
 	tmpl, err := uc.Execute(context.Background(), in)
 	require.NoError(t, err)
-	assert.Equal(t, []byte(`{"v":1}`), tmpl.Design, "the simple form doesn't send a design")
+	assert.Equal(t, []byte(`{"v":1}`), tmpl.Design, "the simple form doesn't send a design; body unchanged")
 	assert.Equal(t, "new", tmpl.TextBody)
 
 	design := []byte(`{"v":2}`)
@@ -72,4 +72,28 @@ func TestUpdateMessageTemplate_keepsDesignWhenOmittedAndReplacesWhenGiven(t *tes
 	tmpl, err = uc.Execute(context.Background(), in)
 	require.NoError(t, err)
 	assert.Equal(t, design, tmpl.Design)
+}
+
+func TestUpdateMessageTemplate_bodyEditedOutsideTheEditorDropsTheStaleDesign(t *testing.T) {
+	existing := mcDomain.MessageTemplate{ID: "tpl-1", Name: "X", Category: mcDomain.CategoryPurchase,
+		Channels: []messaging.Channel{messaging.ChannelEmail}, Body: "<p>old</p>", Design: []byte(`{"pages":[]}`)}
+	in := appmc.UpdateMessageTemplateInput{ID: "tpl-1", Name: "X", Category: mcDomain.CategoryPurchase,
+		Channels: []messaging.Channel{messaging.ChannelEmail}, Enabled: true}
+
+	for _, tc := range []struct {
+		body       string
+		wantDesign []byte
+	}{
+		{"<p>old</p>", []byte(`{"pages":[]}`)},
+		{"<p>new</p>", nil},
+	} {
+		repo := &stubMessageTemplateRepo{byID: map[string]mcDomain.MessageTemplate{"tpl-1": existing}}
+		uc := appmc.NewUpdateMessageTemplateUseCase(newMockGormDB(t, 1), repo, &eventrecordtest.Outbox{})
+		in.Body = tc.body
+
+		_, err := uc.Execute(context.Background(), in)
+
+		require.NoError(t, err)
+		assert.Equal(t, tc.wantDesign, repo.updated[0].Design, tc.body)
+	}
 }

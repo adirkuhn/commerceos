@@ -387,5 +387,7 @@
   "WISHLIST_NOT_FOUND": "Lista de desejos não encontrada.",
   "WOO_DUPLICATE_SKU": "O WooCommerce já tem um produto com este SKU.",
   "WOO_PRODUCT_NOT_FOUND_BY_SKU": "Nenhum produto do WooCommerce tem este SKU.",
-  "WOO_REQUEST_FAILED": "A requisição ao WooCommerce falhou."
+  "WOO_REQUEST_FAILED": "A requisição ao WooCommerce falhou.",
+  "MESSAGE_TEMPLATE_DEFAULT_UNKNOWN": "Esse modelo padrão não existe.",
+  "MESSAGE_TEMPLATE_HAS_NO_DEFAULT": "Este modelo não foi criado a partir de um padrão, então não pode ser restaurado."
 }

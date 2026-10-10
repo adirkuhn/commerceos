@@ -26,6 +26,9 @@ type CreateMessageTemplateInput struct {
 	Body     string
 	TextBody string
 	Design   []byte
+	// DefaultKey names the built-in default this template starts from
+	// (empty for one written from scratch); it enables "reset to default".
+	DefaultKey string
 }
 
 // validateMessageTemplateInput is shared by Create and Update -- same field
@@ -64,13 +67,18 @@ func (uc *CreateMessageTemplateUseCase) Execute(ctx context.Context, in CreateMe
 	if err := validateMessageTemplateInput(in.Name, in.Category, in.Channels, in.Body, in.TextBody); err != nil {
 		return nil, fmt.Errorf("createMessageTemplate: %w", err)
 	}
+	if in.DefaultKey != "" {
+		if _, ok := mcDomain.DefaultTemplateFor(in.DefaultKey, ""); !ok {
+			return nil, fmt.Errorf("createMessageTemplate: %w", mcDomain.ErrUnknownDefaultTemplate)
+		}
+	}
 
 	var tmpl mcDomain.MessageTemplate
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		now := time.Now()
 		tmpl = mcDomain.MessageTemplate{
 			TenantID: tenant.IDFromContext(ctx), Name: in.Name, Category: in.Category,
-			Channels: in.Channels, Subject: in.Subject, Body: in.Body, TextBody: in.TextBody, Design: in.Design,
+			Channels: in.Channels, Subject: in.Subject, Body: in.Body, TextBody: in.TextBody, Design: in.Design, DefaultKey: in.DefaultKey,
 			Enabled: true, CreatedAt: now, UpdatedAt: now,
 		}
 		if err := uc.repo.Create(ctx, &tmpl); err != nil {

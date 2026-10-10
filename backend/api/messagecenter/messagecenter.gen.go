@@ -243,6 +243,9 @@ type CreateMessageTemplateRequest struct {
 	Category Category  `json:"category"`
 	Channels []Channel `json:"channels"`
 
+	// DefaultKey Key of the default (GET /message-template-defaults) this template starts from; unknown keys are 422 MESSAGE_TEMPLATE_DEFAULT_UNKNOWN.
+	DefaultKey *string `json:"default_key,omitempty"`
+
 	// Design The visual editor's project data.
 	Design  *map[string]interface{} `json:"design,omitempty"`
 	Name    string                  `json:"name"`
@@ -282,6 +285,29 @@ type MessageTemplate struct {
 	// TextBody WhatsApp/SMS text with {{token}} placeholders; empty means body is used.
 	TextBody  string    `json:"text_body"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// MessageTemplateDefault defines model for MessageTemplateDefault.
+type MessageTemplateDefault struct {
+	// Body Email HTML.
+	Body     string    `json:"body"`
+	Category Category  `json:"category"`
+	Channels []Channel `json:"channels"`
+	Key      string    `json:"key"`
+	Name     string    `json:"name"`
+	Subject  string    `json:"subject"`
+
+	// TextBody WhatsApp/SMS text.
+	TextBody string `json:"text_body"`
+
+	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects. Most go to the customer of the event's sales order; inventory.stock.close_to_expiry_reported (the daily stock-close-to-expiry report, payload window_days, min_days_left, item_count and items[] with product_name, sku, image_url, quantity, expiry_date, days_left, price, sale_price) goes to the stock notification email recipients instead.
+	TriggerSubject TriggerSubject `json:"trigger_subject"`
+}
+
+// MessageTemplateDefaultListResponse defines model for MessageTemplateDefaultListResponse.
+type MessageTemplateDefaultListResponse struct {
+	Data  *[]MessageTemplateDefault `json:"data,omitempty"`
+	Error interface{}               `json:"error,omitempty"`
 }
 
 // MessageTemplateImageResponse defines model for MessageTemplateImageResponse.
@@ -405,7 +431,7 @@ type UpdateMessageTemplateRequest struct {
 	Category Category  `json:"category"`
 	Channels []Channel `json:"channels"`
 
-	// Design The visual editor's project data. Omitted keeps the stored design.
+	// Design The visual editor's project data. Omitted keeps the stored design, unless body changes -- then the design is cleared so the editor reopens from the new body.
 	Design  *map[string]interface{} `json:"design,omitempty"`
 	Enabled bool                    `json:"enabled"`
 	Name    string                  `json:"name"`
@@ -458,6 +484,9 @@ type ServerInterface interface {
 	// UpdateAutomationRule Update an automation rule
 	// (PATCH /automation-rules/{id})
 	UpdateAutomationRule(c *gin.Context, id Id)
+	// ListMessageTemplateDefaults Built-in default templates in the store's language
+	// (GET /message-template-defaults)
+	ListMessageTemplateDefaults(c *gin.Context)
 	// ListMessageTemplates List every message template for the current tenant
 	// (GET /message-templates)
 	ListMessageTemplates(c *gin.Context)
@@ -476,6 +505,9 @@ type ServerInterface interface {
 	// UpdateMessageTemplate Update a message template
 	// (PATCH /message-templates/{id})
 	UpdateMessageTemplate(c *gin.Context, id Id)
+	// ResetMessageTemplate Put a template made from a default back to that default
+	// (POST /message-templates/{id}/reset)
+	ResetMessageTemplate(c *gin.Context, id Id)
 	// ListMessageTriggers Every event a rule can fire on, with the variables its templates can use
 	// (GET /message-triggers)
 	ListMessageTriggers(c *gin.Context)
@@ -564,6 +596,19 @@ func (siw *ServerInterfaceWrapper) UpdateAutomationRule(c *gin.Context) {
 	}
 
 	siw.Handler.UpdateAutomationRule(c, id)
+}
+
+// ListMessageTemplateDefaults operation middleware
+func (siw *ServerInterfaceWrapper) ListMessageTemplateDefaults(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListMessageTemplateDefaults(c)
 }
 
 // ListMessageTemplates operation middleware
@@ -668,6 +713,31 @@ func (siw *ServerInterfaceWrapper) UpdateMessageTemplate(c *gin.Context) {
 	siw.Handler.UpdateMessageTemplate(c, id)
 }
 
+// ResetMessageTemplate operation middleware
+func (siw *ServerInterfaceWrapper) ResetMessageTemplate(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ResetMessageTemplate(c, id)
+}
+
 // ListMessageTriggers operation middleware
 func (siw *ServerInterfaceWrapper) ListMessageTriggers(c *gin.Context) {
 
@@ -711,6 +781,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/message-triggers", wrapper.ListMessageTriggers)
 	router.POST(options.BaseURL+"/message-templates/preview", wrapper.PreviewMessageTemplate)
 	router.POST(options.BaseURL+"/message-templates/images", wrapper.UploadMessageTemplateImage)
+	router.GET(options.BaseURL+"/message-template-defaults", wrapper.ListMessageTemplateDefaults)
+	router.POST(options.BaseURL+"/message-templates/:id/reset", wrapper.ResetMessageTemplate)
 	router.GET(options.BaseURL+"/message-templates", wrapper.ListMessageTemplates)
 	router.POST(options.BaseURL+"/message-templates", wrapper.CreateMessageTemplate)
 	router.DELETE(options.BaseURL+"/message-templates/:id", wrapper.DeleteMessageTemplate)
@@ -726,60 +798,66 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

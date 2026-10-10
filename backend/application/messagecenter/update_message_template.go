@@ -22,7 +22,7 @@ type UpdateMessageTemplateInput struct {
 	Body     string
 	TextBody string
 	// Design replaces the visual editor's project JSON when set; nil keeps
-	// it (the simple template form never sends it).
+	// it (the simple template form never sends it) unless Body changed.
 	Design  *[]byte
 	Enabled bool
 }
@@ -55,8 +55,13 @@ func (uc *UpdateMessageTemplateUseCase) Execute(ctx context.Context, in UpdateMe
 		existing.Subject = in.Subject
 		existing.Body = in.Body
 		existing.TextBody = in.TextBody
-		if in.Design != nil {
+		switch {
+		case in.Design != nil:
 			existing.Design = *in.Design
+		case in.Body != before.Body:
+			// The body was edited by hand: the stored design no longer
+			// matches it, so the visual editor reopens from the new body.
+			existing.Design = nil
 		}
 		existing.Enabled = in.Enabled
 		existing.UpdatedAt = time.Now()

@@ -14,6 +14,8 @@ var (
 	ErrTemplateImageTooLarge        = errs.New("MESSAGE_TEMPLATE_IMAGE_TOO_LARGE", "images can be at most 5 MB")
 	ErrTemplateTextRequired         = errs.New("MESSAGE_TEMPLATE_TEXT_REQUIRED", "a text message is required for WhatsApp/SMS")
 	ErrTemplateBodyRequired         = errs.New("MESSAGE_TEMPLATE_BODY_REQUIRED", "template body is required")
+	ErrUnknownDefaultTemplate       = errs.New("MESSAGE_TEMPLATE_DEFAULT_UNKNOWN", "unknown default template")
+	ErrTemplateHasNoDefault         = errs.New("MESSAGE_TEMPLATE_HAS_NO_DEFAULT", "this template was not created from a default")
 
 	ErrRuleNotFound           = errs.New("AUTOMATION_RULE_NOT_FOUND", "automation rule not found")
 	ErrRuleNameRequired       = errs.New("AUTOMATION_RULE_NAME_REQUIRED", "rule name is required")
