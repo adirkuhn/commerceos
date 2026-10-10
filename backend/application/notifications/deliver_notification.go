@@ -50,7 +50,7 @@ func (uc *DeliverNotificationUseCase) Execute(ctx context.Context, in CreateNoti
 			}
 			stored = &n
 		}
-		if channels.Email && len(prefs.EmailRecipients) > 0 {
+		if channels.Email && len(prefs.EmailRecipients) > 0 && !in.Type.EmailSentByMessageCenter() {
 			return enqueue(ctx, uc.outbox, events.NotificationEmailRequested{
 				Base:       events.Base{EventID: idgen.NewV4(), OccurredAt: now.UTC()},
 				TenantID:   tenantID,

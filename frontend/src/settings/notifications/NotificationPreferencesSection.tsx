@@ -13,6 +13,7 @@ function categoryText(t: TFunction<['settings', 'common']>, category: Notificati
     case 'imports': return { name: t('notifications.imports'), description: t('notifications.importsText') }
     case 'purchase_documents': return { name: t('notifications.purchaseDocuments'), description: t('notifications.purchaseDocumentsText') }
     case 'channel_offers': return { name: t('notifications.channelOffers'), description: t('notifications.channelOffersText') }
+    case 'stock': return { name: t('notifications.stock'), description: t('notifications.stockText') }
     case 'other': return { name: t('notifications.other'), description: t('notifications.otherText') }
   }
 }

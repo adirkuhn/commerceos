@@ -81,3 +81,22 @@ func manyRecipients(n int) []string {
 	}
 	return out
 }
+
+func TestCategoryOf_inventoryTypesAreStock(t *testing.T) {
+	assert.Equal(t, notifications.CategoryStock, notifications.CategoryOf(notifications.TypeStockCloseToExpiry))
+	assert.Contains(t, notifications.Categories, notifications.CategoryStock)
+}
+
+func TestPreferences_EmailRecipientsFor(t *testing.T) {
+	p := notifications.DefaultPreferences("t")
+	p.EmailRecipients = []string{"ops@example.nl"}
+	assert.Empty(t, p.EmailRecipientsFor(notifications.CategoryStock), "email off by default")
+
+	p.Categories[notifications.CategoryStock] = notifications.ChannelPrefs{Email: true}
+	assert.Equal(t, []string{"ops@example.nl"}, p.EmailRecipientsFor(notifications.CategoryStock))
+}
+
+func TestType_EmailSentByMessageCenter(t *testing.T) {
+	assert.True(t, notifications.TypeStockCloseToExpiry.EmailSentByMessageCenter())
+	assert.False(t, notifications.TypeImportFailed.EmailSentByMessageCenter())
+}

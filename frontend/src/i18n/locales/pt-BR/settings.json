@@ -183,6 +183,8 @@
     "recipientsHint": "Um endereço por linha, até 10.",
     "saveFailed": "Não foi possível salvar as configurações de notificação",
     "showInBell": "Mostrar {{category}} no sino",
+    "stock": "Estoque",
+    "stockText": "Alertas de estoque, como o relatório diário de estoque perto do vencimento",
     "subtitle": "Escolha o que aparece no sino e o que é enviado por e-mail. Os e-mails saem pela sua integração de e-mail."
   },
   "picking": {

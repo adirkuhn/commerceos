@@ -181,6 +181,8 @@
     "recipientsHint": "Eén adres per regel, maximaal 10.",
     "saveFailed": "Meldingsinstellingen konden niet worden opgeslagen",
     "showInBell": "{{category}} in de bel tonen",
+    "stock": "Voorraad",
+    "stockText": "Voorraadmeldingen zoals het dagelijkse rapport van voorraad bijna over datum",
     "subtitle": "Kies wat in de bel verschijnt en wat wordt gemaild. E-mails gaan via je e-mailintegratie."
   },
   "picking": {

@@ -181,6 +181,8 @@
     "recipientsHint": "One address per line, up to 10.",
     "saveFailed": "Could not save notification settings",
     "showInBell": "Show {{category}} in the bell",
+    "stock": "Stock",
+    "stockText": "Stock alerts such as the daily stock-close-to-expiry report",
     "subtitle": "Choose what shows in the bell and what is emailed. Emails go out through your email integration."
   },
   "picking": {

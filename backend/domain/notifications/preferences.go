@@ -24,11 +24,12 @@ const (
 	CategoryImports           Category = "imports"
 	CategoryPurchaseDocuments Category = "purchase_documents"
 	CategoryChannelOffers     Category = "channel_offers"
+	CategoryStock             Category = "stock"
 	CategoryOther             Category = "other"
 )
 
 // Categories lists every category, in display order.
-var Categories = []Category{CategoryImports, CategoryPurchaseDocuments, CategoryChannelOffers, CategoryOther}
+var Categories = []Category{CategoryImports, CategoryPurchaseDocuments, CategoryChannelOffers, CategoryStock, CategoryOther}
 
 const maxRecipients = 10
 
@@ -39,6 +40,7 @@ var categoryPrefixes = []struct {
 	{"import.", CategoryImports},
 	{"procurement.", CategoryPurchaseDocuments},
 	{"bol.", CategoryChannelOffers},
+	{"inventory.", CategoryStock},
 }
 
 func CategoryOf(t Type) Category {
@@ -130,6 +132,15 @@ func (p *Preferences) For(c Category) ChannelPrefs {
 }
 
 func (p *Preferences) ForType(t Type) ChannelPrefs { return p.For(CategoryOf(t)) }
+
+// EmailRecipientsFor is who gets category c by email: the shared recipient
+// list when c's email toggle is on, else nobody.
+func (p *Preferences) EmailRecipientsFor(c Category) []string {
+	if !p.For(c).Email {
+		return nil
+	}
+	return p.EmailRecipients
+}
 
 func isKnownCategory(c Category) bool {
 	for _, k := range Categories {

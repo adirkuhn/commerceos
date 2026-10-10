@@ -21,6 +21,7 @@ const defaults: NotificationPreferences = {
     { category: 'imports', in_app: true, email: false },
     { category: 'purchase_documents', in_app: true, email: false },
     { category: 'channel_offers', in_app: true, email: false },
+    { category: 'stock', in_app: true, email: false },
     { category: 'other', in_app: true, email: false },
   ],
   email_recipients: [],
@@ -34,6 +35,13 @@ beforeEach(() => {
 })
 
 describe('NotificationPreferencesSection', () => {
+  it('lists the stock category', async () => {
+    render(<NotificationPreferencesSection />)
+
+    expect(await screen.findByRole('checkbox', { name: 'Email stock' })).not.toBeChecked()
+    expect(screen.getByText('Stock alerts such as the daily stock-close-to-expiry report')).toBeInTheDocument()
+  })
+
   it('shows each category with a labelled bell and email choice', async () => {
     render(<NotificationPreferencesSection />)
 

@@ -197,3 +197,54 @@ func TestDeliver_propagatesErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestDeliver_messageCenterTypeSkipsGenericEmail(t *testing.T) {
+	notifRepo, outbox := &stubNotificationRepo{}, &stubOutbox{}
+	prefs := prefsWith(notificationsDomain.CategoryStock, notificationsDomain.ChannelPrefs{InApp: true, Email: true}, "ops@example.nl")
+	uc := appnotifications.NewDeliverNotificationUseCase(newMockGormDB(t), notifRepo, &stubPrefsRepo{saved: prefs}, outbox)
+
+	in := deliverInput()
+	in.Type = notificationsDomain.TypeStockCloseToExpiry
+	_, err := uc.Execute(tctx(), in)
+
+	require.NoError(t, err)
+	assert.Len(t, notifRepo.created, 1, "the bell still follows the in-app toggle")
+	assert.Empty(t, outbox.rows, "the Message Center rule sends this email, not the generic notification email")
+}
+
+func TestCategoryEmailRecipients_returnsRecipientsWhenEmailOn(t *testing.T) {
+	prefs := prefsWith(notificationsDomain.CategoryStock, notificationsDomain.ChannelPrefs{Email: true}, "ops@example.nl")
+	uc := appnotifications.NewCategoryEmailRecipientsUseCase(newMockGormDB(t), &stubPrefsRepo{saved: prefs})
+
+	got, err := uc.Execute(tctx(), notificationsDomain.CategoryStock)
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ops@example.nl"}, got)
+}
+
+func TestCategoryEmailRecipients_emptyWhenEmailOff(t *testing.T) {
+	prefs := prefsWith(notificationsDomain.CategoryStock, notificationsDomain.ChannelPrefs{InApp: true}, "ops@example.nl")
+	uc := appnotifications.NewCategoryEmailRecipientsUseCase(newMockGormDB(t), &stubPrefsRepo{saved: prefs})
+
+	got, err := uc.Execute(tctx(), notificationsDomain.CategoryStock)
+
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
+func TestCategoryEmailRecipients_emptyWhenNeverSaved(t *testing.T) {
+	uc := appnotifications.NewCategoryEmailRecipientsUseCase(newMockGormDB(t), &stubPrefsRepo{})
+
+	got, err := uc.Execute(tctx(), notificationsDomain.CategoryStock)
+
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
+func TestCategoryEmailRecipients_propagatesError(t *testing.T) {
+	uc := appnotifications.NewCategoryEmailRecipientsUseCase(newMockGormDB(t), &stubPrefsRepo{getErr: errBoom})
+
+	_, err := uc.Execute(tctx(), notificationsDomain.CategoryStock)
+
+	assert.ErrorIs(t, err, errBoom)
+}

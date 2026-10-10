@@ -392,11 +392,14 @@ components:
 
     NotificationCategory:
       type: string
-      enum: [imports, purchase_documents, channel_offers, other]
+      enum: [imports, purchase_documents, channel_offers, stock, other]
       description: >
         imports = catalog/order imports; purchase_documents = supplier
         document and invoice parsing; channel_offers = marketplace offer
-        problems (e.g. Bol "not for sale"); other = anything else.
+        problems (e.g. Bol "not for sale"); stock = inventory alerts such
+        as the daily stock-close-to-expiry report (its email is sent by the
+        Message Center rule, to these recipients only when email is on);
+        other = anything else.
     NotificationCategoryPreference:
       type: object
       required: [category, in_app, email]

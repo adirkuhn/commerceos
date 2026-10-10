@@ -39,7 +39,20 @@ const (
 	// the offer still isn't for sale -- see
 	// application/channels/push_product_to_bol.go.
 	TypeBolNotForSale Type = "bol.offer.not_for_sale"
+
+	// TypeStockCloseToExpiry is the daily stock-close-to-expiry report's
+	// bell entry. Its email is a Message Center template + rule (merchant
+	// editable, with extra recipients), so see EmailSentByMessageCenter.
+	TypeStockCloseToExpiry Type = "inventory.stock.close_to_expiry"
 )
+
+// messageCenterEmailTypes are the types whose email a Message Center rule
+// sends, so the generic notification email must not send it again.
+var messageCenterEmailTypes = map[Type]bool{TypeStockCloseToExpiry: true}
+
+// EmailSentByMessageCenter reports whether a Message Center rule, not the
+// generic notification email, sends this type's email.
+func (t Type) EmailSentByMessageCenter() bool { return messageCenterEmailTypes[t] }
 
 type Notification struct {
 	ID       string

@@ -1,5 +1,5 @@
 // Mirrors backend/api/settings/openapi.yaml (NotificationPreferences*).
-export type NotificationCategory = 'imports' | 'purchase_documents' | 'channel_offers' | 'other'
+export type NotificationCategory = 'imports' | 'purchase_documents' | 'channel_offers' | 'stock' | 'other'
 
 export interface NotificationCategoryPreference {
   category: NotificationCategory
