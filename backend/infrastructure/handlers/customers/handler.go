@@ -3,6 +3,7 @@ package customers
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"log"
 	"net/http"
 
@@ -94,7 +95,7 @@ func (h *Handler) CreateCustomer(c *gin.Context) {
 		return
 	}
 	if req.Email == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "email is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	cust, err := h.createCustomer.Execute(c.Request.Context(), appcustomers.CreateCustomerInput{
@@ -116,7 +117,7 @@ func (h *Handler) UpdateCustomer(c *gin.Context, id gencustomers.Id) {
 		return
 	}
 	if req.Email == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "email is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	cust, err := h.updateCustomer.Execute(c.Request.Context(), appcustomers.UpdateCustomerInput{

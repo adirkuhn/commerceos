@@ -1,6 +1,7 @@
 package procurement
 
 import (
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"net/http"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 func (h *Handler) AttachDocumentToPurchaseOrder(c *gin.Context, id genprocurement.Id) {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "file is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrFileRequired)
 		return
 	}
 	f, err := fileHeader.Open()
@@ -74,7 +75,7 @@ func (h *Handler) GetReceivingParsingJob(c *gin.Context, id genprocurement.Id) {
 func (h *Handler) CreatePurchaseOrderFromDocument(c *gin.Context) {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "file is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrFileRequired)
 		return
 	}
 	f, err := fileHeader.Open()
@@ -115,7 +116,7 @@ func (h *Handler) CreatePurchaseOrderFromDocument(c *gin.Context) {
 func (h *Handler) UploadInvoice(c *gin.Context, id genprocurement.Id) {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "file is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrFileRequired)
 		return
 	}
 	f, err := fileHeader.Open()

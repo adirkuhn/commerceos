@@ -2,6 +2,7 @@ package pms
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -29,7 +30,7 @@ type ProductMergeUseCases struct {
 func (h *Handler) PreviewProductMerge(c *gin.Context, id genpms.Id) {
 	var req genpms.ProductMergeRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.TargetProductId == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "target_product_id is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	preview, err := h.merge.Preview.Execute(c.Request.Context(), apppms.PreviewProductMergeInput{
@@ -51,7 +52,7 @@ func (h *Handler) PreviewProductMerge(c *gin.Context, id genpms.Id) {
 func (h *Handler) MergeProduct(c *gin.Context, id genpms.Id) {
 	var req genpms.ProductMergeRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.TargetProductId == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "target_product_id is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	mergedBy := ""

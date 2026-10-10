@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"log"
 	"net/http"
 
@@ -101,7 +102,7 @@ func (h *Handler) ManualConnectWooCommerce(c *gin.Context) {
 		return
 	}
 	if req.StoreUrl == "" || req.ConsumerKey == "" || req.ConsumerSecret == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "store_url, consumer_key, and consumer_secret are required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	conn, err := h.manualConnectWoo.Execute(c.Request.Context(), appintegrations.ManualConnectWooCommerceInput{
@@ -205,7 +206,7 @@ func (h *Handler) ConnectBol(c *gin.Context) {
 		return
 	}
 	if req.ClientId == "" || req.ClientSecret == "" || req.EconomicOperatorId == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "client_id, client_secret, and economic_operator_id are required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	conn, err := h.connectBol.Execute(c.Request.Context(), appintegrations.ConnectBolInput{
@@ -224,7 +225,7 @@ func (h *Handler) ConnectWhatsapp(c *gin.Context) {
 		return
 	}
 	if req.BaseUrl == "" || req.InstanceName == "" || req.ApiKey == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "base_url, instance_name, and api_key are required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	result, err := h.connectWhatsapp.Execute(c.Request.Context(), appintegrations.ConnectWhatsAppInput{
@@ -246,7 +247,7 @@ func (h *Handler) ConnectStripe(c *gin.Context) {
 		return
 	}
 	if req.SecretKey == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "secret_key is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	publishableKey := ""
@@ -270,7 +271,7 @@ func (h *Handler) ConnectRevolut(c *gin.Context) {
 		return
 	}
 	if req.ApiKey == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "api_key is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	result, err := h.connectRevolut.Execute(c.Request.Context(), appintegrations.ConnectRevolutInput{APIKey: req.ApiKey})

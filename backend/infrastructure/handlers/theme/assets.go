@@ -1,6 +1,7 @@
 package theme
 
 import (
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -43,7 +44,7 @@ func (h *Handler) UploadAsset(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, uploadBodyLimit)
 	fh, err := c.FormFile("file")
 	if err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "file is required (max 10 MB)")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrFileRequiredMax10MB)
 		return
 	}
 	if fh.Size > theme.MaxAssetBytes {
@@ -52,7 +53,7 @@ func (h *Handler) UploadAsset(c *gin.Context) {
 	}
 	f, err := fh.Open()
 	if err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "could not read the upload")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrUploadUnreadable)
 		return
 	}
 	defer f.Close()

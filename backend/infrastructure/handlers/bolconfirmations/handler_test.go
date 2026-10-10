@@ -66,7 +66,7 @@ func TestListBolShipmentConfirmations_returnsContractShape(t *testing.T) {
 		},
 		{
 			ID: "conf-1", ShipmentID: "ship-1", ExternalOrderID: "C000HLRF87", TransporterCode: "TNT",
-			Action: channelsDomain.BolActionCreateShipment,
+			Action:        channelsDomain.BolActionCreateShipment,
 			TrackAndTrace: "3SMYPA859699114", ProcessStatusID: "ps-1", Status: channelsDomain.BolConfirmationPending,
 			CreatedAt: created,
 		},
@@ -109,7 +109,7 @@ func TestListBolShipmentConfirmations_unknownOrder_is404(t *testing.T) {
 	w := get(t, newTestRouter(t, list), "/api/v1/sales-orders/missing/bol-shipment-confirmations")
 
 	require.Equal(t, http.StatusNotFound, w.Code)
-	assert.Contains(t, w.Body.String(), `"code":"NOT_FOUND"`)
+	assert.Contains(t, w.Body.String(), `"code":"SALES_ORDER_NOT_FOUND"`)
 }
 
 func TestListBolShipmentConfirmations_unexpectedError_is500WithoutLeakingIt(t *testing.T) {

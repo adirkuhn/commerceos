@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"log"
 	"net/http"
 
@@ -187,7 +188,7 @@ func (h *Handler) CreateGroup(c *gin.Context) {
 		return
 	}
 	if req.Name == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	var description string
@@ -211,7 +212,7 @@ func (h *Handler) UpdateGroup(c *gin.Context, id genia.Id) {
 		return
 	}
 	if req.Name == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	var description string
@@ -265,7 +266,7 @@ func (h *Handler) AddGroupMember(c *gin.Context, id genia.Id) {
 		return
 	}
 	if req.UserId == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "user_id is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	err := h.addMember.Execute(c.Request.Context(), appiam.AddUserToGroupInput{
@@ -304,7 +305,7 @@ func (h *Handler) AssignGroupPermission(c *gin.Context, id genia.Id) {
 		return
 	}
 	if req.Rule == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "rule is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	err := h.assignPermission.Execute(c.Request.Context(), appiam.AssignPermissionInput{

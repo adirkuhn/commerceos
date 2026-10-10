@@ -1,6 +1,7 @@
 package purchaseplanning
 
 import (
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +27,7 @@ func (h *Handler) ListSeasonEvents(c *gin.Context, params genpurchaseplanning.Li
 
 func (h *Handler) GetSeasonPlan(c *gin.Context, params genpurchaseplanning.GetSeasonPlanParams) {
 	if (params.From == nil) != (params.To == nil) {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", "from and to go together")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", httperrs.ErrDateRangeIncomplete)
 		return
 	}
 	in := appprocurement.SeasonPlanInput{

@@ -1,6 +1,7 @@
 package inventory
 
 import (
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -31,7 +32,7 @@ func (h *Handler) CreateWarehouse(c *gin.Context) {
 		return
 	}
 	if req.Name == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	active := true
@@ -57,7 +58,7 @@ func (h *Handler) UpdateWarehouse(c *gin.Context, id geninventory.Id) {
 		return
 	}
 	if req.Name == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	active := true

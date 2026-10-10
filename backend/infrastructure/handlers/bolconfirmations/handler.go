@@ -56,9 +56,9 @@ func toGen(c channelsDomain.BolShipmentConfirmation) genbolconfirmations.BolShip
 		Id: c.ID, ShipmentId: c.ShipmentID, ExternalOrderId: c.ExternalOrderID,
 		Action: genbolconfirmations.BolShipmentConfirmationAction(c.Action), TransportId: c.TransportID,
 		TransporterCode: c.TransporterCode, TrackAndTrace: c.TrackAndTrace, ProcessStatusId: c.ProcessStatusID,
-		Status:       genbolconfirmations.BolShipmentConfirmationStatus(c.Status),
+		Status:        genbolconfirmations.BolShipmentConfirmationStatus(c.Status),
 		FailureReason: genbolconfirmations.BolShipmentConfirmationFailureReason(c.FailureReason),
-		ErrorMessage: c.ErrorMessage, NeedsManualAction: c.NeedsManualAction(),
+		ErrorMessage:  c.ErrorMessage, NeedsManualAction: c.NeedsManualAction(),
 		CreatedAt: c.CreatedAt, ResolvedAt: c.ResolvedAt,
 	}
 }
@@ -69,7 +69,7 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, omsDomain.ErrSalesOrderNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", "sales order not found")
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	default:
 		log.Printf("bolconfirmations: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

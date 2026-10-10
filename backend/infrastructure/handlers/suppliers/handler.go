@@ -3,6 +3,7 @@ package suppliers
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"log"
 	"net/http"
 
@@ -93,7 +94,7 @@ func (h *Handler) CreateSupplier(c *gin.Context) {
 		return
 	}
 	if req.Name == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	leadTimeDays := ptrToIntPtr(req.LeadTimeDays)
@@ -115,7 +116,7 @@ func (h *Handler) UpdateSupplier(c *gin.Context, id gensuppliers.Id) {
 		return
 	}
 	if req.Name == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	leadTimeDays := ptrToIntPtr(req.LeadTimeDays)

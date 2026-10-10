@@ -1,6 +1,7 @@
 package inventory
 
 import (
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"net/http"
 	"strconv"
 
@@ -77,7 +78,7 @@ func (h *Handler) DiscardBatch(c *gin.Context, skuId geninventory.SkuId) {
 	warehouseID := c.PostForm("warehouse_id")
 	quantity, err := strconv.ParseInt(c.PostForm("quantity"), 10, 64)
 	if warehouseID == "" || err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "warehouse_id and quantity are required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	var batchID *string

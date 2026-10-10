@@ -3,6 +3,7 @@ package scannerauth
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"log"
 	"net/http"
 	"time"
@@ -60,7 +61,7 @@ func Register(rg gin.IRouter, db *gorm.DB, jwtSecret []byte) {
 // unguessable QR/barcode path, which carries no such limit.
 func (h *Handler) ClaimPairingCode(c *gin.Context) {
 	if !h.limiter.Allow(c.ClientIP()) {
-		middleware.Fail(c, http.StatusTooManyRequests, "RATE_LIMITED", "too many attempts, try again later")
+		middleware.FailErr(c, http.StatusTooManyRequests, "RATE_LIMITED", httperrs.ErrRateLimited)
 		return
 	}
 	var req genscannerauth.ClaimPairingCodeRequest

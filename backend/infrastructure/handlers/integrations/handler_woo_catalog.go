@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -85,7 +86,7 @@ func (h *Handler) ImportWooProducts(c *gin.Context, id genintegrations.Id) {
 		return
 	}
 	if req.DefaultWarehouseId == "" || req.DefaultCurrency == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "default_warehouse_id and default_currency are required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	job, err := h.createImportJob.Execute(c.Request.Context(), appchannels.CreateImportJobInput{
@@ -121,7 +122,7 @@ func (h *Handler) FetchWooOrder(c *gin.Context, id genintegrations.Id) {
 		return
 	}
 	if req.ExternalOrderId == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "external_order_id is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	result, err := h.fetchWooOrder.ExecuteOne(c.Request.Context(), appchannels.FetchWooOrderInput{
@@ -148,7 +149,7 @@ func (h *Handler) PushProductToWoo(c *gin.Context, id genintegrations.Id) {
 		return
 	}
 	if req.ProductId == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "product_id is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	listings, err := h.pushProductToWoo.Execute(c.Request.Context(), appchannels.PushProductToWooInput{

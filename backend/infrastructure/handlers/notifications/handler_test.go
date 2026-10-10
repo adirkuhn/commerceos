@@ -22,7 +22,9 @@ type stubList struct {
 	err error
 }
 
-func (s *stubList) Execute(context.Context) ([]notificationsDomain.Notification, error) { return s.out, s.err }
+func (s *stubList) Execute(context.Context) ([]notificationsDomain.Notification, error) {
+	return s.out, s.err
+}
 
 type stubMarkRead struct {
 	gotID string

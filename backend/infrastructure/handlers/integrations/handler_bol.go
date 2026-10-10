@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +19,7 @@ func (h *Handler) PushProductToBol(c *gin.Context, id genintegrations.Id) {
 		return
 	}
 	if req.ProductId == "" {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "product_id is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
 		return
 	}
 	listings, err := h.pushProductToBol.Execute(c.Request.Context(), appchannels.PushProductToBolInput{

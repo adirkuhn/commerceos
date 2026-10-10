@@ -1,6 +1,7 @@
 package pms
 
 import (
+	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -28,7 +29,7 @@ func (h *Handler) ListProductMedia(c *gin.Context, id genpms.Id) {
 func (h *Handler) UploadProductMedia(c *gin.Context, id genpms.Id) {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "file is required")
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrFileRequired)
 		return
 	}
 	f, err := fileHeader.Open()
