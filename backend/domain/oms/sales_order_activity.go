@@ -43,3 +43,20 @@ type SalesOrderActivityRepository interface {
 // ActivityTypeMarkedPicked is logged when an order is marked picked in one
 // action from the picking module's list mode (MarkOrderPickedUseCase).
 const ActivityTypeMarkedPicked = "marked_picked"
+
+// MyParcel activity types. The admin shows each in the reader's language
+// by its type (Summary is the English fallback), so every distinct event
+// needs its own type.
+const (
+	ActivityTypeShipmentCreated   = "myparcel_shipment_created"
+	ActivityTypeShipmentFailed    = "myparcel_shipment_failed"
+	ActivityTypeShipmentCancelled = "myparcel_shipment_cancelled"
+	ActivityTypeOrderExported     = "myparcel_order_exported"
+	// ActivityTypeOrderExportFailed: exporting the order failed while a
+	// label was being created -- label creation carries on.
+	ActivityTypeOrderExportFailed = "myparcel_order_export_failed"
+	// ActivityTypeOrderExportError: a standalone order export failed.
+	// (Rows from before ActivityTypeShipmentFailed existed may also mean a
+	// failed shipment.)
+	ActivityTypeOrderExportError = "myparcel_error"
+)

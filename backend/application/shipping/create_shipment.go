@@ -199,7 +199,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 			SalesOrderID: in.SalesOrderID, ConnectionID: in.ConnectionID, Carrier: in.Carrier,
 			Recipient: in.Recipient, UserID: in.UserID,
 		}); exportErr != nil {
-			uc.recordShipmentActivity(ctx, in, "myparcel_order_export_failed",
+			uc.recordShipmentActivity(ctx, in, omsDomain.ActivityTypeOrderExportFailed,
 				"Failed to export order to MyParcel (label creation continues)", map[string]any{"error": exportErr.Error()})
 		}
 	}
@@ -269,7 +269,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 		WeightGrams:    weightGrams,
 	})
 	if err != nil {
-		uc.recordShipmentActivity(ctx, in, "myparcel_error", "Failed to create MyParcel shipment", map[string]any{"error": err.Error()})
+		uc.recordShipmentActivity(ctx, in, omsDomain.ActivityTypeShipmentFailed, "Failed to create MyParcel shipment", map[string]any{"error": err.Error()})
 		return nil, fmt.Errorf("createShipment: %w", err)
 	}
 
@@ -297,7 +297,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	if err != nil {
 		return nil, fmt.Errorf("createShipment: persist: %w", err)
 	}
-	uc.recordShipmentActivity(ctx, in, "myparcel_shipment_created", "Shipment created via MyParcel", map[string]any{"barcode": shipment.Barcode})
+	uc.recordShipmentActivity(ctx, in, omsDomain.ActivityTypeShipmentCreated, "Shipment created via MyParcel", map[string]any{"barcode": shipment.Barcode})
 	return &shipment, nil
 }
 

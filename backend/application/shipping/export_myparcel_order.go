@@ -200,7 +200,7 @@ func (uc *ExportMyParcelOrderUseCase) Execute(ctx context.Context, in ExportMyPa
 
 	if uc.recordActivity != nil {
 		if _, err := uc.recordActivity.Execute(ctx, appoms.RecordSalesOrderActivityInput{
-			SalesOrderID: in.SalesOrderID, UserID: in.UserID, ActivityType: "myparcel_order_exported",
+			SalesOrderID: in.SalesOrderID, UserID: in.UserID, ActivityType: omsDomain.ActivityTypeOrderExported,
 			Summary:  "Order exported to MyParcel",
 			Metadata: map[string]any{"myparcel_uuid": result.UUID, "status": result.Status},
 		}); err != nil {
@@ -220,7 +220,7 @@ func (uc *ExportMyParcelOrderUseCase) recordFailure(ctx context.Context, in Expo
 		return
 	}
 	if _, err := uc.recordActivity.Execute(ctx, appoms.RecordSalesOrderActivityInput{
-		SalesOrderID: in.SalesOrderID, UserID: in.UserID, ActivityType: "myparcel_error",
+		SalesOrderID: in.SalesOrderID, UserID: in.UserID, ActivityType: omsDomain.ActivityTypeOrderExportError,
 		Summary:  "Failed to export order to MyParcel",
 		Metadata: map[string]any{"error": cause.Error()},
 	}); err != nil {

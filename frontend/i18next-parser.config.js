@@ -13,6 +13,9 @@ export default {
   sort: true,
   indentation: 2,
   // Shared texts are used from every module; keep them even when unused.
-  keepRemoved: [/^common:/],
+  // notifications:types.* are looked up by notification type at runtime
+  // (see src/notifications/notificationText.ts) and mirror the backend's
+  // email texts.
+  keepRemoved: [/^common:/, /^notifications:types(\.|$)/],
   defaultValue: (locale, _ns, key, value) => (locale === 'en' ? value || key : ''),
 }

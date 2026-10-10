@@ -1,5 +1,33 @@
 {
+  "activity": {
+    "markedPicked": "Gemarkeerd als gepickt",
+    "orderExportFailed": "Order exporteren naar MyParcel mislukt",
+    "orderExportFailedLabelContinues": "Order exporteren naar MyParcel mislukt (label wordt wel aangemaakt)",
+    "orderExported": "Order geëxporteerd naar MyParcel",
+    "shipmentCancelled": "Zending geannuleerd",
+    "shipmentCreated": "Zending aangemaakt via MyParcel",
+    "shipmentFailed": "Zending aanmaken bij MyParcel mislukt"
+  },
   "backToOrders": "Terug naar orders",
+  "bolConfirmation": {
+    "title": "Bol",
+    "notSent": "Nog niet naar Bol gestuurd",
+    "earlier": "Eerdere pogingen",
+    "manualAction": "De bestelling staat nog open bij Bol. Bevestig hem in het Bol-verkopersportaal (bestelling {{order}}).",
+    "status": {
+      "pending": "Naar Bol gestuurd, wacht op bevestiging van Bol",
+      "success": "Bevestigd bij Bol",
+      "failure": "Bol heeft de zending niet geaccepteerd",
+      "timeout": "Bol heeft niet op tijd geantwoord"
+    },
+    "correctionManualAction": "Bol heeft nog de oude track & trace. Pas hem aan in het Bol-verkopersportaal (bestelling {{order}}).",
+    "correction": {
+      "pending": "Track & trace-correctie naar Bol gestuurd, wacht op Bol",
+      "success": "Track & trace gecorrigeerd bij Bol",
+      "failure": "Bol heeft de track & trace-correctie niet geaccepteerd",
+      "timeout": "Bol heeft niet op tijd op de track & trace-correctie geantwoord"
+    }
+  },
   "create": {
     "addProduct": "Product toevoegen",
     "billing": {
@@ -157,6 +185,15 @@
     "statusPlaceholder": "Status…",
     "unfulfilled": "Niet afgehandeld"
   },
+  "paymentStatus": {
+    "awaiting_payment": "Wacht op betaling",
+    "awaiting_confirmation": "Wacht op bevestiging",
+    "paid": "Betaald",
+    "failed": "Betaling mislukt",
+    "refunded": "Terugbetaald",
+    "partially_refunded": "Gedeeltelijk terugbetaald",
+    "cancelled_unpaid": "Geannuleerd, onbetaald"
+  },
   "print": {
     "billing": "Factuuradres",
     "coc": "KvK-nummer: {{value}}",
@@ -200,33 +237,5 @@
     "fetching": "Ophalen…",
     "loading": "Track & trace laden…",
     "refresh": "Vernieuwen bij vervoerder"
-  },
-  "paymentStatus": {
-    "awaiting_payment": "Wacht op betaling",
-    "awaiting_confirmation": "Wacht op bevestiging",
-    "paid": "Betaald",
-    "failed": "Betaling mislukt",
-    "refunded": "Terugbetaald",
-    "partially_refunded": "Gedeeltelijk terugbetaald",
-    "cancelled_unpaid": "Geannuleerd, onbetaald"
-  },
-  "bolConfirmation": {
-    "title": "Bol",
-    "notSent": "Nog niet naar Bol gestuurd",
-    "earlier": "Eerdere pogingen",
-    "manualAction": "De bestelling staat nog open bij Bol. Bevestig hem in het Bol-verkopersportaal (bestelling {{order}}).",
-    "status": {
-      "pending": "Naar Bol gestuurd, wacht op bevestiging van Bol",
-      "success": "Bevestigd bij Bol",
-      "failure": "Bol heeft de zending niet geaccepteerd",
-      "timeout": "Bol heeft niet op tijd geantwoord"
-    },
-    "correctionManualAction": "Bol heeft nog de oude track & trace. Pas hem aan in het Bol-verkopersportaal (bestelling {{order}}).",
-    "correction": {
-      "pending": "Track & trace-correctie naar Bol gestuurd, wacht op Bol",
-      "success": "Track & trace gecorrigeerd bij Bol",
-      "failure": "Bol heeft de track & trace-correctie niet geaccepteerd",
-      "timeout": "Bol heeft niet op tijd op de track & trace-correctie geantwoord"
-    }
   }
 }

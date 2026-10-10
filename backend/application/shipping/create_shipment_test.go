@@ -503,7 +503,7 @@ func TestCreateShipment_recordsActivityOnSuccessAndFailure(t *testing.T) {
 
 		require.Error(t, err)
 		require.Len(t, activity.calls, 1)
-		assert.Equal(t, "myparcel_error", activity.calls[0].ActivityType)
+		assert.Equal(t, omsDomain.ActivityTypeShipmentFailed, activity.calls[0].ActivityType)
 	})
 }
 

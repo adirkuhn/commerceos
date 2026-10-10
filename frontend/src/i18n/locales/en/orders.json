@@ -1,5 +1,33 @@
 {
+  "activity": {
+    "markedPicked": "Marked as picked",
+    "orderExportFailed": "Failed to export order to MyParcel",
+    "orderExportFailedLabelContinues": "Failed to export order to MyParcel (label creation continues)",
+    "orderExported": "Order exported to MyParcel",
+    "shipmentCancelled": "Shipment cancelled",
+    "shipmentCreated": "Shipment created via MyParcel",
+    "shipmentFailed": "Failed to create MyParcel shipment"
+  },
   "backToOrders": "Back to orders",
+  "bolConfirmation": {
+    "title": "Bol",
+    "notSent": "Not sent to Bol yet",
+    "earlier": "Earlier attempts",
+    "manualAction": "The order is still open on Bol. Confirm it in the Bol seller portal (order {{order}}).",
+    "status": {
+      "pending": "Sent to Bol, waiting for Bol to confirm",
+      "success": "Confirmed on Bol",
+      "failure": "Bol did not accept the shipment",
+      "timeout": "Bol did not answer in time"
+    },
+    "correctionManualAction": "Bol still has the old track & trace. Update it in the Bol seller portal (order {{order}}).",
+    "correction": {
+      "pending": "Track & trace correction sent to Bol, waiting for Bol",
+      "success": "Track & trace corrected on Bol",
+      "failure": "Bol did not accept the track & trace correction",
+      "timeout": "Bol did not answer the track & trace correction in time"
+    }
+  },
   "create": {
     "addProduct": "Add product",
     "billing": {
@@ -157,6 +185,15 @@
     "statusPlaceholder": "Status…",
     "unfulfilled": "Unfulfilled"
   },
+  "paymentStatus": {
+    "awaiting_payment": "Awaiting payment",
+    "awaiting_confirmation": "Awaiting confirmation",
+    "paid": "Paid",
+    "failed": "Payment failed",
+    "refunded": "Refunded",
+    "partially_refunded": "Partially refunded",
+    "cancelled_unpaid": "Cancelled, unpaid"
+  },
   "print": {
     "billing": "Billing",
     "coc": "Chamber of Commerce: {{value}}",
@@ -200,33 +237,5 @@
     "fetching": "Fetching…",
     "loading": "Loading tracking…",
     "refresh": "Refresh from provider"
-  },
-  "paymentStatus": {
-    "awaiting_payment": "Awaiting payment",
-    "awaiting_confirmation": "Awaiting confirmation",
-    "paid": "Paid",
-    "failed": "Payment failed",
-    "refunded": "Refunded",
-    "partially_refunded": "Partially refunded",
-    "cancelled_unpaid": "Cancelled, unpaid"
-  },
-  "bolConfirmation": {
-    "title": "Bol",
-    "notSent": "Not sent to Bol yet",
-    "earlier": "Earlier attempts",
-    "manualAction": "The order is still open on Bol. Confirm it in the Bol seller portal (order {{order}}).",
-    "status": {
-      "pending": "Sent to Bol, waiting for Bol to confirm",
-      "success": "Confirmed on Bol",
-      "failure": "Bol did not accept the shipment",
-      "timeout": "Bol did not answer in time"
-    },
-    "correctionManualAction": "Bol still has the old track & trace. Update it in the Bol seller portal (order {{order}}).",
-    "correction": {
-      "pending": "Track & trace correction sent to Bol, waiting for Bol",
-      "success": "Track & trace corrected on Bol",
-      "failure": "Bol did not accept the track & trace correction",
-      "timeout": "Bol did not answer the track & trace correction in time"
-    }
   }
 }

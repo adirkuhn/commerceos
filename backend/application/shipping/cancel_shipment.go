@@ -3,15 +3,16 @@ package shipping
 import (
 	"context"
 	"fmt"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"log"
 	"time"
 
 	"gorm.io/gorm"
 
-	appoms "github.com/adirkuhn/commerceos/application/oms"
-	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/application/eventrecord"
+	appoms "github.com/adirkuhn/commerceos/application/oms"
 	"github.com/adirkuhn/commerceos/domain/events"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -142,7 +143,7 @@ func (uc *CancelShipmentUseCase) recordShipmentCancelledActivity(ctx context.Con
 		return
 	}
 	if _, err := uc.recordActivity.Execute(ctx, appoms.RecordSalesOrderActivityInput{
-		SalesOrderID: salesOrderID, UserID: userID, ActivityType: "myparcel_shipment_cancelled",
+		SalesOrderID: salesOrderID, UserID: userID, ActivityType: omsDomain.ActivityTypeShipmentCancelled,
 		Summary:  "Shipment cancelled",
 		Metadata: map[string]any{"deleted_on_myparcel": result.DeletedOnMyParcel, "message": result.Message},
 	}); err != nil {

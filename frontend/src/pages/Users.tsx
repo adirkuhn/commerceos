@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus, Search, Shield, X, CheckCircle, XCircle } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
+import { activityText } from '../oms/activityText'
 import type { TFunction } from 'i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useUsersRoute } from '../team/useUsersRoute'
@@ -28,6 +29,7 @@ function UserActivityPanel({ token, member, onClose }: { token: string; member: 
   const { formatDateTime } = useDateFormat()
   const { t } = useTranslation(['iam', 'common'])
   const { activities, loading, error } = useUserActivities(token, member.user_id)
+  const { t: tOrders } = useTranslation('orders')
 
   return (
     <div className="w-[480px] border-l border-line flex flex-col overflow-hidden">
@@ -45,7 +47,7 @@ function UserActivityPanel({ token, member, onClose }: { token: string; member: 
         )}
         {activities.map(a => (
           <div key={a.id} className="flex justify-between gap-3 text-xs">
-            <span className="text-ink">{a.summary}</span>
+            <span className="text-ink">{activityText(tOrders, a)}</span>
             <span className="shrink-0 text-ink-4">{formatDateTime(a.created_at)}</span>
           </div>
         ))}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Trash2, Printer, Edit3 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
+import { activityText } from './activityText'
 import { useAuth } from '../auth/AuthContext'
 import { useSalesOrderDetail } from './hooks/useSalesOrderDetail'
 import { useSalesOrderActivities } from './hooks/useSalesOrderActivities'
@@ -376,7 +377,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                     <p className="font-medium text-ink-2">{t('detail.timeline')}</p>
                     {activities.map(a => (
                       <div key={a.id} className="flex justify-between gap-3 text-ink-3">
-                        <span className="text-ink">{a.summary}</span>
+                        <span className="text-ink">{activityText(t, a)}</span>
                         <span className="shrink-0">{formatDateTime(a.created_at)}</span>
                       </div>
                     ))}

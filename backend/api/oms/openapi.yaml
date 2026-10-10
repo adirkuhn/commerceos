@@ -1313,8 +1313,17 @@ components:
         id: { type: string }
         sales_order_id: { type: string }
         user_id: { type: string }
-        activity_type: { type: string }
-        summary: { type: string }
+        activity_type:
+          type: string
+          description: >-
+            Clients show the type's translated text: marked_picked,
+            myparcel_shipment_created, myparcel_shipment_failed,
+            myparcel_shipment_cancelled, myparcel_order_exported,
+            myparcel_order_export_failed, myparcel_error (order export
+            failed). Unknown types fall back to summary.
+        summary:
+          type: string
+          description: English fallback text.
         metadata:
           type: object
           additionalProperties: true

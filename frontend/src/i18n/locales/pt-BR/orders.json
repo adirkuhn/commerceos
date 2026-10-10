@@ -1,5 +1,33 @@
 {
+  "activity": {
+    "markedPicked": "Marcado como separado",
+    "orderExportFailed": "Falha ao exportar o pedido para o MyParcel",
+    "orderExportFailedLabelContinues": "Falha ao exportar o pedido para o MyParcel (a etiqueta continua sendo criada)",
+    "orderExported": "Pedido exportado para o MyParcel",
+    "shipmentCancelled": "Envio cancelado",
+    "shipmentCreated": "Envio criado via MyParcel",
+    "shipmentFailed": "Falha ao criar envio no MyParcel"
+  },
   "backToOrders": "Voltar aos pedidos",
+  "bolConfirmation": {
+    "title": "Bol",
+    "notSent": "Ainda não enviado à Bol",
+    "earlier": "Tentativas anteriores",
+    "manualAction": "O pedido continua aberto na Bol. Confirme-o no portal de vendedor da Bol (pedido {{order}}).",
+    "status": {
+      "pending": "Enviado à Bol, aguardando confirmação da Bol",
+      "success": "Confirmado na Bol",
+      "failure": "A Bol não aceitou o envio",
+      "timeout": "A Bol não respondeu a tempo"
+    },
+    "correctionManualAction": "A Bol ainda tem o código de rastreio antigo. Atualize-o no portal de vendedor da Bol (pedido {{order}}).",
+    "correction": {
+      "pending": "Correção do rastreio enviada à Bol, aguardando a Bol",
+      "success": "Rastreio corrigido na Bol",
+      "failure": "A Bol não aceitou a correção do rastreio",
+      "timeout": "A Bol não respondeu a tempo à correção do rastreio"
+    }
+  },
   "create": {
     "addProduct": "Adicionar produto",
     "billing": {
@@ -160,6 +188,15 @@
     "statusPlaceholder": "Status…",
     "unfulfilled": "Não atendido"
   },
+  "paymentStatus": {
+    "awaiting_payment": "Aguardando pagamento",
+    "awaiting_confirmation": "Aguardando confirmação",
+    "paid": "Pago",
+    "failed": "Pagamento falhou",
+    "refunded": "Reembolsado",
+    "partially_refunded": "Parcialmente reembolsado",
+    "cancelled_unpaid": "Cancelado, não pago"
+  },
   "print": {
     "billing": "Cobrança",
     "coc": "Registro comercial (KvK): {{value}}",
@@ -203,33 +240,5 @@
     "fetching": "Consultando…",
     "loading": "Carregando rastreamento…",
     "refresh": "Atualizar pela transportadora"
-  },
-  "paymentStatus": {
-    "awaiting_payment": "Aguardando pagamento",
-    "awaiting_confirmation": "Aguardando confirmação",
-    "paid": "Pago",
-    "failed": "Pagamento falhou",
-    "refunded": "Reembolsado",
-    "partially_refunded": "Parcialmente reembolsado",
-    "cancelled_unpaid": "Cancelado, não pago"
-  },
-  "bolConfirmation": {
-    "title": "Bol",
-    "notSent": "Ainda não enviado à Bol",
-    "earlier": "Tentativas anteriores",
-    "manualAction": "O pedido continua aberto na Bol. Confirme-o no portal de vendedor da Bol (pedido {{order}}).",
-    "status": {
-      "pending": "Enviado à Bol, aguardando confirmação da Bol",
-      "success": "Confirmado na Bol",
-      "failure": "A Bol não aceitou o envio",
-      "timeout": "A Bol não respondeu a tempo"
-    },
-    "correctionManualAction": "A Bol ainda tem o código de rastreio antigo. Atualize-o no portal de vendedor da Bol (pedido {{order}}).",
-    "correction": {
-      "pending": "Correção do rastreio enviada à Bol, aguardando a Bol",
-      "success": "Rastreio corrigido na Bol",
-      "failure": "A Bol não aceitou a correção do rastreio",
-      "timeout": "A Bol não respondeu a tempo à correção do rastreio"
-    }
   }
 }
