@@ -27,8 +27,8 @@
     "colTemplate": "Modelo",
     "colTrigger": "Gatilho",
     "conditions": "E estas condições forem atendidas (opcional)",
-    "count_one": "{{count}} regra",
     "count_many": "{{count}} regras",
+    "count_one": "{{count}} regra",
     "count_other": "{{count}} regras",
     "create": "Criar regra",
     "deleteConfirm": "Excluir regra",
@@ -37,6 +37,9 @@
     "editTitle": "Editar regra de automação",
     "empty": "Nenhuma regra de automação ainda",
     "enabled": "Ativada",
+    "extraRecipients": "Enviar também para",
+    "extraRecipientsHint": "Sempre recebem quando esta regra envia por e-mail, um endereço por linha. Nada é enviado com a regra desativada.",
+    "extraRecipientsPlaceholder": "nome@exemplo.com",
     "field": "campo",
     "intro": "Quando um evento acontece e todas as condições são atendidas, o modelo escolhido é enviado.",
     "name": "Nome",
@@ -45,6 +48,7 @@
     "newTitle": "Nova regra de automação",
     "removeCondition": "Remover condição",
     "selectTemplate": "Escolha um modelo",
+    "staffAudience": "Vai para os destinatários de e-mail de Estoque em Configurações › Notificações (quando o e-mail de Estoque está ativo), mais os e-mails extras abaixo.",
     "template": "Enviar este modelo",
     "templateChannels": "Usar os canais do próprio modelo",
     "value": "valor",
@@ -81,7 +85,7 @@
     "newTitle": "Novo modelo de mensagem",
     "search": "Buscar modelos...",
     "subject": "Assunto (só e-mail)",
-    "tokensHint": "Use variáveis {{token}} -- as variáveis disponíveis dependem do evento que envia este modelo."
+    "tokensHint": "Use variáveis {{token}} -- as variáveis disponíveis dependem do evento que envia este modelo. Repita uma lista com {{loop}}; mostre um texto só quando um valor existe com {{ifSet}}, ou só quando está vazio com {{ifEmpty}}."
   },
   "trigger": {
     "categoryChanged": "Categoria alterada",
@@ -93,6 +97,7 @@
     "refundReview": "Reembolso precisa de revisão manual",
     "shipmentUpdate": "Atualização do envio",
     "stockChanged": "Estoque alterado",
+    "stockCloseToExpiry": "Relatório de estoque perto do vencimento",
     "storefrontOrderPlaced": "Pedido feito na loja"
   },
   "whatsapp": {

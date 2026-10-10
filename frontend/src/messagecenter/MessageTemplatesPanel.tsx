@@ -282,7 +282,7 @@ export default function MessageTemplatesPanel() {
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
                 <p className="text-2xs text-ink-4 mt-1">
-                  {t('templates.tokensHint', { token: '{{token}}' })}
+                  {t('templates.tokensHint', { token: '{{token}}', loop: '{{#items}}…{{/items}}', ifSet: '{{#sale_price}}…{{/sale_price}}', ifEmpty: '{{^sale_price}}…{{/sale_price}}' })}
                 </p>
               </div>
 

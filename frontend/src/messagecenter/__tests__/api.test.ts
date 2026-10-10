@@ -104,7 +104,7 @@ describe('deleteMessageTemplate', () => {
 const sampleRule: AutomationRule = {
   id: 'rule-1', name: 'Collect point notice', trigger_subject: 'shipping.shipment.fulfillment_signal',
   conditions: [{ field: 'status_code', operator: 'in', value: [8, 19] }], template_id: 'template-1',
-  channel_override: 'whatsapp', enabled: true,
+  channel_override: 'whatsapp', extra_recipients: [], enabled: true,
   created_at: '2026-06-01T00:00:00Z', updated_at: '2026-06-01T00:00:00Z',
 }
 

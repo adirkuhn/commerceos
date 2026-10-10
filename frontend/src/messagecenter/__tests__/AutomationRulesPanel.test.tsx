@@ -37,7 +37,7 @@ function rule(overrides: Partial<AutomationRule> = {}): AutomationRule {
   return {
     id: 'rule-1', name: 'Collect point rule', trigger_subject: 'shipping.shipment.fulfillment_signal',
     conditions: [{ field: 'status_code', operator: 'in', value: [8, 19] }], template_id: 'template-1',
-    enabled: true, created_at: '2026-06-01T00:00:00Z', updated_at: '2026-06-01T00:00:00Z',
+    extra_recipients: [], enabled: true, created_at: '2026-06-01T00:00:00Z', updated_at: '2026-06-01T00:00:00Z',
     ...overrides,
   }
 }
@@ -90,5 +90,54 @@ describe('AutomationRulesPanel', () => {
 
     await acceptConfirm()
     await waitFor(() => expect(messagecenterApi.deleteAutomationRule).toHaveBeenCalledWith('test-token', 'rule-1'))
+  })
+
+  it('creating a rule sends its extra email recipients', async () => {
+    vi.mocked(messagecenterApi.createAutomationRule).mockResolvedValue(rule({ id: 'rule-new' }))
+
+    renderAt(<AutomationRulesPanel />, '/message-center')
+    await screen.findByText('No automation rules yet')
+
+    await userEvent.click(screen.getByText('New rule'))
+    await userEvent.type(await screen.findByLabelText('Name'), 'Copy to the shop')
+    await userEvent.type(screen.getByLabelText('Also email'), 'shop@example.nl{enter}buyer@example.nl')
+    await userEvent.click(screen.getByText('Create rule'))
+
+    await waitFor(() => expect(messagecenterApi.createAutomationRule).toHaveBeenCalledWith(
+      'test-token',
+      expect.objectContaining({ extra_recipients: ['shop@example.nl', 'buyer@example.nl'] }),
+    ))
+  })
+
+  it('editing a rule shows and keeps its extra recipients', async () => {
+    vi.mocked(messagecenterApi.listAutomationRules).mockResolvedValue([rule({ extra_recipients: ['shop@example.nl'] })])
+    vi.mocked(messagecenterApi.updateAutomationRule).mockResolvedValue(rule())
+
+    renderAt(<AutomationRulesPanel />, '/message-center/rules/rule-1')
+
+    expect(await screen.findByLabelText('Also email')).toHaveValue('shop@example.nl')
+    await userEvent.click(screen.getByText('Save changes'))
+
+    await waitFor(() => expect(messagecenterApi.updateAutomationRule).toHaveBeenCalledWith(
+      'test-token', 'rule-1', expect.objectContaining({ extra_recipients: ['shop@example.nl'] }),
+    ))
+  })
+
+  it('the stock close-to-expiry trigger explains who gets it', async () => {
+    renderAt(<AutomationRulesPanel />, '/message-center')
+    await screen.findByText('No automation rules yet')
+
+    await userEvent.click(screen.getByText('New rule'))
+    await userEvent.selectOptions(await screen.findByLabelText('When this happens'), 'inventory.stock.close_to_expiry_reported')
+
+    expect(screen.getByText(/Stock email recipients in Settings › Notifications/)).toBeInTheDocument()
+  })
+
+  it('lists the stock close-to-expiry trigger by name', async () => {
+    vi.mocked(messagecenterApi.listAutomationRules).mockResolvedValue([rule({ trigger_subject: 'inventory.stock.close_to_expiry_reported', conditions: [] })])
+
+    renderAt(<AutomationRulesPanel />, '/message-center')
+
+    expect(await screen.findByText('Stock close to expiry report')).toBeInTheDocument()
   })
 })

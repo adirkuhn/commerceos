@@ -36,6 +36,9 @@
     "editTitle": "Automatiseringsregel bewerken",
     "empty": "Nog geen automatiseringsregels",
     "enabled": "Ingeschakeld",
+    "extraRecipients": "Ook mailen naar",
+    "extraRecipientsHint": "Krijgen altijd de e-mail als deze regel per e-mail verstuurt, één adres per regel. Niets wordt verstuurd als de regel uit staat.",
+    "extraRecipientsPlaceholder": "naam@voorbeeld.nl",
     "field": "veld",
     "intro": "Als een gebeurtenis plaatsvindt en aan alle voorwaarden wordt voldaan, wordt het gekozen sjabloon verstuurd.",
     "name": "Naam",
@@ -44,6 +47,7 @@
     "newTitle": "Nieuwe automatiseringsregel",
     "removeCondition": "Voorwaarde verwijderen",
     "selectTemplate": "Kies een sjabloon",
+    "staffAudience": "Gaat naar de e-mailontvangers voor Voorraad in Instellingen › Meldingen (als Voorraad-e-mail aan staat), plus de extra adressen hieronder.",
     "template": "Stuur dit sjabloon",
     "templateChannels": "Kanalen van het sjabloon gebruiken",
     "value": "waarde",
@@ -79,7 +83,7 @@
     "newTitle": "Nieuw berichtsjabloon",
     "search": "Sjablonen zoeken...",
     "subject": "Onderwerp (alleen e-mail)",
-    "tokensHint": "Gebruik {{token}}-variabelen -- welke beschikbaar zijn hangt af van de gebeurtenis die dit sjabloon verstuurt."
+    "tokensHint": "Gebruik {{token}}-variabelen -- welke beschikbaar zijn hangt af van de gebeurtenis die dit sjabloon verstuurt. Herhaal een lijst met {{loop}}; toon tekst alleen als een waarde gevuld is met {{ifSet}}, of alleen als die leeg is met {{ifEmpty}}."
   },
   "trigger": {
     "categoryChanged": "Categorie gewijzigd",
@@ -91,6 +95,7 @@
     "refundReview": "Terugbetaling moet handmatig worden gecontroleerd",
     "shipmentUpdate": "Update zendingstatus",
     "stockChanged": "Voorraad gewijzigd",
+    "stockCloseToExpiry": "Rapport voorraad bijna over datum",
     "storefrontOrderPlaced": "Bestelling geplaatst in webwinkel"
   },
   "whatsapp": {

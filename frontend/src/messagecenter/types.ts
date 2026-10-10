@@ -37,6 +37,7 @@ export type TriggerSubject =
   | 'oms.sales_order.status_changed'
   | 'inventory.stock.changed'
   | 'shipping.shipment.fulfillment_signal'
+  | 'inventory.stock.close_to_expiry_reported'
 
 export type Operator = 'eq' | 'neq' | 'in' | 'gt' | 'lt'
 
@@ -53,6 +54,8 @@ export interface AutomationRule {
   conditions: Condition[]
   template_id: string
   channel_override?: MessageChannel
+  // Always emailed on top of whoever the trigger goes to.
+  extra_recipients: string[]
   enabled: boolean
   created_at: string
   updated_at: string
@@ -64,6 +67,7 @@ export interface CreateAutomationRuleInput {
   conditions?: Condition[]
   template_id: string
   channel_override?: MessageChannel
+  extra_recipients?: string[]
 }
 
 export interface UpdateAutomationRuleInput extends CreateAutomationRuleInput {

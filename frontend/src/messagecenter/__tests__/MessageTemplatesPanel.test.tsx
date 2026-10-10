@@ -92,4 +92,10 @@ describe('MessageTemplatesPanel', () => {
     await acceptConfirm()
     await waitFor(() => expect(messagecenterApi.deleteMessageTemplate).toHaveBeenCalledWith('test-token', 'template-1'))
   })
+
+  it('the editor explains loops and conditional sections', async () => {
+    renderAt(<MessageTemplatesPanel />, '/message-center/templates/new')
+
+    expect(await screen.findByText(/Repeat a list with \{\{#items\}\}…\{\{\/items\}\}/)).toBeInTheDocument()
+  })
 })

@@ -11,6 +11,8 @@ import { useMessageTemplates } from './hooks/useMessageTemplates'
 import type { AutomationRule, Condition, Operator, TriggerSubject, MessageChannel } from './types'
 import { Dialog } from '../components/common/Dialog'
 import { useConfirm } from '../components/common/useConfirm'
+import { ExtraRecipientsField } from './ExtraRecipientsField'
+import { parseEmailList } from './emailList'
 
 type T = TFunction<'messages'>
 
@@ -25,12 +27,18 @@ const triggerLabels = (t: T): Record<TriggerSubject, string> => ({
   'oms.sales_order.status_changed': t('trigger.orderStatusChanged'),
   'inventory.stock.changed': t('trigger.stockChanged'),
   'shipping.shipment.fulfillment_signal': t('trigger.shipmentUpdate'),
+  'inventory.stock.close_to_expiry_reported': t('trigger.stockCloseToExpiry'),
 })
+
+// Triggers addressed to the tenant's own team (backend
+// domain/messagecenter.AudienceFor), not to the order's customer.
+const STAFF_TRIGGERS: TriggerSubject[] = ['inventory.stock.close_to_expiry_reported']
 
 const ALL_TRIGGERS: TriggerSubject[] = [
   'pms.product.deleted', 'storefront.order.placed', 'pms.category.changed', 'pms.product.changed',
   'payments.refund.manual_review_required', 'payments.refund.issued', 'integrations.connection.connected',
   'oms.sales_order.status_changed', 'inventory.stock.changed', 'shipping.shipment.fulfillment_signal',
+  'inventory.stock.close_to_expiry_reported',
 ]
 const ALL_OPERATORS: Operator[] = ['eq', 'neq', 'in', 'gt', 'lt']
 const operatorLabels = (t: T): Record<Operator, string> => ({ eq: t('operator.eq'), neq: t('operator.neq'), in: t('operator.in'), gt: '>', lt: '<' })
@@ -48,6 +56,7 @@ interface FormState {
   templateId: string
   channelOverride: MessageChannel | ''
   conditions: ConditionRow[]
+  extraRecipientsText: string
   enabled: boolean
 }
 
@@ -75,13 +84,14 @@ function conditionSummary(t: T, c: Condition): string {
 }
 
 function emptyForm(): FormState {
-  return { name: '', triggerSubject: ALL_TRIGGERS[0], templateId: '', channelOverride: '', conditions: [], enabled: true }
+  return { name: '', triggerSubject: ALL_TRIGGERS[0], templateId: '', channelOverride: '', conditions: [], extraRecipientsText: '', enabled: true }
 }
 
 function toForm(r: AutomationRule): FormState {
   return {
     name: r.name, triggerSubject: r.trigger_subject, templateId: r.template_id,
-    channelOverride: r.channel_override ?? '', conditions: r.conditions.map(conditionToRow), enabled: r.enabled,
+    channelOverride: r.channel_override ?? '', conditions: r.conditions.map(conditionToRow),
+    extraRecipientsText: (r.extra_recipients ?? []).join('\n'), enabled: r.enabled,
   }
 }
 
@@ -138,6 +148,7 @@ export default function AutomationRulesPanel() {
         name: form.name, trigger_subject: form.triggerSubject, template_id: form.templateId,
         channel_override: form.channelOverride || undefined,
         conditions: form.conditions.filter(c => c.field !== '').map(rowToCondition),
+        extra_recipients: parseEmailList(form.extraRecipientsText),
       }
       if (editingRule) {
         await update(editingRule.id, { ...input, enabled: form.enabled })
@@ -281,6 +292,9 @@ export default function AutomationRulesPanel() {
                     <option key={tr} value={tr}>{TRIGGER_LABELS[tr]}</option>
                   ))}
                 </select>
+                {STAFF_TRIGGERS.includes(form.triggerSubject) && (
+                  <p className="text-2xs text-ink-4 mt-1">{t('rules.staffAudience')}</p>
+                )}
               </div>
 
               <div>
@@ -360,6 +374,11 @@ export default function AutomationRulesPanel() {
                   ))}
                 </select>
               </div>
+
+              <ExtraRecipientsField
+                value={form.extraRecipientsText}
+                onChange={text => setForm(f => ({ ...f, extraRecipientsText: text }))}
+              />
 
               {editingRule && (
                 <div className="flex items-center justify-between">
