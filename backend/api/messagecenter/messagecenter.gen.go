@@ -97,16 +97,17 @@ func (e Operator) Valid() bool {
 
 // Defines values for TriggerSubject.
 const (
-	IntegrationsConnectionConnected    TriggerSubject = "integrations.connection.connected"
-	InventoryStockChanged              TriggerSubject = "inventory.stock.changed"
-	OmsSalesOrderStatusChanged         TriggerSubject = "oms.sales_order.status_changed"
-	PaymentsRefundIssued               TriggerSubject = "payments.refund.issued"
-	PaymentsRefundManualReviewRequired TriggerSubject = "payments.refund.manual_review_required"
-	PmsCategoryChanged                 TriggerSubject = "pms.category.changed"
-	PmsProductChanged                  TriggerSubject = "pms.product.changed"
-	PmsProductDeleted                  TriggerSubject = "pms.product.deleted"
-	ShippingShipmentFulfillmentSignal  TriggerSubject = "shipping.shipment.fulfillment_signal"
-	StorefrontOrderPlaced              TriggerSubject = "storefront.order.placed"
+	IntegrationsConnectionConnected     TriggerSubject = "integrations.connection.connected"
+	InventoryStockChanged               TriggerSubject = "inventory.stock.changed"
+	InventoryStockCloseToExpiryReported TriggerSubject = "inventory.stock.close_to_expiry_reported"
+	OmsSalesOrderStatusChanged          TriggerSubject = "oms.sales_order.status_changed"
+	PaymentsRefundIssued                TriggerSubject = "payments.refund.issued"
+	PaymentsRefundManualReviewRequired  TriggerSubject = "payments.refund.manual_review_required"
+	PmsCategoryChanged                  TriggerSubject = "pms.category.changed"
+	PmsProductChanged                   TriggerSubject = "pms.product.changed"
+	PmsProductDeleted                   TriggerSubject = "pms.product.deleted"
+	ShippingShipmentFulfillmentSignal   TriggerSubject = "shipping.shipment.fulfillment_signal"
+	StorefrontOrderPlaced               TriggerSubject = "storefront.order.placed"
 )
 
 // Valid indicates whether the value is a known member of the TriggerSubject enum.
@@ -115,6 +116,8 @@ func (e TriggerSubject) Valid() bool {
 	case IntegrationsConnectionConnected:
 		return true
 	case InventoryStockChanged:
+		return true
+	case InventoryStockCloseToExpiryReported:
 		return true
 	case OmsSalesOrderStatusChanged:
 		return true
@@ -150,7 +153,7 @@ type AutomationRule struct {
 	Name            string                `json:"name"`
 	TemplateId      string                `json:"template_id"`
 
-	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects.
+	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects. Most go to the customer of the event's sales order; inventory.stock.close_to_expiry_reported (the daily stock-close-to-expiry report, payload window_days, min_days_left, item_count and items[] with product_name, sku, image_url, quantity, expiry_date, days_left, price, sale_price) goes to the stock notification email recipients instead.
 	TriggerSubject TriggerSubject `json:"trigger_subject"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 }
@@ -190,7 +193,7 @@ type CreateAutomationRuleRequest struct {
 	Name            string                 `json:"name"`
 	TemplateId      string                 `json:"template_id"`
 
-	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects.
+	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects. Most go to the customer of the event's sales order; inventory.stock.close_to_expiry_reported (the daily stock-close-to-expiry report, payload window_days, min_days_left, item_count and items[] with product_name, sku, image_url, quantity, expiry_date, days_left, price, sale_price) goes to the stock notification email recipients instead.
 	TriggerSubject TriggerSubject `json:"trigger_subject"`
 }
 
@@ -240,7 +243,7 @@ type MessageTemplateResponse struct {
 // Operator defines model for Operator.
 type Operator string
 
-// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects.
+// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects. Most go to the customer of the event's sales order; inventory.stock.close_to_expiry_reported (the daily stock-close-to-expiry report, payload window_days, min_days_left, item_count and items[] with product_name, sku, image_url, quantity, expiry_date, days_left, price, sale_price) goes to the stock notification email recipients instead.
 type TriggerSubject string
 
 // UpdateAutomationRuleRequest defines model for UpdateAutomationRuleRequest.
@@ -254,7 +257,7 @@ type UpdateAutomationRuleRequest struct {
 	Name            string                 `json:"name"`
 	TemplateId      string                 `json:"template_id"`
 
-	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects.
+	// TriggerSubject Domain event subject this rule can fire on -- mirrors domain/messagecenter.KnownTriggerSubjects. Most go to the customer of the event's sales order; inventory.stock.close_to_expiry_reported (the daily stock-close-to-expiry report, payload window_days, min_days_left, item_count and items[] with product_name, sku, image_url, quantity, expiry_date, days_left, price, sale_price) goes to the stock notification email recipients instead.
 	TriggerSubject TriggerSubject `json:"trigger_subject"`
 }
 
@@ -517,36 +520,39 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"7Flbb9s68v8qA/7/QJOzspym3Rf3KSfJQ7C97PayL20hMOJI5glFquTIrlH4uy9ISr7IstOkSbfnYF8C",
+	"xhqO5vKb3wypbyw3VW00anJs8o3V3PIKCW34T4rwV7MJqzlNWcI0r5BN/IOEWfzSSIuCTcg2mDCXT7Hi",
+	"fgctai/lyEpdsuVy6YVdbbTDoPfSWmP9IjeaUJNf8rpWMuckjR7/4Yz2v601/r/Fgk3Y/43X5o7jUzcO",
+	"2t62+uPbBLrcytorYxOG4XX+93aL13jWkKnC6942CoPv1tRoSUYb8ynXGlVmZmitFHibFedRni0T75WQ",
+	"XnMMImHlbt3dbfH72/Bxa/ki6LPICUXGQ6AKYyu/YoITjkhWyJJ+xBOGml8rFBvZuDZGIQ8vwK9keWYx",
+	"l7XsMr8dssuKSwVcCIvOoQOacgKu5nzhoEQCmkoHtlH4xAEG2aP5FDVIgibKY/t7G8fjBIwGMjWYAuZT",
+	"gzO0QYqsLEu0YNEZNfNbDYxG4ZGxAu0TB3njyFRoEzAWCmPBES+KbqcDJW8wbHBk8hvIlXE4IjPCr7W0",
+	"C7BYG0tJkNCGZNHCDNYB8EYFF3NOWBq7gNabzjsyZakQpAOjUzgDIV2Ib4gBONQiGK7NtRGLlCXrrK/S",
+	"FRQNpaqfbikGaqgrvYEHhFWtOGG2Z2Mbp8w1139gTrdB8X0Uf9dKLxPW1OKO+FtussPHSBfB/l1rtspl",
+	"25kBoK6BvVUWWzZ+XpljVi5sV/tL6WhFGDuVLzjx7y7cHo0MpBM7stONUt72yJfL5a1m3m7i3Sy7iyXn",
+	"bSF4cdRN5dNYNzafcuezGEozc8Sp8UkJhZdJXZiQYZ7feBgkLFbuRkbWqOz4ckN/VyGu8jrnU06O1/Xw",
+	"7hVf7sSmkKhCIVRSv0Rd0pRNng6o8Hs4xYAciuObTm6ZsBlXjU9HH+DxnRs6O9EhLJ4H3PZT/aVBR790",
+	"G7q9a/zObUf769ZxpA18Yq95hfCpOTl5lvtHYYWf2PELT+NVhQK4FiBwJJo4B6CAnDscSe1QO0lyhmqR",
+	"wptKkn9WIdcOtNGYwpkGqWdcSdG91jeKyljfFbiG0xOwSI3VDp6fnsLV63+fvby6yN5e/uvD5bv3h9m6",
+	"4l87EJ3+/fkAjCr+9SruPj3ZjVlH2rdg8ZEpvIfWvUy8acZ+5L5C53iJ71vhvdD1rfA7fM83mOYgNjs5",
+	"vyei/A7AXpdFJXWbsKf3ztdGHg53vjbUKx83TE9igIbivD3R7mX/Ho1vEHyPQ4wYnhyqmMlhN3pWDTWJ",
+	"HhL2Q+C/nvRHH6nvOrTtR9ADz1vD0FvXfEjRfceqHgAecK7qQ+sHB6sdzvqRyWrAtrvY8mZj8FiNPl98",
+	"xsJfqVnCSh98RYOzT4/dd7rwham41IAz1ARtotcHNsi5hkJa9Oex0Qgq6U13IMKucUsJOWpCm/5Dm7ne",
+	"fp9L4ZVxBKXxBx5/puqOZ/EQhfHFTxw4rtDFQ9wL36BRk7GLNMyKaTikZWSyeEjL4iENBRx5FYJLtYjH",
+	"udG+41zNF8pwAXOphZlngi9cApXUYZUpLCgBD7UsN42mMF4E5H38DHNJU6itEU1Oma+TBNxNk4CseIlZ",
+	"Y1UCXxquSdIigdZAXwcJbOiurcz9Rq4wC+tjKE08v67PolvnzTgZbZw6pXaEXKSh/toZu3Jpa1kqUCGF",
+	"mnRkLBbWaEpDPNNa8Tw88fJdiae+wMvVz52ajV/5ovIvTi0WjRZpxXXDVWZxJnGerRhkV1A614QHUhOW",
+	"Nrjj0txojblfd8sgYyqXhtxn0dZ4SsjWZuxgYfXETWVdS12mfuEtSItGFVIpv86cLDVXQwr2gGmwfD4E",
+	"SvsTjt8/dqPzv9n8rzObr8Ew1JQjwP/KU/rBUvj5I/yhdHht4V5kpyBfofWKaJQbXciysV4FtP0XunQ7",
+	"OHKIg9352Ldvi024iYS5sULqEpzv+p6uYrGPXeXG3VWK31CrxsE2+yUwn8p8CgJzKdDBb/Mp6t/AaAyD",
+	"goOj7Vnib1AoTnD2+gJWJAdKOjpO4XLGVcPJW8LjvMFL7vsccFBy1k4HscvzlRWAupQaQZJDVRyDdMDB",
+	"Yc1t6Lo+EBackjm+iJNMbjRZnhMYrRaQe38dnL/9cBFdvzY09dxBkvwoxs5NVaHN8c07aOsCzkMM4eyf",
+	"VyxhfnvMytP0pL0c0ryWbMKepSfps9ASaRoAPF6bPfIOhh9LDEiK9z/S6CvBJsyPw9uRdqz3JeT05OTB",
+	"voMcuOMc+ChibuIXkaaquC/rYK3Pjl1sJiaksDC2nfSs9dkj1FwHrqmNG3B86Iar/WCEjn5vGedBnD50",
+	"mbbcLuX2kPyT4n9b7BP2/PR0n8qVjfHjVi9T0Wfgup+oILeDz/E3KZaRf/w8uZuui/D7Tro2vwV+HLZz",
+	"LTKWgi0/D0d30PmT5/dzPho76Hwo0ny66+DQyHd/Bx8exIdG0l8dxHfI4w9APkZoL+Tbvjhadc2DnNwb",
+	"jR6VlA/dkNyRlfujwT1puX978Zi8vGcI/cmY3nf583jMvJOrPTD9TmreTdmvzc0D7t/CzQ/m4WOR858V",
+	"yT+Xnodw7wXRzrpENlaxCRvzWo5nT9ny8/I/AQAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

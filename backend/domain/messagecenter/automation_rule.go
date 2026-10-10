@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/adirkuhn/commerceos/domain/messaging"
+	"github.com/adirkuhn/commerceos/domain/notifications"
 )
 
 type Operator string
@@ -55,6 +56,47 @@ var KnownTriggerSubjects = []string{
 	"oms.sales_order.status_changed",
 	"inventory.stock.changed",
 	"shipping.shipment.fulfillment_signal",
+	TriggerStockCloseToExpiry,
+}
+
+// TriggerStockCloseToExpiry is the daily stock-close-to-expiry report (one
+// event per report window) -- see domain/events.StockCloseToExpiryReported.
+const TriggerStockCloseToExpiry = "inventory.stock.close_to_expiry_reported"
+
+// AudienceKind is who a trigger's messages go to by default.
+type AudienceKind string
+
+const (
+	// AudienceCustomer: the customer of the event's sales order.
+	AudienceCustomer AudienceKind = "customer"
+	// AudienceStaff: the tenant's own team -- the notification email
+	// recipients of Audience.StaffCategory, when that category's email
+	// toggle is on.
+	AudienceStaff AudienceKind = "staff"
+)
+
+// Audience is who a trigger subject's messages go to, before a rule's
+// ExtraRecipients are added.
+type Audience struct {
+	Kind AudienceKind
+	// StaffCategory is the notification category (see
+	// domain/notifications.Category) whose email recipients an
+	// AudienceStaff trigger goes to.
+	StaffCategory string
+}
+
+// staffAudiences maps the triggers addressed to the tenant's team; every
+// other trigger goes to the customer.
+var staffAudiences = map[string]Audience{
+	TriggerStockCloseToExpiry: {Kind: AudienceStaff, StaffCategory: string(notifications.CategoryStock)},
+}
+
+// AudienceFor returns who subject's messages go to by default.
+func AudienceFor(subject string) Audience {
+	if a, ok := staffAudiences[subject]; ok {
+		return a
+	}
+	return Audience{Kind: AudienceCustomer}
 }
 
 func ValidTriggerSubject(subject string) bool {

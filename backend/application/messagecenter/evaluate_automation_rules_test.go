@@ -12,6 +12,7 @@ import (
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"github.com/adirkuhn/commerceos/domain/messaging"
+	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 )
 
@@ -24,6 +25,22 @@ type evalDeps struct {
 	evoClient    *fakeEvolutionAPIClient
 	emailClient  *fakeEmailClient
 	emailFactory *fakeEmailClientFactory
+	staff        *stubCategoryRecipients
+}
+
+type evalHarness struct {
+	uc *appmc.EvaluateAutomationRulesUseCase
+}
+
+type stubCategoryRecipients struct {
+	recipients  []string
+	err         error
+	gotCategory notificationsDomain.Category
+}
+
+func (s *stubCategoryRecipients) Execute(_ context.Context, c notificationsDomain.Category) ([]string, error) {
+	s.gotCategory = c
+	return s.recipients, s.err
 }
 
 func newEvalUseCase(t *testing.T, d evalDeps) *appmc.EvaluateAutomationRulesUseCase {
@@ -34,13 +51,16 @@ func newEvalUseCase(t *testing.T, d evalDeps) *appmc.EvaluateAutomationRulesUseC
 	if d.emailClient == nil {
 		d.emailClient = &fakeEmailClient{}
 	}
+	if d.staff == nil {
+		d.staff = &stubCategoryRecipients{}
+	}
 	if d.emailFactory == nil {
 		d.emailFactory = &fakeEmailClientFactory{client: &fakeEmailClient{}}
 	}
 	return appmc.NewEvaluateAutomationRulesUseCase(
 		newMockGormDB(t, 1), d.ruleRepo, d.templateRepo, d.salesOrders, d.customers, d.conns,
 		&fakeEvolutionAPIClientFactory{client: d.evoClient}, testEncryptionSecret,
-		d.emailFactory, d.emailClient,
+		d.emailFactory, d.emailClient, d.staff,
 	)
 }
 

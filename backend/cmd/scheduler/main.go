@@ -344,6 +344,7 @@ func main() {
 		db, repositories.NewAutomationRuleRepo(db), repositories.NewMessageTemplateRepo(db),
 		salesOrderRepo, customerRepo, connRepo, evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
 		smtp.NewClientFactory(), automationEmailClient,
+		notificationsapp.NewCategoryEmailRecipientsUseCase(db, repositories.NewNotificationPreferencesRepo(db)),
 	)
 	for _, subject := range mcDomain.KnownTriggerSubjects {
 		automationEngineConsumer := consumers.NewAutomationEngineConsumer(subject, processedEventRepo, evaluateAutomationRulesUC, js)

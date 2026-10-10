@@ -1,32 +1,40 @@
 package messagecenter
 
 import (
-	"fmt"
-	"strings"
+	"html"
+
+	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
+	"github.com/adirkuhn/commerceos/domain/messaging"
 )
 
-// RenderTemplate substitutes {{token}} placeholders in body using vars.
-// A placeholder with no matching key is left as-is (unresolved -- rather
-// than silently blanked) so a merchant's typo in a template is visible in
-// the sent message instead of vanishing without a trace.
-func RenderTemplate(body string, vars map[string]string) string {
-	replacements := make([]string, 0, len(vars)*2)
-	for k, v := range vars {
-		replacements = append(replacements, "{{"+k+"}}", v)
+// templateData is what a template renders against: every payload field
+// under its own JSON key (e.g. {{status_code}}, or {{#items}} for a list),
+// generic across trigger subjects, plus the audience's own values (e.g.
+// {{customer_name}}), which never live in an event payload.
+func templateData(payload, audienceVars map[string]any) map[string]any {
+	data := make(map[string]any, len(payload)+len(audienceVars))
+	for k, v := range payload {
+		data[k] = v
 	}
-	return strings.NewReplacer(replacements...).Replace(body)
+	for k, v := range audienceVars {
+		data[k] = v
+	}
+	return data
 }
 
-// buildTemplateVars turns a triggering event's payload plus the resolved
-// recipient into the variable map RenderTemplate substitutes. Every payload
-// field is exposed directly under its own JSON key (e.g. {{status_code}},
-// {{sales_order_id}}) -- generic across every trigger subject, no
-// per-event-type mapping to maintain -- plus {{customer_name}} for the one
-// field that never lives in an event payload itself.
-func buildTemplateVars(payload map[string]any, customerName string) map[string]string {
-	vars := map[string]string{"customer_name": customerName}
-	for k, v := range payload {
-		vars[k] = fmt.Sprint(v)
+// renderBody renders a template body for ch: HTML-escaped values for email
+// (its body is HTML, so a product name with "&" or "<" must not break it),
+// raw values for plain-text channels.
+func renderBody(body string, data map[string]any, ch messaging.Channel) string {
+	if ch == messaging.ChannelEmail {
+		return mcDomain.Render(body, data, html.EscapeString)
 	}
-	return vars
+	return mcDomain.Render(body, data, plainText)
 }
+
+// renderSubject renders an email subject -- plain text, never escaped.
+func renderSubject(subject string, data map[string]any) string {
+	return mcDomain.Render(subject, data, plainText)
+}
+
+func plainText(s string) string { return s }

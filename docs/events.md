@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-213 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+214 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -160,6 +160,7 @@ Payload (`events.EntityAction`):
 | `inventory.batch.deleted` | action | An unused stock batch was deleted. data: sku_id, warehouse_id, lot_number. | envelope |
 | `inventory.batch.reviewed` | action | An expired batch was dealt with and leaves the expiry review list. data: sku_id, warehouse_id, outcome -- dismissed (kept as is), written_off (remaining stock written off as lost) or discarded (a quantity discarded by hand). | envelope |
 | `inventory.stock.changed` | typed | InventoryStockChanged is raised whenever a SKU's stock ledger changes — a movement recorded via adjust/recount/transfer/mark-damaged-lost. | `InventoryStockChanged`: event_id, occurred_at, tenant_id, sku_id |
+| `inventory.stock.close_to_expiry_reported` | typed | StockCloseToExpiryReported is one report of the daily stock-close-to- expiry job: the stock with MinDaysLeft..WindowDays days left before it expires, for one of the tenant's chosen windows (see domain/settings.ExpiryAlert). | `StockCloseToExpiryReported`: event_id, occurred_at, tenant_id, window_days, min_days_left, item_count, items |
 | `inventory.warehouse.created` | action | A warehouse was created. data: name, country, active. | envelope |
 | `inventory.warehouse.deleted` | action | A warehouse was deleted. data: name. | envelope |
 | `inventory.warehouse.updated` | action | A warehouse changed (changes: name, address1, address2, city, province, zip, country, phone, active). | envelope |

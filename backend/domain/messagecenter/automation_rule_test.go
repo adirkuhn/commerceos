@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/domain/messagecenter"
 )
 
@@ -115,4 +116,15 @@ func TestNormalizeExtraRecipients_rejectsTooMany(t *testing.T) {
 	}
 	_, err := messagecenter.NormalizeExtraRecipients(many)
 	assert.ErrorIs(t, err, messagecenter.ErrTooManyExtraRecipients)
+}
+
+func TestAudienceFor(t *testing.T) {
+	assert.Equal(t, messagecenter.Audience{Kind: messagecenter.AudienceCustomer}, messagecenter.AudienceFor("oms.sales_order.status_changed"))
+	assert.Equal(t, messagecenter.Audience{Kind: messagecenter.AudienceStaff, StaffCategory: "stock"},
+		messagecenter.AudienceFor(messagecenter.TriggerStockCloseToExpiry))
+	assert.True(t, messagecenter.ValidTriggerSubject(messagecenter.TriggerStockCloseToExpiry))
+}
+
+func TestTriggerStockCloseToExpiry_matchesTheEventSubject(t *testing.T) {
+	assert.Equal(t, events.StockCloseToExpiryReported{}.EventName(), messagecenter.TriggerStockCloseToExpiry)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/adirkuhn/commerceos/application/tenantemail"
 	"log"
+	"strings"
 
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
@@ -52,20 +53,16 @@ type pendingSend struct {
 // for this subject, keep the ones whose Conditions match the event's own
 // payload, and send each matched rule's MessageTemplate.
 //
-// Recipient resolution is deliberately generic, not per-subject: any event
-// payload carrying a "sales_order_id" field (order/shipment/refund events)
-// resolves to that order's Customer; every other trigger subject (product/
-// category/integration/inventory events -- merchant/ops events with no
-// customer to notify) matches its rules but sends nothing, logged clearly
-// rather than guessing at a recipient. A future trigger subject with its
-// own payload shape carrying sales_order_id gets recipient resolution for
-// free, no new branch needed here.
+// Who it goes to is the trigger's audience (mcDomain.AudienceFor: the
+// order's customer, or for staff triggers the notification recipients of a
+// category), resolved by one audienceResolver per audience kind, plus the
+// rule's ExtraRecipients on the email channel. A trigger whose audience
+// resolves to nobody still sends to those extra recipients.
 type EvaluateAutomationRulesUseCase struct {
 	db                 *gorm.DB
 	ruleRepo           mcDomain.AutomationRuleRepository
 	templateRepo       mcDomain.MessageTemplateRepository
-	salesOrderRepo     salesOrderFinder
-	customerRepo       customerFinder
+	audiences          map[mcDomain.AudienceKind]audienceResolver
 	connRepo           connectionLister
 	evolutionFactory   integrationsDomain.EvolutionAPIClientFactory
 	encryptionSecret   string
@@ -83,10 +80,15 @@ func NewEvaluateAutomationRulesUseCase(
 	salesOrderRepo salesOrderFinder, customerRepo customerFinder, connRepo connectionLister,
 	evolutionFactory integrationsDomain.EvolutionAPIClientFactory, encryptionSecret string,
 	emailClientFactory messaging.EmailClientFactory, fallbackEmailClient messaging.Client,
+	staffRecipients categoryEmailRecipients,
 ) *EvaluateAutomationRulesUseCase {
 	return &EvaluateAutomationRulesUseCase{
 		db: db, ruleRepo: ruleRepo, templateRepo: templateRepo,
-		salesOrderRepo: salesOrderRepo, customerRepo: customerRepo, connRepo: connRepo,
+		audiences: map[mcDomain.AudienceKind]audienceResolver{
+			mcDomain.AudienceCustomer: customerAudience{salesOrderRepo: salesOrderRepo, customerRepo: customerRepo},
+			mcDomain.AudienceStaff:    staffAudience{recipients: staffRecipients},
+		},
+		connRepo:         connRepo,
 		evolutionFactory: evolutionFactory, encryptionSecret: encryptionSecret,
 		emailClientFactory: emailClientFactory, fallbackEmailClient: fallbackEmailClient,
 	}
@@ -105,15 +107,16 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 			return nil
 		}
 
-		customer, err := uc.resolveCustomer(ctx, payload)
+		target := mcDomain.AudienceFor(subject)
+		resolver, ok := uc.audiences[target.Kind]
+		if !ok {
+			return fmt.Errorf("no audience resolver for %q", target.Kind)
+		}
+		aud, err := resolver.resolve(ctx, target, payload)
 		if err != nil {
 			return err
 		}
-		if customer == nil {
-			log.Printf("evaluateAutomationRules: subject %s event %s has no resolvable customer recipient, skipping send", subject, eventID)
-			return nil
-		}
-		vars := buildTemplateVars(payload, customer.FirstName)
+		data := templateData(payload, aud.vars)
 
 		conns, err = uc.connRepo.ListByTenant(ctx)
 		if err != nil {
@@ -137,19 +140,21 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 				channels = []messaging.Channel{*rule.ChannelOverride}
 			}
 			for _, ch := range channels {
-				to := recipientAddress(ch, customer)
-				if to == "" {
-					continue
-				}
 				if ch == messaging.ChannelWhatsApp && !whatsappConnected {
 					continue
 				}
-				sends = append(sends, pendingSend{
-					channel: ch, to: to,
-					subject: RenderTemplate(template.Subject, vars),
-					body:    RenderTemplate(template.Body, vars),
-				})
+				addresses := channelAddresses(ch, aud.recipients, rule.ExtraRecipients)
+				if len(addresses) == 0 {
+					continue
+				}
+				subjectLine, body := renderSubject(template.Subject, data), renderBody(template.Body, data, ch)
+				for _, to := range addresses {
+					sends = append(sends, pendingSend{channel: ch, to: to, subject: subjectLine, body: body})
+				}
 			}
+		}
+		if len(sends) == 0 {
+			log.Printf("evaluateAutomationRules: subject %s event %s matched rules but resolved no recipient, skipping send", subject, eventID)
 		}
 		return nil
 	})
@@ -160,40 +165,29 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 	return uc.dispatch(ctx, sends, conns)
 }
 
-// resolveCustomer resolves the triggering event's customer, generically,
-// from a "sales_order_id" payload field -- see this use case's own doc
-// comment for why this is the one recipient-resolution rule, not one per
-// trigger subject.
-func (uc *EvaluateAutomationRulesUseCase) resolveCustomer(ctx context.Context, payload map[string]any) (*customersDomain.Customer, error) {
-	salesOrderID, ok := payload["sales_order_id"].(string)
-	if !ok || salesOrderID == "" {
-		return nil, nil
+// channelAddresses is every distinct address one channel's message goes
+// to: the audience's, then -- email only -- the rule's extra recipients.
+// Duplicates (case-insensitive) are sent once.
+func channelAddresses(ch messaging.Channel, recipients []recipient, extras []string) []string {
+	var out []string
+	seen := map[string]bool{}
+	add := func(addr string) {
+		key := strings.ToLower(addr)
+		if addr == "" || seen[key] {
+			return
+		}
+		seen[key] = true
+		out = append(out, addr)
 	}
-	order, err := uc.salesOrderRepo.FindByID(ctx, salesOrderID)
-	if err != nil {
-		return nil, err
+	for _, r := range recipients {
+		add(r.address(ch))
 	}
-	if order.CustomerID == nil {
-		return nil, nil
+	if ch == messaging.ChannelEmail {
+		for _, e := range extras {
+			add(e)
+		}
 	}
-	return uc.customerRepo.FindByID(ctx, *order.CustomerID)
-}
-
-// recipientAddress returns the customer's destination address for ch, or ""
-// if they have none on file (nothing to send to). Pure -- no I/O -- since
-// which connection sends it, if any, is dispatch's concern, not this one's.
-func recipientAddress(ch messaging.Channel, customer *customersDomain.Customer) string {
-	switch ch {
-	case messaging.ChannelEmail:
-		return customer.Email
-	case messaging.ChannelWhatsApp:
-		return customer.PhoneE164
-	default:
-		// SMS has no provider configured yet -- see
-		// domain/messagecenter.KnownTriggerSubjects' own doc comment on
-		// this project's staged scope.
-		return ""
-	}
+	return out
 }
 
 // dispatch actually sends every gathered pendingSend, outside the DB

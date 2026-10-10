@@ -235,7 +235,12 @@ components:
       type: string
       description: >-
         Domain event subject this rule can fire on -- mirrors
-        domain/messagecenter.KnownTriggerSubjects.
+        domain/messagecenter.KnownTriggerSubjects. Most go to the customer
+        of the event's sales order; inventory.stock.close_to_expiry_reported
+        (the daily stock-close-to-expiry report, payload window_days,
+        min_days_left, item_count and items[] with product_name, sku,
+        image_url, quantity, expiry_date, days_left, price, sale_price) goes
+        to the stock notification email recipients instead.
       enum:
         - pms.product.deleted
         - storefront.order.placed
@@ -247,6 +252,7 @@ components:
         - oms.sales_order.status_changed
         - inventory.stock.changed
         - shipping.shipment.fulfillment_signal
+        - inventory.stock.close_to_expiry_reported
 
     Operator:
       type: string
