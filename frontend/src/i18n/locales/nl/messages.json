@@ -52,6 +52,18 @@
       "track": "Volg je pakket",
       "expires": "Vervalt",
       "price": "Prijs"
+    },
+    "reset": "Standaard herstellen",
+    "resetTitle": "Standaard herstellen?",
+    "resetMessage": "Het onderwerp, de e-mail en de WhatsApp-/sms-tekst gaan terug naar de standaard. Je wijzigingen daarin gaan verloren.",
+    "resetConfirm": "Herstellen",
+    "resetFailed": "Het sjabloon kon niet worden hersteld.",
+    "gallery": {
+      "hint": "Begin met een kant-en-klaar bericht en pas het aan, of begin leeg.",
+      "blank": "Leeg beginnen",
+      "blankHint": "Schrijf het bericht zelf.",
+      "sentOn": "Voor: {{trigger}}",
+      "createFailed": "Het sjabloon kon niet worden gemaakt."
     }
   },
   "operator": {

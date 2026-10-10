@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { listMessageTriggers, previewMessageTemplate, uploadMessageTemplateImage } from '../api'
+import { listMessageTriggers, previewMessageTemplate, uploadMessageTemplateImage, listMessageTemplateDefaults, resetMessageTemplate } from '../api'
 import { CodedApiError } from '../../api/codedApiError'
 
 beforeEach(() => { vi.restoreAllMocks() })
@@ -11,6 +11,28 @@ function mockJSON(body: unknown, status = 200) {
 }
 
 describe('design editor API', () => {
+  it('lists the default templates', async () => {
+    const fetchMock = mockJSON({ data: [{ key: 'order_confirmation' }], error: null })
+
+    expect(await listMessageTemplateDefaults('tok')).toEqual([{ key: 'order_confirmation' }])
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/message-template-defaults$/)
+  })
+
+  it('resets a template to its default', async () => {
+    const fetchMock = mockJSON({ data: { id: 'tpl-1' }, error: null })
+
+    expect(await resetMessageTemplate('tok', 'tpl-1')).toEqual({ id: 'tpl-1' })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toMatch(/\/message-templates\/tpl-1\/reset$/)
+    expect(init.method).toBe('POST')
+  })
+
+  it('surfaces a coded reset error', async () => {
+    mockJSON({ data: null, error: { code: 'MESSAGE_TEMPLATE_HAS_NO_DEFAULT', message: 'x' } }, 422)
+
+    await expect(resetMessageTemplate('tok', 'tpl-1')).rejects.toBeInstanceOf(CodedApiError)
+  })
+
   it('lists triggers with their variables', async () => {
     const triggers = [{ subject: 'storefront.order.placed', audience: 'customer', has_order: true, variables: [], sample_data: {} }]
     const fetchMock = mockJSON({ data: triggers, error: null })

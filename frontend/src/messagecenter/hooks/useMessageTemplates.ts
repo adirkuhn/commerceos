@@ -12,8 +12,9 @@ interface UseMessageTemplatesState {
 
 interface UseMessageTemplatesActions {
   refresh: () => void
-  create: (input: CreateMessageTemplateInput) => Promise<void>
+  create: (input: CreateMessageTemplateInput) => Promise<MessageTemplate>
   update: (id: string, input: UpdateMessageTemplateInput) => Promise<void>
+  reset: (id: string) => Promise<void>
   remove: (id: string) => Promise<void>
 }
 
@@ -39,9 +40,10 @@ export function useMessageTemplates(token: string): UseMessageTemplatesState & U
 
   useEffect(() => { load() }, [load])
 
-  const create = useCallback(async (input: CreateMessageTemplateInput): Promise<void> => {
+  const create = useCallback(async (input: CreateMessageTemplateInput): Promise<MessageTemplate> => {
     const created = await api.createMessageTemplate(token, input)
     setTemplates(prev => [created, ...prev])
+    return created
   }, [token])
 
   const update = useCallback(async (id: string, input: UpdateMessageTemplateInput): Promise<void> => {
@@ -49,10 +51,15 @@ export function useMessageTemplates(token: string): UseMessageTemplatesState & U
     setTemplates(prev => prev.map(t => (t.id === id ? updated : t)))
   }, [token])
 
+  const reset = useCallback(async (id: string): Promise<void> => {
+    const restored = await api.resetMessageTemplate(token, id)
+    setTemplates(prev => prev.map(t => (t.id === id ? restored : t)))
+  }, [token])
+
   const remove = useCallback(async (id: string): Promise<void> => {
     await api.deleteMessageTemplate(token, id)
     setTemplates(prev => prev.filter(t => t.id !== id))
   }, [token])
 
-  return { templates, loading, error, refresh: load, create, update, remove }
+  return { templates, loading, error, refresh: load, create, update, reset, remove }
 }

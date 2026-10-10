@@ -52,6 +52,18 @@
       "track": "Rastrear seu pacote",
       "expires": "Vence em",
       "price": "Preço"
+    },
+    "reset": "Restaurar padrão",
+    "resetTitle": "Restaurar o padrão?",
+    "resetMessage": "O assunto, o e-mail e o texto de WhatsApp/SMS voltam ao padrão. Suas alterações neles serão perdidas.",
+    "resetConfirm": "Restaurar",
+    "resetFailed": "Não foi possível restaurar o modelo.",
+    "gallery": {
+      "hint": "Comece com uma mensagem pronta e personalize, ou comece do zero.",
+      "blank": "Começar do zero",
+      "blankHint": "Escreva a mensagem você mesmo.",
+      "sentOn": "Para: {{trigger}}",
+      "createFailed": "Não foi possível criar o modelo."
     }
   },
   "operator": {

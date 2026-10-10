@@ -52,6 +52,18 @@
       "track": "Track your package",
       "expires": "Expires",
       "price": "Price"
+    },
+    "reset": "Reset to default",
+    "resetTitle": "Reset to the default?",
+    "resetMessage": "The subject, email and WhatsApp/SMS text go back to the built-in default. Your changes to them are lost.",
+    "resetConfirm": "Reset",
+    "resetFailed": "Couldn’t reset the template.",
+    "gallery": {
+      "hint": "Start from a ready-made message and customize it, or start blank.",
+      "blank": "Start blank",
+      "blankHint": "Write the message yourself.",
+      "sentOn": "For: {{trigger}}",
+      "createFailed": "Couldn’t create the template."
     }
   },
   "operator": {

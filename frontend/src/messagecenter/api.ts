@@ -1,6 +1,6 @@
 import type {
   MessageTemplate, CreateMessageTemplateInput, UpdateMessageTemplateInput,
-  MessageTrigger, PreviewTemplateInput, TemplatePreview,
+  MessageTrigger, PreviewTemplateInput, TemplatePreview, MessageTemplateDefault,
   AutomationRule, CreateAutomationRuleInput, UpdateAutomationRuleInput,
   APIResponse,
 } from './types'
@@ -52,6 +52,14 @@ export function updateMessageTemplate(token: string, id: string, input: UpdateMe
 
 export function deleteMessageTemplate(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/${id}`, { method: 'DELETE' }, token)
+}
+
+export function resetMessageTemplate(token: string, id: string): Promise<MessageTemplate> {
+  return request<MessageTemplate>(`${base()}/${id}/reset`, { method: 'POST' }, token)
+}
+
+export function listMessageTemplateDefaults(token: string): Promise<MessageTemplateDefault[]> {
+  return request<MessageTemplateDefault[]>(`${apiBase()}/message-template-defaults`, { method: 'GET' }, token)
 }
 
 export function listAutomationRules(token: string): Promise<AutomationRule[]> {

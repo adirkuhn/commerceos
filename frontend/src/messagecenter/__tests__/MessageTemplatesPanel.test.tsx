@@ -15,6 +15,9 @@ vi.mock('../api', () => ({
   createMessageTemplate: vi.fn(),
   updateMessageTemplate: vi.fn(),
   deleteMessageTemplate: vi.fn(),
+  resetMessageTemplate: vi.fn(),
+  listMessageTemplateDefaults: vi.fn(),
+  listMessageTriggers: vi.fn(),
 }))
 
 vi.mock('../design/EmailDesignEditor', () => ({
@@ -36,7 +39,14 @@ function template(overrides: Partial<MessageTemplate> = {}): MessageTemplate {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(messagecenterApi.listMessageTemplates).mockResolvedValue([])
+  vi.mocked(messagecenterApi.listMessageTemplateDefaults).mockResolvedValue([orderDefault])
 })
+
+const orderDefault = {
+  key: 'order_confirmation', trigger_subject: 'storefront.order.placed' as const, name: 'Order confirmation',
+  category: 'purchase' as const, channels: ['email' as const, 'whatsapp' as const],
+  subject: 'Order #{{order_number}} confirmed', body: '<p>Thanks</p>', text_body: 'Thanks on WhatsApp',
+}
 
 describe('MessageTemplatesPanel', () => {
   it('shows an empty state when there are no templates', async () => {
@@ -76,6 +86,7 @@ describe('MessageTemplatesPanel', () => {
     await screen.findByText('No message templates yet')
 
     await userEvent.click(screen.getByText('New template'))
+    await userEvent.click(await screen.findByText('Start blank'))
     await userEvent.type(await screen.findByLabelText('Name'), 'Welcome message')
     await userEvent.click(screen.getByLabelText('WhatsApp'))
     expect(screen.queryByLabelText('Body')).not.toBeInTheDocument()
@@ -122,6 +133,29 @@ describe('MessageTemplatesPanel', () => {
     expect(await screen.findByTestId('design-editor')).toHaveTextContent('template-1')
   })
 
+  it('new template from a default creates it with the default content and opens the editor', async () => {
+    vi.mocked(messagecenterApi.createMessageTemplate).mockResolvedValue(template({ id: 'template-new', default_key: 'order_confirmation' }))
+
+    renderAt(<MessageTemplatesPanel />, '/message-center', '/message-center/templates/new')
+    expect(await screen.findByText('For: Storefront order placed')).toBeInTheDocument()
+    await userEvent.click(screen.getByText('Order confirmation'))
+
+    await waitFor(() => expect(messagecenterApi.createMessageTemplate).toHaveBeenCalledWith('test-token', {
+      name: 'Order confirmation', category: 'purchase', channels: ['email', 'whatsapp'],
+      subject: 'Order #{{order_number}} confirmed', body: '<p>Thanks</p>', text_body: 'Thanks on WhatsApp', default_key: 'order_confirmation',
+    }))
+    expect(await screen.findByTestId('design-editor')).toHaveTextContent('template-new')
+  })
+
+  it('a failed create from a default shows the error in the gallery', async () => {
+    vi.mocked(messagecenterApi.createMessageTemplate).mockRejectedValue(new Error('nope'))
+
+    renderAt(<MessageTemplatesPanel />, '/message-center', '/message-center/templates/new')
+    await userEvent.click(await screen.findByText('Order confirmation'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('nope')
+  })
+
   it('a design URL for a missing template says so', async () => {
     renderAt(<MessageTemplatesPanel />, '/message-center/templates/gone/design')
 
@@ -140,6 +174,7 @@ describe('MessageTemplatesPanel', () => {
 
   it('the editor explains loops and conditional sections', async () => {
     renderAt(<MessageTemplatesPanel />, '/message-center/templates/new')
+    await userEvent.click(await screen.findByText('Start blank'))
 
     expect(await screen.findByText(/Repeat a list with \{\{#items\}\}…\{\{\/items\}\}/)).toBeInTheDocument()
   })

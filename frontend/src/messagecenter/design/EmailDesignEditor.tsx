@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, RotateCcw } from 'lucide-react'
+import { useConfirm } from '../../components/common/useConfirm'
 import { useAuth } from '../../auth/AuthContext'
 import { apiErrorText } from '../../api/apiErrorText'
 import * as api from '../api'
@@ -15,6 +16,8 @@ import { PreviewDialog } from './PreviewDialog'
 interface Props {
   template: MessageTemplate
   onSave: (template: MessageTemplate, changes: { subject: string; body: string; design: Record<string, unknown> }) => Promise<void>
+  // Set for a template made from a default: puts it back to that default.
+  onReset?: (template: MessageTemplate) => Promise<void>
   onBack: () => void
 }
 
@@ -22,7 +25,8 @@ interface Props {
 // preset) for one template: blocks and styles in the canvas, the trigger's
 // variables on the side, a server-rendered preview, and save -- which
 // stores the inline-styled HTML that is sent and the design to reopen.
-export function EmailDesignEditor({ template, onSave, onBack }: Props) {
+export function EmailDesignEditor({ template, onSave, onReset, onBack }: Props) {
+  const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { t, i18n } = useTranslation(['messages', 'common'])
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -30,7 +34,7 @@ export function EmailDesignEditor({ template, onSave, onBack }: Props) {
   const [subject, setSubject] = useState(template.subject)
   const [previewAs, setPreviewAs] = useState<TriggerSubject>(previewTriggerFor(template.category))
   const [preview, setPreview] = useState<TemplatePreview | null>(null)
-  const [busy, setBusy] = useState<'' | 'saving' | 'previewing'>('')
+  const [busy, setBusy] = useState<'' | 'saving' | 'previewing' | 'resetting'>('')
   const [status, setStatus] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
 
   const blockTexts = t('design.blockTexts', { returnObjects: true }) as BlockTexts
@@ -58,6 +62,19 @@ export function EmailDesignEditor({ template, onSave, onBack }: Props) {
     } catch (err) {
       setStatus({ kind: 'error', text: apiErrorText(err) ?? t('design.saveFailed') })
     } finally {
+      setBusy('')
+    }
+  }
+
+  async function resetToDefault() {
+    if (!onReset) return
+    if (!(await confirm({ title: t('design.resetTitle'), message: t('design.resetMessage'), confirmLabel: t('design.resetConfirm'), destructive: true }))) return
+    setBusy('resetting')
+    setStatus(null)
+    try {
+      await onReset(template)
+    } catch (err) {
+      setStatus({ kind: 'error', text: apiErrorText(err) ?? t('design.resetFailed') })
       setBusy('')
     }
   }
@@ -96,6 +113,12 @@ export function EmailDesignEditor({ template, onSave, onBack }: Props) {
             {triggers.map(tr => <option key={tr.subject} value={tr.subject}>{labels[tr.subject] ?? tr.subject}</option>)}
           </select>
         </label>
+        {onReset && (
+          <button onClick={resetToDefault} disabled={busy !== ''} title={t('design.reset')}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-ink-3 hover:bg-hover disabled:opacity-50">
+            <RotateCcw size={12} /> {t('design.reset')}
+          </button>
+        )}
         <button onClick={showPreview} disabled={busy !== '' || !editor.ready}
           className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-2 hover:bg-hover disabled:opacity-50">
           {busy === 'previewing' ? t('common:status.loading') : t('design.preview')}
@@ -115,6 +138,7 @@ export function EmailDesignEditor({ template, onSave, onBack }: Props) {
         </aside>
       </div>
       {preview && <PreviewDialog preview={preview} onClose={() => setPreview(null)} />}
+      {confirmDialog}
     </div>
   )
 }

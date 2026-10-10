@@ -26,6 +26,7 @@ const editor = {
 vi.mock('../useEmailEditor', () => ({ useEmailEditor: () => editor }))
 
 import * as api from '../../api'
+import { acceptConfirm } from '../../../test/confirm'
 
 const template: MessageTemplate = {
   id: 'tpl-1', name: 'Order confirmed', category: 'purchase', channels: ['email'],
@@ -98,5 +99,24 @@ describe('EmailDesignEditor', () => {
       body: '<table><tr><td>Hi {{customer_name}}</td></tr></table>', text_body: '',
     }))
     expect(await screen.findByText('Order 1001')).toBeInTheDocument()
+  })
+
+  it('reset to default asks first, then calls onReset', async () => {
+    const onReset = vi.fn().mockResolvedValue(undefined)
+    renderAt(<EmailDesignEditor template={{ ...template, default_key: 'order_confirmation' }} onSave={vi.fn()} onReset={onReset} onBack={vi.fn()} />,
+      '/message-center/templates/tpl-1/design')
+
+    await userEvent.click(await screen.findByTitle('Reset to default'))
+    expect(onReset).not.toHaveBeenCalled()
+    await acceptConfirm()
+
+    await waitFor(() => expect(onReset).toHaveBeenCalledWith({ ...template, default_key: 'order_confirmation' }))
+  })
+
+  it('has no reset for a template written from scratch', async () => {
+    renderEditor()
+    await screen.findByText('{{customer_name}}')
+
+    expect(screen.queryByTitle('Reset to default')).not.toBeInTheDocument()
   })
 })

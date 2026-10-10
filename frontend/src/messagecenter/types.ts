@@ -29,6 +29,8 @@ export interface CreateMessageTemplateInput {
   body?: string
   text_body?: string
   design?: Record<string, unknown> | null
+  // The default this template starts from; enables "reset to default".
+  default_key?: string
 }
 
 export interface UpdateMessageTemplateInput extends CreateMessageTemplateInput {
@@ -123,4 +125,17 @@ export interface TemplatePreview {
   subject: string
   html: string
   text: string
+}
+
+// A built-in default template (GET /message-template-defaults), in the
+// store's language.
+export interface MessageTemplateDefault {
+  key: string
+  trigger_subject: TriggerSubject
+  name: string
+  category: MessageCategory
+  channels: MessageChannel[]
+  subject: string
+  body: string
+  text_body: string
 }
