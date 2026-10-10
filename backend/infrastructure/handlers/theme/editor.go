@@ -41,7 +41,7 @@ func (h *Handler) SaveDraftSettings(c *gin.Context) {
 	}
 	var req gentheme.SaveSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	v, err := h.uc.SaveDraftSettings.Execute(c.Request.Context(), apptheme.SaveDraftSettingsInput{
@@ -72,12 +72,12 @@ func (h *Handler) SaveDraftDocument(c *gin.Context, kind gentheme.DocumentKindPa
 	}
 	var req gentheme.SaveDocumentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	root, err := fromGenNode(req.Root)
 	if err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	title := ""
@@ -101,7 +101,7 @@ func (h *Handler) CreateDraftPage(c *gin.Context) {
 	}
 	var req gentheme.CreatePageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	w, err := h.uc.CreatePage.Execute(c.Request.Context(), apptheme.CreatePageInput{

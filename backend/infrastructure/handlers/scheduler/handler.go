@@ -161,7 +161,7 @@ func (h *Handler) RunJobNow(c *gin.Context, jobKey genscheduler.JobKey) {
 func (h *Handler) UpdateJobConfig(c *gin.Context, jobKey genscheduler.JobKey) {
 	var req genscheduler.UpdateJobConfigRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if err := h.updateJobConfig.Execute(c.Request.Context(), jobKey, req.Enabled, req.IntervalMinutes); err != nil {
@@ -205,11 +205,11 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, schedulerDomain.ErrJobNotFound), errors.Is(err, channelsDomain.ErrSyncScheduleNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, schedulerDomain.ErrInvalidIntervalMinutes):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	default:
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	}
 	return err
 }

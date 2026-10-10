@@ -20,7 +20,7 @@ func (h *Handler) GetCartRecommendations(c *gin.Context) {
 
 	var req genstorefront.CartRecommendationsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 
@@ -80,7 +80,7 @@ func (h *Handler) UpdateCartItems(c *gin.Context, token genstorefront.CartToken)
 	}
 	var req genstorefront.UpdateCartItemsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	lines := make([]appstorefront.UpdateCartItemLineInput, len(req.Items))
@@ -102,7 +102,7 @@ func (h *Handler) ApplyCoupon(c *gin.Context, token genstorefront.CartToken) {
 	}
 	var req genstorefront.ApplyCouponRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
@@ -120,7 +120,7 @@ func (h *Handler) GetShippingOptions(c *gin.Context, _ genstorefront.CartToken) 
 	}
 	var req genstorefront.CheckoutAddress
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
@@ -139,7 +139,7 @@ func (h *Handler) CreatePaymentIntent(c *gin.Context, token genstorefront.CartTo
 	}
 	var req genstorefront.CreatePaymentIntentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
@@ -160,7 +160,7 @@ func (h *Handler) CheckoutCart(c *gin.Context, token genstorefront.CartToken) {
 	}
 	var req genstorefront.CheckoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)

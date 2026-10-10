@@ -27,7 +27,7 @@ func (h *Handler) ListWarehouses(c *gin.Context) {
 func (h *Handler) CreateWarehouse(c *gin.Context) {
 	var req geninventory.CreateWarehouseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.Name == "" {
@@ -53,7 +53,7 @@ func (h *Handler) CreateWarehouse(c *gin.Context) {
 func (h *Handler) UpdateWarehouse(c *gin.Context, id geninventory.Id) {
 	var req geninventory.UpdateWarehouseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.Name == "" {

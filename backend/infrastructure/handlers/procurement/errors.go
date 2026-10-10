@@ -22,7 +22,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, procurementDomain.ErrDocumentNotFound), errors.Is(err, procurementDomain.ErrReceivingRecordNotFound),
 		errors.Is(err, procurementDomain.ErrBookingNotFound), errors.Is(err, procurementDomain.ErrParsingJobNotFound),
 		errors.Is(err, procurementDomain.ErrBookingScanNotFound), errors.Is(err, procurementDomain.ErrDiscrepancyNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, procurementDomain.ErrInvalidQuantity), errors.Is(err, procurementDomain.ErrUnsupportedFileType),
 		errors.Is(err, procurementDomain.ErrMissingRequiredColumns), errors.Is(err, procurementDomain.ErrPDFHasNoExtractableText),
 		errors.Is(err, procurementDomain.ErrAIParsingNotConfigured), errors.Is(err, procurementDomain.ErrLineItemAlreadyLinked),
@@ -36,7 +36,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, pmsDomain.ErrBarcodeAliasNotFound),
 		errors.Is(err, pmsDomain.ErrDuplicateSlug), errors.Is(err, pmsDomain.ErrDuplicateSKUCode),
 		errors.Is(err, pmsDomain.ErrWeightRequiredForPerWeightSKU), errors.Is(err, pmsDomain.ErrInvalidCheckDigit):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	default:
 		log.Printf("procurement: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

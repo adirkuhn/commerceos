@@ -27,7 +27,7 @@ func (h *Handler) ListSalesChannels(c *gin.Context) {
 func (h *Handler) CreateSalesChannel(c *gin.Context) {
 	var req genintegrations.CreateSalesChannelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	tag := ""
@@ -58,7 +58,7 @@ func (h *Handler) CreateSalesChannel(c *gin.Context) {
 func (h *Handler) UpdateSalesChannel(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.UpdateSalesChannelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	tag := ""
@@ -85,7 +85,7 @@ func (h *Handler) UpdateSalesChannel(c *gin.Context, id genintegrations.Id) {
 func (h *Handler) SetSalesChannelPaymentMethod(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.SetSalesChannelPaymentMethodRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	channel, err := h.setSalesChannelPaymentMethod.Execute(c.Request.Context(), id, req.PaymentConnectionId)
@@ -128,7 +128,7 @@ func (h *Handler) ListSalesChannelProducts(c *gin.Context, id genintegrations.Id
 func (h *Handler) SetSalesChannelProductOverride(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId) {
 	var req genintegrations.SetSalesChannelProductOverrideRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	_, err := h.setProductChannelOverride.Execute(c.Request.Context(), appchannels.SetProductChannelOverrideInput{

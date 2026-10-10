@@ -97,7 +97,7 @@ func (h *Handler) ListCoupons(c *gin.Context) {
 func (h *Handler) CreateCoupon(c *gin.Context) {
 	var req gencoupons.CreateCouponRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	coupon, err := h.createCoupon.Execute(c.Request.Context(), appCoupons.CreateCouponInput{
@@ -113,7 +113,7 @@ func (h *Handler) CreateCoupon(c *gin.Context) {
 func (h *Handler) UpdateCoupon(c *gin.Context, id string) {
 	var req gencoupons.UpdateCouponRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	coupon, err := h.updateCoupon.Execute(c.Request.Context(), appCoupons.UpdateCouponInput{
@@ -149,7 +149,7 @@ func (h *Handler) ListCouponCurrencyAmounts(c *gin.Context, id string) {
 func (h *Handler) UpsertCouponCurrencyAmount(c *gin.Context, id string) {
 	var req gencoupons.UpsertCouponCurrencyAmountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	amount, err := h.upsertCouponCurrencyAmount.Execute(c.Request.Context(), appCoupons.UpsertCouponCurrencyAmountInput{
@@ -193,9 +193,9 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, couponsDomain.ErrInvalidMinSubtotal),
 		errors.Is(err, couponsDomain.ErrInvalidUsageLimit),
 		errors.Is(err, fxDomain.ErrInvalidCurrencyCode):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, couponsDomain.ErrCouponNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	default:
 		log.Printf("coupons: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

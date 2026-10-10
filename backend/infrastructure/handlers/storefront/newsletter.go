@@ -35,7 +35,7 @@ func newsletterFail(c *gin.Context, err error) bool {
 	case err == nil:
 		return false
 	case errors.Is(err, newsletter.ErrInvalidEmail), errors.Is(err, newsletter.ErrConsentRequired), errors.Is(err, newsletter.ErrInvalidToken):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return true
 	}
 	_ = mapError(c, err)
@@ -49,7 +49,7 @@ func (h *Handler) SubscribeToNewsletter(c *gin.Context) {
 	}
 	var req genstorefront.NewsletterSubscribeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	err := h.newsletter.Subscribe.Execute(tenant.WithTenantID(c.Request.Context(), resolved.TenantID), appnewsletter.SubscribeInput{
@@ -68,7 +68,7 @@ func (h *Handler) ConfirmNewsletter(c *gin.Context) {
 	}
 	var req genstorefront.NewsletterTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if newsletterFail(c, h.newsletter.Confirm.Execute(tenant.WithTenantID(c.Request.Context(), resolved.TenantID), req.Token)) {
@@ -84,7 +84,7 @@ func (h *Handler) UnsubscribeFromNewsletter(c *gin.Context) {
 	}
 	var req genstorefront.NewsletterTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if newsletterFail(c, h.newsletter.Unsubscribe.Execute(tenant.WithTenantID(c.Request.Context(), resolved.TenantID), req.Token)) {

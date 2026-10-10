@@ -14,7 +14,7 @@ import (
 func (h *Handler) PushProductToBol(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.PushProductToWooRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.ProductId == "" {
@@ -45,7 +45,7 @@ func (h *Handler) GetBolProductContent(c *gin.Context, id genintegrations.Id, pr
 func (h *Handler) UpsertBolProductContent(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId) {
 	var req genintegrations.UpsertBolProductContentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	content, err := h.upsertBolProductContent.Execute(c.Request.Context(), appchannels.UpsertBolProductContentInput{
@@ -84,7 +84,7 @@ func (h *Handler) GetBolProductOverride(c *gin.Context, id genintegrations.Id, p
 func (h *Handler) UpsertBolProductOverride(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId) {
 	var req genintegrations.UpsertBolProductOverrideRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	condition, fulfilment := "", ""

@@ -64,7 +64,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 func (h *Handler) PackWeightPortions(c *gin.Context, id string) {
 	var req genweightportions.PackWeightPortionsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 		return
 	}
 	lines := make([]apppms.WeightPackageLine, len(req.Lines))
@@ -98,7 +98,7 @@ func toGenPackedLine(l apppms.PackedWeightLine) genweightportions.PackedWeightLi
 func (h *Handler) LinkExistingWeightPackages(c *gin.Context, id string) {
 	var req genweightportions.LinkExistingWeightPackagesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 		return
 	}
 	result, err := h.link.Execute(c.Request.Context(), apppms.LinkExistingWeightPackagesInput{
@@ -144,11 +144,11 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, invDomain.ErrBatchNotFound),
 		errors.Is(err, pmsDomain.ErrVariantNotFound), errors.Is(err, pmsDomain.ErrProductNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, pmsDomain.ErrNoWeightsProvided), errors.Is(err, pmsDomain.ErrBulkSKUNotWeightPool),
 		errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrBatchDoesNotBelongToSKU),
 		errors.Is(err, invDomain.ErrInsufficientStock), errors.Is(err, pmsDomain.ErrDuplicateSKUCode):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 	default:
 		log.Printf("weightportions: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

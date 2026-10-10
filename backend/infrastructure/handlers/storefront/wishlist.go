@@ -44,7 +44,7 @@ func (h *Handler) ToggleWishlistItem(c *gin.Context, token string) {
 	}
 	var req genstorefront.ToggleWishlistItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)

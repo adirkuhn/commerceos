@@ -15,7 +15,7 @@ import (
 func (h *Handler) SetManualCostPrice(c *gin.Context, id genpms.Id) {
 	var req genpms.SetManualCostPriceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	sku, err := h.setManualCostPrice.Execute(c.Request.Context(), id, req.CostPriceMinorUnits)
@@ -38,7 +38,7 @@ func (h *Handler) ClearCostPriceOverride(c *gin.Context, id genpms.Id) {
 func (h *Handler) CorrectCost(c *gin.Context, id genpms.Id) {
 	var req genpms.CorrectCostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	var referenceType, referenceID string

@@ -55,7 +55,7 @@ func timePtrToGenDate(t *time.Time) *openapi_types.Date {
 func (h *Handler) CreateSKU(c *gin.Context, id genpms.Id) {
 	var req genpms.CreateSKURequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	barcode := ""
@@ -96,7 +96,7 @@ func (h *Handler) CreateSKU(c *gin.Context, id genpms.Id) {
 func (h *Handler) UpdateSKU(c *gin.Context, id genpms.Id) {
 	var req genpms.UpdateSKURequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	barcode := ""

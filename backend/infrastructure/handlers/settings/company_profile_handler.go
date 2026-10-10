@@ -45,7 +45,7 @@ func (h *CompanyProfileHandler) GetCompanyProfile(c *gin.Context) {
 func (h *CompanyProfileHandler) UpdateCompanyProfile(c *gin.Context) {
 	var req gensettings.UpdateCompanyProfileJSONRequestBody
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusBadRequest, "INVALID_REQUEST", err)
 		return
 	}
 	p, err := h.update.Execute(c.Request.Context(), settingsDomain.CompanyProfileInput{

@@ -65,13 +65,13 @@ func (h *Handler) ClaimPairingCode(c *gin.Context) {
 	}
 	var req genscannerauth.ClaimPairingCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	token, err := h.claimPairingCode.Execute(c.Request.Context(), req.Code)
 	if err != nil {
 		if errors.Is(err, iamDomain.ErrPairingCodeInvalid) {
-			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 			return
 		}
 		log.Printf("scannerauth: unhandled error: %v", err)
@@ -85,13 +85,13 @@ func (h *Handler) ClaimPairingCode(c *gin.Context) {
 func (h *Handler) ClaimPairingCodeByToken(c *gin.Context) {
 	var req genscannerauth.ClaimPairingCodeByTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	token, err := h.claimPairingCode.ExecuteByToken(c.Request.Context(), req.Token)
 	if err != nil {
 		if errors.Is(err, iamDomain.ErrPairingCodeInvalid) {
-			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 			return
 		}
 		log.Printf("scannerauth: unhandled error: %v", err)

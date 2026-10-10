@@ -33,7 +33,7 @@ func (h *Handler) UploadProductMedia(c *gin.Context, id genpms.Id) {
 	}
 	f, err := fileHeader.Open()
 	if err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	defer f.Close()
@@ -55,7 +55,7 @@ func (h *Handler) UploadProductMedia(c *gin.Context, id genpms.Id) {
 func (h *Handler) UpdateMedia(c *gin.Context, id genpms.Id) {
 	var req genpms.UpdateMediaRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	media, err := h.updateMedia.Execute(c.Request.Context(), apppms.UpdateMediaInput{

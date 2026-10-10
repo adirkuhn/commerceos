@@ -26,7 +26,7 @@ func (h *Handler) ListStockMovements(c *gin.Context, skuId geninventory.SkuId) {
 func (h *Handler) RecordStockMovement(c *gin.Context, skuId geninventory.SkuId) {
 	var req geninventory.RecordStockMovementRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	movement, err := h.recordStockMovement.Execute(c.Request.Context(), appinventory.RecordStockMovementInput{
@@ -44,7 +44,7 @@ func (h *Handler) RecordStockMovement(c *gin.Context, skuId geninventory.SkuId) 
 func (h *Handler) RecordRecount(c *gin.Context, skuId geninventory.SkuId) {
 	var req geninventory.RecordRecountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	movement, err := h.recordRecount.Execute(c.Request.Context(), appinventory.RecordRecountInput{
@@ -65,7 +65,7 @@ func (h *Handler) RecordRecount(c *gin.Context, skuId geninventory.SkuId) {
 func (h *Handler) TransferStock(c *gin.Context, skuId geninventory.SkuId) {
 	var req geninventory.TransferStockRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	result, err := h.transferStock.Execute(c.Request.Context(), appinventory.TransferStockInput{
@@ -84,7 +84,7 @@ func (h *Handler) TransferStock(c *gin.Context, skuId geninventory.SkuId) {
 func (h *Handler) SplitCaseIntoUnits(c *gin.Context, skuId geninventory.SkuId) {
 	var req geninventory.SplitCaseIntoUnitsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	result, err := h.splitCaseIntoUnits.Execute(c.Request.Context(), appinventory.SplitCaseIntoUnitsInput{
@@ -103,7 +103,7 @@ func (h *Handler) SplitCaseIntoUnits(c *gin.Context, skuId geninventory.SkuId) {
 func (h *Handler) PortionFromBulk(c *gin.Context, skuId geninventory.SkuId) {
 	var req geninventory.PortionFromBulkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	result, err := h.portionFromBulk.Execute(c.Request.Context(), appinventory.PortionFromBulkInput{
@@ -122,7 +122,7 @@ func (h *Handler) PortionFromBulk(c *gin.Context, skuId geninventory.SkuId) {
 func (h *Handler) MarkDamagedOrLost(c *gin.Context, skuId geninventory.SkuId) {
 	var req geninventory.MarkDamagedOrLostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	discardedBy := ""
@@ -144,7 +144,7 @@ func (h *Handler) MarkDamagedOrLost(c *gin.Context, skuId geninventory.SkuId) {
 func (h *Handler) ReceiveStock(c *gin.Context, skuId geninventory.SkuId) {
 	var req geninventory.ReceiveStockRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	result, err := h.receiveStock.Execute(c.Request.Context(), appinventory.ReceiveStockInput{

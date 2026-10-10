@@ -28,7 +28,7 @@ func (h *Handler) ListCategories(c *gin.Context) {
 func (h *Handler) CreateCategory(c *gin.Context) {
 	var req genpms.CreateCategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	category, err := h.createCategory.Execute(c.Request.Context(), apppms.CreateCategoryInput{
@@ -45,7 +45,7 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 func (h *Handler) UpdateCategory(c *gin.Context, id genpms.Id) {
 	var req genpms.UpdateCategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	category, err := h.updateCategory.Execute(c.Request.Context(), apppms.UpdateCategoryInput{

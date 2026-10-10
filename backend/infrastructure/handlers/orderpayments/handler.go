@@ -45,7 +45,7 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 func (h *Handler) BackfillWooOrderPayments(c *gin.Context, id string) {
 	var req genorderpayments.BackfillWooOrderPaymentsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 		return
 	}
 	in := appchannels.BackfillWooOrderPaymentsInput{ConnectionID: id}
@@ -75,11 +75,11 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, integrationsDomain.ErrConnectionNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, integrationsDomain.ErrProviderNotSupported), errors.Is(err, appchannels.ErrInvalidBackfillCursor):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 	case errors.Is(err, integrationsDomain.ErrWooRequestFailed):
-		middleware.Fail(c, http.StatusBadGateway, "UPSTREAM_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusBadGateway, "UPSTREAM_ERROR", err)
 	default:
 		log.Printf("orderpayments: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

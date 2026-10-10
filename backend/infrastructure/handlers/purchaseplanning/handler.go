@@ -96,12 +96,12 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, suppliersDomain.ErrSupplierNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, appprocurement.ErrInvalidPlanOrder), errors.Is(err, appprocurement.ErrSKUNotPlannable):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 	case errors.Is(err, appprocurement.ErrInvalidPlanningWindow), errors.Is(err, appprocurement.ErrInvalidSeason),
 		errors.Is(err, appprocurement.ErrSeasonOver), errors.Is(err, appprocurement.ErrUnknownSeasonEvent):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 	default:
 		log.Printf("purchaseplanning: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

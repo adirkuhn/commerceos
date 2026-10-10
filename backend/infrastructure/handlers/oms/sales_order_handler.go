@@ -76,7 +76,7 @@ func (h *Handler) GetSalesOrder(c *gin.Context, id genoms.Id) {
 func (h *Handler) CreateSalesOrder(c *gin.Context) {
 	var req genoms.CreateSalesOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	lineItems := make([]appoms.CreateSalesOrderLineItemInput, len(req.LineItems))
@@ -119,7 +119,7 @@ func (h *Handler) CreateSalesOrder(c *gin.Context) {
 func (h *Handler) UpdateSalesOrder(c *gin.Context, id genoms.Id) {
 	var req genoms.UpdateSalesOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	in := appoms.UpdateSalesOrderInput{
@@ -144,7 +144,7 @@ func (h *Handler) UpdateSalesOrder(c *gin.Context, id genoms.Id) {
 func (h *Handler) BulkUpdateSalesOrderStatus(c *gin.Context) {
 	var req genoms.BulkUpdateSalesOrderStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	in := appoms.BulkUpdateSalesOrderStatusInput{OrderIDs: req.OrderIds, Fulfilled: req.Fulfilled}
@@ -179,7 +179,7 @@ func (h *Handler) DeleteSalesOrder(c *gin.Context, id genoms.Id) {
 func (h *Handler) LinkLineItemSKU(c *gin.Context, id genoms.Id, lineItemId string) {
 	var req genoms.LinkLineItemSKURequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	order, err := h.linkLineItemSKU.Execute(c.Request.Context(), appoms.LinkLineItemSKUInput{
@@ -215,7 +215,7 @@ func (h *Handler) ForceAcceptStock(c *gin.Context, id genoms.Id) {
 func (h *Handler) AddSalesOrderLineItem(c *gin.Context, id genoms.Id) {
 	var req genoms.AddSalesOrderLineItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	li, err := h.addSalesOrderLineItem.Execute(c.Request.Context(), appoms.AddSalesOrderLineItemInput{

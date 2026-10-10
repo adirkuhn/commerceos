@@ -42,7 +42,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, encrypt
 func (h *Handler) ConnectEmail(c *gin.Context) {
 	var req genemail.ConnectEmailRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 		return
 	}
 	conn, err := h.connectEmail.Execute(c.Request.Context(), appintegrations.ConnectEmailInput{
@@ -70,7 +70,7 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, integrations.ErrEmailHostRequired), errors.Is(err, integrations.ErrEmailPortRequired),
 		errors.Is(err, integrations.ErrEmailFromRequired):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 	default:
 		log.Printf("emailintegration: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

@@ -52,13 +52,13 @@ func fail(c *gin.Context, err error) bool {
 			"code": "VALIDATION_ERROR", "message": docErr.Error(), "node_id": docErr.NodeID,
 		}})
 	case errors.Is(err, theme.ErrSessionInvalid):
-		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())
+		middleware.FailErr(c, http.StatusUnauthorized, "UNAUTHORIZED", err)
 	case isAny(err, notFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case isAny(err, conflict):
-		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
+		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)
 	case isAny(err, invalid):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	default:
 		log.Printf("theme: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
@@ -70,7 +70,7 @@ func fail(c *gin.Context, err error) bool {
 // themed storefront" is simply "not found".
 func failPublic(c *gin.Context, err error) bool {
 	if errors.Is(err, theme.ErrStorefrontNotEnabled) {
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 		return true
 	}
 	return fail(c, err)

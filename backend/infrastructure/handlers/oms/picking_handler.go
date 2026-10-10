@@ -62,7 +62,7 @@ func (h *Handler) GetPickingSession(c *gin.Context, id genoms.Id) {
 func (h *Handler) ScanPickItem(c *gin.Context, id genoms.Id) {
 	var req genoms.ScanPickItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	claims := middleware.ClaimsFromGin(c)
@@ -89,7 +89,7 @@ func (h *Handler) ScanPickItem(c *gin.Context, id genoms.Id) {
 func (h *Handler) SubstituteLineItem(c *gin.Context, id genoms.Id) {
 	var req genoms.SubstituteLineItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	claims := middleware.ClaimsFromGin(c)
@@ -125,7 +125,7 @@ func (h *Handler) SubstituteLineItem(c *gin.Context, id genoms.Id) {
 func (h *Handler) RefundLineItem(c *gin.Context, id genoms.Id) {
 	var req genoms.RefundLineItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	claims := middleware.ClaimsFromGin(c)
@@ -147,7 +147,7 @@ func (h *Handler) RefundLineItem(c *gin.Context, id genoms.Id) {
 func (h *Handler) ResolvePickScanCode(c *gin.Context, id genoms.Id) {
 	var req genoms.ResolvePickScanCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	result, err := h.resolvePickScanCode.Execute(c.Request.Context(), id, req.Code)
@@ -187,7 +187,7 @@ func (h *Handler) CompletePicking(c *gin.Context, id genoms.Id) {
 	// one was actually sent.
 	if c.Request.ContentLength > 0 {
 		if err := c.ShouldBindJSON(&req); err != nil {
-			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 			return
 		}
 	}

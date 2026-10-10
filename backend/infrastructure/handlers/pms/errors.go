@@ -26,20 +26,20 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrMediaNotFound),
 		errors.Is(err, pmsDomain.ErrBarcodeAliasNotFound),
 		errors.Is(err, pmsDomain.ErrScaleCodeAliasNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, pmsDomain.ErrDuplicateSlug),
 		errors.Is(err, pmsDomain.ErrDuplicateSKUCode),
 		errors.Is(err, pmsDomain.ErrDuplicateBarcode),
 		errors.Is(err, pmsDomain.ErrDuplicateScaleCode),
 		errors.Is(err, pmsDomain.ErrDuplicateBarcodeAliasCode),
 		errors.Is(err, pmsDomain.ErrDuplicateScaleCodeAlias):
-		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
+		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)
 	case errors.Is(err, pmsDomain.ErrProductMergeForbidden):
-		middleware.Fail(c, http.StatusForbidden, "FORBIDDEN", err.Error())
+		middleware.FailErr(c, http.StatusForbidden, "FORBIDDEN", err)
 	case errors.Is(err, pmsDomain.ErrInvalidProductMerge):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, pmsDomain.ErrProductHasHistory):
-		middleware.Fail(c, http.StatusConflict, "PRODUCT_HAS_HISTORY", err.Error())
+		middleware.FailErr(c, http.StatusConflict, "PRODUCT_HAS_HISTORY", err)
 	case errors.Is(err, pmsDomain.ErrVariantsNotEnabled),
 		errors.Is(err, pmsDomain.ErrInvalidSlug),
 		errors.Is(err, pmsDomain.ErrInvalidProductTranslation),
@@ -68,7 +68,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrCostPriceUnknownForCorrection),
 		errors.Is(err, pmsDomain.ErrNoStockOnHandForCorrection),
 		errors.Is(err, fxDomain.ErrInvalidCurrencyCode):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	default:
 		log.Printf("pms: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

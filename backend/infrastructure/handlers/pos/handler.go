@@ -201,7 +201,7 @@ func toGenPOSAddress(a omsDomain.Address) genpos.POSAddress {
 func (h *Handler) CreatePOSSalesOrder(c *gin.Context) {
 	var req genpos.CreatePOSSalesOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	lineItems := make([]appoms.ReceivePOSSalesOrderLineItemInput, len(req.LineItems))
@@ -259,7 +259,7 @@ func mapError(c *gin.Context, err error) error {
 	case errors.Is(err, omsDomain.ErrEmptyLineItems), errors.Is(err, omsDomain.ErrAdhocLineItemRequiresName),
 		errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, invDomain.ErrInsufficientStock),
 		errors.Is(err, invDomain.ErrInvalidQuantity):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	default:
 		log.Printf("pos: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

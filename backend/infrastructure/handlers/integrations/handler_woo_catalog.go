@@ -50,7 +50,7 @@ func (h *Handler) ListExternalCategoryLinks(c *gin.Context, id genintegrations.I
 func (h *Handler) UpsertExternalCategoryLink(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.UpsertExternalCategoryLinkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	link, err := h.upsertExternalCategoryLink.Execute(c.Request.Context(), appchannels.UpsertExternalCategoryLinkInput{
@@ -81,7 +81,7 @@ func toGenExternalCategoryLink(l channelsDomain.ExternalCategoryLink) genintegra
 func (h *Handler) ImportWooProducts(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.ImportWooProductsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.DefaultWarehouseId == "" || req.DefaultCurrency == "" {
@@ -117,7 +117,7 @@ func toGenImportJob(j channelsDomain.ImportJob) genintegrations.ImportJob {
 func (h *Handler) FetchWooOrder(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.FetchWooOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.ExternalOrderId == "" {
@@ -144,7 +144,7 @@ func (h *Handler) FetchWooOrder(c *gin.Context, id genintegrations.Id) {
 func (h *Handler) PushProductToWoo(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.PushProductToWooRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.ProductId == "" {
@@ -176,7 +176,7 @@ func (h *Handler) DeleteAllImportedProducts(c *gin.Context, id genintegrations.I
 func (h *Handler) LinkExistingWooProduct(c *gin.Context, productId genintegrations.ProductId) {
 	var req genintegrations.LinkExistingWooProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	listing, err := h.linkExistingWooProduct.Execute(c.Request.Context(), appchannels.LinkExistingWooProductInput{

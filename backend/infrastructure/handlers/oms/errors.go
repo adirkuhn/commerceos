@@ -22,7 +22,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, omsDomain.ErrPickingSessionNotFound),
 		errors.Is(err, omsDomain.ErrPickScanNotFound), errors.Is(err, omsDomain.ErrPackingSessionNotFound),
 		errors.Is(err, omsDomain.ErrPackScanNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, omsDomain.ErrEmptyLineItems), errors.Is(err, invDomain.ErrInsufficientStock),
 		errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, omsDomain.ErrLineItemNotOnOrder),
 		errors.Is(err, omsDomain.ErrOrderNotStockReducing), errors.Is(err, omsDomain.ErrDuplicateExternalOrder),
@@ -41,13 +41,13 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, omsDomain.ErrPickListOrderIDsRequired), errors.Is(err, omsDomain.ErrPickListTooManyOrders),
 		errors.Is(err, omsDomain.ErrPackScanCodeOrSKURequired), errors.Is(err, omsDomain.ErrPackScanSKUMismatch),
 		errors.Is(err, omsDomain.ErrPackQuantityExceedsOrdered):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, omsDomain.ErrPickingSessionLocked), errors.Is(err, omsDomain.ErrPackingSessionLocked),
 		errors.Is(err, omsDomain.ErrOrderPickingInProgress), errors.Is(err, omsDomain.ErrOrderPackingInProgress),
 		errors.Is(err, omsDomain.ErrPickingSessionHasPendingChanges):
-		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
+		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)
 	case errors.Is(err, omsDomain.ErrPermissionDenied):
-		middleware.Fail(c, http.StatusForbidden, "FORBIDDEN", err.Error())
+		middleware.FailErr(c, http.StatusForbidden, "FORBIDDEN", err)
 	default:
 		log.Printf("oms: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

@@ -19,7 +19,7 @@ type setProductTranslationsUC interface {
 func (h *Handler) SetProductTranslations(c *gin.Context, id genpms.Id) {
 	var req genpms.ProductTranslationsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	tr := make(map[locale.Locale]pmsDomain.ProductTexts, len(req.Translations))

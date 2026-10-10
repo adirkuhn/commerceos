@@ -38,7 +38,7 @@ func (h *Handler) ListBarcodeAliases(c *gin.Context, id genpms.Id) {
 func (h *Handler) CreateBarcodeAlias(c *gin.Context, id genpms.Id) {
 	var req genpms.CreateBarcodeAliasRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	var unitsPerScan int64
@@ -85,7 +85,7 @@ func (h *Handler) ListScaleCodeAliases(c *gin.Context, id genpms.Id) {
 func (h *Handler) CreateScaleCodeAlias(c *gin.Context, id genpms.Id) {
 	var req genpms.CreateScaleCodeAliasRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	alias, err := h.createScaleCodeAlias.Execute(c.Request.Context(), apppms.CreateScaleCodeAliasInput{SKUID: id, Code: req.Code})

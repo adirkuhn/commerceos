@@ -55,7 +55,7 @@ func fail(c *gin.Context, err error) bool {
 	case err == nil:
 		return false
 	case errors.Is(err, newsletter.ErrSubscriberNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	default:
 		log.Printf("newsletter: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

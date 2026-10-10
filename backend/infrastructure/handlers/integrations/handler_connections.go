@@ -50,7 +50,7 @@ func (h *Handler) GetAIConnection(c *gin.Context) {
 func (h *Handler) ConnectAIProvider(c *gin.Context) {
 	var req genintegrations.ConnectAIProviderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	in := appintegrations.ConnectAIProviderInput{Provider: integrationsDomain.AIProvider(req.Provider)}
@@ -84,7 +84,7 @@ func (h *Handler) DisconnectAIProvider(c *gin.Context) {
 func (h *Handler) StartWooConnect(c *gin.Context) {
 	var req genintegrations.StartWooConnectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	result, err := h.startWooConnect.Execute(c.Request.Context(), appintegrations.StartWooConnectInput{StoreURL: req.StoreUrl})
@@ -97,7 +97,7 @@ func (h *Handler) StartWooConnect(c *gin.Context) {
 func (h *Handler) ManualConnectWooCommerce(c *gin.Context) {
 	var req genintegrations.ManualConnectWooCommerceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.StoreUrl == "" || req.ConsumerKey == "" || req.ConsumerSecret == "" {
@@ -136,7 +136,7 @@ func (h *Handler) TestConnection(c *gin.Context, id genintegrations.Id) {
 func (h *Handler) UpdateConnectionSettings(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.UpdateConnectionSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	conn, err := h.updateConnectionSettings.Execute(c.Request.Context(), appintegrations.UpdateConnectionSettingsInput{
@@ -152,7 +152,7 @@ func (h *Handler) UpdateConnectionSettings(c *gin.Context, id genintegrations.Id
 func (h *Handler) UpdateWhatsAppCredentials(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.UpdateWhatsAppCredentialsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	apiKey := ""
@@ -171,7 +171,7 @@ func (h *Handler) UpdateWhatsAppCredentials(c *gin.Context, id genintegrations.I
 func (h *Handler) SetWhatsAppTestMode(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.SetWhatsAppTestModeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	testPhone := ""
@@ -188,7 +188,7 @@ func (h *Handler) SetWhatsAppTestMode(c *gin.Context, id genintegrations.Id) {
 func (h *Handler) SetWhatsAppAIParsing(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.SetWhatsAppAIParsingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	conn, err := h.setWhatsAppAIParsing.Execute(c.Request.Context(), id, req.Enabled)
@@ -201,7 +201,7 @@ func (h *Handler) SetWhatsAppAIParsing(c *gin.Context, id genintegrations.Id) {
 func (h *Handler) ConnectBol(c *gin.Context) {
 	var req genintegrations.ConnectBolRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.ClientId == "" || req.ClientSecret == "" || req.EconomicOperatorId == "" {
@@ -220,7 +220,7 @@ func (h *Handler) ConnectBol(c *gin.Context) {
 func (h *Handler) ConnectWhatsapp(c *gin.Context) {
 	var req genintegrations.ConnectWhatsAppRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.BaseUrl == "" || req.InstanceName == "" || req.ApiKey == "" {
@@ -242,7 +242,7 @@ func (h *Handler) ConnectWhatsapp(c *gin.Context) {
 func (h *Handler) ConnectStripe(c *gin.Context) {
 	var req genintegrations.ConnectStripeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.SecretKey == "" {
@@ -266,7 +266,7 @@ func (h *Handler) ConnectStripe(c *gin.Context) {
 func (h *Handler) ConnectRevolut(c *gin.Context) {
 	var req genintegrations.ConnectRevolutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.ApiKey == "" {
@@ -314,7 +314,7 @@ func (h *Handler) WooCallback(c *gin.Context) {
 	var req gencallback.WooCallbackRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("wooCallback: bind request: %v", err)
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	conn, err := h.completeWooConnect.Execute(c.Request.Context(), appintegrations.CompleteWooConnectInput{

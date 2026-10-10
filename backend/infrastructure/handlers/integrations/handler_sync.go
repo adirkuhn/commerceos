@@ -31,7 +31,7 @@ func (h *Handler) ListSyncSchedules(c *gin.Context, id genintegrations.Id) {
 func (h *Handler) UpsertSyncSchedules(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.UpsertSyncSchedulesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	inputs := make([]appchannels.UpsertSyncScheduleInput, len(req.Schedules))

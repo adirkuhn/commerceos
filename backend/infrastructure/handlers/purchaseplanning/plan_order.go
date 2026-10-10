@@ -13,7 +13,7 @@ import (
 func (h *Handler) CreatePurchaseOrderFromPlan(c *gin.Context) {
 	var req genpurchaseplanning.CreatePurchaseOrderFromPlanRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 		return
 	}
 	in := appprocurement.PlanOrderInput{SupplierID: req.SupplierId.String(), Lines: make([]appprocurement.PlanOrderLine, len(req.Lines))}

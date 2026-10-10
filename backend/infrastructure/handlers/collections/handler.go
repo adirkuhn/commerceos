@@ -69,11 +69,11 @@ func fail(c *gin.Context, err error) bool {
 	case err == nil:
 		return false
 	case errors.Is(err, collections.ErrCollectionNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, collections.ErrSlugTaken), errors.Is(err, collections.ErrNotManual):
-		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
+		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)
 	case errors.Is(err, collections.ErrInvalidCollection):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	default:
 		log.Printf("collections: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
@@ -112,7 +112,7 @@ func (h *Handler) GetCollection(c *gin.Context, id uuid.UUID) {
 func bindDraft(c *gin.Context) (collections.Draft, bool) {
 	var req gencollections.CollectionInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return collections.Draft{}, false
 	}
 	return fromInput(req), true
@@ -152,7 +152,7 @@ func (h *Handler) DeleteCollection(c *gin.Context, id uuid.UUID) {
 func (h *Handler) SetCollectionProducts(c *gin.Context, id uuid.UUID) {
 	var req gencollections.SetProductsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	ids := make([]string, len(req.ProductIds))

@@ -89,7 +89,7 @@ func (h *Handler) ListPromotions(c *gin.Context) {
 func (h *Handler) CreatePromotion(c *gin.Context) {
 	var req genpromotions.CreatePromotionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	result, err := h.createPromotion.Execute(c.Request.Context(), apppromotions.CreatePromotionInput{
@@ -126,7 +126,7 @@ func (h *Handler) GetPromotion(c *gin.Context, id genpromotions.Id) {
 func (h *Handler) UpdatePromotion(c *gin.Context, id genpromotions.Id) {
 	var req genpromotions.UpdatePromotionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	promo, err := h.updatePromotion.Execute(c.Request.Context(), apppromotions.UpdatePromotionInput{
@@ -206,7 +206,7 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, promotionsDomain.ErrPromotionNotFound),
 		errors.Is(err, pmsDomain.ErrSKUNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, promotionsDomain.ErrPromotionNameRequired),
 		errors.Is(err, promotionsDomain.ErrInvalidPromotionType),
 		errors.Is(err, promotionsDomain.ErrInvalidPromotionStatus),
@@ -216,7 +216,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, promotionsDomain.ErrInvalidDiscountValue),
 		errors.Is(err, promotionsDomain.ErrClearanceBatchNotFound),
 		errors.Is(err, promotionsDomain.ErrClearanceBatchFinished):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	default:
 		log.Printf("promotions: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

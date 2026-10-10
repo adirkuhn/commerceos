@@ -114,7 +114,7 @@ func (h *Handler) ListTaxClasses(c *gin.Context) {
 func (h *Handler) CreateTaxClass(c *gin.Context) {
 	var req gentax.CreateTaxClassRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	class, err := h.createTaxClass.Execute(c.Request.Context(), apptax.CreateTaxClassInput{
@@ -129,7 +129,7 @@ func (h *Handler) CreateTaxClass(c *gin.Context) {
 func (h *Handler) UpdateTaxClass(c *gin.Context, id gentax.Id) {
 	var req gentax.UpdateTaxClassRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	class, err := h.updateTaxClass.Execute(c.Request.Context(), apptax.UpdateTaxClassInput{
@@ -159,7 +159,7 @@ func (h *Handler) ListTaxRates(c *gin.Context) {
 func (h *Handler) UpsertTaxRate(c *gin.Context) {
 	var req gentax.UpsertTaxRateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	rate, err := h.upsertTaxRate.Execute(c.Request.Context(), apptax.UpsertTaxRateInput{
@@ -189,7 +189,7 @@ func (h *Handler) ListExternalTaxClassLinks(c *gin.Context) {
 func (h *Handler) UpsertExternalTaxClassLink(c *gin.Context) {
 	var req gentax.UpsertExternalTaxClassLinkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	link, err := h.upsertExternalTaxClassLink.Execute(c.Request.Context(), apptax.UpsertExternalTaxClassLinkInput{
@@ -264,14 +264,14 @@ func mapError(c *gin.Context, err error) error {
 	case errors.Is(err, taxDomain.ErrTaxClassNotFound),
 		errors.Is(err, taxDomain.ErrTaxRateNotFound),
 		errors.Is(err, taxDomain.ErrExternalTaxClassLinkNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, taxDomain.ErrTaxClassNameRequired),
 		errors.Is(err, taxDomain.ErrCannotDeleteDefaultTaxClass),
 		errors.Is(err, taxDomain.ErrTaxClassInUse),
 		errors.Is(err, taxDomain.ErrInvalidCountryCode),
 		errors.Is(err, taxDomain.ErrInvalidTaxRateValue),
 		errors.Is(err, taxDomain.ErrProviderRequired):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	default:
 		log.Printf("tax: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

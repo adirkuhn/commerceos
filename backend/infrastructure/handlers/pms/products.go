@@ -39,7 +39,7 @@ func (h *Handler) ListProducts(c *gin.Context, params genpms.ListProductsParams)
 func (h *Handler) CreateProduct(c *gin.Context) {
 	var req genpms.CreateProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	description := ""
@@ -87,7 +87,7 @@ func (h *Handler) DuplicateProduct(c *gin.Context, id genpms.Id) {
 func (h *Handler) UpdateProduct(c *gin.Context, id genpms.Id) {
 	var req genpms.UpdateProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	description := ""

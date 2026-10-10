@@ -26,7 +26,7 @@ func (h *Handler) ListSKUCurrencyPrices(c *gin.Context, id genpms.Id) {
 func (h *Handler) UpsertSKUCurrencyPrice(c *gin.Context, id genpms.Id) {
 	var req genpms.UpsertSKUCurrencyPriceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	price, err := h.upsertSKUCurrencyPrice.Execute(c.Request.Context(), apppms.UpsertSKUCurrencyPriceInput{

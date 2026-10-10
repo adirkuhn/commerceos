@@ -90,7 +90,7 @@ func (h *Handler) GetPackingSession(c *gin.Context, id genoms.Id) {
 func (h *Handler) ScanPackItem(c *gin.Context, id genoms.Id) {
 	var req genoms.ScanPackItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	claims := middleware.ClaimsFromGin(c)
@@ -128,7 +128,7 @@ func (h *Handler) CompletePacking(c *gin.Context, id genoms.Id) {
 	// Optional body (nothing to resolve yet) -- only bind when one was sent.
 	if c.Request.ContentLength > 0 {
 		if err := c.ShouldBindJSON(&req); err != nil {
-			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 			return
 		}
 	}
@@ -191,7 +191,7 @@ func packScanActionOrDefault(a *genoms.ScanPackItemRequestActionType) omsDomain.
 func (h *Handler) ResolvePackScanCode(c *gin.Context, id genoms.Id) {
 	var req genoms.ResolvePickScanCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	result, err := h.resolvePackScanCode.Execute(c.Request.Context(), id, req.Code)

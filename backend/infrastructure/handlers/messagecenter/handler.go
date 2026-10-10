@@ -107,7 +107,7 @@ func (h *Handler) ListMessageTemplates(c *gin.Context) {
 func (h *Handler) CreateMessageTemplate(c *gin.Context) {
 	var req genmc.CreateMessageTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 		return
 	}
 	tmpl, err := h.createTemplate.Execute(c.Request.Context(), appmc.CreateMessageTemplateInput{
@@ -123,7 +123,7 @@ func (h *Handler) CreateMessageTemplate(c *gin.Context) {
 func (h *Handler) UpdateMessageTemplate(c *gin.Context, id genmc.Id) {
 	var req genmc.UpdateMessageTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 		return
 	}
 	tmpl, err := h.updateTemplate.Execute(c.Request.Context(), appmc.UpdateMessageTemplateInput{
@@ -159,7 +159,7 @@ func (h *Handler) ListAutomationRules(c *gin.Context) {
 func (h *Handler) CreateAutomationRule(c *gin.Context) {
 	var req genmc.CreateAutomationRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 		return
 	}
 	rule, err := h.createRule.Execute(c.Request.Context(), appmc.CreateAutomationRuleInput{
@@ -176,7 +176,7 @@ func (h *Handler) CreateAutomationRule(c *gin.Context) {
 func (h *Handler) UpdateAutomationRule(c *gin.Context, id genmc.Id) {
 	var req genmc.UpdateAutomationRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 		return
 	}
 	rule, err := h.updateRule.Execute(c.Request.Context(), appmc.UpdateAutomationRuleInput{
@@ -285,14 +285,14 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, mcDomain.ErrTemplateNotFound), errors.Is(err, mcDomain.ErrRuleNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, mcDomain.ErrTemplateNameRequired), errors.Is(err, mcDomain.ErrInvalidCategory),
 		errors.Is(err, mcDomain.ErrNoChannelsSelected), errors.Is(err, mcDomain.ErrInvalidChannel),
 		errors.Is(err, mcDomain.ErrTemplateBodyRequired), errors.Is(err, mcDomain.ErrRuleNameRequired),
 		errors.Is(err, mcDomain.ErrInvalidTriggerSubject), errors.Is(err, mcDomain.ErrTemplateIDRequired),
 		errors.Is(err, mcDomain.ErrInvalidCondition), errors.Is(err, mcDomain.ErrInvalidExtraRecipient),
 		errors.Is(err, mcDomain.ErrTooManyExtraRecipients):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 	default:
 		log.Printf("messagecenter: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

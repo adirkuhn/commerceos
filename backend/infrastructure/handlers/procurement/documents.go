@@ -21,7 +21,7 @@ func (h *Handler) AttachDocumentToPurchaseOrder(c *gin.Context, id genprocuremen
 	}
 	f, err := fileHeader.Open()
 	if err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	defer f.Close()
@@ -79,7 +79,7 @@ func (h *Handler) CreatePurchaseOrderFromDocument(c *gin.Context) {
 	}
 	f, err := fileHeader.Open()
 	if err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	defer f.Close()
@@ -120,7 +120,7 @@ func (h *Handler) UploadInvoice(c *gin.Context, id genprocurement.Id) {
 	}
 	f, err := fileHeader.Open()
 	if err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	defer f.Close()

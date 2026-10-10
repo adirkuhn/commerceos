@@ -105,7 +105,7 @@ func wrapper(h *Handler) gentheme.ServerInterfaceWrapper {
 	return gentheme.ServerInterfaceWrapper{
 		Handler: h,
 		ErrorHandler: func(c *gin.Context, err error, status int) {
-			middleware.Fail(c, status, "VALIDATION_ERROR", err.Error())
+			middleware.FailErr(c, status, "VALIDATION_ERROR", err)
 		},
 	}
 }

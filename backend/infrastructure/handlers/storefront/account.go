@@ -18,7 +18,7 @@ func (h *Handler) RequestMagicLink(c *gin.Context) {
 	}
 	var req genstorefront.RequestMagicLinkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
@@ -38,7 +38,7 @@ func (h *Handler) VerifySession(c *gin.Context) {
 	}
 	var req genstorefront.VerifySessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)

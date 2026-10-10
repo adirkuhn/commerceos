@@ -44,7 +44,7 @@ func (h *NotificationPreferencesHandler) GetNotificationPreferences(c *gin.Conte
 func (h *NotificationPreferencesHandler) UpdateNotificationPreferences(c *gin.Context) {
 	var req gensettings.UpdateNotificationPreferencesJSONRequestBody
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+		middleware.FailErr(c, http.StatusBadRequest, "INVALID_REQUEST", err)
 		return
 	}
 	in := notificationsDomain.PreferencesInput{

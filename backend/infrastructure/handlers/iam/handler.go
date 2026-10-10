@@ -183,7 +183,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 func (h *Handler) CreateGroup(c *gin.Context) {
 	var req genia.CreateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.Name == "" {
@@ -207,7 +207,7 @@ func (h *Handler) CreateGroup(c *gin.Context) {
 func (h *Handler) UpdateGroup(c *gin.Context, id genia.Id) {
 	var req genia.UpdateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.Name == "" {
@@ -261,7 +261,7 @@ func (h *Handler) ListGroups(c *gin.Context) {
 func (h *Handler) AddGroupMember(c *gin.Context, id genia.Id) {
 	var req genia.AddMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.UserId == "" {
@@ -300,7 +300,7 @@ func (h *Handler) ListGroupMembers(c *gin.Context, id genia.Id) {
 func (h *Handler) AssignGroupPermission(c *gin.Context, id genia.Id) {
 	var req genia.AssignPermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.Rule == "" {
@@ -370,17 +370,17 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, iamDomain.ErrGroupNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, iamDomain.ErrGroupNameTaken):
-		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
+		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)
 	case errors.Is(err, iamDomain.ErrAlreadyMember):
-		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
+		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)
 	case errors.Is(err, iamDomain.ErrNotMember):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "UNPROCESSABLE", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "UNPROCESSABLE", err)
 	case errors.Is(err, iamDomain.ErrPermissionInvalid):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, iamDomain.ErrPermissionNotAssigned):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	default:
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
 	}

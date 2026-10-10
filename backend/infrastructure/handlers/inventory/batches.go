@@ -28,7 +28,7 @@ func (h *Handler) ListBatches(c *gin.Context, skuId geninventory.SkuId) {
 func (h *Handler) CreateBatch(c *gin.Context, skuId geninventory.SkuId) {
 	var req geninventory.CreateBatchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	var receivedAt time.Time
@@ -49,7 +49,7 @@ func (h *Handler) CreateBatch(c *gin.Context, skuId geninventory.SkuId) {
 func (h *Handler) UpdateBatch(c *gin.Context, id geninventory.Id) {
 	var req geninventory.UpdateBatchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	batch, err := h.updateBatch.Execute(c.Request.Context(), appinventory.UpdateBatchInput{

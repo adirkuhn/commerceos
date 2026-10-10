@@ -20,7 +20,7 @@ func (h *Handler) SetWebhookSecret(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.SetWebhookSecretRequest
 	if c.Request.ContentLength != 0 {
 		if err := c.ShouldBindJSON(&req); err != nil {
-			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 			return
 		}
 	}
@@ -82,7 +82,7 @@ func (h *Handler) ListWebhookForwardRules(c *gin.Context) {
 func (h *Handler) CreateWebhookForwardRule(c *gin.Context) {
 	var req genintegrations.CreateWebhookForwardRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	topic := ""
@@ -92,7 +92,7 @@ func (h *Handler) CreateWebhookForwardRule(c *gin.Context) {
 	rule, err := h.createWebhookForwardRule.Execute(c.Request.Context(), req.Provider, topic, req.TargetUrl)
 	if err != nil {
 		if errors.Is(err, webhooksDomain.ErrInvalidTargetURL) || errors.Is(err, webhooksDomain.ErrProviderRequired) {
-			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 			return
 		}
 		if err := mapError(c, err); err != nil {
@@ -211,11 +211,11 @@ func (h *Handler) ListProviderWebhooks(c *gin.Context, id genintegrations.Id) {
 	hooks, err := h.listProviderWebhooks.Execute(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, integrationsDomain.ErrProviderNotSupported) {
-			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 			return
 		}
 		if errors.Is(err, integrationsDomain.ErrProviderWebhookRequestFailed) {
-			middleware.Fail(c, http.StatusBadGateway, "PROVIDER_REQUEST_FAILED", err.Error())
+			middleware.FailErr(c, http.StatusBadGateway, "PROVIDER_REQUEST_FAILED", err)
 			return
 		}
 		if err := mapError(c, err); err != nil {
@@ -233,17 +233,17 @@ func (h *Handler) ListProviderWebhooks(c *gin.Context, id genintegrations.Id) {
 func (h *Handler) CreateProviderWebhook(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.CreateProviderWebhookRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	hook, err := h.createProviderWebhook.Execute(c.Request.Context(), id, req.Topic)
 	if err != nil {
 		if errors.Is(err, integrationsDomain.ErrWebhookSecretNotSet) || errors.Is(err, integrationsDomain.ErrProviderNotSupported) {
-			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 			return
 		}
 		if errors.Is(err, integrationsDomain.ErrProviderWebhookRequestFailed) {
-			middleware.Fail(c, http.StatusBadGateway, "PROVIDER_REQUEST_FAILED", err.Error())
+			middleware.FailErr(c, http.StatusBadGateway, "PROVIDER_REQUEST_FAILED", err)
 			return
 		}
 		if err := mapError(c, err); err != nil {
@@ -260,7 +260,7 @@ func (h *Handler) DeleteProviderWebhook(c *gin.Context, id genintegrations.Id, w
 	err := h.deleteProviderWebhook.Execute(c.Request.Context(), id, webhookId)
 	if err != nil {
 		if errors.Is(err, integrationsDomain.ErrProviderWebhookRequestFailed) {
-			middleware.Fail(c, http.StatusBadGateway, "PROVIDER_REQUEST_FAILED", err.Error())
+			middleware.FailErr(c, http.StatusBadGateway, "PROVIDER_REQUEST_FAILED", err)
 			return
 		}
 		if err := mapError(c, err); err != nil {
@@ -274,14 +274,14 @@ func (h *Handler) RetryWebhookFallbackEvent(c *gin.Context, id genintegrations.I
 	err := h.retryWebhookFallbackEvent.Execute(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, webhooksDomain.ErrFallbackEventNotFound) {
-			middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+			middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 			return
 		}
 		if errors.Is(err, webhooksDomain.ErrPayloadTooLarge) {
-			middleware.Fail(c, http.StatusUnprocessableEntity, "PAYLOAD_TOO_LARGE", err.Error())
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "PAYLOAD_TOO_LARGE", err)
 			return
 		}
-		middleware.Fail(c, http.StatusBadGateway, "PUBLISH_FAILED", err.Error())
+		middleware.FailErr(c, http.StatusBadGateway, "PUBLISH_FAILED", err)
 		return
 	}
 	middleware.OK(c, nil)

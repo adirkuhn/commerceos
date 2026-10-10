@@ -40,7 +40,7 @@ func (h *Handler) ListThemes(c *gin.Context, params gentheme.ListThemesParams) {
 func (h *Handler) CreateTheme(c *gin.Context) {
 	var req gentheme.CreateThemeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	preset := theme.PresetDefault
@@ -73,7 +73,7 @@ func (h *Handler) GetTheme(c *gin.Context, themeID gentheme.ThemeId) {
 func (h *Handler) RenameTheme(c *gin.Context, themeID gentheme.ThemeId) {
 	var req gentheme.RenameThemeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	th, err := h.uc.RenameTheme.Execute(c.Request.Context(), themeID.String(), req.Name)
@@ -111,7 +111,7 @@ func (h *Handler) PublishTheme(c *gin.Context, themeID gentheme.ThemeId) {
 func (h *Handler) publish(c *gin.Context, themeID string) {
 	var req gentheme.PublishRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	note := ""
@@ -130,7 +130,7 @@ func (h *Handler) publish(c *gin.Context, themeID string) {
 func (h *Handler) RollbackTheme(c *gin.Context, themeID gentheme.ThemeId) {
 	var req gentheme.RollbackRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	th, err := h.uc.RollbackTheme.Execute(c.Request.Context(), themeID.String(), req.VersionId.String())
@@ -143,7 +143,7 @@ func (h *Handler) RollbackTheme(c *gin.Context, themeID gentheme.ThemeId) {
 func (h *Handler) CreateThemeSession(c *gin.Context, themeID gentheme.ThemeId) {
 	var req gentheme.CreateSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	claims := middleware.ClaimsFromGin(c)

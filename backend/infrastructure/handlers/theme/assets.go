@@ -71,7 +71,7 @@ func (h *Handler) UpdateAsset(c *gin.Context, assetID uuid.UUID) {
 	}
 	var req gentheme.UpdateAssetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	a, err := h.uc.UpdateAsset.Execute(c.Request.Context(), assetID.String(), req.Alt)

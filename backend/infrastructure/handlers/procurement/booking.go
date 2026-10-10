@@ -19,7 +19,7 @@ func (h *Handler) StartOrResumeBooking(c *gin.Context, id genprocurement.Id) {
 	// empty body is not a binding error, only malformed JSON is.
 	if c.Request.ContentLength > 0 {
 		if err := c.ShouldBindJSON(&req); err != nil {
-			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 			return
 		}
 	}
@@ -53,7 +53,7 @@ func (h *Handler) GetBooking(c *gin.Context, id genprocurement.Id) {
 func (h *Handler) ScanBookingItem(c *gin.Context, id genprocurement.Id) {
 	var req genprocurement.ScanBookingItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	claims := middleware.ClaimsFromGin(c)
@@ -80,7 +80,7 @@ func (h *Handler) ScanBookingItem(c *gin.Context, id genprocurement.Id) {
 func (h *Handler) ResolveBookingScanCode(c *gin.Context, id genprocurement.Id) {
 	var req genprocurement.ResolveBookingScanCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	result, err := h.resolveBookingScanCode.Execute(c.Request.Context(), id, req.Code)

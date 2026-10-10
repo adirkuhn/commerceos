@@ -18,9 +18,9 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, appreports.ErrToBeforeFrom), errors.Is(err, appreports.ErrInvalidGranularity), errors.Is(err, appreports.ErrSKUIDRequired):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, promotionsDomain.ErrPromotionNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	default:
 		log.Printf("reports: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

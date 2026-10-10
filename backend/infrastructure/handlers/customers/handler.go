@@ -90,7 +90,7 @@ func (h *Handler) ListCustomers(c *gin.Context) {
 func (h *Handler) CreateCustomer(c *gin.Context) {
 	var req gencustomers.CreateCustomerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.Email == "" {
@@ -112,7 +112,7 @@ func (h *Handler) CreateCustomer(c *gin.Context) {
 func (h *Handler) UpdateCustomer(c *gin.Context, id gencustomers.Id) {
 	var req gencustomers.UpdateCustomerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.Email == "" {
@@ -209,9 +209,9 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, customersDomain.ErrCustomerNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, customersDomain.ErrDuplicateWooCustomerID):
-		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
+		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)
 	default:
 		log.Printf("customers: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

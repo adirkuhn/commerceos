@@ -89,7 +89,7 @@ func (h *Handler) ListSuppliers(c *gin.Context) {
 func (h *Handler) CreateSupplier(c *gin.Context) {
 	var req gensuppliers.CreateSupplierRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.Name == "" {
@@ -111,7 +111,7 @@ func (h *Handler) CreateSupplier(c *gin.Context) {
 func (h *Handler) UpdateSupplier(c *gin.Context, id gensuppliers.Id) {
 	var req gensuppliers.UpdateSupplierRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	if req.Name == "" {
@@ -174,7 +174,7 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, suppliersDomain.ErrSupplierNotFound):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	default:
 		log.Printf("suppliers: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

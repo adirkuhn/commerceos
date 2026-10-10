@@ -55,7 +55,7 @@ func (h *Handler) WriteOffExpiredBatch(c *gin.Context, id geninventory.Id) {
 func (h *Handler) ExtendBatchExpiry(c *gin.Context, id geninventory.Id) {
 	var req geninventory.ExtendBatchExpiryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	err := h.extendBatchExpiry.Execute(c.Request.Context(), id, req.NewExpiryDate.Time)

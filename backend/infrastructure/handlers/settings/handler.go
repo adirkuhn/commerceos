@@ -101,7 +101,7 @@ func (h *Handler) GetTenantSettings(c *gin.Context) {
 func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 	var req gensettings.UpdateTenantSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	s, err := h.updateTenantSettings.Execute(c.Request.Context(), appsettings.UpdateTenantSettingsInput{
@@ -145,7 +145,7 @@ func (h *Handler) ListApiKeys(c *gin.Context) {
 func (h *Handler) CreateApiKey(c *gin.Context) {
 	var req gensettings.CreateApiKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	description := ""
@@ -251,11 +251,11 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsLookbackDays) || errors.Is(err, settingsDomain.ErrInvalidPickingMode) || errors.Is(err, settingsDomain.ErrInvalidExpiryAlertWindow) || errors.Is(err, settingsDomain.ErrExpiryAlertWindowsRequired) || errors.Is(err, settingsDomain.ErrInvalidTimezone) || errors.Is(err, settingsDomain.ErrInvalidDateFormat) || errors.Is(err, locale.ErrUnsupported) || errors.Is(err, apikeysDomain.ErrNameRequired) {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return err
 	}
 	if errors.Is(err, apikeysDomain.ErrNotFound) {
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 		return err
 	}
 	log.Printf("settings: unhandled error: %v", err)

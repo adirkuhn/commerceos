@@ -16,7 +16,7 @@ import (
 func (h *Handler) CreateVariant(c *gin.Context, id genpms.Id) {
 	var req genpms.CreateVariantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	position := 0
@@ -38,7 +38,7 @@ func (h *Handler) CreateVariant(c *gin.Context, id genpms.Id) {
 func (h *Handler) UpdateVariant(c *gin.Context, id genpms.Id) {
 	var req genpms.UpdateVariantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	position := 0

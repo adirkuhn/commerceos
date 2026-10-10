@@ -58,7 +58,7 @@ func (h *Handler) AcknowledgeReceivingDiscrepancy(c *gin.Context, id genprocurem
 func (h *Handler) LinkReceivingDiscrepancies(c *gin.Context) {
 	var req genprocurement.LinkReceivingDiscrepanciesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	err := h.linkReceivingDiscrepancies.Execute(c.Request.Context(), req.UnexpectedDiscrepancyId, req.MissingDiscrepancyId)

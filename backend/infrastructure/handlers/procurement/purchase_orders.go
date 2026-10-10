@@ -28,7 +28,7 @@ func (h *Handler) ListPurchaseOrders(c *gin.Context) {
 func (h *Handler) CreatePurchaseOrder(c *gin.Context) {
 	var req genprocurement.CreatePurchaseOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	po, err := h.createPurchaseOrder.Execute(c.Request.Context(), appprocurement.CreatePurchaseOrderInput{
@@ -66,7 +66,7 @@ func (h *Handler) GetPurchaseOrder(c *gin.Context, id genprocurement.Id) {
 func (h *Handler) UpdatePurchaseOrder(c *gin.Context, id genprocurement.Id) {
 	var req genprocurement.UpdatePurchaseOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	po, err := h.updatePurchaseOrder.Execute(c.Request.Context(), appprocurement.UpdatePurchaseOrderInput{
@@ -93,7 +93,7 @@ func (h *Handler) DeletePurchaseOrder(c *gin.Context, id genprocurement.Id) {
 func (h *Handler) AddPurchaseOrderLineItem(c *gin.Context, id genprocurement.Id) {
 	var req genprocurement.AddLineItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	li, err := h.addLineItem.Execute(c.Request.Context(), appprocurement.AddPurchaseOrderLineItemInput{
@@ -111,7 +111,7 @@ func (h *Handler) AddPurchaseOrderLineItem(c *gin.Context, id genprocurement.Id)
 func (h *Handler) UpdatePurchaseOrderLineItem(c *gin.Context, id genprocurement.Id) {
 	var req genprocurement.UpdateLineItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	li, err := h.updateLineItem.Execute(c.Request.Context(), appprocurement.UpdatePurchaseOrderLineItemInput{
@@ -139,7 +139,7 @@ func (h *Handler) RemovePurchaseOrderLineItem(c *gin.Context, id genprocurement.
 func (h *Handler) LinkLineItemToSku(c *gin.Context, id genprocurement.Id) {
 	var req genprocurement.LinkLineItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	li, err := h.linkLineItemToSKU.Execute(c.Request.Context(), appprocurement.LinkLineItemToSKUInput{
@@ -164,7 +164,7 @@ func (h *Handler) GetLandedUnitCost(c *gin.Context, id genprocurement.Id) {
 func (h *Handler) CreateProductAndLinkLineItem(c *gin.Context, id genprocurement.Id) {
 	var req genprocurement.CreateProductAndLinkLineItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	var priceMinorUnits int64
@@ -185,7 +185,7 @@ func (h *Handler) CreateProductAndLinkLineItem(c *gin.Context, id genprocurement
 func (h *Handler) CreateSupplierAndAssignToPurchaseOrder(c *gin.Context, id genprocurement.Id) {
 	var req genprocurement.CreateSupplierAndAssignRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	po, err := h.createSupplierAndAssign.Execute(c.Request.Context(), appprocurement.CreateSupplierAndAssignToPurchaseOrderInput{
@@ -201,7 +201,7 @@ func (h *Handler) CreateSupplierAndAssignToPurchaseOrder(c *gin.Context, id genp
 func (h *Handler) FlagDamagedLineItem(c *gin.Context, id genprocurement.Id, lineItemId genprocurement.LineItemId) {
 	var req genprocurement.FlagDamagedLineItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	d, err := h.flagDamagedLineItem.Execute(c.Request.Context(), id, lineItemId, req.DamagedQty, stringPtrOr(req.Note))

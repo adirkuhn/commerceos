@@ -68,7 +68,7 @@ func (h *Handler) ListExchangeRates(c *gin.Context) {
 func (h *Handler) UpsertExchangeRate(c *gin.Context) {
 	var req genfx.UpsertExchangeRateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
 	rate, err := h.upsertExchangeRate.Execute(c.Request.Context(), appfx.UpsertExchangeRateInput{
@@ -98,7 +98,7 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, fxDomain.ErrInvalidCurrencyCode), errors.Is(err, fxDomain.ErrInvalidRate):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	default:
 		log.Printf("fx: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

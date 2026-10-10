@@ -33,13 +33,13 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, webhooksDomain.ErrFallbackEventNotFound),
 		errors.Is(err, webhooksDomain.ErrWebhookEventNotFound),
 		errors.Is(err, integrationsDomain.ErrWooProductNotFoundBySKU):
-		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, webhooksDomain.ErrWebhookEventNotDispatchable):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, channelsDomain.ErrSyncLogHasNoListing):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, integrationsDomain.ErrStoreURLInvalid):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, integrationsDomain.ErrProviderNotSupported),
 		errors.Is(err, integrationsDomain.ErrAPIKeyRequired),
 		errors.Is(err, integrationsDomain.ErrBaseURLRequired),
@@ -47,7 +47,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, integrationsDomain.ErrWhatsAppTestPhoneRequired),
 		errors.Is(err, integrationsDomain.ErrNotWhatsAppConnection),
 		errors.Is(err, appintegrations.ErrAIConnectionRequiredForWhatsAppParsing):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, channelsDomain.ErrCannotPushVariableProduct),
 		errors.Is(err, channelsDomain.ErrInvalidSyncEntityType),
 		errors.Is(err, channelsDomain.ErrInvalidSyncDirection),
@@ -70,23 +70,23 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, channelsDomain.ErrProductAlreadyLinkedToConnection),
 		errors.Is(err, channelsDomain.ErrInvalidPriceAdjustment),
 		errors.Is(err, channelsDomain.ErrInvalidQuantityBreak):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, integrationsDomain.ErrStateInvalid):
-		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())
+		middleware.FailErr(c, http.StatusUnauthorized, "UNAUTHORIZED", err)
 	case errors.Is(err, integrationsDomain.ErrConnectionTestFailed):
-		middleware.Fail(c, http.StatusBadGateway, "UPSTREAM_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusBadGateway, "UPSTREAM_ERROR", err)
 	case errors.Is(err, integrationsDomain.ErrWooRequestFailed):
-		middleware.Fail(c, http.StatusBadGateway, "UPSTREAM_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusBadGateway, "UPSTREAM_ERROR", err)
 	case errors.Is(err, integrationsDomain.ErrNoTenantContext):
-		middleware.Fail(c, http.StatusBadRequest, "NO_TENANT", err.Error())
+		middleware.FailErr(c, http.StatusBadRequest, "NO_TENANT", err)
 	case errors.Is(err, channelsDomain.ErrImportJobAlreadyActive):
-		middleware.Fail(c, http.StatusConflict, "IMPORT_ALREADY_RUNNING", err.Error())
+		middleware.FailErr(c, http.StatusConflict, "IMPORT_ALREADY_RUNNING", err)
 	case errors.Is(err, channelsDomain.ErrBolMissingEAN),
 		errors.Is(err, channelsDomain.ErrCannotPushBulkPoolSKU):
-		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, channelsDomain.ErrBolCommissionRequestFailed),
 		errors.Is(err, integrationsDomain.ErrBolEconomicOperatorsRequestFailed):
-		middleware.Fail(c, http.StatusBadGateway, "UPSTREAM_ERROR", err.Error())
+		middleware.FailErr(c, http.StatusBadGateway, "UPSTREAM_ERROR", err)
 	default:
 		log.Printf("integrations: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
