@@ -273,7 +273,7 @@ describe('product list', () => {
 
   it('a product with history cannot be deleted: offers to archive it instead', async () => {
     vi.mocked(pmsApi.deleteProduct).mockRejectedValue(
-      new CodedApiError('PRODUCT_HAS_HISTORY', 'product has sales order history and cannot be deleted'))
+      new CodedApiError('PRODUCT_HAS_SALES_ORDER_HISTORY', 'product has sales order history and cannot be deleted'))
     vi.mocked(pmsApi.updateProduct).mockResolvedValue(product({ status: 'archived' }))
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)

@@ -1,8 +1,8 @@
 package pms
 
 import (
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"strings"
 	"unicode/utf8"
 
@@ -10,7 +10,7 @@ import (
 )
 
 // ErrInvalidProductTranslation guards SetProductTranslationsUseCase's input.
-var ErrInvalidProductTranslation = errors.New("invalid product translation")
+var ErrInvalidProductTranslation = errs.New("PRODUCT_TRANSLATION_INVALID", "invalid product translation")
 
 const (
 	maxTranslatedNameLength        = 255

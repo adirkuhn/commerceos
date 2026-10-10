@@ -53,3 +53,18 @@ func TestNewWithCause_exposesTheWrappedDetail(t *testing.T) {
 	_, ok = errs.DetailOf(errUpstream)
 	assert.False(t, ok, "nothing wrapped, no detail")
 }
+
+var (
+	errParent = errs.New("SAMPLE_PARENT", "thing has history")
+	errChild  = errs.NewChild(errParent, "SAMPLE_CHILD", "thing has sales history")
+)
+
+func TestNewChild_isItsParentButKeepsItsOwnCode(t *testing.T) {
+	wrapped := fmt.Errorf("deleteThing: %w", errChild)
+
+	assert.True(t, errors.Is(wrapped, errParent))
+	assert.True(t, errors.Is(wrapped, errChild))
+	code, message, _ := errs.CodeOf(wrapped)
+	assert.Equal(t, "SAMPLE_CHILD", code)
+	assert.Equal(t, "thing has sales history", message)
+}

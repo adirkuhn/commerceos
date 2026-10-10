@@ -1,30 +1,30 @@
 package pms
 
 import (
-	"errors"
 	"fmt"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	"strconv"
 )
 
 // ErrNotWeightEmbeddedBarcode means the given code isn't a 13-digit,
 // GS1-reserved-prefix (20-29) variable-weight barcode at all -- the normal
 // exact-match barcode/alias/SKUCode lookups should be tried instead.
-var ErrNotWeightEmbeddedBarcode = errors.New("not a weight-embedded barcode")
+var ErrNotWeightEmbeddedBarcode = errs.New("NOT_WEIGHT_EMBEDDED_BARCODE", "not a weight-embedded barcode")
 
 // ErrInvalidCheckDigit means the code has the right shape (13 digits,
 // prefix 20-29) but fails the standard EAN-13 checksum -- a corrupted or
 // mis-scanned read, not a barcode to resolve against.
-var ErrInvalidCheckDigit = errors.New("invalid EAN-13 check digit")
+var ErrInvalidCheckDigit = errs.New("BARCODE_INVALID_CHECK_DIGIT", "invalid EAN-13 check digit")
 
 // ErrInvalidScaleCode guards EncodeWeightEmbeddedBarcode: scaleCode must be
 // exactly 7 digits (2-digit GS1 prefix 20-29 + 5-digit merchant scale code),
 // the same shape DecodeWeightEmbeddedBarcode always produces.
-var ErrInvalidScaleCode = errors.New("scale code must be 7 digits with a GS1 prefix of 20-29")
+var ErrInvalidScaleCode = errs.New("SCALE_CODE_INVALID", "scale code must be 7 digits with a GS1 prefix of 20-29")
 
 // ErrWeightOutOfRange guards EncodeWeightEmbeddedBarcode: the format has
 // exactly 5 digits for weight, so 0-99999 grams (0-99.999kg) is the whole
 // representable range.
-var ErrWeightOutOfRange = errors.New("weight must be between 0 and 99999 grams to fit a weight-embedded barcode")
+var ErrWeightOutOfRange = errs.New("WEIGHT_OUT_OF_RANGE", "weight must be between 0 and 99999 grams to fit a weight-embedded barcode")
 
 // DecodedWeightEmbeddedBarcode is what a GS1 "prefix 2x" variable-weight
 // EAN-13 barcode encodes: a 7-digit scale code (see SKU.ScaleCode) --

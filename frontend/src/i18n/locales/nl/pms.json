@@ -250,7 +250,7 @@
   "list": {
     "archive": "Product archiveren",
     "archiveFailed": "Product archiveren mislukt",
-    "cantDeleteMessage": "{{reason}}. In plaats daarvan archiveren? De geschiedenis blijft bewaard en het product kan later weer actief worden.",
+    "cantDeleteMessage": "{{reason}} In plaats daarvan archiveren? De geschiedenis blijft bewaard en het product kan later weer actief worden.",
     "cantDeleteTitle": "\"{{name}}\" kan niet worden verwijderd",
     "colCategory": "Categorie",
     "colPrice": "Prijs",

@@ -250,7 +250,7 @@
   "list": {
     "archive": "Archive product",
     "archiveFailed": "Failed to archive product",
-    "cantDeleteMessage": "{{reason}}. Archive it instead? It keeps its history and can be made active again later.",
+    "cantDeleteMessage": "{{reason}} Archive it instead? It keeps its history and can be made active again later.",
     "cantDeleteTitle": "\"{{name}}\" can't be deleted",
     "colCategory": "Category",
     "colPrice": "Price",

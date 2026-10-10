@@ -1128,7 +1128,7 @@ func TestDeleteProduct_blockedByHistoryIsConflictWithCode(t *testing.T) {
 	s := &stubs{deleteProduct: stubDeleteProduct{err: pmsDomain.ErrProductHasReceivingHistory}}
 	w := doRequest(newTestRouter(s), http.MethodDelete, "/api/v1/pms/products/p1", nil)
 	assert.Equal(t, http.StatusConflict, w.Code)
-	assert.Contains(t, w.Body.String(), `"code":"PRODUCT_HAS_HISTORY"`)
+	assert.Contains(t, w.Body.String(), `"code":"PRODUCT_HAS_RECEIVING_HISTORY"`)
 	assert.Contains(t, w.Body.String(), "receiving history")
 }
 

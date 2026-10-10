@@ -22,9 +22,19 @@ type Coded struct {
 	// showCause: the text wrapped after this error (e.g. an upstream
 	// provider's own reason) is useful to the reader -- see DetailOf.
 	showCause bool
+	// parent makes errors.Is(e, parent) true -- see NewChild.
+	parent *Coded
 }
 
 func (e *Coded) Error() string { return e.message }
+
+// Unwrap exposes the parent of a NewChild error to errors.Is.
+func (e *Coded) Unwrap() error {
+	if e.parent == nil {
+		return nil
+	}
+	return e.parent
+}
 
 // Code is the stable, client-facing identifier, e.g. PRODUCT_NOT_FOUND.
 func (e *Coded) Code() string { return e.code }
@@ -48,6 +58,14 @@ func New(code, message string) *Coded {
 	}
 	registry[code] = true
 	return &Coded{code: code, message: message}
+}
+
+// NewChild is a more specific kind of parent: errors.Is(child, parent) is
+// true, while clients get the child's own code and sentence.
+func NewChild(parent *Coded, code, message string) *Coded {
+	c := New(code, message)
+	c.parent = parent
+	return c
 }
 
 // NewWithCause is New for errors whose wrapped detail the reader needs,

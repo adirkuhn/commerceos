@@ -251,7 +251,7 @@
   "list": {
     "archive": "Arquivar produto",
     "archiveFailed": "Não foi possível arquivar o produto",
-    "cantDeleteMessage": "{{reason}}. Arquivar em vez disso? O histórico é mantido e ele pode voltar a ficar ativo depois.",
+    "cantDeleteMessage": "{{reason}} Arquivar em vez disso? O histórico é mantido e ele pode voltar a ficar ativo depois.",
     "cantDeleteTitle": "Não é possível excluir \"{{name}}\"",
     "colCategory": "Categoria",
     "colPrice": "Preço",

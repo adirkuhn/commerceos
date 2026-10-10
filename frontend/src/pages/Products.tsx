@@ -17,7 +17,9 @@ import { ProductEditPage } from '../pms/ProductEditPage'
 import { apiErrorText } from '../api/apiErrorText'
 const PAGE_SIZE = 20
 
-const PRODUCT_HAS_HISTORY = 'PRODUCT_HAS_HISTORY'
+// 409 codes for "can't delete, history references it" (backend
+// domain/pms ErrProductHasHistory and its specific kinds).
+const PRODUCT_HISTORY_CODES = new Set(['PRODUCT_HAS_HISTORY', 'PRODUCT_HAS_RECEIVING_HISTORY', 'PRODUCT_HAS_SALES_ORDER_HISTORY', 'PRODUCT_HAS_PICKING_HISTORY', 'PRODUCT_HAS_DISCARD_HISTORY'])
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -71,7 +73,7 @@ export default function Products() {
   const categoryName = (id?: string | null) => categories.find(c => c.id === id)?.name ?? '—'
 
   // A product whose SKUs have receiving/sales/picking/discard history can't
-  // be deleted (409 PRODUCT_HAS_HISTORY) -- archiving keeps that history
+  // be deleted (409 PRODUCT_HAS_*_HISTORY) -- archiving keeps that history
   // and takes it out of the active catalog, so it's offered instead.
   const [deleteError, setDeleteError] = useState('')
   const handleDelete = async (p: Product) => {
@@ -79,20 +81,20 @@ export default function Products() {
     try {
       await removeProduct(p.id)
     } catch (err) {
-      if (!(err instanceof CodedApiError && err.code === PRODUCT_HAS_HISTORY)) {
+      if (!(err instanceof CodedApiError && PRODUCT_HISTORY_CODES.has(err.code))) {
         setDeleteError(apiErrorText(err) ?? t('list.deleteFailed'))
         return
       }
       const archive = await confirm({
         title: t('list.cantDeleteTitle', { name: p.name }),
-        message: t('list.cantDeleteMessage', { reason: capitalize(err.message) }),
+        message: t('list.cantDeleteMessage', { reason: apiErrorText(err) ?? `${capitalize(err.message)}.` }),
         confirmLabel: t('list.archive'),
       })
       if (!archive) return
       try {
         await updateProduct(p.id, archivedPayload(p))
       } catch (archiveErr) {
-        setDeleteError(archiveErr instanceof Error ? archiveErr.message : t('list.archiveFailed'))
+        setDeleteError(apiErrorText(archiveErr) ?? t('list.archiveFailed'))
       }
     }
   }

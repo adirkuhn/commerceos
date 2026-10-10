@@ -151,10 +151,12 @@ paths:
       operationId: deleteProduct
       summary: Delete a product (cascades to its variants/skus)
       description: >-
-        Refused with 409 and error code PRODUCT_HAS_HISTORY while any of its
-        SKUs is referenced by receiving, sales order, picking or discard
-        history -- archive it (status archived) or merge it into another
-        product instead.
+        Refused with 409 while any of its SKUs is referenced by history --
+        error code PRODUCT_HAS_RECEIVING_HISTORY,
+        PRODUCT_HAS_SALES_ORDER_HISTORY, PRODUCT_HAS_PICKING_HISTORY or
+        PRODUCT_HAS_DISCARD_HISTORY (PRODUCT_HAS_HISTORY when unspecified).
+        Archive it (status archived) or merge it into another product
+        instead.
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
