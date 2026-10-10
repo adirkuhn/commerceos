@@ -10,7 +10,10 @@ import (
 
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/domain/messaging"
+	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 )
 
 type stubConnLister struct {
@@ -48,7 +51,7 @@ func emailInput() appnotifications.SendNotificationEmailInput {
 
 func TestSendNotificationEmail_sendsOneEmailPerRecipient(t *testing.T) {
 	client := &recordingClient{}
-	uc := appnotifications.NewSendNotificationEmailUseCase(newMockGormDB(t), &stubConnLister{}, "secret", unusedFactory{}, client, "https://commerceos.example.nl")
+	uc := appnotifications.NewSendNotificationEmailUseCase(newMockGormDB(t), &stubConnLister{}, "secret", unusedFactory{}, client, "https://commerceos.example.nl", &stubTenantLanguage{})
 
 	require.NoError(t, uc.Execute(tctx(), emailInput()))
 
@@ -64,7 +67,7 @@ func TestSendNotificationEmail_sendsOneEmailPerRecipient(t *testing.T) {
 
 func TestSendNotificationEmail_noLinkNoButton(t *testing.T) {
 	client := &recordingClient{}
-	uc := appnotifications.NewSendNotificationEmailUseCase(newMockGormDB(t), &stubConnLister{}, "secret", unusedFactory{}, client, "https://commerceos.example.nl")
+	uc := appnotifications.NewSendNotificationEmailUseCase(newMockGormDB(t), &stubConnLister{}, "secret", unusedFactory{}, client, "https://commerceos.example.nl", &stubTenantLanguage{})
 	in := emailInput()
 	in.Link = ""
 
@@ -75,11 +78,62 @@ func TestSendNotificationEmail_noLinkNoButton(t *testing.T) {
 
 func TestSendNotificationEmail_propagatesErrors(t *testing.T) {
 	t.Run("connections", func(t *testing.T) {
-		uc := appnotifications.NewSendNotificationEmailUseCase(newMockGormDB(t), &stubConnLister{err: errBoom}, "secret", unusedFactory{}, &recordingClient{}, "")
+		uc := appnotifications.NewSendNotificationEmailUseCase(newMockGormDB(t), &stubConnLister{err: errBoom}, "secret", unusedFactory{}, &recordingClient{}, "", &stubTenantLanguage{})
 		assert.True(t, errors.Is(uc.Execute(tctx(), emailInput()), errBoom))
 	})
 	t.Run("send", func(t *testing.T) {
-		uc := appnotifications.NewSendNotificationEmailUseCase(newMockGormDB(t), &stubConnLister{}, "secret", unusedFactory{}, &recordingClient{err: errBoom}, "")
+		uc := appnotifications.NewSendNotificationEmailUseCase(newMockGormDB(t), &stubConnLister{}, "secret", unusedFactory{}, &recordingClient{err: errBoom}, "", &stubTenantLanguage{})
 		assert.True(t, errors.Is(uc.Execute(tctx(), emailInput()), errBoom))
 	})
+}
+
+type stubTenantLanguage struct {
+	lang locale.Locale
+	err  error
+}
+
+func (s *stubTenantLanguage) Execute(context.Context) (*settingsDomain.TenantSettings, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &settingsDomain.TenantSettings{Language: s.lang}, nil
+}
+
+func TestSendNotificationEmail_translatedTypeUsesTheCompanyLanguage(t *testing.T) {
+	client := &recordingClient{}
+	uc := appnotifications.NewSendNotificationEmailUseCase(newMockGormDB(t), &stubConnLister{}, "secret", unusedFactory{}, client, "https://commerceos.example.nl",
+		&stubTenantLanguage{lang: locale.Dutch})
+
+	err := uc.Execute(tctx(), appnotifications.SendNotificationEmailInput{
+		Recipients: []string{"ops@example.nl"}, Type: notificationsDomain.TypeImportFailed, Params: map[string]any{"error": "Woo <500>"},
+		Subject: "Import failed", Body: "Woo <500>", Link: "/sync-log",
+	})
+
+	require.NoError(t, err)
+	m := client.sent[0]
+	assert.Equal(t, "CommerceOS: Import mislukt", m.Subject)
+	assert.Contains(t, m.HTMLBody, "Woo &lt;500&gt;")
+	assert.Contains(t, m.HTMLBody, "Openen in CommerceOS")
+	assert.Contains(t, m.HTMLBody, "meldingsinstellingen")
+	assert.Equal(t, "Woo <500>", m.Body, "plain-text part translated too")
+}
+
+func TestSendNotificationEmail_untranslatedTypeKeepsItsTextWithTranslatedChrome(t *testing.T) {
+	client := &recordingClient{}
+	uc := appnotifications.NewSendNotificationEmailUseCase(newMockGormDB(t), &stubConnLister{}, "secret", unusedFactory{}, client, "",
+		&stubTenantLanguage{lang: locale.Portuguese})
+
+	require.NoError(t, uc.Execute(tctx(), appnotifications.SendNotificationEmailInput{
+		Recipients: []string{"ops@example.nl"}, Type: "something.new", Subject: "Hello", Body: "World",
+	}))
+
+	assert.Equal(t, "CommerceOS: Hello", client.sent[0].Subject)
+	assert.Contains(t, client.sent[0].HTMLBody, "configurações de notificação")
+}
+
+func TestSendNotificationEmail_languageErrorPropagates(t *testing.T) {
+	uc := appnotifications.NewSendNotificationEmailUseCase(newMockGormDB(t), &stubConnLister{}, "secret", unusedFactory{}, &recordingClient{}, "",
+		&stubTenantLanguage{err: errBoom})
+
+	assert.ErrorIs(t, uc.Execute(tctx(), emailInput()), errBoom)
 }

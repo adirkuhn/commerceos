@@ -33,6 +33,7 @@ func emailRequestedMsg(t *testing.T) *nats.Msg {
 	data, err := json.Marshal(events.NotificationEmailRequested{
 		Base:     events.Base{EventID: "evt-1", OccurredAt: time.Now()},
 		TenantID: "tenant-1", Type: "import.failed", Recipients: []string{"ops@example.nl"},
+		Params:  map[string]any{"error": "boom"},
 		Subject: "Import failed", Body: "boom", Link: "/sync-log",
 	})
 	require.NoError(t, err)
@@ -47,7 +48,8 @@ func TestNotificationEmailConsumer_sendsForTheEventsTenantAndMarksProcessed(t *t
 	c.Handle(emailRequestedMsg(t))
 
 	require.Equal(t, []appnotifications.SendNotificationEmailInput{{
-		Recipients: []string{"ops@example.nl"}, Subject: "Import failed", Body: "boom", Link: "/sync-log",
+		Recipients: []string{"ops@example.nl"}, Type: "import.failed", Params: map[string]any{"error": "boom"},
+		Subject: "Import failed", Body: "boom", Link: "/sync-log",
 	}}, sender.calls)
 	require.Equal(t, []string{"tenant-1"}, sender.tenants)
 	require.Equal(t, []string{"evt-1|notification-email-send"}, processed.marked)

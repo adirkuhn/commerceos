@@ -9,6 +9,7 @@ import (
 
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	"github.com/adirkuhn/commerceos/domain/events"
+	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -54,7 +55,8 @@ func (c *NotificationEmailConsumer) Handle(msg *nats.Msg) {
 	}
 
 	err = c.sender.Execute(ctx, appnotifications.SendNotificationEmailInput{
-		Recipients: event.Recipients, Subject: event.Subject, Body: event.Body, Link: event.Link,
+		Recipients: event.Recipients, Type: notificationsDomain.Type(event.Type), Params: event.Params,
+		Subject: event.Subject, Body: event.Body, Link: event.Link,
 	})
 	if err != nil {
 		nakOrDeadLetter(c.dlq, msg, "notificationEmailConsumer: send "+event.EventID, err)

@@ -380,6 +380,7 @@ func main() {
 	// per-tenant email connection / platform SMTP fallback as automations.
 	sendNotificationEmailUC := notificationsapp.NewSendNotificationEmailUseCase(
 		db, connRepo, cfg.IntegrationsEncryptionSecret, smtp.NewClientFactory(), automationEmailClient, cfg.FrontendBaseURL,
+		settingsapp.NewGetTenantSettingsUseCase(db, settingsRepo),
 	)
 	notificationEmailConsumer := consumers.NewNotificationEmailConsumer(processedEventRepo, sendNotificationEmailUC, js)
 	if sub := subscribeConsumer(js, events.NotificationEmailRequested{}.EventName(), "notification-email-scheduler",
