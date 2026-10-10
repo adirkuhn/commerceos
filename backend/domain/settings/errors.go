@@ -32,3 +32,11 @@ var ErrInvalidTimezone = errors.New("timezone must be an IANA zone name such as 
 // ErrInvalidDateFormat guards TenantSettings.DateFormat: DD/MM/YYYY,
 // MM/DD/YYYY or YYYY-MM-DD.
 var ErrInvalidDateFormat = errors.New("date format must be DD/MM/YYYY, MM/DD/YYYY or YYYY-MM-DD")
+
+// ErrInvalidExpiryAlertWindow guards ExpiryAlert.Windows: each must be one
+// of ExpiryAlertWindowOptions (90, 30, 15 or 7 days).
+var ErrInvalidExpiryAlertWindow = errors.New("expiry alert windows must be 90, 30, 15 or 7 days")
+
+// ErrExpiryAlertWindowsRequired: an enabled expiry alert needs at least one
+// window.
+var ErrExpiryAlertWindowsRequired = errors.New("pick at least one expiry alert window")

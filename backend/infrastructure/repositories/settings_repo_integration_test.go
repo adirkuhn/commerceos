@@ -144,3 +144,26 @@ func TestTenantSettingsRepo_Integration_UpsertRoundTripsLanguage(t *testing.T) {
 	require.Equal(t, locale.Portuguese, save(locale.Portuguese))
 	require.Equal(t, locale.English, save(""), "unset is stored as English")
 }
+
+func TestTenantSettingsRepo_Integration_UpsertRoundTripsExpiryAlert(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	repo := repositories.NewTenantSettingsRepo(db)
+	get := func() settingsDomain.ExpiryAlert {
+		var found *settingsDomain.TenantSettings
+		require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			found, err = repo.Get(ctx)
+			return err
+		}))
+		return found.ExpiryAlert
+	}
+
+	require.Equal(t, settingsDomain.ExpiryAlert{Windows: []int{}}, get(), "a never-saved tenant has the alert off")
+
+	alert := settingsDomain.ExpiryAlert{Enabled: true, Windows: []int{90, 15, 7}}
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return repo.Upsert(ctx, &settingsDomain.TenantSettings{TenantID: tenantID, ExpiryAlert: alert, UpdatedAt: time.Now()})
+	}))
+	require.Equal(t, alert, get())
+}

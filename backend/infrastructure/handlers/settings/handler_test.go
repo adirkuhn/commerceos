@@ -295,3 +295,48 @@ func TestGetTenantSettingsHandler_neverSavedLanguageReadsAsEnglish(t *testing.T)
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"language":"en"`)
 }
+
+func TestUpdateTenantSettingsHandler_passesExpiryAlert(t *testing.T) {
+	update := &stubUpdateTenantSettings{}
+	h := newTestHandler(&stubGetTenantSettings{}, update)
+
+	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", map[string]any{
+		"expiry_alert_enabled": true, "expiry_alert_windows": []int{30, 7},
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.True(t, update.gotInput.ExpiryAlertEnabled)
+	require.Equal(t, []int{30, 7}, update.gotInput.ExpiryAlertWindows)
+}
+
+func TestUpdateTenantSettingsHandler_invalidExpiryAlertIsUnprocessable(t *testing.T) {
+	for _, domainErr := range []error{settingsDomain.ErrInvalidExpiryAlertWindow, settingsDomain.ErrExpiryAlertWindowsRequired} {
+		update := &stubUpdateTenantSettings{err: domainErr}
+		h := newTestHandler(&stubGetTenantSettings{}, update)
+
+		w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", map[string]any{"expiry_alert_enabled": true})
+
+		require.Equal(t, http.StatusUnprocessableEntity, w.Code, domainErr.Error())
+	}
+}
+
+func TestGetTenantSettingsHandler_returnsExpiryAlert(t *testing.T) {
+	get := &stubGetTenantSettings{out: &settingsDomain.TenantSettings{TenantID: "t",
+		ExpiryAlert: settingsDomain.ExpiryAlert{Enabled: true, Windows: []int{90, 15}}}}
+	h := newTestHandler(get, &stubUpdateTenantSettings{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/settings/tenant", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"expiry_alert_enabled":true`)
+	require.Contains(t, w.Body.String(), `"expiry_alert_windows":[90,15]`)
+}
+
+func TestGetTenantSettingsHandler_neverSavedExpiryWindowsIsEmptyArray(t *testing.T) {
+	get := &stubGetTenantSettings{out: &settingsDomain.TenantSettings{TenantID: "t"}}
+	h := newTestHandler(get, &stubUpdateTenantSettings{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/settings/tenant", nil)
+
+	require.Contains(t, w.Body.String(), `"expiry_alert_windows":[]`)
+}

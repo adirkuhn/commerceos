@@ -15,20 +15,22 @@ import (
 )
 
 type tenantSettingsModel struct {
-	TenantID                       string  `gorm:"primaryKey;type:uuid"`
-	DefaultCurrency                string  `gorm:"not null;default:''"`
-	Timezone                       string  `gorm:"not null;default:''"`
-	DateFormat                     string  `gorm:"column:date_format;not null;default:''"`
-	Language                       string  `gorm:"not null;default:''"`
-	PricesIncludeTax               bool    `gorm:"not null;default:true"`
-	DefaultTaxCountry              string  `gorm:"not null;default:''"`
-	InventorySyncRulesEnabled      bool    `gorm:"not null;default:false"`
-	BatchExpiryThresholdDays       int     `gorm:"not null;default:0"`
-	DefaultTargetMarkupBasisPoints int     `gorm:"column:default_target_markup_basis_points;not null;default:0"`
-	BundleConfidenceThreshold      float64 `gorm:"column:bundle_confidence_threshold;not null;default:0.30"`
-	RecommendationsMinSupport      int     `gorm:"column:recommendations_min_support;not null;default:2"`
-	RecommendationsLookbackDays    int     `gorm:"column:recommendations_lookback_days;not null;default:180"`
-	PickingMode                    string  `gorm:"column:picking_mode;not null;default:scan"`
+	TenantID                       string            `gorm:"primaryKey;type:uuid"`
+	DefaultCurrency                string            `gorm:"not null;default:''"`
+	Timezone                       string            `gorm:"not null;default:''"`
+	DateFormat                     string            `gorm:"column:date_format;not null;default:''"`
+	Language                       string            `gorm:"not null;default:''"`
+	PricesIncludeTax               bool              `gorm:"not null;default:true"`
+	DefaultTaxCountry              string            `gorm:"not null;default:''"`
+	InventorySyncRulesEnabled      bool              `gorm:"not null;default:false"`
+	BatchExpiryThresholdDays       int               `gorm:"not null;default:0"`
+	DefaultTargetMarkupBasisPoints int               `gorm:"column:default_target_markup_basis_points;not null;default:0"`
+	BundleConfidenceThreshold      float64           `gorm:"column:bundle_confidence_threshold;not null;default:0.30"`
+	RecommendationsMinSupport      int               `gorm:"column:recommendations_min_support;not null;default:2"`
+	RecommendationsLookbackDays    int               `gorm:"column:recommendations_lookback_days;not null;default:180"`
+	PickingMode                    string            `gorm:"column:picking_mode;not null;default:scan"`
+	ExpiryAlertEnabled             bool              `gorm:"column:expiry_alert_enabled;not null;default:false"`
+	ExpiryAlertWindows             jsonbValue[[]int] `gorm:"column:expiry_alert_windows;type:jsonb;not null;default:'[]'"`
 	UpdatedAt                      time.Time
 }
 
@@ -77,7 +79,9 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 		DefaultTargetMarkupBasisPoints: s.DefaultTargetMarkupBasisPoints,
 		BundleConfidenceThreshold:      s.BundleConfidenceThreshold,
 		RecommendationsMinSupport:      s.RecommendationsMinSupport,
-		RecommendationsLookbackDays:    s.RecommendationsLookbackDays, PickingMode: string(pickingMode), UpdatedAt: s.UpdatedAt,
+		RecommendationsLookbackDays:    s.RecommendationsLookbackDays, PickingMode: string(pickingMode),
+		ExpiryAlertEnabled: s.ExpiryAlert.Enabled, ExpiryAlertWindows: jsonbValue[[]int]{V: nonNilWindows(s.ExpiryAlert.Windows)},
+		UpdatedAt: s.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "tenant_id"}},
@@ -86,7 +90,8 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 			"prices_include_tax", "default_tax_country",
 			"inventory_sync_rules_enabled", "batch_expiry_threshold_days",
 			"default_target_markup_basis_points", "bundle_confidence_threshold",
-			"recommendations_min_support", "recommendations_lookback_days", "picking_mode", "updated_at",
+			"recommendations_min_support", "recommendations_lookback_days", "picking_mode",
+			"expiry_alert_enabled", "expiry_alert_windows", "updated_at",
 		}),
 	}).Create(&m).Error
 	if err != nil {
@@ -107,6 +112,10 @@ func toTenantSettingsDomain(m tenantSettingsModel) (*settingsDomain.TenantSettin
 	if err != nil {
 		return nil, fmt.Errorf("tenantSettingsRepo: date_format %q: %w", m.DateFormat, err)
 	}
+	expiryAlert, err := settingsDomain.NewExpiryAlert(m.ExpiryAlertEnabled, m.ExpiryAlertWindows.V)
+	if err != nil {
+		return nil, fmt.Errorf("tenantSettingsRepo: expiry alert: %w", err)
+	}
 	return &settingsDomain.TenantSettings{
 		TenantID: m.TenantID, DefaultCurrency: m.DefaultCurrency, Timezone: m.Timezone,
 		DateFormat: dateFormat, Language: locale.Locale(m.Language), PricesIncludeTax: m.PricesIncludeTax,
@@ -115,6 +124,15 @@ func toTenantSettingsDomain(m tenantSettingsModel) (*settingsDomain.TenantSettin
 		DefaultTargetMarkupBasisPoints: m.DefaultTargetMarkupBasisPoints,
 		BundleConfidenceThreshold:      m.BundleConfidenceThreshold,
 		RecommendationsMinSupport:      m.RecommendationsMinSupport,
-		RecommendationsLookbackDays:    m.RecommendationsLookbackDays, PickingMode: pickingMode, UpdatedAt: m.UpdatedAt,
+		RecommendationsLookbackDays:    m.RecommendationsLookbackDays, PickingMode: pickingMode,
+		ExpiryAlert: expiryAlert, UpdatedAt: m.UpdatedAt,
 	}, nil
+}
+
+// nonNilWindows stores an unset window list as [] rather than JSON null.
+func nonNilWindows(w []int) []int {
+	if w == nil {
+		return []int{}
+	}
+	return w
 }

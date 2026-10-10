@@ -80,5 +80,8 @@ type TenantSettings struct {
 	RecommendationsLookbackDays int
 	// PickingMode is how the picking module works -- see PickingMode.
 	PickingMode PickingMode
+	// ExpiryAlert configures the daily stock-close-to-expiry report -- see
+	// ExpiryAlert.
+	ExpiryAlert ExpiryAlert
 	UpdatedAt   time.Time
 }

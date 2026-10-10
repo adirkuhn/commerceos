@@ -211,7 +211,7 @@ components:
 
     TenantSettings:
       type: object
-      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, recommendations_min_support, recommendations_lookback_days, picking_mode, updated_at]
+      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, recommendations_min_support, recommendations_lookback_days, picking_mode, expiry_alert_enabled, expiry_alert_windows, updated_at]
       properties:
         tenant_id: { type: string }
         default_currency: { type: string }
@@ -272,6 +272,19 @@ components:
             zero-value convention as every other field here.
         picking_mode:
           $ref: '#/components/schemas/PickingMode'
+        expiry_alert_enabled:
+          type: boolean
+          description: >-
+            When true, a daily scheduler job reports stock close to expiry,
+            one report per chosen window (see expiry_alert_windows), sent
+            through the Message Center "stock close to expiry" rule.
+        expiry_alert_windows:
+          type: array
+          items: { $ref: '#/components/schemas/ExpiryAlertWindow' }
+          description: >-
+            Chosen windows, largest first. Kept while the alert is off.
+            Reports never overlap: with 90 and 30 chosen, the 90-day report
+            lists stock with 31-90 days left and the 30-day one 0-30.
         updated_at: { type: string, format: date-time }
 
     UpdateTenantSettingsRequest:
@@ -297,6 +310,19 @@ components:
         recommendations_lookback_days: { type: integer, minimum: 0 }
         picking_mode:
           $ref: '#/components/schemas/PickingMode'
+        expiry_alert_enabled:
+          type: boolean
+          description: Omitted means false. When true, expiry_alert_windows needs at least one entry (else 422).
+        expiry_alert_windows:
+          type: array
+          maxItems: 4
+          items: { $ref: '#/components/schemas/ExpiryAlertWindow' }
+          description: Omitted means none. Duplicates are dropped; order does not matter.
+
+    ExpiryAlertWindow:
+      type: integer
+      enum: [90, 30, 15, 7]
+      description: Days before expiry. Any other value is rejected with 422.
 
     PickingMode:
       type: string

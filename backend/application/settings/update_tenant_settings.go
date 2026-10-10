@@ -28,6 +28,9 @@ type UpdateTenantSettingsInput struct {
 	RecommendationsLookbackDays    int
 	// PickingMode empty means the default, scan -- see settings.ParsePickingMode.
 	PickingMode string
+	// ExpiryAlertEnabled / ExpiryAlertWindows -- see settings.NewExpiryAlert.
+	ExpiryAlertEnabled bool
+	ExpiryAlertWindows []int
 }
 
 type UpdateTenantSettingsUseCase struct {
@@ -72,6 +75,11 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 		return nil, fmt.Errorf("updateTenantSettings: %w", err)
 	}
 
+	expiryAlert, err := settingsDomain.NewExpiryAlert(in.ExpiryAlertEnabled, in.ExpiryAlertWindows)
+	if err != nil {
+		return nil, fmt.Errorf("updateTenantSettings: %w", err)
+	}
+
 	var result settingsDomain.TenantSettings
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		before, err := uc.repo.Get(ctx)
@@ -93,6 +101,7 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 			RecommendationsMinSupport:      in.RecommendationsMinSupport,
 			RecommendationsLookbackDays:    in.RecommendationsLookbackDays,
 			PickingMode:                    pickingMode,
+			ExpiryAlert:                    expiryAlert,
 			UpdatedAt:                      time.Now(),
 		}
 		if err := uc.repo.Upsert(ctx, &result); err != nil {
@@ -120,5 +129,16 @@ func tenantSettingsChanges(before, after settingsDomain.TenantSettings) eventrec
 		Set("bundle_confidence_threshold", before.BundleConfidenceThreshold, after.BundleConfidenceThreshold).
 		Set("recommendations_min_support", before.RecommendationsMinSupport, after.RecommendationsMinSupport).
 		Set("recommendations_lookback_days", before.RecommendationsLookbackDays, after.RecommendationsLookbackDays).
-		Set("picking_mode", string(before.PickingMode), string(after.PickingMode))
+		Set("picking_mode", string(before.PickingMode), string(after.PickingMode)).
+		Set("expiry_alert_enabled", before.ExpiryAlert.Enabled, after.ExpiryAlert.Enabled).
+		Set("expiry_alert_windows", nonNilInts(before.ExpiryAlert.Windows), nonNilInts(after.ExpiryAlert.Windows))
+}
+
+// nonNilInts makes a never-saved tenant's nil window list compare equal to an
+// explicitly empty one, so saving "no windows" over "unset" is not a change.
+func nonNilInts(v []int) []int {
+	if v == nil {
+		return []int{}
+	}
+	return v
 }

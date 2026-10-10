@@ -239,3 +239,40 @@ func TestUpdateTenantSettings_rejectsUnsupportedLanguage(t *testing.T) {
 	require.ErrorIs(t, err, locale.ErrUnsupported)
 	require.Empty(t, repo.upserted)
 }
+
+func TestUpdateTenantSettings_setsExpiryAlert(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
+
+	result, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{
+		ExpiryAlertEnabled: true, ExpiryAlertWindows: []int{7, 90},
+	})
+
+	require.NoError(t, err)
+	want := settingsDomain.ExpiryAlert{Enabled: true, Windows: []int{90, 7}}
+	require.Equal(t, want, result.ExpiryAlert)
+	require.Equal(t, want, repo.upserted[0].ExpiryAlert)
+}
+
+func TestUpdateTenantSettings_rejectsUnknownExpiryAlertWindow(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
+
+	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{
+		ExpiryAlertEnabled: true, ExpiryAlertWindows: []int{60},
+	})
+
+	require.ErrorIs(t, err, settingsDomain.ErrInvalidExpiryAlertWindow)
+	require.Empty(t, repo.upserted)
+}
+
+func TestUpdateTenantSettings_rejectsEnabledExpiryAlertWithoutWindows(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
+
+	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appsettings.UpdateTenantSettingsInput{
+		ExpiryAlertEnabled: true,
+	})
+
+	require.ErrorIs(t, err, settingsDomain.ErrExpiryAlertWindowsRequired)
+}

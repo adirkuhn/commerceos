@@ -118,6 +118,8 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 		RecommendationsMinSupport:      intPtrOr(req.RecommendationsMinSupport),
 		RecommendationsLookbackDays:    intPtrOr(req.RecommendationsLookbackDays),
 		PickingMode:                    pickingModeOr(req.PickingMode),
+		ExpiryAlertEnabled:             req.ExpiryAlertEnabled != nil && *req.ExpiryAlertEnabled,
+		ExpiryAlertWindows:             expiryWindowsIn(req.ExpiryAlertWindows),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -191,8 +193,29 @@ func toGenTenantSettings(s settingsDomain.TenantSettings) gensettings.TenantSett
 		RecommendationsMinSupport:      s.RecommendationsMinSupport,
 		RecommendationsLookbackDays:    s.RecommendationsLookbackDays,
 		PickingMode:                    gensettings.PickingMode(s.PickingMode),
+		ExpiryAlertEnabled:             s.ExpiryAlert.Enabled,
+		ExpiryAlertWindows:             expiryWindowsOut(s.ExpiryAlert.Windows),
 		UpdatedAt:                      s.UpdatedAt,
 	}
+}
+
+func expiryWindowsIn(w *[]gensettings.ExpiryAlertWindow) []int {
+	if w == nil {
+		return nil
+	}
+	out := make([]int, len(*w))
+	for i, d := range *w {
+		out[i] = int(d)
+	}
+	return out
+}
+
+func expiryWindowsOut(w []int) []gensettings.ExpiryAlertWindow {
+	out := make([]gensettings.ExpiryAlertWindow, len(w))
+	for i, d := range w {
+		out[i] = gensettings.ExpiryAlertWindow(d)
+	}
+	return out
 }
 
 func pickingModeOr(m *gensettings.PickingMode) string {
@@ -227,7 +250,7 @@ func mapError(c *gin.Context, err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsLookbackDays) || errors.Is(err, settingsDomain.ErrInvalidPickingMode) || errors.Is(err, settingsDomain.ErrInvalidTimezone) || errors.Is(err, settingsDomain.ErrInvalidDateFormat) || errors.Is(err, locale.ErrUnsupported) || errors.Is(err, apikeysDomain.ErrNameRequired) {
+	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsLookbackDays) || errors.Is(err, settingsDomain.ErrInvalidPickingMode) || errors.Is(err, settingsDomain.ErrInvalidExpiryAlertWindow) || errors.Is(err, settingsDomain.ErrExpiryAlertWindowsRequired) || errors.Is(err, settingsDomain.ErrInvalidTimezone) || errors.Is(err, settingsDomain.ErrInvalidDateFormat) || errors.Is(err, locale.ErrUnsupported) || errors.Is(err, apikeysDomain.ErrNameRequired) {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return err
 	}
