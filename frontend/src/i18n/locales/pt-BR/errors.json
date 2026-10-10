@@ -134,6 +134,7 @@
   "MESSAGE_TEMPLATE_NAME_REQUIRED": "Dê um nome ao modelo.",
   "MESSAGE_TEMPLATE_NOT_FOUND": "Modelo de mensagem não encontrado.",
   "MESSAGE_TEMPLATE_NO_CHANNELS": "Selecione pelo menos um canal.",
+  "MESSAGE_TEMPLATE_TEXT_REQUIRED": "Escreva uma mensagem de texto para WhatsApp/SMS.",
   "MOVEMENT_INVALID_QUANTITY": "Esta quantidade não é válida para este tipo de movimentação.",
   "MOVEMENT_INVALID_TYPE": "Este tipo de movimentação não é permitido aqui.",
   "MYPARCEL_UNKNOWN_ORDER_STATUS": "O MyParcel retornou um status de pedido que o CommerceOS não conhece.",

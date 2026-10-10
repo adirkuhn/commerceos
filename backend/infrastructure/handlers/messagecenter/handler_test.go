@@ -337,3 +337,17 @@ func TestListMessageTriggersHandler_listsVariablesAndSampleData(t *testing.T) {
 	assert.Contains(t, body, `"audience":"staff"`)
 	assert.Contains(t, body, `"sample_data":{`)
 }
+
+func TestCreateMessageTemplateHandler_passesTextBodyAndDesign(t *testing.T) {
+	create := &stubCreateTemplate{out: &mcDomain.MessageTemplate{ID: "template-1", TextBody: "Hi", Design: []byte(`{"pages":[]}`), DefaultKey: "order_confirmation", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	h := newHandler(nil, create, nil, nil, nil, nil, nil, nil)
+	body := `{"name":"Order","category":"order_status","channels":["whatsapp"],"text_body":"Hi","design":{"pages":[]}}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/message-templates", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "Hi", create.got.TextBody)
+	assert.JSONEq(t, `{"pages":[]}`, string(create.got.Design))
+	assert.Contains(t, w.Body.String(), `"text_body":"Hi"`)
+	assert.Contains(t, w.Body.String(), `"design":{"pages":[]}`)
+	assert.Contains(t, w.Body.String(), `"default_key":"order_confirmation"`)
+}

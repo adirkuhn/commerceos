@@ -21,12 +21,16 @@ type CreateMessageTemplateInput struct {
 	Category mcDomain.Category
 	Channels []messaging.Channel
 	Subject  string
+	// Body is the email HTML; TextBody the WhatsApp/SMS text; Design the
+	// visual editor's project JSON (nil when written by hand).
 	Body     string
+	TextBody string
+	Design   []byte
 }
 
 // validateMessageTemplateInput is shared by Create and Update -- same field
 // rules apply whichever way a template got into this shape.
-func validateMessageTemplateInput(name string, category mcDomain.Category, channels []messaging.Channel, body string) error {
+func validateMessageTemplateInput(name string, category mcDomain.Category, channels []messaging.Channel, body, textBody string) error {
 	if name == "" {
 		return mcDomain.ErrTemplateNameRequired
 	}
@@ -43,10 +47,7 @@ func validateMessageTemplateInput(name string, category mcDomain.Category, chann
 			return mcDomain.ErrInvalidChannel
 		}
 	}
-	if body == "" {
-		return mcDomain.ErrTemplateBodyRequired
-	}
-	return nil
+	return mcDomain.ValidateContent(channels, body, textBody)
 }
 
 type CreateMessageTemplateUseCase struct {
@@ -60,7 +61,7 @@ func NewCreateMessageTemplateUseCase(db *gorm.DB, repo mcDomain.MessageTemplateR
 }
 
 func (uc *CreateMessageTemplateUseCase) Execute(ctx context.Context, in CreateMessageTemplateInput) (*mcDomain.MessageTemplate, error) {
-	if err := validateMessageTemplateInput(in.Name, in.Category, in.Channels, in.Body); err != nil {
+	if err := validateMessageTemplateInput(in.Name, in.Category, in.Channels, in.Body, in.TextBody); err != nil {
 		return nil, fmt.Errorf("createMessageTemplate: %w", err)
 	}
 
@@ -69,7 +70,7 @@ func (uc *CreateMessageTemplateUseCase) Execute(ctx context.Context, in CreateMe
 		now := time.Now()
 		tmpl = mcDomain.MessageTemplate{
 			TenantID: tenant.IDFromContext(ctx), Name: in.Name, Category: in.Category,
-			Channels: in.Channels, Subject: in.Subject, Body: in.Body,
+			Channels: in.Channels, Subject: in.Subject, Body: in.Body, TextBody: in.TextBody, Design: in.Design,
 			Enabled: true, CreatedAt: now, UpdatedAt: now,
 		}
 		if err := uc.repo.Create(ctx, &tmpl); err != nil {

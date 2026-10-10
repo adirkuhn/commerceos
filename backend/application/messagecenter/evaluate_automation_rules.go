@@ -142,7 +142,7 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 				if len(addresses) == 0 {
 					continue
 				}
-				subjectLine, body := renderSubject(template.Subject, data), renderBody(template.Body, data, ch)
+				subjectLine, body := renderSubject(template.Subject, data), renderBody(template.BodyFor(ch), data, ch)
 				for _, to := range addresses {
 					sends = append(sends, pendingSend{channel: ch, to: to, subject: subjectLine, body: body})
 				}

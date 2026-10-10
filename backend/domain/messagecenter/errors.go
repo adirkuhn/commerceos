@@ -10,6 +10,7 @@ var (
 	ErrInvalidCategory      = errs.New("MESSAGE_TEMPLATE_INVALID_CATEGORY", "invalid template category")
 	ErrNoChannelsSelected   = errs.New("MESSAGE_TEMPLATE_NO_CHANNELS", "at least one channel must be selected")
 	ErrInvalidChannel       = errs.New("MESSAGE_INVALID_CHANNEL", "invalid message channel")
+	ErrTemplateTextRequired = errs.New("MESSAGE_TEMPLATE_TEXT_REQUIRED", "a text message is required for WhatsApp/SMS")
 	ErrTemplateBodyRequired = errs.New("MESSAGE_TEMPLATE_BODY_REQUIRED", "template body is required")
 
 	ErrRuleNotFound           = errs.New("AUTOMATION_RULE_NOT_FOUND", "automation rule not found")

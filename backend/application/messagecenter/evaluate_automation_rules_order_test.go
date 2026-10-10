@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/domain/locale"
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"github.com/adirkuhn/commerceos/domain/messaging"
@@ -135,4 +136,25 @@ func TestEvaluateAutomationRules_deletedOrderStillSendsToExtras(t *testing.T) {
 	require.Len(t, email.sent, 1)
 	assert.Equal(t, "shop@x.nl", email.sent[0].To)
 	assert.Equal(t, "Cantinho", email.sent[0].HTMLBody)
+}
+
+func TestEvaluateAutomationRules_whatsappGetsTheTextBodyEmailTheHTML(t *testing.T) {
+	rule := mcDomain.AutomationRule{ID: "rule-1", TriggerSubject: "oms.sales_order.status_changed", TemplateID: "template-1", Enabled: true}
+	tmpl := mcDomain.MessageTemplate{ID: "template-1", Channels: []messaging.Channel{messaging.ChannelEmail, messaging.ChannelWhatsApp}, Enabled: true,
+		Subject: "Order {{order_number}}", Body: "<p>Order {{order_number}}</p>", TextBody: "Order {{order_number}} is {{order_status_label}}"}
+	email, evo := &fakeEmailClient{}, &fakeEvolutionAPIClient{}
+	uc := newEvalUseCase(t, evalDeps{
+		ruleRepo:     &stubAutomationRuleRepo{bySubject: []mcDomain.AutomationRule{rule}},
+		templateRepo: &stubMessageTemplateRepo{byID: map[string]mcDomain.MessageTemplate{"template-1": tmpl}},
+		salesOrders:  &fakeSalesOrderRepo{byID: map[string]omsDomain.SalesOrder{"order-1": orderFixture()}},
+		customers:    &fakeCustomerRepo{byID: map[string]customersDomain.Customer{"cust-1": {ID: "cust-1", Email: "ana@x.nl", PhoneE164: "31612345678"}}},
+		conns:        &fakeConnectionRepo{conns: []integrationsDomain.Connection{whatsappConnection(t)}},
+		emailClient:  email, evoClient: evo,
+	})
+
+	require.NoError(t, uc.Execute(context.Background(), "oms.sales_order.status_changed", "evt-1", map[string]any{"sales_order_id": "order-1"}))
+
+	require.Len(t, email.sent, 1)
+	assert.Equal(t, "<p>Order 1001</p>", email.sent[0].HTMLBody)
+	assert.Equal(t, "Order 1001 is Shipped", evo.sentBody)
 }

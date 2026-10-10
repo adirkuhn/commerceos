@@ -20,7 +20,11 @@ type UpdateMessageTemplateInput struct {
 	Channels []messaging.Channel
 	Subject  string
 	Body     string
-	Enabled  bool
+	TextBody string
+	// Design replaces the visual editor's project JSON when set; nil keeps
+	// it (the simple template form never sends it).
+	Design  *[]byte
+	Enabled bool
 }
 
 type UpdateMessageTemplateUseCase struct {
@@ -34,7 +38,7 @@ func NewUpdateMessageTemplateUseCase(db *gorm.DB, repo mcDomain.MessageTemplateR
 }
 
 func (uc *UpdateMessageTemplateUseCase) Execute(ctx context.Context, in UpdateMessageTemplateInput) (*mcDomain.MessageTemplate, error) {
-	if err := validateMessageTemplateInput(in.Name, in.Category, in.Channels, in.Body); err != nil {
+	if err := validateMessageTemplateInput(in.Name, in.Category, in.Channels, in.Body, in.TextBody); err != nil {
 		return nil, fmt.Errorf("updateMessageTemplate: %w", err)
 	}
 
@@ -50,6 +54,10 @@ func (uc *UpdateMessageTemplateUseCase) Execute(ctx context.Context, in UpdateMe
 		existing.Channels = in.Channels
 		existing.Subject = in.Subject
 		existing.Body = in.Body
+		existing.TextBody = in.TextBody
+		if in.Design != nil {
+			existing.Design = *in.Design
+		}
 		existing.Enabled = in.Enabled
 		existing.UpdatedAt = time.Now()
 		if err := uc.repo.Update(ctx, existing); err != nil {
@@ -62,6 +70,8 @@ func (uc *UpdateMessageTemplateUseCase) Execute(ctx context.Context, in UpdateMe
 			Set("channels", before.Channels, tmpl.Channels).
 			Set("subject", before.Subject, tmpl.Subject).
 			Set("body", before.Body, tmpl.Body).
+			Set("text_body", before.TextBody, tmpl.TextBody).
+			Set("has_design", len(before.Design) > 0, len(tmpl.Design) > 0).
 			Set("enabled", before.Enabled, tmpl.Enabled))
 	})
 	if err != nil {

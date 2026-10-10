@@ -52,3 +52,24 @@ func TestUpdateMessageTemplate_rejectsInvalidInputBeforeLookup(t *testing.T) {
 
 	assert.ErrorIs(t, err, mcDomain.ErrTemplateNameRequired)
 }
+
+func TestUpdateMessageTemplate_keepsDesignWhenOmittedAndReplacesWhenGiven(t *testing.T) {
+	repo := &stubMessageTemplateRepo{byID: map[string]mcDomain.MessageTemplate{"template-1": {
+		ID: "template-1", Name: "Order", Category: mcDomain.CategoryOrderStatus, Channels: []messaging.Channel{messaging.ChannelEmail},
+		Body: "<p>old</p>", Design: []byte(`{"v":1}`),
+	}}}
+	uc := appmc.NewUpdateMessageTemplateUseCase(newMockGormDB(t, 2), repo, &eventrecordtest.Outbox{})
+	in := appmc.UpdateMessageTemplateInput{ID: "template-1", Name: "Order", Category: mcDomain.CategoryOrderStatus,
+		Channels: []messaging.Channel{messaging.ChannelEmail}, Body: "<p>new</p>", TextBody: "new", Enabled: true}
+
+	tmpl, err := uc.Execute(context.Background(), in)
+	require.NoError(t, err)
+	assert.Equal(t, []byte(`{"v":1}`), tmpl.Design, "the simple form doesn't send a design")
+	assert.Equal(t, "new", tmpl.TextBody)
+
+	design := []byte(`{"v":2}`)
+	in.Design = &design
+	tmpl, err = uc.Execute(context.Background(), in)
+	require.NoError(t, err)
+	assert.Equal(t, design, tmpl.Design)
+}

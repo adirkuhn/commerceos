@@ -73,3 +73,44 @@ func TestMessageTemplateRepo_Integration_CreateFindUpdateDeleteRoundTrip(t *test
 	})
 	assert.ErrorIs(t, err, mcDomain.ErrTemplateNotFound)
 }
+
+func TestMessageTemplateRepo_Integration_RoundTripsTextBodyDesignAndDefaultKey(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewMessageTemplateRepo(db)
+
+	design := []byte(`{"pages":[{"component":"<table></table>"}]}`)
+	var created mcDomain.MessageTemplate
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		created = mcDomain.MessageTemplate{
+			TenantID: tenant.IDFromContext(ctx), Name: "Order confirmation", Category: mcDomain.CategoryOrderStatus,
+			Channels: []messaging.Channel{messaging.ChannelEmail, messaging.ChannelWhatsApp},
+			Body: "<p>Hi</p>", TextBody: "Hi", Design: design, DefaultKey: "order_confirmation",
+			Enabled: true, CreatedAt: now, UpdatedAt: now,
+		}
+		return repo.Create(ctx, &created)
+	}))
+
+	find := func() *mcDomain.MessageTemplate {
+		var found *mcDomain.MessageTemplate
+		require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			found, err = repo.FindByID(ctx, created.ID)
+			return err
+		}))
+		return found
+	}
+	found := find()
+	assert.Equal(t, "Hi", found.TextBody)
+	assert.JSONEq(t, string(design), string(found.Design))
+	assert.Equal(t, "order_confirmation", found.DefaultKey)
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		found.TextBody, found.Design = "Hello", nil
+		return repo.Update(ctx, found)
+	}))
+	again := find()
+	assert.Equal(t, "Hello", again.TextBody)
+	assert.Nil(t, again.Design, "a cleared design reads back as none")
+}

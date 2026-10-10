@@ -186,7 +186,7 @@ components:
 
     MessageTemplate:
       type: object
-      required: [id, name, category, channels, subject, body, enabled, created_at, updated_at]
+      required: [id, name, category, channels, subject, body, text_body, design, default_key, enabled, created_at, updated_at]
       properties:
         id: { type: string }
         name: { type: string }
@@ -197,14 +197,27 @@ components:
           items:
             $ref: '#/components/schemas/Channel'
         subject: { type: string }
-        body: { type: string }
+        body:
+          type: string
+          description: Email body -- HTML with {{token}} placeholders (see GET /message-triggers for the variables).
+        text_body:
+          type: string
+          description: WhatsApp/SMS text with {{token}} placeholders; empty means body is used.
+        design:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: The visual email editor's project data body was built from; null for a hand-written template.
+        default_key:
+          type: string
+          description: The built-in default this template was created from (can be reset to it); empty otherwise.
         enabled: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
     CreateMessageTemplateRequest:
       type: object
-      required: [name, category, channels, body]
+      required: [name, category, channels]
       properties:
         name: { type: string, minLength: 1 }
         category:
@@ -215,11 +228,21 @@ components:
           items:
             $ref: '#/components/schemas/Channel'
         subject: { type: string }
-        body: { type: string, minLength: 1 }
+        body:
+          type: string
+          description: Email body (HTML); required when channels include email (422 MESSAGE_TEMPLATE_BODY_REQUIRED).
+        text_body:
+          type: string
+          description: WhatsApp/SMS text; with WhatsApp/SMS channels, this or body is required (422 MESSAGE_TEMPLATE_TEXT_REQUIRED).
+        design:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: The visual editor's project data.
 
     UpdateMessageTemplateRequest:
       type: object
-      required: [name, category, channels, body, enabled]
+      required: [name, category, channels, enabled]
       properties:
         name: { type: string, minLength: 1 }
         category:
@@ -230,7 +253,17 @@ components:
           items:
             $ref: '#/components/schemas/Channel'
         subject: { type: string }
-        body: { type: string, minLength: 1 }
+        body:
+          type: string
+          description: Email body (HTML); required when channels include email (422 MESSAGE_TEMPLATE_BODY_REQUIRED).
+        text_body:
+          type: string
+          description: WhatsApp/SMS text; with WhatsApp/SMS channels, this or body is required (422 MESSAGE_TEMPLATE_TEXT_REQUIRED).
+        design:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: The visual editor's project data. Omitted keeps the stored design.
         enabled: { type: boolean }
 
     MessageTemplateResponse:

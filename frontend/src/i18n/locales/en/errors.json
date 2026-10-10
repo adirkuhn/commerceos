@@ -134,6 +134,7 @@
   "MESSAGE_TEMPLATE_NAME_REQUIRED": "Give the template a name.",
   "MESSAGE_TEMPLATE_NOT_FOUND": "Message template not found.",
   "MESSAGE_TEMPLATE_NO_CHANNELS": "Select at least one channel.",
+  "MESSAGE_TEMPLATE_TEXT_REQUIRED": "Write a text message for WhatsApp/SMS.",
   "MOVEMENT_INVALID_QUANTITY": "This quantity isn’t valid for this kind of stock movement.",
   "MOVEMENT_INVALID_TYPE": "This kind of stock movement isn’t allowed here.",
   "MYPARCEL_UNKNOWN_ORDER_STATUS": "MyParcel returned an order status CommerceOS doesn’t know.",

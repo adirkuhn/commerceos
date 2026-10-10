@@ -4,6 +4,7 @@ package messagecenter
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -112,7 +113,8 @@ func (h *Handler) CreateMessageTemplate(c *gin.Context) {
 	}
 	tmpl, err := h.createTemplate.Execute(c.Request.Context(), appmc.CreateMessageTemplateInput{
 		Name: req.Name, Category: mcDomain.Category(req.Category), Channels: toDomainChannels(req.Channels),
-		Subject: stringValue(req.Subject), Body: req.Body,
+		Subject: stringValue(req.Subject), Body: stringValue(req.Body), TextBody: stringValue(req.TextBody),
+		Design: designBytes(req.Design),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -128,7 +130,8 @@ func (h *Handler) UpdateMessageTemplate(c *gin.Context, id genmc.Id) {
 	}
 	tmpl, err := h.updateTemplate.Execute(c.Request.Context(), appmc.UpdateMessageTemplateInput{
 		ID: id, Name: req.Name, Category: mcDomain.Category(req.Category), Channels: toDomainChannels(req.Channels),
-		Subject: stringValue(req.Subject), Body: req.Body, Enabled: req.Enabled,
+		Subject: stringValue(req.Subject), Body: stringValue(req.Body), TextBody: stringValue(req.TextBody),
+		Design: designUpdate(req.Design), Enabled: req.Enabled,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -283,8 +286,41 @@ func toGenTemplate(t mcDomain.MessageTemplate) genmc.MessageTemplate {
 	}
 	return genmc.MessageTemplate{
 		Id: t.ID, Name: t.Name, Category: genmc.Category(t.Category), Channels: channels,
-		Subject: t.Subject, Body: t.Body, Enabled: t.Enabled, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
+		Subject: t.Subject, Body: t.Body, TextBody: t.TextBody, Design: designMap(t.Design), DefaultKey: t.DefaultKey,
+		Enabled: t.Enabled, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
 	}
+}
+
+// designBytes stores the editor's project data as raw JSON (nil when none).
+func designBytes(d *map[string]interface{}) []byte {
+	if d == nil {
+		return nil
+	}
+	b, err := json.Marshal(*d)
+	if err != nil {
+		return nil
+	}
+	return b
+}
+
+// designUpdate is designBytes for an update: omitted keeps the stored design.
+func designUpdate(d *map[string]interface{}) *[]byte {
+	if d == nil {
+		return nil
+	}
+	b := designBytes(d)
+	return &b
+}
+
+func designMap(b []byte) *map[string]interface{} {
+	if len(b) == 0 {
+		return nil
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil
+	}
+	return &m
 }
 
 func toDomainChannels(channels []genmc.Channel) []messaging.Channel {
@@ -311,7 +347,7 @@ func mapError(c *gin.Context, err error) error {
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, mcDomain.ErrTemplateNameRequired), errors.Is(err, mcDomain.ErrInvalidCategory),
 		errors.Is(err, mcDomain.ErrNoChannelsSelected), errors.Is(err, mcDomain.ErrInvalidChannel),
-		errors.Is(err, mcDomain.ErrTemplateBodyRequired), errors.Is(err, mcDomain.ErrRuleNameRequired),
+		errors.Is(err, mcDomain.ErrTemplateBodyRequired), errors.Is(err, mcDomain.ErrTemplateTextRequired), errors.Is(err, mcDomain.ErrRuleNameRequired),
 		errors.Is(err, mcDomain.ErrInvalidTriggerSubject), errors.Is(err, mcDomain.ErrTemplateIDRequired),
 		errors.Is(err, mcDomain.ErrInvalidCondition), errors.Is(err, mcDomain.ErrInvalidExtraRecipient),
 		errors.Is(err, mcDomain.ErrTooManyExtraRecipients):

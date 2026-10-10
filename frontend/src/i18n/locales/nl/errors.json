@@ -134,6 +134,7 @@
   "MESSAGE_TEMPLATE_NAME_REQUIRED": "Geef het sjabloon een naam.",
   "MESSAGE_TEMPLATE_NOT_FOUND": "Berichtsjabloon niet gevonden.",
   "MESSAGE_TEMPLATE_NO_CHANNELS": "Selecteer minstens één kanaal.",
+  "MESSAGE_TEMPLATE_TEXT_REQUIRED": "Schrijf een tekstbericht voor WhatsApp/sms.",
   "MOVEMENT_INVALID_QUANTITY": "Dit aantal is niet geldig voor dit soort voorraadmutatie.",
   "MOVEMENT_INVALID_TYPE": "Dit soort voorraadmutatie is hier niet toegestaan.",
   "MYPARCEL_UNKNOWN_ORDER_STATUS": "MyParcel gaf een orderstatus terug die CommerceOS niet kent.",

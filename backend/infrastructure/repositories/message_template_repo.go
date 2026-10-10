@@ -45,16 +45,19 @@ func (c *messageTemplateChannels) Scan(value any) error {
 }
 
 type messageTemplateModel struct {
-	ID        string                  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID  string                  `gorm:"column:tenant_id;not null;type:uuid"`
-	Name      string                  `gorm:"column:name;not null"`
-	Category  string                  `gorm:"column:category;not null"`
-	Channels  messageTemplateChannels `gorm:"column:channels;type:jsonb;not null"`
-	Subject   string                  `gorm:"column:subject;not null"`
-	Body      string                  `gorm:"column:body;not null"`
-	Enabled   bool                    `gorm:"column:enabled;not null"`
-	CreatedAt time.Time               `gorm:"column:created_at"`
-	UpdatedAt time.Time               `gorm:"column:updated_at"`
+	ID         string                  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID   string                  `gorm:"column:tenant_id;not null;type:uuid"`
+	Name       string                  `gorm:"column:name;not null"`
+	Category   string                  `gorm:"column:category;not null"`
+	Channels   messageTemplateChannels `gorm:"column:channels;type:jsonb;not null"`
+	Subject    string                  `gorm:"column:subject;not null"`
+	Body       string                  `gorm:"column:body;not null"`
+	TextBody   string                  `gorm:"column:text_body;not null;default:''"`
+	Design     nullableJSON            `gorm:"column:design;type:jsonb"`
+	DefaultKey string                  `gorm:"column:default_key;not null;default:''"`
+	Enabled    bool                    `gorm:"column:enabled;not null"`
+	CreatedAt  time.Time               `gorm:"column:created_at"`
+	UpdatedAt  time.Time               `gorm:"column:updated_at"`
 }
 
 func (messageTemplateModel) TableName() string { return "message_templates" }
@@ -125,7 +128,8 @@ func (r *MessageTemplateRepo) Update(ctx context.Context, t *mcDomain.MessageTem
 	m := toMessageTemplateModel(*t)
 	if err := tx.Model(&messageTemplateModel{}).Where("id = ?", t.ID).Updates(map[string]any{
 		"name": m.Name, "category": m.Category, "channels": m.Channels,
-		"subject": m.Subject, "body": m.Body, "enabled": m.Enabled, "updated_at": m.UpdatedAt,
+		"subject": m.Subject, "body": m.Body, "text_body": m.TextBody, "design": m.Design,
+		"enabled": m.Enabled, "updated_at": m.UpdatedAt,
 	}).Error; err != nil {
 		return fmt.Errorf("messageTemplateRepo.Update: %w", err)
 	}
@@ -147,6 +151,7 @@ func toMessageTemplateModel(t mcDomain.MessageTemplate) messageTemplateModel {
 	return messageTemplateModel{
 		ID: t.ID, TenantID: t.TenantID, Name: t.Name, Category: string(t.Category),
 		Channels: messageTemplateChannels(t.Channels), Subject: t.Subject, Body: t.Body,
+		TextBody: t.TextBody, Design: nullableJSON(t.Design), DefaultKey: t.DefaultKey,
 		Enabled: t.Enabled, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
 	}
 }
@@ -155,6 +160,31 @@ func toMessageTemplateDomain(m messageTemplateModel) mcDomain.MessageTemplate {
 	return mcDomain.MessageTemplate{
 		ID: m.ID, TenantID: m.TenantID, Name: m.Name, Category: mcDomain.Category(m.Category),
 		Channels: []messaging.Channel(m.Channels), Subject: m.Subject, Body: m.Body,
+		TextBody: m.TextBody, Design: []byte(m.Design), DefaultKey: m.DefaultKey,
 		Enabled: m.Enabled, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
+}
+
+// nullableJSON stores raw JSON in a nullable jsonb column: empty is NULL.
+type nullableJSON []byte
+
+func (j nullableJSON) Value() (driver.Value, error) {
+	if len(j) == 0 {
+		return nil, nil
+	}
+	return string(j), nil
+}
+
+func (j *nullableJSON) Scan(value any) error {
+	switch v := value.(type) {
+	case nil:
+		*j = nil
+	case []byte:
+		*j = append((*j)[:0], v...)
+	case string:
+		*j = []byte(v)
+	default:
+		return fmt.Errorf("nullableJSON.Scan: unsupported type %T", value)
+	}
+	return nil
 }
