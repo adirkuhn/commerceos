@@ -9,7 +9,6 @@ import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
 import type { TaxClass } from '../tax/types'
 import { Dialog } from '../components/common/Dialog'
-import { toInput } from './tenantSettingsInput'
 import { useConfirm } from '../components/common/useConfirm'
 import { TAX_CLASSES_PATH } from './settingsPaths'
 import { apiErrorText } from '../api/apiErrorText'
@@ -45,7 +44,7 @@ export function TaxSettingsSection() {
     setDefaultsError('')
     setDefaultsSaved(false)
     try {
-      await save({ ...toInput(settings), prices_include_tax: pricesIncludeTax, default_tax_country: defaultTaxCountry })
+      await save({ prices_include_tax: pricesIncludeTax, default_tax_country: defaultTaxCountry })
       setDefaultsSaved(true)
     } catch (err) {
       setDefaultsError(apiErrorText(err) ?? t('tax.saveDefaultsFailed'))

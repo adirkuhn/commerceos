@@ -5,7 +5,6 @@ import { useTenantSettings } from './hooks/useTenantSettings'
 import { useApplyDateFormatSettings } from '../format/DateFormatProvider'
 import { CURRENCY_CODES, currencyOptions } from './currencyOptions'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
-import { toInput } from './tenantSettingsInput'
 import { useConfirm } from '../components/common/useConfirm'
 import { applyCompanyLanguage } from '../i18n/i18n'
 import { DEFAULT_LOCALE, LOCALE_NAMES, LOCALES } from '../i18n/locale'
@@ -57,7 +56,7 @@ export function LocalizationSettingsSection() {
     setSaveError('')
     setSaved(false)
     try {
-      const next = await save({ ...toInput(settings), default_currency: defaultCurrency, timezone, date_format: dateFormat, language })
+      const next = await save({ default_currency: defaultCurrency, timezone, date_format: dateFormat, language })
       applyDateFormat(next)
       await applyCompanyLanguage(next.language)
       setSaved(true)

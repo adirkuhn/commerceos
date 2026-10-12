@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from './hooks/useTenantSettings'
-import { toInput } from './tenantSettingsInput'
 import { apiErrorText } from '../api/apiErrorText'
 
 // Tunes the FP-Growth cross-sell mining GetCartRecommendationsUseCase runs
@@ -53,7 +52,6 @@ export function RecommendationsSettingsCard() {
     setSaving(true)
     try {
       await save({
-        ...toInput(settings),
         bundle_confidence_threshold: confidence,
         recommendations_min_support: support,
         recommendations_lookback_days: days,

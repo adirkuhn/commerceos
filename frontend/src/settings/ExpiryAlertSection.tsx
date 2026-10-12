@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from './hooks/useTenantSettings'
-import { toInput } from './tenantSettingsInput'
 import { EXPIRY_ALERT_WINDOWS, type ExpiryAlertWindow } from './types'
 import { apiErrorText } from '../api/apiErrorText'
 
@@ -39,7 +38,7 @@ export function ExpiryAlertSection() {
     setError('')
     setSaved(false)
     try {
-      await save({ ...toInput(settings), expiry_alert_enabled: enabled, expiry_alert_windows: windows })
+      await save({ expiry_alert_enabled: enabled, expiry_alert_windows: windows })
       setSaved(true)
     } catch (err) {
       setError(apiErrorText(err) ?? t('expiryAlert.saveFailed'))

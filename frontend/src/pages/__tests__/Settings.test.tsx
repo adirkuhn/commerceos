@@ -1034,14 +1034,12 @@ describe('Settings > Localization', () => {
 
     await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', {
       default_currency: 'USD', timezone: 'Europe/London', date_format: 'YYYY-MM-DD', language: 'nl',
-      prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0,
     }))
     // Nobody picked a personal language here, so the admin follows the company's.
     expect(await screen.findByText('Opgeslagen.')).toBeInTheDocument()
   })
 
-  it('Save Changes preserves already-saved tax settings instead of wiping them', async () => {
+  it('Save Changes sends only localization fields, so it cannot overwrite tax settings', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'NL',
@@ -1053,9 +1051,9 @@ describe('Settings > Localization', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
-    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
-      prices_include_tax: true, default_tax_country: 'NL',
-    })))
+    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalled())
+    const sent = vi.mocked(tenantSettingsApi.updateTenantSettings).mock.calls[0][1]
+    expect(Object.keys(sent).sort()).toEqual(['date_format', 'default_currency', 'language', 'timezone'])
   })
 
   it('shows an error if saving fails', async () => {
@@ -1094,7 +1092,7 @@ describe('Settings > Inventory Rules > Sync & expiry rules', () => {
     expect(screen.getByLabelText('Auto-expire batches after (days)')).toHaveValue(30)
   })
 
-  it('Save calls updateTenantSettings with the new values and preserves other tenant settings fields', async () => {
+  it('Save calls updateTenantSettings with only its own fields, leaving the expiry report alone', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'NL',
@@ -1110,11 +1108,9 @@ describe('Settings > Inventory Rules > Sync & expiry rules', () => {
     await userEvent.type(screen.getByLabelText('Auto-expire batches after (days)'), '45')
     await userEvent.click(screen.getByRole('button', { name: 'Save inventory rules' }))
 
-    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
-      default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
-      prices_include_tax: true, default_tax_country: 'NL',
-      inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 45, default_target_markup_basis_points: 0,
-    })))
+    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', {
+      inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 45,
+    }))
   })
 
   it('shows an error if saving fails', async () => {
@@ -1151,7 +1147,7 @@ describe('Settings > Tax', () => {
     expect(screen.getByLabelText('Default tax country')).toHaveValue('NL')
   })
 
-  it('saving store tax defaults preserves the other tenant settings fields', async () => {
+  it('saving store tax defaults sends only the tax fields', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: false, default_tax_country: '',
@@ -1172,10 +1168,9 @@ describe('Settings > Tax', () => {
     await userEvent.type(screen.getByLabelText('Default tax country'), 'us')
     await userEvent.click(screen.getByRole('button', { name: 'Save tax defaults' }))
 
-    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
-      default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
+    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', {
       prices_include_tax: true, default_tax_country: 'US',
-    })))
+    }))
   })
 
   it('lists tax classes with a default badge', async () => {
@@ -1300,7 +1295,7 @@ describe('Settings > Pricing', () => {
     await waitFor(() => expect(screen.getByLabelText('Default target markup (%)')).toHaveValue(30))
   })
 
-  it('saves the default target markup, preserving other tenant settings fields', async () => {
+  it('saves only the default target markup', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'NL',
@@ -1319,11 +1314,9 @@ describe('Settings > Pricing', () => {
     await userEvent.type(screen.getByLabelText('Default target markup (%)'), '25')
     await userEvent.click(screen.getByRole('button', { name: 'Save pricing settings' }))
 
-    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
-      default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
-      prices_include_tax: true, default_tax_country: 'NL',
+    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', {
       default_target_markup_basis_points: 2500,
-    })))
+    }))
   })
 
   it('rejects a negative target markup client-side instead of round-tripping to the 422 the backend would return', async () => {

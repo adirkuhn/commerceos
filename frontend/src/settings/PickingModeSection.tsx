@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useTenantSettings } from './hooks/useTenantSettings'
-import { toInput } from './tenantSettingsInput'
 import type { PickingMode } from './types'
 import { apiErrorText } from '../api/apiErrorText'
 
@@ -29,7 +28,7 @@ export function PickingModeSection() {
     setSaved(false)
     setSaving(true)
     try {
-      await save({ ...toInput(settings), picking_mode: mode })
+      await save({ picking_mode: mode })
       setSaved(true)
     } catch (err) {
       setError(apiErrorText(err) ?? t('picking.saveFailed'))

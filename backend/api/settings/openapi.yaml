@@ -291,6 +291,10 @@ components:
 
     UpdateTenantSettingsRequest:
       type: object
+      description: >-
+        Partial update: only the fields sent change, every omitted field
+        keeps its stored value (so one settings section can't undo
+        another's change with a stale copy).
       properties:
         default_currency: { type: string }
         timezone:
@@ -314,12 +318,12 @@ components:
           $ref: '#/components/schemas/PickingMode'
         expiry_alert_enabled:
           type: boolean
-          description: Omitted means false. When true, expiry_alert_windows needs at least one entry (else 422).
+          description: When true, expiry_alert_windows (sent or stored) needs at least one entry (else 422).
         expiry_alert_windows:
           type: array
           maxItems: 4
           items: { $ref: '#/components/schemas/ExpiryAlertWindow' }
-          description: Omitted means none. Duplicates are dropped; order does not matter.
+          description: Duplicates are dropped; order does not matter.
 
     ExpiryAlertWindow:
       type: integer
@@ -334,7 +338,7 @@ components:
         picking session. list -- pickers see an order's items as a plain
         list and mark the whole order picked with one action (no scanning,
         no session). Picking is optional either way: packing is where items
-        are scanned and labels made. Omitted on update means scan.
+        are scanned and labels made.
 
     TenantSettingsResponse:
       type: object

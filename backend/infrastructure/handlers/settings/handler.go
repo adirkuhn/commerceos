@@ -24,7 +24,7 @@ type getTenantSettingsUC interface {
 	Execute(ctx context.Context) (*settingsDomain.TenantSettings, error)
 }
 type updateTenantSettingsUC interface {
-	Execute(ctx context.Context, in appsettings.UpdateTenantSettingsInput) (*settingsDomain.TenantSettings, error)
+	Execute(ctx context.Context, in appsettings.PatchTenantSettingsInput) (*settingsDomain.TenantSettings, error)
 }
 type listAPIKeysUC interface {
 	Execute(ctx context.Context) ([]apikeysDomain.APIKey, error)
@@ -71,9 +71,10 @@ func Register(rg gin.IRouter, db *gorm.DB, outbox appsettings.EventEnqueuer) {
 	apiKeyRepo := repositories.NewAPIKeyRepo(db)
 	companyRepo := repositories.NewCompanyProfileRepo(db)
 	prefsRepo := repositories.NewNotificationPreferencesRepo(db)
+	getSettings := appsettings.NewGetTenantSettingsUseCase(db, repo)
 	h := NewHandler(
-		appsettings.NewGetTenantSettingsUseCase(db, repo),
-		appsettings.NewUpdateTenantSettingsUseCase(db, repo, outbox),
+		getSettings,
+		appsettings.NewPatchTenantSettingsUseCase(getSettings, appsettings.NewUpdateTenantSettingsUseCase(db, repo, outbox)),
 		appapikeys.NewListAPIKeysUseCase(db, apiKeyRepo),
 		appapikeys.NewCreateAPIKeyUseCase(db, apiKeyRepo, outbox),
 		appapikeys.NewRevokeAPIKeyUseCase(db, apiKeyRepo, outbox),
@@ -104,22 +105,22 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
-	s, err := h.updateTenantSettings.Execute(c.Request.Context(), appsettings.UpdateTenantSettingsInput{
-		DefaultCurrency:                strPtrOr(req.DefaultCurrency),
-		Timezone:                       strPtrOr(req.Timezone),
-		DateFormat:                     dateFormatOr(req.DateFormat),
-		Language:                       languageOr(req.Language),
-		PricesIncludeTax:               req.PricesIncludeTax != nil && *req.PricesIncludeTax,
-		DefaultTaxCountry:              strPtrOr(req.DefaultTaxCountry),
-		InventorySyncRulesEnabled:      req.InventorySyncRulesEnabled != nil && *req.InventorySyncRulesEnabled,
-		BatchExpiryThresholdDays:       intPtrOr(req.BatchExpiryThresholdDays),
-		DefaultTargetMarkupBasisPoints: intPtrOr(req.DefaultTargetMarkupBasisPoints),
-		BundleConfidenceThreshold:      float64PtrOr(req.BundleConfidenceThreshold),
-		RecommendationsMinSupport:      intPtrOr(req.RecommendationsMinSupport),
-		RecommendationsLookbackDays:    intPtrOr(req.RecommendationsLookbackDays),
-		PickingMode:                    pickingModeOr(req.PickingMode),
-		ExpiryAlertEnabled:             req.ExpiryAlertEnabled != nil && *req.ExpiryAlertEnabled,
-		ExpiryAlertWindows:             expiryWindowsIn(req.ExpiryAlertWindows),
+	s, err := h.updateTenantSettings.Execute(c.Request.Context(), appsettings.PatchTenantSettingsInput{
+		DefaultCurrency:                req.DefaultCurrency,
+		Timezone:                       req.Timezone,
+		DateFormat:                     (*string)(req.DateFormat),
+		Language:                       (*string)(req.Language),
+		PricesIncludeTax:               req.PricesIncludeTax,
+		DefaultTaxCountry:              req.DefaultTaxCountry,
+		InventorySyncRulesEnabled:      req.InventorySyncRulesEnabled,
+		BatchExpiryThresholdDays:       req.BatchExpiryThresholdDays,
+		DefaultTargetMarkupBasisPoints: req.DefaultTargetMarkupBasisPoints,
+		BundleConfidenceThreshold:      float64Ptr(req.BundleConfidenceThreshold),
+		RecommendationsMinSupport:      req.RecommendationsMinSupport,
+		RecommendationsLookbackDays:    req.RecommendationsLookbackDays,
+		PickingMode:                    (*string)(req.PickingMode),
+		ExpiryAlertEnabled:             req.ExpiryAlertEnabled,
+		ExpiryAlertWindows:             expiryWindowsPtr(req.ExpiryAlertWindows),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -199,7 +200,7 @@ func toGenTenantSettings(s settingsDomain.TenantSettings) gensettings.TenantSett
 	}
 }
 
-func expiryWindowsIn(w *[]gensettings.ExpiryAlertWindow) []int {
+func expiryWindowsPtr(w *[]gensettings.ExpiryAlertWindow) *[]int {
 	if w == nil {
 		return nil
 	}
@@ -207,7 +208,15 @@ func expiryWindowsIn(w *[]gensettings.ExpiryAlertWindow) []int {
 	for i, d := range *w {
 		out[i] = int(d)
 	}
-	return out
+	return &out
+}
+
+func float64Ptr(f *float32) *float64 {
+	if f == nil {
+		return nil
+	}
+	v := float64(*f)
+	return &v
 }
 
 func expiryWindowsOut(w []int) []gensettings.ExpiryAlertWindow {
@@ -216,34 +225,6 @@ func expiryWindowsOut(w []int) []gensettings.ExpiryAlertWindow {
 		out[i] = gensettings.ExpiryAlertWindow(d)
 	}
 	return out
-}
-
-func pickingModeOr(m *gensettings.PickingMode) string {
-	if m == nil {
-		return ""
-	}
-	return string(*m)
-}
-
-func strPtrOr(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
-func intPtrOr(i *int) int {
-	if i == nil {
-		return 0
-	}
-	return *i
-}
-
-func float64PtrOr(f *float32) float64 {
-	if f == nil {
-		return 0
-	}
-	return float64(*f)
 }
 
 func mapError(c *gin.Context, err error) error {
@@ -261,18 +242,4 @@ func mapError(c *gin.Context, err error) error {
 	log.Printf("settings: unhandled error: %v", err)
 	middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
 	return err
-}
-
-func dateFormatOr(p *gensettings.DateFormat) string {
-	if p == nil {
-		return ""
-	}
-	return string(*p)
-}
-
-func languageOr(p *gensettings.Language) string {
-	if p == nil {
-		return ""
-	}
-	return string(*p)
 }

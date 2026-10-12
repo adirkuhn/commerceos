@@ -40,13 +40,32 @@ func (s *stubGetTenantSettings) Execute(_ context.Context) (*settingsDomain.Tena
 }
 
 type stubUpdateTenantSettings struct {
-	out      *settingsDomain.TenantSettings
-	err      error
+	out *settingsDomain.TenantSettings
+	err error
+	// patch is what the handler sent; gotInput is it applied over zero
+	// values, for the field-mapping assertions.
+	patch    appsettings.PatchTenantSettingsInput
 	gotInput appsettings.UpdateTenantSettingsInput
 }
 
-func (s *stubUpdateTenantSettings) Execute(_ context.Context, in appsettings.UpdateTenantSettingsInput) (*settingsDomain.TenantSettings, error) {
-	s.gotInput = in
+func val[T any](p *T) T {
+	var zero T
+	if p == nil {
+		return zero
+	}
+	return *p
+}
+
+func (s *stubUpdateTenantSettings) Execute(_ context.Context, in appsettings.PatchTenantSettingsInput) (*settingsDomain.TenantSettings, error) {
+	s.patch = in
+	s.gotInput = appsettings.UpdateTenantSettingsInput{
+		DefaultCurrency: val(in.DefaultCurrency), Timezone: val(in.Timezone), DateFormat: val(in.DateFormat), Language: val(in.Language),
+		PricesIncludeTax: val(in.PricesIncludeTax), DefaultTaxCountry: val(in.DefaultTaxCountry), InventorySyncRulesEnabled: val(in.InventorySyncRulesEnabled),
+		BatchExpiryThresholdDays: val(in.BatchExpiryThresholdDays), DefaultTargetMarkupBasisPoints: val(in.DefaultTargetMarkupBasisPoints),
+		BundleConfidenceThreshold: val(in.BundleConfidenceThreshold), RecommendationsMinSupport: val(in.RecommendationsMinSupport),
+		RecommendationsLookbackDays: val(in.RecommendationsLookbackDays), PickingMode: val(in.PickingMode),
+		ExpiryAlertEnabled: val(in.ExpiryAlertEnabled), ExpiryAlertWindows: val(in.ExpiryAlertWindows),
+	}
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -54,8 +73,8 @@ func (s *stubUpdateTenantSettings) Execute(_ context.Context, in appsettings.Upd
 		return s.out, nil
 	}
 	return &settingsDomain.TenantSettings{
-		DefaultCurrency: in.DefaultCurrency, Timezone: in.Timezone, DateFormat: settingsDomain.DateFormat(in.DateFormat), Language: locale.Locale(in.Language),
-		PricesIncludeTax: in.PricesIncludeTax, DefaultTaxCountry: in.DefaultTaxCountry,
+		DefaultCurrency: s.gotInput.DefaultCurrency, Timezone: s.gotInput.Timezone, DateFormat: settingsDomain.DateFormat(s.gotInput.DateFormat), Language: locale.Locale(s.gotInput.Language),
+		PricesIncludeTax: s.gotInput.PricesIncludeTax, DefaultTaxCountry: s.gotInput.DefaultTaxCountry,
 	}, nil
 }
 
@@ -178,6 +197,20 @@ func TestUpdateTenantSettingsHandler_passesAllFields(t *testing.T) {
 	require.InDelta(t, 0.25, update.gotInput.BundleConfidenceThreshold, 0.0001)
 	require.Equal(t, 3, update.gotInput.RecommendationsMinSupport)
 	require.Equal(t, 90, update.gotInput.RecommendationsLookbackDays)
+}
+
+func TestUpdateTenantSettingsHandler_omittedFieldsAreLeftOut(t *testing.T) {
+	update := &stubUpdateTenantSettings{}
+	h := newTestHandler(&stubGetTenantSettings{}, update)
+
+	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", map[string]any{"inventory_sync_rules_enabled": false})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, update.patch.InventorySyncRulesEnabled)
+	assert.False(t, *update.patch.InventorySyncRulesEnabled)
+	assert.Nil(t, update.patch.ExpiryAlertEnabled, "an omitted field keeps its stored value")
+	assert.Nil(t, update.patch.ExpiryAlertWindows)
+	assert.Nil(t, update.patch.Language)
 }
 
 func TestUpdateTenantSettingsHandler_propagatesError(t *testing.T) {

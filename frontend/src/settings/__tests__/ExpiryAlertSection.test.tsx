@@ -29,7 +29,7 @@ describe('ExpiryAlertSection', () => {
     expect(screen.getByRole('checkbox', { name: '7 days' })).toBeChecked()
   })
 
-  it('saves the full settings snapshot with the chosen windows', async () => {
+  it('saves only the expiry report fields', async () => {
     vi.mocked(api.updateTenantSettings).mockResolvedValue({ ...settings, expiry_alert_enabled: true, expiry_alert_windows: [30, 15] })
     const user = userEvent.setup()
     render(<ExpiryAlertSection />)
@@ -39,9 +39,9 @@ describe('ExpiryAlertSection', () => {
     await user.click(screen.getByRole('checkbox', { name: '30 days' }))
     await user.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(api.updateTenantSettings).toHaveBeenCalledWith('tok', expect.objectContaining({
-      expiry_alert_enabled: true, expiry_alert_windows: [30, 15], default_currency: 'EUR', picking_mode: 'scan',
-    }))
+    expect(api.updateTenantSettings).toHaveBeenCalledWith('tok', {
+      expiry_alert_enabled: true, expiry_alert_windows: [30, 15],
+    })
     expect(await screen.findByText('Saved')).toBeInTheDocument()
   })
 

@@ -27,14 +27,14 @@ describe('PickingModeSection', () => {
     expect(screen.getByRole('radio', { name: /List/ })).not.toBeChecked()
   })
 
-  it('switching to list saves the full settings snapshot with the new mode', async () => {
+  it('switching to list saves only the picking mode', async () => {
     vi.mocked(api.updateTenantSettings).mockResolvedValue({ ...settings, picking_mode: 'list' })
     const user = userEvent.setup()
     render(<PickingModeSection />)
 
     await user.click(await screen.findByRole('radio', { name: /List/ }))
 
-    expect(api.updateTenantSettings).toHaveBeenCalledWith('tok', expect.objectContaining({ picking_mode: 'list', default_currency: 'EUR', prices_include_tax: true }))
+    expect(api.updateTenantSettings).toHaveBeenCalledWith('tok', { picking_mode: 'list' })
     expect(await screen.findByText('Saved')).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /List/ })).toBeChecked()
   })
