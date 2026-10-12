@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-217 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+219 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -159,6 +159,8 @@ Payload (`events.EntityAction`):
 | `inventory.batch.created` | action | A stock batch (lot) was created. data: sku_id, warehouse_id, lot_number, expiry_date. | envelope |
 | `inventory.batch.deleted` | action | An unused stock batch was deleted. data: sku_id, warehouse_id, lot_number. | envelope |
 | `inventory.batch.reviewed` | action | An expired batch was dealt with and leaves the expiry review list. data: sku_id, warehouse_id, outcome -- dismissed (kept as is), written_off (remaining stock written off as lost) or discarded (a quantity discarded by hand). | envelope |
+| `inventory.batch_expiry.acknowledged` | action | A batch close to expiry was marked as seen for one close-to-expiry window: that window's list and email report skip it until it reaches the next window. data: window_days, sku_id, warehouse_id, lot_number. | envelope |
+| `inventory.batch_expiry.unacknowledged` | action | A batch's close-to-expiry acknowledgement was undone; it shows in that window's list and report again. data: window_days, sku_id, warehouse_id, lot_number. | envelope |
 | `inventory.stock.changed` | typed | InventoryStockChanged is raised whenever a SKU's stock ledger changes — a movement recorded via adjust/recount/transfer/mark-damaged-lost. | `InventoryStockChanged`: event_id, occurred_at, tenant_id, sku_id |
 | `inventory.stock.close_to_expiry_reported` | typed | StockCloseToExpiryReported is one report of the daily stock-close-to- expiry job: the stock with MinDaysLeft..WindowDays days left before it expires, for one of the tenant's chosen windows (see domain/settings.ExpiryAlert). | `StockCloseToExpiryReported`: event_id, occurred_at, tenant_id, window_days, min_days_left, item_count, items |
 | `inventory.warehouse.created` | action | A warehouse was created. data: name, country, active. | envelope |
