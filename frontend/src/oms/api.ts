@@ -49,6 +49,11 @@ export interface ListSalesOrdersParams {
   // page's order history and lifetime-spend figures. Omit for the normal
   // unfiltered sales orders list.
   customerId?: string
+  // shipDue: true narrows to orders due to ship today or already late
+  // (ship_by_date on/before today, not shipped yet) -- the Today page's
+  // "orders to ship today" button. The rule lives in the backend
+  // (ListSalesOrdersFilter.ShipDueOnOrBefore).
+  shipDue?: boolean
 }
 
 export interface ListSalesOrdersResult {
@@ -70,6 +75,7 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
   for (const status of params.status ?? []) qs.append('status', status)
   for (const source of params.source ?? []) qs.append('source', source)
   if (params.customerId) qs.set('customer_id', params.customerId)
+  if (params.shipDue) qs.set('ship_due', 'true')
   const query = qs.toString()
 
   const result = await request<{ sales_orders: SalesOrder[]; total: number }>(

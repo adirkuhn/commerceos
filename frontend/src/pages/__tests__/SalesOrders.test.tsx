@@ -391,6 +391,32 @@ describe('Sales orders list', () => {
     expect(screen.queryByText('Filtered to one customer')).not.toBeInTheDocument()
   })
 
+  // The Today page's "orders to ship today" View button lands here with
+  // ?ship_due=true -- a clearable chip, like the customer filter.
+  it('filters to orders due to ship today via ?ship_due=true and shows a clearable chip', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(
+      <MemoryRouter initialEntries={['/sales-orders?ship_due=true']}>
+        <SalesOrders />
+      </MemoryRouter>,
+    )
+    await screen.findByText('#1001')
+
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', {
+      page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [], shipDue: true,
+    })
+    expect(screen.getByText('Due to ship today')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear ship-today filter' }))
+
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', {
+      page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [],
+    }))
+    expect(vi.mocked(omsApi.listSalesOrders).mock.lastCall?.[1]?.shipDue).toBeUndefined()
+    expect(screen.queryByText('Due to ship today')).not.toBeInTheDocument()
+  })
+
   it('does not show the customer chip or Clear filters when no customer filter is active', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
@@ -547,6 +573,28 @@ describe('Sales order detail page', () => {
 
     await screen.findByText('Blue Widget')
     expect(screen.queryByText(/Sold exp\./)).not.toBeInTheDocument()
+  })
+
+  it('shows the ship-by date when the order has one, in the tenant date format', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({ sales_order: salesOrder({ ship_by_date: '2026-10-14' }) }))
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByText('Ship by')).toBeInTheDocument()
+    expect(screen.getByText('14/10/2026')).toBeInTheDocument()
+  })
+
+  it('shows no ship-by line when the order has no deadline', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    await screen.findByText('Blue Widget')
+    expect(screen.queryByText('Ship by')).not.toBeInTheDocument()
   })
 
   it('links the customer name to their customer page when the order has a customer_id', async () => {

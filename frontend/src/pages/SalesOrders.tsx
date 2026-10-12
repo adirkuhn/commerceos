@@ -95,6 +95,9 @@ export default function SalesOrders() {
   // detail page's "Orders" stat (see Customers.tsx), same URL-seeding
   // convention as the other filters so page/sort changes don't drop it.
   const [customerId, setCustomerId] = useState<string | null>(() => searchParams.get('customer_id'))
+  // shipDue: also not a filter button -- arrives via the Today page's
+  // "orders to ship today" link (?ship_due=true).
+  const [shipDue, setShipDue] = useState(() => searchParams.get('ship_due') === 'true')
 
   // The open order lives in the URL (/sales-orders/<uuid>, or
   // /sales-orders/new) -- read via location.pathname (not useParams) so it
@@ -117,8 +120,9 @@ export default function SalesOrders() {
     statusFilter.forEach(s => params.append('status', s))
     if (fulfilledFilter) params.set('fulfilled', fulfilledFilter)
     if (customerId) params.set('customer_id', customerId)
+    if (shipDue) params.set('ship_due', 'true')
     return params
-  }, [page, sortBy, sortDir, sourceFilter, statusFilter, fulfilledFilter, customerId])
+  }, [page, sortBy, sortDir, sourceFilter, statusFilter, fulfilledFilter, customerId, shipDue])
 
   useEffect(() => {
     // Don't touch the query string while viewing a record -- it now lives
@@ -135,13 +139,14 @@ export default function SalesOrders() {
     navigate(`/sales-orders${qs ? `?${qs}` : ''}`)
   }
 
-  const hasActiveFilters = sourceFilter.length > 0 || statusFilter.length > 0 || fulfilledFilter !== '' || customerId !== null
+  const hasActiveFilters = sourceFilter.length > 0 || statusFilter.length > 0 || fulfilledFilter !== '' || customerId !== null || shipDue
 
   function clearFilters() {
     setSourceFilter([])
     setStatusFilter([])
     setFulfilledFilter('')
     setCustomerId(null)
+    setShipDue(false)
     setPage(1)
   }
 
@@ -149,6 +154,7 @@ export default function SalesOrders() {
     page, perPage: PAGE_SIZE, sortBy, sortDir, source: sourceFilter, status: statusFilter,
     fulfilled: fulfilledFilter === '' ? undefined : fulfilledFilter === 'true',
     customerId: customerId ?? undefined,
+    shipDue: shipDue || undefined,
   })
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [bulkStatus, setBulkStatus] = useState('')
@@ -312,6 +318,14 @@ export default function SalesOrders() {
             <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-accent/15 text-accent">
               {t('list.oneCustomer')}
               <button type="button" onClick={() => setCustomerId(null)} aria-label={t('list.clearCustomer')} className="hover:opacity-70">
+                <X size={12} />
+              </button>
+            </span>
+          )}
+          {shipDue && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-accent/15 text-accent">
+              {t('list.shipDue')}
+              <button type="button" onClick={() => { setShipDue(false); setPage(1) }} aria-label={t('list.clearShipDue')} className="hover:opacity-70">
                 <X size={12} />
               </button>
             </span>

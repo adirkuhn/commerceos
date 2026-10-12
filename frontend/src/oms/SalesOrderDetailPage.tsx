@@ -37,7 +37,7 @@ import { apiErrorText } from '../api/apiErrorText'
 const BOL_SHIPPED_STATUSES: SalesOrderStatus[] = ['shipped', 'completed']
 
 export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string; onClose: () => void }) {
-  const { formatDateTime } = useDateFormat()
+  const { formatDate, formatDateTime } = useDateFormat()
   const { t } = useTranslation(['orders', 'common'])
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
@@ -452,6 +452,13 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                     <div>
                       <h4 className="text-2xs font-semibold caps-label text-ink-4 mb-1">{t('detail.contactInfo')}</h4>
                       <p className="text-ink">{detail.sales_order.billing.email}</p>
+                    </div>
+                  )}
+
+                  {detail.sales_order.ship_by_date && (
+                    <div>
+                      <h4 className="text-2xs font-semibold caps-label text-ink-4 mb-1">{t('detail.shipBy')}</h4>
+                      <p className="text-ink">{formatDate(detail.sales_order.ship_by_date)}</p>
                     </div>
                   )}
 

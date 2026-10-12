@@ -50,6 +50,18 @@ describe('listSalesOrders', () => {
   })
 })
 
+describe('listSalesOrders shipDue', () => {
+  it('sends ship_due=true when requested, omits it otherwise', async () => {
+    const fetchMock = mockFetch({ sales_orders: [], total: 0 })
+
+    await api.listSalesOrders(TOKEN, { shipDue: true })
+    expect(fetchMock.mock.calls[0][0] as string).toContain('ship_due=true')
+
+    await api.listSalesOrders(TOKEN, {})
+    expect(fetchMock.mock.calls[1][0] as string).not.toContain('ship_due')
+  })
+})
+
 describe('listSalesOrders awaitingPicking', () => {
   it('sends awaiting_picking=true when requested, omits it otherwise', async () => {
     const fetchMock = mockFetch({ sales_orders: [], total: 0 })

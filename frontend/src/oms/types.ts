@@ -55,6 +55,10 @@ export interface SalesOrder {
   payment_reference?: string
   date_paid?: string | null
   date_completed?: string | null
+  // ship_by_date: the calendar date (YYYY-MM-DD) the order must be handed
+  // to the carrier by -- null/absent when the channel gives no deadline
+  // (only bol.com orders carry one).
+  ship_by_date?: string | null
   occurred_at: string
   created_at: string
   // needs_stock_review: at least one linked (sku_id set) line item's stock

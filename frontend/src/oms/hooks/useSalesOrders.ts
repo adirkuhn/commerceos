@@ -39,9 +39,11 @@ export function useSalesOrders(
     // customerId: narrows to one customer's orders -- the Customer detail
     // page's order history and lifetime-spend figures.
     customerId?: string
+    // shipDue: orders due to ship today or late -- see api.ListSalesOrdersParams.
+    shipDue?: boolean
   } = {},
 ): UseSalesOrdersState & UseSalesOrdersActions {
-  const { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, status, source, customerId } = params
+  const { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, status, source, customerId, shipDue } = params
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -52,7 +54,7 @@ export function useSalesOrders(
     setLoading(true)
     setError(null)
     try {
-      const result = await api.listSalesOrders(token, { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, status, source, customerId })
+      const result = await api.listSalesOrders(token, { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, status, source, customerId, shipDue })
       setSalesOrders(result.salesOrders)
       setTotal(result.total)
     } catch (e) {
@@ -60,7 +62,7 @@ export function useSalesOrders(
     } finally {
       setLoading(false)
     }
-  }, [token, page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, status, source, customerId])
+  }, [token, page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, status, source, customerId, shipDue])
 
   useEffect(() => { load() }, [load])
 
