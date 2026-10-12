@@ -2,9 +2,11 @@ package bol
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 )
@@ -205,6 +207,17 @@ func (a *Adapter) GetOrder(ctx context.Context, orderID string) (*integrationsDo
 			QuantityCancelled: it.QuantityCancelled, CancellationRequest: it.CancellationRequest,
 			UnitPriceMinorUnits: int64(math.Round(it.UnitPrice * 100)),
 		}
+		if it.Fulfilment != nil {
+			latest, err := parseBolDate(it.Fulfilment.LatestDeliveryDate)
+			if err != nil {
+				return nil, fmt.Errorf("bol order %s item %s: latestDeliveryDate: %w", o.OrderID, it.OrderItemID, err)
+			}
+			exact, err := parseBolDate(it.Fulfilment.ExactDeliveryDate)
+			if err != nil {
+				return nil, fmt.Errorf("bol order %s item %s: exactDeliveryDate: %w", o.OrderID, it.OrderItemID, err)
+			}
+			items[i].LatestDeliveryDate, items[i].ExactDeliveryDate = latest, exact
+		}
 	}
 	return &integrationsDomain.BolOrder{
 		OrderID: o.OrderID, OrderPlacedAt: o.OrderPlacedDateTime,
@@ -237,4 +250,17 @@ func NewClientFactory() ClientFactory { return ClientFactory{} }
 
 func (ClientFactory) NewClient(clientID, clientSecret string) (integrationsDomain.BolClient, error) {
 	return NewAdapter(NewClient(Config{ClientID: clientID, ClientSecret: clientSecret})), nil
+}
+
+// parseBolDate reads one of Bol's "format: date" fields ("2017-02-10") as
+// UTC midnight; empty (Bol sends null or omits it) is nil.
+func parseBolDate(s string) (*time.Time, error) {
+	if s == "" {
+		return nil, nil
+	}
+	d, err := time.Parse(time.DateOnly, s)
+	if err != nil {
+		return nil, err
+	}
+	return &d, nil
 }

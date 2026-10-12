@@ -88,6 +88,12 @@ type BolOrderItem struct {
 	QuantityCancelled   int
 	CancellationRequest bool
 	UnitPriceMinorUnits int64
+	// LatestDeliveryDate/ExactDeliveryDate are Bol's fulfilment delivery
+	// promise for this item (calendar dates, UTC midnight) -- at most one
+	// is set. Only the full GetOrder shape carries them; ListOrders' reduced
+	// shape leaves both nil. See BolOrder.ShipByDate.
+	LatestDeliveryDate *time.Time
+	ExactDeliveryDate  *time.Time
 }
 
 // BolShipmentDetails is a Bol order's delivery address -- only present on

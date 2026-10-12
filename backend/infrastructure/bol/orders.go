@@ -55,14 +55,24 @@ type shipmentDetails struct {
 }
 
 type orderItem struct {
-	OrderItemID         string       `json:"orderItemId"`
-	CancellationRequest bool         `json:"cancellationRequest"`
-	Offer               orderOffer   `json:"offer"`
-	Product             orderProduct `json:"product"`
-	Quantity            int          `json:"quantity"`
-	QuantityShipped     int          `json:"quantityShipped"`
-	QuantityCancelled   int          `json:"quantityCancelled"`
-	UnitPrice           float64      `json:"unitPrice"`
+	OrderItemID         string           `json:"orderItemId"`
+	CancellationRequest bool             `json:"cancellationRequest"`
+	Fulfilment          *orderFulfilment `json:"fulfilment"`
+	Offer               orderOffer       `json:"offer"`
+	Product             orderProduct     `json:"product"`
+	Quantity            int              `json:"quantity"`
+	QuantityShipped     int              `json:"quantityShipped"`
+	QuantityCancelled   int              `json:"quantityCancelled"`
+	UnitPrice           float64          `json:"unitPrice"`
+}
+
+// orderFulfilment is v10's OrderFulfilment -- only the delivery-promise
+// dates are read. Both are "format: date" strings ("2017-02-10") and
+// nullable; Bol fills at most one of them (exactDeliveryDate only when the
+// customer picked a delivery day).
+type orderFulfilment struct {
+	LatestDeliveryDate string `json:"latestDeliveryDate"`
+	ExactDeliveryDate  string `json:"exactDeliveryDate"`
 }
 
 type orderOffer struct {
