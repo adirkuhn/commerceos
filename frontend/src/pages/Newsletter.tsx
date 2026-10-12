@@ -12,6 +12,7 @@ import { SUBSCRIBER_STATUSES, type Subscriber, type SubscriberStatus } from '../
 import { useSubscribers } from '../newsletter/useSubscribers'
 import { useQueryEnum, useQueryPage, useQueryString } from '../routing/useQueryState'
 import { apiErrorText } from '../api/apiErrorText'
+import { LIST_TOOLBAR_SINGLE } from '../components/common/listToolbar'
 
 const PAGE_SIZE = 50
 const SEARCH_DELAY_MS = 300
@@ -77,7 +78,7 @@ export default function Newsletter() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
+      <div className={clsx('flex flex-wrap items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0', LIST_TOOLBAR_SINGLE)}>
         <div className="relative flex-1 min-w-48 max-w-sm">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
           <input value={searchDraft} onChange={e => setSearchDraft(e.target.value)} placeholder={t('list.search')} aria-label={t('list.searchLabel')}

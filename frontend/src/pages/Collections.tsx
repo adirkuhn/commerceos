@@ -13,6 +13,7 @@ import type { Collection } from '../collections/types'
 import { NEW_RECORD, useRoutedEditor } from '../routing/useRoutedEditor'
 import { useResource } from '../routing/useResource'
 import { apiErrorText } from '../api/apiErrorText'
+import { LIST_TOOLBAR_SINGLE } from '../components/common/listToolbar'
 
 function describe(t: TFunction<'collections'>, c: Collection): string {
   if (c.type === 'manual') return t('list.handPicked')
@@ -52,7 +53,7 @@ export default function Collections() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
+      <div className={clsx('flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0', LIST_TOOLBAR_SINGLE)}>
         <p className="text-xs text-ink-4">{t('list.intro')}</p>
         <button onClick={openNew} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover">
           <Plus size={13} /> {t('list.add')}

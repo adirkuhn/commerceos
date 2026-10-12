@@ -17,6 +17,7 @@ import { InviteForm } from '../iam/components/InviteForm'
 import { fullName } from '../format/personName'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
+import { LIST_TOOLBAR_SINGLE } from '../components/common/listToolbar'
 
 function roleLabel(t: TFunction<['iam', 'common']>, role: MemberRole): string {
   return role === 'customer_owner' ? t('users.roleOwner') : t('users.roleUser')
@@ -107,7 +108,7 @@ export default function Users() {
 
   return (
     <div className="flex flex-col h-full relative">
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-line shrink-0">
+      <div className={clsx('flex items-center gap-3 px-5 py-3 border-b border-line shrink-0', LIST_TOOLBAR_SINGLE)}>
         <div className="relative flex-1 max-w-sm">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
           <input

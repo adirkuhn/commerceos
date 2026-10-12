@@ -21,6 +21,7 @@ import { ProductStockRow, ProductStockSummary } from '../inventory/ProductStockR
 import { BatchMovementHistoryPage, ProductMovementHistoryPage, SKUMovementHistoryPage } from '../inventory/MovementHistoryPages'
 import { ExpiryDiscardPage } from '../inventory/ExpiryDiscardPage'
 import { StockInvalidationProvider } from '../inventory/stockInvalidation'
+import { LIST_TOOLBAR_INLINE, LIST_TOOLBAR_LEAD, LIST_TOOLBAR_SINGLE } from '../components/common/listToolbar'
 
 const PAGE_SIZE = 20
 
@@ -110,7 +111,7 @@ function InventoryPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
+      <div className={clsx('flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0', LIST_TOOLBAR_SINGLE)}>
         <div className="relative flex-1 max-w-sm">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
           <input
@@ -155,7 +156,7 @@ function InventoryPage() {
         >
           <Trash2 size={12} /> {t('list.discarded')}
         </button>
-        <span className="text-xs text-ink-4 ml-auto">{t('list.productCount', { count: total })}</span>
+        <span className={clsx('text-xs text-ink-4 ml-auto', LIST_TOOLBAR_LEAD, LIST_TOOLBAR_INLINE)}>{t('list.productCount', { count: total })}</span>
       </div>
 
       {error && (
