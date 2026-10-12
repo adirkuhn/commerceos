@@ -87,6 +87,8 @@
     "sectionSalesOrders": "Verkooporders",
     "sectionSuppliers": "Leveranciers",
     "signedInAs": "Ingelogd als",
-    "signOut": "Uitloggen"
+    "signOut": "Uitloggen",
+    "showAmounts": "Bedragen tonen",
+    "hideAmounts": "Bedragen verbergen"
   }
 }

@@ -33,5 +33,9 @@
     "noProducts": "Nenhum produto encontrado",
     "noSkus": "Nenhum SKU neste produto",
     "searchPlaceholder": "Buscar produtos pelo nome…"
+  },
+  "amounts": {
+    "reveal": "Mostrar valor",
+    "hideOne": "Ocultar valor"
   }
 }

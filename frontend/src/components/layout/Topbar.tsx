@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Sun, Moon, Monitor, Command, QrCode } from 'lucide-react'
+import { Search, Sun, Moon, Monitor, Command, QrCode, Eye, EyeOff } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
 import { PairScannerModal } from '../../scanner/PairScannerModal'
@@ -8,6 +8,7 @@ import NotificationBell from './NotificationBell'
 import type { ThemePreference } from '../../theme/themePreference'
 import { navTitle } from './navConfig'
 import { LanguageSelect } from './LanguageSelect'
+import { useAmountVisibility } from '../../format/amountVisibility'
 
 const APPEARANCE_ICON: Record<ThemePreference, React.ElementType> = { system: Monitor, light: Sun, dark: Moon }
 
@@ -18,6 +19,9 @@ export default function Topbar() {
   const AppearanceIcon = APPEARANCE_ICON[themePreference]
   const { token } = useAuth()
   const [pairScannerOpen, setPairScannerOpen] = useState(false)
+  const amounts = useAmountVisibility()
+  const amountsLabel = amounts.visible ? t('ui.hideAmounts') : t('ui.showAmounts')
+  const AmountsIcon = amounts.visible ? Eye : EyeOff
 
   return (
     <header className="h-14 shrink-0 flex items-center gap-4 px-5 border-b border-line bg-surface">
@@ -38,6 +42,17 @@ export default function Topbar() {
       </button>
 
       <div className="flex items-center gap-2 ml-auto">
+        {/* Money privacy: amounts start hidden on every load */}
+        <button
+          onClick={() => amounts.setVisible(!amounts.visible)}
+          aria-pressed={amounts.visible}
+          aria-label={amountsLabel}
+          title={amountsLabel}
+          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-hover transition-colors"
+        >
+          <AmountsIcon size={16} className="text-ink-3" />
+        </button>
+
         {/* Pair a handheld scanner -- global, not tied to any one page */}
         <button
           onClick={() => setPairScannerOpen(true)}

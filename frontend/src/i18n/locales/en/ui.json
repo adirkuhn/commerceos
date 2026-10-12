@@ -33,5 +33,9 @@
     "noProducts": "No matching products",
     "noSkus": "No SKUs on this product",
     "searchPlaceholder": "Search products by name…"
+  },
+  "amounts": {
+    "reveal": "Show amount",
+    "hideOne": "Hide amount"
   }
 }

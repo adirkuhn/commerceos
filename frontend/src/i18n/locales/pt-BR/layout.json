@@ -88,6 +88,8 @@
     "sectionSalesOrders": "Pedidos de venda",
     "sectionSuppliers": "Fornecedores",
     "signedInAs": "Conectado como",
-    "signOut": "Sair"
+    "signOut": "Sair",
+    "showAmounts": "Mostrar valores",
+    "hideAmounts": "Ocultar valores"
   }
 }

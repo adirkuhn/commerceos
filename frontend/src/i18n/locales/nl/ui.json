@@ -33,5 +33,9 @@
     "noProducts": "Geen overeenkomende producten",
     "noSkus": "Geen SKU’s bij dit product",
     "searchPlaceholder": "Zoek producten op naam…"
+  },
+  "amounts": {
+    "reveal": "Bedrag tonen",
+    "hideOne": "Bedrag verbergen"
   }
 }

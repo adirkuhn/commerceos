@@ -86,3 +86,22 @@ describe('Topbar title', () => {
     expect(screen.queryByText('All systems live')).not.toBeInTheDocument()
   })
 })
+
+describe('Topbar amounts toggle', () => {
+  it('starts with amounts hidden and reveals them all on click', async () => {
+    const { AmountVisibilityProvider, Money } = await import('../../../format/amountVisibility')
+    render(
+      <MemoryRouter><AppProvider><AmountVisibilityProvider>
+        <Topbar /><Money minor={1250} currency="EUR" />
+      </AmountVisibilityProvider></AppProvider></MemoryRouter>,
+    )
+    const toggle = screen.getByRole('button', { name: 'Show amounts' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Show amount' })).toBeInTheDocument()
+
+    await userEvent.click(toggle)
+
+    expect(screen.getByRole('button', { name: 'Hide amounts' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: 'Show amount' })).toBeNull()
+  })
+})

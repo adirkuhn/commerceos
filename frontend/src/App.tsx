@@ -9,6 +9,7 @@ import { isScannerPath, SCANNER_BASE } from './scanner/scannerRoutes'
 import { ScannerCallbackPage } from './scanner/ScannerCallbackPage'
 import { AppProvider } from './context/AppContext'
 import { DateFormatProvider } from './format/DateFormatProvider'
+import { AmountVisibilityProvider } from './format/amountVisibility'
 import { CompanyLanguage } from './i18n/CompanyLanguage'
 import Sidebar from './components/layout/Sidebar'
 import Topbar from './components/layout/Topbar'
@@ -96,7 +97,9 @@ export function AppShell() {
     <AppProvider>
       <CompanyLanguage token={token ?? ''} />
       <DateFormatProvider token={token ?? ''}>
-        <AppContent />
+        <AmountVisibilityProvider>
+          <AppContent />
+        </AmountVisibilityProvider>
       </DateFormatProvider>
     </AppProvider>
   )

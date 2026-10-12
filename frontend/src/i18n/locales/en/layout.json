@@ -87,6 +87,8 @@
     "sectionSalesOrders": "Sales Orders",
     "sectionSuppliers": "Suppliers",
     "signedInAs": "Signed in as",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "showAmounts": "Show amounts",
+    "hideAmounts": "Hide amounts"
   }
 }
