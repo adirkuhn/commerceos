@@ -571,7 +571,8 @@
     "componentsAndLayers": "Onderdelen en lagen",
     "inspector": "Inspector",
     "layers": "Lagen",
-    "themeFallback": "Thema"
+    "themeFallback": "Thema",
+    "add": "Toevoegen"
   },
   "links": {
     "add": "Link toevoegen",

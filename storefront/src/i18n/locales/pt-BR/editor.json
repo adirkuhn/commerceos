@@ -571,7 +571,8 @@
     "componentsAndLayers": "Componentes e camadas",
     "inspector": "Inspetor",
     "layers": "Camadas",
-    "themeFallback": "Tema"
+    "themeFallback": "Tema",
+    "add": "Adicionar"
   },
   "links": {
     "add": "Adicionar link",

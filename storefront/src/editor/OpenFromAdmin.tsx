@@ -6,7 +6,7 @@ export function OpenFromAdmin() {
   return (
     <main className="mx-auto mt-32 max-w-md px-4 text-center">
       <h1 className="text-xl font-semibold">{t('open.title')}</h1>
-      <p className="mt-2 text-neutral-600">{t('open.text')}</p>
+      <p className="mt-2 text-ed-ink-3">{t('open.text')}</p>
     </main>
   )
 }

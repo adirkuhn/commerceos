@@ -19,13 +19,13 @@ export function AssetPicker({ label, value, onChange }: { label: string; value: 
     <Field label={label}>
       {id => (
         <div className="flex items-center gap-2">
-          <div className="h-12 w-12 shrink-0 overflow-hidden rounded border bg-neutral-100">
+          <div className="h-12 w-12 shrink-0 overflow-hidden rounded border bg-ed-fill">
             {current && <img src={current.url} alt="" className="h-full w-full object-cover" />}
           </div>
-          <button id={id} type="button" className="rounded-md border px-2 py-1 text-sm" onClick={() => setOpen(true)}>
+          <button id={id} type="button" className="rounded-ed border px-2 py-1 text-sm" onClick={() => setOpen(true)}>
             {value ? t('pickers.change') : t('pickers.chooseImage')}
           </button>
-          {value && <button type="button" className="text-sm text-neutral-600" onClick={() => onChange('')}>{t('pickers.remove')}</button>}
+          {value && <button type="button" className="text-sm text-ed-ink-3" onClick={() => onChange('')}>{t('pickers.remove')}</button>}
           {open && <AssetLibrary onClose={() => setOpen(false)} onPick={a => { onChange(`asset:${a.id}`); setOpen(false) }} />}
         </div>
       )}
@@ -67,7 +67,7 @@ export function CollectionsPicker({ label, value, max, onChange }: { label: stri
         <div className="flex flex-col gap-2">
           <ol className="flex flex-col gap-1" aria-label={t('pickers.chosenCollections')}>
             {value.map((cid, i) => (
-              <li key={cid} className="flex items-center gap-1 rounded bg-neutral-100 px-2 py-1 text-sm">
+              <li key={cid} className="flex items-center gap-1 rounded bg-ed-fill px-2 py-1 text-sm">
                 <span className="flex-1 truncate">{name(cid)}</span>
                 <button type="button" aria-label={t('pickers.moveUp')} disabled={i === 0} onClick={() => onChange(moveItem(value, i, -1))}>↑</button>
                 <button type="button" aria-label={t('pickers.moveDown')} disabled={i === value.length - 1} onClick={() => onChange(moveItem(value, i, 1))}>↓</button>
@@ -76,7 +76,7 @@ export function CollectionsPicker({ label, value, max, onChange }: { label: stri
             ))}
           </ol>
           {value.length < max && (
-            <select id={id} className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm" value=""
+            <select id={id} className="w-full rounded-ed border border-ed-line bg-ed-sunken px-2.5 py-1.5 text-sm text-ed-ink focus:outline-none focus:ring-2 focus:ring-ed-accent/60" value=""
               onChange={e => e.target.value && onChange([...value, e.target.value])}>
               <option value="">{available.length ? t('pickers.addCollection') : collections.length ? t('pickers.allCollectionsAdded') : t('pickers.noCollections')}</option>
               {available.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -127,13 +127,13 @@ export function ProductSearch({ onPick, exclude }: { onPick: (p: ProductSummary)
   const results = useProductSearch(term).filter(p => !exclude.includes(p.id))
   return (
     <div className="flex flex-col gap-1">
-      <input className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm" placeholder={t('pickers.searchProducts')} aria-label={t('pickers.searchProducts')}
+      <input className="w-full rounded-ed border border-ed-line bg-ed-sunken px-2.5 py-1.5 text-sm text-ed-ink focus:outline-none focus:ring-2 focus:ring-ed-accent/60" placeholder={t('pickers.searchProducts')} aria-label={t('pickers.searchProducts')}
         value={term} onChange={e => setTerm(e.target.value)} />
       <ul className="max-h-40 overflow-y-auto rounded border" aria-label={t('pickers.searchResults')}>
         {results.map(p => (
-          <li key={p.id}><button type="button" className="w-full px-2 py-1 text-left text-sm hover:bg-neutral-100" onClick={() => onPick(p)}>{p.name}</button></li>
+          <li key={p.id}><button type="button" className="w-full px-2 py-1 text-left text-sm hover:bg-ed-fill" onClick={() => onPick(p)}>{p.name}</button></li>
         ))}
-        {!results.length && <li className="px-2 py-1 text-xs text-neutral-500">{t('pickers.noProducts')}</li>}
+        {!results.length && <li className="px-2 py-1 text-xs text-ed-ink-4">{t('pickers.noProducts')}</li>}
       </ul>
     </div>
   )
@@ -147,9 +147,9 @@ export function ProductPicker({ label, value, onChange }: { label: string; value
       {() => (
         <div className="flex flex-col gap-2">
           {value && (
-            <div className="flex items-center justify-between rounded bg-neutral-100 px-2 py-1 text-sm">
+            <div className="flex items-center justify-between rounded bg-ed-fill px-2 py-1 text-sm">
               <span>{byId[value]?.name ?? t('pickers.selectedProduct')}</span>
-              <button type="button" className="text-xs text-neutral-600" onClick={() => onChange('')}>{t('pickers.clear')}</button>
+              <button type="button" className="text-xs text-ed-ink-3" onClick={() => onChange('')}>{t('pickers.clear')}</button>
             </div>
           )}
           <ProductSearch exclude={value ? [value] : []} onPick={p => onChange(p.id)} />
@@ -169,7 +169,7 @@ export function ProductsPicker({ label, value, max, onChange }: { label: string;
         <div className="flex flex-col gap-2">
           <ol className="flex flex-col gap-1" aria-label={t('pickers.chosenProducts')}>
             {value.map((id, i) => (
-              <li key={id} className="flex items-center gap-1 rounded bg-neutral-100 px-2 py-1 text-sm">
+              <li key={id} className="flex items-center gap-1 rounded bg-ed-fill px-2 py-1 text-sm">
                 <span className="flex-1 truncate">{byId[id]?.name ?? id}</span>
                 <button type="button" aria-label={t('pickers.moveUp')} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
                 <button type="button" aria-label={t('pickers.moveDown')} disabled={i === value.length - 1} onClick={() => move(i, 1)}>↓</button>

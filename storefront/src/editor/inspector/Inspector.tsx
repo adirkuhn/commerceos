@@ -11,6 +11,9 @@ import { PageTextsForm, type PageTexts } from './PageTextsForm'
 import { breakpointFor } from './styleControls'
 import { useEditorLabels } from '../i18n/useEditorLabels'
 import { useEditorServices } from '../services'
+import { CopyIcon, ParentIcon, TrashIcon } from '../icons'
+
+const actionBtn = 'rounded-ed p-1.5 text-ed-ink-3 transition-colors hover:bg-ed-hover hover:text-ed-ink'
 
 type Translations = Record<string, Record<string, unknown>>
 const translationsOf = (c: Component): Translations => (c.get('cosTranslations') ?? {}) as Translations
@@ -69,18 +72,25 @@ export function Inspector({ editor, device, settings, onSaveSettings, savingSett
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <h2 className="font-semibold">{labels.componentName(def)}</h2>
-        <div className="ml-auto flex gap-1 text-xs">
-          {parent && parent.get('type') !== 'wrapper' && <button type="button" onClick={() => editor.select(parent)}>{t('inspector.selectParent')}</button>}
-          {def.editor.copyable && <button type="button" onClick={duplicate}>{t('inspector.duplicate')}</button>}
-          {def.editor.removable && <button type="button" className="text-red-700" onClick={() => { selected.remove(); editor.select(undefined) }}>{t('inspector.delete')}</button>}
+        <h2 className="font-semibold text-ed-ink">{labels.componentName(def)}</h2>
+        <div className="ml-auto flex gap-0.5">
+          {parent && parent.get('type') !== 'wrapper' && (
+            <button type="button" className={actionBtn} onClick={() => editor.select(parent)} aria-label={t('inspector.selectParent')} title={t('inspector.selectParent')}><ParentIcon /></button>
+          )}
+          {def.editor.copyable && (
+            <button type="button" className={actionBtn} onClick={duplicate} aria-label={t('inspector.duplicate')} title={t('inspector.duplicate')}><CopyIcon /></button>
+          )}
+          {def.editor.removable && (
+            <button type="button" className={`${actionBtn} hover:!bg-ed-danger/10 hover:!text-ed-danger`} aria-label={t('inspector.delete')} title={t('inspector.delete')}
+              onClick={() => { selected.remove(); editor.select(undefined) }}><TrashIcon /></button>
+          )}
         </div>
       </div>
-      <p className="text-xs text-neutral-500">{labels.componentDescription(def)}</p>
-      <div role="tablist" className="flex gap-1 border-b">
+      <p className="text-xs text-ed-ink-4">{labels.componentDescription(def)}</p>
+      <div role="tablist" className="flex gap-1 border-b border-ed-line">
         {(['content', 'style'] as const).map(name => (
           <button key={name} role="tab" aria-selected={tab === name} type="button" onClick={() => setTab(name)}
-            className={`px-3 py-1.5 text-sm ${tab === name ? 'border-b-2 border-blue-700 font-medium' : 'text-neutral-600'}`}>
+            className={`-mb-px px-3 py-1.5 text-sm ${tab === name ? 'border-b-2 border-ed-accent font-medium text-ed-ink' : 'text-ed-ink-3 hover:text-ed-ink'}`}>
             {name === 'content' ? t('inspector.content') : t('inspector.style')}
           </button>
         ))}

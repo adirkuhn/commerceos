@@ -1,0 +1,120 @@
+/*
+ * GrapesJS's own chrome (block list, layer tree, canvas well, selection
+ * outline) in the editor's tokens (src/theme/editor.css), light and dark.
+ * The store page inside the canvas frame is untouched.
+ */
+
+/* Canvas: the whole area on the well; the page centred with a soft edge. */
+.cos-editor-canvas .gjs-editor { background: transparent; font-family: var(--ed-font); }
+.cos-editor-canvas .gjs-cv-canvas {
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgb(var(--ed-canvas));
+}
+.cos-editor-canvas .gjs-frame-wrapper { padding: 16px 0; }
+.cos-editor-canvas .gjs-frame {
+  /* A frame whose colour scheme differs from the page is painted opaque in
+     dark mode; the store page decides its own background. */
+  color-scheme: light;
+  border-radius: var(--ed-radius);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08), 0 0 0 1px rgb(var(--ed-line));
+}
+
+/* Selection chrome in the accent. */
+.cos-editor-canvas .gjs-badge,
+.cos-editor-canvas .gjs-toolbar {
+  background-color: rgb(var(--ed-accent-solid));
+  color: #fff;
+  border-radius: var(--ed-radius);
+  font-family: var(--ed-font);
+  font-size: 11px;
+}
+.cos-editor-canvas .gjs-toolbar-item { padding: 4px; }
+.cos-editor-canvas .gjs-placeholder-int { background-color: rgb(var(--ed-accent-solid)); }
+.cos-editor-canvas .gjs-rte-toolbar {
+  background-color: rgb(var(--ed-raised));
+  border: 1px solid rgb(var(--ed-line));
+  border-radius: var(--ed-radius);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+}
+.cos-editor-canvas .gjs-rte-action { color: rgb(var(--ed-ink-2)); border-right-color: rgb(var(--ed-line)); }
+
+/* Blocks: compact two-column tiles under collapsible categories. */
+.cos-editor-panel .gjs-blocks-cs,
+.cos-editor-panel .gjs-one-bg { background: transparent; }
+.cos-editor-panel .gjs-two-color { color: rgb(var(--ed-ink-2)); }
+.cos-editor-panel .gjs-block-category { border-bottom: 1px solid rgb(var(--ed-line)); }
+.cos-editor-panel .gjs-block-category .gjs-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  padding: 10px 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: rgb(var(--ed-ink));
+}
+.cos-editor-panel .gjs-caret-icon { color: rgb(var(--ed-ink-4)); }
+.cos-editor-panel .gjs-blocks-c {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0 10px 12px;
+}
+.cos-editor-panel .gjs-block {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 9px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(var(--ed-line));
+  border-radius: var(--ed-radius);
+  background-color: rgb(var(--ed-surface));
+  color: rgb(var(--ed-ink-2));
+  box-shadow: none;
+  cursor: grab;
+  transition: border-color 0.15s, color 0.15s;
+}
+.cos-editor-panel .gjs-block:hover {
+  border-color: rgb(var(--ed-accent));
+  color: rgb(var(--ed-accent));
+  box-shadow: none;
+}
+.cos-editor-panel .gjs-block-label {
+  font-family: var(--ed-font);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
+}
+
+/* Layers: readable rows; the selected one in the accent. */
+.cos-editor-panel .gjs-layers,
+.cos-editor-panel .gjs-layer { background: transparent; }
+.cos-editor-panel .gjs-layer {
+  color: rgb(var(--ed-ink-2));
+  font-family: var(--ed-font);
+  font-size: 0.8125rem;
+}
+.cos-editor-panel .gjs-layer-item {
+  background: transparent;
+  border-bottom: 1px solid rgb(var(--ed-line));
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+.cos-editor-panel .gjs-layer-item:hover { background-color: rgb(var(--ed-hover)); }
+.cos-editor-panel .gjs-layer.gjs-selected > .gjs-layer-item {
+  background-color: rgb(var(--ed-accent) / 0.12);
+  color: rgb(var(--ed-accent));
+  font-weight: 600;
+}
+.cos-editor-panel .gjs-layer-hidden { opacity: 0.5; }
+.cos-editor-panel .gjs-layer-count { color: rgb(var(--ed-ink-4)); }
+.cos-editor-panel .gjs-layer-move,
+.cos-editor-panel .gjs-layer-vis,
+.cos-editor-panel .gjs-layer-caret { color: rgb(var(--ed-ink-4)); }

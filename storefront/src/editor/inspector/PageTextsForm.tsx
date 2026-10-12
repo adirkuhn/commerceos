@@ -9,7 +9,7 @@ export interface PageTexts {
   translations?: Record<string, DocumentTexts>
 }
 
-const input = 'w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm'
+const input = 'w-full rounded-ed border border-ed-line bg-ed-sunken px-2.5 py-1.5 text-sm text-ed-ink focus:outline-none focus:ring-2 focus:ring-ed-accent/60'
 
 /** Edits the default-language texts, or -- with a locale -- that
  *  language's translation (blank shows the default, given as a hint). */
@@ -38,7 +38,7 @@ export function PageTextsForm({ kind, texts, locale, onChange }: { kind: Documen
         <textarea className={`${input} min-h-20`} maxLength={320} value={current.seo?.description ?? ''} placeholder={hint(texts.seo.description)}
           onChange={e => set({ ...current, seo: { ...current.seo, description: e.target.value } })} />
       </label>
-      <p className="text-xs text-neutral-500">{t('page.seoHelp')}</p>
+      <p className="text-xs text-ed-ink-4">{t('page.seoHelp')}</p>
     </section>
   )
 }

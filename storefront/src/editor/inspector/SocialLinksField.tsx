@@ -14,10 +14,10 @@ export function SocialLinksField({ label, value, max, onChange }: { label: strin
   const options = SOCIAL_NETWORKS.map(n => ({ value: n, label: name(n) }))
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="text-xs font-medium text-neutral-700">{label} <span className="text-neutral-500">({t('socialLinks.chosenOf', { chosen: value.length, max })})</span></legend>
+      <legend className="text-xs font-medium text-ed-ink-2">{label} <span className="text-ed-ink-4">({t('socialLinks.chosenOf', { chosen: value.length, max })})</span></legend>
       <ol className="flex flex-col gap-2" aria-label={label}>
         {value.map((item, i) => (
-          <li key={i} className="flex flex-col gap-1 rounded border border-neutral-200 p-2">
+          <li key={i} className="flex flex-col gap-1 rounded-ed border border-ed-line p-2">
             <SelectField label={t('socialLinks.network', { number: i + 1 })} value={item.network} options={options}
               onChange={v => v && onChange(replaceItem(value, i, { ...item, network: v }))} />
             <LinkField label={t('socialLinks.target', { number: i + 1 })} value={item.link} onChange={v => onChange(replaceItem(value, i, { ...item, link: v }))} />
@@ -30,7 +30,7 @@ export function SocialLinksField({ label, value, max, onChange }: { label: strin
         ))}
       </ol>
       {value.length < max && (
-        <button type="button" className="rounded-md border px-2 py-1 text-sm"
+        <button type="button" className="rounded-ed border px-2 py-1 text-sm"
           onClick={() => onChange([...value, { network: 'whatsapp', link: 'https://wa.me/' }])}>{t('socialLinks.add')}</button>
       )}
     </fieldset>

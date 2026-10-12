@@ -14,8 +14,8 @@ export function ContentLanguageSelect({ languages, value, onChange }: {
   if (!languages || languages.offered.length < 2) return null
   return (
     <>
-      <label className="text-sm text-neutral-600" htmlFor="content-language">{t('toolbar.textsIn')}</label>
-      <select id="content-language" className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm" value={value}
+      <label className="text-sm text-ed-ink-3" htmlFor="content-language">{t('toolbar.textsIn')}</label>
+      <select id="content-language" className="rounded-ed border border-ed-line bg-ed-sunken px-2.5 py-1.5 text-sm text-ed-ink focus:outline-none focus:ring-2 focus:ring-ed-accent/60" value={value}
         onChange={e => onChange(e.target.value as Locale | '')}>
         <option value="">{t('toolbar.defaultLanguage', { language: LOCALE_NAMES[languages.defaultLocale] })}</option>
         {languages.offered.filter(l => l !== languages.defaultLocale).map(l => <option key={l} value={l}>{LOCALE_NAMES[l]}</option>)}

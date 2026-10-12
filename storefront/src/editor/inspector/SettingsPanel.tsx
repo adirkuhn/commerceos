@@ -34,25 +34,25 @@ export function SettingsPanel({ settings, onSave, saving }: { settings: ThemeSet
 
   return (
     <div className="flex flex-col gap-5">
-      <h2 className="font-semibold">{t('settings.title')}</h2>
+      <h2 className="font-semibold text-ed-ink">{t('settings.title')}</h2>
       <SelectField label={t('settings.style')} value={draft.style ?? 'default'} options={THEME_STYLES.map(v => ({ value: v, label: styleNames[v] }))}
         onChange={v => setDraft(d => ({ ...d, style: v as ThemeSettings['style'] }))} />
       <section className="flex flex-col gap-2" aria-label={t('settings.brand')}>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{t('settings.brand')}</h3>
+        <h3 className="text-sm font-semibold text-ed-ink">{t('settings.brand')}</h3>
         <AssetPicker label={t('settings.logo')} value={assetRef(draft.brand.logo_asset_id)} onChange={r => set('brand', { logo_asset_id: assetId(r) })} />
         <AssetPicker label={t('settings.favicon')} value={assetRef(draft.brand.favicon_asset_id)} onChange={r => set('brand', { favicon_asset_id: assetId(r) })} />
       </section>
       <section className="grid grid-cols-2 gap-2" aria-label={t('settings.colours')}>
-        <h3 className="col-span-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">{t('settings.colours')}</h3>
+        <h3 className="col-span-2 text-sm font-semibold text-ed-ink">{t('settings.colours')}</h3>
         {COLOR_NAMES.map(name => (
-          <label key={name} className="flex items-center gap-2 text-xs">
-            <input type="color" value={draft.colors[name]} onChange={e => set('colors', { [name]: e.target.value })} aria-label={t('settings.colourLabel', { name: colorNames[name] })} />
+          <label key={name} className="flex items-center gap-2 text-sm text-ed-ink-2">
+            <input type="color" className="h-8 w-10 shrink-0 cursor-pointer rounded-ed border border-ed-line bg-ed-surface p-0.5" value={draft.colors[name]} onChange={e => set('colors', { [name]: e.target.value })} aria-label={t('settings.colourLabel', { name: colorNames[name] })} />
             {colorNames[name]}
           </label>
         ))}
       </section>
       <section className="flex flex-col gap-2" aria-label={t('settings.typography')}>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{t('settings.typography')}</h3>
+        <h3 className="text-sm font-semibold text-ed-ink">{t('settings.typography')}</h3>
         <ToggleField label={t('settings.useGoogle')} value={google}
           onChange={v => set('typography', v ? { source: 'google' } : { source: 'system', heading_font: 'system-sans', body_font: 'system-sans' })} />
         {google ? (
@@ -70,7 +70,7 @@ export function SettingsPanel({ settings, onSave, saving }: { settings: ThemeSet
           onChange={v => set('typography', { scale: v as ThemeSettings['typography']['scale'] })} />
       </section>
       <section className="flex flex-col gap-2" aria-label={t('settings.layout')}>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{t('settings.layout')}</h3>
+        <h3 className="text-sm font-semibold text-ed-ink">{t('settings.layout')}</h3>
         <NumberField label={t('settings.pageWidth')} value={draft.layout.max_width} min={960} max={1920} onChange={v => set('layout', { max_width: v })} />
         <SelectField label={t('settings.buttonCorners')} value={draft.buttons.radius} options={(['none', 'sm', 'md', 'lg', 'full'] as const).map(v => ({ value: v, label: corners[v] }))}
           onChange={v => set('buttons', { radius: v as ThemeSettings['buttons']['radius'] })} />
@@ -80,7 +80,7 @@ export function SettingsPanel({ settings, onSave, saving }: { settings: ThemeSet
           onChange={v => set('product', { image_ratio: v as ThemeSettings['product']['image_ratio'] })} />
       </section>
       <button type="button" disabled={!changed || saving} onClick={() => onSave(draft)}
-        className="rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40">
+        className="rounded-ed bg-ed-accent-solid px-3 py-2 text-sm font-semibold text-white hover:bg-ed-accent-solid-hover disabled:opacity-40">
         {saving ? t('settings.saving') : t('settings.save')}
       </button>
     </div>

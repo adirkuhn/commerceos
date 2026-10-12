@@ -20,10 +20,10 @@ export function LinksField({ label, value, max, onChange }: { label: string; val
   const newLink: NavLink = { label: t('links.newLink'), link: '/' }
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="text-xs font-medium text-neutral-700">{label} <span className="text-neutral-500">({t('links.chosenOf', { chosen: value.length, max })})</span></legend>
+      <legend className="text-xs font-medium text-ed-ink-2">{label} <span className="text-ed-ink-4">({t('links.chosenOf', { chosen: value.length, max })})</span></legend>
       <ol className="flex flex-col gap-2" aria-label={label}>
         {value.map((item, i) => (
-          <li key={i} className="flex flex-col gap-1 rounded border border-neutral-200 p-2">
+          <li key={i} className="flex flex-col gap-1 rounded-ed border border-ed-line p-2">
             <LabelInput label={t('links.linkText', { number: i + 1 })} value={item.label} onChange={v => onChange(replaceItem(value, i, { ...item, label: v }))} />
             <LinkField label={t('links.linkTarget', { number: i + 1 })} value={item.link} onChange={v => onChange(replaceItem(value, i, { ...item, link: v }))} />
             <div className="flex justify-end gap-2 text-sm">
@@ -35,7 +35,7 @@ export function LinksField({ label, value, max, onChange }: { label: string; val
         ))}
       </ol>
       {value.length < max && (
-        <button type="button" className="rounded-md border px-2 py-1 text-sm" onClick={() => onChange([...value, newLink])}>{t('links.add')}</button>
+        <button type="button" className="rounded-ed border px-2 py-1 text-sm" onClick={() => onChange([...value, newLink])}>{t('links.add')}</button>
       )}
     </fieldset>
   )

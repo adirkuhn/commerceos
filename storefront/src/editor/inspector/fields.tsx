@@ -2,15 +2,15 @@ import { useEffect, useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { safeHref } from '../../core/richText'
 
-const input = 'w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600'
+const input = 'w-full rounded-ed border border-ed-line bg-ed-sunken px-2.5 py-1.5 text-sm text-ed-ink placeholder:text-ed-ink-4 focus:outline-none focus:ring-2 focus:ring-ed-accent/60 aria-[invalid=true]:border-ed-danger'
 
 export function Field({ label, children, hint }: { label: string; children: (id: string) => ReactNode; hint?: string }) {
   const id = useId()
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-neutral-700">{label}</label>
+      <label htmlFor={id} className="text-xs font-medium text-ed-ink-2">{label}</label>
       {children(id)}
-      {hint && <p className="text-xs text-neutral-500">{hint}</p>}
+      {hint && <p className="text-xs text-ed-ink-4">{hint}</p>}
     </div>
   )
 }
@@ -65,8 +65,8 @@ export function ToggleField({ label, value, onChange }: { label: string; value: 
   const id = useId()
   return (
     <div className="flex items-center justify-between gap-2">
-      <label htmlFor={id} className="text-xs font-medium text-neutral-700">{label}</label>
-      <input id={id} type="checkbox" role="switch" checked={value} onChange={e => onChange(e.target.checked)} />
+      <label htmlFor={id} className="text-xs font-medium text-ed-ink-2">{label}</label>
+      <input id={id} type="checkbox" role="switch" checked={value} onChange={e => onChange(e.target.checked)} className="h-4 w-4 accent-[rgb(var(--ed-accent-solid))]" />
     </div>
   )
 }

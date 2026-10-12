@@ -18,14 +18,14 @@ function ColorControl({ label, value, onChange }: { label: string; value: string
     <Field label={label}>
       {id => (
         <div className="flex gap-2">
-          <select id={id} className="flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm" value={custom ? 'custom' : value}
+          <select id={id} className="flex-1 rounded-ed border border-ed-line bg-ed-sunken px-2.5 py-1.5 text-sm text-ed-ink focus:outline-none focus:ring-2 focus:ring-ed-accent/60" value={custom ? 'custom' : value}
             onChange={e => onChange(e.target.value === 'custom' ? '#000000' : e.target.value)}>
             <option value="">{t('styleForm.default')}</option>
             {COLOR_TOKENS.map(c => <option key={c} value={c}>{c === 'transparent' ? t('styleForm.colorNone') : t('styleForm.colorTheme', { name: themeColor(c) })}</option>)}
             <option value="custom">{t('styleForm.custom')}</option>
           </select>
-          {custom && <input type="color" aria-label={t('styleForm.customColour', { label })} value={value.length === 4 ? `#${[...value.slice(1)].map(c => c + c).join('')}` : value}
-            onChange={e => onChange(e.target.value)} className="h-8 w-10" />}
+          {custom && <input type="color" className="h-8 w-10 shrink-0 cursor-pointer rounded-ed border border-ed-line bg-ed-surface p-0.5" aria-label={t('styleForm.customColour', { label })} value={value.length === 4 ? `#${[...value.slice(1)].map(c => c + c).join('')}` : value}
+            onChange={e => onChange(e.target.value)} />}
         </div>
       )}
     </Field>
@@ -57,10 +57,10 @@ export function StyleForm({ groups, style, breakpoint, onChange }: {
     breakpoint === 'mobile' ? style.tablet?.[p] ?? style.base?.[p] : breakpoint === 'tablet' ? style.base?.[p] : undefined
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-xs text-neutral-500">{t('styleForm.editingFor', { screens: screens[breakpoint] })}</p>
+      <p className="text-xs text-ed-ink-4">{t('styleForm.editingFor', { screens: screens[breakpoint] })}</p>
       {controlsFor(groups).map(g => (
         <fieldset key={g.group} className="flex flex-col gap-2">
-          <legend className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">{labels.styleGroup(g.group, g.label)}</legend>
+          <legend className="mb-1 text-sm font-semibold text-ed-ink">{labels.styleGroup(g.group, g.label)}</legend>
           {g.controls.map(c => (
             <Control key={c.property} control={c} value={style[breakpoint]?.[c.property] ?? ''} inherited={inheritedValue(c.property)}
               onChange={v => onChange(setStyleValue(style, breakpoint, c.property, v))} />

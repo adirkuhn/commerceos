@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { I18nextProvider } from 'react-i18next'
 import { createEditorI18n } from '../i18n/createEditorI18n'
 import { EditorAPI, type Draft } from '../api'
@@ -29,12 +30,59 @@ const draft: Draft = {
   sales_channel_id: 'chan-1',
 } as Draft
 
+beforeEach(() => {
+  document.documentElement.className = ''
+  document.head.innerHTML = ''
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
+})
+
+function openWith(extra: Partial<Draft> = {}) {
+  const api = new EditorAPI({ baseURL: 'x', token: 't' })
+  api.openDraft = vi.fn(async () => ({ ...draft, ...extra }))
+  return api
+}
+
+describe('EditorApp side panel', () => {
+  it('shows the components to add, with the layers one tab away', async () => {
+    render(<EditorApp api={openWith()} apiBase="https://api.test" />)
+    await screen.findByText('Autumn')
+
+    expect(screen.getByRole('tab', { name: 'Add' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('editor-blocks')).toBeVisible()
+    expect(screen.getByTestId('editor-layers')).not.toBeVisible()
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Layers' }))
+
+    expect(screen.getByTestId('editor-layers')).toBeVisible()
+    expect(screen.getByTestId('editor-blocks')).not.toBeVisible()
+  })
+})
+
+describe('EditorApp look', () => {
+  it('opens dark when the admin was dark', async () => {
+    render(<EditorApp api={openWith()} apiBase="https://api.test" themePreference="dark" />)
+    await screen.findByText('Autumn')
+
+    expect(document.documentElement).toHaveClass('dark')
+  })
+
+  it('uses the shop appearance for its own controls', async () => {
+    const appearance = { font: 'inter', accent_color: '#0B6E4F', sidebar_color: '#14163F', corners: 'normal', text_size: 'normal', density: 'comfortable' } as const
+    render(<EditorApp api={openWith({ appearance })} apiBase="https://api.test" />)
+    await screen.findByText('Autumn')
+
+    await waitFor(() => expect(document.getElementById('editor-appearance')?.textContent).toContain('--ed-accent: 11 110 79;'))
+    expect(document.getElementById('editor-font')?.getAttribute('href')).toContain('family=Inter')
+  })
+})
+
 describe('EditorApp', () => {
   // The editor used to render its layout bare until the draft (and so the
   // store) was known, then inside a context provider: React remounted the
   // layout and the canvas GrapesJS lived in was thrown away -- a blank
   // editor with no components.
   it('keeps the nodes GrapesJS mounts into when the draft loads', async () => {
+    handed.length = 0
     const api = new EditorAPI({ baseURL: 'x', token: 't' })
     api.openDraft = vi.fn(async () => draft)
     const { container } = render(<EditorApp api={api} apiBase="https://api.test" />)

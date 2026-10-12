@@ -571,7 +571,8 @@
     "componentsAndLayers": "Components and layers",
     "inspector": "Inspector",
     "layers": "Layers",
-    "themeFallback": "Theme"
+    "themeFallback": "Theme",
+    "add": "Add"
   },
   "links": {
     "add": "Add link",

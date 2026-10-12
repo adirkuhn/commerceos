@@ -42,7 +42,7 @@ function FieldFor({ def, name, field, value, onChange }: { def: ComponentDefinit
 
 function NoSettings() {
   const { t } = useTranslation('editor')
-  return <p className="text-xs text-neutral-500">{t('inspector.noSettings')}</p>
+  return <p className="text-xs text-ed-ink-4">{t('inspector.noSettings')}</p>
 }
 
 /** Editing one language other than the store's default: only texts, kept
@@ -58,15 +58,15 @@ export function PropsForm({ def, props, onChange, translating }: { def: Componen
   const entries = Object.entries(def.props) as [string, PropField][]
   const shown = entries.filter(([name]) => def.showField?.[name]?.(props as never) ?? true)
   const visible = translating ? shown.filter(([, field]) => isTranslatable(field)) : shown
-  if (!visible.length) return translating ? <p className="text-xs text-neutral-500">{t('inspector.nothingToTranslate')}</p> : <NoSettings />
+  if (!visible.length) return translating ? <p className="text-xs text-ed-ink-4">{t('inspector.nothingToTranslate')}</p> : <NoSettings />
   return (
     <div className="flex flex-col gap-3">
-      {translating && <p className="text-xs text-neutral-500">{t('inspector.translatingNote')}</p>}
+      {translating && <p className="text-xs text-ed-ink-4">{t('inspector.translatingNote')}</p>}
       {visible.map(([name, field]) => translating ? (
         <div key={name}>
           <FieldFor def={def} name={name} field={field} value={translating.translation[name] ?? props[name]}
             onChange={v => translating.onChange({ ...translating.translation, [name]: v })} />
-          {!(name in translating.translation) && <p className="mt-1 text-2xs text-amber-700">{t('inspector.untranslated')}</p>}
+          {!(name in translating.translation) && <p className="mt-1 text-2xs text-ed-warning">{t('inspector.untranslated')}</p>}
         </div>
       ) : (
         <FieldFor key={name} def={def} name={name} field={field} value={props[name]} onChange={v => onChange({ ...props, [name]: v })} />

@@ -54,27 +54,27 @@ export function AssetLibrary({ onPick, onClose }: Props) {
   return (
     <div role="dialog" aria-modal="true" aria-label={t('media.title')} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onKeyDown={e => e.key === 'Escape' && onClose()}>
-      <div className="flex max-h-[80vh] w-[42rem] max-w-[95vw] flex-col rounded-lg bg-white shadow-xl">
+      <div className="flex max-h-[80vh] w-[42rem] max-w-[95vw] flex-col rounded-lg bg-ed-raised shadow-xl">
         <header className="flex items-center gap-2 border-b px-4 py-3">
           <h2 className="font-semibold">{t('media.title')}</h2>
-          <label className="ml-auto cursor-pointer rounded-md bg-blue-700 px-3 py-1.5 text-sm font-medium text-white">
+          <label className="ml-auto cursor-pointer rounded-ed bg-ed-accent-solid hover:bg-ed-accent-solid-hover px-3 py-1.5 text-sm font-medium text-white">
             {uploading ? t('media.uploading') : t('media.upload')}
             <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/x-icon" className="sr-only"
               disabled={uploading} onChange={e => void upload(e.target.files)} />
           </label>
-          <button type="button" className="rounded-md px-2 py-1.5 text-sm" onClick={onClose}>{t('media.close')}</button>
+          <button type="button" className="rounded-ed px-2 py-1.5 text-sm" onClick={onClose}>{t('media.close')}</button>
         </header>
-        {error && <p role="alert" className="px-4 pt-3 text-sm text-red-700">{error}</p>}
+        {error && <p role="alert" className="px-4 pt-3 text-sm text-ed-danger">{error}</p>}
         <div className="grid grid-cols-4 gap-3 overflow-y-auto p-4">
-          {loading && <p className="col-span-4 text-sm text-neutral-500">{t('media.loading')}</p>}
-          {!loading && !items.length && <p className="col-span-4 text-sm text-neutral-500">{t('media.empty')}</p>}
+          {loading && <p className="col-span-4 text-sm text-ed-ink-4">{t('media.loading')}</p>}
+          {!loading && !items.length && <p className="col-span-4 text-sm text-ed-ink-4">{t('media.empty')}</p>}
           {items.map(a => (
             <div key={a.id} className="group relative">
-              <button type="button" className="block aspect-square w-full overflow-hidden rounded-md border hover:ring-2 hover:ring-blue-600"
+              <button type="button" className="block aspect-square w-full overflow-hidden rounded-ed border hover:ring-2 hover:ring-ed-accent/60"
                 onClick={() => { remember(a); onPick(a) }} aria-label={t('media.use', { name: a.alt || a.filename })}>
                 <img src={a.url} alt="" className="h-full w-full object-cover" />
               </button>
-              <button type="button" className="absolute right-1 top-1 hidden rounded bg-white/90 px-1.5 text-xs text-red-700 group-hover:block"
+              <button type="button" className="absolute right-1 top-1 hidden rounded bg-ed-raised/90 px-1.5 text-xs text-ed-danger group-hover:block"
                 onClick={() => void remove(a)} aria-label={t('media.removeNamed', { name: a.alt || a.filename })}>{t('media.remove')}</button>
             </div>
           ))}
