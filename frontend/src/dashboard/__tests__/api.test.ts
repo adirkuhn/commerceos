@@ -53,3 +53,21 @@ describe('getDashboardStats', () => {
     await expect(api.getDashboardStats(TOKEN)).rejects.toThrow('internal server error')
   })
 })
+
+describe('getTodayQueue', () => {
+  const queue = { to_pick: 4, to_pack: 2, stock_issues: 1, unmatched_skus: 0, expiring_batches: 3, expired_batches: 0 }
+
+  it('GETs /dashboard/today with the bearer token and returns the counts', async () => {
+    mockFetch(queue)
+    const result = await api.getTodayQueue(TOKEN)
+    expect(result).toEqual(queue)
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toMatch(/\/dashboard\/today$/)
+    expect((init as RequestInit).headers).toMatchObject({ Authorization: `Bearer ${TOKEN}` })
+  })
+
+  it('throws the coded API error on failure', async () => {
+    mockFetchError('INTERNAL', 'internal server error')
+    await expect(api.getTodayQueue(TOKEN)).rejects.toThrow()
+  })
+})

@@ -46,5 +46,31 @@
     "sold": "Sold",
     "title": "Top products"
   },
-  "vsLastWeek": "{{value}} vs last week"
+  "vsLastWeek": "{{value}} vs last week",
+  "today": {
+    "workQueue": "Work queue",
+    "toPick_one": "order to pick",
+    "toPick_other": "orders to pick",
+    "toPack_one": "order to pack",
+    "toPack_other": "orders to pack",
+    "startPicking": "Start picking",
+    "startPacking": "Start packing",
+    "needsAttention": "Needs attention",
+    "allClear": "Nothing needs attention.",
+    "expiring_one": "{{count}} batch expires within 7 days",
+    "expiring_other": "{{count}} batches expire within 7 days",
+    "expired_one": "{{count}} expired batch to write off",
+    "expired_other": "{{count}} expired batches to write off",
+    "stockIssues_one": "{{count}} order waiting on stock",
+    "stockIssues_other": "{{count}} orders waiting on stock",
+    "unmatched_one": "{{count}} order with unmatched SKUs",
+    "unmatched_other": "{{count}} orders with unmatched SKUs",
+    "reviewExpiring": "Review expiring batches",
+    "writeOffExpired": "Write off expired batches",
+    "resolveStock": "Resolve stock issues",
+    "matchSkus": "Match SKUs",
+    "thisMonth": "This month",
+    "revenue": "Revenue",
+    "revenueSub": "Not counting pending, cancelled, refunded or failed orders"
+  }
 }

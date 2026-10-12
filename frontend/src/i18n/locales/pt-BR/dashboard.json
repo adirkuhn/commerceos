@@ -47,5 +47,31 @@
     "sold": "Vendidos",
     "title": "Produtos mais vendidos"
   },
-  "vsLastWeek": "{{value}} vs. semana passada"
+  "vsLastWeek": "{{value}} vs. semana passada",
+  "today": {
+    "workQueue": "Fila de trabalho",
+    "toPick_one": "pedido para separar",
+    "toPick_other": "pedidos para separar",
+    "toPack_one": "pedido para embalar",
+    "toPack_other": "pedidos para embalar",
+    "startPicking": "Iniciar separação",
+    "startPacking": "Iniciar embalagem",
+    "needsAttention": "Precisa de atenção",
+    "allClear": "Nada precisa de atenção.",
+    "expiring_one": "{{count}} lote vence em até 7 dias",
+    "expiring_other": "{{count}} lotes vencem em até 7 dias",
+    "expired_one": "{{count}} lote vencido para baixar",
+    "expired_other": "{{count}} lotes vencidos para baixar",
+    "stockIssues_one": "{{count}} pedido aguardando estoque",
+    "stockIssues_other": "{{count}} pedidos aguardando estoque",
+    "unmatched_one": "{{count}} pedido com SKUs não vinculados",
+    "unmatched_other": "{{count}} pedidos com SKUs não vinculados",
+    "reviewExpiring": "Revisar lotes a vencer",
+    "writeOffExpired": "Baixar lotes vencidos",
+    "resolveStock": "Resolver problemas de estoque",
+    "matchSkus": "Vincular SKUs",
+    "thisMonth": "Este mês",
+    "revenue": "Receita",
+    "revenueSub": "Sem pedidos pendentes, cancelados, reembolsados ou com falha"
+  }
 }

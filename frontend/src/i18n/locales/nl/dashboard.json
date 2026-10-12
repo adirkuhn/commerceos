@@ -46,5 +46,31 @@
     "sold": "Verkocht",
     "title": "Topproducten"
   },
-  "vsLastWeek": "{{value}} t.o.v. vorige week"
+  "vsLastWeek": "{{value}} t.o.v. vorige week",
+  "today": {
+    "workQueue": "Werkvoorraad",
+    "toPick_one": "bestelling te picken",
+    "toPick_other": "bestellingen te picken",
+    "toPack_one": "bestelling in te pakken",
+    "toPack_other": "bestellingen in te pakken",
+    "startPicking": "Picken starten",
+    "startPacking": "Inpakken starten",
+    "needsAttention": "Vraagt aandacht",
+    "allClear": "Niets vraagt aandacht.",
+    "expiring_one": "{{count}} partij verloopt binnen 7 dagen",
+    "expiring_other": "{{count}} partijen verlopen binnen 7 dagen",
+    "expired_one": "{{count}} verlopen partij af te boeken",
+    "expired_other": "{{count}} verlopen partijen af te boeken",
+    "stockIssues_one": "{{count}} bestelling wacht op voorraad",
+    "stockIssues_other": "{{count}} bestellingen wachten op voorraad",
+    "unmatched_one": "{{count}} bestelling met onbekende SKUs",
+    "unmatched_other": "{{count}} bestellingen met onbekende SKUs",
+    "reviewExpiring": "Verlopende partijen bekijken",
+    "writeOffExpired": "Verlopen partijen afboeken",
+    "resolveStock": "Voorraadproblemen oplossen",
+    "matchSkus": "SKUs koppelen",
+    "thisMonth": "Deze maand",
+    "revenue": "Omzet",
+    "revenueSub": "Zonder openstaande, geannuleerde, terugbetaalde of mislukte bestellingen"
+  }
 }

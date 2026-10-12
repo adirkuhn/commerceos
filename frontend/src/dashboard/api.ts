@@ -1,4 +1,4 @@
-import type { APIResponse, DashboardStatsReport } from './types'
+import type { APIResponse, DashboardStatsReport, TodayQueue } from './types'
 import { CodedApiError } from '../api/codedApiError'
 
 function base(): string {
@@ -14,4 +14,15 @@ export async function getDashboardStats(token: string): Promise<DashboardStatsRe
     throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return body.data as DashboardStatsReport
+}
+
+export async function getTodayQueue(token: string): Promise<TodayQueue> {
+  const res = await fetch(`${base()}/today`, {
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  })
+  const body: APIResponse<TodayQueue> = await res.json()
+  if (!res.ok || body.error) {
+    throw CodedApiError.fromEnvelope(body.error, res.status)
+  }
+  return body.data as TodayQueue
 }

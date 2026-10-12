@@ -1,7 +1,7 @@
 import { createElement, type ComponentType } from 'react'
 import type { NavItem } from './types'
 
-import Dashboard from './pages/Dashboard'
+import Home from './pages/Home'
 import Products from './pages/Products'
 import Promotions from './pages/Promotions'
 import Coupons from './pages/Coupons'
@@ -64,7 +64,7 @@ function inReportsShell(Page: ComponentType): ComponentType {
 }
 
 export const PAGE_ROUTES: PageRoute[] = [
-  { nav: 'dashboard', path: '/', Component: Dashboard },
+  { nav: 'dashboard', path: '/', Component: Home },
   { nav: 'sales-orders', path: '/sales-orders', Component: SalesOrders },
   { nav: 'stock-issues', path: '/stock-issues', Component: StockIssues },
   { nav: 'unmatched-skus', path: '/unmatched-skus', Component: UnmatchedSkus },
