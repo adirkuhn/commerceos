@@ -10,7 +10,7 @@ import type { SalesTrendGranularity } from '../../reports/types'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
 import { useQueryEnum } from '../../routing/useQueryState'
-import { formatMoney } from '../../format/money'
+import { useMoneyFormat } from '../../format/amountVisibility'
 import { useDateFormat } from '../../format/DateFormatProvider'
 
 const TREND_GRANULARITIES = ['day', 'week', 'month'] as const satisfies readonly SalesTrendGranularity[]
@@ -20,6 +20,7 @@ export default function SalesTrendsPage() {
   const chart = useChartTheme()
   const { token } = useAuth()
   const { t } = useTranslation('reports')
+  const formatMoney = useMoneyFormat()
   // In ?period= -- refresh and shared links keep the chosen range.
   const [period, setPeriod] = useReportPeriod()
   const [granularity, setGranularity] = useQueryEnum<SalesTrendGranularity>('granularity', TREND_GRANULARITIES, 'day')

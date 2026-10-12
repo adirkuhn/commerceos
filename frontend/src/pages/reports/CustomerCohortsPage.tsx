@@ -5,13 +5,14 @@ import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
-import { formatMoney } from '../../format/money'
+import { useMoneyFormat } from '../../format/amountVisibility'
 import { useDateFormat } from '../../format/DateFormatProvider'
 
 export default function CustomerCohortsPage() {
   const { formatMonthYear } = useDateFormat()
   const { token } = useAuth()
   const { t } = useTranslation('reports')
+  const formatMoney = useMoneyFormat()
   // In ?period= -- refresh and shared links keep the chosen range.
   const [period, setPeriod] = useReportPeriod()
   const getCustomerCohortsReport = useCallback(reportsApi.getCustomerCohortsReport, [])

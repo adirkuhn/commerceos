@@ -5,13 +5,14 @@ import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
-import { formatMoney } from '../../format/money'
+import { Money, useMoneyFormat } from '../../format/amountVisibility'
 
 const TOP_CUSTOMERS_LIMIT = 20
 
 export default function CustomerPerformancePage() {
   const { token } = useAuth()
   const { t } = useTranslation('reports')
+  const formatMoney = useMoneyFormat()
   // In ?period= -- refresh and shared links keep the chosen range.
   const [period, setPeriod] = useReportPeriod()
   const getCustomerPerformanceReport = useCallback(reportsApi.getCustomerPerformanceReport, [])
@@ -36,7 +37,7 @@ export default function CustomerPerformancePage() {
                     {t('customerPerformance.ordersAov', { count: c.order_count, aov: formatMoney(c.average_order_value_minor_units, currency) })}
                   </p>
                 </div>
-                <p className="text-xs font-medium text-ink shrink-0">{formatMoney(c.revenue_minor_units, currency)}</p>
+                <p className="text-xs font-medium text-ink shrink-0"><Money minor={c.revenue_minor_units} currency={currency} /></p>
               </div>
             ))}
           </div>

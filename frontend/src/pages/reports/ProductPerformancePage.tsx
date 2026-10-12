@@ -6,7 +6,7 @@ import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
-import { formatMoney } from '../../format/money'
+import { Money } from '../../format/amountVisibility'
 
 const TOP_PRODUCTS_LIMIT = 20
 
@@ -36,7 +36,7 @@ export default function ProductPerformancePage() {
                   <p className="text-2xs font-mono text-ink-4">{p.sku_code}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-xs font-medium text-ink">{formatMoney(p.revenue_minor_units, currency)}</p>
+                  <p className="text-xs font-medium text-ink"><Money minor={p.revenue_minor_units} currency={currency} /></p>
                   <p className={clsx('text-2xs font-medium', p.margin_basis_points === null ? 'text-ink-4' : p.margin_basis_points >= 5000 ? 'text-success' : 'text-warning')}>
                     {p.margin_basis_points === null ? t('productPerformance.marginNa') : `${(p.margin_basis_points / 100).toFixed(1)}%`}
                   </p>

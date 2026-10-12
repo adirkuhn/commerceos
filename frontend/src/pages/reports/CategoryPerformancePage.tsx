@@ -5,7 +5,7 @@ import * as reportsApi from '../../reports/api'
 import { useSingleReport } from '../../reports/hooks/useSingleReport'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
-import { formatMoney } from '../../format/money'
+import { Money } from '../../format/amountVisibility'
 
 export default function CategoryPerformancePage() {
   const { token } = useAuth()
@@ -37,7 +37,7 @@ export default function CategoryPerformancePage() {
                   <td className="px-4 py-2 text-ink font-medium">{cat.category_name}</td>
                   <td className="px-4 py-2 text-ink-3">{cat.quantity_sold}</td>
                   <td className="px-4 py-2 text-ink-3">{cat.order_count}</td>
-                  <td className="px-4 py-2 text-ink font-medium">{formatMoney(cat.revenue_minor_units, currency)}</td>
+                  <td className="px-4 py-2 text-ink font-medium"><Money minor={cat.revenue_minor_units} currency={currency} /></td>
                 </tr>
               ))}
             </tbody>

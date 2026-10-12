@@ -7,7 +7,7 @@ import { useSingleReport } from '../../reports/hooks/useSingleReport'
 import type { RFMSegment } from '../../reports/types'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
-import { formatMoney } from '../../format/money'
+import { Money } from '../../format/amountVisibility'
 
 function rfmSegments(): { id: RFMSegment; label: string; hint: string }[] {
   return [
@@ -55,7 +55,7 @@ export default function CustomerRFMPage() {
                       {rows.slice(0, 8).map(r => (
                         <div key={r.customer_id} className="flex items-center justify-between gap-2 text-2xs">
                           <span className="text-ink-2 truncate">{r.customer_name || t('unnamedCustomer')}</span>
-                          <span className="text-ink-4 shrink-0">{formatMoney(r.revenue_minor_units, currency)}</span>
+                          <span className="text-ink-4 shrink-0"><Money minor={r.revenue_minor_units} currency={currency} /></span>
                         </div>
                       ))}
                     </div>

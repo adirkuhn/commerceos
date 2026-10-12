@@ -12,7 +12,7 @@ import { dateRange, customDateRange, REPORTS_PERIODS, DEFAULT_REPORTS_PERIOD, ty
 import { useQueryEnum, useQueryString } from '../../routing/useQueryState'
 import type { ChannelRevenuePoint, ProfitabilityPoint } from '../../reports/types'
 import { ReportPageShell, ReportCard, EmptyState, DateRangeControl, ViewToggle, ChangeBadge, type ReportsRangeMode } from './shared'
-import { formatMoney } from '../../format/money'
+import { Money, useMoneyFormat } from '../../format/amountVisibility'
 import type { DateInput } from '../../format/date'
 import { useDateFormat } from '../../format/DateFormatProvider'
 import { addDays, calendarDayInZone } from '../../format/calendarDay'
@@ -28,6 +28,7 @@ export default function OverviewPage() {
   const chart = useChartTheme()
   const { token } = useAuth()
   const { t, i18n } = useTranslation('reports')
+  const formatMoney = useMoneyFormat()
   const { formatDate, formatMonthDay, settings: { timeZone } } = useDateFormat()
   // Range (?period=, plus ?from=&to= for a custom range) and the
   // summary/daily view (?view=daily) live in the URL -- a refresh or a
@@ -82,10 +83,10 @@ export default function OverviewPage() {
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const kpis = [
-    { label: t('overview.totalRevenue'), value: salesSummary ? formatMoney(salesSummary.current.revenue_minor_units, currency) : '—', change: salesSummary?.revenue_change_percent ?? null },
+    { label: t('overview.totalRevenue'), value: salesSummary ? <Money minor={salesSummary.current.revenue_minor_units} currency={currency} /> : '—', change: salesSummary?.revenue_change_percent ?? null },
     { label: t('overview.totalOrders'), value: salesSummary ? String(salesSummary.current.order_count) : '—', change: salesSummary?.order_count_change_percent ?? null },
     { label: t('overview.unitsSold'), value: salesSummary ? String(salesSummary.current.units_sold) : '—', change: salesSummary?.units_sold_change_percent ?? null },
-    { label: t('overview.aov'), value: salesSummary ? formatMoney(salesSummary.current.average_order_value_minor_units, currency) : '—', change: salesSummary?.aov_change_percent ?? null },
+    { label: t('overview.aov'), value: salesSummary ? <Money minor={salesSummary.current.average_order_value_minor_units} currency={currency} /> : '—', change: salesSummary?.aov_change_percent ?? null },
   ]
 
   const profitabilityTrendPoints = (profitabilityTrend?.points ?? []).map((p: ProfitabilityPoint) => ({ ...p, label: formatMonthDay(p.period_start) }))
@@ -175,7 +176,7 @@ export default function OverviewPage() {
           <div data-testid="profitability-summary" className="grid grid-cols-4 gap-3 p-4">
             <div>
               <p className="text-xs text-ink-4 mb-1">{t('overview.revenue')}</p>
-              <p className="text-sm font-semibold text-ink">{formatMoney(profitability.summary.revenue_minor_units, currency)}</p>
+              <p className="text-sm font-semibold text-ink"><Money minor={profitability.summary.revenue_minor_units} currency={currency} /></p>
               {profitability.summary.cost_known_revenue_minor_units < profitability.summary.revenue_minor_units && (
                 <p className="text-2xs text-ink-4 mt-0.5">
                   {t('overview.withKnownCost', { amount: formatMoney(profitability.summary.cost_known_revenue_minor_units, currency) })}
@@ -184,11 +185,11 @@ export default function OverviewPage() {
             </div>
             <div>
               <p className="text-xs text-ink-4 mb-1">{t('overview.cogs')}</p>
-              <p className="text-sm font-semibold text-ink">{formatMoney(profitability.summary.cost_minor_units, currency)}</p>
+              <p className="text-sm font-semibold text-ink"><Money minor={profitability.summary.cost_minor_units} currency={currency} /></p>
             </div>
             <div>
               <p className="text-xs text-ink-4 mb-1">{t('overview.profit')}</p>
-              <p className="text-sm font-semibold text-ink">{formatMoney(profitability.summary.profit_minor_units, currency)}</p>
+              <p className="text-sm font-semibold text-ink"><Money minor={profitability.summary.profit_minor_units} currency={currency} /></p>
             </div>
             <div>
               <p className="text-xs text-ink-4 mb-1">{t('overview.margin')}</p>
@@ -206,7 +207,7 @@ export default function OverviewPage() {
             <>
               <div className="flex items-center justify-between px-4 pt-3">
                 <p data-testid="channel-total-all" className="text-xs text-ink-3">
-                  {t('overview.totalAll')} <span className="font-semibold text-ink">{formatMoney(totalAllChannelsMinorUnits, currency)}</span>
+                  {t('overview.totalAll')} <span className="font-semibold text-ink"><Money minor={totalAllChannelsMinorUnits} currency={currency} /></span>
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5 px-4 pt-2">
@@ -225,7 +226,7 @@ export default function OverviewPage() {
                       title={visible ? t('overview.hide', { channel: source }) : t('overview.show', { channel: source })}
                     >
                       <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: visible ? color : 'transparent', border: `1.5px solid ${color}` }} aria-hidden />
-                      {source} · {formatMoney(channelTotalBySource[source] ?? 0, currency)}
+                      {source} · <Money minor={channelTotalBySource[source] ?? 0} currency={currency} />
                     </button>
                   )
                 })}
@@ -284,7 +285,7 @@ export default function OverviewPage() {
                 {revenueByChannel.channels.map(c => (
                   <tr key={c.source} className="hover:bg-hover/30">
                     <td className="px-3 py-2 text-ink-2 font-medium">{c.source}</td>
-                    <td className="px-3 py-2 text-ink font-medium">{formatMoney(c.total_minor_units, currency)}</td>
+                    <td className="px-3 py-2 text-ink font-medium"><Money minor={c.total_minor_units} currency={currency} /></td>
                   </tr>
                 ))}
               </tbody>

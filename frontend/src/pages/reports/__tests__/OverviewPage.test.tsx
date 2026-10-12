@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import OverviewPage from '../OverviewPage'
 import i18next from 'i18next'
 import { renderAt } from '../../../test/renderAt'
+import { AmountVisibilityProvider, maskMoney } from '../../../format/amountVisibility'
 import type { SalesSummaryReport, BusinessInsightsReport, ProfitabilityReport, ProfitabilityTrendReport, RevenueByChannelReport } from '../../../reports/types'
 
 vi.mock('../../../auth/AuthContext', () => ({
@@ -94,6 +95,19 @@ describe('OverviewPage', () => {
     expect(await screen.findByText('€1,180.00')).toBeInTheDocument()
     expect(screen.getByText('+18.4%')).toBeInTheDocument()
     expect(screen.getByText('112')).toBeInTheDocument()
+  })
+
+  it('hides revenue and channel totals while amounts are hidden, but not counts or percentages', async () => {
+    renderAt(<AmountVisibilityProvider><OverviewPage /></AmountVisibilityProvider>, '/reports')
+
+    expect(await screen.findByText('112')).toBeInTheDocument()
+    expect(screen.getByText('+18.4%')).toBeInTheDocument()
+    expect(screen.queryByText('€1,180.00')).not.toBeInTheDocument()
+    const summary = await screen.findByTestId('profitability-summary')
+    expect(summary).toHaveTextContent(maskMoney('EUR'))
+    expect(summary.textContent).not.toMatch(/€\s?\d/)
+    expect(screen.getByText('50.0%')).toBeInTheDocument()
+    expect(screen.queryByText('€315.00')).not.toBeInTheDocument()
   })
 
   it('shows business insight banners when the report has any', async () => {

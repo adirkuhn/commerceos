@@ -7,7 +7,7 @@ import { useSingleReport } from '../../reports/hooks/useSingleReport'
 import type { ProductPerformanceMatrixRow, ProductPerformanceQuadrant } from '../../reports/types'
 import { ReportPageShell, ReportCard, EmptyState } from './shared'
 import { useReportPeriod } from '../../reports/hooks/useReportPeriod'
-import { formatMoney } from '../../format/money'
+import { Money, useMoneyFormat } from '../../format/amountVisibility'
 
 function quadrants(): { id: ProductPerformanceQuadrant; label: string; hint: string }[] {
   return [
@@ -21,6 +21,7 @@ function quadrants(): { id: ProductPerformanceQuadrant; label: string; hint: str
 export default function ProductPerformanceMatrixPage() {
   const { token } = useAuth()
   const { t } = useTranslation('reports')
+  const formatMoney = useMoneyFormat()
   // In ?period= -- refresh and shared links keep the chosen range.
   const [period, setPeriod] = useReportPeriod()
   const getProductPerformanceMatrix = useCallback(reportsApi.getProductPerformanceMatrix, [])
@@ -57,7 +58,7 @@ export default function ProductPerformanceMatrixPage() {
                       {rows.slice(0, 8).map((r: ProductPerformanceMatrixRow) => (
                         <div key={r.sku_id ?? r.sku_code} className="flex items-center justify-between gap-2 text-2xs">
                           <span className="text-ink-2 truncate">{r.product_name || r.sku_code}</span>
-                          <span className="text-ink-4 shrink-0">{formatMoney(r.revenue_minor_units, currency)}</span>
+                          <span className="text-ink-4 shrink-0"><Money minor={r.revenue_minor_units} currency={currency} /></span>
                         </div>
                       ))}
                     </div>
