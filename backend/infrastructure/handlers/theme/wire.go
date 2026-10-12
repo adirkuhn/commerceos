@@ -10,6 +10,7 @@ import (
 
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
 	appapikeys "github.com/adirkuhn/commerceos/application/apikeys"
+	appsettings "github.com/adirkuhn/commerceos/application/settings"
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/presetimages"
@@ -49,6 +50,7 @@ func NewUseCases(db *gorm.DB, storage theme.AssetStorage) (UseCases, error) {
 		ResolveStorefrontKey: appapikeys.NewResolveAPIKeyUseCase(db, repositories.NewAPIKeyRepo(db), channels),
 		ListAssets:           apptheme.NewListAssetsUseCase(d), UploadAsset: apptheme.NewUploadAssetUseCase(d),
 		UpdateAsset: apptheme.NewUpdateAssetUseCase(d), DeleteAsset: apptheme.NewDeleteAssetUseCase(d),
+		GetAppearance: appsettings.NewGetAppearanceUseCase(db, repositories.NewAppearanceRepo(db)),
 	}, nil
 }
 

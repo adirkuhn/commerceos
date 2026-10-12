@@ -8,6 +8,7 @@ import (
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
 	"github.com/adirkuhn/commerceos/domain/locale"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/domain/theme"
 )
 
@@ -270,4 +271,12 @@ func styleOr(s *gentheme.ThemeSettingsStyle) string {
 		return theme.StyleDefault
 	}
 	return string(*s)
+}
+
+func toGenEditorAppearance(a settingsDomain.Appearance) gentheme.EditorAppearance {
+	return gentheme.EditorAppearance{
+		Font: gentheme.EditorAppearanceFont(a.Font), AccentColor: string(a.AccentColor), SidebarColor: string(a.SidebarColor),
+		Corners: gentheme.EditorAppearanceCorners(a.Corners), TextSize: gentheme.EditorAppearanceTextSize(a.TextSize),
+		Density: gentheme.EditorAppearanceDensity(a.Density),
+	}
 }

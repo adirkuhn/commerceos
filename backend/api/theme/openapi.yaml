@@ -664,7 +664,7 @@ components:
 
     Draft:
       type: object
-      required: [theme, version, documents, sales_channel_id, locale]
+      required: [theme, version, documents, sales_channel_id, locale, appearance]
       properties:
         theme: { $ref: '#/components/schemas/Theme' }
         version: { $ref: '#/components/schemas/Version' }
@@ -677,6 +677,31 @@ components:
         locale:
           allOf: [{ $ref: '#/components/schemas/Locale' }]
           description: The language of the merchant who opened the edit session (the editor's own texts).
+        appearance: { $ref: '#/components/schemas/EditorAppearance' }
+    EditorAppearance:
+      type: object
+      description: >-
+        The shop's admin appearance (Settings > Appearance), so the editor's
+        own controls match the admin; the canvas keeps the theme's look.
+      required: [font, accent_color, sidebar_color, corners, text_size, density]
+      properties:
+        font:
+          type: string
+          enum: [atkinson, inter, ibm_plex_sans, source_sans, barlow]
+          description: >-
+            Admin typeface. atkinson = Atkinson Hyperlegible Next (default),
+            ibm_plex_sans = IBM Plex Sans, source_sans = Source Sans 3.
+        accent_color:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+          description: Buttons, links and active states (white text on it reaches 4.5:1).
+        sidebar_color:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+          description: The admin sidebar background.
+        corners: { type: string, enum: [sharp, normal, round] }
+        text_size: { type: string, enum: [normal, large, larger] }
+        density: { type: string, enum: [compact, comfortable] }
     DraftResponse:
       type: object
       properties:

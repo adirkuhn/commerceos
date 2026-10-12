@@ -5,6 +5,7 @@ import (
 
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/domain/theme"
 )
 
@@ -150,4 +151,10 @@ type updateAssetFunc func(context.Context, string, string) (*theme.Asset, error)
 
 func (f updateAssetFunc) Execute(ctx context.Context, id, alt string) (*theme.Asset, error) {
 	return f(ctx, id, alt)
+}
+
+type appearanceFunc func(context.Context) (*settingsDomain.Appearance, error)
+
+func (f appearanceFunc) Execute(ctx context.Context) (*settingsDomain.Appearance, error) {
+	return f(ctx)
 }

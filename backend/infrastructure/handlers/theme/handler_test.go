@@ -19,6 +19,7 @@ import (
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	"github.com/adirkuhn/commerceos/domain/locale"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	themehandler "github.com/adirkuhn/commerceos/infrastructure/handlers/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
@@ -66,6 +67,9 @@ type stub struct {
 	keyErr         error
 	gotUpload      apptheme.UploadAssetInput
 	gotUploadBytes []byte
+	appearance     *settingsDomain.Appearance
+	appearanceErr  error
+	gotAppearCtx   context.Context
 }
 
 const assetID = "44444444-4444-4444-8444-444444444444"
@@ -173,6 +177,17 @@ func newRouter(t *testing.T, s *stub) *gin.Engine {
 			return &a, s.err
 		}),
 		DeleteAsset: deleteFunc(func(context.Context, string) error { return s.err }),
+		GetAppearance: appearanceFunc(func(ctx context.Context) (*settingsDomain.Appearance, error) {
+			s.gotAppearCtx = ctx
+			if s.appearanceErr != nil {
+				return nil, s.appearanceErr
+			}
+			if s.appearance != nil {
+				return s.appearance, nil
+			}
+			a := settingsDomain.DefaultAppearance(tenant.IDFromContext(ctx))
+			return &a, nil
+		}),
 		ResolveStorefrontKey: keyFunc(func(_ context.Context, k string) (apikeysDomain.ResolvedAPIKey, error) {
 			if k != "shop-key" {
 				return apikeysDomain.ResolvedAPIKey{}, errors.New("bad key")

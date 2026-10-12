@@ -1,6 +1,7 @@
 package theme_test
 
 import (
+	"errors"
 	"net/http"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	"github.com/adirkuhn/commerceos/domain/locale"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -36,6 +38,40 @@ func TestEditor_openDraftRunsAsTheSessionTenant(t *testing.T) {
 	assert.EqualValues(t, 3, data["version"].(map[string]any)["revision"])
 	assert.Equal(t, "nl", data["locale"], "the editor speaks the language its session was opened in")
 	assert.Equal(t, "tenant-1", tenant.IDFromContext(s.gotCtx))
+}
+
+// The editor's own controls wear the shop's admin appearance.
+func TestEditor_openDraftIncludesTheSavedAppearance(t *testing.T) {
+	s := &stub{session: editSession(), appearance: &settingsDomain.Appearance{
+		TenantID: "tenant-1", Font: settingsDomain.FontBarlow, AccentColor: "#8A1C1C", SidebarColor: "#102030",
+		Corners: settingsDomain.CornersRound, TextSize: settingsDomain.TextSizeLarger, Density: settingsDomain.DensityCompact,
+		UpdatedAt: testNow,
+	}}
+	w := do(newRouter(t, s), http.MethodPost, "/api/v1/theme-editor/draft", "", "good")
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Equal(t, map[string]any{
+		"font": "barlow", "accent_color": "#8A1C1C", "sidebar_color": "#102030",
+		"corners": "round", "text_size": "larger", "density": "compact",
+	}, decode(t, w)["data"].(map[string]any)["appearance"])
+	assert.Equal(t, "tenant-1", tenant.IDFromContext(s.gotAppearCtx), "read as the session's tenant")
+}
+
+func TestEditor_openDraftIncludesDefaultAppearanceWhenNeverSaved(t *testing.T) {
+	w := do(newRouter(t, &stub{session: editSession()}), http.MethodPost, "/api/v1/theme-editor/draft", "", "good")
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Equal(t, map[string]any{
+		"font": "atkinson", "accent_color": "#2F33B8", "sidebar_color": "#14163F",
+		"corners": "normal", "text_size": "normal", "density": "comfortable",
+	}, decode(t, w)["data"].(map[string]any)["appearance"])
+}
+
+func TestEditor_openDraftFailsWhenAppearanceCannotBeRead(t *testing.T) {
+	s := &stub{session: editSession(), appearanceErr: errors.New("db down")}
+	w := do(newRouter(t, s), http.MethodPost, "/api/v1/theme-editor/draft", "", "good")
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code, w.Body.String())
 }
 
 // Editor changes are the merchant's own actions: the events they raise

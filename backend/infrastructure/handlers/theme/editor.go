@@ -31,6 +31,11 @@ func (h *Handler) OpenDraft(c *gin.Context) {
 		lang = locale.English
 	}
 	draft.Locale = gentheme.Locale(lang)
+	appearance, err := h.uc.GetAppearance.Execute(c.Request.Context())
+	if fail(c, err) {
+		return
+	}
+	draft.Appearance = toGenEditorAppearance(*appearance)
 	middleware.OK(c, draft)
 }
 

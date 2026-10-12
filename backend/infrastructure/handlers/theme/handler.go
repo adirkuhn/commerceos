@@ -12,6 +12,7 @@ import (
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
 	apptheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 )
@@ -92,6 +93,10 @@ type UseCases struct {
 	}
 	ResolveStorefrontKey interface {
 		Execute(ctx context.Context, plaintextKey string) (apikeysDomain.ResolvedAPIKey, error)
+	}
+	// GetAppearance reads the shop's admin appearance for the editor chrome.
+	GetAppearance interface {
+		Execute(ctx context.Context) (*settingsDomain.Appearance, error)
 	}
 }
 
