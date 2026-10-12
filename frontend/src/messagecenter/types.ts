@@ -133,6 +133,8 @@ export interface MessageTemplateDefault {
   key: string
   trigger_subject: TriggerSubject
   name: string
+  // One line on what the message is and when it is sent.
+  description: string
   category: MessageCategory
   channels: MessageChannel[]
   subject: string

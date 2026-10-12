@@ -13,7 +13,7 @@ import { Dialog } from '../components/common/Dialog'
 import { useConfirm } from '../components/common/useConfirm'
 import { apiErrorText } from '../api/apiErrorText'
 import { EmailDesignEditor } from './design/EmailDesignEditor'
-import { TemplateGallery } from './design/TemplateGallery'
+import { StartFromSelect } from './design/StartFromSelect'
 import { DESIGN_VIEW, templateDesignPath } from './messageCenterPaths'
 import { plainTextExcerpt } from './design/designHelpers'
 
@@ -35,14 +35,16 @@ interface FormState {
   body: string
   textBody: string
   enabled: boolean
+  // The default a new template starts from ('' = blank).
+  defaultKey: string
 }
 
 function emptyForm(): FormState {
-  return { name: '', category: 'purchase', channels: [], subject: '', body: '', textBody: '', enabled: true }
+  return { name: '', category: 'purchase', channels: [], subject: '', body: '', textBody: '', enabled: true, defaultKey: '' }
 }
 
 function toForm(tpl: MessageTemplate): FormState {
-  return { name: tpl.name, category: tpl.category, channels: tpl.channels, subject: tpl.subject, body: tpl.body, textBody: tpl.text_body ?? '', enabled: tpl.enabled }
+  return { name: tpl.name, category: tpl.category, channels: tpl.channels, subject: tpl.subject, body: tpl.body, textBody: tpl.text_body ?? '', enabled: tpl.enabled, defaultKey: tpl.default_key ?? '' }
 }
 
 export default function MessageTemplatesPanel() {
@@ -64,8 +66,6 @@ export default function MessageTemplatesPanel() {
   const designing = view === DESIGN_VIEW ? templates.find(tpl => tpl.id === designId) ?? null : null
   // Bumped by "reset to default" so the editor reloads the restored body.
   const [resets, setResets] = useState(0)
-  // "New template" starts in the defaults gallery until "start blank".
-  const [startBlank, setStartBlank] = useState(false)
   // Editor open state is the URL (/message-center/templates/<new|id>).
   const editor = useRoutedEditor(TEMPLATES_PATH)
   const creating = editor.editingId === NEW_RECORD
@@ -81,7 +81,6 @@ export default function MessageTemplatesPanel() {
   const formReady = useInitOnce(editor.editingId, creating || !!editingTemplate, () => {
     setForm(editingTemplate ? toForm(editingTemplate) : emptyForm())
     setFormError('')
-    setStartBlank(false)
   })
   const openCreate = editor.openNew
   const openEdit = (tpl: MessageTemplate) => editor.openEdit(tpl.id)
@@ -103,7 +102,7 @@ export default function MessageTemplatesPanel() {
       if (editingTemplate) {
         await update(editingTemplate.id, { ...content, enabled: form.enabled })
       } else {
-        await create(content)
+        await create({ ...content, ...(form.defaultKey ? { default_key: form.defaultKey } : {}) })
       }
       closeForm()
     } catch (err) {
@@ -129,11 +128,10 @@ export default function MessageTemplatesPanel() {
     })
   }
 
-  async function startFromDefault(d: MessageTemplateDefault) {
-    const created = await create({
-      name: d.name, category: d.category, channels: d.channels, subject: d.subject, body: d.body, text_body: d.text_body, default_key: d.key,
-    })
-    navigate(templateDesignPath(created.id), { replace: true })
+  function startFrom(d: MessageTemplateDefault | null) {
+    setForm(f => d
+      ? { ...f, name: d.name, category: d.category, channels: d.channels, subject: d.subject, body: d.body, textBody: d.text_body, defaultKey: d.key }
+      : { ...emptyForm(), enabled: f.enabled })
   }
 
   async function resetDesign(tpl: MessageTemplate) {
@@ -249,7 +247,7 @@ export default function MessageTemplatesPanel() {
       {formReady && (
         <Dialog onClose={closeForm} className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeForm} />
-          <div className={`relative w-full ${creating && !startBlank ? 'max-w-2xl' : 'max-w-md'} bg-raised rounded-xl shadow-2xl border border-line p-5`}>
+          <div className={`relative w-full max-w-md bg-raised rounded-xl shadow-2xl border border-line p-5`}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-ink">
                 {editingTemplate ? t('templates.editTitle') : t('templates.newTitle')}
@@ -258,8 +256,9 @@ export default function MessageTemplatesPanel() {
                 <X size={14} className="text-ink-4" />
               </button>
             </div>
-            {creating && !startBlank ? <TemplateGallery onBlank={() => setStartBlank(true)} onPick={startFromDefault} /> : (
             <form onSubmit={handleSubmit} className="space-y-3">
+              {creating && <StartFromSelect value={form.defaultKey} onChoose={startFrom} />}
+
               <div>
                 <label htmlFor="template-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
                   {t('templates.name')}
@@ -393,7 +392,6 @@ export default function MessageTemplatesPanel() {
                 {saving ? t('common:actions.saving') : editingTemplate ? t('common:actions.saveChanges') : t('templates.create')}
               </button>
             </form>
-            )}
           </div>
         </Dialog>
       )}

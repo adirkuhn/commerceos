@@ -56,6 +56,7 @@ func TestListMessageTemplateDefaultsHandler_returnsContractShape(t *testing.T) {
 	assert.Equal(t, mcDomain.DefaultOrderConfirmation, first.Key)
 	assert.Equal(t, genmc.TriggerSubject("storefront.order.placed"), first.TriggerSubject)
 	assert.Equal(t, defaults[0].Template.Name, first.Name)
+	assert.Equal(t, defaults[0].Description, first.Description)
 	assert.Equal(t, genmc.Category("purchase"), first.Category)
 	assert.Equal(t, []genmc.Channel{"email", "whatsapp"}, first.Channels)
 	assert.Equal(t, defaults[0].Template.Body, first.Body)

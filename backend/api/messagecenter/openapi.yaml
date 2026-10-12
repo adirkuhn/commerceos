@@ -366,9 +366,12 @@ components:
 
     MessageTemplateDefault:
       type: object
-      required: [key, trigger_subject, name, category, channels, subject, body, text_body]
+      required: [key, trigger_subject, name, description, category, channels, subject, body, text_body]
       properties:
         key: { type: string }
+        description:
+          type: string
+          description: One line, in the store's language, on what the message is and when it is sent.
         trigger_subject:
           $ref: '#/components/schemas/TriggerSubject'
         name: { type: string }

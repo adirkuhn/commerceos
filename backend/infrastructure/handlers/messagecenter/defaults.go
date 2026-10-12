@@ -32,7 +32,7 @@ func (h *Handler) ListMessageTemplateDefaults(c *gin.Context) {
 	for i, d := range defaults {
 		t := d.Template
 		out[i] = genmc.MessageTemplateDefault{
-			Key: d.Key, TriggerSubject: genmc.TriggerSubject(d.TriggerSubject), Name: t.Name,
+			Key: d.Key, TriggerSubject: genmc.TriggerSubject(d.TriggerSubject), Name: t.Name, Description: d.Description,
 			Category: genmc.Category(t.Category), Channels: toGenChannels(t), Subject: t.Subject, Body: t.Body, TextBody: t.TextBody,
 		}
 	}

@@ -44,6 +44,7 @@ beforeEach(() => {
 
 const orderDefault = {
   key: 'order_confirmation', trigger_subject: 'storefront.order.placed' as const, name: 'Order confirmation',
+  description: 'Sent to the customer when they place an order.',
   category: 'purchase' as const, channels: ['email' as const, 'whatsapp' as const],
   subject: 'Order #{{order_number}} confirmed', body: '<p>Thanks</p>', text_body: 'Thanks on WhatsApp',
 }
@@ -86,7 +87,6 @@ describe('MessageTemplatesPanel', () => {
     await screen.findByText('No message templates yet')
 
     await userEvent.click(screen.getByText('New template'))
-    await userEvent.click(await screen.findByText('Start blank'))
     await userEvent.type(await screen.findByLabelText('Name'), 'Welcome message')
     await userEvent.click(screen.getByLabelText('WhatsApp'))
     expect(screen.queryByLabelText('Body')).not.toBeInTheDocument()
@@ -133,27 +133,42 @@ describe('MessageTemplatesPanel', () => {
     expect(await screen.findByTestId('design-editor')).toHaveTextContent('template-1')
   })
 
-  it('new template from a default creates it with the default content and opens the editor', async () => {
+  it('a new template can start from a default, which fills the form and says what it does', async () => {
     vi.mocked(messagecenterApi.createMessageTemplate).mockResolvedValue(template({ id: 'template-new', default_key: 'order_confirmation' }))
 
     renderAt(<MessageTemplatesPanel />, '/message-center', '/message-center/templates/new')
-    expect(await screen.findByText('For: Storefront order placed')).toBeInTheDocument()
-    await userEvent.click(screen.getByText('Order confirmation'))
+    expect(await screen.findByText('Write the message yourself.')).toBeInTheDocument()
+    await screen.findByRole('option', { name: 'Order confirmation' })
+    await userEvent.selectOptions(screen.getByLabelText('Start from'), 'order_confirmation')
+
+    expect(screen.getByText('Sent to the customer when they place an order.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Name')).toHaveValue('Order confirmation')
+    expect(screen.getByLabelText('WhatsApp / SMS text')).toHaveValue('Thanks on WhatsApp')
+    await userEvent.click(screen.getByText('Create template'))
 
     await waitFor(() => expect(messagecenterApi.createMessageTemplate).toHaveBeenCalledWith('test-token', {
       name: 'Order confirmation', category: 'purchase', channels: ['email', 'whatsapp'],
       subject: 'Order #{{order_number}} confirmed', body: '<p>Thanks</p>', text_body: 'Thanks on WhatsApp', default_key: 'order_confirmation',
     }))
-    expect(await screen.findByTestId('design-editor')).toHaveTextContent('template-new')
   })
 
-  it('a failed create from a default shows the error in the gallery', async () => {
-    vi.mocked(messagecenterApi.createMessageTemplate).mockRejectedValue(new Error('nope'))
-
+  it('switching back to blank clears the default', async () => {
     renderAt(<MessageTemplatesPanel />, '/message-center', '/message-center/templates/new')
-    await userEvent.click(await screen.findByText('Order confirmation'))
+    await screen.findByRole('option', { name: 'Order confirmation' })
+    await userEvent.selectOptions(screen.getByLabelText('Start from'), 'order_confirmation')
+    await userEvent.selectOptions(screen.getByLabelText('Start from'), '')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('nope')
+    expect(screen.getByLabelText('Name')).toHaveValue('')
+    expect(screen.getByText('Write the message yourself.')).toBeInTheDocument()
+  })
+
+  it('editing an existing template has no start-from choice', async () => {
+    vi.mocked(messagecenterApi.listMessageTemplates).mockResolvedValue([template()])
+
+    renderAt(<MessageTemplatesPanel />, '/message-center', '/message-center/templates/template-1')
+
+    expect(await screen.findByLabelText('Name')).toHaveValue('Order confirmed')
+    expect(screen.queryByLabelText('Start from')).not.toBeInTheDocument()
   })
 
   it('a design URL for a missing template says so', async () => {
@@ -174,7 +189,6 @@ describe('MessageTemplatesPanel', () => {
 
   it('the editor explains loops and conditional sections', async () => {
     renderAt(<MessageTemplatesPanel />, '/message-center/templates/new')
-    await userEvent.click(await screen.findByText('Start blank'))
 
     expect(await screen.findByText(/Repeat a list with \{\{#items\}\}…\{\{\/items\}\}/)).toBeInTheDocument()
   })

@@ -57,14 +57,7 @@
     "resetTitle": "Standaard herstellen?",
     "resetMessage": "Het onderwerp, de e-mail en de WhatsApp-/sms-tekst gaan terug naar de standaard. Je wijzigingen daarin gaan verloren.",
     "resetConfirm": "Herstellen",
-    "resetFailed": "Het sjabloon kon niet worden hersteld.",
-    "gallery": {
-      "hint": "Begin met een kant-en-klaar bericht en pas het aan, of begin leeg.",
-      "blank": "Leeg beginnen",
-      "blankHint": "Schrijf het bericht zelf.",
-      "sentOn": "Voor: {{trigger}}",
-      "createFailed": "Het sjabloon kon niet worden gemaakt."
-    }
+    "resetFailed": "Het sjabloon kon niet worden hersteld."
   },
   "operator": {
     "eq": "is gelijk aan",
@@ -139,6 +132,9 @@
     "new": "Nieuw sjabloon",
     "newTitle": "Nieuw berichtsjabloon",
     "search": "Sjablonen zoeken...",
+    "startBlank": "Leeg",
+    "startBlankHint": "Schrijf het bericht zelf.",
+    "startFrom": "Beginnen met",
     "subject": "Onderwerp (alleen e-mail)",
     "textBody": "WhatsApp- / sms-tekst",
     "tokensHint": "Gebruik {{token}}-variabelen -- welke beschikbaar zijn hangt af van de gebeurtenis die dit sjabloon verstuurt. Herhaal een lijst met {{loop}}; toon tekst alleen als een waarde gevuld is met {{ifSet}}, of alleen als die leeg is met {{ifEmpty}}."

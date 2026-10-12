@@ -57,14 +57,7 @@
     "resetTitle": "Restaurar o padrão?",
     "resetMessage": "O assunto, o e-mail e o texto de WhatsApp/SMS voltam ao padrão. Suas alterações neles serão perdidas.",
     "resetConfirm": "Restaurar",
-    "resetFailed": "Não foi possível restaurar o modelo.",
-    "gallery": {
-      "hint": "Comece com uma mensagem pronta e personalize, ou comece do zero.",
-      "blank": "Começar do zero",
-      "blankHint": "Escreva a mensagem você mesmo.",
-      "sentOn": "Para: {{trigger}}",
-      "createFailed": "Não foi possível criar o modelo."
-    }
+    "resetFailed": "Não foi possível restaurar o modelo."
   },
   "operator": {
     "eq": "é igual a",
@@ -141,6 +134,9 @@
     "new": "Novo modelo",
     "newTitle": "Novo modelo de mensagem",
     "search": "Buscar modelos...",
+    "startBlank": "Em branco",
+    "startBlankHint": "Escreva a mensagem você mesmo.",
+    "startFrom": "Começar de",
     "subject": "Assunto (só e-mail)",
     "textBody": "Texto do WhatsApp / SMS",
     "tokensHint": "Use variáveis {{token}} -- as variáveis disponíveis dependem do evento que envia este modelo. Repita uma lista com {{loop}}; mostre um texto só quando um valor existe com {{ifSet}}, ou só quando está vazio com {{ifEmpty}}."

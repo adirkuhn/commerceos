@@ -57,14 +57,7 @@
     "resetTitle": "Reset to the default?",
     "resetMessage": "The subject, email and WhatsApp/SMS text go back to the built-in default. Your changes to them are lost.",
     "resetConfirm": "Reset",
-    "resetFailed": "Couldn’t reset the template.",
-    "gallery": {
-      "hint": "Start from a ready-made message and customize it, or start blank.",
-      "blank": "Start blank",
-      "blankHint": "Write the message yourself.",
-      "sentOn": "For: {{trigger}}",
-      "createFailed": "Couldn’t create the template."
-    }
+    "resetFailed": "Couldn’t reset the template."
   },
   "operator": {
     "eq": "equals",
@@ -139,6 +132,9 @@
     "new": "New template",
     "newTitle": "New message template",
     "search": "Search templates...",
+    "startBlank": "Blank",
+    "startBlankHint": "Write the message yourself.",
+    "startFrom": "Start from",
     "subject": "Subject (email only)",
     "textBody": "WhatsApp / SMS text",
     "tokensHint": "Use {{token}} placeholders -- available tokens depend on which event sends this template. Repeat a list with {{loop}}; show text only when a value is set with {{ifSet}}, or only when it is empty with {{ifEmpty}}."
