@@ -184,6 +184,7 @@
     "selected_other": "{{count}} selected",
     "selectOrder": "Select order #{{number}}",
     "sourceInternal": "Internal",
+    "sourceStorefront": "Storefront",
     "statusPlaceholder": "Status…",
     "unfulfilled": "Unfulfilled"
   },

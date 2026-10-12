@@ -1,6 +1,23 @@
+import i18next from 'i18next'
 import type { SalesOrder, SalesOrderStatus, Address } from './types'
 
 export const STATUS_OPTIONS: SalesOrderStatus[] = ['pending', 'processing', 'on-hold', 'shipped', 'completed', 'cancelled', 'refunded', 'failed', 'partially_refunded']
+
+// salesOrderSourceLabel is the channel an order came in through, as staff
+// name it: 'manual' (created here in the admin) reads "Internal",
+// 'internal' (a built-in storefront's checkout) reads "Storefront".
+// Unknown values are shown as sent.
+export function salesOrderSourceLabel(source: string): string {
+  switch (source) {
+    case 'pos': return 'POS'
+    case 'woocommerce': return 'WOO'
+    case 'bol': return 'Bol'
+    case 'manual': return i18next.t('orders:list.sourceInternal')
+    case 'internal': return i18next.t('orders:list.sourceStorefront')
+    case 'whatsapp': return 'WhatsApp'
+    default: return source
+  }
+}
 
 // customerName is the billing name, else the billing email, else
 // unknownLabel (admin tables use an em dash; scanner screens spell it out).

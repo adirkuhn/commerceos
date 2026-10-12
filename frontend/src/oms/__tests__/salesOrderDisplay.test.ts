@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { STATUS_OPTIONS, addressesEqual, customerName, shippingAddressLine } from '../salesOrderDisplay'
+import { STATUS_OPTIONS, addressesEqual, customerName, salesOrderSourceLabel, shippingAddressLine } from '../salesOrderDisplay'
 import type { SalesOrder } from '../types'
 import omsContract from '../../../../backend/api/oms/openapi.yaml?raw'
 
@@ -47,5 +47,17 @@ describe('STATUS_OPTIONS', () => {
     expect(enumLine).not.toBeNull()
     const contract = enumLine![1].split(',').map((s: string) => s.trim())
     expect([...STATUS_OPTIONS].sort()).toEqual([...contract].sort())
+  })
+})
+
+describe('salesOrderSourceLabel', () => {
+  it('names each channel the way staff do, never the raw value', () => {
+    expect(salesOrderSourceLabel('manual')).toBe('Internal')
+    expect(salesOrderSourceLabel('internal')).toBe('Storefront')
+    expect(salesOrderSourceLabel('woocommerce')).toBe('WOO')
+    expect(salesOrderSourceLabel('pos')).toBe('POS')
+  })
+  it('shows an unknown source as sent', () => {
+    expect(salesOrderSourceLabel('etsy')).toBe('etsy')
   })
 })

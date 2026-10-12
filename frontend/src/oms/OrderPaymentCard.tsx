@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Copy } from 'lucide-react'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { PaymentStatusBadge } from './PaymentStatusBadge'
+import { salesOrderSourceLabel } from './salesOrderDisplay'
 import type { SalesOrder } from './types'
 import { apiErrorText } from '../api/apiErrorText'
 
@@ -31,7 +32,7 @@ export function OrderPaymentCard({ order }: { order: SalesOrder }) {
     <div className="rounded-xl border border-line p-4 space-y-1 text-xs">
       <h3 className="text-xs font-semibold text-ink mb-2">{t('detail.payment')}</h3>
       <p className="text-ink-3 flex items-center gap-1.5">{t('detail.paymentStatus')} <PaymentStatusBadge status={order.payment_status} /></p>
-      <p className="text-ink-3">{t('detail.source')} <span className="text-ink capitalize">{order.source}</span></p>
+      <p className="text-ink-3">{t('detail.source')} <span className="text-ink">{salesOrderSourceLabel(order.source)}</span></p>
       {method && <p className="text-ink-3">{t('detail.paymentLabel')} <span className="text-ink">{method}</span></p>}
       {reference && (
         <p className="text-ink-3 flex items-center gap-1.5 min-w-0">

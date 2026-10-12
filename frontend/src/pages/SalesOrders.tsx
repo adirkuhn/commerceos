@@ -3,14 +3,13 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { idFromPath } from '../routes'
 import { ShoppingCart, Plus, ChevronUp, ChevronDown, X } from 'lucide-react'
 import clsx from 'clsx'
-import i18next from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import type { SalesOrderStatus, SalesOrderSource, SalesOrderSortField, SortDirection } from '../oms/types'
 import { useConfirm } from '../components/common/useConfirm'
-import { STATUS_OPTIONS, customerName } from '../oms/salesOrderDisplay'
+import { STATUS_OPTIONS, customerName, salesOrderSourceLabel } from '../oms/salesOrderDisplay'
 import { PaymentStatusBadge } from '../oms/PaymentStatusBadge'
 import { salesOrderStatusLabel } from '../oms/statusLabel'
 import { CreateSalesOrderPage } from '../oms/CreateSalesOrderPage'
@@ -24,13 +23,9 @@ const PAGE_SIZE = 20
 // SOURCE_FILTER_OPTIONS: 'manual' reads as "Internal" here -- POS/manual/
 // bol/woocommerce is the wire vocabulary (see SalesOrderSource), Internal is
 // the label staff actually recognize for a manually-created order.
-const sourceFilterOptions = (): { value: SalesOrderSource; label: string }[] => [
-  { value: 'pos', label: 'POS' },
-  { value: 'woocommerce', label: 'WOO' },
-  { value: 'bol', label: 'Bol' },
-  { value: 'manual', label: i18next.t('orders:list.sourceInternal') },
-  { value: 'whatsapp', label: 'WhatsApp' },
-]
+const SOURCE_FILTER_VALUES: SalesOrderSource[] = ['pos', 'woocommerce', 'bol', 'manual', 'whatsapp']
+const sourceFilterOptions = (): { value: SalesOrderSource; label: string }[] =>
+  SOURCE_FILTER_VALUES.map(value => ({ value, label: salesOrderSourceLabel(value) }))
 
 const STATUS_COLORS: Record<SalesOrderStatus, string> = {
   pending: 'bg-gray-500/15 text-ink-4',
@@ -416,7 +411,7 @@ export default function SalesOrders() {
                   <p className="text-2xs text-ink-4 truncate">{formatDateTime(o.occurred_at)}</p>
                 </td>
                 <td className="px-3 py-2.5 text-ink-3 max-w-[220px] truncate">{customerName(o)}</td>
-                <td className="px-3 py-2.5 text-ink-3">{o.source}</td>
+                <td className="px-3 py-2.5 text-ink-3">{salesOrderSourceLabel(o.source)}</td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium', STATUS_COLORS[o.status])}>

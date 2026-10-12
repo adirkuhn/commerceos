@@ -187,6 +187,7 @@
     "selected_other": "{{count}} selecionados",
     "selectOrder": "Selecionar pedido #{{number}}",
     "sourceInternal": "Interno",
+    "sourceStorefront": "Loja virtual",
     "statusPlaceholder": "Status…",
     "unfulfilled": "Não atendido"
   },
