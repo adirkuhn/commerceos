@@ -52,7 +52,7 @@ describe('STATUS_OPTIONS', () => {
 
 describe('salesOrderSourceLabel', () => {
   it('names each channel the way staff do, never the raw value', () => {
-    expect(salesOrderSourceLabel('manual')).toBe('Internal')
+    expect(salesOrderSourceLabel('manual')).toBe('Manual')
     expect(salesOrderSourceLabel('internal')).toBe('Storefront')
     expect(salesOrderSourceLabel('woocommerce')).toBe('WOO')
     expect(salesOrderSourceLabel('pos')).toBe('POS')

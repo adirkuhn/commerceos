@@ -189,7 +189,7 @@
     "selected_many": "{{count}} selecionados",
     "selected_other": "{{count}} selecionados",
     "selectOrder": "Selecionar pedido #{{number}}",
-    "sourceInternal": "Interno",
+    "sourceInternal": "Manual",
     "sourceStorefront": "Loja virtual",
     "statusPlaceholder": "Status…",
     "unfulfilled": "Não atendido"

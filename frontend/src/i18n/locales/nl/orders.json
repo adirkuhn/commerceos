@@ -186,7 +186,7 @@
     "selected_one": "{{count}} geselecteerd",
     "selected_other": "{{count}} geselecteerd",
     "selectOrder": "Order #{{number}} selecteren",
-    "sourceInternal": "Intern",
+    "sourceInternal": "Handmatig",
     "sourceStorefront": "Webwinkel",
     "statusPlaceholder": "Status…",
     "unfulfilled": "Niet afgehandeld"

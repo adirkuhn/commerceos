@@ -1043,7 +1043,7 @@ components:
 
     SalesOrderSource:
       type: string
-      enum: [pos, manual, woocommerce, bol, whatsapp]
+      enum: [pos, manual, woocommerce, bol, whatsapp, internal]
 
     PaymentStatus:
       type: string

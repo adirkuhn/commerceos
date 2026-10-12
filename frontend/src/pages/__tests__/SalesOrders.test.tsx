@@ -282,20 +282,30 @@ describe('Sales orders list', () => {
     await userEvent.click(screen.getByRole('button', { name: 'POS' }))
     await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: ['pos'] }))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Internal' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Manual' }))
     await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: ['pos', 'manual'] }))
 
     await userEvent.click(screen.getByRole('button', { name: 'POS' }))
     await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: ['manual'] }))
   })
 
-  it('renders all four channel filter buttons, none active by default', async () => {
+  it('filters storefront orders by their own channel button', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
-    for (const label of ['POS', 'WOO', 'Bol', 'Internal']) {
+    await userEvent.click(screen.getByRole('button', { name: 'Storefront' }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: ['internal'] }))
+  })
+
+  it('renders all the channel filter buttons, none active by default', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await screen.findByText('#1001')
+
+    for (const label of ['POS', 'WOO', 'Bol', 'Manual', 'Storefront', 'WhatsApp']) {
       const button = screen.getByRole('button', { name: label })
       expect(button).toHaveAttribute('aria-pressed', 'false')
     }

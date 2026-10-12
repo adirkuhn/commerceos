@@ -22,9 +22,10 @@ import { apiErrorText } from '../api/apiErrorText'
 const PAGE_SIZE = 20
 
 // SOURCE_FILTER_OPTIONS: 'manual' reads as "Internal" here -- POS/manual/
-// bol/woocommerce is the wire vocabulary (see SalesOrderSource), Internal is
-// the label staff actually recognize for a manually-created order.
-const SOURCE_FILTER_VALUES: SalesOrderSource[] = ['pos', 'woocommerce', 'bol', 'manual', 'whatsapp']
+// The wire vocabulary (see SalesOrderSource); labels come from
+// salesOrderSourceLabel -- "Manual" for an order created by staff,
+// "Storefront" for one placed through the built-in storefront ("internal").
+const SOURCE_FILTER_VALUES: SalesOrderSource[] = ['pos', 'woocommerce', 'bol', 'manual', 'internal', 'whatsapp']
 const sourceFilterOptions = (): { value: SalesOrderSource; label: string }[] =>
   SOURCE_FILTER_VALUES.map(value => ({ value, label: salesOrderSourceLabel(value) }))
 

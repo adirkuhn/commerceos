@@ -186,7 +186,7 @@
     "selected_one": "{{count}} selected",
     "selected_other": "{{count}} selected",
     "selectOrder": "Select order #{{number}}",
-    "sourceInternal": "Internal",
+    "sourceInternal": "Manual",
     "sourceStorefront": "Storefront",
     "statusPlaceholder": "Status…",
     "unfulfilled": "Unfulfilled"

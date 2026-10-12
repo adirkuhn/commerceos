@@ -18,7 +18,10 @@ import type { ChannelRevenue, DailyStockFlow, TopProduct } from './types'
 
 // Typed over SalesOrderSource so a new source can't ship without a label.
 function channelLabels(): Record<SalesOrderSource, string> {
-  return { pos: 'POS', manual: i18next.t('dashboard:channelManual'), woocommerce: 'WooCommerce', bol: 'Bol.com', whatsapp: 'WhatsApp' }
+  return {
+    pos: 'POS', manual: i18next.t('dashboard:channelManual'), woocommerce: 'WooCommerce', bol: 'Bol.com', whatsapp: 'WhatsApp',
+    internal: i18next.t('orders:list.sourceStorefront'),
+  }
 }
 
 function channelLabel(source: string): string {
