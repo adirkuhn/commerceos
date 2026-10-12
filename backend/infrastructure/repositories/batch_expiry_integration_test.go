@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
@@ -105,6 +106,16 @@ func TestBatchRepo_Integration_ListPendingReview_returnsOnlyExpiredUnreviewedBat
 	makeBatch(t, db, ctx, skuID, whID, &expiry) // still Active -- never flagged expired, must be excluded
 
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		// Stock left in every batch: only status and review decide here.
+		for _, id := range []string{pendingID, reviewedID} {
+			batchID, now := id, time.Now()
+			if err := repositories.NewStockMovementRepo(db).Create(ctx, &invDomain.StockMovement{
+				TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: whID, BatchID: &batchID,
+				Type: invDomain.MovementTypeReceipt, QuantityDelta: 2, OccurredAt: now, CreatedAt: now,
+			}); err != nil {
+				return err
+			}
+		}
 		if err := batchRepo.MarkExpired(ctx, pendingID); err != nil {
 			return err
 		}
@@ -224,4 +235,58 @@ func TestBatchRepo_Integration_MarkExpired_persistsStatus(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, invDomain.BatchStatusExpired, found.Status)
+}
+
+// An expired batch with nothing left has nothing to discard, write off or
+// extend -- it stays out of the review list and its counts.
+func TestBatchRepo_Integration_ListPendingReview_skipsBatchesWithNoStockLeft(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	batchRepo := repositories.NewBatchRepo(db)
+	movementRepo := repositories.NewStockMovementRepo(db)
+	skuID, whID := seedProductSKUWarehouse(t, db, ctx)
+
+	expiry := time.Now().Add(-10 * 24 * time.Hour)
+	inStock := makeBatch(t, db, ctx, skuID, whID, &expiry)
+	soldOut := makeBatch(t, db, ctx, skuID, whID, &expiry)
+	neverStocked := makeBatch(t, db, ctx, skuID, whID, &expiry)
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		move := func(batchID string, typ invDomain.MovementType, qty int64) error {
+			id := batchID
+			return movementRepo.Create(ctx, &invDomain.StockMovement{
+				TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: whID, BatchID: &id,
+				Type: typ, QuantityDelta: qty, OccurredAt: now, CreatedAt: now,
+			})
+		}
+		for _, err := range []error{
+			move(inStock, invDomain.MovementTypeReceipt, 3),
+			move(soldOut, invDomain.MovementTypeReceipt, 4),
+			move(soldOut, invDomain.MovementTypeSale, -4),
+		} {
+			if err != nil {
+				return err
+			}
+		}
+		for _, id := range []string{inStock, soldOut, neverStocked} {
+			if err := batchRepo.MarkExpired(ctx, id); err != nil {
+				return err
+			}
+		}
+		return nil
+	}))
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		found, err := batchRepo.ListPendingReview(ctx)
+		require.NoError(t, err)
+		require.Len(t, found, 1)
+		assert.Equal(t, inStock, found[0].BatchID)
+		assert.Equal(t, int64(3), found[0].Quantity)
+
+		n, err := batchRepo.CountPendingReview(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), n)
+		return nil
+	}))
 }

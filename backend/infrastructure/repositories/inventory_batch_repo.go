@@ -340,6 +340,9 @@ const pendingReviewBatchesSQL = `
 		LEFT JOIN stock_movements sm ON sm.batch_id = b.id
 		WHERE b.status = ? AND b.reviewed_at IS NULL
 		GROUP BY b.id, s.sku_code, p.name, w.name
+		-- Nothing left (sold, moved or written down to 0) means nothing to
+		-- discard, write off or extend: no review needed.
+		HAVING COALESCE(SUM(sm.quantity_delta), 0) > 0
 		ORDER BY b.expiry_date ASC
 	`
 
