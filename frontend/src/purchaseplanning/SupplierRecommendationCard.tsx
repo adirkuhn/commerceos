@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useDateFormat } from '../format/DateFormatProvider'
-import { formatMoney } from '../format/money'
+import { Money, useMoneyFormat } from '../format/amountVisibility'
 import type { Supplier } from '../suppliers/types'
 import { useOrderQuantities } from './hooks/useOrderQuantities'
 import { OrderActions } from './OrderActions'
@@ -31,6 +31,7 @@ interface Props {
 // One supplier's share of the plan: what to order from them, most urgent first.
 export function SupplierRecommendationCard({ group, asOf, suppliers = [], onCreateOrder }: Props) {
   const { t } = useTranslation('purchasePlanning')
+  const formatMoney = useMoneyFormat()
   const { formatDate } = useDateFormat()
   const unsourced = !group.supplier_id
   const order = useOrderQuantities(group.lines)
@@ -150,10 +151,10 @@ function RecommendationRow({ line, asOf, order }: { line: RecommendationLine; as
   )
 }
 
-function lineCost(line: RecommendationLine, order: RowOrder | null): string {
+function lineCost(line: RecommendationLine, order: RowOrder | null) {
   if (line.unit_cost_minor_units == null) return '—'
   const cost = order ? line.unit_cost_minor_units * order.quantity : line.estimated_cost_minor_units
-  return cost != null ? formatMoney(cost, line.currency_code) : '—'
+  return cost != null ? <Money minor={cost} currency={line.currency_code} /> : '—'
 }
 
 // The edited order's total; null unless every line has a cost in the group's currency.

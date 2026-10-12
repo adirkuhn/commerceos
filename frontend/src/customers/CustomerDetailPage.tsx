@@ -7,7 +7,7 @@ import { WhatsAppConversationPanel } from './WhatsAppConversationPanel'
 import type { Customer, Address } from './types'
 import * as omsApi from '../oms/api'
 import type { SalesOrder } from '../oms/types'
-import { formatMoney } from '../format/money'
+import { Money, useMoneyFormat } from '../format/amountVisibility'
 import { addressesEqual } from '../oms/salesOrderDisplay'
 import { fullName } from '../format/personName'
 import { useDateFormat } from '../format/DateFormatProvider'
@@ -63,7 +63,7 @@ interface CustomerTimelineEntry {
 // Customers have no structured activity log of their own (unlike sales
 // orders' SalesOrderActivity) -- this derives a reasonable timeline from
 // data already on hand: each order placed, plus the customer's own creation.
-function buildCustomerTimeline(customer: Customer, orders: SalesOrder[]): CustomerTimelineEntry[] {
+function buildCustomerTimeline(customer: Customer, orders: SalesOrder[], formatMoney: (minor: number, currency: string) => string): CustomerTimelineEntry[] {
   const entries: CustomerTimelineEntry[] = orders.map(o => ({
     id: `order-${o.id}`,
     label: i18next.t('customers:detail.placedOrder', { number: o.number || o.external_order_id, total: formatMoney(o.total_minor_units, o.currency_code) }),
@@ -88,6 +88,7 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
 }) {
   const { formatDateTime } = useDateFormat()
   const { t } = useTranslation(['customers', 'common'])
+  const formatMoney = useMoneyFormat()
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [ordersTotal, setOrdersTotal] = useState(0)
   const [ordersError, setOrdersError] = useState('')
@@ -139,7 +140,7 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
   // correct regardless.
   const currency = orders[0]?.currency_code ?? 'USD'
   const amountSpentMinorUnits = orders.reduce((sum, o) => sum + o.total_minor_units, 0)
-  const timeline = customer ? buildCustomerTimeline(customer, orders) : []
+  const timeline = customer ? buildCustomerTimeline(customer, orders, formatMoney) : []
 
   return (
     <div className="flex flex-col h-full">
@@ -179,7 +180,7 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="rounded-xl border border-line p-4">
                     <p className="text-2xs font-semibold caps-label text-ink-4 mb-1">{t('detail.amountSpent')}</p>
-                    <p className="text-lg font-semibold text-ink">{formatMoney(amountSpentMinorUnits, currency)}</p>
+                    <p className="text-lg font-semibold text-ink"><Money minor={amountSpentMinorUnits} currency={currency} /></p>
                   </div>
                   <Link
                     to={`/sales-orders?customer_id=${customer.id}`}

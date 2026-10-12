@@ -2,7 +2,7 @@ import { CheckCircle, PackagePlus, Tag, Undo2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { SalesOrder } from '../oms/types'
 import { customerName, shippingAddressLine } from '../oms/salesOrderDisplay'
-import { formatMoney } from '../format/money'
+import { Money } from '../format/amountVisibility'
 
 interface PackingSessionHeaderProps {
   order: SalesOrder
@@ -25,7 +25,7 @@ export function PackingSessionHeader({ order, showCreateLabel, readOnly, onCreat
           <span className="text-xs text-ink-4">·</span>
           <span className="text-xs text-ink-3">{customerName(order)}</span>
         </div>
-        <p className="text-xs text-ink-4">{formatMoney(order.total_minor_units, order.currency_code)}</p>
+        <p className="text-xs text-ink-4"><Money minor={order.total_minor_units} currency={order.currency_code} /></p>
         {shippingAddressLine(order.shipping) && (
           <p className="text-xs text-ink-4 mt-0.5">{shippingAddressLine(order.shipping)}</p>
         )}

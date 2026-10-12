@@ -15,7 +15,7 @@ import { DISCREPANCIES_SEGMENT, PROCUREMENT_PATH, STATUS_STYLE, poStatusLabel } 
 import { BookingDiscrepanciesPage } from '../procurement/BookingDiscrepanciesPage'
 import { CreateFromDocumentModal } from '../procurement/CreateFromDocumentModal'
 import { PurchaseOrderEditPage } from '../procurement/PurchaseOrderEditPage'
-import { formatMoney } from '../format/money'
+import { Money } from '../format/amountVisibility'
 import { apiErrorText } from '../api/apiErrorText'
 
 const STATUS_TABS: readonly (PurchaseOrderStatus | 'all')[] = ['all', 'draft', 'sent', 'partially_received', 'received', 'needs_review', 'cancelled']
@@ -201,7 +201,7 @@ export default function Procurement() {
                 <td className="px-3 py-2.5 text-ink-3">{po.expected_date ?? '—'}</td>
                 <td className="px-3 py-2.5 text-ink-3">{po.currency_code}</td>
                 <td className="px-3 py-2.5 text-right text-ink font-medium">
-                  {formatMoney(po.total_minor_units, po.currency_code)}
+                  <Money minor={po.total_minor_units} currency={po.currency_code} />
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">

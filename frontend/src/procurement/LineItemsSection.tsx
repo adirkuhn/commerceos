@@ -13,7 +13,7 @@ import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
 import { useConfirm } from '../components/common/useConfirm'
 import { friendlyParsingError, lineTypeLabel, isChargeLineType, signedLineItemAmount, unitsPerPurchasedItemOnLink } from './procurementHelpers'
 import { LineItemFormRow } from './LineItemFormRow'
-import { formatMoney } from '../format/money'
+import { Money } from '../format/amountVisibility'
 import { apiErrorText } from '../api/apiErrorText'
 
 // ── Line Items ───────────────────────────────────────────────────────────────
@@ -251,9 +251,9 @@ export function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, ini
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-ink">{li.quantity}</td>
-                  <td className="px-4 py-2.5 text-ink">{formatMoney(li.unit_cost_minor_units, currencyCode)}</td>
+                  <td className="px-4 py-2.5 text-ink"><Money minor={li.unit_cost_minor_units} currency={currencyCode} /></td>
                   <td className="px-4 py-2.5 text-ink font-medium">
-                    {formatMoney(signedLineItemAmount(li), currencyCode)}
+                    <Money minor={signedLineItemAmount(li)} currency={currencyCode} />
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-1">
@@ -318,7 +318,7 @@ export function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, ini
                 {t('lines.total')}
               </td>
               <td className="px-4 py-2.5 text-ink">
-                {formatMoney(lineItems.reduce((sum, li) => sum + signedLineItemAmount(li), 0), currencyCode)}
+                <Money minor={lineItems.reduce((sum, li) => sum + signedLineItemAmount(li), 0)} currency={currencyCode} />
               </td>
               <td className="px-4 py-2.5" />
             </tr>

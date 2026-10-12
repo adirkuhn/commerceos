@@ -6,7 +6,7 @@ import type { RecipientAddress, DeliveryPriceOption } from './types'
 import { CARRIERS, PACKAGE_TYPES } from './types'
 import * as shippingApi from './api'
 import { Dialog } from '../components/common/Dialog'
-import { formatMoney } from '../format/money'
+import { useMoneyFormat } from '../format/amountVisibility'
 
 // ESTIMATE_DEBOUNCE_MS: same purpose as the address check's blur-triggered
 // timing, but this one fires on every keystroke-driven state change (no
@@ -113,6 +113,7 @@ function normalize(s: string): string {
 export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, defaultPackageType, connectionId, initialRecipient, initialCarrier, initialPackageType, onNext, onClose }: AddressConfirmModalProps) {
   const [recipient, setRecipient] = useState<RecipientAddress>(() => initialRecipient ?? addressToRecipientDraft(initialAddress, fallbackEmail))
   const { t } = useTranslation(['shipping', 'common'])
+  const formatMoney = useMoneyFormat()
   const [carrier, setCarrier] = useState(initialCarrier ?? defaultCarrier ?? 1)
   const [packageType, setPackageType] = useState(initialPackageType ?? defaultPackageType ?? 1)
 

@@ -27,7 +27,7 @@ import { ShipmentTrackingSection } from './ShipmentTrackingSection'
 import { BolConfirmationCard } from './BolConfirmationCard'
 import { SoldExpiryNote } from './SoldExpiryNote'
 import { useDateFormat } from '../format/DateFormatProvider'
-import { formatMoney } from '../format/money'
+import { Money } from '../format/amountVisibility'
 import { apiErrorText } from '../api/apiErrorText'
 
 // ── Sales Order Detail Page ──────────────────────────────────────────────────
@@ -330,10 +330,10 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                           </td>
                           <td className="py-1.5 text-right text-ink-2">{li.quantity}</td>
                           <td className="py-1.5 text-right text-ink-2">
-                            {formatMoney(li.price_minor_units, detail.sales_order.currency_code)}
+                            <Money minor={li.price_minor_units} currency={detail.sales_order.currency_code} />
                           </td>
                           <td className="py-1.5 text-right font-medium text-ink">
-                            {formatMoney(li.total_minor_units, detail.sales_order.currency_code)}
+                            <Money minor={li.total_minor_units} currency={detail.sales_order.currency_code} />
                           </td>
                         </tr>
                       ))}
@@ -343,19 +343,19 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                   <div className="pt-2 border-t border-line space-y-1 text-xs">
                     <div className="flex justify-between text-ink-3">
                       <span>{t('detail.discount')}</span>
-                      <span>{formatMoney(detail.sales_order.discount_total_minor_units, detail.sales_order.currency_code)}</span>
+                      <span><Money minor={detail.sales_order.discount_total_minor_units} currency={detail.sales_order.currency_code} /></span>
                     </div>
                     <div className="flex justify-between text-ink-3">
                       <span>{t('detail.shipping')}</span>
-                      <span>{formatMoney(detail.sales_order.shipping_total_minor_units, detail.sales_order.currency_code)}</span>
+                      <span><Money minor={detail.sales_order.shipping_total_minor_units} currency={detail.sales_order.currency_code} /></span>
                     </div>
                     <div className="flex justify-between text-ink-3">
                       <span>{t('detail.tax')}</span>
-                      <span>{formatMoney(detail.sales_order.tax_total_minor_units, detail.sales_order.currency_code)}</span>
+                      <span><Money minor={detail.sales_order.tax_total_minor_units} currency={detail.sales_order.currency_code} /></span>
                     </div>
                     <div className="flex justify-between font-semibold text-ink pt-1">
                       <span>{t('common:fields.total')}</span>
-                      <span>{formatMoney(detail.sales_order.total_minor_units, detail.sales_order.currency_code)}</span>
+                      <span><Money minor={detail.sales_order.total_minor_units} currency={detail.sales_order.currency_code} /></span>
                     </div>
                   </div>
                 </div>

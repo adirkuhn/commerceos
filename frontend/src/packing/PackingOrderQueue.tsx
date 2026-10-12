@@ -6,7 +6,7 @@ import type { QueueEntry, SalesOrder } from '../oms/types'
 import { orderNumber } from './orderDisplay'
 import { lockLabel } from './lockDisplay'
 import { customerName } from '../oms/salesOrderDisplay'
-import { formatMoney } from '../format/money'
+import { Money } from '../format/amountVisibility'
 
 interface PackingOrderQueueProps {
   entries: QueueEntry[]
@@ -115,7 +115,7 @@ export function PackingOrderQueue({
                   : !o.fulfilled && <span className="text-2xs font-medium text-warning">{t('queue.notPicked')}</span>}
               </div>
               <p className="text-2xs text-ink-3 truncate">{customerName(o)}</p>
-              <p className="text-2xs text-ink-4 mt-0.5">{formatMoney(o.total_minor_units, o.currency_code)}</p>
+              <p className="text-2xs text-ink-4 mt-0.5"><Money minor={o.total_minor_units} currency={o.currency_code} /></p>
             </>
           )
           return (

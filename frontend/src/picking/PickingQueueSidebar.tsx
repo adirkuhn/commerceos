@@ -4,7 +4,7 @@ import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import type { QueueEntry } from '../oms/types'
 import { customerName } from '../oms/salesOrderDisplay'
-import { formatMoney } from '../format/money'
+import { Money } from '../format/amountVisibility'
 import { lockLabel } from '../packing/lockDisplay'
 import { filterPickingQueue } from './pickingQueueFilter'
 
@@ -71,7 +71,7 @@ export function PickingQueueSidebar({ entries, loading, error, activeOrderId, ac
                 )}
               </div>
               <p className="text-2xs text-ink-3 truncate">{customerName(o)}</p>
-              <p className="text-2xs text-ink-4 mt-0.5">{formatMoney(o.total_minor_units, o.currency_code)}</p>
+              <p className="text-2xs text-ink-4 mt-0.5"><Money minor={o.total_minor_units} currency={o.currency_code} /></p>
               {(lock || in_packing) && (
                 <p className="flex items-center gap-1 mt-1 text-2xs text-ink-4">
                   <Lock size={10} className="shrink-0" />

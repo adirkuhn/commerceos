@@ -2,6 +2,7 @@ import { Search, Filter, Plus, RefreshCw, ExternalLink, ChevronDown } from 'luci
 import clsx from 'clsx'
 import i18next from 'i18next'
 import { useTranslation } from 'react-i18next'
+import { Money, useMoneyFormat } from '../format/amountVisibility'
 import { useLocation } from 'react-router-dom'
 import { idFromPath } from '../routes'
 import { useStackNavigation } from '../routing/useStackNavigation'
@@ -104,6 +105,7 @@ export default function Orders() {
   const search = searchParam ?? ''
   const [statusFilter, setStatusFilter] = useQueryEnum<StatusFilter>('status', STATUS_FILTERS, 'all')
   const { t } = useTranslation(['orders', 'common'])
+  const formatMoney = useMoneyFormat()
   const activeTab = FILTER_TABS.find(tab => tab === statusFilter) ?? 'all'
   const setActiveTab = (tab: string) => setStatusFilter(tab as StatusFilter)
   const location = useLocation()
@@ -208,7 +210,7 @@ export default function Orders() {
                   </td>
                   <td className="px-3 py-2.5 text-ink-2">{o.customer}</td>
                   <td className="px-3 py-2.5 text-ink-3">{o.items}</td>
-                  <td className="px-3 py-2.5 font-medium text-ink">€{o.total.toFixed(2)}</td>
+                  <td className="px-3 py-2.5 font-medium text-ink"><Money minor={Math.round(o.total * 100)} currency="EUR" /></td>
                   <td className="px-3 py-2.5">
                     <span className={clsx('font-medium capitalize', PAYMENT_COLORS[o.paymentStatus])}>
                       {paymentLabel(o.paymentStatus)}
@@ -273,7 +275,7 @@ export default function Orders() {
               [t('demo.address'), selectedOrder.address],
               [t('demo.channel'), selectedOrder.channel],
               [t('demo.items'), selectedOrder.items.toString()],
-              [t('common:fields.total'), `€${selectedOrder.total.toFixed(2)}`],
+              [t('common:fields.total'), formatMoney(Math.round(selectedOrder.total * 100), 'EUR')],
               [t('demo.payment'), paymentLabel(selectedOrder.paymentStatus)],
               [t('common:fields.date'), selectedOrder.date],
             ].map(([k, v]) => (

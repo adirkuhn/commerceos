@@ -6,6 +6,7 @@ import { MemoryRouter, useNavigate } from 'react-router-dom'
 import SalesOrders from '../SalesOrders'
 import i18next from 'i18next'
 import type { SalesOrder, SalesOrderDetail } from '../../oms/types'
+import { AmountVisibilityProvider, maskMoney } from '../../format/amountVisibility'
 
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
@@ -161,6 +162,18 @@ describe('Sales orders list', () => {
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
     expect(screen.getByText('Completed', { selector: 'span.rounded-full' })).toBeInTheDocument()
     expect(screen.getByText('$50.00')).toBeInTheDocument()
+  })
+
+  it('hides order totals while amounts are hidden; revealing one does not open the order', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<AmountVisibilityProvider><MemoryRouter><SalesOrders /></MemoryRouter></AmountVisibilityProvider>)
+
+    expect(await screen.findByText('#1001')).toBeInTheDocument()
+    expect(screen.queryByText('$50.00')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Show amount' }))
+    expect(screen.getByText('$50.00')).toBeInTheDocument()
+    expect(omsApi.getSalesOrder).not.toHaveBeenCalled()
   })
 
   it('shows a fulfilled/unfulfilled badge per order', async () => {
@@ -493,6 +506,20 @@ describe('Sales order detail page', () => {
     expect(screen.getByText('WID-BLU')).toBeInTheDocument()
     expect(screen.getByText('5601049213991')).toBeInTheDocument()
     expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
+  })
+
+  it('hides line prices and order totals while amounts are hidden', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+
+    render(<AmountVisibilityProvider><MemoryRouter><SalesOrders /></MemoryRouter></AmountVisibilityProvider>)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByText('Blue Widget')).toBeInTheDocument()
+    expect(screen.queryByText('$20.00')).not.toBeInTheDocument()
+    expect(screen.queryByText('$40.00')).not.toBeInTheDocument()
+    expect(screen.queryByText('$50.00')).not.toBeInTheDocument()
+    expect(screen.getAllByText(maskMoney('USD')).length).toBeGreaterThanOrEqual(3)
   })
 
   it('shows the sold expiry date reported by WooCommerce when a line item has one', async () => {

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 import { getPromotionPerformanceReport } from '../reports/api'
 import type { PromotionPerformanceReport } from '../reports/types'
-import { formatMoney } from '../format/money'
+import { Money } from '../format/amountVisibility'
 import { apiErrorText } from '../api/apiErrorText'
 
 // PromotionPerformanceCard compares the promotion's covered SKUs' revenue/
@@ -47,7 +47,7 @@ export function PromotionPerformanceCard({ token, promotionId }: { token: string
         <div className="grid grid-cols-2 gap-3">
           <div>
             <p className="text-2xs text-ink-4 mb-1">{t('performance.revenueDuring')}</p>
-            <p className="text-sm font-semibold text-ink">{formatMoney(report.during.revenue_minor_units, report.currency_code)}</p>
+            <p className="text-sm font-semibold text-ink"><Money minor={report.during.revenue_minor_units} currency={report.currency_code} /></p>
             <p className={clsx('text-2xs font-medium', report.revenue_change_percent === null ? 'text-ink-4' : report.revenue_change_percent >= 0 ? 'text-success' : 'text-danger')}>
               {changeLabel(report.revenue_change_percent)}
             </p>
@@ -61,7 +61,7 @@ export function PromotionPerformanceCard({ token, promotionId }: { token: string
           </div>
           <div>
             <p className="text-2xs text-ink-4 mb-1">{t('performance.revenueBefore')}</p>
-            <p className="text-xs text-ink-2">{formatMoney(report.before.revenue_minor_units, report.currency_code)}</p>
+            <p className="text-xs text-ink-2"><Money minor={report.before.revenue_minor_units} currency={report.currency_code} /></p>
           </div>
           <div>
             <p className="text-2xs text-ink-4 mb-1">{t('performance.unitsBefore')}</p>

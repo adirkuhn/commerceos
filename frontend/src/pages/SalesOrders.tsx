@@ -15,7 +15,7 @@ import { PaymentStatusBadge } from '../oms/PaymentStatusBadge'
 import { salesOrderStatusLabel } from '../oms/statusLabel'
 import { CreateSalesOrderPage } from '../oms/CreateSalesOrderPage'
 import { SalesOrderDetailPage } from '../oms/SalesOrderDetailPage'
-import { formatMoney } from '../format/money'
+import { Money } from '../format/amountVisibility'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
 
@@ -437,7 +437,7 @@ export default function SalesOrders() {
                   </div>
                 </td>
                 <td className="px-3 py-2.5 text-right font-medium text-ink">
-                  {formatMoney(o.total_minor_units, o.currency_code)}
+                  <Money minor={o.total_minor_units} currency={o.currency_code} />
                 </td>
               </tr>
             ))}
