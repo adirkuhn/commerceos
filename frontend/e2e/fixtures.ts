@@ -48,8 +48,19 @@ async function signIn(page: Page, token: string, appearance: 'light' | 'dark' | 
       return
     }
     const response = await route.fetch()
+    // Until the backend image with /settings/appearance is deployed the live
+    // API 404s it -- answer with the defaults then, as the real one would.
+    if (response.status() === 404 && route.request().method() === 'GET' && route.request().url().endsWith('/settings/appearance')) {
+      await route.fulfill({ response, status: 200, headers: { ...response.headers(), ...cors }, json: { data: DEFAULT_APPEARANCE_RESPONSE, error: null } })
+      return
+    }
     await route.fulfill({ response, headers: { ...response.headers(), ...cors } })
   })
+}
+
+const DEFAULT_APPEARANCE_RESPONSE = {
+  font: 'atkinson', accent_color: '#2F33B8', sidebar_color: '#14163F',
+  corners: 'normal', text_size: 'normal', density: 'comfortable', updated_at: null,
 }
 
 interface Fixtures {

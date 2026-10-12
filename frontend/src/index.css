@@ -91,16 +91,17 @@
     --depot-ink-2: 169 172 214; /* #A9ACD6, 7.9:1 */
     --depot-hover: 255 255 255; /* used at /8 */
     --depot-mark: 165 168 255;  /* #A5A8FF, active-item marker */
-    --font-sans: 'Barlow', system-ui, sans-serif;
-    --font-data: 'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
-    --font-mono: 'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
+    /* Atkinson Hyperlegible Next: built for legibility (open shapes, clearly
+       different Il1 / 0O). A shop can pick another font -- see
+       src/theme/appearance.ts. */
+    --font-sans: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+    --font-data: var(--font-sans);
+    --font-mono: 'Atkinson Hyperlegible Mono', monospace;
     --radius-md: 6px;
     --radius-lg: 6px;
     --radius-xl: 10px;
     --radius-2xl: 10px;
-    /* Barlow's x-height is smaller than Inter's: one step up (17px rem)
-       keeps 11px captions and 12px table text as legible as before. */
-    --root-size: 106.25%;
+    --root-size: 100%;
   }
 
   .design-depot.dark {

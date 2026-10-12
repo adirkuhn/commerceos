@@ -16,6 +16,12 @@ vi.mock('../settings/api', async importOriginal => ({
   getTenantSettings: vi.fn().mockRejectedValue(new Error('no settings in tests')),
 }))
 
+// AppearanceProvider loads the shop's appearance on mount.
+vi.mock('../settings/appearance/api', () => ({
+  getAppearance: vi.fn().mockRejectedValue(new Error('no appearance in tests')),
+  updateAppearance: vi.fn(),
+}))
+
 vi.mock('../scanner/api', () => ({
   generatePairingCode: vi.fn(),
   getPairingCodeStatus: vi.fn(),

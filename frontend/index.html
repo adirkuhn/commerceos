@@ -21,10 +21,28 @@
         if (stored === 'classic' || stored === 'depot') design = stored
       } catch (e) {}
       if (design === 'depot') document.documentElement.classList.add('design-depot')
+      // The shop's appearance as last seen on this browser -- mirrors
+      // src/theme/appearanceCache.ts; refreshed from the API after login.
+      try {
+        var look = JSON.parse(localStorage.getItem('commerceos.appearance') || 'null')
+        if (look && look.css) {
+          var style = document.createElement('style')
+          style.id = 'appearance-css'
+          style.textContent = look.css
+          document.head.appendChild(style)
+        }
+        if (look && look.fontHref) {
+          var font = document.createElement('link')
+          font.id = 'appearance-font'
+          font.rel = 'stylesheet'
+          font.href = look.fontHref
+          document.head.appendChild(font)
+        }
+      } catch (e) {}
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&family=Atkinson+Hyperlegible+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>

@@ -1,7 +1,7 @@
 import type { ThemeStorage } from './themePreference'
 
 // Which visual design the admin renders. "depot" is the 2026-10 redesign
-// (depot sidebar, Barlow type, Today dashboard, reorganised navigation);
+// (depot sidebar, Atkinson Hyperlegible type, Today dashboard, reorganised navigation);
 // "classic" is the design before it, kept intact so either can be switched
 // to at any time -- per person from the account menu, or for everyone by
 // building with VITE_DESIGN_DEFAULT=classic.

@@ -1,10 +1,22 @@
 import plugin from 'tailwindcss/plugin'
 
+// Padding and gaps follow the shop's spacing choice (--density, set by the
+// appearance setting on the depot design only). Unset it is 1, so the
+// computed sizes -- and classic -- stay exactly Tailwind's.
+function densityScaled(spacing) {
+  return Object.fromEntries(Object.entries(spacing).map(([k, v]) => [
+    k, typeof v === 'string' && v.endsWith('rem') ? `calc(${v} * var(--density, 1))` : v,
+  ]))
+}
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   darkMode: 'class',
   theme: {
+    padding: ({ theme }) => densityScaled(theme('spacing')),
+    gap: ({ theme }) => densityScaled(theme('spacing')),
+    space: ({ theme }) => densityScaled(theme('spacing')),
     extend: {
       colors: {
         // Semantic tokens -- values live in src/index.css and switch with
@@ -60,7 +72,7 @@ export default {
         body: ['0.8125rem', { lineHeight: '1.25rem' }],
       },
       fontFamily: {
-        // Variables so the design (classic Inter / depot Barlow) can switch
+        // Variables so the design (classic Inter / depot Atkinson Hyperlegible) and the shop's appearance can switch
         // at runtime -- values in src/index.css.
         sans: ['var(--font-sans)'],
         data: ['var(--font-data)'],

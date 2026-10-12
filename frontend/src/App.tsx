@@ -10,6 +10,7 @@ import { ScannerCallbackPage } from './scanner/ScannerCallbackPage'
 import { AppProvider } from './context/AppContext'
 import { DateFormatProvider } from './format/DateFormatProvider'
 import { AmountVisibilityProvider } from './format/amountVisibility'
+import { AppearanceProvider } from './theme/AppearanceProvider'
 import { CompanyLanguage } from './i18n/CompanyLanguage'
 import Sidebar from './components/layout/Sidebar'
 import Topbar from './components/layout/Topbar'
@@ -97,9 +98,11 @@ export function AppShell() {
     <AppProvider>
       <CompanyLanguage token={token ?? ''} />
       <DateFormatProvider token={token ?? ''}>
-        <AmountVisibilityProvider>
-          <AppContent />
-        </AmountVisibilityProvider>
+        <AppearanceProvider token={token ?? ''}>
+          <AmountVisibilityProvider>
+            <AppContent />
+          </AmountVisibilityProvider>
+        </AppearanceProvider>
       </DateFormatProvider>
     </AppProvider>
   )
