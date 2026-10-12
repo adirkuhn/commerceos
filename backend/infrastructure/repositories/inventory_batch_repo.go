@@ -235,27 +235,7 @@ func (r *BatchRepo) ListPendingReview(ctx context.Context) ([]invDomain.ExpiredB
 		return nil, err
 	}
 	var rows []expiredBatchReviewRow
-	err = tx.Raw(`
-		SELECT
-			b.id AS batch_id,
-			b.sku_id AS sku_id,
-			s.sku_code AS sku_code,
-			p.name AS product_name,
-			b.warehouse_id AS warehouse_id,
-			w.name AS warehouse_name,
-			b.lot_number AS lot_number,
-			b.expiry_date AS expiry_date,
-			COALESCE(SUM(sm.quantity_delta), 0) AS quantity
-		FROM batches b
-		JOIN skus s ON s.id = b.sku_id
-		JOIN variants v ON v.id = s.variant_id
-		JOIN products p ON p.id = v.product_id
-		JOIN warehouses w ON w.id = b.warehouse_id
-		LEFT JOIN stock_movements sm ON sm.batch_id = b.id
-		WHERE b.status = ? AND b.reviewed_at IS NULL
-		GROUP BY b.id, s.sku_code, p.name, w.name
-		ORDER BY b.expiry_date ASC
-	`, invDomain.BatchStatusExpired).Scan(&rows).Error
+	err = tx.Raw(pendingReviewBatchesSQL, invDomain.BatchStatusExpired).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("batchRepo.ListPendingReview: %w", err)
 	}
@@ -305,29 +285,7 @@ func (r *BatchRepo) ListExpiringSoon(ctx context.Context, withinDays int) ([]inv
 		return nil, err
 	}
 	var rows []expiringBatchRow
-	err = tx.Raw(`
-		SELECT
-			b.id AS batch_id,
-			b.sku_id AS sku_id,
-			s.sku_code AS sku_code,
-			p.name AS product_name,
-			b.warehouse_id AS warehouse_id,
-			w.name AS warehouse_name,
-			b.lot_number AS lot_number,
-			b.expiry_date AS expiry_date,
-			COALESCE(SUM(sm.quantity_delta), 0) AS quantity
-		FROM batches b
-		JOIN skus s ON s.id = b.sku_id
-		JOIN variants v ON v.id = s.variant_id
-		JOIN products p ON p.id = v.product_id
-		JOIN warehouses w ON w.id = b.warehouse_id
-		LEFT JOIN stock_movements sm ON sm.batch_id = b.id
-		WHERE b.expiry_date IS NOT NULL
-			AND b.expiry_date <= (now() + make_interval(days => ?))
-		GROUP BY b.id, s.sku_code, p.name, w.name
-		HAVING COALESCE(SUM(sm.quantity_delta), 0) > 0
-		ORDER BY b.expiry_date ASC
-	`, withinDays).Scan(&rows).Error
+	err = tx.Raw(expiringSoonBatchesSQL, withinDays).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("batchRepo.ListExpiringSoon: %w", err)
 	}
@@ -358,4 +316,92 @@ func toBatchDomain(m batchModel) *invDomain.Batch {
 		CreatedAt:               m.CreatedAt,
 		UpdatedAt:               m.UpdatedAt,
 	}
+}
+
+// pendingReviewBatchesSQL is ListPendingReview's query (one parameter: the
+// Expired status) -- shared with CountPendingReview so the dashboard's count
+// is always exactly the review queue's length.
+const pendingReviewBatchesSQL = `
+		SELECT
+			b.id AS batch_id,
+			b.sku_id AS sku_id,
+			s.sku_code AS sku_code,
+			p.name AS product_name,
+			b.warehouse_id AS warehouse_id,
+			w.name AS warehouse_name,
+			b.lot_number AS lot_number,
+			b.expiry_date AS expiry_date,
+			COALESCE(SUM(sm.quantity_delta), 0) AS quantity
+		FROM batches b
+		JOIN skus s ON s.id = b.sku_id
+		JOIN variants v ON v.id = s.variant_id
+		JOIN products p ON p.id = v.product_id
+		JOIN warehouses w ON w.id = b.warehouse_id
+		LEFT JOIN stock_movements sm ON sm.batch_id = b.id
+		WHERE b.status = ? AND b.reviewed_at IS NULL
+		GROUP BY b.id, s.sku_code, p.name, w.name
+		ORDER BY b.expiry_date ASC
+	`
+
+// expiringSoonBatchesSQL is ListExpiringSoon's query (one parameter: the
+// window in days) -- shared with CountExpiringSoon, same reason as
+// pendingReviewBatchesSQL.
+const expiringSoonBatchesSQL = `
+		SELECT
+			b.id AS batch_id,
+			b.sku_id AS sku_id,
+			s.sku_code AS sku_code,
+			p.name AS product_name,
+			b.warehouse_id AS warehouse_id,
+			w.name AS warehouse_name,
+			b.lot_number AS lot_number,
+			b.expiry_date AS expiry_date,
+			COALESCE(SUM(sm.quantity_delta), 0) AS quantity
+		FROM batches b
+		JOIN skus s ON s.id = b.sku_id
+		JOIN variants v ON v.id = s.variant_id
+		JOIN products p ON p.id = v.product_id
+		JOIN warehouses w ON w.id = b.warehouse_id
+		LEFT JOIN stock_movements sm ON sm.batch_id = b.id
+		WHERE b.expiry_date IS NOT NULL
+			AND b.expiry_date <= (now() + make_interval(days => ?))
+		GROUP BY b.id, s.sku_code, p.name, w.name
+		HAVING COALESCE(SUM(sm.quantity_delta), 0) > 0
+		ORDER BY b.expiry_date ASC
+	`
+
+var _ invDomain.BatchQueueCounter = (*BatchRepo)(nil)
+
+// CountExpiringSoon is len(ListExpiringSoon(withinDays)) without loading
+// the rows -- see invDomain.BatchQueueCounter.
+func (r *BatchRepo) CountExpiringSoon(ctx context.Context, withinDays int) (int64, error) {
+	n, err := r.countRows(ctx, expiringSoonBatchesSQL, withinDays)
+	if err != nil {
+		return 0, fmt.Errorf("batchRepo.CountExpiringSoon: %w", err)
+	}
+	return n, nil
+}
+
+// CountPendingReview is len(ListPendingReview()) without loading the rows
+// -- see invDomain.BatchQueueCounter.
+func (r *BatchRepo) CountPendingReview(ctx context.Context) (int64, error) {
+	n, err := r.countRows(ctx, pendingReviewBatchesSQL, invDomain.BatchStatusExpired)
+	if err != nil {
+		return 0, fmt.Errorf("batchRepo.CountPendingReview: %w", err)
+	}
+	return n, nil
+}
+
+// countRows counts the rows a list query returns by wrapping it as a
+// subquery, so the count can never drift from the list it counts.
+func (r *BatchRepo) countRows(ctx context.Context, listSQL string, args ...any) (int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var n int64
+	if err := tx.Raw("SELECT COUNT(*) FROM ("+listSQL+") AS listed", args...).Scan(&n).Error; err != nil {
+		return 0, err
+	}
+	return n, nil
 }

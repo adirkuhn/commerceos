@@ -120,6 +120,16 @@ type SalesOrderRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
+// SalesOrderCounter counts the orders a ListSalesOrdersFilter matches --
+// exactly the rows SalesOrderRepository.List would return across every page
+// (Limit/Offset/SortBy/SortDir are ignored), without loading them. Backs the
+// dashboard's "Today" work-queue counts, so each count uses the very filter
+// its own page lists with (AwaitingPicking, AwaitingPacking,
+// NeedsStockReview, NeedsSKUReview).
+type SalesOrderCounter interface {
+	Count(ctx context.Context, filter ListSalesOrdersFilter) (int64, error)
+}
+
 // ChannelRevenue is one row of DashboardSalesReportRepository.RevenueByChannelSince
 // -- total revenue for one source (channel) within the queried window,
 // already narrowed to a single currency by the caller.

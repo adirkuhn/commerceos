@@ -145,11 +145,11 @@ func salesOrderStatusStrings(statuses []omsDomain.SalesOrderStatus) []string {
 	return out
 }
 
-func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
-	tx, err := r.tx(ctx)
-	if err != nil {
-		return nil, 0, err
-	}
+// salesOrdersMatching narrows sales_orders to the rows a
+// ListSalesOrdersFilter selects -- the one place those rules live, shared
+// by List and Count so a queue's count can never drift from its list.
+// Limit/Offset/Sort are the caller's business.
+func salesOrdersMatching(tx *gorm.DB, filter omsDomain.ListSalesOrdersFilter) *gorm.DB {
 	q := tx.Model(&salesOrderModel{})
 	if filter.NeedsStockReview != nil {
 		q = q.Where("needs_stock_review = ?", *filter.NeedsStockReview)
@@ -189,6 +189,31 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 	if filter.SalesChannelID != nil {
 		q = q.Where("sales_channel_id = ?", *filter.SalesChannelID)
 	}
+	return q
+}
+
+var _ omsDomain.SalesOrderCounter = (*SalesOrderRepo)(nil)
+
+// Count is List's total without loading any rows -- see
+// omsDomain.SalesOrderCounter.
+func (r *SalesOrderRepo) Count(ctx context.Context, filter omsDomain.ListSalesOrdersFilter) (int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	if err := salesOrdersMatching(tx, filter).Count(&total).Error; err != nil {
+		return 0, fmt.Errorf("salesOrderRepo.Count: %w", err)
+	}
+	return total, nil
+}
+
+func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	q := salesOrdersMatching(tx, filter)
 
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

@@ -98,6 +98,15 @@ type BatchRepository interface {
 	ExtendExpiry(ctx context.Context, id string, newExpiryDate time.Time) error
 }
 
+// BatchQueueCounter counts the rows of BatchRepository's two batch work
+// queues without loading them -- CountExpiringSoon is len(ListExpiringSoon)
+// and CountPendingReview is len(ListPendingReview), same rules exactly.
+// Backs the dashboard's "Today" work-queue counts.
+type BatchQueueCounter interface {
+	CountExpiringSoon(ctx context.Context, withinDays int) (int64, error)
+	CountPendingReview(ctx context.Context) (int64, error)
+}
+
 // DailyStockFlow is one day's inbound/outbound totals for
 // DashboardStockReportRepository.DailyFlow -- In is the sum of positive
 // QuantityDelta that day, Out the sum (as a positive number) of negative
