@@ -3,9 +3,11 @@ package dashboard
 import (
 	"context"
 	"fmt"
+	"time"
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -27,6 +29,10 @@ const expiringBatchesWindowDays = 7
 //     batches expiring within 7 days, already-past-expiry ones included
 //   - ExpiredBatches: BatchRepository.ListPendingReview -- expired batches
 //     nobody has disposed of/dismissed yet
+//   - ShipToday: orders whose ship-by date is today (tenant reporting
+//     timezone) or already passed and that haven't shipped yet
+//     (ListSalesOrdersFilter.ShipDueOnOrBefore, the Sales Orders list's
+//     ship_due filter)
 type TodayQueue struct {
 	ToPick          int64
 	ToPack          int64
@@ -34,26 +40,41 @@ type TodayQueue struct {
 	UnmatchedSKUs   int64
 	ExpiringBatches int64
 	ExpiredBatches  int64
+	ShipToday       int64
+}
+
+// tenantSettingsReader is the one settings call the Today queue needs: the
+// tenant's reporting timezone, which decides what "today" is.
+type tenantSettingsReader interface {
+	Get(ctx context.Context) (*settingsDomain.TenantSettings, error)
 }
 
 // GetTodayQueueUseCase backs the admin's "Today" dashboard. Read-only; every
 // count runs in one tenant transaction so they're a consistent snapshot.
 type GetTodayQueueUseCase struct {
-	db      *gorm.DB
-	orders  omsDomain.SalesOrderCounter
-	batches invDomain.BatchQueueCounter
+	db       *gorm.DB
+	orders   omsDomain.SalesOrderCounter
+	batches  invDomain.BatchQueueCounter
+	settings tenantSettingsReader
+	// Now is the injectable clock "today" is computed from -- defaults to
+	// time.Now, overridden in tests.
+	Now func() time.Time
 }
 
-func NewGetTodayQueueUseCase(db *gorm.DB, orders omsDomain.SalesOrderCounter, batches invDomain.BatchQueueCounter) *GetTodayQueueUseCase {
-	return &GetTodayQueueUseCase{db: db, orders: orders, batches: batches}
+func NewGetTodayQueueUseCase(db *gorm.DB, orders omsDomain.SalesOrderCounter, batches invDomain.BatchQueueCounter, settings tenantSettingsReader) *GetTodayQueueUseCase {
+	return &GetTodayQueueUseCase{db: db, orders: orders, batches: batches, settings: settings, Now: time.Now}
+}
+
+// orderQueueCount pairs one order work queue's filter with the TodayQueue
+// field its count lands in.
+type orderQueueCount struct {
+	filter omsDomain.ListSalesOrdersFilter
+	dst    func(*TodayQueue) *int64
 }
 
 func (uc *GetTodayQueueUseCase) Execute(ctx context.Context) (*TodayQueue, error) {
 	flagged := true
-	orderQueues := []struct {
-		filter omsDomain.ListSalesOrdersFilter
-		dst    func(*TodayQueue) *int64
-	}{
+	orderQueues := []orderQueueCount{
 		{omsDomain.ListSalesOrdersFilter{AwaitingPicking: true}, func(q *TodayQueue) *int64 { return &q.ToPick }},
 		{omsDomain.ListSalesOrdersFilter{AwaitingPacking: true}, func(q *TodayQueue) *int64 { return &q.ToPack }},
 		{omsDomain.ListSalesOrdersFilter{NeedsStockReview: &flagged}, func(q *TodayQueue) *int64 { return &q.StockIssues }},
@@ -62,6 +83,15 @@ func (uc *GetTodayQueueUseCase) Execute(ctx context.Context) (*TodayQueue, error
 
 	var result TodayQueue
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		settings, err := uc.settings.Get(ctx)
+		if err != nil {
+			return err
+		}
+		today := settings.Today(uc.Now())
+		orderQueues = append(orderQueues, orderQueueCount{
+			omsDomain.ListSalesOrdersFilter{ShipDueOnOrBefore: &today}, func(q *TodayQueue) *int64 { return &q.ShipToday },
+		})
+
 		for _, oq := range orderQueues {
 			n, err := uc.orders.Count(ctx, oq.filter)
 			if err != nil {
@@ -69,7 +99,6 @@ func (uc *GetTodayQueueUseCase) Execute(ctx context.Context) (*TodayQueue, error
 			}
 			*oq.dst(&result) = n
 		}
-		var err error
 		if result.ExpiringBatches, err = uc.batches.CountExpiringSoon(ctx, expiringBatchesWindowDays); err != nil {
 			return err
 		}

@@ -126,7 +126,7 @@ components:
 
     TodayQueue:
       type: object
-      required: [to_pick, to_pack, stock_issues, unmatched_skus, expiring_batches, expired_batches]
+      required: [to_pick, to_pack, stock_issues, unmatched_skus, expiring_batches, expired_batches, ship_today]
       properties:
         to_pick:
           type: integer
@@ -152,6 +152,10 @@ components:
           type: integer
           format: int64
           description: Expired batches nobody has written off or dismissed yet -- the pending-expired review queue.
+        ship_today:
+          type: integer
+          format: int64
+          description: Orders whose ship-by date is today (tenant reporting timezone) or already passed and that have not shipped yet -- processing/on-hold, not a POS sale, picked/packed included. Only Bol orders carry a ship-by date today. Same rule as the sales orders list's ship_due=true filter.
 
     TodayQueueResponse:
       type: object

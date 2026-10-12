@@ -87,7 +87,7 @@ func (s *stubGetTodayQueue) Execute(_ context.Context) (*appdashboard.TodayQueue
 
 func TestGetTodayQueueHandler_returnsCounts(t *testing.T) {
 	h := dashboardhandler.NewHandler(&stubGetDashboardStats{}, &stubGetTodayQueue{out: &appdashboard.TodayQueue{
-		ToPick: 4, ToPack: 7, StockIssues: 2, UnmatchedSKUs: 3, ExpiringBatches: 5, ExpiredBatches: 1,
+		ToPick: 4, ToPack: 7, StockIssues: 2, UnmatchedSKUs: 3, ExpiringBatches: 5, ExpiredBatches: 1, ShipToday: 8,
 	}})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/dashboard/today")
 
@@ -99,7 +99,7 @@ func TestGetTodayQueueHandler_returnsCounts(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Nil(t, resp.Error)
 	assert.Equal(t, gendashboard.TodayQueue{
-		ToPick: 4, ToPack: 7, StockIssues: 2, UnmatchedSkus: 3, ExpiringBatches: 5, ExpiredBatches: 1,
+		ToPick: 4, ToPack: 7, StockIssues: 2, UnmatchedSkus: 3, ExpiringBatches: 5, ExpiredBatches: 1, ShipToday: 8,
 	}, resp.Data)
 }
 
@@ -108,7 +108,7 @@ func TestGetTodayQueueHandler_zeroCountsAreStillSent(t *testing.T) {
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/dashboard/today")
 
 	require.Equal(t, http.StatusOK, w.Code)
-	for _, field := range []string{"to_pick", "to_pack", "stock_issues", "unmatched_skus", "expiring_batches", "expired_batches"} {
+	for _, field := range []string{"to_pick", "to_pack", "stock_issues", "unmatched_skus", "expiring_batches", "expired_batches", "ship_today"} {
 		assert.Contains(t, w.Body.String(), `"`+field+`":0`)
 	}
 }

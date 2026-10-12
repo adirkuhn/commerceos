@@ -48,3 +48,12 @@ func (s TenantSettings) ReportingLocation() *time.Location {
 	}
 	return loc
 }
+
+// Today is now's calendar date in the reporting timezone, as UTC midnight
+// -- the form calendar-date columns (DATE) are compared against. At 00:30
+// in Amsterdam it's already the new day, even though UTC is still on the
+// previous one.
+func (s TenantSettings) Today(now time.Time) time.Time {
+	local := now.In(s.ReportingLocation())
+	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
+}

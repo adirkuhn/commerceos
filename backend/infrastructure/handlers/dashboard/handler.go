@@ -41,7 +41,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	batchRepo := repositories.NewBatchRepo(db)
 	h := NewHandler(
 		appdashboard.NewGetDashboardStatsUseCase(db, stockRepo, salesRepo, settingsRepo),
-		appdashboard.NewGetTodayQueueUseCase(db, salesRepo, batchRepo),
+		appdashboard.NewGetTodayQueueUseCase(db, salesRepo, batchRepo, settingsRepo),
 	)
 	gendashboard.RegisterHandlers(rg, h)
 }
@@ -66,7 +66,7 @@ func (h *Handler) GetTodayQueue(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gendashboard.TodayQueueResponse{Data: &gendashboard.TodayQueue{
 		ToPick: q.ToPick, ToPack: q.ToPack, StockIssues: q.StockIssues, UnmatchedSkus: q.UnmatchedSKUs,
-		ExpiringBatches: q.ExpiringBatches, ExpiredBatches: q.ExpiredBatches,
+		ExpiringBatches: q.ExpiringBatches, ExpiredBatches: q.ExpiredBatches, ShipToday: q.ShipToday,
 	}})
 }
 
