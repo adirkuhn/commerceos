@@ -1,5 +1,5 @@
 
-import { Building2, Package, Truck, Globe, Zap, Shield, Bell, Plug, Percent, TrendingUp, PackageCheck } from 'lucide-react'
+import { Building2, Palette, Package, Truck, Globe, Zap, Shield, Bell, Plug, Percent, TrendingUp, PackageCheck } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -20,6 +20,7 @@ import { ExpiryAlertSection } from '../settings/ExpiryAlertSection'
 import { PricingMarginSection } from '../settings/PricingMarginSection'
 import { LocalizationSettingsSection } from '../settings/LocalizationSettingsSection'
 import { TaxSettingsSection } from '../settings/TaxSettingsSection'
+import { AppearanceSection } from '../settings/appearance/AppearanceSection'
 
 interface SettingSection {
   id: string
@@ -28,11 +29,12 @@ interface SettingSection {
   description: string
 }
 
-const SECTION_IDS = ['company', 'integrations', 'inventory', 'fulfillment', 'shipping', 'localization', 'tax', 'pricing', 'automation', 'security', 'notifications'] as const
+const SECTION_IDS = ['company', 'appearance', 'integrations', 'inventory', 'fulfillment', 'shipping', 'localization', 'tax', 'pricing', 'automation', 'security', 'notifications'] as const
 
 function sections(t: TFunction<['settings', 'common']>): SettingSection[] {
   return [
     { id: 'company', label: t('sections.company'), icon: Building2, description: t('sections.companyText') },
+    { id: 'appearance', label: t('sections.appearance'), icon: Palette, description: t('sections.appearanceText') },
     { id: 'integrations', label: t('sections.integrations'), icon: Plug, description: t('sections.integrationsText') },
     { id: 'inventory', label: t('sections.inventory'), icon: Package, description: t('sections.inventoryText') },
     { id: 'fulfillment', label: t('sections.fulfillment'), icon: PackageCheck, description: t('sections.fulfillmentText') },
@@ -112,6 +114,8 @@ export default function Settings() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
         {activeSection === 'company' && <CompanyProfileSection />}
+
+        {activeSection === 'appearance' && <AppearanceSection />}
 
         {activeSection === 'integrations' && <IntegrationsSettingsSection onConfigure={c => open(`${INTEGRATIONS_SECTION_PATH}/${encodeURIComponent(c.id)}`)} />}
 

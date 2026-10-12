@@ -238,7 +238,9 @@
     "shipping": "Shipping rules",
     "shippingText": "Default carriers, label format, zones",
     "tax": "Tax",
-    "taxText": "Tax classes and rates"
+    "taxText": "Tax classes and rates",
+    "appearance": "Appearance",
+    "appearanceText": "Font, colours and spacing of the admin"
   },
   "security": {
     "open": "Open lm2",
@@ -279,5 +281,41 @@
     "subtitle": "Tax classes and their per-country rates"
   },
   "title": "Settings",
-  "unknownError": "Unknown error"
+  "unknownError": "Unknown error",
+  "appearance": {
+    "title": "Appearance",
+    "intro": "How the admin looks for everyone in this shop. Changes show straight away so you can try them; nothing changes for others until you save.",
+    "classicNote": "You are using the classic design, which keeps its own look. These settings apply to the new design.",
+    "useNewDesign": "Use the new design",
+    "readOnly": "Only the shop owner or an admin can change the appearance.",
+    "font": "Font",
+    "fontSample": "Order 1042 · 3 items · Il1 0O",
+    "accent": "Accent colour",
+    "accentHint": "Buttons, links and the selected menu item.",
+    "sidebar": "Sidebar colour",
+    "sidebarHint": "The sidebar text switches between light and dark to stay readable.",
+    "lowContrast": "This accent colour is too light for white button text.",
+    "useSuggestion": "Use {{color}}",
+    "corners": "Corners",
+    "cornersOption": {
+      "sharp": "Sharp",
+      "normal": "Normal",
+      "round": "Round"
+    },
+    "textSize": "Text size",
+    "textSizeOption": {
+      "normal": "Normal",
+      "large": "Large",
+      "larger": "Larger"
+    },
+    "density": "Spacing",
+    "densityOption": {
+      "compact": "Compact",
+      "comfortable": "Comfortable"
+    },
+    "save": "Save appearance",
+    "resetDefaults": "Back to defaults",
+    "saveFailed": "Couldn’t save the appearance.",
+    "loadFailed": "Couldn’t load the appearance."
+  }
 }

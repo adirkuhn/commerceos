@@ -238,7 +238,9 @@
     "shipping": "Verzendregels",
     "shippingText": "Standaardvervoerders, labelformaat, zones",
     "tax": "Belasting",
-    "taxText": "Btw-klassen en -tarieven"
+    "taxText": "Btw-klassen en -tarieven",
+    "appearance": "Uiterlijk",
+    "appearanceText": "Lettertype, kleuren en ruimte van de beheeromgeving"
   },
   "security": {
     "open": "lm2 openen",
@@ -279,5 +281,41 @@
     "subtitle": "Btw-klassen en hun tarieven per land"
   },
   "title": "Instellingen",
-  "unknownError": "Onbekende fout"
+  "unknownError": "Onbekende fout",
+  "appearance": {
+    "title": "Uiterlijk",
+    "intro": "Hoe de beheeromgeving eruitziet voor iedereen in deze winkel. Wijzigingen zie je meteen, zodat je ze kunt uitproberen; voor anderen verandert niets tot je opslaat.",
+    "classicNote": "Je gebruikt het klassieke ontwerp, dat zijn eigen uiterlijk houdt. Deze instellingen gelden voor het nieuwe ontwerp.",
+    "useNewDesign": "Nieuw ontwerp gebruiken",
+    "readOnly": "Alleen de eigenaar of een beheerder kan het uiterlijk wijzigen.",
+    "font": "Lettertype",
+    "fontSample": "Bestelling 1042 · 3 artikelen · Il1 0O",
+    "accent": "Accentkleur",
+    "accentHint": "Knoppen, links en het geselecteerde menu-item.",
+    "sidebar": "Kleur zijbalk",
+    "sidebarHint": "De tekst in de zijbalk wisselt tussen licht en donker zodat hij leesbaar blijft.",
+    "lowContrast": "Deze accentkleur is te licht voor witte tekst op knoppen.",
+    "useSuggestion": "{{color}} gebruiken",
+    "corners": "Hoeken",
+    "cornersOption": {
+      "sharp": "Scherp",
+      "normal": "Normaal",
+      "round": "Rond"
+    },
+    "textSize": "Tekstgrootte",
+    "textSizeOption": {
+      "normal": "Normaal",
+      "large": "Groot",
+      "larger": "Groter"
+    },
+    "density": "Ruimte",
+    "densityOption": {
+      "compact": "Compact",
+      "comfortable": "Ruim"
+    },
+    "save": "Uiterlijk opslaan",
+    "resetDefaults": "Terug naar standaard",
+    "saveFailed": "Het uiterlijk kon niet worden opgeslagen.",
+    "loadFailed": "Het uiterlijk kon niet worden geladen."
+  }
 }
