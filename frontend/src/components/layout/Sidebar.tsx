@@ -49,11 +49,11 @@ const STYLES: Record<Design, SidebarStyle> = {
     aside: 'bg-depot text-depot-ink',
     brandRow: '',
     brandName: 'text-depot-ink',
-    link: 'rounded-lg focus-visible:outline-depot-mark',
+    link: 'rounded-lg depot:py-[3px] focus-visible:outline-depot-mark',
     linkActive: 'bg-accent-solid text-white shadow-[inset_3px_0_0_rgb(var(--depot-mark))]',
     linkIdle: 'text-depot-ink-2 hover:bg-depot-hover/10 hover:text-depot-ink',
     badge: 'bg-depot-hover/10 text-depot-ink',
-    groupHeader: 'text-xs text-depot-ink-2 hover:text-depot-ink focus-visible:outline-depot-mark',
+    groupHeader: 'text-xs text-depot-ink-2 hover:text-depot-ink depot:py-0.5 focus-visible:outline-depot-mark',
     accountRow: 'border-t border-depot-hover/10',
     accountButton: 'hover:bg-depot-hover/10 focus-visible:outline-depot-mark',
     accountName: 'text-depot-ink',
@@ -135,12 +135,12 @@ export default function Sidebar() {
       <nav aria-label={t('ui.mainNav')} className="flex-1 flex flex-col overflow-y-auto py-3 px-2 space-y-0.5">
         {renderLink(homeLink(design))}
         {groups.map(group => {
-          if (group.flat) return <div key={group.id} className="pt-3 space-y-0.5">{group.items.map(renderLink)}</div>
+          if (group.flat) return <div key={group.id} className="pt-3 depot:pt-2 space-y-0.5">{group.items.map(renderLink)}</div>
           const expanded = open.has(group.id)
           const listId = `nav-group-${group.id}`
           const Chevron = expanded ? ChevronDown : ChevronRight
           return (
-            <div key={group.id} className={clsx('pt-3', design === 'depot' && group.id === 'setup' && 'mt-auto')}>
+            <div key={group.id} className={clsx('pt-3 depot:pt-2', design === 'depot' && group.id === 'setup' && 'mt-auto')}>
               <button
                 onClick={() => toggle(group.id)}
                 aria-expanded={expanded}
