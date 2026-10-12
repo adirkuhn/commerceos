@@ -4,13 +4,13 @@ import presetNewsletter from 'grapesjs-preset-newsletter'
 import nl from 'grapesjs/locale/nl.mjs'
 import pt from 'grapesjs/locale/pt.mjs'
 import 'grapesjs/dist/css/grapes.min.css'
-import type { EmailBlock } from './emailBlocks'
+import type { EditorBlock } from './editorBlocks'
 
 export interface EmailEditorOptions {
   // design reopens a saved project; without one, html seeds the canvas.
   design?: Record<string, unknown> | null
   html: string
-  blocks: EmailBlock[]
+  blocks: EditorBlock[]
   blockCategory: string
   locale: string
   uploadImage: (file: File) => Promise<string>
@@ -63,7 +63,7 @@ export function useEmailEditor(container: React.RefObject<HTMLDivElement | null>
       projectData: (o.design as ProjectData | null | undefined) ?? { pages: [{ component: o.html }] },
     })
     for (const b of o.blocks) {
-      editor.BlockManager.add(b.id, { label: b.labelKey, category: o.blockCategory, content: b.content })
+      editor.BlockManager.add(b.id, { label: b.label, media: b.media, category: o.blockCategory, content: b.content })
     }
     editorRef.current = editor
     editor.on('load', () => setReady(true))

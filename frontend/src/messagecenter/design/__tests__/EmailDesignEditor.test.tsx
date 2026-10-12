@@ -23,7 +23,10 @@ const editor = {
   insertText: vi.fn(),
   insertHTML: vi.fn(),
 }
-vi.mock('../useEmailEditor', () => ({ useEmailEditor: () => editor }))
+let editorOpts: { blocks: { id: string; label: string; media: string }[] } | undefined
+vi.mock('../useEmailEditor', () => ({
+  useEmailEditor: (_c: unknown, opts: typeof editorOpts) => { editorOpts = opts; return editor },
+}))
 
 import * as api from '../../api'
 import { acceptConfirm } from '../../../test/confirm'
@@ -53,6 +56,16 @@ function renderEditor(onSave = vi.fn().mockResolvedValue(undefined)) {
 }
 
 describe('EmailDesignEditor', () => {
+  it('names the CommerceOS blocks in the editing language, each with an icon', async () => {
+    renderEditor()
+    await screen.findByText('{{customer_name}}')
+
+    const header = editorOpts?.blocks.find(b => b.id === 'cos-header')
+    expect(header?.label).toBe('Store header')
+    expect(header?.media).toContain('<svg')
+    expect(editorOpts?.blocks.every(b => !b.label.startsWith('design.'))).toBe(true)
+  })
+
   it('lists the trigger variables and inserts them into the canvas', async () => {
     renderEditor()
 

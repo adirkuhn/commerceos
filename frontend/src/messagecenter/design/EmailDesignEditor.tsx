@@ -8,6 +8,7 @@ import * as api from '../api'
 import type { MessageTemplate, MessageTrigger, TemplatePreview, TriggerSubject } from '../types'
 import { triggerLabels } from '../triggerLabels'
 import { emailBlocks, type BlockTexts } from './emailBlocks'
+import { toEditorBlocks } from './editorBlocks'
 import { previewTriggerFor } from './designHelpers'
 import { useEmailEditor } from './useEmailEditor'
 import { VariablesPanel } from './VariablesPanel'
@@ -38,7 +39,7 @@ export function EmailDesignEditor({ template, onSave, onReset, onBack }: Props) 
   const [status, setStatus] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
 
   const blockTexts = t('design.blockTexts', { returnObjects: true }) as BlockTexts
-  const blocks = useMemo(() => emailBlocks(blockTexts), [blockTexts])
+  const blocks = useMemo(() => toEditorBlocks(emailBlocks(blockTexts), key => t(key)), [blockTexts, t])
   const editor = useEmailEditor(canvasRef, {
     design: template.design, html: template.body, blocks, blockCategory: 'CommerceOS', locale: i18n.language,
     uploadImage: file => api.uploadMessageTemplateImage(token ?? '', file),
