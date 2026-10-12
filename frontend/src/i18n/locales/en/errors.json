@@ -392,5 +392,11 @@
   "MESSAGE_TEMPLATE_HAS_NO_DEFAULT": "This template wasn’t made from a default, so it can’t be reset.",
   "SENT_EMAIL_NOT_FOUND": "That email isn’t in the history any more.",
   "SENT_EMAIL_INVALID_FILTER": "Unknown status or source filter.",
-  "SENT_EMAIL_IDS_REQUIRED": "Choose at least one email to delete."
+  "SENT_EMAIL_IDS_REQUIRED": "Choose at least one email to delete.",
+  "APPEARANCE_INVALID_FONT": "Pick one of the listed fonts.",
+  "APPEARANCE_INVALID_COLOR": "Enter the colour as a hex code, like #2F33B8.",
+  "APPEARANCE_ACCENT_LOW_CONTRAST": "This accent colour is too light for white button text. Pick a darker shade.",
+  "APPEARANCE_INVALID_CORNERS": "Pick sharp, normal or round corners.",
+  "APPEARANCE_INVALID_TEXT_SIZE": "Pick normal, large or larger text.",
+  "APPEARANCE_INVALID_DENSITY": "Pick compact or comfortable spacing."
 }

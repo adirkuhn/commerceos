@@ -392,5 +392,11 @@
   "MESSAGE_TEMPLATE_HAS_NO_DEFAULT": "Dit sjabloon is niet gemaakt van een standaard en kan dus niet worden hersteld.",
   "SENT_EMAIL_NOT_FOUND": "Die e-mail staat niet meer in de geschiedenis.",
   "SENT_EMAIL_INVALID_FILTER": "Onbekend status- of bronfilter.",
-  "SENT_EMAIL_IDS_REQUIRED": "Kies minstens één e-mail om te verwijderen."
+  "SENT_EMAIL_IDS_REQUIRED": "Kies minstens één e-mail om te verwijderen.",
+  "APPEARANCE_INVALID_FONT": "Kies een van de lettertypen uit de lijst.",
+  "APPEARANCE_INVALID_COLOR": "Vul de kleur in als hexcode, bijvoorbeeld #2F33B8.",
+  "APPEARANCE_ACCENT_LOW_CONTRAST": "Deze accentkleur is te licht voor witte tekst op knoppen. Kies een donkerdere tint.",
+  "APPEARANCE_INVALID_CORNERS": "Kies scherpe, normale of ronde hoeken.",
+  "APPEARANCE_INVALID_TEXT_SIZE": "Kies normale, grote of grotere tekst.",
+  "APPEARANCE_INVALID_DENSITY": "Kies compacte of ruime weergave."
 }

@@ -392,5 +392,11 @@
   "MESSAGE_TEMPLATE_HAS_NO_DEFAULT": "Este modelo não foi criado a partir de um padrão, então não pode ser restaurado.",
   "SENT_EMAIL_NOT_FOUND": "Esse e-mail não está mais no histórico.",
   "SENT_EMAIL_INVALID_FILTER": "Filtro de status ou origem desconhecido.",
-  "SENT_EMAIL_IDS_REQUIRED": "Escolha pelo menos um e-mail para excluir."
+  "SENT_EMAIL_IDS_REQUIRED": "Escolha pelo menos um e-mail para excluir.",
+  "APPEARANCE_INVALID_FONT": "Escolha uma das fontes da lista.",
+  "APPEARANCE_INVALID_COLOR": "Informe a cor como código hexadecimal, por exemplo #2F33B8.",
+  "APPEARANCE_ACCENT_LOW_CONTRAST": "Esta cor de destaque é clara demais para o texto branco dos botões. Escolha um tom mais escuro.",
+  "APPEARANCE_INVALID_CORNERS": "Escolha cantos retos, normais ou arredondados.",
+  "APPEARANCE_INVALID_TEXT_SIZE": "Escolha texto normal, grande ou maior.",
+  "APPEARANCE_INVALID_DENSITY": "Escolha espaçamento compacto ou confortável."
 }
