@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/adirkuhn/commerceos/application/tenantemail"
 	"log"
+	"slices"
 	"strings"
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
@@ -31,6 +32,8 @@ type pendingSend struct {
 	to      string
 	subject string
 	body    string
+	// rule and template the send came from, for the email history.
+	ruleID, templateID string
 }
 
 // EvaluateAutomationRulesUseCase is what every automation-engine consumer
@@ -55,6 +58,9 @@ type EvaluateAutomationRulesUseCase struct {
 	evolutionFactory   integrationsDomain.EvolutionAPIClientFactory
 	encryptionSecret   string
 	emailClientFactory messaging.EmailClientFactory
+	// history records automation emails in the tenant's sent-email
+	// history (sent, failed, or skipped and why); nil records nothing.
+	history sentEmailRecorder
 	// fallbackEmailClient is used when the tenant has no connected
 	// domain/integrations.ProviderEmail integration -- the platform-level
 	// SMTP client (or noop) cmd/scheduler/main.go already builds from
@@ -83,8 +89,16 @@ func NewEvaluateAutomationRulesUseCase(
 	}
 }
 
+// WithEmailHistory makes the engine record its emails in the tenant's
+// sent-email history.
+func (uc *EvaluateAutomationRulesUseCase) WithEmailHistory(history sentEmailRecorder) *EvaluateAutomationRulesUseCase {
+	uc.history = history
+	return uc
+}
+
 func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, eventID string, payload map[string]any) error {
 	var sends []pendingSend
+	var skipped []mcDomain.SentEmail
 	var conns []integrationsDomain.Connection
 
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -127,12 +141,21 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 			if err != nil {
 				return err
 			}
-			if !template.Enabled {
-				continue
-			}
 			channels := template.Channels
 			if rule.ChannelOverride != nil {
 				channels = []messaging.Channel{*rule.ChannelOverride}
+			}
+			skip := func(reason string) {
+				skipped = append(skipped, mcDomain.SentEmail{
+					Source: mcDomain.SentEmailSourceAutomation, Subject: renderSubject(template.Subject, data), Status: mcDomain.SentEmailSkipped,
+					Reason: reason, RuleID: rule.ID, TemplateID: template.ID, TriggerSubject: subject,
+				})
+			}
+			if !template.Enabled {
+				if slices.Contains(channels, messaging.ChannelEmail) {
+					skip(mcDomain.SkipTemplateDisabled)
+				}
+				continue
 			}
 			for _, ch := range channels {
 				if ch == messaging.ChannelWhatsApp && !whatsappConnected {
@@ -140,11 +163,14 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 				}
 				addresses := channelAddresses(ch, aud.recipients, rule.ExtraRecipients)
 				if len(addresses) == 0 {
+					if ch == messaging.ChannelEmail {
+						skip(mcDomain.SkipNoRecipient)
+					}
 					continue
 				}
 				subjectLine, body := renderSubject(template.Subject, data), renderBody(template.BodyFor(ch), data, ch)
 				for _, to := range addresses {
-					sends = append(sends, pendingSend{channel: ch, to: to, subject: subjectLine, body: body})
+					sends = append(sends, pendingSend{channel: ch, to: to, subject: subjectLine, body: body, ruleID: rule.ID, templateID: template.ID})
 				}
 			}
 		}
@@ -157,7 +183,10 @@ func (uc *EvaluateAutomationRulesUseCase) Execute(ctx context.Context, subject, 
 		return fmt.Errorf("evaluateAutomationRules: %w", err)
 	}
 
-	return uc.dispatch(ctx, sends, conns)
+	for _, e := range skipped {
+		recordBestEffort(ctx, uc.history, e)
+	}
+	return uc.dispatch(ctx, subject, sends, conns)
 }
 
 // messageData is everything a template and a rule's conditions see: the
@@ -225,7 +254,7 @@ func channelAddresses(ch messaging.Channel, recipients []recipient, extras []str
 // "safe to retry, an occasional duplicate is a smaller harm than a silent
 // drop" tradeoff every other consumer in this codebase already makes) --
 // the whole event is nacked and redelivered, not partially retried.
-func (uc *EvaluateAutomationRulesUseCase) dispatch(ctx context.Context, sends []pendingSend, conns []integrationsDomain.Connection) error {
+func (uc *EvaluateAutomationRulesUseCase) dispatch(ctx context.Context, subject string, sends []pendingSend, conns []integrationsDomain.Connection) error {
 	var whatsappClient integrationsDomain.EvolutionAPIClient
 	var emailClient messaging.Client
 
@@ -242,8 +271,17 @@ func (uc *EvaluateAutomationRulesUseCase) dispatch(ctx context.Context, sends []
 			// smtp.Client.Send only reads HTMLBody, never Body (see
 			// infrastructure/messaging/smtp.Client.Send) -- Body alone
 			// here would silently send an empty message.
-			if err := emailClient.Send(ctx, messaging.Message{Channel: messaging.ChannelEmail, To: s.to, Subject: s.subject, HTMLBody: s.body}); err != nil {
-				return fmt.Errorf("evaluateAutomationRules: send email: %w", err)
+			sendErr := emailClient.Send(ctx, messaging.Message{Channel: messaging.ChannelEmail, To: s.to, Subject: s.subject, HTMLBody: s.body})
+			entry := mcDomain.SentEmail{
+				Source: mcDomain.SentEmailSourceAutomation, Recipient: s.to, Subject: s.subject, HTMLBody: s.body, Status: mcDomain.SentEmailSent,
+				RuleID: s.ruleID, TemplateID: s.templateID, TriggerSubject: subject,
+			}
+			if sendErr != nil {
+				entry.Status, entry.Reason = mcDomain.SentEmailFailed, sendErr.Error()
+			}
+			recordBestEffort(ctx, uc.history, entry)
+			if sendErr != nil {
+				return fmt.Errorf("evaluateAutomationRules: send email: %w", sendErr)
 			}
 		case messaging.ChannelWhatsApp:
 			if whatsappClient == nil {

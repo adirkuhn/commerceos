@@ -113,6 +113,51 @@ func (e Operator) Valid() bool {
 	}
 }
 
+// Defines values for SentEmailSource.
+const (
+	Automation   SentEmailSource = "automation"
+	Newsletter   SentEmailSource = "newsletter"
+	Notification SentEmailSource = "notification"
+	SignInLink   SentEmailSource = "sign_in_link"
+)
+
+// Valid indicates whether the value is a known member of the SentEmailSource enum.
+func (e SentEmailSource) Valid() bool {
+	switch e {
+	case Automation:
+		return true
+	case Newsletter:
+		return true
+	case Notification:
+		return true
+	case SignInLink:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SentEmailStatus.
+const (
+	Failed  SentEmailStatus = "failed"
+	Sent    SentEmailStatus = "sent"
+	Skipped SentEmailStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the SentEmailStatus enum.
+func (e SentEmailStatus) Valid() bool {
+	switch e {
+	case Failed:
+		return true
+	case Sent:
+		return true
+	case Skipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TemplateVariableType.
 const (
 	List TemplateVariableType = "list"
@@ -255,6 +300,19 @@ type CreateMessageTemplateRequest struct {
 	TextBody *string `json:"text_body,omitempty"`
 }
 
+// DeleteSentEmailsRequest defines model for DeleteSentEmailsRequest.
+type DeleteSentEmailsRequest struct {
+	Ids []string `json:"ids"`
+}
+
+// DeleteSentEmailsResponse defines model for DeleteSentEmailsResponse.
+type DeleteSentEmailsResponse struct {
+	Data *struct {
+		Deleted int `json:"deleted"`
+	} `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Data  interface{} `json:"data,omitempty"`
@@ -391,6 +449,87 @@ type PreviewMessageTemplateRequest struct {
 	TriggerSubject TriggerSubject `json:"trigger_subject"`
 }
 
+// SentEmail defines model for SentEmail.
+type SentEmail struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// HtmlBody The email exactly as sent.
+	HtmlBody string `json:"html_body"`
+	Id       string `json:"id"`
+
+	// Reason For failed, the mail server's error (as given, not translated). For skipped, a code -- no_recipient or template_disabled. Empty for sent.
+	Reason string `json:"reason"`
+
+	// Recipient Empty for a skip with nobody to send to.
+	Recipient string `json:"recipient"`
+
+	// RuleId The automation rule (automation emails only).
+	RuleId string          `json:"rule_id"`
+	Source SentEmailSource `json:"source"`
+
+	// Status sent -- accepted by the mail server; failed -- not sent (reason has the error); skipped -- an automation rule matched but sent nothing (reason has why).
+	Status  SentEmailStatus `json:"status"`
+	Subject string          `json:"subject"`
+
+	// TemplateId The message template (automation emails only).
+	TemplateId string `json:"template_id"`
+
+	// TriggerSubject The event that triggered it (automation emails only).
+	TriggerSubject string `json:"trigger_subject"`
+}
+
+// SentEmailList defines model for SentEmailList.
+type SentEmailList struct {
+	Items   []SentEmailSummary `json:"items"`
+	Page    int                `json:"page"`
+	PerPage int                `json:"per_page"`
+	Total   int                `json:"total"`
+}
+
+// SentEmailListResponse defines model for SentEmailListResponse.
+type SentEmailListResponse struct {
+	Data  *SentEmailList `json:"data,omitempty"`
+	Error interface{}    `json:"error,omitempty"`
+}
+
+// SentEmailResponse defines model for SentEmailResponse.
+type SentEmailResponse struct {
+	Data  *SentEmail  `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
+// SentEmailSource defines model for SentEmailSource.
+type SentEmailSource string
+
+// SentEmailStatus sent -- accepted by the mail server; failed -- not sent (reason has the error); skipped -- an automation rule matched but sent nothing (reason has why).
+type SentEmailStatus string
+
+// SentEmailSummary defines model for SentEmailSummary.
+type SentEmailSummary struct {
+	CreatedAt time.Time `json:"created_at"`
+	Id        string    `json:"id"`
+
+	// Reason For failed, the mail server's error (as given, not translated). For skipped, a code -- no_recipient or template_disabled. Empty for sent.
+	Reason string `json:"reason"`
+
+	// Recipient Empty for a skip with nobody to send to.
+	Recipient string `json:"recipient"`
+
+	// RuleId The automation rule (automation emails only).
+	RuleId string          `json:"rule_id"`
+	Source SentEmailSource `json:"source"`
+
+	// Status sent -- accepted by the mail server; failed -- not sent (reason has the error); skipped -- an automation rule matched but sent nothing (reason has why).
+	Status  SentEmailStatus `json:"status"`
+	Subject string          `json:"subject"`
+
+	// TemplateId The message template (automation emails only).
+	TemplateId string `json:"template_id"`
+
+	// TriggerSubject The event that triggered it (automation emails only).
+	TriggerSubject string `json:"trigger_subject"`
+}
+
 // TemplateVariable defines model for TemplateVariable.
 type TemplateVariable struct {
 	// Example Sample value used by previews (any JSON value; null for a list).
@@ -455,6 +594,23 @@ type UploadMessageTemplateImageMultipartBody struct {
 	File openapi_types.File `json:"file"`
 }
 
+// ListSentEmailsParams defines parameters for ListSentEmails.
+type ListSentEmailsParams struct {
+	Status *SentEmailStatus `form:"status,omitempty" json:"status,omitempty"`
+	Source *SentEmailSource `form:"source,omitempty" json:"source,omitempty"`
+
+	// Q Matches recipient or subject (case-insensitive, literal).
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// From Only entries at or after this moment.
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Only entries before this moment.
+	To      *time.Time `form:"to,omitempty" json:"to,omitempty"`
+	Page    *int       `form:"page,omitempty" json:"page,omitempty"`
+	PerPage *int       `form:"per_page,omitempty" json:"per_page,omitempty"`
+}
+
 // CreateAutomationRuleJSONRequestBody defines body for CreateAutomationRule for application/json ContentType.
 type CreateAutomationRuleJSONRequestBody = CreateAutomationRuleRequest
 
@@ -472,6 +628,9 @@ type PreviewMessageTemplateJSONRequestBody = PreviewMessageTemplateRequest
 
 // UpdateMessageTemplateJSONRequestBody defines body for UpdateMessageTemplate for application/json ContentType.
 type UpdateMessageTemplateJSONRequestBody = UpdateMessageTemplateRequest
+
+// DeleteSentEmailsJSONRequestBody defines body for DeleteSentEmails for application/json ContentType.
+type DeleteSentEmailsJSONRequestBody = DeleteSentEmailsRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -514,6 +673,18 @@ type ServerInterface interface {
 	// ListMessageTriggers Every event a rule can fire on, with the variables its templates can use
 	// (GET /message-triggers)
 	ListMessageTriggers(c *gin.Context)
+	// ListSentEmails The tenant's email history, newest first
+	// (GET /sent-emails)
+	ListSentEmails(c *gin.Context, params ListSentEmailsParams)
+	// DeleteSentEmails Delete entries from the email history
+	// (POST /sent-emails/bulk-delete)
+	DeleteSentEmails(c *gin.Context)
+	// DeleteSentEmail Delete one email from the history
+	// (DELETE /sent-emails/{id})
+	DeleteSentEmail(c *gin.Context, id Id)
+	// GetSentEmail One email from the history, with its body
+	// (GET /sent-emails/{id})
+	GetSentEmail(c *gin.Context, id Id)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -754,6 +925,144 @@ func (siw *ServerInterfaceWrapper) ListMessageTriggers(c *gin.Context) {
 	siw.Handler.ListMessageTriggers(c)
 }
 
+// ListSentEmails operation middleware
+func (siw *ServerInterfaceWrapper) ListSentEmails(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSentEmailsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", c.Request.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter status: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", c.Request.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter source: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", c.Request.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter q: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", c.Request.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter from: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", c.Request.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter to: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "per_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "per_page", c.Request.URL.Query(), &params.PerPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter per_page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListSentEmails(c, params)
+}
+
+// DeleteSentEmails operation middleware
+func (siw *ServerInterfaceWrapper) DeleteSentEmails(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteSentEmails(c)
+}
+
+// DeleteSentEmail operation middleware
+func (siw *ServerInterfaceWrapper) DeleteSentEmail(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteSentEmail(c, id)
+}
+
+// GetSentEmail operation middleware
+func (siw *ServerInterfaceWrapper) GetSentEmail(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetSentEmail(c, id)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -786,6 +1095,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/message-templates/images", wrapper.UploadMessageTemplateImage)
 	router.GET(options.BaseURL+"/message-template-defaults", wrapper.ListMessageTemplateDefaults)
 	router.POST(options.BaseURL+"/message-templates/:id/reset", wrapper.ResetMessageTemplate)
+	router.GET(options.BaseURL+"/sent-emails", wrapper.ListSentEmails)
+	router.POST(options.BaseURL+"/sent-emails/bulk-delete", wrapper.DeleteSentEmails)
+	router.DELETE(options.BaseURL+"/sent-emails/:id", wrapper.DeleteSentEmail)
+	router.GET(options.BaseURL+"/sent-emails/:id", wrapper.GetSentEmail)
 	router.GET(options.BaseURL+"/message-templates", wrapper.ListMessageTemplates)
 	router.POST(options.BaseURL+"/message-templates", wrapper.CreateMessageTemplate)
 	router.DELETE(options.BaseURL+"/message-templates/:id", wrapper.DeleteMessageTemplate)
@@ -801,67 +1114,83 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"or1dIuO4Q6/WR/us4Pv330erD6v/DwAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

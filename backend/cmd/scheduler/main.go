@@ -368,6 +368,9 @@ func main() {
 			Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, From: cfg.SMTPFrom,
 		})
 	}
+	// Every email the scheduler sends goes into the tenant's sent-email
+	// history (Message Center > Sent).
+	recordSentEmailUC := messagecenterapp.NewRecordSentEmailUseCase(db, repositories.NewSentEmailRepo(db), outboxRepo)
 	evaluateAutomationRulesUC := messagecenterapp.NewEvaluateAutomationRulesUseCase(
 		db, repositories.NewAutomationRuleRepo(db), repositories.NewMessageTemplateRepo(db),
 		messagecenterapp.OrderSources{
@@ -378,7 +381,7 @@ func main() {
 		connRepo, evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
 		smtp.NewClientFactory(), automationEmailClient,
 		notificationsapp.NewCategoryEmailRecipientsUseCase(db, repositories.NewNotificationPreferencesRepo(db)),
-	)
+	).WithEmailHistory(recordSentEmailUC)
 	for _, subject := range mcDomain.KnownTriggerSubjects() {
 		automationEngineConsumer := consumers.NewAutomationEngineConsumer(subject, processedEventRepo, evaluateAutomationRulesUC, js)
 		// JetStream durable names may not contain "." (see nats.go's
@@ -395,7 +398,9 @@ func main() {
 	// Email half of notifications (see DeliverNotificationUseCase): same
 	// per-tenant email connection / platform SMTP fallback as automations.
 	sendNotificationEmailUC := notificationsapp.NewSendNotificationEmailUseCase(
-		db, connRepo, cfg.IntegrationsEncryptionSecret, smtp.NewClientFactory(), automationEmailClient, cfg.FrontendBaseURL,
+		db, connRepo, cfg.IntegrationsEncryptionSecret,
+		messagecenterapp.NewRecordingEmailClientFactory(smtp.NewClientFactory(), recordSentEmailUC, mcDomain.SentEmailSourceNotification),
+		messagecenterapp.NewRecordingEmailClient(automationEmailClient, recordSentEmailUC, mcDomain.SentEmailSourceNotification), cfg.FrontendBaseURL,
 		settingsapp.NewGetTenantSettingsUseCase(db, settingsRepo),
 	)
 	notificationEmailConsumer := consumers.NewNotificationEmailConsumer(processedEventRepo, sendNotificationEmailUC, js)

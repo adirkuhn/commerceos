@@ -32,6 +32,7 @@ type evalDeps struct {
 	shipments    map[string][]shippingDomain.Shipment
 	profile      *settingsDomain.CompanyProfile
 	settings     *settingsDomain.TenantSettings
+	history      *recordedEmails
 }
 
 type fakeLineItems struct {
@@ -114,11 +115,15 @@ func newEvalUseCase(t *testing.T, d evalDeps) *appmc.EvaluateAutomationRulesUseC
 		Shipments: fakeShipments{bySO: d.shipments}, CarrierOverrides: noCarrierOverrides{},
 	}
 	store := appmc.StoreSources{CompanyProfile: fixedProfile{d.profile}, Settings: fixedSettings{d.settings}}
-	return appmc.NewEvaluateAutomationRulesUseCase(
+	uc := appmc.NewEvaluateAutomationRulesUseCase(
 		newMockGormDB(t, 1), d.ruleRepo, d.templateRepo, orders, store, d.conns,
 		&fakeEvolutionAPIClientFactory{client: d.evoClient}, testEncryptionSecret,
 		d.emailFactory, d.emailClient, d.staff,
 	)
+	if d.history != nil {
+		uc.WithEmailHistory(d.history)
+	}
+	return uc
 }
 
 // TestEvaluateAutomationRules_userExample_collectPointShipment mirrors the

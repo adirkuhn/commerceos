@@ -389,5 +389,8 @@
   "WOO_PRODUCT_NOT_FOUND_BY_SKU": "Geen WooCommerce-product heeft deze SKU.",
   "WOO_REQUEST_FAILED": "Het verzoek aan WooCommerce is mislukt.",
   "MESSAGE_TEMPLATE_DEFAULT_UNKNOWN": "Dat standaardsjabloon bestaat niet.",
-  "MESSAGE_TEMPLATE_HAS_NO_DEFAULT": "Dit sjabloon is niet gemaakt van een standaard en kan dus niet worden hersteld."
+  "MESSAGE_TEMPLATE_HAS_NO_DEFAULT": "Dit sjabloon is niet gemaakt van een standaard en kan dus niet worden hersteld.",
+  "SENT_EMAIL_NOT_FOUND": "Die e-mail staat niet meer in de geschiedenis.",
+  "SENT_EMAIL_INVALID_FILTER": "Onbekend status- of bronfilter.",
+  "SENT_EMAIL_IDS_REQUIRED": "Kies minstens één e-mail om te verwijderen."
 }

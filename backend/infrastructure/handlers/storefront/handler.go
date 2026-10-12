@@ -9,6 +9,8 @@ package storefront
 
 import (
 	"context"
+	appmc "github.com/adirkuhn/commerceos/application/messagecenter"
+	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -225,6 +227,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL, stor
 	taxClassRepo := repositories.NewTaxClassRepo(db)
 	taxRateRepo := repositories.NewTaxRateRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
+	// Shopper emails go into the tenant's sent-email history.
+	sentEmails := appmc.NewRecordSentEmailUseCase(db, repositories.NewSentEmailRepo(db), outboxRepo)
 	connRepo := repositories.NewConnectionRepo(db)
 	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	stockMovementLinkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
@@ -293,14 +297,15 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL, stor
 		appstorefront.NewGetWishlistUseCase(db, wishlistRepo),
 		appstorefront.NewToggleWishlistItemUseCase(db, wishlistRepo, channelRepo, overrideRepo, productRepo, outboxRepo),
 		appstorefront.NewGetProductRecommendationsUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, skuCurrencyPriceRepo, fxRepo, getCartRecommendations),
-		appstorefront.NewRequestMagicLinkUseCase(db, channelRepo, customerRepo, createCustomer, magicLinkTokenRepo, emailClient, storefrontURL, outboxRepo),
+		appstorefront.NewRequestMagicLinkUseCase(db, channelRepo, customerRepo, createCustomer, magicLinkTokenRepo,
+			appmc.NewRecordingEmailClient(emailClient, sentEmails, mcDomain.SentEmailSourceSignInLink), storefrontURL, outboxRepo),
 		appstorefront.NewVerifyMagicLinkUseCase(db, magicLinkTokenRepo, customerSessionRepo, outboxRepo),
 		appstorefront.NewGetAccountUseCase(db, customerSessionRepo, customerRepo),
 		appstorefront.NewListAccountOrdersUseCase(db, customerSessionRepo, salesRepo),
 		appstorefront.NewLogoutUseCase(db, customerSessionRepo, outboxRepo),
 		createPaymentIntent,
 		catalog,
-		newsletterUseCases(db, encryptionSecret, emailClient, storefrontURL),
+		newsletterUseCases(db, encryptionSecret, appmc.NewRecordingEmailClient(emailClient, sentEmails, mcDomain.SentEmailSourceNewsletter), storefrontURL),
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }

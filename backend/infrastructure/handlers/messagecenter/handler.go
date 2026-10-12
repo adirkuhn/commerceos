@@ -58,18 +58,22 @@ type deleteAutomationRuleUC interface {
 }
 
 type Handler struct {
-	preview        previewTemplateUC
-	uploadImage    uploadTemplateImageUC
-	listDefaults   listTemplateDefaultsUC
-	resetTemplate  resetTemplateUC
-	listTemplates  listMessageTemplatesUC
-	createTemplate createMessageTemplateUC
-	updateTemplate updateMessageTemplateUC
-	deleteTemplate deleteMessageTemplateUC
-	listRules      listAutomationRulesUC
-	createRule     createAutomationRuleUC
-	updateRule     updateAutomationRuleUC
-	deleteRule     deleteAutomationRuleUC
+	preview       previewTemplateUC
+	uploadImage   uploadTemplateImageUC
+	listDefaults  listTemplateDefaultsUC
+	resetTemplate resetTemplateUC
+	// sent-email history
+	listSentEmails   listSentEmailsUC
+	getSentEmail     getSentEmailUC
+	deleteSentEmails deleteSentEmailsUC
+	listTemplates    listMessageTemplatesUC
+	createTemplate   createMessageTemplateUC
+	updateTemplate   updateMessageTemplateUC
+	deleteTemplate   deleteMessageTemplateUC
+	listRules        listAutomationRulesUC
+	createRule       createAutomationRuleUC
+	updateRule       updateAutomationRuleUC
+	deleteRule       deleteAutomationRuleUC
 }
 
 func NewHandler(
@@ -157,6 +161,12 @@ func Register(rg gin.IRouter, db *gorm.DB, storage pmsDomain.FileStorage) {
 	h.WithDefaults(
 		appmc.NewListMessageTemplateDefaultsUseCase(settings),
 		appmc.NewResetMessageTemplateUseCase(db, templateRepo, outboxRepo, settings),
+	)
+	sentEmailRepo := repositories.NewSentEmailRepo(db)
+	h.WithSentEmails(
+		appmc.NewListSentEmailsUseCase(db, sentEmailRepo),
+		appmc.NewGetSentEmailUseCase(db, sentEmailRepo),
+		appmc.NewDeleteSentEmailsUseCase(db, sentEmailRepo, outboxRepo),
 	)
 	genmc.RegisterHandlers(rg, h)
 }
@@ -415,7 +425,7 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, mcDomain.ErrTemplateNotFound), errors.Is(err, mcDomain.ErrRuleNotFound):
+	case errors.Is(err, mcDomain.ErrTemplateNotFound), errors.Is(err, mcDomain.ErrRuleNotFound), errors.Is(err, mcDomain.ErrSentEmailNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, mcDomain.ErrTemplateNameRequired), errors.Is(err, mcDomain.ErrInvalidCategory),
 		errors.Is(err, mcDomain.ErrNoChannelsSelected), errors.Is(err, mcDomain.ErrInvalidChannel),
@@ -424,7 +434,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, mcDomain.ErrInvalidTriggerSubject), errors.Is(err, mcDomain.ErrTemplateIDRequired),
 		errors.Is(err, mcDomain.ErrInvalidCondition), errors.Is(err, mcDomain.ErrInvalidExtraRecipient),
 		errors.Is(err, mcDomain.ErrTooManyExtraRecipients),
-		errors.Is(err, mcDomain.ErrUnknownDefaultTemplate), errors.Is(err, mcDomain.ErrTemplateHasNoDefault):
+		errors.Is(err, mcDomain.ErrUnknownDefaultTemplate), errors.Is(err, mcDomain.ErrTemplateHasNoDefault),
+		errors.Is(err, mcDomain.ErrSentEmailFilter), errors.Is(err, mcDomain.ErrNoSentEmailsGiven):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "INVALID_REQUEST", err)
 	default:
 		log.Printf("messagecenter: unhandled error: %v", err)

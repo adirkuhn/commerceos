@@ -122,6 +122,98 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /sent-emails:
+    get:
+      operationId: listSentEmails
+      summary: The tenant's email history, newest first
+      description: >-
+        Every email CommerceOS sent (automations, notifications, sign-in
+        links, newsletter), failed to send, or -- for automation rules --
+        skipped, kept until deleted. "sent" means the mail server accepted
+        it; SMTP reports nothing about delivery after that. Bodies are left
+        out; GET /sent-emails/{id} has them.
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/SentEmailStatus' }
+        - name: source
+          in: query
+          schema: { $ref: '#/components/schemas/SentEmailSource' }
+        - name: q
+          in: query
+          description: Matches recipient or subject (case-insensitive, literal).
+          schema: { type: string }
+        - name: from
+          in: query
+          description: Only entries at or after this moment.
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          description: Only entries before this moment.
+          schema: { type: string, format: date-time }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SentEmailListResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /sent-emails/bulk-delete:
+    post:
+      operationId: deleteSentEmails
+      summary: Delete entries from the email history
+      description: Entries already gone are ignored; the response says how many were removed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteSentEmailsRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteSentEmailsResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /sent-emails/{id}:
+    get:
+      operationId: getSentEmail
+      summary: One email from the history, with its body
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SentEmailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteSentEmail
+      summary: Delete one email from the history
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+        '404':
+          $ref: '#/components/responses/Error'
+
   /message-templates:
     get:
       operationId: listMessageTemplates
@@ -392,6 +484,86 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MessageTemplateDefault'
+        error: { nullable: true }
+
+    SentEmailStatus:
+      type: string
+      enum: [sent, failed, skipped]
+      description: sent -- accepted by the mail server; failed -- not sent (reason has the error); skipped -- an automation rule matched but sent nothing (reason has why).
+
+    SentEmailSource:
+      type: string
+      enum: [automation, notification, sign_in_link, newsletter]
+
+    SentEmailSummary:
+      type: object
+      required: [id, source, recipient, subject, status, reason, rule_id, template_id, trigger_subject, created_at]
+      properties:
+        id: { type: string }
+        source: { $ref: '#/components/schemas/SentEmailSource' }
+        recipient: { type: string, description: Empty for a skip with nobody to send to. }
+        subject: { type: string }
+        status: { $ref: '#/components/schemas/SentEmailStatus' }
+        reason:
+          type: string
+          description: >-
+            For failed, the mail server's error (as given, not translated).
+            For skipped, a code -- no_recipient or template_disabled. Empty
+            for sent.
+        rule_id: { type: string, description: The automation rule (automation emails only). }
+        template_id: { type: string, description: The message template (automation emails only). }
+        trigger_subject: { type: string, description: The event that triggered it (automation emails only). }
+        created_at: { type: string, format: date-time }
+
+    SentEmail:
+      allOf:
+        - $ref: '#/components/schemas/SentEmailSummary'
+        - type: object
+          required: [html_body]
+          properties:
+            html_body: { type: string, description: The email exactly as sent. }
+
+    SentEmailList:
+      type: object
+      required: [items, total, page, per_page]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/SentEmailSummary' }
+        total: { type: integer }
+        page: { type: integer }
+        per_page: { type: integer }
+
+    SentEmailListResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SentEmailList' }
+        error: { nullable: true }
+
+    SentEmailResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SentEmail' }
+        error: { nullable: true }
+
+    DeleteSentEmailsRequest:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { type: string }
+
+    DeleteSentEmailsResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          required: [deleted]
+          properties:
+            deleted: { type: integer }
         error: { nullable: true }
 
     MessageTemplateResponse:

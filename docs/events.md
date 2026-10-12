@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-214 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+216 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -175,6 +175,8 @@ Payload (`events.EntityAction`):
 | `messagecenter.message_template.created` | action | A message template was created. data: name, category, channels. | envelope |
 | `messagecenter.message_template.deleted` | action | A message template was deleted. data: name. | envelope |
 | `messagecenter.message_template.updated` | action | A message template changed (changes: name, category, channels, subject, body, enabled). | envelope |
+| `messagecenter.sent_email.deleted` | action | An entry was deleted from the sent-email history. | envelope |
+| `messagecenter.sent_email.recorded` | action | An email was sent, failed or was skipped and is now in the sent-email history. data: source, status, trigger_subject. | envelope |
 
 ### newsletter
 
