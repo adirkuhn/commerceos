@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderAt } from '../../../test/renderAt'
@@ -22,8 +22,19 @@ const editor = {
   content: vi.fn(() => ({ html: '<table><tr><td>Hi {{customer_name}}</td></tr></table>', design: { pages: [] } })),
   insertText: vi.fn(),
   insertHTML: vi.fn(),
+  undo: vi.fn(),
+  redo: vi.fn(),
+  device: 'desktop' as const,
+  setDevice: vi.fn(),
+  showCode: vi.fn(),
 }
-let editorOpts: { blocks: { id: string; label: string; media: string }[] } | undefined
+interface CapturedOpts {
+  blocks: { id: string; label: string; media: string }[]
+  panels: Record<'blocks' | 'styles' | 'layers', { current: HTMLDivElement | null }>
+  sectorLabels: Record<string, string>
+  onSelect?: () => void
+}
+let editorOpts: CapturedOpts | undefined
 vi.mock('../useEmailEditor', () => ({
   useEmailEditor: (_c: unknown, opts: typeof editorOpts) => { editorOpts = opts; return editor },
 }))
@@ -55,6 +66,61 @@ function renderEditor(onSave = vi.fn().mockResolvedValue(undefined)) {
   return onSave
 }
 
+describe('EmailDesignEditor panels', () => {
+  it('opens on the blocks, with styles, layers and variables one tab away', async () => {
+    renderEditor()
+
+    expect(screen.getByRole('tab', { name: 'Blocks' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('panel-blocks')).toBeVisible()
+    expect(screen.getByTestId('panel-styles')).not.toBeVisible()
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Layers' }))
+
+    expect(screen.getByTestId('panel-layers')).toBeVisible()
+    expect(screen.getByTestId('panel-blocks')).not.toBeVisible()
+  })
+
+  it('hands the editor its panels and the style group names', () => {
+    renderEditor()
+
+    expect(editorOpts?.panels.blocks.current).toBe(screen.getByTestId('panel-blocks'))
+    expect(editorOpts?.panels.styles.current).toBe(screen.getByTestId('panel-styles'))
+    expect(editorOpts?.panels.layers.current).toBe(screen.getByTestId('panel-layers'))
+    expect(editorOpts?.sectorLabels.text).toBe('Text')
+  })
+
+  it('shows the style settings when a block is selected in the canvas', async () => {
+    renderEditor()
+
+    act(() => editorOpts?.onSelect?.())
+
+    expect(screen.getByRole('tab', { name: 'Style' })).toHaveAttribute('aria-selected', 'true')
+  })
+})
+
+describe('EmailDesignEditor toolbar', () => {
+  it('undoes, redoes and opens the code', async () => {
+    renderEditor()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Redo' }))
+    await userEvent.click(screen.getByRole('button', { name: 'View code' }))
+
+    expect(editor.undo).toHaveBeenCalled()
+    expect(editor.redo).toHaveBeenCalled()
+    expect(editor.showCode).toHaveBeenCalled()
+  })
+
+  it('switches between the desktop and mobile view', async () => {
+    renderEditor()
+
+    expect(screen.getByRole('button', { name: 'Desktop' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Mobile' }))
+
+    expect(editor.setDevice).toHaveBeenCalledWith('mobile')
+  })
+})
+
 describe('EmailDesignEditor', () => {
   it('names the CommerceOS blocks in the editing language, each with an icon', async () => {
     renderEditor()
@@ -68,6 +134,7 @@ describe('EmailDesignEditor', () => {
 
   it('lists the trigger variables and inserts them into the canvas', async () => {
     renderEditor()
+    await userEvent.click(screen.getByRole('tab', { name: 'Variables' }))
 
     await userEvent.click(await screen.findByText('{{customer_name}}'))
     expect(editor.insertText).toHaveBeenCalledWith('{{customer_name}}')

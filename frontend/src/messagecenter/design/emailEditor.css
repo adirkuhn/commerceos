@@ -1,0 +1,187 @@
+/*
+ * GrapesJS restyled with the app's own tokens, so the email editor reads
+ * as part of CommerceOS in both designs and both appearances. Scoped to
+ * the canvas (.cos-email-editor) and the side panel (.cos-email-panel)
+ * GrapesJS renders into. The email itself (inside the canvas iframe)
+ * keeps its own white look -- that is what customers receive.
+ */
+
+.cos-email-editor .gjs-editor,
+.cos-email-panel {
+  font-family: var(--font-sans);
+}
+
+.cos-email-editor .gjs-one-bg,
+.cos-email-panel .gjs-one-bg { background-color: rgb(var(--raised)); }
+.cos-email-editor .gjs-two-color,
+.cos-email-panel .gjs-two-color { color: rgb(var(--ink-2)); }
+.cos-email-editor .gjs-three-bg,
+.cos-email-panel .gjs-three-bg { background-color: rgb(var(--accent-solid)); color: #fff; }
+.cos-email-editor .gjs-four-color,
+.cos-email-panel .gjs-four-color,
+.cos-email-panel .gjs-four-color-h:hover { color: rgb(var(--accent)); }
+
+/* Canvas: the whole area, on the sunken well, no GrapesJS panel bar. */
+.cos-email-editor .gjs-cv-canvas {
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgb(var(--sunken));
+}
+.cos-email-editor .gjs-pn-panels { display: none; }
+.cos-email-editor .gjs-frame-wrapper { padding: 24px 0; }
+.cos-email-editor .gjs-frame {
+  /* A frame whose colour scheme differs from the page is painted opaque
+     white in dark mode; matching the email's light scheme keeps the
+     well visible around it. */
+  color-scheme: light;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08), 0 0 0 1px rgb(var(--line));
+}
+
+/* Selection chrome on the canvas. */
+.cos-email-editor .gjs-badge,
+.cos-email-editor .gjs-toolbar {
+  background-color: rgb(var(--accent-solid));
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+.cos-email-editor .gjs-toolbar-item { padding: 4px; }
+.cos-email-editor .gjs-placeholder-int { background-color: rgb(var(--accent-solid)); }
+.cos-email-editor .gjs-rte-toolbar {
+  background-color: rgb(var(--raised));
+  border: 1px solid rgb(var(--line));
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+}
+.cos-email-editor .gjs-rte-action { color: rgb(var(--ink-2)); border-right-color: rgb(var(--line)); }
+.cos-email-editor .gjs-rte-active { background-color: rgb(var(--hover)); }
+
+/* Code view / asset modals. */
+.cos-email-editor .gjs-mdl-container { background-color: rgb(0 0 0 / 0.4); }
+.cos-email-editor .gjs-mdl-dialog {
+  background-color: rgb(var(--raised));
+  color: rgb(var(--ink));
+  border-radius: var(--radius-xl);
+  border: 1px solid rgb(var(--line));
+}
+.cos-email-editor .gjs-mdl-header { border-bottom: 1px solid rgb(var(--line)); padding: 14px 18px; }
+.cos-email-editor .gjs-mdl-title { font-size: 0.9rem; font-weight: 600; }
+.cos-email-editor .gjs-mdl-btn-close { color: rgb(var(--ink-3)); }
+.cos-email-editor .gjs-btn-prim {
+  background-color: rgb(var(--accent-solid));
+  color: #fff;
+  border-radius: var(--radius-lg);
+  padding: 6px 14px;
+}
+
+/* Blocks: a two-column grid of icon tiles. */
+.cos-email-panel .gjs-blocks-cs { background: transparent; }
+.cos-email-panel .gjs-block-category { border-bottom: 1px solid rgb(var(--line)); }
+.cos-email-panel .gjs-block-category .gjs-title,
+.cos-email-panel .gjs-sm-sector-title {
+  background: transparent;
+  border: 0;
+  padding: 10px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: rgb(var(--ink));
+}
+.cos-email-panel .gjs-blocks-c {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0 10px 12px;
+}
+.cos-email-panel .gjs-block {
+  width: auto;
+  min-height: 76px;
+  margin: 0;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgb(var(--line));
+  border-radius: var(--radius-lg);
+  background-color: rgb(var(--surface));
+  color: rgb(var(--ink-2));
+  box-shadow: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+.cos-email-panel .gjs-block:hover {
+  border-color: rgb(var(--accent));
+  color: rgb(var(--accent));
+}
+.cos-email-panel .gjs-block svg { width: 24px; height: 24px; }
+/* GrapesJS fills block icons; ours (lucide) are outlines. */
+.cos-email-panel .gjs-block svg.lucide { fill: none; }
+.cos-email-panel .gjs-block__media { margin: 0; }
+.cos-email-panel .gjs-block-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* Style settings. */
+.cos-email-panel .gjs-sm-sectors { background: transparent; }
+.cos-email-panel .gjs-sm-sector { border-bottom: 1px solid rgb(var(--line)); }
+.cos-email-panel .gjs-sm-sector-caret { color: rgb(var(--ink-4)); }
+.cos-email-panel .gjs-sm-properties { padding: 0 8px 10px; font-size: 0.75rem; }
+.cos-email-panel .gjs-sm-property { padding: 0 4px; margin-bottom: 8px; }
+.cos-email-panel .gjs-sm-label {
+  margin-bottom: 4px;
+  color: rgb(var(--ink-3));
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+.cos-email-panel .gjs-sm-header {
+  padding: 16px 12px;
+  font-size: 0.75rem;
+  color: rgb(var(--ink-4));
+}
+.cos-email-panel .gjs-field {
+  background-color: rgb(var(--sunken));
+  border: 1px solid rgb(var(--line));
+  border-radius: var(--radius-md);
+  color: rgb(var(--ink));
+}
+.cos-email-panel .gjs-field input,
+.cos-email-panel .gjs-field select { color: rgb(var(--ink)); font-size: 0.75rem; }
+.cos-email-panel .gjs-field select option { background-color: rgb(var(--raised)); }
+.cos-email-panel .gjs-field-arrow-u { border-bottom-color: rgb(var(--ink-4)); }
+.cos-email-panel .gjs-field-arrow-d { border-top-color: rgb(var(--ink-4)); }
+.cos-email-panel .gjs-d-s-arrow { border-top-color: rgb(var(--ink-4)); }
+.cos-email-panel .gjs-sm-composite .gjs-sm-properties,
+.cos-email-panel .gjs-sm-field.gjs-sm-composite {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.cos-email-panel .gjs-radio-items { border-radius: var(--radius-md); overflow: hidden; }
+.cos-email-panel .gjs-radio-item { border-color: rgb(var(--line)); }
+.cos-email-panel .gjs-radio-item-label { color: rgb(var(--ink-3)); font-size: 0.7rem; padding: 4px 0; }
+.cos-email-panel .gjs-sm-radio:checked + .gjs-radio-item-label {
+  background-color: rgb(var(--accent) / 0.12);
+  color: rgb(var(--accent));
+  font-weight: 600;
+}
+.cos-email-panel .gjs-sm-clear { color: rgb(var(--ink-4)); }
+
+/* Layers. */
+.cos-email-panel .gjs-layer {
+  background: transparent;
+  color: rgb(var(--ink-2));
+  font-size: 0.75rem;
+}
+.cos-email-panel .gjs-layer-item { border-bottom: 1px solid rgb(var(--line)); padding: 6px 8px; }
+.cos-email-panel .gjs-layer.gjs-selected .gjs-layer-item {
+  background-color: rgb(var(--accent) / 0.1);
+  color: rgb(var(--accent));
+}
+.cos-email-panel .gjs-layer-item:hover { background-color: rgb(var(--hover)); }

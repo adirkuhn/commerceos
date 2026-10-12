@@ -57,7 +57,25 @@
     "resetTitle": "Reset to the default?",
     "resetMessage": "The subject, email and WhatsApp/SMS text go back to the built-in default. Your changes to them are lost.",
     "resetConfirm": "Reset",
-    "resetFailed": "Couldn’t reset the template."
+    "resetFailed": "Couldn’t reset the template.",
+    "tabs": {
+      "blocks": "Blocks",
+      "style": "Style",
+      "layers": "Layers",
+      "variables": "Variables"
+    },
+    "undo": "Undo",
+    "redo": "Redo",
+    "viewCode": "View code",
+    "desktop": "Desktop",
+    "mobile": "Mobile",
+    "sectors": {
+      "text": "Text",
+      "spacing": "Spacing",
+      "size": "Size",
+      "background": "Background",
+      "border": "Border"
+    }
   },
   "operator": {
     "eq": "equals",

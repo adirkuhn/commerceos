@@ -57,7 +57,25 @@
     "resetTitle": "Standaard herstellen?",
     "resetMessage": "Het onderwerp, de e-mail en de WhatsApp-/sms-tekst gaan terug naar de standaard. Je wijzigingen daarin gaan verloren.",
     "resetConfirm": "Herstellen",
-    "resetFailed": "Het sjabloon kon niet worden hersteld."
+    "resetFailed": "Het sjabloon kon niet worden hersteld.",
+    "tabs": {
+      "blocks": "Blokken",
+      "style": "Stijl",
+      "layers": "Lagen",
+      "variables": "Variabelen"
+    },
+    "undo": "Ongedaan maken",
+    "redo": "Opnieuw",
+    "viewCode": "Code bekijken",
+    "desktop": "Desktop",
+    "mobile": "Mobiel",
+    "sectors": {
+      "text": "Tekst",
+      "spacing": "Ruimte",
+      "size": "Grootte",
+      "background": "Achtergrond",
+      "border": "Rand"
+    }
   },
   "operator": {
     "eq": "is gelijk aan",

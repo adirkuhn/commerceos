@@ -1,10 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import grapesjs, { type Editor, type ProjectData } from 'grapesjs'
 import presetNewsletter from 'grapesjs-preset-newsletter'
 import nl from 'grapesjs/locale/nl.mjs'
 import pt from 'grapesjs/locale/pt.mjs'
 import 'grapesjs/dist/css/grapes.min.css'
+import './emailEditor.css'
 import type { EditorBlock } from './editorBlocks'
+import { emailStyleSectors, type SectorLabels } from './styleSectors'
+
+export type EditorDevice = 'desktop' | 'mobile'
+
+const DEVICE_NAMES: Record<EditorDevice, string> = { desktop: 'Desktop', mobile: 'Mobile portrait' }
 
 export interface EmailEditorOptions {
   // design reopens a saved project; without one, html seeds the canvas.
@@ -13,6 +19,15 @@ export interface EmailEditorOptions {
   blocks: EditorBlock[]
   blockCategory: string
   locale: string
+  // Our own panels the editor renders its block list, style settings and
+  // layer tree into (instead of GrapesJS's built-in panel bar).
+  panels: {
+    blocks: RefObject<HTMLDivElement>
+    styles: RefObject<HTMLDivElement>
+    layers: RefObject<HTMLDivElement>
+  }
+  sectorLabels: SectorLabels
+  onSelect?: () => void
   uploadImage: (file: File) => Promise<string>
   onUploadError: (err: unknown) => void
 }
@@ -24,17 +39,25 @@ export interface EmailEditor {
   content: () => { html: string; design: Record<string, unknown> }
   insertText: (text: string) => void
   insertHTML: (html: string) => void
+  undo: () => void
+  redo: () => void
+  device: EditorDevice
+  setDevice: (device: EditorDevice) => void
+  showCode: () => void
 }
 
 const INLINE_HTML = 'gjs-get-inlined-html'
+const EXPORT_CODE = 'export-template'
 
 // useEmailEditor mounts GrapesJS with the newsletter preset (email-safe
-// blocks, inline CSS on export) plus the CommerceOS blocks into container.
-export function useEmailEditor(container: React.RefObject<HTMLDivElement | null>, opts: EmailEditorOptions): EmailEditor {
+// blocks, inline CSS on export) plus the CommerceOS blocks into container,
+// with its blocks, styles and layers drawn into the page's own panels.
+export function useEmailEditor(container: React.RefObject<HTMLDivElement>, opts: EmailEditorOptions): EmailEditor {
   const editorRef = useRef<Editor | null>(null)
   const optsRef = useRef(opts)
   optsRef.current = opts
   const [ready, setReady] = useState(false)
+  const [device, setDeviceState] = useState<EditorDevice>('desktop')
 
   useEffect(() => {
     if (!container.current) return
@@ -46,7 +69,21 @@ export function useEmailEditor(container: React.RefObject<HTMLDivElement | null>
       fromElement: false,
       i18n: { locale: o.locale.slice(0, 2), messages: { nl, pt } },
       plugins: [presetNewsletter],
-      pluginsOpts: { [presetNewsletter as unknown as string]: { inlineCss: true, showBlocksOnLoad: true } },
+      pluginsOpts: {
+        [presetNewsletter as unknown as string]: {
+          inlineCss: true, useCustomTheme: false, updateStyleManager: false, showBlocksOnLoad: false, showStylesOnChange: false,
+        },
+      },
+      // The email shows as a page on the well (emails are ~600px wide).
+      deviceManager: {
+        devices: [
+          { id: 'desktop', name: DEVICE_NAMES.desktop, width: '760px' },
+          { id: 'mobilePortrait', name: DEVICE_NAMES.mobile, width: '375px', widthMedia: '480px' },
+        ],
+      },
+      blockManager: { appendTo: o.panels.blocks.current ?? undefined },
+      styleManager: { appendTo: o.panels.styles.current ?? undefined, sectors: emailStyleSectors(o.sectorLabels) },
+      layerManager: { appendTo: o.panels.layers.current ?? undefined },
       assetManager: {
         upload: false,
         uploadFile: async (e: DragEvent | Event) => {
@@ -66,10 +103,16 @@ export function useEmailEditor(container: React.RefObject<HTMLDivElement | null>
       editor.BlockManager.add(b.id, { label: b.label, media: b.media, category: o.blockCategory, content: b.content })
     }
     editorRef.current = editor
-    editor.on('load', () => setReady(true))
+    editor.on('load', () => {
+      // The preset builds GrapesJS's own panel bar; our page has its own.
+      editor.Panels.getPanels().reset([])
+      setReady(true)
+    })
+    editor.on('component:selected', () => optsRef.current.onSelect?.())
     return () => {
       editorRef.current = null
       setReady(false)
+      setDeviceState('desktop')
       editor.destroy()
     }
   }, [container])
@@ -102,5 +145,13 @@ export function useEmailEditor(container: React.RefObject<HTMLDivElement | null>
       const target = editor.getSelected() ?? editor.getWrapper()
       target?.append(html)
     },
+    undo: () => { editorRef.current?.UndoManager.undo() },
+    redo: () => { editorRef.current?.UndoManager.redo() },
+    device,
+    setDevice: (next: EditorDevice) => {
+      editorRef.current?.setDevice(DEVICE_NAMES[next])
+      setDeviceState(next)
+    },
+    showCode: () => { editorRef.current?.runCommand(EXPORT_CODE) },
   }
 }

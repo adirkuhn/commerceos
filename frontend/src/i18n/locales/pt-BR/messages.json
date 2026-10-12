@@ -57,7 +57,25 @@
     "resetTitle": "Restaurar o padrão?",
     "resetMessage": "O assunto, o e-mail e o texto de WhatsApp/SMS voltam ao padrão. Suas alterações neles serão perdidas.",
     "resetConfirm": "Restaurar",
-    "resetFailed": "Não foi possível restaurar o modelo."
+    "resetFailed": "Não foi possível restaurar o modelo.",
+    "tabs": {
+      "blocks": "Blocos",
+      "style": "Estilo",
+      "layers": "Camadas",
+      "variables": "Variáveis"
+    },
+    "undo": "Desfazer",
+    "redo": "Refazer",
+    "viewCode": "Ver código",
+    "desktop": "Computador",
+    "mobile": "Celular",
+    "sectors": {
+      "text": "Texto",
+      "spacing": "Espaçamento",
+      "size": "Tamanho",
+      "background": "Fundo",
+      "border": "Borda"
+    }
   },
   "operator": {
     "eq": "é igual a",
