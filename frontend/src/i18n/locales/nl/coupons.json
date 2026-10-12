@@ -24,7 +24,7 @@
   },
   "list": {
     "add": "Kortingscode toevoegen",
-    "amountOff": "{{value}} korting",
+    "amountOff": "<amount/> korting",
     "colCode": "Code",
     "colDiscount": "Korting",
     "colExpires": "Verloopt",

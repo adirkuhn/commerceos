@@ -22,7 +22,13 @@ vi.mock('../../coupons/api', () => ({
   deleteCouponCurrencyAmount: vi.fn(),
 }))
 
+vi.mock('../../settings/api', () => ({
+  getTenantSettings: vi.fn(() => Promise.resolve({ default_currency: 'EUR' })),
+}))
+
 import * as couponsApi from '../../coupons/api'
+import { AmountVisibilityProvider } from '../../format/amountVisibility'
+import { formatMoney } from '../../format/money'
 import { acceptConfirm } from '../../test/confirm'
 
 function coupon(overrides: Partial<Coupon> = {}): Coupon {
@@ -235,5 +241,28 @@ describe('in Brazilian Portuguese', () => {
     renderAt(<Coupons />, '/coupons')
 
     expect(await screen.findByText('Nenhum cupom ainda')).toBeInTheDocument()
+  })
+})
+
+describe('Coupons list amounts', () => {
+  it('shows a fixed discount in the shop currency, hidden until clicked', async () => {
+    vi.mocked(couponsApi.listCoupons).mockResolvedValue([coupon({ discount_type: 'fixed', discount_value: 500 })])
+    renderAt(<AmountVisibilityProvider><Coupons /></AmountVisibilityProvider>, '/coupons')
+
+    const reveal = await screen.findByRole('button', { name: 'Show amount' })
+    expect(screen.queryByText(formatMoney(500, 'EUR'))).not.toBeInTheDocument()
+    await waitFor(() => expect(reveal.textContent).toContain('€'))
+
+    await userEvent.click(reveal)
+
+    expect(screen.getByText(formatMoney(500, 'EUR'))).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show amount' })).not.toBeInTheDocument()
+  })
+
+  it('keeps percentages visible', async () => {
+    vi.mocked(couponsApi.listCoupons).mockResolvedValue([coupon()])
+    renderAt(<AmountVisibilityProvider><Coupons /></AmountVisibilityProvider>, '/coupons')
+
+    expect(await screen.findByText('10.00%')).toBeInTheDocument()
   })
 })

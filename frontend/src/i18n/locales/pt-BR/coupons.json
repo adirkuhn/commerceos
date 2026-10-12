@@ -25,7 +25,7 @@
   },
   "list": {
     "add": "Adicionar cupom",
-    "amountOff": "{{value}} de desconto",
+    "amountOff": "<amount/> de desconto",
     "colCode": "Código",
     "colDiscount": "Desconto",
     "colExpires": "Expira em",

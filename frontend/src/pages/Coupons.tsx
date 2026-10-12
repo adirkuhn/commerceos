@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import type { TFunction } from 'i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { Plus, Search, Ticket, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -14,13 +13,20 @@ import { useConfirm } from '../components/common/useConfirm'
 import { CouponEditPage } from '../coupons/CouponEditPage'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
+import { Money } from '../format/amountVisibility'
+import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { LIST_TOOLBAR, LIST_TOOLBAR_ACTION, LIST_TOOLBAR_INLINE, LIST_TOOLBAR_LEAD, LIST_TOOLBAR_ROW } from '../components/common/listToolbar'
 
 const PAGE_SIZE = 20
 
-function formatDiscount(t: TFunction<'coupons'>, c: Coupon): string {
-  const value = (c.discount_value / 100).toFixed(2)
-  return c.discount_type === 'percent' ? t('list.percent', { value }) : t('list.amountOff', { value })
+// Coupons are tenant-wide, so a fixed amount is in the shop's default
+// currency (USD when never set -- the backend's own fallback).
+const FALLBACK_CURRENCY = 'USD'
+
+function Discount({ coupon: c, currency }: { coupon: Coupon; currency: string }) {
+  const { t } = useTranslation('coupons')
+  if (c.discount_type === 'percent') return <>{t('list.percent', { value: (c.discount_value / 100).toFixed(2) })}</>
+  return <Trans t={t} i18nKey="list.amountOff" components={{ amount: <Money minor={c.discount_value} currency={currency} /> }} />
 }
 
 export default function Coupons() {
@@ -29,6 +35,7 @@ export default function Coupons() {
   const { confirm, confirmDialog } = useConfirm()
   const { token } = useAuth()
   const { coupons, loading, error, create, update, remove } = useCoupons(token ?? '')
+  const currency = useTenantSettings(token ?? '').settings?.default_currency || FALLBACK_CURRENCY
 
   // List view state (search, page) and the open editor (/coupons/new,
   // /coupons/:id) live in the URL -- refresh and Back keep the user in place.
@@ -134,7 +141,7 @@ export default function Coupons() {
                 <td className="px-3 py-2.5 max-w-[200px]">
                   <p className="font-medium font-mono text-ink truncate">{c.code}</p>
                 </td>
-                <td className="px-3 py-2.5 text-ink-3">{formatDiscount(t, c)}</td>
+                <td className="px-3 py-2.5 text-ink-3"><Discount coupon={c} currency={currency} /></td>
                 <td className="px-3 py-2.5 text-ink-3">
                   {c.times_used}{c.usage_limit != null ? ` / ${c.usage_limit}` : ''}
                 </td>

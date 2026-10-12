@@ -24,7 +24,7 @@
   },
   "list": {
     "add": "Add coupon",
-    "amountOff": "{{value}} off",
+    "amountOff": "<amount/> off",
     "colCode": "Code",
     "colDiscount": "Discount",
     "colExpires": "Expires",
