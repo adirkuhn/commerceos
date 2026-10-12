@@ -31,7 +31,8 @@ type setPromotionSalePrice interface {
 // computePromotionSalePrice applies line's discount to regularPriceMinorUnits,
 // clamped to a minimum of 1 minor unit -- a promotion must never produce a
 // free or negative sale price, regardless of how a fixed_amount discount
-// compares to the SKU's actual price.
+// compares to the SKU's actual price. A fixed_price never raises the price:
+// it is capped at the regular price.
 func computePromotionSalePrice(regularPriceMinorUnits int64, discountType promotionsDomain.PromotionType, discountValue int64) int64 {
 	var discounted int64
 	switch discountType {
@@ -39,6 +40,8 @@ func computePromotionSalePrice(regularPriceMinorUnits int64, discountType promot
 		discounted = regularPriceMinorUnits - (regularPriceMinorUnits*discountValue)/10000
 	case promotionsDomain.PromotionTypeFixedAmount:
 		discounted = regularPriceMinorUnits - discountValue
+	case promotionsDomain.PromotionTypeFixedPrice:
+		discounted = min(discountValue, regularPriceMinorUnits)
 	}
 	if discounted < 1 {
 		discounted = 1

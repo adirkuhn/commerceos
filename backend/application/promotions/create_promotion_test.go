@@ -178,3 +178,29 @@ func TestCreatePromotion_noWarningWhenSKUHasNoManualSalePrice(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, result.Warnings)
 }
+
+func TestCreatePromotion_acceptsFixedPrice(t *testing.T) {
+	lineRepo := &stubPromotionSKURepo{}
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, lineRepo, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
+
+	_, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
+		Name: "Clearance", Type: promotionsDomain.PromotionTypeFixedPrice, StartsAt: time.Now(),
+		Lines: []apppromotions.PromotionLineInput{{SKUID: "sku-1", DiscountType: promotionsDomain.PromotionTypeFixedPrice, DiscountValue: 499}},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, lineRepo.created, 1)
+	require.Equal(t, promotionsDomain.PromotionTypeFixedPrice, lineRepo.created[0].DiscountType)
+}
+
+func TestCreatePromotion_rejectsNonPositiveFixedPrice(t *testing.T) {
+	uc := apppromotions.NewCreatePromotionUseCase(newMockGormDB(t), &stubPromotionRepo{}, &stubPromotionSKURepo{}, &stubSKUExistenceChecker{}, &stubSKUBatchLister{}, &eventrecordtest.Outbox{})
+
+	_, err := uc.Execute(context.Background(), apppromotions.CreatePromotionInput{
+		Name: "Clearance", Type: promotionsDomain.PromotionTypeFixedPrice, StartsAt: time.Now(),
+		Lines: []apppromotions.PromotionLineInput{{SKUID: "sku-1", DiscountType: promotionsDomain.PromotionTypeFixedPrice, DiscountValue: 0}},
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, promotionsDomain.ErrInvalidDiscountValue))
+}

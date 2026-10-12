@@ -1,4 +1,4 @@
-export type PromotionType = 'percentage' | 'fixed_amount'
+export type PromotionType = 'percentage' | 'fixed_amount' | 'fixed_price'
 export type PromotionStatus = 'draft' | 'active' | 'ended'
 
 export interface PromotionLine {
@@ -8,7 +8,7 @@ export interface PromotionLine {
   // since been deleted.
   sku_code: string
   discount_type: PromotionType
-  // Basis points (1-10000) for percentage, minor currency units for fixed_amount.
+  // Basis points (1-10000) for percentage, minor currency units for fixed_amount (amount off) and fixed_price (the sale price).
   discount_value: number
   // Set on a clearance line: the batch being sold off. The line ends on its
   // own (SKU back to its pre-promotion price) once the batch is sold out,

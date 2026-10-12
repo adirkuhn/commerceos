@@ -210,6 +210,7 @@ export function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onCl
                   >
                     <option value="percentage">{t('type.percentage')}</option>
                     <option value="fixed_amount">{t('type.fixed_amount')}</option>
+                    <option value="fixed_price">{t('type.fixed_price')}</option>
                   </select>
                 </div>
                 <div>

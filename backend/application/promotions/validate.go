@@ -29,10 +29,10 @@ type PromotionLineInput struct {
 }
 
 // validatePromotionType is the shared invariant for Create/UpdatePromotion:
-// only the two v1-supported mechanisms are accepted.
+// only the supported mechanisms are accepted.
 func validatePromotionType(t promotionsDomain.PromotionType) error {
 	switch t {
-	case promotionsDomain.PromotionTypePercentage, promotionsDomain.PromotionTypeFixedAmount:
+	case promotionsDomain.PromotionTypePercentage, promotionsDomain.PromotionTypeFixedAmount, promotionsDomain.PromotionTypeFixedPrice:
 		return nil
 	default:
 		return promotionsDomain.ErrInvalidPromotionType
@@ -50,15 +50,15 @@ func validatePromotionStatus(s promotionsDomain.PromotionStatus) error {
 }
 
 // validateDiscountValue is the shared invariant for a PromotionSKU line:
-// percentage is 1-10000 basis points (0.01%-100%), fixed_amount must be
-// positive. Assumes discountType has already passed validatePromotionType.
+// percentage is 1-10000 basis points (0.01%-100%), fixed_amount and
+// fixed_price must be positive. Assumes discountType has already passed validatePromotionType.
 func validateDiscountValue(discountType promotionsDomain.PromotionType, value int64) error {
 	switch discountType {
 	case promotionsDomain.PromotionTypePercentage:
 		if value < 1 || value > 10000 {
 			return promotionsDomain.ErrInvalidDiscountValue
 		}
-	case promotionsDomain.PromotionTypeFixedAmount:
+	case promotionsDomain.PromotionTypeFixedAmount, promotionsDomain.PromotionTypeFixedPrice:
 		if value < 1 {
 			return promotionsDomain.ErrInvalidDiscountValue
 		}

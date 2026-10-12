@@ -130,7 +130,7 @@ export default function Promotions() {
                 <td className="px-3 py-2.5 max-w-[280px]">
                   <p className="font-medium text-ink truncate">{p.name}</p>
                 </td>
-                <td className="px-3 py-2.5 text-ink-3">{p.type === 'fixed_amount' ? t('type.fixed_amount') : t('type.percentage')}</td>
+                <td className="px-3 py-2.5 text-ink-3">{t(`type.${p.type}`)}</td>
                 <td className="px-3 py-2.5 text-ink-3">{formatDate(p.starts_at)}</td>
                 <td className="px-3 py-2.5 text-ink-3">{formatDate(p.ends_at)}</td>
                 <td className="px-3 py-2.5">

@@ -3,8 +3,8 @@ info:
   title: CommerceOS Promotions API
   description: >-
     Named, time-boxed discount campaigns applied to SKUs -- tracked
-    separately from a SKU's own price/sale_price. v1 supports two discount
-    mechanisms (percentage, fixed_amount); this API only defines/manages
+    separately from a SKU's own price/sale_price. Supports three discount
+    mechanisms (percentage, fixed_amount, fixed_price); this API only defines/manages
     promotions, it does not yet mutate a SKU's effective price.
   version: "1.0"
 servers:
@@ -115,7 +115,7 @@ components:
   schemas:
     PromotionType:
       type: string
-      enum: [percentage, fixed_amount]
+      enum: [percentage, fixed_amount, fixed_price]
 
     PromotionStatus:
       type: string
@@ -147,7 +147,7 @@ components:
         discount_value:
           type: integer
           format: int64
-          description: Basis points for percentage (1-10000), minor currency units for fixed_amount.
+          description: Basis points for percentage (1-10000); minor currency units for fixed_amount (amount off) and fixed_price (the sale price itself, capped at the regular price).
         batch_id:
           type: string
           description: >-

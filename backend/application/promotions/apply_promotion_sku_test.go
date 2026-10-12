@@ -127,3 +127,28 @@ func TestRevertPromotionSKU_PropagatesSetSalePriceError(t *testing.T) {
 
 	require.Error(t, err)
 }
+
+func TestApplyPromotionSKU_FixedPriceSetsTheSalePrice(t *testing.T) {
+	skuLookup := &stubSKUExistenceChecker{findResult: &pmsDomain.SKU{ID: "sku-1", PriceMinorUnits: 1000}}
+	setSalePrice := &stubSetPromotionSalePrice{}
+	uc := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), skuLookup, setSalePrice, &stubPromotionSKURepo{}, &eventrecordtest.Outbox{})
+
+	line := promotionsDomain.PromotionSKU{ID: "line-1", SKUID: "sku-1", DiscountType: promotionsDomain.PromotionTypeFixedPrice, DiscountValue: 650}
+	err := uc.Execute(context.Background(), line)
+
+	require.NoError(t, err)
+	require.Equal(t, int64(650), setSalePrice.gotSalePrice)
+}
+
+func TestApplyPromotionSKU_FixedPriceNeverRaisesThePrice(t *testing.T) {
+	skuLookup := &stubSKUExistenceChecker{findResult: &pmsDomain.SKU{ID: "sku-1", PriceMinorUnits: 500}}
+	setSalePrice := &stubSetPromotionSalePrice{}
+	uc := apppromotions.NewApplyPromotionSKUUseCase(newMockGormDBN(t, 2), skuLookup, setSalePrice, &stubPromotionSKURepo{}, &eventrecordtest.Outbox{})
+
+	// The regular price dropped below the promotion's price after it was set up.
+	line := promotionsDomain.PromotionSKU{ID: "line-1", SKUID: "sku-1", DiscountType: promotionsDomain.PromotionTypeFixedPrice, DiscountValue: 650}
+	err := uc.Execute(context.Background(), line)
+
+	require.NoError(t, err)
+	require.Equal(t, int64(500), setSalePrice.gotSalePrice)
+}

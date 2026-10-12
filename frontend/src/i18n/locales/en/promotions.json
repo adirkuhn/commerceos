@@ -69,6 +69,7 @@
   },
   "type": {
     "fixed_amount": "Fixed amount",
+    "fixed_price": "Fixed price",
     "percentage": "Percentage"
   }
 }

@@ -18,6 +18,10 @@ const (
 	// PromotionTypeFixedAmount means DiscountValue is minor currency units
 	// (e.g. cents), same convention as pms.SKU.PriceMinorUnits.
 	PromotionTypeFixedAmount PromotionType = "fixed_amount"
+	// PromotionTypeFixedPrice means DiscountValue is the sale price itself,
+	// in minor currency units -- "sell it for EUR 4.99" rather than an amount
+	// off. Never above the SKU's regular price (see the apply use case).
+	PromotionTypeFixedPrice PromotionType = "fixed_price"
 )
 
 type PromotionStatus string

@@ -70,6 +70,7 @@
   },
   "type": {
     "fixed_amount": "Valor fixo",
+    "fixed_price": "Preço fixo",
     "percentage": "Porcentagem"
   }
 }
