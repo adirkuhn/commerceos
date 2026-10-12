@@ -45,4 +45,5 @@ export interface TodayQueue {
   unmatched_skus: number
   expiring_batches: number
   expired_batches: number
+  ship_today: number
 }

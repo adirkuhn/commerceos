@@ -26,7 +26,7 @@ import TodayPage from '../TodayPage'
 class ResizeObserverStub { observe() {} unobserve() {} disconnect() {} }
 
 function queue(overrides: Partial<TodayQueue> = {}): TodayQueue {
-  return { to_pick: 0, to_pack: 0, stock_issues: 0, unmatched_skus: 0, expiring_batches: 0, expired_batches: 0, ...overrides }
+  return { to_pick: 0, to_pack: 0, stock_issues: 0, unmatched_skus: 0, expiring_batches: 0, expired_batches: 0, ship_today: 0, ...overrides }
 }
 
 function report(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
@@ -62,13 +62,26 @@ beforeEach(() => {
 })
 
 describe('TodayPage work queue', () => {
-  it('shows how many orders wait to be picked and packed', async () => {
-    vi.mocked(api.getTodayQueue).mockResolvedValue(queue({ to_pick: 14, to_pack: 6 }))
+  it('shows how many orders wait to be picked, packed and shipped today', async () => {
+    vi.mocked(api.getTodayQueue).mockResolvedValue(queue({ to_pick: 14, to_pack: 6, ship_today: 9 }))
     renderToday()
 
     const board = await screen.findByRole('region', { name: 'Work queue' })
     expect(await within(board).findByText('14')).toBeInTheDocument()
     expect(within(board).getByText('6')).toBeInTheDocument()
+    expect(within(board).getByText('9')).toBeInTheDocument()
+    expect(within(board).getByText('orders to ship today')).toBeInTheDocument()
+  })
+
+  it('opens the sales orders due to ship today', async () => {
+    vi.mocked(api.getTodayQueue).mockResolvedValue(queue({ ship_today: 1 }))
+    renderToday()
+
+    const board = await screen.findByRole('region', { name: 'Work queue' })
+    expect(await within(board).findByText('order to ship today')).toBeInTheDocument()
+    await userEvent.click(within(board).getByRole('button', { name: 'View' }))
+
+    expect(screen.getByTestId('where').textContent).toBe('/sales-orders?ship_due=true')
   })
 
   it('starts picking from the queue', async () => {

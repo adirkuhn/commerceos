@@ -1,7 +1,7 @@
 import type { ElementType } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, CalendarClock, CalendarX, CheckCircle2, PackageCheck, PackageSearch, ScanBarcode } from 'lucide-react'
+import { AlertTriangle, CalendarClock, CalendarX, CheckCircle2, PackageCheck, PackageSearch, ScanBarcode, Truck } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useDateFormat } from '../format/DateFormatProvider'
@@ -14,7 +14,7 @@ import type { TodayQueue } from './types'
 import { ChannelSalesPanel, StockFlowPanel, TopProductsPanel } from './widgets'
 
 // The depot design's home: what the shop has to do now. A dispatch board
-// with the two daily queues, then only the problems that exist right now
+// with the three daily queues (pick, pack, ship today), then only the problems that exist right now
 // -- each with the action that clears it -- then this month's figures.
 
 interface QueueCounterProps {
@@ -94,7 +94,7 @@ export default function TodayPage() {
 
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
-      <section aria-label={t('today.workQueue')} className="rounded-xl bg-depot grid grid-cols-1 md:grid-cols-2 md:divide-x divide-depot-hover/10">
+      <section aria-label={t('today.workQueue')} className="rounded-xl bg-depot grid grid-cols-1 md:grid-cols-3 md:divide-x divide-depot-hover/10">
         <QueueCounter
           count={queue?.to_pick}
           label={t('today.toPick', { count: queue?.to_pick ?? 0 })}
@@ -108,6 +108,13 @@ export default function TodayPage() {
           action={t('today.startPacking')}
           icon={PackageCheck}
           onStart={() => navigate(navItemToPath('packing'))}
+        />
+        <QueueCounter
+          count={queue?.ship_today}
+          label={t('today.toShip', { count: queue?.ship_today ?? 0 })}
+          action={t('today.viewToShip')}
+          icon={Truck}
+          onStart={() => navigate(`${navItemToPath('sales-orders')}?ship_due=true`)}
         />
       </section>
 

@@ -5,7 +5,7 @@ import type { TodayQueue } from '../types'
 // Pins the frontend TodayQueue type to the backend OpenAPI contract: a
 // field added, renamed or dropped on one side fails here.
 const SAMPLE: Record<keyof TodayQueue, number> = {
-  to_pick: 0, to_pack: 0, stock_issues: 0, unmatched_skus: 0, expiring_batches: 0, expired_batches: 0,
+  to_pick: 0, to_pack: 0, stock_issues: 0, unmatched_skus: 0, expiring_batches: 0, expired_batches: 0, ship_today: 0,
 }
 
 function requiredFields(yaml: string, schema: string): string[] {
