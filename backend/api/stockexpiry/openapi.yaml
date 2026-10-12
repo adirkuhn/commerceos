@@ -1,0 +1,191 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Close-to-expiry API
+  version: "1.0"
+  description: >-
+    Batches with stock left that expire soon, grouped in the same
+    non-overlapping windows as the daily stock-close-to-expiry email (the
+    windows picked in Settings > Inventory, or 90/30/15/7 days when none
+    are picked; with 90 and 30 the 90-day window holds stock with 31-90
+    days left). A batch marked as seen ("aware") for a window leaves that
+    window's list and email report, and is listed and reported again once
+    it reaches the next, smaller window. Clearance promotions for a batch
+    are created through the promotions API (a line with batch_id).
+servers:
+  - url: /api/v1
+
+paths:
+  /inventory/batches/close-to-expiry:
+    get:
+      operationId: listCloseToExpiryBatches
+      summary: One close-to-expiry window's batches, with counts for every window
+      parameters:
+        - name: window
+          in: query
+          description: Window in days (one of the tenant's windows); defaults to the largest.
+          schema: { type: integer, enum: [90, 30, 15, 7] }
+        - name: acknowledged
+          in: query
+          description: true lists the batches already marked as seen for this window.
+          schema: { type: boolean, default: false }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloseToExpiryListResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /inventory/batches/{id}/expiry-acknowledgements:
+    post:
+      operationId: acknowledgeBatchExpiry
+      summary: Mark a batch as seen for the close-to-expiry window it is in
+      description: Repeating it changes nothing.
+      parameters:
+        # Named "id" like every other /inventory/batches/{id}/... path in
+        # api/inventory -- gin needs the same wildcard name at a position.
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcknowledgeBatchExpiryRequest'
+      responses:
+        '204':
+          description: acknowledged
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /inventory/batches/{id}/expiry-acknowledgements/{windowDays}:
+    delete:
+      operationId: unacknowledgeBatchExpiry
+      summary: Undo marking a batch as seen for a close-to-expiry window
+      description: Undoing what is not there changes nothing.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: windowDays
+          in: path
+          required: true
+          schema: { type: integer, enum: [90, 30, 15, 7] }
+      responses:
+        '204':
+          description: removed
+        '404':
+          $ref: '#/components/responses/Error'
+
+components:
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    AcknowledgeBatchExpiryRequest:
+      type: object
+      required: [window_days]
+      properties:
+        window_days:
+          type: integer
+          enum: [90, 30, 15, 7]
+          description: The window the batch is in now.
+
+    CloseToExpiryWindow:
+      type: object
+      required: [window_days, min_days_left, from, to, open_count, acknowledged_count]
+      properties:
+        window_days: { type: integer }
+        min_days_left: { type: integer, description: Smallest days-left value in this window. }
+        from: { type: string, format: date, description: First expiry date in the window. }
+        to: { type: string, format: date, description: Last expiry date in the window. }
+        open_count: { type: integer, description: Batches still to look at. }
+        acknowledged_count: { type: integer, description: Batches marked as seen for this window. }
+
+    ClearancePromotion:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+
+    CloseToExpiryBatch:
+      type: object
+      required: [batch_id, lot_number, expiry_date, days_left, quantity, warehouse_id, warehouse_name, sku_id, sku_code,
+        product_id, product_name, image_url, price_minor_units, currency_code]
+      properties:
+        batch_id: { type: string }
+        lot_number: { type: string }
+        expiry_date: { type: string, format: date }
+        days_left: { type: integer, description: Days from today (tenant time zone) to the expiry date. }
+        quantity: { type: integer }
+        warehouse_id: { type: string }
+        warehouse_name: { type: string }
+        sku_id: { type: string }
+        sku_code: { type: string }
+        product_id: { type: string }
+        product_name: { type: string }
+        image_url: { type: string, description: Empty when the product has no image. }
+        price_minor_units: { type: integer }
+        sale_price_minor_units:
+          type: integer
+          nullable: true
+          description: The SKU's sale price when a sale runs today.
+        currency_code: { type: string }
+        acknowledged_at: { type: string, format: date-time, nullable: true }
+        clearance_promotion:
+          allOf: [{ $ref: '#/components/schemas/ClearancePromotion' }]
+          nullable: true
+          description: The promotion still selling this batch off, if any.
+
+    CloseToExpiryList:
+      type: object
+      required: [today, window, windows, items, page, per_page, total]
+      properties:
+        today: { type: string, format: date }
+        window: { $ref: '#/components/schemas/CloseToExpiryWindow' }
+        windows:
+          type: array
+          description: Every window in use, largest first.
+          items: { $ref: '#/components/schemas/CloseToExpiryWindow' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CloseToExpiryBatch' }
+        page: { type: integer }
+        per_page: { type: integer }
+        total: { type: integer }
+
+    CloseToExpiryListResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/CloseToExpiryList' }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

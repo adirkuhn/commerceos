@@ -38,13 +38,17 @@ func DaysUntil(expiry, today time.Time) int {
 // ActiveSalePrice is the sale price when a sale runs today (through its end
 // date, inclusive), else nil.
 func (l ExpiringStockLine) ActiveSalePrice(today time.Time) *int64 {
-	if l.SalePriceMinorUnits == nil {
+	return activeSalePrice(l.SalePriceMinorUnits, l.SaleEndDate, today)
+}
+
+func activeSalePrice(salePrice *int64, saleEnd *time.Time, today time.Time) *int64 {
+	if salePrice == nil {
 		return nil
 	}
-	if l.SaleEndDate != nil && dateOnly(*l.SaleEndDate).Before(dateOnly(today)) {
+	if saleEnd != nil && dateOnly(*saleEnd).Before(dateOnly(today)) {
 		return nil
 	}
-	return l.SalePriceMinorUnits
+	return salePrice
 }
 
 func dateOnly(t time.Time) time.Time {

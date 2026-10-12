@@ -40,6 +40,7 @@ import (
 	gensearch "github.com/adirkuhn/commerceos/api/search"
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
 	genshipping "github.com/adirkuhn/commerceos/api/shipping"
+	genstockexpiry "github.com/adirkuhn/commerceos/api/stockexpiry"
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
@@ -76,6 +77,7 @@ import (
 	searchhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/search"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 	shippinghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/shipping"
+	stockexpiryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/stockexpiry"
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
@@ -369,6 +371,20 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	weightportionshandler.Register(weightportionsGroup, db, outboxRepo)
+
+	stockexpirySpec, err := genstockexpiry.GetSpec()
+	if err != nil {
+		log.Fatalf("stockexpiry: load openapi spec: %v", err)
+	}
+	// Own sub-group so the stockexpiry-only spec validator never applies
+	// to the other modules' routes — same reasoning as pmsGroup above.
+	// No RequireRole, like inventory: any authenticated role can work the
+	// close-to-expiry list.
+	stockexpiryGroup := v1.Group("")
+	stockexpiryGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(stockexpirySpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	stockexpiryhandler.Register(stockexpiryGroup, db, outboxRepo)
 
 	bolconfirmationsSpec, err := genbolconfirmations.GetSpec()
 	if err != nil {

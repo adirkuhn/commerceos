@@ -33,6 +33,12 @@ type CloseToExpiryBatch struct {
 	Clearance *ClearancePromotionRef
 }
 
+// ActiveSalePrice is the SKU's sale price when a sale runs today (through
+// its end date, inclusive), else nil.
+func (b CloseToExpiryBatch) ActiveSalePrice(today time.Time) *int64 {
+	return activeSalePrice(b.SalePriceMinorUnits, b.SaleEndDate, today)
+}
+
 // ClearancePromotionRef names the promotion running a batch's clearance.
 type ClearancePromotionRef struct {
 	PromotionID   string

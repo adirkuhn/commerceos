@@ -44,3 +44,11 @@ func TestDaysUntil(t *testing.T) {
 	assert.Equal(t, 0, inventory.DaysUntil(day("2026-10-10"), day("2026-10-10")))
 	assert.Equal(t, -1, inventory.DaysUntil(day("2026-10-09"), day("2026-10-10")))
 }
+
+func TestCloseToExpiryBatch_ActiveSalePrice(t *testing.T) {
+	sale := int64(399)
+	ended := day("2026-10-11")
+	assert.Equal(t, &sale, inventory.CloseToExpiryBatch{SalePriceMinorUnits: &sale}.ActiveSalePrice(day("2026-10-12")))
+	assert.Nil(t, inventory.CloseToExpiryBatch{SalePriceMinorUnits: &sale, SaleEndDate: &ended}.ActiveSalePrice(day("2026-10-12")))
+	assert.Nil(t, inventory.CloseToExpiryBatch{}.ActiveSalePrice(day("2026-10-12")))
+}
