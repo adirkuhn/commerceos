@@ -13,7 +13,6 @@ import Pagination from '../components/common/Pagination'
 import { useProducts } from '../pms/hooks/useProducts'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useExpiredBatchReview } from '../inventory/hooks/useExpiredBatchReview'
-import { useExpiringBatches } from '../inventory/hooks/useExpiringBatches'
 import { useDiscards } from '../inventory/hooks/useDiscards'
 import { useDiscardBatch } from '../inventory/hooks/useDiscardBatch'
 import { LOW_STOCK_THRESHOLD } from '../inventory/inventoryFormat'
@@ -57,7 +56,6 @@ function InventoryPage() {
   const [stockFilter, setStockFilter] = useQueryEnum<StockFilter>('stock', STOCK_FILTERS, 'all')
   const [summaryByProduct, setSummaryByProduct] = useState<Record<string, ProductStockSummary>>({})
   const expiredReview = useExpiredBatchReview(token ?? '')
-  const expiringBatches = useExpiringBatches(token ?? '')
   const discardsReport = useDiscards(token ?? '')
   const discardHook = useDiscardBatch(token ?? '')
 
@@ -102,7 +100,7 @@ function InventoryPage() {
       <ExpiryDiscardPage
         onClose={backToList}
         expiredReview={expiredReview}
-        expiringBatches={expiringBatches}
+        token={token ?? ''}
         discardsReport={discardsReport}
         discardHook={discardHook}
       />

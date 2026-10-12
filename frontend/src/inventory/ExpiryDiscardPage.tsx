@@ -4,10 +4,11 @@ import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { useQueryEnum } from '../routing/useQueryState'
 import { useExpiredBatchReview } from './hooks/useExpiredBatchReview'
-import { useExpiringBatches } from './hooks/useExpiringBatches'
+import { CloseToExpiryTab } from './closeToExpiry/CloseToExpiryPanel'
+import type { CloseToExpiryBatch } from './closeToExpiry/types'
 import { useDiscards } from './hooks/useDiscards'
 import { useDiscardBatch } from './hooks/useDiscardBatch'
-import type { ExpiringBatch, ExpiredBatchReview } from './types'
+import type { ExpiredBatchReview } from './types'
 import { Dialog } from '../components/common/Dialog'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
@@ -99,11 +100,11 @@ type ExpiryTab = typeof EXPIRY_TABS[number]
 // right now), this history is only reachable through an explicit menu
 // entry, always -- not gated behind any current-state condition.
 export function ExpiryDiscardPage({
-  onClose, expiredReview, expiringBatches, discardsReport, discardHook,
+  token, onClose, expiredReview, discardsReport, discardHook,
 }: {
+  token: string
   onClose: () => void
   expiredReview: ReturnType<typeof useExpiredBatchReview>
-  expiringBatches: ReturnType<typeof useExpiringBatches>
   discardsReport: ReturnType<typeof useDiscards>
   discardHook: ReturnType<typeof useDiscardBatch>
 }) {
@@ -116,6 +117,8 @@ export function ExpiryDiscardPage({
   const [newExpiryDate, setNewExpiryDate] = useState('')
   const [actingBatchId, setActingBatchId] = useState<string | null>(null)
   const [discardTarget, setDiscardTarget] = useState<DiscardTarget | null>(null)
+  // Bumped after a discard from the expiring tab so it reloads.
+  const [expiringReload, setExpiringReload] = useState(0)
 
   const openExtend = (batchId: string) => {
     setRowError('')
@@ -123,7 +126,7 @@ export function ExpiryDiscardPage({
     setExtendingBatchId(batchId)
   }
 
-  function openDiscard(source: 'expired' | 'expiring', row: ExpiredBatchReview | ExpiringBatch) {
+  function openDiscard(source: 'expired' | 'expiring', row: ExpiredBatchReview | CloseToExpiryBatch) {
     setDiscardTarget({
       skuId: row.sku_id, warehouseId: row.warehouse_id, batchId: row.batch_id, quantity: row.quantity,
       label: `${row.product_name} (${row.sku_code})`, source,
@@ -139,7 +142,7 @@ export function ExpiryDiscardPage({
       })
       setDiscardTarget(null)
       if (discardTarget.source === 'expired') expiredReview.refresh()
-      else expiringBatches.refresh()
+      else setExpiringReload(n => n + 1)
       discardsReport.refresh()
     } catch {
       // discardHook.error already holds the message; modal stays open.
@@ -300,45 +303,7 @@ export function ExpiryDiscardPage({
         )}
 
         {tab === 'expiring' && (
-          <>
-            {!expiringBatches.error && expiringBatches.loading && expiringBatches.batches.length === 0 && (
-              <p className="px-6 py-4 text-xs text-ink-4">{t('common:status.loading')}</p>
-            )}
-            {!expiringBatches.error && !expiringBatches.loading && expiringBatches.batches.length === 0 && (
-              <p className="px-6 py-4 text-xs text-ink-4">{t('expiry.nothingExpiring')}</p>
-            )}
-            {expiringBatches.batches.length > 0 && (
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
-                  <tr>
-                    {[t('expiry.colSku'), t('expiry.colProduct'), t('expiry.colWarehouse'), t('expiry.colLot'), t('expiry.colExpires'), t('expiry.colQty'), ''].map((h, i) => (
-                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 caps-label">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line/60">
-                  {expiringBatches.batches.map(b => (
-                    <tr key={b.batch_id} className="hover:bg-hover/60 transition-colors">
-                      <td className="px-4 py-2.5 font-mono text-ink-2">{b.sku_code}</td>
-                      <td className="px-4 py-2.5 text-ink">{b.product_name}</td>
-                      <td className="px-4 py-2.5 text-ink-3">{b.warehouse_name}</td>
-                      <td className="px-4 py-2.5 text-ink-3">{b.lot_number || '—'}</td>
-                      <td className="px-4 py-2.5 text-ink-2">{formatDate(b.expiry_date)}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-ink-2">{b.quantity}</td>
-                      <td className="px-4 py-2.5">
-                        <button
-                          onClick={() => openDiscard('expiring', b)}
-                          className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-danger text-2xs font-medium hover:dark:bg-red-500/20 hover:bg-red-100"
-                        >
-                          {t('expiry.discard')}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </>
+          <CloseToExpiryTab token={token} reloadSignal={expiringReload} onDiscard={b => openDiscard('expiring', b)} />
         )}
 
         {tab === 'discarded' && (

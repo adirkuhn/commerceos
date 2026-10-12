@@ -48,6 +48,8 @@ vi.mock('../../inventory/api', () => ({
 
 // Only the tenant date format / timezone lookup is stubbed; the rest of
 // the settings API stays real for anything else that imports it.
+vi.mock('../../inventory/closeToExpiry/api')
+
 vi.mock('../../settings/api', async importOriginal => ({
   ...await importOriginal<typeof import('../../settings/api')>(),
   getTenantSettings: vi.fn(),
@@ -55,6 +57,7 @@ vi.mock('../../settings/api', async importOriginal => ({
 
 import * as pmsApi from '../../pms/api'
 import * as inventoryApi from '../../inventory/api'
+import * as closeToExpiryApi from '../../inventory/closeToExpiry/api'
 import * as settingsApi from '../../settings/api'
 
 const product: Product = {
@@ -1312,13 +1315,17 @@ describe('Expired batch review queue', () => {
     expect(await screen.findByText('Widget')).toBeInTheDocument()
   })
 
-  it('Expiring soon tab lists batches not yet expired and can discard one', async () => {
+  it('Expiring soon tab lists close-to-expiry batches and can discard one', async () => {
     vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
-    vi.mocked(inventoryApi.listExpiringBatches).mockResolvedValue([{
-      batch_id: 'batch-3', sku_id: 'sku-2', sku_code: 'GADGET-1', product_name: 'Gadget',
-      warehouse_id: 'wh-1', warehouse_name: 'Main DC', lot_number: 'LOT-3',
-      expiry_date: '2026-09-01T00:00:00Z', quantity: 7,
-    }])
+    const window = { window_days: 30, min_days_left: 16, from: '2026-08-31', to: '2026-09-14', open_count: 1, acknowledged_count: 0 }
+    vi.mocked(closeToExpiryApi.listCloseToExpiry).mockResolvedValue({
+      today: '2026-08-15', window, windows: [window], page: 1, per_page: 50, total: 1,
+      items: [{
+        batch_id: 'batch-3', sku_id: 'sku-2', sku_code: 'GADGET-1', product_id: 'p-2', product_name: 'Gadget',
+        warehouse_id: 'wh-1', warehouse_name: 'Main DC', lot_number: 'LOT-3', image_url: '',
+        expiry_date: '2026-09-01', days_left: 17, quantity: 7, price_minor_units: 999, currency_code: 'EUR',
+      }],
+    })
     vi.mocked(inventoryApi.discardBatch).mockResolvedValue({
       id: 'discard-2', tenant_id: 't1', sku_id: 'sku-2', warehouse_id: 'wh-1', batch_id: 'batch-3',
       movement_id: 'move-2', type: 'lost', quantity: 7, reason: '', discarded_by: '',
@@ -1336,6 +1343,7 @@ describe('Expired batch review queue', () => {
     await waitFor(() => expect(inventoryApi.discardBatch).toHaveBeenCalledWith('test-token', 'sku-2', {
       warehouse_id: 'wh-1', batch_id: 'batch-3', quantity: 7, reason: '', photo: undefined,
     }))
+    await waitFor(() => expect(closeToExpiryApi.listCloseToExpiry).toHaveBeenCalledTimes(2))
   })
 
   it('Discarded tab shows the report, including a photo thumbnail when present', async () => {
