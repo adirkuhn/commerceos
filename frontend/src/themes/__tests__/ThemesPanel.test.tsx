@@ -92,9 +92,23 @@ describe('ThemesPanel', () => {
 
     await userEvent.click(within(within(list).getAllByRole('listitem')[1]).getByRole('button', { name: /Customize/ }))
 
-    await waitFor(() => expect(win.location.href).toBe('https://api.commerceos.dev.localhost/store/editor#session=sess'))
+    await waitFor(() => expect(win.location.href).toBe('https://api.commerceos.dev.localhost/store/editor#session=sess&theme=system'))
     expect(api.createThemeSession).toHaveBeenCalledWith('tok', 't1', 'edit', 'en')
     expect(win.opener).toBeNull()
+  })
+
+  it('opens the editor dark when the admin is dark', async () => {
+    localStorage.setItem('commerceos.theme', 'dark')
+    const win = { opener: {}, location: { href: '' }, close: vi.fn() }
+    vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window)
+    vi.mocked(api.createThemeSession).mockResolvedValue({ token: 'sess', expires_at: '' })
+    renderPanel()
+    const list = await screen.findByRole('list', { name: 'Themes' })
+
+    await userEvent.click(within(within(list).getAllByRole('listitem')[1]).getByRole('button', { name: /Customize/ }))
+
+    await waitFor(() => expect(win.location.href).toBe('https://api.commerceos.dev.localhost/store/editor#session=sess&theme=dark'))
+    localStorage.removeItem('commerceos.theme')
   })
 
   it('closes the blank tab and shows the error when the session cannot be created', async () => {

@@ -8,6 +8,7 @@ import { useQueryString } from '../routing/useQueryState'
 import type { SalesChannel } from '../integrations/types'
 import { createThemeSession } from './api'
 import { editorURL, storeURL } from './storefrontURL'
+import { loadThemePreference } from '../theme/themePreference'
 import { currentLocale } from '../i18n/i18n'
 import { useThemes } from './useThemes'
 import { VersionHistory } from './VersionHistory'
@@ -22,6 +23,14 @@ interface Props {
 // A channel's theme library: create themes, open one in the visual editor
 // (hosted by the storefront app), delete unused ones. The live theme is
 // what shoppers see at /store/{channel}.
+function localStorageOrNull(): Storage | null {
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
+}
+
 export function ThemesPanel({ channel, onClose }: Props) {
   const { token } = useAuth()
   const { t } = useTranslation(['themes', 'common'])
@@ -58,7 +67,7 @@ export function ThemesPanel({ channel, onClose }: Props) {
       const session = await createThemeSession(token ?? '', theme.id, 'edit', currentLocale())
       if (win) {
         win.opener = null
-        win.location.href = editorURL(session.token)
+        win.location.href = editorURL(session.token, undefined, loadThemePreference(localStorageOrNull()))
       }
     } catch (err) {
       win?.close()

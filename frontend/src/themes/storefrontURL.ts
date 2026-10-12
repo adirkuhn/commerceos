@@ -1,3 +1,5 @@
+import type { ThemePreference } from '../theme/themePreference'
+
 // Where the storefront app (shops + theme editor) is served: /store on
 // VITE_STOREFRONT_URL, or on the API's own origin when that isn't set
 // (the storefront is path-mounted on API_DOMAIN -- see docker-compose.yml).
@@ -13,6 +15,7 @@ export function storefrontOrigin(env: { VITE_STOREFRONT_URL?: string; VITE_API_B
 export const storeURL = (channelId: string, origin = storefrontOrigin()) => `${origin}/store/${encodeURIComponent(channelId)}/`
 
 /** The token rides in the fragment: it never reaches a server or its logs.
- *  (The merchant's language rides on the session itself.) */
-export const editorURL = (sessionToken: string, origin = storefrontOrigin()) =>
-  `${origin}/store/editor#session=${encodeURIComponent(sessionToken)}`
+ *  (The merchant's language rides on the session itself.) The admin's
+ *  light/dark choice rides along so the editor opens the same way. */
+export const editorURL = (sessionToken: string, origin = storefrontOrigin(), theme?: ThemePreference) =>
+  `${origin}/store/editor#session=${encodeURIComponent(sessionToken)}${theme ? `&theme=${theme}` : ''}`

@@ -12,4 +12,8 @@ describe('storefront URLs', () => {
     expect(storeURL('chan-1', 'https://api.example')).toBe('https://api.example/store/chan-1/')
     expect(editorURL('a+b', 'https://api.example')).toBe('https://api.example/store/editor#session=a%2Bb')
   })
+
+  it('passes the admin light/dark choice to the editor', () => {
+    expect(editorURL('tok', 'https://api.example', 'dark')).toBe('https://api.example/store/editor#session=tok&theme=dark')
+  })
 })
