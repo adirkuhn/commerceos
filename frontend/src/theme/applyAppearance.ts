@@ -18,7 +18,11 @@ export function renderAppearance(a: AppearanceSettings): AppliedAppearance {
 
 function upsert<K extends 'style' | 'link'>(doc: Document, tag: K, id: string): HTMLElementTagNameMap[K] {
   const existing = doc.getElementById(id)
-  if (existing) return existing as HTMLElementTagNameMap[K]
+  if (existing) {
+    // Keep it last in <head>, after the app's own stylesheets.
+    if (doc.head.lastElementChild !== existing) doc.head.appendChild(existing)
+    return existing as HTMLElementTagNameMap[K]
+  }
   const el = doc.createElement(tag)
   el.id = id
   doc.head.appendChild(el)

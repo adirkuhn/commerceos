@@ -162,7 +162,9 @@ function block(selector: string, vars: Record<string, string>): string {
 
 // appearanceCss is the stylesheet that turns the default depot look into
 // the shop's: only what differs from DEFAULT_APPEARANCE, scoped to the
-// depot design. Injected unlayered, it wins over index.css's @layer base.
+// depot design. The html.* selectors outrank index.css's .design-depot
+// blocks whatever the stylesheet order (the pre-paint copy in index.html
+// sits before the app's CSS).
 export function appearanceCss(a: AppearanceSettings): string {
   const d = DEFAULT_APPEARANCE
   const light: Record<string, string> = {}
@@ -204,7 +206,7 @@ export function appearanceCss(a: AppearanceSettings): string {
   }
   if (a.density !== d.density) light['--density'] = String(DENSITY[a.density])
 
-  return block('.design-depot', light) + block('.design-depot.dark', dark)
+  return block('html.design-depot', light) + block('html.design-depot.dark', dark)
 }
 
 // fontStylesheetHref is the Google Fonts stylesheet a font needs, or null

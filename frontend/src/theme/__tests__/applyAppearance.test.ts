@@ -21,6 +21,15 @@ describe('applyAppearance', () => {
     expect(document.getElementById('appearance-css')?.textContent).toContain('--radius-lg: 3px;')
   })
 
+  it('keeps the override stylesheet after the app stylesheets', () => {
+    applyAppearance(document, renderAppearance({ ...DEFAULT_APPEARANCE, corners: 'round' }))
+    document.head.appendChild(document.createElement('style'))
+
+    applyAppearance(document, renderAppearance({ ...DEFAULT_APPEARANCE, corners: 'sharp' }))
+
+    expect(document.head.lastElementChild?.id).toBe('appearance-css')
+  })
+
   it('removes everything again for the defaults', () => {
     applyAppearance(document, renderAppearance({ ...DEFAULT_APPEARANCE, font: 'barlow', corners: 'round' }))
     applyAppearance(document, renderAppearance(DEFAULT_APPEARANCE))

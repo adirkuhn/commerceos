@@ -47,9 +47,9 @@ describe('appearanceCss', () => {
     expect(appearanceCss(DEFAULT_APPEARANCE)).toBe('')
   })
 
-  it('only restyles the new design', () => {
+  it('only restyles the new design, outranking index.css whatever the order', () => {
     const css = appearanceCss(withAppearance({ corners: 'round' }))
-    expect(css).toMatch(/^\.design-depot \{/)
+    expect(css).toMatch(/^html\.design-depot \{/)
     expect(css).not.toMatch(/(^|\})\s*\.dark \{/)
   })
 
@@ -64,7 +64,7 @@ describe('appearanceCss', () => {
     const css = appearanceCss(withAppearance({ accent_color: '#0B6E4F' }))
     expect(css).toContain('--accent: 11 110 79;')
     expect(css).toContain('--accent-solid: 11 110 79;')
-    const dark = css.slice(css.indexOf('.design-depot.dark'))
+    const dark = css.slice(css.indexOf('html.design-depot.dark'))
     const tint = /--accent: (\d+) (\d+) (\d+);/.exec(dark)
     expect(tint).not.toBeNull()
     const hex = '#' + tint!.slice(1).map(n => Number(n).toString(16).padStart(2, '0')).join('')
