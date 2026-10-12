@@ -7,8 +7,11 @@ import { EditorApp } from './EditorApp'
 import { editorLocale } from './editorLocale'
 import { OpenFromAdmin } from './OpenFromAdmin'
 import { takeSessionToken } from './session'
+import { takeThemePreference } from './editorLook'
 
 const apiBase = document.querySelector<HTMLMetaElement>('meta[name="cos-api-base"]')?.content ?? ''
+// Read before takeSessionToken strips the fragment.
+const themePreference = takeThemePreference(window.location.hash, window.sessionStorage)
 const token = takeSessionToken(window.location, window.sessionStorage, url => window.history.replaceState(null, '', url))
 // The editor's own texts: the browser's language until the edit session
 // says which language the admin user works in (useDraft switches then).
@@ -20,6 +23,6 @@ const root = createRoot(document.getElementById('editor-root')!)
 
 root.render(
   <I18nextProvider i18n={i18n}>
-    {token && apiBase ? <EditorApp api={new EditorAPI({ baseURL: apiBase, token })} apiBase={apiBase} /> : <OpenFromAdmin />}
+    {token && apiBase ? <EditorApp api={new EditorAPI({ baseURL: apiBase, token })} apiBase={apiBase} themePreference={themePreference} /> : <OpenFromAdmin />}
   </I18nextProvider>,
 )

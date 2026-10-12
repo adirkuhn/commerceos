@@ -1,3 +1,62 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * The theme editor's own look -- the same palette as the admin's depot
+ * design, light and dark, so the editor reads as part of CommerceOS. The
+ * store page in the canvas keeps the theme's look. RGB channels so
+ * Tailwind's /opacity works; the shop's appearance overrides some of these
+ * at runtime (src/editor/editorLook.ts).
+ */
+@layer base {
+  :root {
+    color-scheme: light;
+    --ed-canvas: 236 238 244;
+    --ed-surface: 255 255 255;
+    --ed-raised: 255 255 255;
+    --ed-sunken: 245 246 250;
+    --ed-fill: 228 231 239;
+    --ed-hover: 233 235 243;
+    --ed-line: 213 217 228;
+    --ed-ink: 26 28 46;
+    --ed-ink-2: 51 55 79;
+    --ed-ink-3: 74 79 106;
+    --ed-ink-4: 93 98 128;
+    --ed-accent: 47 51 184;
+    --ed-accent-solid: 47 51 184;
+    --ed-accent-solid-hover: 37 40 150;
+    --ed-danger: 194 38 29;
+    --ed-success: 17 107 51;
+    --ed-warning: 154 71 8;
+    --ed-radius: 6px;
+    --ed-font: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+  }
+
+  :root.dark {
+    color-scheme: dark;
+    --ed-canvas: 13 15 30;
+    --ed-surface: 20 23 42;
+    --ed-raised: 27 31 54;
+    --ed-sunken: 20 23 42;
+    --ed-fill: 20 23 42;
+    --ed-hover: 38 42 69;
+    --ed-line: 42 46 74;
+    --ed-ink: 236 237 245;
+    --ed-ink-2: 201 203 224;
+    --ed-ink-3: 160 164 194;
+    --ed-ink-4: 147 151 184;
+    --ed-accent: 165 168 255;
+    --ed-accent-solid: 68 71 217;
+    --ed-accent-solid-hover: 59 63 209;
+    --ed-danger: 248 113 113;
+    --ed-success: 74 222 128;
+    --ed-warning: 251 191 36;
+  }
+
+  body {
+    font-family: var(--ed-font);
+    background-color: rgb(var(--ed-canvas));
+    color: rgb(var(--ed-ink));
+  }
+}

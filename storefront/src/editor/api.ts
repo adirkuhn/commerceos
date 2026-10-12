@@ -1,4 +1,5 @@
 import { ApiError } from '../api/storefront'
+import type { EditorAppearance } from './editorLook'
 import type { AssetRef, DocumentKind, DocumentTexts, SEO, ThemeDocument, ThemeNode, ThemeSettings, DocumentSummary } from '../core/document'
 
 export interface DraftVersion {
@@ -18,6 +19,8 @@ export interface Draft {
   /** The editing admin user's language (set when the edit session was
    *  created); the editor's own texts use it. */
   locale?: string
+  /** The shop's admin appearance, for the editor's own controls. */
+  appearance?: EditorAppearance
 }
 
 export interface Asset {
