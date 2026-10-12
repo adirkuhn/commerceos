@@ -144,12 +144,12 @@ function BatchRow({ batch: b, data, seen, acting, onMark, onUndo, onSale, onDisc
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
       <DaysLeftStamp daysLeft={b.days_left} />
-      <div className="w-10 h-10 shrink-0 rounded-lg bg-sunken border border-line overflow-hidden flex items-center justify-center">
+      <div className="hidden sm:flex w-10 h-10 shrink-0 rounded-lg bg-sunken border border-line overflow-hidden items-center justify-center">
         {b.image_url
           ? <img src={b.image_url} alt="" className="w-full h-full object-cover" />
           : <ImageIcon size={14} className="text-ink-4" aria-hidden />}
       </div>
-      <div className="min-w-0 flex-1 basis-48">
+      <div className="min-w-0 flex-1 basis-40">
         <p className="text-sm font-medium text-ink truncate">{b.product_name}</p>
         <p className="text-xs text-ink-4 truncate">
           <span className="font-mono">{b.sku_code}</span>
@@ -173,7 +173,7 @@ function BatchRow({ batch: b, data, seen, acting, onMark, onUndo, onSale, onDisc
           <p className="text-ink-2"><Money minor={b.price_minor_units} currency={b.currency_code} /></p>
         )}
       </div>
-      <div className="flex items-center gap-2 ml-auto">
+      <div className="flex items-center justify-end gap-2 ml-auto md:w-80">
         {seen ? (
           <button type="button" onClick={onUndo} disabled={acting}
             className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-fill text-ink-2 hover:bg-hover disabled:opacity-50">
@@ -187,8 +187,10 @@ function BatchRow({ batch: b, data, seen, acting, onMark, onUndo, onSale, onDisc
         )}
         {b.clearance_promotion ? (
           <Link to={`/promotions/${encodeURIComponent(b.clearance_promotion.id)}`}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-success bg-success/10 hover:bg-success/15 max-w-48 truncate">
-            <Tag size={12} aria-hidden /> {t('closeToExpiry.onSale', { name: b.clearance_promotion.name })}
+            aria-label={t('closeToExpiry.onSale', { name: b.clearance_promotion.name })}
+            title={t('closeToExpiry.onSale', { name: b.clearance_promotion.name })}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-success bg-success/10 hover:bg-success/15">
+            <Tag size={12} aria-hidden /> {t('closeToExpiry.onSaleShort')}
           </Link>
         ) : (
           <button type="button" onClick={onSale}

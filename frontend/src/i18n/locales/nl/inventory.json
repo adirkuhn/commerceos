@@ -274,6 +274,7 @@
       "invalidPercent": "Vul een korting tussen 0,01 en 100% in.",
       "invalidAmount": "Vul een bedrag boven nul in.",
       "nameRequired": "Vul een naam voor de aanbieding in."
-    }
+    },
+    "onSaleShort": "In de aanbieding"
   }
 }

@@ -278,6 +278,7 @@
       "invalidPercent": "Informe um desconto entre 0,01 e 100%.",
       "invalidAmount": "Informe um valor acima de zero.",
       "nameRequired": "Informe um nome para a promoção."
-    }
+    },
+    "onSaleShort": "Em promoção"
   }
 }
