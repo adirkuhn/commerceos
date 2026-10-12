@@ -2,7 +2,7 @@
 import { render, screen, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import Sidebar from '../Sidebar'
 import { AppProvider } from '../../../context/AppContext'
 import type { Product } from '../../../pms/types'
@@ -154,5 +154,60 @@ describe('Sidebar account menu', () => {
     await userEvent.keyboard('{Escape}')
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+})
+
+describe('Sidebar design switch', () => {
+  beforeEach(() => {
+    vi.mocked(listProducts).mockResolvedValue({ products: [], total: 0 })
+    auth.role = 'customer_owner'
+    localStorage.clear()
+    document.documentElement.classList.remove('design-depot')
+  })
+
+  it('switches between the depot and classic designs from the account menu', async () => {
+    document.documentElement.classList.add('design-depot')
+    renderSidebar()
+    expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Account: Owner' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Use the classic design' }))
+
+    expect(document.documentElement.classList.contains('design-depot')).toBe(false)
+    expect(localStorage.getItem('commerceos.design')).toBe('classic')
+    expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Account: Owner' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Use the new design' }))
+
+    expect(document.documentElement.classList.contains('design-depot')).toBe(true)
+  })
+})
+
+describe('Sidebar depot navigation', () => {
+  beforeEach(() => {
+    vi.mocked(listProducts).mockResolvedValue({ products: [], total: 0 })
+    auth.role = 'customer_owner'
+    document.documentElement.classList.add('design-depot')
+  })
+  afterEach(() => document.documentElement.classList.remove('design-depot'))
+
+  it('shows one Reports link, marked current on any report page', () => {
+    renderSidebar('/reports/customer-rfm')
+    const reports = screen.getByRole('button', { name: 'Reports' })
+    expect(reports).toHaveAttribute('aria-current', 'page')
+    expect(screen.queryByRole('button', { name: 'Customer Segments (RFM)' })).not.toBeInTheDocument()
+  })
+
+  it('keeps Setup closed until opened, and open when a setup page is current', async () => {
+    renderSidebar('/')
+    expect(screen.queryByRole('button', { name: 'Webhooks' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Setup' }))
+    expect(screen.getByRole('button', { name: 'Webhooks' })).toBeInTheDocument()
+  })
+
+  it('opens Setup when a setup page is the current page', () => {
+    renderSidebar('/webhooks')
+    expect(screen.getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'page')
   })
 })

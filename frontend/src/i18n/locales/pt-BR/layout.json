@@ -7,7 +7,16 @@
     "fulfill": "Expedição",
     "marketing": "Marketing",
     "reports": "Relatórios",
-    "sell": "Vendas"
+    "sell": "Vendas",
+    "orders": "Pedidos",
+    "warehouse": "Armazém",
+    "buying": "Compras",
+    "insight": "Análises",
+    "setup": "Configuração",
+    "reportsSales": "Vendas",
+    "reportsProducts": "Produtos",
+    "reportsCustomers": "Clientes",
+    "reportsStock": "Estoque"
   },
   "nav": {
     "collections": "Coleções",
@@ -50,7 +59,8 @@
     "unmatchedSkus": "SKUs não vinculados",
     "users": "Usuários e funções",
     "warehouses": "Depósitos",
-    "webhooks": "Webhooks"
+    "webhooks": "Webhooks",
+    "today": "Hoje"
   },
   "role": {
     "customer_admin": "Administrador",
@@ -90,6 +100,8 @@
     "signedInAs": "Conectado como",
     "signOut": "Sair",
     "showAmounts": "Mostrar valores",
-    "hideAmounts": "Ocultar valores"
+    "hideAmounts": "Ocultar valores",
+    "useClassicDesign": "Usar o design clássico",
+    "useNewDesign": "Usar o novo design"
   }
 }

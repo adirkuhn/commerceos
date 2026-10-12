@@ -9,7 +9,8 @@ import { globalSearch } from '../../search/api'
 import { Dialog } from '../common/Dialog'
 import type { GlobalSearchResult } from '../../search/types'
 import type { NavItem } from '../../types'
-import { HOME_LINK, navGroupsForRole, navTitle, shortcutFor } from './navConfig'
+import { homeLink, navGroupsForRole, navTitle, shortcutFor } from './navConfig'
+import { useDesign } from '../../theme/useDesign'
 import { apiErrorText } from '../../api/apiErrorText'
 
 // MIN_QUERY_LENGTH_FOR_SEARCH: a single character against every entity
@@ -36,6 +37,7 @@ interface PaletteEntry {
 export default function CommandPalette() {
   const { commandOpen, setCommandOpen, setActiveNav } = useApp()
   const { token, user } = useAuth()
+  const { design } = useDesign()
   const { t } = useTranslation(['layout', 'common'])
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -107,9 +109,10 @@ export default function CommandPalette() {
     setCommandOpen(false)
   }
 
-  // Same pages, names and role gating as the sidebar.
-  const navEntries: PaletteEntry[] = [HOME_LINK, ...navGroupsForRole(user?.role).flatMap(g => g.items)]
-    .map(link => ({ link, label: t('ui.goTo', { page: navTitle(link.id) }) }))
+  // Same pages, names and role gating as the sidebar -- every report
+  // listed on its own, even where the depot sidebar folds them into one.
+  const navEntries: PaletteEntry[] = [homeLink(design), ...navGroupsForRole(user?.role).flatMap(g => g.items)]
+    .map(link => ({ link, label: t('ui.goTo', { page: navTitle(link.id, design) }) }))
     .filter(({ label }) => query.trim() === '' || label.toLowerCase().includes(query.trim().toLowerCase()))
     .map(({ link, label }) => ({
       key: `nav-${link.id}`, section: t('ui.sectionNavigation'), icon: link.icon, label,

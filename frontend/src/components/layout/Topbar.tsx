@@ -9,6 +9,7 @@ import type { ThemePreference } from '../../theme/themePreference'
 import { navTitle } from './navConfig'
 import { LanguageSelect } from './LanguageSelect'
 import { useAmountVisibility } from '../../format/amountVisibility'
+import { useDesign } from '../../theme/useDesign'
 
 const APPEARANCE_ICON: Record<ThemePreference, React.ElementType> = { system: Monitor, light: Sun, dark: Moon }
 
@@ -20,13 +21,14 @@ export default function Topbar() {
   const { token } = useAuth()
   const [pairScannerOpen, setPairScannerOpen] = useState(false)
   const amounts = useAmountVisibility()
+  const { design } = useDesign()
   const amountsLabel = amounts.visible ? t('ui.hideAmounts') : t('ui.showAmounts')
   const AmountsIcon = amounts.visible ? Eye : EyeOff
 
   return (
     <header className="h-14 shrink-0 flex items-center gap-4 px-5 border-b border-line bg-surface">
       <h1 className="text-sm font-semibold text-ink mr-2">
-        {navTitle(activeNav)}
+        {navTitle(activeNav, design)}
       </h1>
 
       {/* Search */}

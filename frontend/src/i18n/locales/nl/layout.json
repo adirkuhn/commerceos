@@ -7,7 +7,16 @@
     "fulfill": "Afhandelen",
     "marketing": "Marketing",
     "reports": "Rapporten",
-    "sell": "Verkopen"
+    "sell": "Verkopen",
+    "orders": "Bestellingen",
+    "warehouse": "Magazijn",
+    "buying": "Inkoop",
+    "insight": "Inzicht",
+    "setup": "Instellen",
+    "reportsSales": "Verkoop",
+    "reportsProducts": "Producten",
+    "reportsCustomers": "Klanten",
+    "reportsStock": "Voorraad"
   },
   "nav": {
     "collections": "Collecties",
@@ -50,7 +59,8 @@
     "unmatchedSkus": "Niet-gekoppelde SKU’s",
     "users": "Gebruikers en rollen",
     "warehouses": "Magazijnen",
-    "webhooks": "Webhooks"
+    "webhooks": "Webhooks",
+    "today": "Vandaag"
   },
   "role": {
     "customer_admin": "Beheerder",
@@ -89,6 +99,8 @@
     "signedInAs": "Ingelogd als",
     "signOut": "Uitloggen",
     "showAmounts": "Bedragen tonen",
-    "hideAmounts": "Bedragen verbergen"
+    "hideAmounts": "Bedragen verbergen",
+    "useClassicDesign": "Klassiek ontwerp gebruiken",
+    "useNewDesign": "Nieuw ontwerp gebruiken"
   }
 }

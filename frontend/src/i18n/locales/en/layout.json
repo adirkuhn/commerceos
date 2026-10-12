@@ -7,7 +7,16 @@
     "fulfill": "Fulfill",
     "marketing": "Marketing",
     "reports": "Reports",
-    "sell": "Sell"
+    "sell": "Sell",
+    "orders": "Orders",
+    "warehouse": "Warehouse",
+    "buying": "Buying",
+    "insight": "Insight",
+    "setup": "Setup",
+    "reportsSales": "Sales",
+    "reportsProducts": "Products",
+    "reportsCustomers": "Customers",
+    "reportsStock": "Stock"
   },
   "nav": {
     "collections": "Collections",
@@ -50,7 +59,8 @@
     "unmatchedSkus": "Unmatched SKUs",
     "users": "Users & Roles",
     "warehouses": "Warehouses",
-    "webhooks": "Webhooks"
+    "webhooks": "Webhooks",
+    "today": "Today"
   },
   "role": {
     "customer_admin": "Admin",
@@ -89,6 +99,8 @@
     "signedInAs": "Signed in as",
     "signOut": "Sign out",
     "showAmounts": "Show amounts",
-    "hideAmounts": "Hide amounts"
+    "hideAmounts": "Hide amounts",
+    "useClassicDesign": "Use the classic design",
+    "useNewDesign": "Use the new design"
   }
 }
