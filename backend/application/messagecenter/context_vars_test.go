@@ -30,7 +30,7 @@ func TestStoreVars(t *testing.T) {
 func sampleLoadedOrder() *loadedOrder {
 	return &loadedOrder{
 		order: &omsDomain.SalesOrder{
-			Number: "1001", Status: omsDomain.SalesOrderStatusShipped, CurrencyCode: "EUR",
+			Number: "1001", Status: omsDomain.SalesOrderStatusShipped, Source: omsDomain.SalesOrderSourceWooCommerce, CurrencyCode: "EUR",
 			OccurredAt:              time.Date(2026, 10, 9, 15, 0, 0, 0, time.UTC),
 			ShippingTotalMinorUnits: 495, DiscountTotalMinorUnits: 100, TaxTotalMinorUnits: 173, TotalMinorUnits: 1393,
 			Billing:             omsDomain.Address{FirstName: "Bia", LastName: "Lima", Email: "bia@x.nl"},
@@ -55,6 +55,7 @@ func TestOrderVars(t *testing.T) {
 	assert.Equal(t, "1001", vars["order_number"])
 	assert.Equal(t, "09/10/2026", vars["order_date"])
 	assert.Equal(t, "shipped", vars["order_status"])
+	assert.Equal(t, "woocommerce", vars["order_source"], "rules can skip marketplace orders")
 	assert.Equal(t, "Verzonden", vars["order_status_label"])
 	assert.Equal(t, []any{map[string]any{"name": "Pão de queijo", "sku": "PQ-1", "quantity": int64(2), "unit_price": "€ 4,99", "total": "€ 9,98"}}, vars["items"])
 	assert.Equal(t, 1, vars["item_count"])

@@ -104,3 +104,45 @@ func TestDefaultStockExpiry_isTheCatalogDefault(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, d.Template, mc.DefaultStockExpiry(locale.Portuguese).Template)
 }
+
+func TestDefaultTemplates_eachHasADescriptionAndAnEnabledEmailRule(t *testing.T) {
+	for _, lang := range allLocales {
+		for _, d := range mc.DefaultTemplates(lang) {
+			assert.NotEmpty(t, d.Description, "%s %s", d.Key, lang)
+			assert.Equal(t, d.TriggerSubject, d.Rule.TriggerSubject, d.Key)
+			assert.Equal(t, d.Template.Name, d.Rule.Name, d.Key)
+			assert.True(t, d.Rule.Enabled, d.Key)
+			require.NotNil(t, d.Rule.ChannelOverride, d.Key)
+			assert.Equal(t, messaging.ChannelEmail, *d.Rule.ChannelOverride, "seeded rules send email only (%s)", d.Key)
+			for _, c := range d.Rule.Conditions {
+				assert.True(t, c.Field != "" && c.Operator.Valid(), d.Key)
+			}
+		}
+	}
+}
+
+// Marketplaces email their own customers: default customer rules skip
+// their orders so nobody gets two emails.
+func TestDefaultTemplates_customerRulesSkipMarketplaceOrders(t *testing.T) {
+	for _, d := range mc.DefaultTemplates(locale.English) {
+		if mc.AudienceFor(d.TriggerSubject).Kind != mc.AudienceCustomer {
+			assert.Empty(t, d.Rule.Conditions, d.Key)
+			continue
+		}
+		trigger, _ := mc.TriggerFor(d.TriggerSubject)
+		data := trigger.SampleData()
+		data["status_code"] = float64(3)
+		for source, want := range map[string]bool{"internal": true, "pos": true, "woocommerce": false, "bol": false} {
+			data["order_source"] = source
+			assert.Equal(t, want, d.Rule.Matches(data), "%s from %s", d.Key, source)
+		}
+	}
+}
+
+func TestDefaultTemplates_shippedFiresOnlyWhenTheCarrierHasIt(t *testing.T) {
+	d, _ := mc.DefaultTemplateFor(mc.DefaultOrderShipped, locale.English)
+	data := map[string]any{"order_source": "internal", "kind": "shipment_status", "status_code": float64(3)}
+	assert.True(t, d.Rule.Matches(data))
+	data["status_code"] = float64(7)
+	assert.False(t, d.Rule.Matches(data), "not on every later status update")
+}

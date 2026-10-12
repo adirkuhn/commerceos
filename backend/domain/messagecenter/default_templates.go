@@ -23,31 +23,61 @@ const (
 type DefaultTemplate struct {
 	Key            string
 	TriggerSubject string
-	Template       MessageTemplate
+	// Description says in one line what the message is and when it goes.
+	Description string
+	Template    MessageTemplate
+	// Rule is the automation rule a tenant gets with the template: on,
+	// email only, and for customer messages skipping marketplace orders.
+	Rule AutomationRule
+}
+
+// marketplaceSources email their own customers; default customer rules
+// skip their orders so nobody gets the same message twice.
+var marketplaceSources = []string{"woocommerce", "bol"}
+
+func skipMarketplaces(extra ...Condition) []Condition {
+	out := make([]Condition, 0, len(marketplaceSources)+len(extra))
+	for _, s := range marketplaceSources {
+		out = append(out, Condition{Field: "order_source", Operator: OperatorNeq, Value: s})
+	}
+	return append(out, extra...)
+}
+
+func defaultRule(name, trigger string, conditions []Condition) AutomationRule {
+	email := messaging.ChannelEmail
+	return AutomationRule{
+		Name: name, TriggerSubject: trigger, Conditions: conditions, ChannelOverride: &email,
+		ExtraRecipients: []string{}, Enabled: true,
+	}
 }
 
 type defaultSpec struct {
-	key      string
-	trigger  string
-	category Category
-	content  func(l layoutTexts) string
-	texts    func(d defaultTexts) messageTexts
+	key        string
+	trigger    string
+	conditions []Condition
+	category   Category
+	content    func(l layoutTexts) string
+	texts      func(d defaultTexts) messageTexts
 }
 
 var defaultSpecs = []defaultSpec{
-	{DefaultOrderConfirmation, "storefront.order.placed", CategoryPurchase,
+	{DefaultOrderConfirmation, "storefront.order.placed", skipMarketplaces(), CategoryPurchase,
 		func(l layoutTexts) string { return orderItemsBlock(l) + shippingAddressBlock(l) },
 		func(d defaultTexts) messageTexts { return d.orderConfirmation }},
-	{DefaultOrderStatus, "oms.sales_order.status_changed", CategoryOrderStatus,
+	{DefaultOrderStatus, "oms.sales_order.status_changed", skipMarketplaces(), CategoryOrderStatus,
 		orderItemsBlock,
 		func(d defaultTexts) messageTexts { return d.orderStatus }},
-	{DefaultOrderShipped, "shipping.shipment.fulfillment_signal", CategoryTracking,
+	// MyParcel status 3: handed to the carrier -- once, not on every update.
+	{DefaultOrderShipped, "shipping.shipment.fulfillment_signal", skipMarketplaces(
+		Condition{Field: "kind", Operator: OperatorEq, Value: "shipment_status"},
+		Condition{Field: "status_code", Operator: OperatorEq, Value: 3},
+	), CategoryTracking,
 		func(l layoutTexts) string { return trackingBlock(l) + shippingAddressBlock(l) + orderItemsBlock(l) },
 		func(d defaultTexts) messageTexts { return d.orderShipped }},
-	{DefaultRefundIssued, "payments.refund.issued", CategoryPurchase,
+	{DefaultRefundIssued, "payments.refund.issued", skipMarketplaces(), CategoryPurchase,
 		func(layoutTexts) string { return "" },
 		func(d defaultTexts) messageTexts { return d.refundIssued }},
-	{DefaultRefundReview, "payments.refund.manual_review_required", CategoryPurchase,
+	{DefaultRefundReview, "payments.refund.manual_review_required", skipMarketplaces(), CategoryPurchase,
 		func(layoutTexts) string { return "" },
 		func(d defaultTexts) messageTexts { return d.refundReview }},
 }
@@ -62,15 +92,18 @@ func DefaultTemplates(lang locale.Locale) []DefaultTemplate {
 	out := make([]DefaultTemplate, 0, len(defaultSpecs)+1)
 	for _, s := range defaultSpecs {
 		m := s.texts(texts)
-		out = append(out, DefaultTemplate{Key: s.key, TriggerSubject: s.trigger, Template: MessageTemplate{
-			Name: m.name, Category: s.category,
-			Channels: []messaging.Channel{messaging.ChannelEmail, messaging.ChannelWhatsApp},
-			Subject:  m.subject, Body: emailLayout(texts.layout, heading(m.heading)+paragraph(m.intro)+s.content(texts.layout)),
-			TextBody: m.text, DefaultKey: s.key, Enabled: true,
-		}})
+		out = append(out, DefaultTemplate{Key: s.key, TriggerSubject: s.trigger, Description: m.description,
+			Rule: defaultRule(m.name, s.trigger, s.conditions), Template: MessageTemplate{
+				Name: m.name, Category: s.category,
+				Channels: []messaging.Channel{messaging.ChannelEmail, messaging.ChannelWhatsApp},
+				Subject:  m.subject, Body: emailLayout(texts.layout, heading(m.heading)+paragraph(m.intro)+s.content(texts.layout)),
+				TextBody: m.text, DefaultKey: s.key, Enabled: true,
+			}})
 	}
+	stock := DefaultStockExpiry(lang)
 	return append(out, DefaultTemplate{
-		Key: DefaultStockCloseToExpiry, TriggerSubject: TriggerStockCloseToExpiry, Template: DefaultStockExpiry(lang).Template,
+		Key: DefaultStockCloseToExpiry, TriggerSubject: TriggerStockCloseToExpiry, Description: texts.stockDescription,
+		Template: stock.Template, Rule: defaultRule(stock.Template.Name, TriggerStockCloseToExpiry, nil),
 	})
 }
 

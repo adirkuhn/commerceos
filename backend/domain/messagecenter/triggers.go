@@ -114,6 +114,7 @@ var OrderVariables = []Variable{
 	text("order_number", "1001"),
 	text("order_date", "10/10/2026"),
 	text("order_status", "processing"),
+	text("order_source", "internal"),
 	text("order_status_label", "Processing"),
 	{Name: "items", Type: VariableList, Fields: []Variable{
 		text("name", "Pão de queijo 400g"),
