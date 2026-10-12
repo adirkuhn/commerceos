@@ -58,7 +58,7 @@ export function WebhooksTab({ token, connectionId, tenantId, provider }: { token
 
         <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
           <div>
-            <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('deliveryUrl')}
             </label>
             <div className="flex items-center gap-2">
@@ -77,7 +77,7 @@ export function WebhooksTab({ token, connectionId, tenantId, provider }: { token
 
           {secret ? (
             <div>
-              <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+              <label className="block text-2xs text-ink-4 caps-label mb-1.5">
                 {t('wooWebhooks.secretOnce')}
               </label>
               <div className="flex items-center gap-2">

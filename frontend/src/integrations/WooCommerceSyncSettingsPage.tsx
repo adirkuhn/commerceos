@@ -260,7 +260,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
             </p>
             <div className="flex items-end gap-2">
               <div className="flex-1 max-w-[160px]">
-                <label htmlFor="store-default-currency" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="store-default-currency" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('import.currency')}
                 </label>
                 <select
@@ -274,7 +274,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                 </select>
               </div>
               <div className="flex-1 max-w-[160px]">
-                <label htmlFor="store-default-location" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="store-default-location" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('woo.defaultLocation')}
                 </label>
                 <select
@@ -306,7 +306,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
             </p>
             <form onSubmit={handleFetchOrder} className="flex items-end gap-2">
               <div className="flex-1 max-w-[200px]">
-                <label htmlFor="fetch-order-number" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="fetch-order-number" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('woo.orderNumber')}
                 </label>
                 <input
@@ -382,7 +382,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                     return (
                       <div key={direction} className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-2xs font-medium text-ink-3 uppercase tracking-wider capitalize">
+                          <span className="text-2xs font-medium text-ink-3 caps-label capitalize">
                             {directionLabel(direction)}
                           </span>
                           <label className={clsx('relative flex items-center shrink-0', runnable ? 'cursor-pointer' : 'cursor-not-allowed opacity-40')}>
@@ -508,7 +508,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="woo-delete-confirm" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="woo-delete-confirm" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('deleteImported.typeToConfirm')}
                   </label>
                   <input

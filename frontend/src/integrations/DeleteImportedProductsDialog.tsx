@@ -66,7 +66,7 @@ export function DeleteImportedProductsDialog({ token, connection, onClose }: Pro
               </p>
             </div>
             <div>
-              <label htmlFor="delete-confirm" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+              <label htmlFor="delete-confirm" className="block text-2xs text-ink-4 caps-label mb-1.5">
                 {t('deleteImported.typeToConfirm')}
               </label>
               <input

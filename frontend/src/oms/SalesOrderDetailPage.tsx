@@ -450,18 +450,18 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
 
                   {detail.sales_order.billing?.email && (
                     <div>
-                      <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.contactInfo')}</h4>
+                      <h4 className="text-2xs font-semibold caps-label text-ink-4 mb-1">{t('detail.contactInfo')}</h4>
                       <p className="text-ink">{detail.sales_order.billing.email}</p>
                     </div>
                   )}
 
                   <div>
-                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.shippingAddress')}</h4>
+                    <h4 className="text-2xs font-semibold caps-label text-ink-4 mb-1">{t('detail.shippingAddress')}</h4>
                     <AddressLines address={detail.sales_order.shipping} />
                   </div>
 
                   <div>
-                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.billingAddress')}</h4>
+                    <h4 className="text-2xs font-semibold caps-label text-ink-4 mb-1">{t('detail.billingAddress')}</h4>
                     {addressesEqual(detail.sales_order.billing, detail.sales_order.shipping) ? (
                       <p className="text-ink-4">{t('detail.sameAsShipping')}</p>
                     ) : (

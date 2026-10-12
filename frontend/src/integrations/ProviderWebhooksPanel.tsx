@@ -57,7 +57,7 @@ export default function ProviderWebhooksPanel({ token, connectionId }: { token: 
 
         <form onSubmit={handleCreate} className="flex items-end gap-2">
           <div className="flex-1">
-            <label htmlFor="provider-webhook-topic" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="provider-webhook-topic" className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('providerWebhooks.topic')}
             </label>
             <input

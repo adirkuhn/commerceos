@@ -69,7 +69,7 @@ export function ExpiryAlertSection() {
         </label>
       </div>
       <fieldset className="space-y-1.5">
-        <legend className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">{t('expiryAlert.windows')}</legend>
+        <legend className="block text-2xs text-ink-4 caps-label mb-1.5">{t('expiryAlert.windows')}</legend>
         <div className="flex flex-wrap gap-2">
           {EXPIRY_ALERT_WINDOWS.map(w => (
             <label key={w} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-surface text-xs text-ink-2 cursor-pointer has-[:checked]:border-accent">

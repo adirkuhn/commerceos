@@ -22,7 +22,7 @@ function GroupDetail({ token, group, members }: { token: string; group: Group; m
   return (
     <div className="p-4 space-y-5">
       <div>
-        <h4 className="text-xs font-semibold text-ink-2 uppercase tracking-wider mb-2">{t('groups.members')}</h4>
+        <h4 className="text-xs font-semibold text-ink-2 caps-label mb-2">{t('groups.members')}</h4>
         {groupMembers.error && <p className="text-xs text-danger mb-2">{groupMembers.error}</p>}
         <ul className="space-y-1 mb-3">
           {groupMembers.members.map(userId => (
@@ -56,7 +56,7 @@ function GroupDetail({ token, group, members }: { token: string; group: Group; m
       </div>
 
       <div>
-        <h4 className="text-xs font-semibold text-ink-2 uppercase tracking-wider mb-2">{t('groups.permissions')}</h4>
+        <h4 className="text-xs font-semibold text-ink-2 caps-label mb-2">{t('groups.permissions')}</h4>
         {groupPerms.error && <p className="text-xs text-danger mb-2">{groupPerms.error}</p>}
         <ul className="space-y-1 mb-3">
           {groupPerms.permissions.map(rule => (

@@ -155,7 +155,7 @@ export function MediaSection({ productId }: { productId: string }) {
       </div>
       {editingId && (
         <div className="p-2.5 rounded-lg border border-line space-y-2">
-          <label htmlFor="media-title" className="block text-2xs font-medium text-ink-4 uppercase tracking-wider">
+          <label htmlFor="media-title" className="block text-2xs font-medium text-ink-4 caps-label">
             {t('media.imageTitle')}
           </label>
           <input

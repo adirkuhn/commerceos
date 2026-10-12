@@ -93,7 +93,7 @@ export function AddItemPanel({ busy, resolveCode, onAdd, onClose }: AddItemPanel
               </button>
             </div>
             <div>
-              <label htmlFor={`${id}-qty`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">{t('add.quantity')}</label>
+              <label htmlFor={`${id}-qty`} className="block text-2xs font-medium text-ink-4 caps-label mb-1.5">{t('add.quantity')}</label>
               <input
                 id={`${id}-qty`} type="number" min={1} value={quantity}
                 onChange={e => setQuantity(e.target.value)} className={inputClass}
@@ -101,7 +101,7 @@ export function AddItemPanel({ busy, resolveCode, onAdd, onClose }: AddItemPanel
             </div>
             {!freebie && (
               <div>
-                <label htmlFor={`${id}-price`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">{t('add.price')}</label>
+                <label htmlFor={`${id}-price`} className="block text-2xs font-medium text-ink-4 caps-label mb-1.5">{t('add.price')}</label>
                 <input id={`${id}-price`} type="number" min={0} step="0.01" value={price} onChange={e => setPrice(e.target.value)} className={inputClass} />
               </div>
             )}

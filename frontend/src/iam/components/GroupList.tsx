@@ -32,8 +32,8 @@ export function GroupList({ groups, loading, error, onSelect, onDelete, onCreate
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-line">
-              <th className="text-left py-2 font-medium text-ink-4 uppercase tracking-wider text-2xs">{t('common:fields.name')}</th>
-              <th className="text-left py-2 font-medium text-ink-4 uppercase tracking-wider text-2xs">{t('common:fields.description')}</th>
+              <th className="text-left py-2 font-medium text-ink-4 caps-label text-2xs">{t('common:fields.name')}</th>
+              <th className="text-left py-2 font-medium text-ink-4 caps-label text-2xs">{t('common:fields.description')}</th>
               <th className="py-2" />
             </tr>
           </thead>

@@ -64,7 +64,7 @@ export function WhatsAppTestModeModal({ connection, onClose, onSaved }: {
 
         {enabled && (
           <div className="mb-4">
-            <label htmlFor="wa-test-phone" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="wa-test-phone" className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('testMode.phone')}
             </label>
             <input

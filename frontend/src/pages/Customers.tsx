@@ -144,9 +144,9 @@ export default function Customers() {
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('common:fields.customer')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colLocation')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('common:fields.status')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('common:fields.customer')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colLocation')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('common:fields.status')}</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>

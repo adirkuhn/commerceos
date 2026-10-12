@@ -197,7 +197,7 @@ export function CompanyProfileSection() {
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <fieldset className="space-y-3">
-      <legend className="text-xs font-semibold uppercase tracking-wider text-ink-4 mb-2">{title}</legend>
+      <legend className="text-xs font-semibold caps-label text-ink-4 mb-2">{title}</legend>
       <div className="grid gap-3 sm:grid-cols-2">{children}</div>
     </fieldset>
   )

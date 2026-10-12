@@ -133,7 +133,7 @@ export default function ScheduledJobs() {
       {!loading && (
         <div className="p-5 flex flex-col gap-8">
           <section>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-3 mb-2">
+            <h2 className="text-xs font-semibold caps-label text-ink-3 mb-2">
               {t('jobs.global', { count: jobs.length })}
             </h2>
             <table className="w-full text-xs">
@@ -202,7 +202,7 @@ export default function ScheduledJobs() {
           </section>
 
           <section>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-3 mb-2">
+            <h2 className="text-xs font-semibold caps-label text-ink-3 mb-2">
               {t('jobs.schedules', { count: schedules.length })}
             </h2>
             <table className="w-full text-xs">

@@ -98,7 +98,7 @@ export function ApiKeysCard() {
 
       {justCreatedKey && (
         <div>
-          <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+          <label className="block text-2xs text-ink-4 caps-label mb-1.5">
             {t('apiKeys.newKey')}
           </label>
           <div className="flex items-center gap-2">
@@ -123,7 +123,7 @@ export function ApiKeysCard() {
 
       <form onSubmit={handleCreate} className="flex items-end gap-2">
         <div className="flex-1">
-          <label htmlFor="api-key-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+          <label htmlFor="api-key-name" className="block text-2xs text-ink-4 caps-label mb-1.5">
             {t('common:fields.name')}
           </label>
           <input
@@ -133,7 +133,7 @@ export function ApiKeysCard() {
           />
         </div>
         <div className="flex-1">
-          <label htmlFor="api-key-description" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+          <label htmlFor="api-key-description" className="block text-2xs text-ink-4 caps-label mb-1.5">
             {t('common:fields.description')}
           </label>
           <input
@@ -144,7 +144,7 @@ export function ApiKeysCard() {
         </div>
         {internalChannels.length > 0 && (
           <div className="flex-1">
-            <label htmlFor="api-key-channel" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="api-key-channel" className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('apiKeys.salesChannel')}
             </label>
             <select

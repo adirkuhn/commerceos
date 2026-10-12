@@ -125,12 +125,12 @@ export default function SyncLog() {
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('syncLog.synced')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('common:fields.product')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('syncLog.channel')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('syncLog.direction')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('syncLog.changes')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('common:fields.status')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('syncLog.synced')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('common:fields.product')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('syncLog.channel')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('syncLog.direction')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('syncLog.changes')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('common:fields.status')}</th>
               {view === 'needing-attention' && <th className="px-3 py-2.5 w-56" />}
             </tr>
           </thead>

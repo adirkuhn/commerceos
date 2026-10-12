@@ -101,10 +101,10 @@ export default function Newsletter() {
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
-              <th className="px-5 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colEmail')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colStatus')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colSignedUp')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colConfirmed')}</th>
+              <th className="px-5 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colEmail')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colStatus')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colSignedUp')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colConfirmed')}</th>
               <th className="px-3 py-2.5 w-10" />
             </tr>
           </thead>

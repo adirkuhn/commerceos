@@ -178,11 +178,11 @@ export default function MessageTemplatesPanel() {
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colName')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colCategory')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colChannels')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colBody')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('templates.colStatus')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('templates.colName')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('templates.colCategory')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('templates.colChannels')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('templates.colBody')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('templates.colStatus')}</th>
               <th className="px-3 py-2.5 w-24" />
             </tr>
           </thead>
@@ -260,7 +260,7 @@ export default function MessageTemplatesPanel() {
               {creating && <StartFromSelect value={form.defaultKey} onChoose={startFrom} />}
 
               <div>
-                <label htmlFor="template-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="template-name" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('templates.name')}
                 </label>
                 <input
@@ -275,7 +275,7 @@ export default function MessageTemplatesPanel() {
               </div>
 
               <div>
-                <label htmlFor="template-category" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="template-category" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('templates.category')}
                 </label>
                 <select
@@ -291,7 +291,7 @@ export default function MessageTemplatesPanel() {
               </div>
 
               <div>
-                <span className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <span className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('templates.channels')}
                 </span>
                 <div className="flex items-center gap-4">
@@ -311,7 +311,7 @@ export default function MessageTemplatesPanel() {
 
               {form.channels.includes('email') && (
                 <div>
-                  <label htmlFor="template-subject" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="template-subject" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('templates.subject')}
                   </label>
                   <input
@@ -326,7 +326,7 @@ export default function MessageTemplatesPanel() {
 
               {form.channels.includes('email') && (
                 <div>
-                  <label htmlFor="template-body" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="template-body" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('templates.body')}
                   </label>
                   <textarea
@@ -344,7 +344,7 @@ export default function MessageTemplatesPanel() {
 
               {form.channels.some(ch => ch !== 'email') && (
                 <div>
-                  <label htmlFor="template-text" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="template-text" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('templates.textBody')}
                   </label>
                   <textarea
@@ -364,7 +364,7 @@ export default function MessageTemplatesPanel() {
 
               {editingTemplate && (
                 <div className="flex items-center justify-between">
-                  <span className="text-2xs text-ink-4 uppercase tracking-wider">{t('templates.enabled')}</span>
+                  <span className="text-2xs text-ink-4 caps-label">{t('templates.enabled')}</span>
                   <label className="relative flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"

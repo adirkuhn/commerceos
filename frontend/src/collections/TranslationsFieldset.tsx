@@ -27,7 +27,7 @@ export function TranslationsFieldset({ value, fallback, onChange }: {
 
   return (
     <fieldset className="grid gap-3">
-      <legend className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">{t('edit.translations')}</legend>
+      <legend className="block text-2xs text-ink-4 caps-label mb-1.5">{t('edit.translations')}</legend>
       <div role="tablist" className="flex gap-1 border-b border-line">
         {languages.map(l => (
           <button key={l} type="button" role="tab" aria-selected={l === current} onClick={() => setActive(l)}

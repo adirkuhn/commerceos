@@ -49,7 +49,7 @@ export function ImportProductsDialog({ token, connection, warehouses, tenantDefa
               {t('import.intro')}
             </p>
             <div>
-              <label htmlFor="import-warehouse-id" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+              <label htmlFor="import-warehouse-id" className="block text-2xs text-ink-4 caps-label mb-1.5">
                 {t('import.warehouse')}
               </label>
               <select
@@ -68,7 +68,7 @@ export function ImportProductsDialog({ token, connection, warehouses, tenantDefa
               </p>
             </div>
             <div>
-              <label htmlFor="import-currency" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+              <label htmlFor="import-currency" className="block text-2xs text-ink-4 caps-label mb-1.5">
                 {t('import.currency')}
               </label>
               <select

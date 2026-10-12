@@ -98,7 +98,7 @@ export function PickScanLog({ scans, onDelete }: PickScanLogProps) {
   if (scans.length === 0) return null
   return (
     <div className="border-t border-line px-4 py-2 max-h-32 overflow-y-auto shrink-0">
-      <p className="text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1">{t('scanLog.title')}</p>
+      <p className="text-2xs font-medium text-ink-4 caps-label mb-1">{t('scanLog.title')}</p>
       {scans.map(s => (
         <div key={s.id} className="flex items-center justify-between py-0.5">
           <span className="text-2xs text-ink-3">

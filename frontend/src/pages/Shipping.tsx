@@ -142,7 +142,7 @@ export default function Shipping() {
                   <input type="checkbox" className="rounded accent-accent-solid w-3 h-3" />
                 </th>
                 {[t('page.colShipment'), t('page.colOrder'), t('page.colCustomer'), t('page.colCarrier'), t('page.colService'), t('page.colWeight'), t('page.colTracking'), t('page.colStatus'), t('page.colCost'), t('page.colDate'), ''].map((h, i) => (
-                  <th key={i} className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  <th key={i} className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -211,7 +211,7 @@ export default function Shipping() {
               <thead className="dark:bg-night-900/50 bg-gray-50 border-b border-line">
                 <tr>
                   {[t('page.colService'), t('page.colCarrier'), t('page.colCondition'), t('page.colCost'), t('page.colAuto'), t('page.colPriority')].map((h, i) => (
-                    <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">{h}</th>
+                    <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 caps-label text-2xs">{h}</th>
                   ))}
                 </tr>
               </thead>

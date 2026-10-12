@@ -33,7 +33,7 @@ export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
       .finally(() => setLoading(false))
   }, [open, token, skuId])
 
-  const label = 'block text-2xs font-medium text-ink-4 uppercase tracking-wide mb-0.5'
+  const label = 'block text-2xs font-medium text-ink-4 caps-label-wide mb-0.5'
   const input = 'w-full px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
 
   const handleAdd = async () => {
@@ -145,7 +145,7 @@ export function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
       .finally(() => setLoading(false))
   }, [open, token, skuId])
 
-  const label = 'block text-2xs font-medium text-ink-4 uppercase tracking-wide mb-0.5'
+  const label = 'block text-2xs font-medium text-ink-4 caps-label-wide mb-0.5'
   const input = 'w-full px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
 
   const handleAdd = async () => {
@@ -240,7 +240,7 @@ export function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
       .finally(() => setLoading(false))
   }, [open, token, skuId])
 
-  const label = 'block text-2xs font-medium text-ink-4 uppercase tracking-wide mb-0.5'
+  const label = 'block text-2xs font-medium text-ink-4 caps-label-wide mb-0.5'
   const input = 'w-full px-2 py-1 text-2xs rounded bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
 
   const handleAdd = async () => {

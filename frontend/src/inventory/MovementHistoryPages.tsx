@@ -80,7 +80,7 @@ export function ProductMovementHistoryPage({ token, productName, skus, warehouse
             <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
               <tr>
                 {[t('columns.date'), t('columns.sku'), t('columns.type'), t('columns.warehouse'), t('columns.batch'), t('columns.quantity'), t('columns.balance'), t('columns.reason')].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                  <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 caps-label">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -157,7 +157,7 @@ export function SKUMovementHistoryPage({ token, sku, warehouses, onClose }: {
             <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
               <tr>
                 {[t('columns.date'), t('columns.type'), t('columns.warehouse'), t('columns.batch'), t('columns.quantity'), t('columns.reason')].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                  <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 caps-label">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -226,7 +226,7 @@ export function BatchMovementHistoryPage({ token, sku, batch, warehouses, onClos
             <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
               <tr>
                 {[t('columns.date'), t('columns.type'), t('columns.warehouse'), t('columns.quantity'), t('columns.reason')].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                  <th key={h} className="px-4 py-2.5 text-left font-medium text-ink-4 caps-label">{h}</th>
                 ))}
               </tr>
             </thead>

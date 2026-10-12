@@ -191,7 +191,7 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
           <thead className="bg-fill">
             <tr>
               {[t('sku.colLot'), t('sku.colWarehouse'), t('sku.colQty'), t('sku.colExpiry'), ''].map((h, i) => (
-                <th key={i} className="px-2.5 py-1.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                <th key={i} className="px-2.5 py-1.5 text-left font-medium text-ink-4 caps-label">{h}</th>
               ))}
             </tr>
           </thead>

@@ -98,11 +98,11 @@ export default function Promotions() {
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colPromotion')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colType')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colStarts')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colEnds')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colStatus')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colPromotion')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colType')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colStarts')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colEnds')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colStatus')}</th>
               <th className="px-3 py-2.5 w-10" />
             </tr>
           </thead>

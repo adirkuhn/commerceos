@@ -32,6 +32,14 @@ export default {
         success: 'rgb(var(--success) / <alpha-value>)',
         warning: 'rgb(var(--warning) / <alpha-value>)',
         focus: 'rgb(var(--focus) / <alpha-value>)',
+        // The depot sidebar (depot design only; classic resolves to surface).
+        depot: {
+          DEFAULT: 'rgb(var(--depot) / <alpha-value>)',
+          ink: 'rgb(var(--depot-ink) / <alpha-value>)',
+          'ink-2': 'rgb(var(--depot-ink-2) / <alpha-value>)',
+          hover: 'rgb(var(--depot-hover) / <alpha-value>)',
+          mark: 'rgb(var(--depot-mark) / <alpha-value>)',
+        },
         // Fixed dark palette for surfaces that are dark in both
         // appearances (the handheld scanner app) or one-off dark-only shades.
         night: {
@@ -50,8 +58,19 @@ export default {
         body: ['13px', { lineHeight: '20px' }],
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        // Variables so the design (classic Inter / depot Barlow) can switch
+        // at runtime -- values in src/index.css.
+        sans: ['var(--font-sans)'],
+        data: ['var(--font-data)'],
+        mono: ['var(--font-mono)'],
+      },
+      borderRadius: {
+        // Classic keeps Tailwind's defaults; depot uses two radii (6px
+        // controls, 10px panels) -- values in src/index.css.
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
+        '2xl': 'var(--radius-2xl)',
       },
       keyframes: {
         'scan-line': {

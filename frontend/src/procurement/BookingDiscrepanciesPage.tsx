@@ -69,7 +69,7 @@ export function BookingDiscrepanciesPage({ token, onClose }: { token: string; on
                 <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
                     {[t('booking.colSku'), t('booking.colProduct'), t('booking.colExpected'), t('booking.colScanned'), t('booking.colMissing'), t('booking.colCompleted')].map((h, i) => (
-                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 caps-label">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -101,7 +101,7 @@ export function BookingDiscrepanciesPage({ token, onClose }: { token: string; on
                 <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
                     {[t('booking.colSku'), t('booking.colProduct'), t('booking.colType'), t('booking.colQty'), t('booking.colReason'), t('booking.colScannedBy'), t('booking.colDate')].map((h, i) => (
-                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 caps-label">{h}</th>
                     ))}
                   </tr>
                 </thead>

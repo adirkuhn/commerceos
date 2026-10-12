@@ -175,11 +175,11 @@ export default function Products() {
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colProduct')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colCategory')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colPrice')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colSalePrice')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colStatus')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colProduct')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colCategory')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colPrice')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colSalePrice')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colStatus')}</th>
               <th className="px-3 py-2.5 w-8" />
             </tr>
           </thead>

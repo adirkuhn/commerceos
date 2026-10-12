@@ -34,7 +34,7 @@ function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
       .finally(() => setLoading(false))
   }, [token, couponId])
 
-  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
 
   async function handleAdd() {
@@ -172,7 +172,7 @@ export function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEd
     }
   }
 
-  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
 
   return (

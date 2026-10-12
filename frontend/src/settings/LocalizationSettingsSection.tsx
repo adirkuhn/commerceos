@@ -188,7 +188,7 @@ function ExchangeRatesCard() {
 
       <form onSubmit={handleAdd} className="flex items-end gap-2 pt-2 border-t border-line">
         <div className="w-20">
-          <label htmlFor="fx-currency" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">{t('common:fields.currency')}</label>
+          <label htmlFor="fx-currency" className="block text-2xs text-ink-4 caps-label mb-1.5">{t('common:fields.currency')}</label>
           <input
             id="fx-currency"
             value={currencyCode}
@@ -199,7 +199,7 @@ function ExchangeRatesCard() {
           />
         </div>
         <div className="w-28">
-          <label htmlFor="fx-rate" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">{t('fx.rate')}</label>
+          <label htmlFor="fx-rate" className="block text-2xs text-ink-4 caps-label mb-1.5">{t('fx.rate')}</label>
           <input
             id="fx-rate"
             value={rateValue}

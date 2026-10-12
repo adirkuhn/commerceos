@@ -60,7 +60,7 @@ export function InventorySyncRulesSection() {
         </label>
       </div>
       <div className="max-w-[220px]">
-        <label htmlFor="batch-expiry-threshold-days" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="batch-expiry-threshold-days" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('syncRules.autoExpire')}
         </label>
         <input

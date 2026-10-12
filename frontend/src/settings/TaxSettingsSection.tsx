@@ -145,7 +145,7 @@ export function TaxSettingsSection() {
           </label>
         </div>
         <div className="max-w-[160px]">
-          <label htmlFor="default-tax-country" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+          <label htmlFor="default-tax-country" className="block text-2xs text-ink-4 caps-label mb-1.5">
             {t('tax.defaultCountry')}
           </label>
           <input
@@ -239,7 +239,7 @@ export function TaxSettingsSection() {
             </div>
             <form onSubmit={handleClassSubmit} className="space-y-3">
               <div>
-                <label htmlFor="tax-class-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="tax-class-name" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('common:fields.name')}
                 </label>
                 <input
@@ -253,7 +253,7 @@ export function TaxSettingsSection() {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-2xs text-ink-4 uppercase tracking-wider">{t('tax.defaultClass')}</span>
+                <span className="text-2xs text-ink-4 caps-label">{t('tax.defaultClass')}</span>
                 <label className="relative flex items-center shrink-0 cursor-pointer">
                   <input
                     type="checkbox"
@@ -302,7 +302,7 @@ function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (tax
       className="mt-3 pt-3 border-t border-line flex items-end gap-2"
     >
       <div>
-        <label htmlFor={`tax-rate-country-${taxClassId}`} className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor={`tax-rate-country-${taxClassId}`} className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('tax.country')}
         </label>
         <input
@@ -314,7 +314,7 @@ function TaxRateAddForm({ taxClassId, onAdd }: { taxClassId: string; onAdd: (tax
         />
       </div>
       <div>
-        <label htmlFor={`tax-rate-percent-${taxClassId}`} className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor={`tax-rate-percent-${taxClassId}`} className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('tax.ratePercent')}
         </label>
         <input

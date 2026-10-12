@@ -93,7 +93,7 @@ export function LineChangePanel({ lineItem, coveredSoFar, scans, busy, onPack, o
       <div className="p-4 space-y-4 overflow-y-auto">
         {scans.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-2xs font-medium text-ink-4 uppercase tracking-wider">{t('change.alreadyRecorded')}</p>
+            <p className="text-2xs font-medium text-ink-4 caps-label">{t('change.alreadyRecorded')}</p>
             {scans.map(s => (
               <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg border border-line bg-raised px-2.5 py-1.5">
                 <span className="text-2xs text-ink-2">{packScanLabel(s)}</span>
@@ -114,7 +114,7 @@ export function LineChangePanel({ lineItem, coveredSoFar, scans, busy, onPack, o
         {mode === 'pack' && (
           <>
             <div>
-              <label htmlFor={`${id}-pack-qty`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">{t('change.quantity')}</label>
+              <label htmlFor={`${id}-pack-qty`} className="block text-2xs font-medium text-ink-4 caps-label mb-1.5">{t('change.quantity')}</label>
               <input
                 id={`${id}-pack-qty`} type="number" min={1} max={remaining || undefined}
                 value={packQty} onChange={e => setPackQty(e.target.value)}
@@ -187,14 +187,14 @@ export function LineChangePanel({ lineItem, coveredSoFar, scans, busy, onPack, o
               {t('change.refundHelp', { quantity: lineItem.quantity })}
             </p>
             <div>
-              <label htmlFor={`${id}-refund-qty`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">{t('change.refundQty')}</label>
+              <label htmlFor={`${id}-refund-qty`} className="block text-2xs font-medium text-ink-4 caps-label mb-1.5">{t('change.refundQty')}</label>
               <input
                 id={`${id}-refund-qty`} type="number" min={1} max={lineItem.quantity}
                 value={refundQty} onChange={e => setRefundQty(e.target.value)} className={inputClass}
               />
             </div>
             <div>
-              <label htmlFor={`${id}-refund-reason`} className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">{t('change.reason')}</label>
+              <label htmlFor={`${id}-refund-reason`} className="block text-2xs font-medium text-ink-4 caps-label mb-1.5">{t('change.reason')}</label>
               <input id={`${id}-refund-reason`} type="text" value={refundReason} onChange={e => setRefundReason(e.target.value)} className={inputClass} />
             </div>
             <button type="button" onClick={() => onRefund(refundQtyNum, refundReason)} disabled={busy || !refundReady} className={primaryButton}>

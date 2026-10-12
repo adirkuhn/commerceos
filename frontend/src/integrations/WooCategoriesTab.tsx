@@ -118,7 +118,7 @@ export function WooCategoriesTab({ token, connectionId }: { token: string; conne
           )}
           <form onSubmit={handleAdd} className="pt-3 border-t border-line flex items-end gap-2">
             <div>
-              <label htmlFor="commerceos-category" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+              <label htmlFor="commerceos-category" className="block text-2xs text-ink-4 caps-label mb-1.5">
                 {t('wooCategories.category')}
               </label>
               <select
@@ -134,7 +134,7 @@ export function WooCategoriesTab({ token, connectionId }: { token: string; conne
               </select>
             </div>
             <div>
-              <label htmlFor="woo-category" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+              <label htmlFor="woo-category" className="block text-2xs text-ink-4 caps-label mb-1.5">
                 {t('wooCategories.wooCategory')}
               </label>
               <select

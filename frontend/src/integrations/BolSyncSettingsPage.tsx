@@ -380,7 +380,7 @@ export default function BolSyncSettingsPage({
                       return (
                         <div key={direction} className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-2xs font-medium text-ink-3 uppercase tracking-wider capitalize">
+                            <span className="text-2xs font-medium text-ink-3 caps-label capitalize">
                               {directionLabel(direction)}
                             </span>
                             <label className={clsx('relative flex items-center shrink-0', runnable ? 'cursor-pointer' : 'cursor-not-allowed opacity-40')}>

@@ -43,7 +43,7 @@ export function PricingMarginSection() {
     <div className="bg-raised rounded-xl border border-line p-4 space-y-3">
       <h3 className="text-sm font-semibold text-ink">{t('markup.title')}</h3>
       <div className="max-w-[220px]">
-        <label htmlFor="default-target-markup" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="default-target-markup" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('markup.label')}
         </label>
         <input

@@ -73,7 +73,7 @@ export function RecommendationsSettingsCard() {
 
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label htmlFor="bundle-confidence" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+          <label htmlFor="bundle-confidence" className="block text-2xs text-ink-4 caps-label mb-1.5">
             {t('recommendations.confidence')}
           </label>
           <input
@@ -86,7 +86,7 @@ export function RecommendationsSettingsCard() {
           />
         </div>
         <div>
-          <label htmlFor="min-support" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+          <label htmlFor="min-support" className="block text-2xs text-ink-4 caps-label mb-1.5">
             {t('recommendations.support')}
           </label>
           <input
@@ -99,7 +99,7 @@ export function RecommendationsSettingsCard() {
           />
         </div>
         <div>
-          <label htmlFor="lookback-days" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+          <label htmlFor="lookback-days" className="block text-2xs text-ink-4 caps-label mb-1.5">
             {t('recommendations.lookback')}
           </label>
           <input

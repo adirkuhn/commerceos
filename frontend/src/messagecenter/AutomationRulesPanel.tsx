@@ -187,11 +187,11 @@ export default function AutomationRulesPanel() {
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('rules.colName')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('rules.colTrigger')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('rules.colConditions')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('rules.colTemplate')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('rules.colStatus')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('rules.colName')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('rules.colTrigger')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('rules.colConditions')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('rules.colTemplate')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('rules.colStatus')}</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>
@@ -253,7 +253,7 @@ export default function AutomationRulesPanel() {
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label htmlFor="rule-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="rule-name" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('rules.name')}
                 </label>
                 <input
@@ -268,7 +268,7 @@ export default function AutomationRulesPanel() {
               </div>
 
               <div>
-                <label htmlFor="rule-trigger" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="rule-trigger" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('rules.when')}
                 </label>
                 <select
@@ -291,7 +291,7 @@ export default function AutomationRulesPanel() {
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-2xs text-ink-4 uppercase tracking-wider">
+                  <span className="text-2xs text-ink-4 caps-label">
                     {t('rules.conditions')}
                   </span>
                   <button type="button" onClick={addCondition} className="text-2xs text-accent hover:text-accent">
@@ -333,7 +333,7 @@ export default function AutomationRulesPanel() {
               </div>
 
               <div>
-                <label htmlFor="rule-template" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="rule-template" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('rules.template')}
                 </label>
                 <select
@@ -351,7 +351,7 @@ export default function AutomationRulesPanel() {
               </div>
 
               <div>
-                <label htmlFor="rule-channel-override" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="rule-channel-override" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('rules.channelOverride')}
                 </label>
                 <select
@@ -374,7 +374,7 @@ export default function AutomationRulesPanel() {
 
               {editingRule && (
                 <div className="flex items-center justify-between">
-                  <span className="text-2xs text-ink-4 uppercase tracking-wider">{t('rules.enabled')}</span>
+                  <span className="text-2xs text-ink-4 caps-label">{t('rules.enabled')}</span>
                   <label className="relative flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"

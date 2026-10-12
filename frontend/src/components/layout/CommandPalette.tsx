@@ -204,7 +204,7 @@ export default function CommandPalette() {
           )}
           {sections.map(section => (
             <div key={section.title} role="group" aria-labelledby={`${listboxId}-${section.title}`}>
-              <p id={`${listboxId}-${section.title}`} className="px-4 py-1.5 text-2xs font-medium text-ink-4 uppercase tracking-wider">
+              <p id={`${listboxId}-${section.title}`} className="px-4 py-1.5 text-2xs font-medium text-ink-4 caps-label">
                 {section.title}
               </p>
               {section.entries.map(entry => {

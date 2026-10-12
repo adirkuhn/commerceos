@@ -154,7 +154,7 @@ export default function Users() {
           <div className="flex-1 overflow-auto">
             {invitesState.invites.length > 0 && (
               <div className="px-5 py-3 border-b border-line">
-                <h3 className="text-xs font-semibold text-ink-2 uppercase tracking-wider mb-2">{t('users.pendingInvites')}</h3>
+                <h3 className="text-xs font-semibold text-ink-2 caps-label mb-2">{t('users.pendingInvites')}</h3>
                 <ul className="space-y-1.5">
                   {invitesState.invites.map(inv => (
                     <li key={inv.id} className="flex items-center justify-between text-xs text-ink-2">
@@ -175,7 +175,7 @@ export default function Users() {
               <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                 <tr>
                   {[t('users.colUser'), t('users.role'), t('common:fields.status'), t('users.colLastLogin'), ''].map(h => (
-                    <th key={h} className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">
+                    <th key={h} className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">
                       {h}
                     </th>
                   ))}

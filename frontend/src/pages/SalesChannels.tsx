@@ -277,7 +277,7 @@ export default function SalesChannels() {
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label htmlFor="channel-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="channel-name" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('common:fields.name')}
                 </label>
                 <input
@@ -292,7 +292,7 @@ export default function SalesChannels() {
               </div>
               {!editingChannel && (
                 <div>
-                  <label htmlFor="channel-type" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-type" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('common:fields.type')}
                   </label>
                   <select
@@ -314,7 +314,7 @@ export default function SalesChannels() {
               )}
               {!editingChannel && form.channelType === INTERNAL_TYPE && (
                 <div>
-                  <label htmlFor="channel-currency" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-currency" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('common:fields.currency')}
                   </label>
                   <select
@@ -336,7 +336,7 @@ export default function SalesChannels() {
               )}
               {(editingChannel ? CONNECTION_REQUIRED_TYPES.includes(editingChannel.type) : form.channelType !== INTERNAL_TYPE) && (
                 <div>
-                  <label htmlFor="channel-connection" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-connection" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('form.connection')}
                   </label>
                   <select
@@ -359,7 +359,7 @@ export default function SalesChannels() {
               )}
               {form.connectionId && (
                 <div>
-                  <label htmlFor="channel-default-warehouse" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-default-warehouse" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('form.defaultLocation')}
                   </label>
                   <select
@@ -378,7 +378,7 @@ export default function SalesChannels() {
               )}
               {WAREHOUSE_REQUIRED_TYPES.includes(editingChannel ? editingChannel.type : form.channelType) && (
                 <div>
-                  <label htmlFor="channel-fulfillment-warehouse" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-fulfillment-warehouse" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('form.fulfillmentWarehouse')}
                   </label>
                   <select
@@ -409,7 +409,7 @@ export default function SalesChannels() {
                 />
               )}
               <div>
-                <label htmlFor="channel-enrollment-mode" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="channel-enrollment-mode" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('form.defaultEnrollment')}
                 </label>
                 <select
@@ -428,7 +428,7 @@ export default function SalesChannels() {
               </div>
               {form.enrollmentMode === 'category' && (
                 <div>
-                  <label htmlFor="channel-enrollment-category" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-enrollment-category" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('form.category')}
                   </label>
                   <select
@@ -445,7 +445,7 @@ export default function SalesChannels() {
               )}
               {form.enrollmentMode === 'tag' && (
                 <div>
-                  <label htmlFor="channel-enrollment-tag" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-enrollment-tag" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('form.tag')}
                   </label>
                   <input
@@ -461,7 +461,7 @@ export default function SalesChannels() {
               )}
               {editingChannel && PAYMENT_CAPABLE_TYPES.includes(editingChannel.type) && (
                 <div>
-                  <label htmlFor="channel-payment-method" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="channel-payment-method" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('form.paymentMethod')}
                   </label>
                   <select
@@ -482,7 +482,7 @@ export default function SalesChannels() {
               )}
               {editingChannel && (
                 <div className="flex items-center justify-between">
-                  <span className="text-2xs text-ink-4 uppercase tracking-wider">{t('common:status.active')}</span>
+                  <span className="text-2xs text-ink-4 caps-label">{t('common:status.active')}</span>
                   <label className="relative flex items-center shrink-0 cursor-pointer">
                     <input
                       type="checkbox"
@@ -556,9 +556,9 @@ export default function SalesChannels() {
               {t('api.intro')}
             </p>
             <div className="shrink-0 mb-3 p-2.5 rounded-lg bg-sunken border border-line space-y-1.5">
-              <p className="text-2xs text-ink-4 uppercase tracking-wider">{t('api.baseUrl')}</p>
+              <p className="text-2xs text-ink-4 caps-label">{t('api.baseUrl')}</p>
               <code className="block text-xs text-ink break-all">{apiBaseURL()}</code>
-              <p className="text-2xs text-ink-4 uppercase tracking-wider pt-1">{t('api.auth')}</p>
+              <p className="text-2xs text-ink-4 caps-label pt-1">{t('api.auth')}</p>
               <div className="flex items-center gap-1.5">
                 <code className="flex-1 text-xs text-ink break-all">{`Authorization: Bearer ${apiDocsChannel.id}`}</code>
                 <button
@@ -577,7 +577,7 @@ export default function SalesChannels() {
                 <div key={`${ep.method} ${ep.path}`} className="flex items-start gap-2 py-1.5 border-b border-line last:border-0">
                   <span
                     className={clsx(
-                      'shrink-0 w-14 text-center text-2xs font-bold uppercase tracking-wide rounded px-1 py-0.5',
+                      'shrink-0 w-14 text-center text-2xs font-bold caps-label-wide rounded px-1 py-0.5',
                       ep.method === 'GET' && 'bg-accent/10 text-accent',
                       ep.method === 'POST' && 'bg-green-500/10 text-success',
                       ep.method === 'PUT' && 'bg-amber-500/10 text-warning',

@@ -50,7 +50,7 @@ export function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocume
     }
   }
 
-  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
 
   return (
     <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

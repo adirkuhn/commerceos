@@ -47,7 +47,7 @@ export function StripeConnectForm({ form, webhook, error, starting, onDone }: Pa
   return (
     <form onSubmit={form.connect} className="space-y-3">
       <div>
-        <label htmlFor="stripe-secret-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="stripe-secret-key" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('payment.secretKey')}
         </label>
         <input
@@ -65,7 +65,7 @@ export function StripeConnectForm({ form, webhook, error, starting, onDone }: Pa
         </p>
       </div>
       <div>
-        <label htmlFor="stripe-publishable-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="stripe-publishable-key" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('payment.publishableKey')}
         </label>
         <input
@@ -93,7 +93,7 @@ export function RevolutConnectForm({ form, webhook, error, starting, onDone }: P
   return (
     <form onSubmit={form.connect} className="space-y-3">
       <div>
-        <label htmlFor="revolut-api-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="revolut-api-key" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('payment.revolutKey')}
         </label>
         <input

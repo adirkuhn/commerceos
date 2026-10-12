@@ -119,9 +119,9 @@ export default function StockIssues() {
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-3 py-2.5 w-6" />
-              <th className="px-3 py-2.5 text-left font-medium uppercase tracking-wider text-ink-4">{t('colOrder')}</th>
-              <th className="px-3 py-2.5 text-left font-medium uppercase tracking-wider text-ink-4">{t('colCustomer')}</th>
-              <th className="px-3 py-2.5 text-left font-medium uppercase tracking-wider text-ink-4">{t('colStatus')}</th>
+              <th className="px-3 py-2.5 text-left font-medium caps-label text-ink-4">{t('colOrder')}</th>
+              <th className="px-3 py-2.5 text-left font-medium caps-label text-ink-4">{t('colCustomer')}</th>
+              <th className="px-3 py-2.5 text-left font-medium caps-label text-ink-4">{t('colStatus')}</th>
               <th className="px-3 py-2.5 w-56" />
             </tr>
           </thead>

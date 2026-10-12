@@ -77,7 +77,7 @@ export function WhatsAppWebhookModal({ connection, tenantId, onClose }: {
 
         {url ? (
           <div className="mb-4">
-            <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('whatsappWebhook.newUrl')}
             </label>
             <div className="flex items-center gap-2">

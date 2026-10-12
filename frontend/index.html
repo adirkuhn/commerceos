@@ -14,10 +14,17 @@
         var dark = pref === 'dark' || (pref !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
         if (dark) document.documentElement.classList.add('dark')
       } catch (e) {}
+      // Design (classic | depot) -- mirrors src/theme/designPreference.ts.
+      var design = '%VITE_DESIGN_DEFAULT%' === 'classic' ? 'classic' : 'depot'
+      try {
+        var stored = localStorage.getItem('commerceos.design')
+        if (stored === 'classic' || stored === 'depot') design = stored
+      } catch (e) {}
+      if (design === 'depot') document.documentElement.classList.add('design-depot')
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>

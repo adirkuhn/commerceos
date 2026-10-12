@@ -93,7 +93,7 @@ export function PricingSection({ channel, update }: PricingSectionProps) {
     <div className="mx-5 mt-4 p-4 rounded-xl border border-line bg-raised shrink-0">
       <h3 className="text-xs font-semibold text-ink mb-3">{t('pricing.title')}</h3>
       <div>
-        <label htmlFor="pricing-discount" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="pricing-discount" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('pricing.discount')}
         </label>
         <input
@@ -110,7 +110,7 @@ export function PricingSection({ channel, update }: PricingSectionProps) {
       </div>
       <div className="mt-4">
         <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-2xs text-ink-4 uppercase tracking-wider">{t('pricing.tiers')}</label>
+          <label className="block text-2xs text-ink-4 caps-label">{t('pricing.tiers')}</label>
           <button
             type="button"
             onClick={() => { setQuantityBreaks(b => [...b, { minQuantity: '', discountPercent: '' }]); setDirty(true) }}

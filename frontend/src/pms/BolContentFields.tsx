@@ -3,7 +3,7 @@ import type { UpsertBolProductContentPayload } from '../integrations/api'
 
 export const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-focus'
 
-export const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+export const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
 
 export function defaultBolProductContent(): UpsertBolProductContentPayload {
   return {

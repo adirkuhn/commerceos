@@ -57,7 +57,7 @@ function SortableTh({ field, label, sortBy, sortDir, onSort, align = 'left' }: {
   return (
     <th
       className={clsx(
-        'px-3 py-2.5 font-medium uppercase tracking-wider cursor-pointer select-none hover:text-ink-2 transition-colors',
+        'px-3 py-2.5 font-medium caps-label cursor-pointer select-none hover:text-ink-2 transition-colors',
         align === 'right' ? 'text-right' : 'text-left',
         active ? 'text-ink-2' : 'text-ink-4',
       )}

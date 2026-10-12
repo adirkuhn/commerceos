@@ -170,10 +170,10 @@ function InventoryPage() {
             <tr>
               <th className="px-2 py-2.5 w-8" />
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colProduct')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colPrice')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colSalePrice')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('list.colStock')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colProduct')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colPrice')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colSalePrice')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('list.colStock')}</th>
               <th className="px-3 py-2.5 w-8" />
             </tr>
           </thead>

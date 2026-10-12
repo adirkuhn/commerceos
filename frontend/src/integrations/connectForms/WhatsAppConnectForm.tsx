@@ -33,7 +33,7 @@ export function WhatsAppConnectForm({ form, error, starting, onDone }: Props) {
   return (
     <form onSubmit={form.connect} className="space-y-3">
       <div>
-        <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('whatsapp.baseUrl')}
         </label>
         <input
@@ -50,7 +50,7 @@ export function WhatsAppConnectForm({ form, error, starting, onDone }: Props) {
         </p>
       </div>
       <div>
-        <label htmlFor="wa-instance-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="wa-instance-name" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('whatsapp.instanceName')}
         </label>
         <input
@@ -63,7 +63,7 @@ export function WhatsAppConnectForm({ form, error, starting, onDone }: Props) {
         />
       </div>
       <div>
-        <label htmlFor="wa-api-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="wa-api-key" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('whatsapp.apiKey')}
         </label>
         <input

@@ -369,7 +369,7 @@ export function ProductBolTab({
                 {!contentLoading && !contentLoadError && (
                   <div className="space-y-4">
                     <div>
-                      <h5 className="text-2xs font-semibold text-ink-2 mb-2 uppercase tracking-wider">{t('bol.basicInfo')}</h5>
+                      <h5 className="text-2xs font-semibold text-ink-2 mb-2 caps-label">{t('bol.basicInfo')}</h5>
                       <div className="grid grid-cols-2 gap-3">
                         <ContentTextField id="bol-content-manufacturer-name" label={t('bol.manufacturerName')} value={content.manufacturer_name ?? ''} onChange={v => setContentField('manufacturer_name', v)} />
                         <ContentTextField id="bol-content-manufacturer-address" label={t('bol.manufacturerAddress')} value={content.manufacturer_address ?? ''} onChange={v => setContentField('manufacturer_address', v)} />
@@ -391,7 +391,7 @@ export function ProductBolTab({
                     </div>
 
                     <div>
-                      <h5 className="text-2xs font-semibold text-ink-2 mb-2 uppercase tracking-wider">{t('bol.optional')}</h5>
+                      <h5 className="text-2xs font-semibold text-ink-2 mb-2 caps-label">{t('bol.optional')}</h5>
                       <div className="grid grid-cols-2 gap-3">
                         <ContentTextField id="bol-content-brand" label={t('bol.brand')} value={content.brand ?? ''} onChange={v => setContentField('brand', v)} />
                         <ContentNumberField id="bol-content-items-per-package" label={t('bol.itemsPerPackage')} value={content.items_per_package} onChange={v => setContentField('items_per_package', v)} />

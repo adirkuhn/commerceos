@@ -65,7 +65,7 @@ export function VariantEditPanel({ variant, sku, updateVariant, updateSKU, onClo
       {sku && (
         <>
           <div className="space-y-1.5">
-            <p className="text-2xs font-semibold text-ink-3 uppercase tracking-wide">{t('variant.pricing')}</p>
+            <p className="text-2xs font-semibold text-ink-3 caps-label-wide">{t('variant.pricing')}</p>
             <div className="grid grid-cols-2 gap-1.5">
               <div>
                 <label className={fieldLabelClass}>{t('variant.skuCode')}</label>
@@ -100,7 +100,7 @@ export function VariantEditPanel({ variant, sku, updateVariant, updateSKU, onClo
           </div>
           <SKUCurrencyPricesEditor skuId={sku.id} />
           <div className="space-y-1.5">
-            <p className="text-2xs font-semibold text-ink-3 uppercase tracking-wide">{t('variant.shipping')}</p>
+            <p className="text-2xs font-semibold text-ink-3 caps-label-wide">{t('variant.shipping')}</p>
             <label className="flex items-center gap-1.5 text-2xs text-ink-3">
               <input type="checkbox" checked={form.isVirtual} onChange={e => set('isVirtual', e.target.checked)} />
               {t('variant.virtual')}

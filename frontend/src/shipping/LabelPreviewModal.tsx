@@ -66,7 +66,7 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
             (like the real printed label) regardless of the app's own
             dark/light theme, so what staff see here matches the paper. */}
         <div className="rounded-lg border-2 border-dashed border-gray-300 p-4 mb-4 bg-white text-gray-900">
-          <p className="text-2xs uppercase tracking-wider text-gray-500 mb-1">{t('preview.to')}</p>
+          <p className="text-2xs caps-label text-gray-500 mb-1">{t('preview.to')}</p>
           <p className="text-base font-bold leading-tight">{recipient.person || '—'}</p>
           {recipient.company && <p className="text-sm">{recipient.company}</p>}
           <p className="text-sm">

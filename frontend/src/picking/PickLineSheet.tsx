@@ -27,7 +27,7 @@ export function PickLineSheet({ pickLine, pickQty, onPickQtyChange, onConfirm, o
       </div>
       <div className="p-4 space-y-4">
         <div>
-          <label htmlFor="pick-qty" className="block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5">{t('sheet.quantity')}</label>
+          <label htmlFor="pick-qty" className="block text-2xs font-medium text-ink-4 caps-label mb-1.5">{t('sheet.quantity')}</label>
           <input
             id="pick-qty" type="number" min={1} max={pickLine.lineItem.quantity - pickLine.pickedSoFar || undefined}
             value={pickQty} onChange={e => onPickQtyChange(Math.max(1, parseInt(e.target.value, 10) || 1))}

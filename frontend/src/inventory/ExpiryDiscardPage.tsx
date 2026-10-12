@@ -228,7 +228,7 @@ export function ExpiryDiscardPage({
                 <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
                     {[t('expiry.colSku'), t('expiry.colProduct'), t('expiry.colWarehouse'), t('expiry.colLot'), t('expiry.colExpired'), t('expiry.colQty'), ''].map((h, i) => (
-                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 caps-label">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -312,7 +312,7 @@ export function ExpiryDiscardPage({
                 <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
                     {[t('expiry.colSku'), t('expiry.colProduct'), t('expiry.colWarehouse'), t('expiry.colLot'), t('expiry.colExpires'), t('expiry.colQty'), ''].map((h, i) => (
-                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 caps-label">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -354,7 +354,7 @@ export function ExpiryDiscardPage({
                 <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
                   <tr>
                     {[t('expiry.colPhoto'), t('expiry.colSku'), t('expiry.colProduct'), t('expiry.colType'), t('expiry.colWarehouse'), t('expiry.colLot'), t('expiry.colQty'), t('expiry.colReason'), t('expiry.colBy'), t('expiry.colDiscarded')].map((h, i) => (
-                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{h}</th>
+                      <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 caps-label">{h}</th>
                     ))}
                   </tr>
                 </thead>

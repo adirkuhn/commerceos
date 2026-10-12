@@ -54,7 +54,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
 
         <div className="space-y-3 mb-4">
           <div>
-            <label htmlFor="wa-base-url" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="wa-base-url" className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('credentials.baseUrl')}
             </label>
             <input
@@ -69,7 +69,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
           </div>
 
           <div>
-            <label htmlFor="wa-instance-name" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="wa-instance-name" className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('whatsapp.instanceName')}
             </label>
             <input
@@ -83,7 +83,7 @@ export function WhatsAppCredentialsModal({ connection, onClose, onSaved }: {
           </div>
 
           <div>
-            <label htmlFor="wa-api-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="wa-api-key" className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('whatsapp.apiKey')}
             </label>
             <input

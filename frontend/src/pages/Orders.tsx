@@ -178,7 +178,7 @@ export default function Orders() {
                   <input type="checkbox" className="rounded accent-accent-solid w-3 h-3" />
                 </th>
                 {[t('demo.orderId'), t('demo.channel'), t('common:fields.customer'), t('demo.items'), t('common:fields.total'), t('demo.payment'), t('common:fields.status'), t('demo.fulfillment'), t('common:fields.date')].map(h => (
-                  <th key={h} className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider whitespace-nowrap">
+                  <th key={h} className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -241,7 +241,7 @@ export default function Orders() {
 
           {/* Status flow */}
           <div className="px-4 py-3 border-b border-line">
-            <p className="text-2xs text-ink-4 uppercase tracking-wider mb-2">{t('demo.orderFlow')}</p>
+            <p className="text-2xs text-ink-4 caps-label mb-2">{t('demo.orderFlow')}</p>
             <div className="flex items-center gap-1 flex-wrap">
               {ORDER_STATUS_FLOW.filter(s => s !== 'cancelled').map((s, i) => {
                 const steps = ORDER_STATUS_FLOW.filter(x => x !== 'cancelled')

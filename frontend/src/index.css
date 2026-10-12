@@ -29,6 +29,15 @@
     --success: 21 128 61;
     --warning: 180 83 9;
     --focus: 47 51 184;
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-data: var(--font-sans);
+    --font-mono: 'JetBrains Mono', monospace;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.5rem;
+    --radius-xl: 0.75rem;
+    --radius-2xl: 1rem;
+    /* Classic has no depot sidebar -- it falls back to the surface. */
+    --depot: var(--surface);
   }
 
   .dark {
@@ -53,6 +62,61 @@
     --focus: 165 168 255;
   }
 
+  /*
+   * Depot design (html.design-depot) -- the 2026-10 redesign. Same token
+   * names, so every screen follows; classic (above) stays untouched and is
+   * one class away. Ultramarine-tinted neutrals, a canvas a step darker
+   * than the panels so panels read as labels on a table, two corner radii,
+   * and the depot colour for the sidebar in both appearances.
+   */
+  .design-depot {
+    --canvas: 236 238 244;   /* #ECEEF4 */
+    --surface: 255 255 255;
+    --raised: 255 255 255;
+    --sunken: 245 246 250;   /* #F5F6FA */
+    --fill: 228 231 239;     /* #E4E7EF */
+    --hover: 233 235 243;    /* #E9EBF3 */
+    --line: 213 217 228;     /* #D5D9E4 */
+    --ink: 26 28 46;         /* #1A1C2E, 14.5:1 on canvas */
+    --ink-2: 51 55 79;       /* #33374F */
+    --ink-3: 74 79 106;      /* #4A4F6A */
+    --ink-4: 93 98 128;      /* #5D6280, ≥5.0:1 on canvas/hover */
+    --danger: 194 38 29;     /* #C2261D */
+    --success: 17 107 51;    /* #116B33 */
+    --warning: 154 71 8;     /* #9A4708 use-by amber */
+    /* Depot: the sidebar, dark in both appearances. */
+    --depot: 20 22 63;       /* #14163F */
+    --depot-ink: 230 231 245;   /* #E6E7F5, 14.1:1 */
+    --depot-ink-2: 169 172 214; /* #A9ACD6, 7.9:1 */
+    --depot-hover: 255 255 255; /* used at /8 */
+    --depot-mark: 165 168 255;  /* #A5A8FF, active-item marker */
+    --font-sans: 'Barlow', system-ui, sans-serif;
+    --font-data: 'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
+    --font-mono: 'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
+    --radius-md: 6px;
+    --radius-lg: 6px;
+    --radius-xl: 10px;
+    --radius-2xl: 10px;
+  }
+
+  .design-depot.dark {
+    --canvas: 13 15 30;      /* #0D0F1E */
+    --surface: 20 23 42;     /* #14172A */
+    --raised: 27 31 54;      /* #1B1F36 */
+    --sunken: 20 23 42;
+    --fill: 20 23 42;
+    --hover: 38 42 69;       /* #262A45 */
+    --line: 42 46 74;        /* #2A2E4A */
+    --ink: 236 237 245;
+    --ink-2: 201 203 224;
+    --ink-3: 160 164 194;
+    --ink-4: 147 151 184;    /* #9397B8, ≥4.9:1 on hover */
+    --danger: 248 113 113;
+    --success: 74 222 128;
+    --warning: 251 191 36;
+    --depot: 18 21 64;       /* #121540 */
+  }
+
   /* Increase Contrast / Windows high-contrast preference */
   @media (prefers-contrast: more) {
     :root {
@@ -64,6 +128,16 @@
       --ink-3: 209 213 219;
       --ink-4: 192 198 208;
       --line: 107 114 128;
+    }
+    .design-depot {
+      --ink-3: 51 55 79;
+      --ink-4: 74 79 106;
+      --line: 140 146 170;
+    }
+    .design-depot.dark {
+      --ink-3: 201 203 224;
+      --ink-4: 186 189 214;
+      --line: 100 106 140;
     }
   }
 
@@ -77,7 +151,7 @@
   }
 
   html {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -92,6 +166,12 @@
   table,
   input[type='number'] {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Depot: tables and quantities in the semi-condensed cut -- more columns
+     fit on dense ops screens, figures still line up. */
+  .design-depot table {
+    font-family: var(--font-data);
   }
 
   /*
@@ -130,6 +210,27 @@
 }
 
 @layer utilities {
+  /* Small tracked capitals for table heads and section labels in the
+     classic design; the depot design sets them in sentence case. */
+  .caps-label {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .caps-label-wide {
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+  .caps-label-widest {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .design-depot .caps-label,
+  .design-depot .caps-label-wide,
+  .design-depot .caps-label-widest {
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
   .text-balance {
     text-wrap: balance;
   }

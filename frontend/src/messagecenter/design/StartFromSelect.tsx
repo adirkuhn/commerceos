@@ -26,7 +26,7 @@ export function StartFromSelect({ value, onChoose }: Props) {
   const chosen = defaults.find(d => d.key === value)
   return (
     <div>
-      <label htmlFor="template-start-from" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+      <label htmlFor="template-start-from" className="block text-2xs text-ink-4 caps-label mb-1.5">
         {t('templates.startFrom')}
       </label>
       <select

@@ -51,7 +51,7 @@ export function WooConnectForm({ form, error, starting }: Props) {
       {form.mode === 'auto' ? (
         <form onSubmit={form.startConnect} className="space-y-3">
           <div>
-            <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('woo.storeUrl')}
             </label>
             <StoreUrlInput form={form} />
@@ -64,13 +64,13 @@ export function WooConnectForm({ form, error, starting }: Props) {
       ) : (
         <form onSubmit={form.manualConnect} className="space-y-3">
           <div>
-            <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('woo.storeUrl')}
             </label>
             <StoreUrlInput form={form} />
           </div>
           <div>
-            <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('woo.consumerKey')}
             </label>
             <input
@@ -83,7 +83,7 @@ export function WooConnectForm({ form, error, starting }: Props) {
             />
           </div>
           <div>
-            <label className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('woo.consumerSecret')}
             </label>
             <input

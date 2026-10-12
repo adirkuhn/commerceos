@@ -87,7 +87,7 @@ export default function Sidebar() {
                 onClick={() => toggle(group.id)}
                 aria-expanded={expanded}
                 aria-controls={listId}
-                className="w-full flex items-center gap-1 px-2.5 py-1 rounded-md text-left text-2xs font-semibold uppercase tracking-wider text-ink-4 hover:text-ink-2"
+                className="w-full flex items-center gap-1 px-2.5 py-1 rounded-md text-left text-2xs font-semibold caps-label text-ink-4 hover:text-ink-2"
               >
                 <span className="flex-1">{group.label}</span>
                 <Chevron size={12} aria-hidden />

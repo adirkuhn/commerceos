@@ -124,7 +124,7 @@ export function AIIntegrationCard() {
             </div>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
-                <label htmlFor="ai-provider" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="ai-provider" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('ai.provider')}
                 </label>
                 <select
@@ -140,7 +140,7 @@ export function AIIntegrationCard() {
               </div>
               {provider !== 'ollama' && (
                 <div>
-                  <label htmlFor="ai-api-key" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="ai-api-key" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('ai.apiKey')}
                   </label>
                   <input
@@ -156,7 +156,7 @@ export function AIIntegrationCard() {
                 </div>
               )}
               <div>
-                <label htmlFor="ai-base-url" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="ai-base-url" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {provider === 'ollama' ? t('ai.serverUrl') : t('ai.baseUrl')}
                 </label>
                 <input
@@ -171,7 +171,7 @@ export function AIIntegrationCard() {
                 />
               </div>
               <div>
-                <label htmlFor="ai-model" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                <label htmlFor="ai-model" className="block text-2xs text-ink-4 caps-label mb-1.5">
                   {t('ai.model')}
                 </label>
                 <input
@@ -185,7 +185,7 @@ export function AIIntegrationCard() {
               </div>
               {provider === 'gemini' && (
                 <div>
-                  <label htmlFor="ai-fallback-models" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+                  <label htmlFor="ai-fallback-models" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('ai.fallbackModels')}
                   </label>
                   <input

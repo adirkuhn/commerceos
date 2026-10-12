@@ -106,10 +106,10 @@ export default function Suppliers() {
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('colSupplier')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('colCountry')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('colLeadTime')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('colStatus')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('colSupplier')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('colCountry')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('colLeadTime')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('colStatus')}</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>
@@ -233,7 +233,7 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
     }
   }
 
-  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
 
   return (

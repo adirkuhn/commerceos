@@ -9,7 +9,7 @@ interface Props {
 }
 
 const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
-const labelClass = 'block text-2xs text-ink-4 uppercase tracking-wider mb-1.5'
+const labelClass = 'block text-2xs text-ink-4 caps-label mb-1.5'
 
 export default function StorefrontModeField({ value, onChange, signInUrl, onSignInUrlChange }: Props) {
   const { t } = useTranslation('channels')

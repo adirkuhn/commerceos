@@ -66,7 +66,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
     }
   }
 
-  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
 
   return (
@@ -149,7 +149,7 @@ function addressLabels(kind: 'billing' | 'shipping'): AddressLabels {
 function AddressFields({ kind, prefix, value, onChange, showEmailPhone }: { kind: 'billing' | 'shipping'; prefix: string; value: Address; onChange: (a: Address) => void; showEmailPhone?: boolean }) {
   useTranslation('customers') // re-render when the language changes
   const labels = addressLabels(kind)
-  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
   const set = (field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [field]: e.target.value })
   const id = (field: string) => `${prefix}-${field}`

@@ -13,7 +13,7 @@ export function EmailConnectForm({ form, error, starting }: Props) {
   return (
     <form onSubmit={form.connect} className="space-y-3">
       <div>
-        <label htmlFor="email-host" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="email-host" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('email.host')}
         </label>
         <input
@@ -28,7 +28,7 @@ export function EmailConnectForm({ form, error, starting }: Props) {
         />
       </div>
       <div>
-        <label htmlFor="email-port" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="email-port" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('email.port')}
         </label>
         <input
@@ -42,7 +42,7 @@ export function EmailConnectForm({ form, error, starting }: Props) {
         />
       </div>
       <div>
-        <label htmlFor="email-username" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="email-username" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('email.username')}
         </label>
         <input
@@ -54,7 +54,7 @@ export function EmailConnectForm({ form, error, starting }: Props) {
         />
       </div>
       <div>
-        <label htmlFor="email-password" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="email-password" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('email.password')}
         </label>
         <input
@@ -69,7 +69,7 @@ export function EmailConnectForm({ form, error, starting }: Props) {
         </p>
       </div>
       <div>
-        <label htmlFor="email-from" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+        <label htmlFor="email-from" className="block text-2xs text-ink-4 caps-label mb-1.5">
           {t('email.from')}
         </label>
         <input

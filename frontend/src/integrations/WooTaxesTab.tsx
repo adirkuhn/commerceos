@@ -110,7 +110,7 @@ export function WooTaxesTab({ token, connectionId }: { token: string; connection
           )}
           <form onSubmit={handleAdd} className="pt-3 border-t border-line flex items-end gap-2">
             <div>
-              <label htmlFor="woo-tax-slug" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+              <label htmlFor="woo-tax-slug" className="block text-2xs text-ink-4 caps-label mb-1.5">
                 {t('wooTaxes.wooClass')}
               </label>
               <select
@@ -127,7 +127,7 @@ export function WooTaxesTab({ token, connectionId }: { token: string; connection
               </select>
             </div>
             <div>
-              <label htmlFor="woo-tax-class" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+              <label htmlFor="woo-tax-class" className="block text-2xs text-ink-4 caps-label mb-1.5">
                 {t('wooTaxes.taxClass')}
               </label>
               <select

@@ -244,9 +244,9 @@ export default function Dashboard() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-line">
-                  <th className="text-left text-2xs font-medium text-ink-4 uppercase tracking-wider px-4 py-2">{t('common:fields.product')}</th>
-                  <th className="text-right text-2xs font-medium text-ink-4 uppercase tracking-wider px-4 py-2">{t('topProducts.sold')}</th>
-                  <th className="text-right text-2xs font-medium text-ink-4 uppercase tracking-wider px-4 py-2">{t('topProducts.revenue')}</th>
+                  <th className="text-left text-2xs font-medium text-ink-4 caps-label px-4 py-2">{t('common:fields.product')}</th>
+                  <th className="text-right text-2xs font-medium text-ink-4 caps-label px-4 py-2">{t('topProducts.sold')}</th>
+                  <th className="text-right text-2xs font-medium text-ink-4 caps-label px-4 py-2">{t('topProducts.revenue')}</th>
                 </tr>
               </thead>
               <tbody>

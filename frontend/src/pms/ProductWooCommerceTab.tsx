@@ -87,7 +87,7 @@ export function ProductWooCommerceTab({
   }
 
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-800/60 bg-gray-100 border border-line outline-none focus-visible:ring-2 focus-visible:ring-focus/60 cursor-not-allowed'
-  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1.5'
+  const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
 
   return (
     <div data-testid="woocommerce-tab" className="rounded-xl border border-line p-4 space-y-3">

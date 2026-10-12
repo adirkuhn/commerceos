@@ -85,7 +85,7 @@ export function MergeProductDialog({ token, duplicate, currency, targetId, onCho
               {preview && (
                 <table className="w-full text-2xs">
                   <thead>
-                    <tr className="text-left text-ink-4 uppercase tracking-wider">
+                    <tr className="text-left text-ink-4 caps-label">
                       <th className="py-1 font-medium">{t('merge.colSku')}</th>
                       <th className="py-1 font-medium">{t('merge.colStockCost')}</th>
                       <th className="py-1 font-medium">{t('merge.colInto')}</th>

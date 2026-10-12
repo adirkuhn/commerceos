@@ -12,7 +12,7 @@ export function ExtraRecipientsField({ value, onChange }: Props) {
   const { t } = useTranslation('messages')
   return (
     <div>
-      <label htmlFor="rule-extra-recipients" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+      <label htmlFor="rule-extra-recipients" className="block text-2xs text-ink-4 caps-label mb-1.5">
         {t('rules.extraRecipients')}
       </label>
       <textarea

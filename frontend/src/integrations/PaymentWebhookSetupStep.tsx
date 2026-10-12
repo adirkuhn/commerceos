@@ -42,7 +42,7 @@ export function PaymentWebhookSetupStep({
       ) : (
         <form onSubmit={onSubmit} className="space-y-3">
           <div>
-            <label htmlFor="payment-webhook-secret" className="block text-2xs text-ink-4 uppercase tracking-wider mb-1.5">
+            <label htmlFor="payment-webhook-secret" className="block text-2xs text-ink-4 caps-label mb-1.5">
               {t('payment.signingSecret', { provider: providerLabel })}
             </label>
             <input

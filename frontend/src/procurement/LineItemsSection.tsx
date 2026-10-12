@@ -164,13 +164,13 @@ export function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, ini
       <table className="w-full text-xs">
         <thead>
           <tr className="dark:bg-night-900/30 bg-gray-50">
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">{t('lines.colDescription')}</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">{t('lines.colType')}</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">{t('lines.colLinkedSku')}</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">{t('lines.colBatch')}</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">{t('lines.colQty')}</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">{t('lines.colUnitCost')}</th>
-            <th className="px-4 py-2 text-left font-medium text-ink-4 uppercase tracking-wider text-2xs">{t('lines.colTotal')}</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 caps-label text-2xs">{t('lines.colDescription')}</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 caps-label text-2xs">{t('lines.colType')}</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 caps-label text-2xs">{t('lines.colLinkedSku')}</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 caps-label text-2xs">{t('lines.colBatch')}</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 caps-label text-2xs">{t('lines.colQty')}</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 caps-label text-2xs">{t('lines.colUnitCost')}</th>
+            <th className="px-4 py-2 text-left font-medium text-ink-4 caps-label text-2xs">{t('lines.colTotal')}</th>
             <th className="px-4 py-2 w-20" />
           </tr>
         </thead>
@@ -314,7 +314,7 @@ export function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, ini
         {lineItems.length > 0 && (
           <tfoot>
             <tr className="border-t border-line font-medium">
-              <td colSpan={6} className="px-4 py-2.5 text-right text-ink-3 uppercase tracking-wider text-2xs">
+              <td colSpan={6} className="px-4 py-2.5 text-right text-ink-3 caps-label text-2xs">
                 {t('lines.total')}
               </td>
               <td className="px-4 py-2.5 text-ink">
@@ -382,7 +382,7 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
   }
 
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
-  const labelClass = 'block text-2xs font-medium text-ink-4 uppercase tracking-wider mb-1'
+  const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1'
 
   return (
     <div className="rounded-lg border dark:border-amber-500/30 border-amber-300 dark:bg-night-950 bg-white p-3 space-y-2">

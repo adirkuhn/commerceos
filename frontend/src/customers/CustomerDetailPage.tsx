@@ -178,18 +178,18 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
               <div className="space-y-5 min-w-0">
                 <div className="grid grid-cols-3 gap-4">
                   <div className="rounded-xl border border-line p-4">
-                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.amountSpent')}</p>
+                    <p className="text-2xs font-semibold caps-label text-ink-4 mb-1">{t('detail.amountSpent')}</p>
                     <p className="text-lg font-semibold text-ink">{formatMoney(amountSpentMinorUnits, currency)}</p>
                   </div>
                   <Link
                     to={`/sales-orders?customer_id=${customer.id}`}
                     className="block rounded-xl border border-line p-4 hover:bg-hover/60 transition-colors"
                   >
-                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.orders')}</p>
+                    <p className="text-2xs font-semibold caps-label text-ink-4 mb-1">{t('detail.orders')}</p>
                     <p className="text-lg font-semibold text-accent">{ordersTotal}</p>
                   </Link>
                   <div className="rounded-xl border border-line p-4">
-                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.lastOrder')}</p>
+                    <p className="text-2xs font-semibold caps-label text-ink-4 mb-1">{t('detail.lastOrder')}</p>
                     <p className="text-sm font-medium text-ink">
                       {orders[0] ? formatRelativeTime(new Date(orders[0].occurred_at)) : t('detail.noOrders')}
                     </p>
@@ -265,11 +265,11 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
                   <h3 className="text-xs font-semibold text-ink">{t('detail.contactInfo')}</h3>
                   <p className="text-ink">{customer.email}</p>
                   <div>
-                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.shippingAddress')}</h4>
+                    <h4 className="text-2xs font-semibold caps-label text-ink-4 mb-1">{t('detail.shippingAddress')}</h4>
                     <AddressLines address={customer.shipping} />
                   </div>
                   <div>
-                    <h4 className="text-2xs font-semibold uppercase tracking-wider text-ink-4 mb-1">{t('detail.billingAddress')}</h4>
+                    <h4 className="text-2xs font-semibold caps-label text-ink-4 mb-1">{t('detail.billingAddress')}</h4>
                     {addressesEqual(customer.billing, customer.shipping) ? (
                       <p className="text-ink-4">{t('detail.sameAsShipping')}</p>
                     ) : (

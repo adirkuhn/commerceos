@@ -136,11 +136,11 @@ export default function SentEmailsPanel() {
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
               <th className="px-3 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('sent.colDate')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('sent.colRecipient')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('sent.colSubject')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('sent.colSource')}</th>
-              <th className="px-3 py-2.5 text-left font-medium text-ink-4 uppercase tracking-wider">{t('sent.colStatus')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('sent.colDate')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('sent.colRecipient')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('sent.colSubject')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('sent.colSource')}</th>
+              <th className="px-3 py-2.5 text-left font-medium text-ink-4 caps-label">{t('sent.colStatus')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
