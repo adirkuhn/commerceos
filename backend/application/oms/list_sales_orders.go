@@ -3,8 +3,10 @@ package oms
 import (
 	"context"
 	"fmt"
+	"time"
 
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -40,6 +42,16 @@ type ListSalesOrdersInput struct {
 	Source []omsDomain.SalesOrderSource
 	// CustomerID nil means "don't filter" -- see domain/oms.ListSalesOrdersFilter.CustomerID's doc.
 	CustomerID *string
+	// ShipDue true narrows to orders that must ship today or are late --
+	// ListSalesOrdersFilter.ShipDueOnOrBefore with today's date in the
+	// tenant's reporting timezone. false means "don't filter".
+	ShipDue bool
+}
+
+// tenantSettingsReader is the one settings call listing needs: the
+// tenant's reporting timezone, which decides what "today" is for ShipDue.
+type tenantSettingsReader interface {
+	Get(ctx context.Context) (*settingsDomain.TenantSettings, error)
 }
 
 type ListSalesOrdersResult struct {
@@ -53,10 +65,14 @@ type ListSalesOrdersResult struct {
 type ListSalesOrdersUseCase struct {
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
+	settings       tenantSettingsReader
+	// Now is the injectable clock ShipDue's "today" is computed from --
+	// defaults to time.Now, overridden in tests.
+	Now func() time.Time
 }
 
-func NewListSalesOrdersUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository) *ListSalesOrdersUseCase {
-	return &ListSalesOrdersUseCase{db: db, salesOrderRepo: salesOrderRepo}
+func NewListSalesOrdersUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, settings tenantSettingsReader) *ListSalesOrdersUseCase {
+	return &ListSalesOrdersUseCase{db: db, salesOrderRepo: salesOrderRepo, settings: settings, Now: time.Now}
 }
 
 func (uc *ListSalesOrdersUseCase) Execute(ctx context.Context, in ListSalesOrdersInput) (*ListSalesOrdersResult, error) {
@@ -74,11 +90,20 @@ func (uc *ListSalesOrdersUseCase) Execute(ctx context.Context, in ListSalesOrder
 
 	result := &ListSalesOrdersResult{}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		orders, total, err := uc.salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{
+		filter := omsDomain.ListSalesOrdersFilter{
 			Limit: perPage, Offset: (page - 1) * perPage, SortBy: in.SortBy, SortDir: in.SortDir,
 			NeedsStockReview: in.NeedsStockReview, NeedsSKUReview: in.NeedsSKUReview, Fulfilled: in.Fulfilled, Packed: in.Packed, AwaitingPicking: in.AwaitingPicking,
 			Status: in.Status, Source: in.Source, CustomerID: in.CustomerID,
-		})
+		}
+		if in.ShipDue {
+			settings, err := uc.settings.Get(ctx)
+			if err != nil {
+				return err
+			}
+			today := settings.Today(uc.Now())
+			filter.ShipDueOnOrBefore = &today
+		}
+		orders, total, err := uc.salesOrderRepo.List(ctx, filter)
 		if err != nil {
 			return err
 		}

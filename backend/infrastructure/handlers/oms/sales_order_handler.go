@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -48,6 +49,7 @@ func (h *Handler) ListSalesOrders(c *gin.Context, params genoms.ListSalesOrdersP
 		Page: page, PerPage: perPage, SortBy: sortBy, SortDir: sortDir,
 		NeedsStockReview: params.NeedsStockReview, NeedsSKUReview: params.NeedsSkuReview,
 		Fulfilled: params.Fulfilled, Packed: params.Packed, AwaitingPicking: params.AwaitingPicking != nil && *params.AwaitingPicking, Status: statuses, Source: sources, CustomerID: params.CustomerId,
+		ShipDue: params.ShipDue != nil && *params.ShipDue,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -289,7 +291,7 @@ func toGenSalesOrder(o omsDomain.SalesOrder) genoms.SalesOrder {
 		ShippingMethod: &o.ShippingMethod, ShippingMethodTitle: &o.ShippingMethodTitle, TransactionId: &o.TransactionID,
 		PaymentProvider: &o.PaymentProvider, PaymentExternalId: &o.PaymentExternalID,
 		PaymentStatus: genoms.PaymentStatus(o.PaymentStatus()), PaymentReference: &paymentReference,
-		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted, OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt,
+		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted, ShipByDate: toGenDate(o.ShipByDate), OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt,
 		NeedsStockReview: &o.NeedsStockReview, NeedsSkuReview: &o.NeedsSKUReview, Fulfilled: &o.Fulfilled,
 		Packed: &o.Packed,
 	}
@@ -330,4 +332,12 @@ func (h *Handler) ListSalesOrderActivities(c *gin.Context, id genoms.Id) {
 	}
 	resp := genoms.SalesOrderActivityList{Activities: out}
 	c.JSON(http.StatusOK, genoms.SalesOrderActivityListResponse{Data: &resp})
+}
+
+// toGenDate maps an optional calendar date to the API's `format: date`.
+func toGenDate(d *time.Time) *openapi_types.Date {
+	if d == nil {
+		return nil
+	}
+	return &openapi_types.Date{Time: *d}
 }

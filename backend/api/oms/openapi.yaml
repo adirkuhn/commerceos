@@ -90,6 +90,16 @@ paths:
             sales are handed over at the counter). Omitted or false means no
             filter.
           schema: { type: boolean }
+        - name: ship_due
+          in: query
+          description: >
+            true narrows to orders that must ship today or are already late
+            -- ship_by_date on or before today in the tenant's reporting
+            timezone, still processing/on-hold (not shipped), not a
+            point-of-sale sale. The admin Today page's "orders to ship
+            today" count uses the same rule. Omitted or false means no
+            filter.
+          schema: { type: boolean }
       responses:
         '200':
           description: ok
@@ -1090,6 +1100,16 @@ components:
             is known (e.g. bol.com, cash).
         date_paid: { type: string, format: date-time, nullable: true }
         date_completed: { type: string, format: date-time, nullable: true }
+        ship_by_date:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            The calendar date the order must be handed to the carrier by --
+            null when the channel gives no deadline. Only bol.com orders
+            carry one (the day before Bol's latest/exact delivery date, a
+            Sunday moved back to Saturday), and only orders imported after
+            it existed.
         occurred_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
         needs_stock_review:
