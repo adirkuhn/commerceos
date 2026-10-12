@@ -3,9 +3,14 @@
 // Center variables. Their colours are a default each tenant restyles in
 // the editor. Lists repeat with data-each (see backend
 // domain/textrender.ExpandEach), which survives the editor's HTML parser.
+export type BlockLabelKey =
+  | 'design.blocks.header' | 'design.blocks.greeting' | 'design.blocks.orderSummary'
+  | 'design.blocks.orderItems' | 'design.blocks.orderTotals' | 'design.blocks.shippingAddress'
+  | 'design.blocks.tracking' | 'design.blocks.stockItems' | 'design.blocks.footer'
+
 export interface EmailBlock {
   id: string
-  labelKey: string
+  labelKey: BlockLabelKey
   content: string
 }
 
