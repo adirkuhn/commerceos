@@ -19,12 +19,17 @@ type getDashboardStatsUC interface {
 	Execute(ctx context.Context) (*appdashboard.DashboardStats, error)
 }
 
-type Handler struct {
-	getDashboardStats getDashboardStatsUC
+type getTodayQueueUC interface {
+	Execute(ctx context.Context) (*appdashboard.TodayQueue, error)
 }
 
-func NewHandler(getDashboardStats getDashboardStatsUC) *Handler {
-	return &Handler{getDashboardStats: getDashboardStats}
+type Handler struct {
+	getDashboardStats getDashboardStatsUC
+	getTodayQueue     getTodayQueueUC
+}
+
+func NewHandler(getDashboardStats getDashboardStatsUC, getTodayQueue getTodayQueueUC) *Handler {
+	return &Handler{getDashboardStats: getDashboardStats, getTodayQueue: getTodayQueue}
 }
 
 var _ gendashboard.ServerInterface = (*Handler)(nil)
@@ -33,7 +38,11 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	stockRepo := repositories.NewStockMovementRepo(db)
 	salesRepo := repositories.NewSalesOrderRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
-	h := NewHandler(appdashboard.NewGetDashboardStatsUseCase(db, stockRepo, salesRepo, settingsRepo))
+	batchRepo := repositories.NewBatchRepo(db)
+	h := NewHandler(
+		appdashboard.NewGetDashboardStatsUseCase(db, stockRepo, salesRepo, settingsRepo),
+		appdashboard.NewGetTodayQueueUseCase(db, salesRepo, batchRepo),
+	)
 	gendashboard.RegisterHandlers(rg, h)
 }
 
@@ -46,6 +55,19 @@ func (h *Handler) GetDashboardStats(c *gin.Context) {
 	}
 	resp := gendashboard.DashboardStatsResponse{Data: toGenDashboardStats(*stats)}
 	c.JSON(http.StatusOK, resp)
+}
+
+func (h *Handler) GetTodayQueue(c *gin.Context) {
+	q, err := h.getTodayQueue.Execute(c.Request.Context())
+	if err != nil {
+		log.Printf("dashboard: unhandled error: %v", err)
+		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
+		return
+	}
+	c.JSON(http.StatusOK, gendashboard.TodayQueueResponse{Data: &gendashboard.TodayQueue{
+		ToPick: q.ToPick, ToPack: q.ToPack, StockIssues: q.StockIssues, UnmatchedSkus: q.UnmatchedSKUs,
+		ExpiringBatches: q.ExpiringBatches, ExpiredBatches: q.ExpiredBatches,
+	}})
 }
 
 func toGenDashboardStats(s appdashboard.DashboardStats) *gendashboard.DashboardStats {

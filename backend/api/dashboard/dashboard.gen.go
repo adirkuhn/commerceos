@@ -54,6 +54,33 @@ type DashboardStatsResponse struct {
 	Error interface{}     `json:"error,omitempty"`
 }
 
+// TodayQueue defines model for TodayQueue.
+type TodayQueue struct {
+	// ExpiredBatches Expired batches nobody has written off or dismissed yet -- the pending-expired review queue.
+	ExpiredBatches int64 `json:"expired_batches"`
+
+	// ExpiringBatches Batches with stock remaining whose expiry date is within the next 7 days (already-past ones included) -- the expiring-batches list with days=7.
+	ExpiringBatches int64 `json:"expiring_batches"`
+
+	// StockIssues Orders flagged needs_stock_review (the Stock issues page).
+	StockIssues int64 `json:"stock_issues"`
+
+	// ToPack Orders in the packing queue -- not yet packed, processing/on-hold, not a POS sale (picked or not).
+	ToPack int64 `json:"to_pack"`
+
+	// ToPick Orders in the picking queue -- not yet picked, processing/on-hold, not a POS sale.
+	ToPick int64 `json:"to_pick"`
+
+	// UnmatchedSkus Orders flagged needs_sku_review -- at least one line item not matched to a catalog SKU (the Unmatched SKUs page). Counts orders, not line items.
+	UnmatchedSkus int64 `json:"unmatched_skus"`
+}
+
+// TodayQueueResponse defines model for TodayQueueResponse.
+type TodayQueueResponse struct {
+	Data  *TodayQueue `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
 // TopProduct defines model for TopProduct.
 type TopProduct struct {
 	ProductName       string `json:"product_name"`
@@ -70,6 +97,9 @@ type ServerInterface interface {
 	// GetDashboardStats Get the current tenant's dashboard summary figures
 	// (GET /dashboard/stats)
 	GetDashboardStats(c *gin.Context)
+	// GetTodayQueue Get the current tenant's "Today" work-queue counts
+	// (GET /dashboard/today)
+	GetTodayQueue(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -92,6 +122,19 @@ func (siw *ServerInterfaceWrapper) GetDashboardStats(c *gin.Context) {
 	}
 
 	siw.Handler.GetDashboardStats(c)
+}
+
+// GetTodayQueue operation middleware
+func (siw *ServerInterfaceWrapper) GetTodayQueue(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetTodayQueue(c)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -122,6 +165,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.GET(options.BaseURL+"/dashboard/stats", wrapper.GetDashboardStats)
+	router.GET(options.BaseURL+"/dashboard/today", wrapper.GetTodayQueue)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -129,25 +173,32 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"nFbdjhs3D30VQt8HJAHG9qYpGsC9KpK2CAq0QTZ7FQQD7oj2KKsRJxRlxwj87oU0/rf3p7kzxqJ4SJ5z",
-	"qO+m4a7nQEGjmX43sWmpw/LzTYshkP9ACwqJ8pdeuCdRR8NRTtKU75ZiI65Xx8FMzTV6isBiSWA4A6MR",
-	"9Bwr6DAk9BWwwJK54a4jaWhsKqOrnszURBUX5mZdGWVFX3cusNQpuAHdjKVDNVPjgv7y8z7MBaU5iVmv",
-	"KyP0NTkha6afthAv3fZ5F8y3X6jRnPMtOr+6Vm7u/vC8PK/YotIRjPLhAngXzttyk9OCUENuQRa0RQWL",
-	"K3geUwc8yw1y6hYEMQMYdbygjoLC14RBna7AkleMLyrARjhGoAXJCq7/ugEMFpYo1HKKpZuP9qkynPQ+",
-	"jLF1fU920nCIqbuENdAcC9YBUwVCPYuSBYyA+1JC6m5JXjwJ0snoNq11wQxYL88rtreMYq8VB4Icz6tJ",
-	"IhSaVd2wvUDUjy2BUsCgzyJYmmHyCtsYeD78VUdSdWGeG88CN9dvweUGLDK7Sccggz5qbV2sOw7aHvKs",
-	"gpjlUN+u6mbQ08HBqkxOua97YZsajQd/Anq/6Stw8KtBURFcgHxoD3Q0AtzUAYp3LswPjnYslOcXgAPt",
-	"Y1qMoC0Ba5sP0rfGJ0sWZsIdaMsxBwkRzNw8CcWLEn248ifptTIPtCff4JS6ctX/hWZmav432fvVZGNW",
-	"kxOnWu/yoAiuSpasqXrmeVl7jFq/ri2u4pMTnBjDhQT3DPHJGT5y/34Iv3x7tq+hiF1zT8hcCDBaOkuw",
-	"UelgECUKtnbyLJ4YSqZPZoJ3SoIeOIzazEpPdk4CJfOP6PcccnWix0cJdO/YHmbN/cN43EM+UOw5RLro",
-	"/fg4TY78aF0ZEmHJYSF5j7eezFQl0Xp9AckBBc6yb6qpA3YF25kWt0OtI3v7ROlt2/8Dor1LO089g5L/",
-	"dPacoX8n72HGAhgAbcvNJIUOtWnJgneBIAsFlk5bCJy/3JGFBhU9z/Oayyw8buOZJ52u/y3M6riBp+26",
-	"3IpztqzLap/xo+rrUFZb6ywlZ4Wh7VwAu+UIxEaIQtbfIFEOkJVXbTfKZMPtiXI/2tJ58P7N9hjisjyA",
-	"8z4qOsao8Dpv6ziG34sDDEDA5dUshB5wPpe8wWkIo28u5hUHmePwPDB0+d4F+kTxxa8QiQD73rsGc7mT",
-	"XQnjP0mPOX8T6Q1GyvuUm1I5fcNG/QqW+Q1B2LTDIuIUNJb1l18cW2OYREVNcTRzXimPFCT5zfZxmsdu",
-	"3mwejf9cwy41/Pb+nanMgiQO43g5vipvnJ4C9s5Mzavx1fhVpgFqW0i+L6LkLN/mVJSXdVcKfWfN1JyV",
-	"WNgyuESJ+unqqrw1OCiFcsFhr75EDvt39X8zkJ0ZFeIdE47vCts3XBtwlvkPrdSDh82ecMfEHK6NJLlv",
-	"Zvrpu0nizdRMsHeTxUuz/rz+NwAA//8=",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

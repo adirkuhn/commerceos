@@ -23,6 +23,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/DashboardStatsResponse'
 
+  /dashboard/today:
+    get:
+      operationId: getTodayQueue
+      summary: Get the current tenant's "Today" work-queue counts
+      description: >-
+        What the shop needs to do right now -- one count per work queue,
+        each using the exact rule that queue's own page lists with (see
+        application/dashboard.TodayQueue). Read-only.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodayQueueResponse'
+
 components:
   responses:
     Error:
@@ -106,6 +122,41 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/DashboardStats' }
+        error: { nullable: true }
+
+    TodayQueue:
+      type: object
+      required: [to_pick, to_pack, stock_issues, unmatched_skus, expiring_batches, expired_batches]
+      properties:
+        to_pick:
+          type: integer
+          format: int64
+          description: Orders in the picking queue -- not yet picked, processing/on-hold, not a POS sale.
+        to_pack:
+          type: integer
+          format: int64
+          description: Orders in the packing queue -- not yet packed, processing/on-hold, not a POS sale (picked or not).
+        stock_issues:
+          type: integer
+          format: int64
+          description: Orders flagged needs_stock_review (the Stock issues page).
+        unmatched_skus:
+          type: integer
+          format: int64
+          description: Orders flagged needs_sku_review -- at least one line item not matched to a catalog SKU (the Unmatched SKUs page). Counts orders, not line items.
+        expiring_batches:
+          type: integer
+          format: int64
+          description: Batches with stock remaining whose expiry date is within the next 7 days (already-past ones included) -- the expiring-batches list with days=7.
+        expired_batches:
+          type: integer
+          format: int64
+          description: Expired batches nobody has written off or dismissed yet -- the pending-expired review queue.
+
+    TodayQueueResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/TodayQueue' }
         error: { nullable: true }
 
     ErrorResponse:
