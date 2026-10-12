@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: CommerceOS Tenant Settings API
-  description: Tenant-wide settings -- localization defaults, the company profile, storefront API keys.
+  description: Tenant-wide settings -- localization defaults, the company profile, the admin appearance, storefront API keys.
   version: "1.0"
 servers:
   - url: /api/v1
@@ -80,6 +80,54 @@ paths:
             COMPANY_LEGAL_NAME_REQUIRED, COMPANY_INVALID_EMAIL,
             COMPANY_INVALID_VAT_NUMBER, COMPANY_INVALID_IBAN,
             COMPANY_INVALID_COUNTRY.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /settings/appearance:
+    get:
+      operationId: getAppearance
+      summary: Get the shop's admin appearance
+      description: >
+        How the admin looks for everyone in this shop (new design only;
+        the classic design ignores it). Returns the defaults, with
+        updated_at null, until it has been saved. Readable by every role,
+        since every user's screen applies it.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppearanceResponse'
+    put:
+      operationId: updateAppearance
+      summary: Replace the shop's admin appearance
+      description: >
+        Full replace. Requires the customer_owner, customer_admin or
+        super_admin role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppearanceInput'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppearanceResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '422':
+          description: >
+            Validation failed. error.code is one of
+            APPEARANCE_INVALID_FONT, APPEARANCE_INVALID_COLOR,
+            APPEARANCE_ACCENT_LOW_CONTRAST, APPEARANCE_INVALID_CORNERS,
+            APPEARANCE_INVALID_TEXT_SIZE, APPEARANCE_INVALID_DENSITY.
           content:
             application/json:
               schema:
@@ -394,6 +442,60 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/CompanyProfile' }
+        error: { nullable: true }
+
+    AppearanceFont:
+      type: string
+      enum: [atkinson, inter, ibm_plex_sans, source_sans, barlow]
+      description: >
+        Admin typeface. atkinson = Atkinson Hyperlegible Next (default,
+        built for legibility), ibm_plex_sans = IBM Plex Sans,
+        source_sans = Source Sans 3.
+    AppearanceCorners:
+      type: string
+      enum: [sharp, normal, round]
+    AppearanceTextSize:
+      type: string
+      enum: [normal, large, larger]
+    AppearanceDensity:
+      type: string
+      enum: [compact, comfortable]
+    HexColor:
+      type: string
+      pattern: '^#[0-9a-fA-F]{6}$'
+      example: '#2F33B8'
+    AppearanceInput:
+      type: object
+      required: [font, accent_color, sidebar_color, corners, text_size, density]
+      properties:
+        font: { $ref: '#/components/schemas/AppearanceFont' }
+        accent_color:
+          allOf: [{ $ref: '#/components/schemas/HexColor' }]
+          description: >
+            Buttons, links and active states. Filled buttons put white text
+            on it, so it must reach a 4.5:1 contrast ratio with white
+            (WCAG AA) -- APPEARANCE_ACCENT_LOW_CONTRAST otherwise.
+        sidebar_color:
+          allOf: [{ $ref: '#/components/schemas/HexColor' }]
+          description: Sidebar background; its text colour is derived from it.
+        corners: { $ref: '#/components/schemas/AppearanceCorners' }
+        text_size: { $ref: '#/components/schemas/AppearanceTextSize' }
+        density: { $ref: '#/components/schemas/AppearanceDensity' }
+    Appearance:
+      allOf:
+        - $ref: '#/components/schemas/AppearanceInput'
+        - type: object
+          required: [updated_at]
+          properties:
+            updated_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: Null while the shop still uses the defaults (never saved).
+    AppearanceResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Appearance' }
         error: { nullable: true }
 
     NotificationCategory:

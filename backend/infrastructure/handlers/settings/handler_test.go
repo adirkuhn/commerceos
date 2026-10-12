@@ -123,6 +123,8 @@ func newTestHandler(get *stubGetTenantSettings, update *stubUpdateTenantSettings
 	updateCompany := &stubUpdateCompanyProfile{}
 	getPrefs := &stubGetNotificationPrefs{}
 	updatePrefs := &stubUpdateNotificationPrefs{}
+	getAppearance := &stubGetAppearance{}
+	updateAppearance := &stubUpdateAppearance{}
 	for _, s := range apiKeyStubs {
 		switch v := s.(type) {
 		case *stubListAPIKeys:
@@ -139,9 +141,13 @@ func newTestHandler(get *stubGetTenantSettings, update *stubUpdateTenantSettings
 			getPrefs = v
 		case *stubUpdateNotificationPrefs:
 			updatePrefs = v
+		case *stubGetAppearance:
+			getAppearance = v
+		case *stubUpdateAppearance:
+			updateAppearance = v
 		}
 	}
-	return settingshandler.NewHandler(get, update, list, create, revoke, settingshandler.NewCompanyProfileHandler(getCompany, updateCompany), settingshandler.NewNotificationPreferencesHandler(getPrefs, updatePrefs))
+	return settingshandler.NewHandler(get, update, list, create, revoke, settingshandler.NewCompanyProfileHandler(getCompany, updateCompany), settingshandler.NewNotificationPreferencesHandler(getPrefs, updatePrefs), settingshandler.NewAppearanceHandler(getAppearance, updateAppearance))
 }
 
 func newTestRouter(h *settingshandler.Handler) *gin.Engine {

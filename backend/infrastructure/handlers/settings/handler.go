@@ -44,6 +44,7 @@ type Handler struct {
 	revokeAPIKey         revokeAPIKeyUC
 	*CompanyProfileHandler
 	*NotificationPreferencesHandler
+	*AppearanceHandler
 }
 
 func NewHandler(
@@ -54,11 +55,13 @@ func NewHandler(
 	revokeAPIKey revokeAPIKeyUC,
 	companyProfile *CompanyProfileHandler,
 	notificationPreferences *NotificationPreferencesHandler,
+	appearance *AppearanceHandler,
 ) *Handler {
 	return &Handler{
 		getTenantSettings: getTenantSettings, updateTenantSettings: updateTenantSettings,
 		listAPIKeys: listAPIKeys, createAPIKey: createAPIKey, revokeAPIKey: revokeAPIKey,
 		CompanyProfileHandler: companyProfile, NotificationPreferencesHandler: notificationPreferences,
+		AppearanceHandler: appearance,
 	}
 }
 
@@ -71,6 +74,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outbox appsettings.EventEnqueuer) {
 	apiKeyRepo := repositories.NewAPIKeyRepo(db)
 	companyRepo := repositories.NewCompanyProfileRepo(db)
 	prefsRepo := repositories.NewNotificationPreferencesRepo(db)
+	appearanceRepo := repositories.NewAppearanceRepo(db)
 	getSettings := appsettings.NewGetTenantSettingsUseCase(db, repo)
 	h := NewHandler(
 		getSettings,
@@ -85,6 +89,10 @@ func Register(rg gin.IRouter, db *gorm.DB, outbox appsettings.EventEnqueuer) {
 		NewNotificationPreferencesHandler(
 			appnotifications.NewGetPreferencesUseCase(db, prefsRepo),
 			appnotifications.NewUpdatePreferencesUseCase(db, prefsRepo, outbox),
+		),
+		NewAppearanceHandler(
+			appsettings.NewGetAppearanceUseCase(db, appearanceRepo),
+			appsettings.NewUpdateAppearanceUseCase(db, appearanceRepo, outbox),
 		),
 	)
 	gensettings.RegisterHandlers(rg, h)
