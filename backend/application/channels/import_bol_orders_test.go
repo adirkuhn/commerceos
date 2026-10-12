@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -106,6 +107,7 @@ func TestImportBolOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	assert.False(t, created.Fulfilled)
 	assert.Equal(t, "Billie", created.Shipping.FirstName)
 	assert.Equal(t, int64(2000), created.TotalMinorUnits)
+	assert.Nil(t, created.ShipByDate, "no Bol delivery date, no deadline")
 	require.Len(t, h.lineItemRepo.created, 1)
 	require.NotNil(t, h.lineItemRepo.created[0].SKUID)
 	assert.Equal(t, "sku-1", *h.lineItemRepo.created[0].SKUID)
@@ -294,4 +296,27 @@ func TestImportBolOrders_aPageFetchFailureIsReportedNotReturnedAsAHardError(t *t
 	require.NoError(t, err)
 	require.Len(t, result.Errors, 1)
 	assert.Contains(t, result.Errors[0], "page 1")
+}
+
+func TestImportBolOrders_storesTheShipByDateDerivedFromBolsDeliveryDate(t *testing.T) {
+	h := newBolOrdersHarness()
+	h.bolClient.listOrdersFn = func(_ context.Context, page int, _ string) ([]integrationsDomain.BolOrder, error) {
+		if page == 1 {
+			return []integrationsDomain.BolOrder{simpleBolOrder()}, nil
+		}
+		return nil, nil
+	}
+	detail := simpleBolOrderDetail()
+	latest := time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC)
+	detail.OrderItems[0].LatestDeliveryDate = &latest
+	h.bolClient.getOrderFn = func(_ context.Context, _ string) (*integrationsDomain.BolOrder, error) { return detail, nil }
+	h.skuRepo.byBarcode["0630509892495"] = pmsDomain.SKU{ID: "sku-1"}
+	uc := h.newImportUseCase(t, 6)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportBolOrdersInput{ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1"})
+
+	require.NoError(t, err)
+	require.Len(t, h.salesOrderRepo.created, 1)
+	require.NotNil(t, h.salesOrderRepo.created[0].ShipByDate)
+	assert.Equal(t, "2026-10-14", h.salesOrderRepo.created[0].ShipByDate.Format(time.DateOnly))
 }

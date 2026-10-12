@@ -78,6 +78,16 @@ type ListSalesOrdersFilter struct {
 	// enforces for guest lookup: a B2C channel must never surface a B2B
 	// order, or vice versa.
 	SalesChannelID *string
+	// ShipDueOnOrBefore nil means "don't filter on this". Set to a calendar
+	// date (only its Y/M/D matter) to narrow to orders that must ship by
+	// then and haven't left yet: ShipByDate set and on or before that date,
+	// still in a pickable status (processing/on-hold -- shipped, completed
+	// and cancelled orders have left or never will), not a POS sale. Picked
+	// or packed orders still count: the parcel is only gone once the
+	// carrier has it. Powers the Today page's "orders to ship today" count
+	// and the Sales Orders list's ship_due filter, with today's date in the
+	// tenant's reporting timezone.
+	ShipDueOnOrBefore *time.Time
 }
 
 type SalesOrderRepository interface {

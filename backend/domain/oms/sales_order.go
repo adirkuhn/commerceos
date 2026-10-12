@@ -184,6 +184,12 @@ type SalesOrder struct {
 	PaymentExternalID string
 	DatePaid          *time.Time
 	DateCompleted     *time.Time
+	// ShipByDate is the calendar date (UTC midnight; only Y/M/D matter) the
+	// order must be handed to the carrier by -- nil when the source gives
+	// no deadline. Only Bol imports set it today, see
+	// integrations.BolOrder.ShipByDate for the rule. Powers the "orders to
+	// ship today" queue (ListSalesOrdersFilter.ShipDueOnOrBefore).
+	ShipByDate *time.Time
 
 	// ShippingMethod/ShippingMethodTitle mirror PaymentMethod/
 	// PaymentMethodTitle's shape -- ShippingMethod is the machine slug

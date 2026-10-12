@@ -242,6 +242,10 @@ func (uc *ImportBolOrdersUseCase) createOne(ctx context.Context, in ImportBolOrd
 			OccurredAt: occurredAt, CreatedAt: now, UpdatedAt: now,
 			StockDecremented: stockReducing,
 			Fulfilled:        status == omsDomain.SalesOrderStatusCompleted,
+			// Only set here, on first import: an order already imported
+			// before ship_by_date existed keeps nil (routeToExisting never
+			// re-fetches GetOrder, the only shape carrying delivery dates).
+			ShipByDate: bo.ShipByDate(),
 		}
 		if err := uc.salesOrderRepo.Create(ctx, &order); err != nil {
 			return err

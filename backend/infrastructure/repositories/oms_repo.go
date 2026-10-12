@@ -189,6 +189,12 @@ func salesOrdersMatching(tx *gorm.DB, filter omsDomain.ListSalesOrdersFilter) *g
 	if filter.SalesChannelID != nil {
 		q = q.Where("sales_channel_id = ?", *filter.SalesChannelID)
 	}
+	if filter.ShipDueOnOrBefore != nil {
+		q = q.Where("ship_by_date IS NOT NULL").
+			Where("ship_by_date <= ?::date", filter.ShipDueOnOrBefore.Format(time.DateOnly)).
+			Where("status IN ?", salesOrderStatusStrings(omsDomain.PickableStatuses())).
+			Where("source <> ?", string(omsDomain.SalesOrderSourcePOS))
+	}
 	return q
 }
 

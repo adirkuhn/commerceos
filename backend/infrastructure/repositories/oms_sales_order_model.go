@@ -61,6 +61,7 @@ type salesOrderModel struct {
 	PaymentExternalID   string `gorm:"column:payment_external_id;not null;default:''"`
 	DatePaid            *time.Time
 	DateCompleted       *time.Time
+	ShipByDate          *time.Time `gorm:"column:ship_by_date;type:date"`
 
 	OccurredAt time.Time
 	CreatedAt  time.Time
@@ -99,7 +100,7 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 		PaymentMethod: o.PaymentMethod, PaymentMethodTitle: o.PaymentMethodTitle,
 		ShippingMethod: o.ShippingMethod, ShippingMethodTitle: o.ShippingMethodTitle, CouponCode: o.CouponCode, TransactionID: o.TransactionID,
 		PaymentProvider: o.PaymentProvider, PaymentExternalID: o.PaymentExternalID,
-		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted,
+		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted, ShipByDate: o.ShipByDate,
 		OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
 		StockDecremented: o.StockDecremented,
 		NeedsStockReview: o.NeedsStockReview, NeedsSKUReview: o.NeedsSKUReview,
@@ -130,7 +131,7 @@ func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 		PaymentMethod: m.PaymentMethod, PaymentMethodTitle: m.PaymentMethodTitle,
 		ShippingMethod: m.ShippingMethod, ShippingMethodTitle: m.ShippingMethodTitle, CouponCode: m.CouponCode, TransactionID: m.TransactionID,
 		PaymentProvider: m.PaymentProvider, PaymentExternalID: m.PaymentExternalID,
-		DatePaid: m.DatePaid, DateCompleted: m.DateCompleted,
+		DatePaid: m.DatePaid, DateCompleted: m.DateCompleted, ShipByDate: m.ShipByDate,
 		OccurredAt: m.OccurredAt, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 		StockDecremented: m.StockDecremented,
 		NeedsStockReview: m.NeedsStockReview, NeedsSKUReview: m.NeedsSKUReview,
