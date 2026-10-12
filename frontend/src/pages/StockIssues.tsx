@@ -10,6 +10,7 @@ import { useQueryPage } from '../routing/useQueryState'
 import { customerName } from '../oms/salesOrderDisplay'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
+import { salesOrderStatusLabel } from '../oms/statusLabel'
 
 const PAGE_SIZE = 20
 
@@ -143,7 +144,7 @@ export default function StockIssues() {
                     <p className="text-2xs text-ink-4">{formatDateTime(o.occurred_at)}</p>
                   </td>
                   <td className="px-3 py-2.5 text-ink-3">{customerName(o)}</td>
-                  <td className="px-3 py-2.5 text-ink-3 capitalize">{o.status}</td>
+                  <td className="px-3 py-2.5 text-ink-3">{salesOrderStatusLabel(o.status)}</td>
                   <td className="px-3 py-2.5 text-right" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
                       <button

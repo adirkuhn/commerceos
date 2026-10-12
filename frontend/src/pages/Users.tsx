@@ -219,7 +219,7 @@ export default function Users() {
                           : <XCircle size={12} className="text-ink-4" />
                         }
                         <span className={clsx('text-2xs font-medium', m.status === 'active' ? 'text-success' : 'text-ink-4')}>
-                          {m.status === 'active' ? t('common:status.active') : m.status}
+                          {m.status === 'active' ? t('common:status.active') : m.status === 'inactive' ? t('common:status.inactive') : m.status}
                         </span>
                       </div>
                     </td>

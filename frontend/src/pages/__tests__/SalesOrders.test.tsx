@@ -1046,7 +1046,7 @@ describe('Sales order detail page', () => {
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
 
-    expect(await screen.findByText('woocommerce')).toBeInTheDocument()
+    expect(await screen.findByText('WOO')).toBeInTheDocument()
     expect(screen.getByText('Flat rate')).toBeInTheDocument()
   })
 

@@ -11,6 +11,7 @@ import type { SyncLogStatus } from '../integrations/types'
 import { useQueryEnum, useQueryPage } from '../routing/useQueryState'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
+import { providerLabel } from '../webhooks/providerLabel'
 
 const PAGE_SIZE = 20
 
@@ -150,7 +151,7 @@ export default function SyncLog() {
                   <td className="px-3 py-2.5 text-ink-3 whitespace-nowrap">{formatDateTime(entry.synced_at)}</td>
                   <td className="px-3 py-2.5 text-ink">{entry.product_name || entry.product_id}</td>
                   <td className="px-3 py-2.5 text-ink-3">
-                    {entry.provider}
+                    {providerLabel(entry.provider)}
                     {entry.store_url && <span className="text-ink-4"> · {entry.store_url}</span>}
                   </td>
                   <td className="px-3 py-2.5 text-ink-3 whitespace-nowrap">{entry.direction === 'push' ? t('syncLog.push') : t('syncLog.import')}</td>
