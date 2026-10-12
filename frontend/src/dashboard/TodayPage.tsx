@@ -150,7 +150,7 @@ export default function TodayPage() {
 
       <section aria-labelledby="today-month" className="space-y-4">
         <h3 id="today-month" className="text-sm font-semibold text-ink">{t('today.thisMonth')}</h3>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
           <div className="bg-raised rounded-xl p-4 border border-line">
             <p className="text-xs text-ink-3">{t('today.revenue')}</p>
             <p className="mt-2 font-data text-3xl font-semibold text-ink">

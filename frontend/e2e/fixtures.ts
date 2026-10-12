@@ -26,13 +26,14 @@ export function mintToken(role = 'customer_owner'): string {
   return `${header}.${payload}.${signature}`
 }
 
-async function signIn(page: Page, token: string, appearance: 'light' | 'dark' | 'system') {
-  await page.addInitScript(([jwt, theme]) => {
+async function signIn(page: Page, token: string, appearance: 'light' | 'dark' | 'system', design: 'depot' | 'classic') {
+  await page.addInitScript(([jwt, theme, look]) => {
     localStorage.setItem('commerceos_jwt', jwt)
     localStorage.setItem('commerceos_scanner_jwt', jwt)
     // Initial appearance only -- a choice made during the test must survive reloads.
     if (localStorage.getItem('commerceos.theme') === null) localStorage.setItem('commerceos.theme', theme)
-  }, [token, appearance] as const)
+    if (localStorage.getItem('commerceos.design') === null) localStorage.setItem('commerceos.design', look)
+  }, [token, appearance, design] as const)
 
   const apiOrigin = new URL(API_BASE_URL).origin
   await page.route(`${apiOrigin}/**`, async route => {
@@ -54,14 +55,16 @@ async function signIn(page: Page, token: string, appearance: 'light' | 'dark' | 
 interface Fixtures {
   token: string
   appearance: 'light' | 'dark' | 'system'
+  design: 'depot' | 'classic'
 }
 
 export const test = base.extend<Fixtures>({
   appearance: ['light', { option: true }],
+  design: ['depot', { option: true }],
   token: async ({}, use) => { await use(CONFIGURED ? mintToken() : '') },
-  page: async ({ page, token, appearance }, use) => {
+  page: async ({ page, token, appearance, design }, use) => {
     test.skip(!CONFIGURED, NOT_CONFIGURED_REASON)
-    await signIn(page, token, appearance)
+    await signIn(page, token, appearance, design)
     await use(page)
   },
 })

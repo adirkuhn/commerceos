@@ -1,3 +1,5 @@
+import plugin from 'tailwindcss/plugin'
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
@@ -53,9 +55,9 @@ export default {
         // Smallest text in the app (captions, badges, table meta). 11px is
         // the floor -- nothing renders smaller (HIG minimums: 10pt macOS,
         // 11pt iOS).
-        '2xs': ['11px', { lineHeight: '16px' }],
+        '2xs': ['0.6875rem', { lineHeight: '1rem' }],
         // Desktop body size (macOS default 13pt) -- navigation and dense UI.
-        body: ['13px', { lineHeight: '20px' }],
+        body: ['0.8125rem', { lineHeight: '1.25rem' }],
       },
       fontFamily: {
         // Variables so the design (classic Inter / depot Barlow) can switch
@@ -83,5 +85,10 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // depot:x applies x only in the depot design (html.design-depot), so a
+    // screen can be restyled for depot while classic stays exactly as it
+    // was -- e.g. "depot:flex-row depot:border-0".
+    plugin(({ addVariant }) => { addVariant('depot', '.design-depot &') }),
+  ],
 }
