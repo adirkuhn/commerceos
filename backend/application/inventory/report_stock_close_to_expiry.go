@@ -43,7 +43,7 @@ func (uc *ReportStockCloseToExpiryUseCase) Execute(ctx context.Context, s settin
 
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		for _, band := range bands {
-			lines, err := uc.reader.ListExpiringStock(ctx, today.AddDate(0, 0, band.MinDaysLeft), today.AddDate(0, 0, band.WindowDays))
+			lines, err := uc.reader.ListExpiringStock(ctx, today.AddDate(0, 0, band.MinDaysLeft), today.AddDate(0, 0, band.WindowDays), band.WindowDays)
 			if err != nil {
 				return err
 			}

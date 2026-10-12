@@ -33,7 +33,7 @@ type expiringStockRow struct {
 	CurrencyCode        string     `gorm:"column:currency_code"`
 }
 
-func (r *ExpiringStockRepo) ListExpiringStock(ctx context.Context, from, to time.Time) ([]invDomain.ExpiringStockLine, error) {
+func (r *ExpiringStockRepo) ListExpiringStock(ctx context.Context, from, to time.Time, windowDays int) ([]invDomain.ExpiringStockLine, error) {
 	tx, ok := txctx.FromContext(ctx)
 	if !ok {
 		return nil, errors.New("expiringStockRepo: operation called outside a transaction")
@@ -46,6 +46,10 @@ func (r *ExpiringStockRepo) ListExpiringStock(ctx context.Context, from, to time
 			JOIN stock_movements sm ON sm.batch_id = b.id
 			WHERE b.expiry_date BETWEEN ?::date AND ?::date
 				AND b.status <> 'expired'
+				AND NOT EXISTS (
+					SELECT 1 FROM batch_expiry_acknowledgements a
+					WHERE a.batch_id = b.id AND a.window_days = ?
+				)
 			GROUP BY b.id, b.sku_id, b.expiry_date
 			HAVING SUM(sm.quantity_delta) > 0
 		)
@@ -65,7 +69,7 @@ func (r *ExpiringStockRepo) ListExpiringStock(ctx context.Context, from, to time
 		GROUP BY s.id, s.sku_code, p.name, fm.url, pm.url, bs.expiry_date,
 			s.price_minor_units, s.sale_price_minor_units, s.sale_end_date, s.currency_code
 		ORDER BY bs.expiry_date, p.name, s.sku_code
-	`, from.Format("2006-01-02"), to.Format("2006-01-02")).Scan(&rows).Error
+	`, from.Format("2006-01-02"), to.Format("2006-01-02"), windowDays).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("expiringStockRepo.ListExpiringStock: %w", err)
 	}

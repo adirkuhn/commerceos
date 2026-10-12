@@ -53,6 +53,7 @@ func TestExpiringStockRepo_Integration_ListExpiringStock(t *testing.T) {
 				BatchID: &b.ID, Type: invDomain.MovementTypeReceipt, QuantityDelta: qty, OccurredAt: now, CreatedAt: now})
 		}
 		for _, err := range []error{
+			batch("SEEN", inRange, invDomain.BatchStatusActive, 6), // acknowledged for this window below: skipped
 			batch("A", inRange, invDomain.BatchStatusActive, 3),
 			batch("B", inRange, invDomain.BatchStatusActive, 4), // same SKU + date: summed with A
 			batch("FAR", outOfRange, invDomain.BatchStatusActive, 9),
@@ -63,13 +64,14 @@ func TestExpiringStockRepo_Integration_ListExpiringStock(t *testing.T) {
 				return err
 			}
 		}
-		return nil
+		return tx.Exec(`INSERT INTO batch_expiry_acknowledgements (tenant_id, batch_id, window_days, acknowledged_by, acknowledged_at)
+			SELECT tenant_id, id, 30, 'u-1', now() FROM batches WHERE lot_number = 'SEEN' AND sku_id = ?`, skuID).Error
 	}))
 
 	var lines []invDomain.ExpiringStockLine
 	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		lines, err = repositories.NewExpiringStockRepo(db).ListExpiringStock(ctx, today, today.AddDate(0, 0, 30))
+		lines, err = repositories.NewExpiringStockRepo(db).ListExpiringStock(ctx, today, today.AddDate(0, 0, 30), 30)
 		return err
 	}))
 
@@ -89,6 +91,6 @@ func TestExpiringStockRepo_Integration_ListExpiringStock(t *testing.T) {
 
 func TestExpiringStockRepo_Integration_RequiresTransaction(t *testing.T) {
 	db := newIntegrationDB(t)
-	_, err := repositories.NewExpiringStockRepo(db).ListExpiringStock(context.Background(), time.Now(), time.Now())
+	_, err := repositories.NewExpiringStockRepo(db).ListExpiringStock(context.Background(), time.Now(), time.Now(), 30)
 	assert.Error(t, err)
 }

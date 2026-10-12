@@ -53,7 +53,8 @@ func dateOnly(t time.Time) time.Time {
 
 // ExpiringStockReader lists the tenant's sellable stock expiring between
 // from and to (calendar dates, inclusive): quantity above zero, batch not
-// flagged expired. Sorted by expiry date, then product name.
+// flagged expired, batch not acknowledged for the windowDays window (see
+// ExpiryAcknowledgement). Sorted by expiry date, then product name.
 type ExpiringStockReader interface {
-	ListExpiringStock(ctx context.Context, from, to time.Time) ([]ExpiringStockLine, error)
+	ListExpiringStock(ctx context.Context, from, to time.Time, windowDays int) ([]ExpiringStockLine, error)
 }

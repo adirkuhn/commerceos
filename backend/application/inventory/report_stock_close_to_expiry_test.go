@@ -17,7 +17,12 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
-type readerCall struct{ from, to string }
+// readerCall is one ListExpiringStock call: the band's dates and the
+// window whose acknowledged batches it skips.
+type readerCall struct {
+	from, to   string
+	windowDays int
+}
 
 type stubExpiringStockReader struct {
 	calls  []readerCall
@@ -25,8 +30,8 @@ type stubExpiringStockReader struct {
 	err    error
 }
 
-func (s *stubExpiringStockReader) ListExpiringStock(_ context.Context, from, to time.Time) ([]invDomain.ExpiringStockLine, error) {
-	s.calls = append(s.calls, readerCall{from.Format("2006-01-02"), to.Format("2006-01-02")})
+func (s *stubExpiringStockReader) ListExpiringStock(_ context.Context, from, to time.Time, windowDays int) ([]invDomain.ExpiringStockLine, error) {
+	s.calls = append(s.calls, readerCall{from.Format("2006-01-02"), to.Format("2006-01-02"), windowDays})
 	return s.byFrom[from.Format("2006-01-02")], s.err
 }
 
@@ -57,7 +62,7 @@ func TestReportStockCloseToExpiry_raisesOneEventPerNonEmptyBand(t *testing.T) {
 	err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), expirySettings(30, 7))
 
 	require.NoError(t, err)
-	assert.Equal(t, []readerCall{{"2026-10-19", "2026-11-10"}, {"2026-10-11", "2026-10-18"}}, reader.calls)
+	assert.Equal(t, []readerCall{{"2026-10-19", "2026-11-10", 30}, {"2026-10-11", "2026-10-18", 7}}, reader.calls)
 	require.Len(t, outbox.Events, 1)
 	ev := outbox.Events[0]
 	assert.Equal(t, "inventory.stock.close_to_expiry_reported", ev.Subject)
@@ -106,7 +111,7 @@ func TestReportStockCloseToExpiry_unknownTimezoneFallsBackToUTC(t *testing.T) {
 	uc := invapp.NewReportStockCloseToExpiryUseCase(newMockGormDB(t), reader, &eventrecordtest.Outbox{}, fixedClock("2026-10-10T23:30:00Z"))
 
 	require.NoError(t, uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), s))
-	assert.Equal(t, []readerCall{{"2026-10-10", "2026-10-17"}}, reader.calls)
+	assert.Equal(t, []readerCall{{"2026-10-10", "2026-10-17", 7}}, reader.calls)
 }
 
 func TestReportStockCloseToExpiry_propagatesErrors(t *testing.T) {
