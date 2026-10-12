@@ -8,14 +8,38 @@ import (
 	"compress/flate"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for SalesPeriod.
+const (
+	ThisMonth SalesPeriod = "this_month"
+	ThisWeek  SalesPeriod = "this_week"
+	Today     SalesPeriod = "today"
+)
+
+// Valid indicates whether the value is a known member of the SalesPeriod enum.
+func (e SalesPeriod) Valid() bool {
+	switch e {
+	case ThisMonth:
+		return true
+	case ThisWeek:
+		return true
+	case Today:
+		return true
+	default:
+		return false
+	}
+}
 
 // ChannelRevenue defines model for ChannelRevenue.
 type ChannelRevenue struct {
@@ -53,6 +77,47 @@ type DashboardStatsResponse struct {
 	Data  *DashboardStats `json:"data,omitempty"`
 	Error interface{}     `json:"error,omitempty"`
 }
+
+// ErrorResponse defines model for ErrorResponse.
+type ErrorResponse struct {
+	Data  interface{} `json:"data,omitempty"`
+	Error *struct {
+		Code    *string `json:"code,omitempty"`
+		Message *string `json:"message,omitempty"`
+	} `json:"error,omitempty"`
+}
+
+// SalesComparison defines model for SalesComparison.
+type SalesComparison struct {
+	// ChangePercent Revenue change against the whole previous period, in percent (20 = 20% more); null when the previous period sold nothing.
+	ChangePercent *float64     `json:"change_percent"`
+	CurrencyCode  string       `json:"currency_code"`
+	Current       SalesFigures `json:"current"`
+	Period        SalesPeriod  `json:"period"`
+	Previous      SalesFigures `json:"previous"`
+}
+
+// SalesComparisonResponse defines model for SalesComparisonResponse.
+type SalesComparisonResponse struct {
+	Data  SalesComparison `json:"data"`
+	Error interface{}     `json:"error,omitempty"`
+}
+
+// SalesFigures defines model for SalesFigures.
+type SalesFigures struct {
+	ByChannel []ChannelRevenue `json:"by_channel"`
+
+	// From Start of the range, inclusive.
+	From              time.Time `json:"from"`
+	OrderCount        int64     `json:"order_count"`
+	RevenueMinorUnits int64     `json:"revenue_minor_units"`
+
+	// To End of the range, exclusive -- now for the current period.
+	To time.Time `json:"to"`
+}
+
+// SalesPeriod defines model for SalesPeriod.
+type SalesPeriod string
 
 // TodayQueue defines model for TodayQueue.
 type TodayQueue struct {
@@ -95,8 +160,19 @@ type TopProduct struct {
 	SkuId *string `json:"sku_id,omitempty"`
 }
 
+// Error defines model for Error.
+type Error = ErrorResponse
+
+// GetSalesComparisonParams defines parameters for GetSalesComparison.
+type GetSalesComparisonParams struct {
+	Period SalesPeriod `form:"period" json:"period"`
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// GetSalesComparison Sales so far this period, compared with the whole previous period
+	// (GET /dashboard/sales)
+	GetSalesComparison(c *gin.Context, params GetSalesComparisonParams)
 	// GetDashboardStats Get the current tenant's dashboard summary figures
 	// (GET /dashboard/stats)
 	GetDashboardStats(c *gin.Context)
@@ -113,6 +189,33 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// GetSalesComparison operation middleware
+func (siw *ServerInterfaceWrapper) GetSalesComparison(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSalesComparisonParams
+
+	// ------------- Required query parameter "period" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "period", c.Request.URL.Query(), &params.Period, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter period: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetSalesComparison(c, params)
+}
 
 // GetDashboardStats operation middleware
 func (siw *ServerInterfaceWrapper) GetDashboardStats(c *gin.Context) {
@@ -169,6 +272,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.GET(options.BaseURL+"/dashboard/stats", wrapper.GetDashboardStats)
 	router.GET(options.BaseURL+"/dashboard/today", wrapper.GetTodayQueue)
+	router.GET(options.BaseURL+"/dashboard/sales", wrapper.GetSalesComparison)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -176,34 +280,44 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"rFjxYEd2PaSQzqpsmS2wlYv1d9n2/faPAAAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

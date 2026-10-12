@@ -39,6 +39,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/TodayQueueResponse'
 
+  /dashboard/sales:
+    get:
+      operationId: getSalesComparison
+      summary: Sales so far this period, compared with the whole previous period
+      description: >-
+        Revenue, order count and revenue per channel from the start of the
+        period until now, and the same figures for the whole previous
+        period: today vs all of yesterday, this week vs all of last week
+        (weeks start on Sunday), this month vs all of last month -- on the
+        tenant's calendar (settings time zone). Same revenue rules as
+        /dashboard/stats (default currency only; pending, cancelled,
+        refunded and failed orders never count).
+      parameters:
+        - name: period
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/SalesPeriod'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesComparisonResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -161,6 +189,54 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/TodayQueue' }
+        error: { nullable: true }
+
+    SalesPeriod:
+      type: string
+      enum: [today, this_week, this_month]
+
+    SalesFigures:
+      type: object
+      required: [from, to, revenue_minor_units, order_count, by_channel]
+      properties:
+        from:
+          type: string
+          format: date-time
+          description: Start of the range, inclusive.
+        to:
+          type: string
+          format: date-time
+          description: End of the range, exclusive -- now for the current period.
+        revenue_minor_units: { type: integer, format: int64 }
+        order_count: { type: integer, format: int64 }
+        by_channel:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChannelRevenue'
+
+    SalesComparison:
+      type: object
+      required: [period, currency_code, current, previous, change_percent]
+      properties:
+        period:
+          $ref: '#/components/schemas/SalesPeriod'
+        currency_code: { type: string }
+        current:
+          $ref: '#/components/schemas/SalesFigures'
+        previous:
+          $ref: '#/components/schemas/SalesFigures'
+        change_percent:
+          type: number
+          format: double
+          nullable: true
+          description: Revenue change against the whole previous period, in percent (20 = 20% more); null when the previous period sold nothing.
+
+    SalesComparisonResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/SalesComparison'
         error: { nullable: true }
 
     ErrorResponse:

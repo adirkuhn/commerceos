@@ -52,7 +52,7 @@ func TestGetDashboardStatsHandler_returnsStats(t *testing.T) {
 		TotalStockUnits: 84293, CurrencyCode: "EUR", RevenueThisMonthMinorUnits: 11600000,
 		SalesByChannelThisMonth: []omsDomain.ChannelRevenue{{Source: omsDomain.SalesOrderSourceWooCommerce, TotalMinorUnits: 3150000}},
 		TopProductsThisMonth:    []omsDomain.ProductSales{{SKUCode: "WHP-001", ProductName: "Headphones", QuantitySold: 234, RevenueMinorUnits: 5850000}},
-	}}, &stubGetTodayQueue{})
+	}}, &stubGetTodayQueue{}, &stubGetSalesComparison{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/dashboard/stats")
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -64,7 +64,7 @@ func TestGetDashboardStatsHandler_returnsStats(t *testing.T) {
 }
 
 func TestGetDashboardStatsHandler_propagatesError(t *testing.T) {
-	h := dashboardhandler.NewHandler(&stubGetDashboardStats{err: assert.AnError}, &stubGetTodayQueue{})
+	h := dashboardhandler.NewHandler(&stubGetDashboardStats{err: assert.AnError}, &stubGetTodayQueue{}, &stubGetSalesComparison{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/dashboard/stats")
 
 	require.Equal(t, http.StatusInternalServerError, w.Code)
@@ -88,7 +88,7 @@ func (s *stubGetTodayQueue) Execute(_ context.Context) (*appdashboard.TodayQueue
 func TestGetTodayQueueHandler_returnsCounts(t *testing.T) {
 	h := dashboardhandler.NewHandler(&stubGetDashboardStats{}, &stubGetTodayQueue{out: &appdashboard.TodayQueue{
 		ToPick: 4, ToPack: 7, StockIssues: 2, UnmatchedSKUs: 3, ExpiringBatches: 5, ExpiredBatches: 1, ShipToday: 8,
-	}})
+	}}, &stubGetSalesComparison{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/dashboard/today")
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -104,7 +104,7 @@ func TestGetTodayQueueHandler_returnsCounts(t *testing.T) {
 }
 
 func TestGetTodayQueueHandler_zeroCountsAreStillSent(t *testing.T) {
-	h := dashboardhandler.NewHandler(&stubGetDashboardStats{}, &stubGetTodayQueue{})
+	h := dashboardhandler.NewHandler(&stubGetDashboardStats{}, &stubGetTodayQueue{}, &stubGetSalesComparison{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/dashboard/today")
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -114,7 +114,7 @@ func TestGetTodayQueueHandler_zeroCountsAreStillSent(t *testing.T) {
 }
 
 func TestGetTodayQueueHandler_propagatesError(t *testing.T) {
-	h := dashboardhandler.NewHandler(&stubGetDashboardStats{}, &stubGetTodayQueue{err: assert.AnError})
+	h := dashboardhandler.NewHandler(&stubGetDashboardStats{}, &stubGetTodayQueue{err: assert.AnError}, &stubGetSalesComparison{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/dashboard/today")
 
 	require.Equal(t, http.StatusInternalServerError, w.Code)

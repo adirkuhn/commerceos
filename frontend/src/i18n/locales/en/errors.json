@@ -400,5 +400,6 @@
   "APPEARANCE_INVALID_TEXT_SIZE": "Pick normal, large or larger text.",
   "APPEARANCE_INVALID_DENSITY": "Pick compact or comfortable spacing.",
   "BATCH_NOT_IN_EXPIRY_WINDOW": "This batch is no longer in that expiry window. Reload the list.",
-  "EXPIRY_WINDOW_UNKNOWN": "That expiry window is not in use. Pick one of the windows shown."
+  "EXPIRY_WINDOW_UNKNOWN": "That expiry window is not in use. Pick one of the windows shown.",
+  "SALES_PERIOD_INVALID": "Pick today, this week or this month."
 }

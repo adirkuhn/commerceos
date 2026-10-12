@@ -400,5 +400,6 @@
   "APPEARANCE_INVALID_TEXT_SIZE": "Kies normale, grote of grotere tekst.",
   "APPEARANCE_INVALID_DENSITY": "Kies compacte of ruime weergave.",
   "BATCH_NOT_IN_EXPIRY_WINDOW": "Deze batch valt niet meer in dat houdbaarheidsvenster. Laad de lijst opnieuw.",
-  "EXPIRY_WINDOW_UNKNOWN": "Dat houdbaarheidsvenster wordt niet gebruikt. Kies een van de getoonde vensters."
+  "EXPIRY_WINDOW_UNKNOWN": "Dat houdbaarheidsvenster wordt niet gebruikt. Kies een van de getoonde vensters.",
+  "SALES_PERIOD_INVALID": "Kies vandaag, deze week of deze maand."
 }

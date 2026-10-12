@@ -11,6 +11,8 @@ import (
 
 	gendashboard "github.com/adirkuhn/commerceos/api/dashboard"
 	appdashboard "github.com/adirkuhn/commerceos/application/dashboard"
+	dashboardDomain "github.com/adirkuhn/commerceos/domain/dashboard"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -23,13 +25,18 @@ type getTodayQueueUC interface {
 	Execute(ctx context.Context) (*appdashboard.TodayQueue, error)
 }
 
-type Handler struct {
-	getDashboardStats getDashboardStatsUC
-	getTodayQueue     getTodayQueueUC
+type getSalesComparisonUC interface {
+	Execute(ctx context.Context, period dashboardDomain.SalesPeriod) (*appdashboard.SalesComparison, error)
 }
 
-func NewHandler(getDashboardStats getDashboardStatsUC, getTodayQueue getTodayQueueUC) *Handler {
-	return &Handler{getDashboardStats: getDashboardStats, getTodayQueue: getTodayQueue}
+type Handler struct {
+	getDashboardStats  getDashboardStatsUC
+	getTodayQueue      getTodayQueueUC
+	getSalesComparison getSalesComparisonUC
+}
+
+func NewHandler(getDashboardStats getDashboardStatsUC, getTodayQueue getTodayQueueUC, getSalesComparison getSalesComparisonUC) *Handler {
+	return &Handler{getDashboardStats: getDashboardStats, getTodayQueue: getTodayQueue, getSalesComparison: getSalesComparison}
 }
 
 var _ gendashboard.ServerInterface = (*Handler)(nil)
@@ -42,6 +49,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	h := NewHandler(
 		appdashboard.NewGetDashboardStatsUseCase(db, stockRepo, salesRepo, settingsRepo),
 		appdashboard.NewGetTodayQueueUseCase(db, salesRepo, batchRepo, settingsRepo),
+		appdashboard.NewGetSalesComparisonUseCase(db, salesRepo, settingsRepo),
 	)
 	gendashboard.RegisterHandlers(rg, h)
 }
@@ -70,15 +78,45 @@ func (h *Handler) GetTodayQueue(c *gin.Context) {
 	}})
 }
 
+func (h *Handler) GetSalesComparison(c *gin.Context, params gendashboard.GetSalesComparisonParams) {
+	period, err := dashboardDomain.ParseSalesPeriod(string(params.Period))
+	if err != nil {
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
+		return
+	}
+	cmp, err := h.getSalesComparison.Execute(c.Request.Context(), period)
+	if err != nil {
+		log.Printf("dashboard: unhandled error: %v", err)
+		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
+		return
+	}
+	c.JSON(http.StatusOK, gendashboard.SalesComparisonResponse{Data: gendashboard.SalesComparison{
+		Period: gendashboard.SalesPeriod(cmp.Period), CurrencyCode: cmp.CurrencyCode, ChangePercent: cmp.ChangePercent,
+		Current: toGenSalesFigures(cmp.Current), Previous: toGenSalesFigures(cmp.Previous),
+	}})
+}
+
+func toGenSalesFigures(f appdashboard.SalesFigures) gendashboard.SalesFigures {
+	return gendashboard.SalesFigures{
+		From: f.Range.From, To: f.Range.To, RevenueMinorUnits: f.RevenueMinorUnits, OrderCount: f.OrderCount,
+		ByChannel: toGenChannelRevenue(f.ByChannel),
+	}
+}
+
+func toGenChannelRevenue(in []omsDomain.ChannelRevenue) []gendashboard.ChannelRevenue {
+	out := make([]gendashboard.ChannelRevenue, len(in))
+	for i, ch := range in {
+		out[i] = gendashboard.ChannelRevenue{Source: string(ch.Source), TotalMinorUnits: ch.TotalMinorUnits}
+	}
+	return out
+}
+
 func toGenDashboardStats(s appdashboard.DashboardStats) *gendashboard.DashboardStats {
 	flow := make([]gendashboard.DailyStockFlow, len(s.StockFlowLast7Days))
 	for i, f := range s.StockFlowLast7Days {
 		flow[i] = gendashboard.DailyStockFlow{Date: openapi_types.Date{Time: f.Date}, In: f.In, Out: f.Out}
 	}
-	channels := make([]gendashboard.ChannelRevenue, len(s.SalesByChannelThisMonth))
-	for i, ch := range s.SalesByChannelThisMonth {
-		channels[i] = gendashboard.ChannelRevenue{Source: string(ch.Source), TotalMinorUnits: ch.TotalMinorUnits}
-	}
+	channels := toGenChannelRevenue(s.SalesByChannelThisMonth)
 	products := make([]gendashboard.TopProduct, len(s.TopProductsThisMonth))
 	for i, p := range s.TopProductsThisMonth {
 		products[i] = gendashboard.TopProduct{
