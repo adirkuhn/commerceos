@@ -5,6 +5,7 @@ import { AlertTriangle, CalendarClock, CalendarX, CheckCircle2, PackageCheck, Pa
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useDateFormat } from '../format/DateFormatProvider'
+import { formatLongDay } from '../format/date'
 import { Money } from '../format/amountVisibility'
 import { inventoryPaths } from '../inventory/inventoryRoutes'
 import { navItemToPath } from '../routes'
@@ -15,15 +16,6 @@ import { ChannelSalesPanel, StockFlowPanel, TopProductsPanel } from './widgets'
 // The depot design's home: what the shop has to do now. A dispatch board
 // with the two daily queues, then only the problems that exist right now
 // -- each with the action that clears it -- then this month's figures.
-
-function todayHeading(language: string, timeZone: string | undefined): string {
-  const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long' }
-  try {
-    return new Intl.DateTimeFormat(language, { ...options, timeZone }).format(new Date())
-  } catch {
-    return new Intl.DateTimeFormat(language, options).format(new Date())
-  }
-}
 
 interface QueueCounterProps {
   count: number | undefined
@@ -97,7 +89,7 @@ export default function TodayPage() {
   return (
     <div className="p-6 space-y-6 max-w-6xl">
       <h2 className="font-data text-3xl font-semibold tracking-tight text-ink first-letter:uppercase">
-        {todayHeading(i18n.language, settings.timeZone)}
+        {formatLongDay(new Date(), i18n.language, settings)}
       </h2>
 
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}

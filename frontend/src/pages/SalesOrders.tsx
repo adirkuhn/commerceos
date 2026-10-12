@@ -270,7 +270,7 @@ export default function SalesOrders() {
                   'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
                   sourceFilter.includes(value)
                     ? 'bg-accent-solid text-white'
-                    : 'bg-raised text-ink-3 hover:bg-hover',
+                    : 'bg-raised text-ink-3 hover:bg-hover depot:bg-fill depot:hover:bg-hover',
                 )}
               >
                 {label}
@@ -292,7 +292,7 @@ export default function SalesOrders() {
                   'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors',
                   statusFilter.includes(s)
                     ? 'bg-accent-solid text-white'
-                    : 'dark:bg-night-800 bg-gray-50 text-ink-3 hover:bg-hover',
+                    : 'dark:bg-night-800 bg-gray-50 text-ink-3 hover:bg-hover depot:bg-fill depot:hover:bg-hover',
                 )}
               >
                 {salesOrderStatusLabel(s)}

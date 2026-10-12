@@ -131,3 +131,14 @@ export function formatMonthYear(
   if (!p) return MISSING
   return `${monthShort(Number(p.month))} ${shortYear ? `'${p.year.slice(2)}` : p.year}`
 }
+
+// A heading-style day ("Monday, October 12" / "maandag 12 oktober") in the
+// admin language, in the tenant's timezone.
+export function formatLongDay(value: Date, language: string, settings: DateFormatSettings = DEFAULT_DATE_FORMAT): string {
+  const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long' }
+  try {
+    return new Intl.DateTimeFormat(language, { ...options, timeZone: settings.timeZone }).format(value)
+  } catch {
+    return new Intl.DateTimeFormat(language, options).format(value)
+  }
+}
