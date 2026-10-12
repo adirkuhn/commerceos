@@ -15,6 +15,18 @@ const PAGES: [string, string][] = [
   ['reports-overview', '/reports'],
   ['reports-sales-trends', '/reports/sales-trends'],
   ['settings', '/settings'],
+  ['procurement', '/procurement'],
+  ['promotions', '/promotions'],
+  ['coupons', '/coupons'],
+  ['collections', '/collections'],
+  ['reviews', '/reviews'],
+  ['stock-issues', '/stock-issues'],
+  ['unmatched-skus', '/unmatched-skus'],
+  ['warehouses', '/warehouses'],
+  ['webhooks', '/webhooks'],
+  ['sync-log', '/sync-log'],
+  ['users', '/users'],
+  ['newsletter', '/newsletter'],
 ]
 
 for (const design of ['depot', 'classic'] as const) for (const appearance of ['light', 'dark'] as const) {

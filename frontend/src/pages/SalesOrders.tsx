@@ -6,6 +6,7 @@ import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
+import { LIST_TOOLBAR, LIST_TOOLBAR_ACTION, LIST_TOOLBAR_INLINE, LIST_TOOLBAR_ROW } from '../components/common/listToolbar'
 import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import type { SalesOrderStatus, SalesOrderSource, SalesOrderSortField, SortDirection } from '../oms/types'
 import { useConfirm } from '../components/common/useConfirm'
@@ -245,83 +246,85 @@ export default function SalesOrders() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center justify-end gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
-        <button
-          onClick={() => navigate('/sales-orders/new')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
-        >
-          <Plus size={13} /> {t('list.newOrder')}
-        </button>
-      </div>
-
-      {/* Stats strip */}
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4 whitespace-nowrap">{t('list.count', { count: total })}</span>
-        <div className="flex items-center gap-1.5" role="group" aria-label={t('list.filterChannel')}>
-          {sourceFilterOptions().map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => toggleSourceFilter(value)}
-              aria-pressed={sourceFilter.includes(value)}
-              className={clsx(
-                'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-                sourceFilter.includes(value)
-                  ? 'bg-accent-solid text-white'
-                  : 'bg-raised text-ink-3 hover:bg-hover',
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {error && <span className="text-xs text-danger ml-auto">{error}</span>}
-      </div>
-
-      {/* Status + substatus filter strip */}
-      <div className="flex items-center flex-wrap gap-3 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <div className="flex items-center flex-wrap gap-1.5" role="group" aria-label={t('list.filterStatus')}>
-          {STATUS_OPTIONS.map(s => (
-            <button
-              key={s}
-              onClick={() => toggleStatusFilter(s)}
-              aria-pressed={statusFilter.includes(s)}
-              className={clsx(
-                'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors',
-                statusFilter.includes(s)
-                  ? 'bg-accent-solid text-white'
-                  : 'dark:bg-night-800 bg-gray-50 text-ink-3 hover:bg-hover',
-              )}
-            >
-              {salesOrderStatusLabel(s)}
-            </button>
-          ))}
-        </div>
-        <select
-          aria-label={t('list.filterFulfilled')} value={fulfilledFilter}
-          onChange={e => changeFulfilledFilter(e.target.value as '' | 'true' | 'false')}
-          className="px-2 py-1.5 text-xs rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
-        >
-          <option value="">{t('list.anyFulfillment')}</option>
-          <option value="true">{t('list.onlyFulfilled')}</option>
-          <option value="false">{t('list.onlyUnfulfilled')}</option>
-        </select>
-        {customerId && (
-          <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-accent/15 text-accent">
-            {t('list.oneCustomer')}
-            <button type="button" onClick={() => setCustomerId(null)} aria-label={t('list.clearCustomer')} className="hover:opacity-70">
-              <X size={12} />
-            </button>
-          </span>
-        )}
-        {hasActiveFilters && (
+      {/* Toolbar -- three rows in classic, one band in depot */}
+      <div className={LIST_TOOLBAR}>
+        <div className={clsx('flex items-center justify-end gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0', LIST_TOOLBAR_ROW)}>
           <button
-            type="button" onClick={clearFilters}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-ink-3 hover:text-ink transition-colors ml-auto"
+            onClick={() => navigate('/sales-orders/new')}
+            className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium', LIST_TOOLBAR_ACTION)}
           >
-            <X size={12} /> {t('list.clearFilters')}
+            <Plus size={13} /> {t('list.newOrder')}
           </button>
-        )}
+        </div>
+
+        {/* Stats strip */}
+        <div className={clsx('flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0', LIST_TOOLBAR_ROW)}>
+          <span className="text-xs text-ink-4 whitespace-nowrap">{t('list.count', { count: total })}</span>
+          <div className="flex items-center gap-1.5" role="group" aria-label={t('list.filterChannel')}>
+            {sourceFilterOptions().map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => toggleSourceFilter(value)}
+                aria-pressed={sourceFilter.includes(value)}
+                className={clsx(
+                  'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                  sourceFilter.includes(value)
+                    ? 'bg-accent-solid text-white'
+                    : 'bg-raised text-ink-3 hover:bg-hover',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {error && <span className={clsx('text-xs text-danger ml-auto', LIST_TOOLBAR_INLINE)}>{error}</span>}
+        </div>
+
+        {/* Status + substatus filter strip */}
+        <div className={clsx('flex items-center flex-wrap gap-3 px-5 py-2.5 border-b border-line bg-surface shrink-0', LIST_TOOLBAR_ROW)}>
+          <div className="flex items-center flex-wrap gap-1.5" role="group" aria-label={t('list.filterStatus')}>
+            {STATUS_OPTIONS.map(s => (
+              <button
+                key={s}
+                onClick={() => toggleStatusFilter(s)}
+                aria-pressed={statusFilter.includes(s)}
+                className={clsx(
+                  'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors',
+                  statusFilter.includes(s)
+                    ? 'bg-accent-solid text-white'
+                    : 'dark:bg-night-800 bg-gray-50 text-ink-3 hover:bg-hover',
+                )}
+              >
+                {salesOrderStatusLabel(s)}
+              </button>
+            ))}
+          </div>
+          <select
+            aria-label={t('list.filterFulfilled')} value={fulfilledFilter}
+            onChange={e => changeFulfilledFilter(e.target.value as '' | 'true' | 'false')}
+            className="px-2 py-1.5 text-xs rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
+          >
+            <option value="">{t('list.anyFulfillment')}</option>
+            <option value="true">{t('list.onlyFulfilled')}</option>
+            <option value="false">{t('list.onlyUnfulfilled')}</option>
+          </select>
+          {customerId && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-accent/15 text-accent">
+              {t('list.oneCustomer')}
+              <button type="button" onClick={() => setCustomerId(null)} aria-label={t('list.clearCustomer')} className="hover:opacity-70">
+                <X size={12} />
+              </button>
+            </span>
+          )}
+          {hasActiveFilters && (
+            <button
+              type="button" onClick={clearFilters}
+              className={clsx('flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-ink-3 hover:text-ink transition-colors ml-auto', LIST_TOOLBAR_INLINE)}
+            >
+              <X size={12} /> {t('list.clearFilters')}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Bulk action bar */}
