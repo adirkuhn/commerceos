@@ -398,5 +398,7 @@
   "APPEARANCE_ACCENT_LOW_CONTRAST": "Deze accentkleur is te licht voor witte tekst op knoppen. Kies een donkerdere tint.",
   "APPEARANCE_INVALID_CORNERS": "Kies scherpe, normale of ronde hoeken.",
   "APPEARANCE_INVALID_TEXT_SIZE": "Kies normale, grote of grotere tekst.",
-  "APPEARANCE_INVALID_DENSITY": "Kies compacte of ruime weergave."
+  "APPEARANCE_INVALID_DENSITY": "Kies compacte of ruime weergave.",
+  "BATCH_NOT_IN_EXPIRY_WINDOW": "Deze batch valt niet meer in dat houdbaarheidsvenster. Laad de lijst opnieuw.",
+  "EXPIRY_WINDOW_UNKNOWN": "Dat houdbaarheidsvenster wordt niet gebruikt. Kies een van de getoonde vensters."
 }

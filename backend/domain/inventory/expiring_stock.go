@@ -26,7 +26,13 @@ type ExpiringStockLine struct {
 // DaysLeft is the number of days from today until the expiry date (0 =
 // expires today). Both are calendar dates.
 func (l ExpiringStockLine) DaysLeft(today time.Time) int {
-	return int(dateOnly(l.ExpiryDate).Sub(dateOnly(today)).Hours() / 24)
+	return DaysUntil(l.ExpiryDate, today)
+}
+
+// DaysUntil is the number of calendar days from today until expiry (0 =
+// expires today, negative = already past).
+func DaysUntil(expiry, today time.Time) int {
+	return int(dateOnly(expiry).Sub(dateOnly(today)).Hours() / 24)
 }
 
 // ActiveSalePrice is the sale price when a sale runs today (through its end

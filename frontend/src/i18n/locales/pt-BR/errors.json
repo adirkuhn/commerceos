@@ -398,5 +398,7 @@
   "APPEARANCE_ACCENT_LOW_CONTRAST": "Esta cor de destaque é clara demais para o texto branco dos botões. Escolha um tom mais escuro.",
   "APPEARANCE_INVALID_CORNERS": "Escolha cantos retos, normais ou arredondados.",
   "APPEARANCE_INVALID_TEXT_SIZE": "Escolha texto normal, grande ou maior.",
-  "APPEARANCE_INVALID_DENSITY": "Escolha espaçamento compacto ou confortável."
+  "APPEARANCE_INVALID_DENSITY": "Escolha espaçamento compacto ou confortável.",
+  "BATCH_NOT_IN_EXPIRY_WINDOW": "Este lote não está mais nessa janela de validade. Recarregue a lista.",
+  "EXPIRY_WINDOW_UNKNOWN": "Essa janela de validade não está em uso. Escolha uma das janelas exibidas."
 }

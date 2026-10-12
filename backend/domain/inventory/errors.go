@@ -12,6 +12,13 @@ var (
 	// tenant is just picker/dropdown confusion (warehouses_tenant_id_name_key).
 	ErrDuplicateWarehouseName = errs.New("WAREHOUSE_NAME_TAKEN", "warehouse name already in use")
 	ErrBatchNotFound          = errs.New("BATCH_NOT_FOUND", "batch not found")
+	// ErrBatchNotInExpiryWindow guards marking a batch as seen for a
+	// close-to-expiry window it is not (or no longer) in -- the list the
+	// person acted on is out of date.
+	ErrBatchNotInExpiryWindow = errs.New("BATCH_NOT_IN_EXPIRY_WINDOW", "batch is not in this close-to-expiry window")
+	// ErrUnknownExpiryWindow guards the close-to-expiry screen against a
+	// window the tenant does not use (see settings.ExpiryAlert.ReviewBands).
+	ErrUnknownExpiryWindow = errs.New("EXPIRY_WINDOW_UNKNOWN", "unknown close-to-expiry window")
 	ErrInvalidQuantity        = errs.New("MOVEMENT_INVALID_QUANTITY", "invalid quantity for movement type")
 	ErrInvalidMovementType    = errs.New("MOVEMENT_INVALID_TYPE", "invalid movement type for this operation")
 	ErrBatchHasMovements      = errs.New("BATCH_HAS_MOVEMENTS", "batch has stock movements and cannot be deleted")

@@ -398,5 +398,7 @@
   "APPEARANCE_ACCENT_LOW_CONTRAST": "This accent colour is too light for white button text. Pick a darker shade.",
   "APPEARANCE_INVALID_CORNERS": "Pick sharp, normal or round corners.",
   "APPEARANCE_INVALID_TEXT_SIZE": "Pick normal, large or larger text.",
-  "APPEARANCE_INVALID_DENSITY": "Pick compact or comfortable spacing."
+  "APPEARANCE_INVALID_DENSITY": "Pick compact or comfortable spacing.",
+  "BATCH_NOT_IN_EXPIRY_WINDOW": "This batch is no longer in that expiry window. Reload the list.",
+  "EXPIRY_WINDOW_UNKNOWN": "That expiry window is not in use. Pick one of the windows shown."
 }

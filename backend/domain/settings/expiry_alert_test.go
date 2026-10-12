@@ -61,3 +61,34 @@ func TestExpiryBand_Contains(t *testing.T) {
 	assert.True(t, b.Contains(30))
 	assert.False(t, b.Contains(31))
 }
+
+func TestExpiryAlert_ReviewBandsUseChosenWindowsEvenWhenDisabled(t *testing.T) {
+	a, err := settings.NewExpiryAlert(false, []int{90, 30})
+	require.NoError(t, err)
+
+	assert.Equal(t, []settings.ExpiryBand{
+		{WindowDays: 90, MinDaysLeft: 31},
+		{WindowDays: 30, MinDaysLeft: 0},
+	}, a.ReviewBands())
+}
+
+func TestExpiryAlert_ReviewBandsDefaultToEveryWindow(t *testing.T) {
+	assert.Equal(t, []settings.ExpiryBand{
+		{WindowDays: 90, MinDaysLeft: 31},
+		{WindowDays: 30, MinDaysLeft: 16},
+		{WindowDays: 15, MinDaysLeft: 8},
+		{WindowDays: 7, MinDaysLeft: 0},
+	}, settings.ExpiryAlert{}.ReviewBands())
+}
+
+func TestExpiryAlert_ReviewBand(t *testing.T) {
+	a, err := settings.NewExpiryAlert(true, []int{90, 15})
+	require.NoError(t, err)
+
+	b, ok := a.ReviewBand(15)
+	assert.True(t, ok)
+	assert.Equal(t, settings.ExpiryBand{WindowDays: 15, MinDaysLeft: 0}, b)
+
+	_, ok = a.ReviewBand(30)
+	assert.False(t, ok)
+}

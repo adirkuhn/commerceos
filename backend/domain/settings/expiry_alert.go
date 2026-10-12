@@ -67,11 +67,37 @@ func (a ExpiryAlert) Bands() []ExpiryBand {
 	if !a.Enabled {
 		return nil
 	}
-	bands := make([]ExpiryBand, len(a.Windows))
-	for i, w := range a.Windows {
+	return bandsOf(a.Windows)
+}
+
+// ReviewBands are the bands the close-to-expiry screen shows, whether or
+// not the email report is on: the chosen windows, or every option when
+// none were chosen. Same bands as the report, so marking stock as seen in
+// one means the same thing on screen and in the email.
+func (a ExpiryAlert) ReviewBands() []ExpiryBand {
+	if len(a.Windows) == 0 {
+		return bandsOf(ExpiryAlertWindowOptions)
+	}
+	return bandsOf(a.Windows)
+}
+
+// ReviewBand is the review band of the given window, if it is one.
+func (a ExpiryAlert) ReviewBand(windowDays int) (ExpiryBand, bool) {
+	for _, b := range a.ReviewBands() {
+		if b.WindowDays == windowDays {
+			return b, true
+		}
+	}
+	return ExpiryBand{}, false
+}
+
+// bandsOf splits windows, sorted largest first, into non-overlapping bands.
+func bandsOf(windows []int) []ExpiryBand {
+	bands := make([]ExpiryBand, len(windows))
+	for i, w := range windows {
 		minDaysLeft := 0
-		if i+1 < len(a.Windows) {
-			minDaysLeft = a.Windows[i+1] + 1
+		if i+1 < len(windows) {
+			minDaysLeft = windows[i+1] + 1
 		}
 		bands[i] = ExpiryBand{WindowDays: w, MinDaysLeft: minDaysLeft}
 	}
