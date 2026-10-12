@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PackageSearch, ChevronDown, ChevronRight } from 'lucide-react'
@@ -12,6 +13,7 @@ import { useQueryPage } from '../routing/useQueryState'
 import { customerName } from '../oms/salesOrderDisplay'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
+import { LIST_TOOLBAR, LIST_TOOLBAR_INLINE, LIST_TOOLBAR_ROW, LIST_TOOLBAR_TITLE } from '../components/common/listToolbar'
 
 const PAGE_SIZE = 20
 
@@ -34,14 +36,16 @@ export default function UnmatchedSkus() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-5 py-3 border-b border-line bg-sunken shrink-0">
-        <PackageSearch size={14} className="text-warning" />
-        <h1 className="text-sm font-semibold text-ink">{t('unmatched.title')}</h1>
-      </div>
+      <div className={LIST_TOOLBAR}>
+        <div className={clsx('flex items-center gap-2 px-5 py-3 border-b border-line bg-sunken shrink-0', LIST_TOOLBAR_TITLE)}>
+          <PackageSearch size={14} className="text-warning" />
+          <h1 className="text-sm font-semibold text-ink">{t('unmatched.title')}</h1>
+        </div>
 
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{t('unmatched.count', { count: total })}</span>
-        {error && <span className="text-xs text-danger ml-auto">{error}</span>}
+        <div className={clsx('flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0', LIST_TOOLBAR_ROW)}>
+          <span className="text-xs text-ink-4">{t('unmatched.count', { count: total })}</span>
+          {error && <span className={clsx('text-xs text-danger ml-auto', LIST_TOOLBAR_INLINE)}>{error}</span>}
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto">

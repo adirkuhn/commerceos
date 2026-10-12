@@ -12,6 +12,7 @@ import { useQueryEnum, useQueryPage } from '../routing/useQueryState'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
 import { providerLabel } from '../webhooks/providerLabel'
+import { LIST_TOOLBAR, LIST_TOOLBAR_ACTION, LIST_TOOLBAR_INLINE, LIST_TOOLBAR_LEAD, LIST_TOOLBAR_ROW, LIST_TOOLBAR_TITLE } from '../components/common/listToolbar'
 
 const PAGE_SIZE = 20
 
@@ -86,39 +87,41 @@ export default function SyncLog() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
-        <h1 className="text-sm font-semibold text-ink">{t('syncLog.title')}</h1>
-        <div className="flex items-center gap-1 ml-4">
-          <button aria-pressed={view === 'all'}
-            onClick={() => switchView('all')}
-            className={clsx('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-              view === 'all' ? 'bg-accent-solid text-white' : 'text-ink-3 hover:bg-hover')}
-          >
-            {t('syncLog.all')}
-          </button>
+      {/* Toolbar -- two rows in classic, one band in depot */}
+      <div className={LIST_TOOLBAR}>
+        <div className={clsx('flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0', LIST_TOOLBAR_ROW)}>
+          <h1 className={clsx('text-sm font-semibold text-ink', LIST_TOOLBAR_TITLE)}>{t('syncLog.title')}</h1>
+          <div className={clsx('flex items-center gap-1 ml-4', LIST_TOOLBAR_INLINE)}>
+            <button aria-pressed={view === 'all'}
+              onClick={() => switchView('all')}
+              className={clsx('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                view === 'all' ? 'bg-accent-solid text-white' : 'text-ink-3 hover:bg-hover')}
+            >
+              {t('syncLog.all')}
+            </button>
+            <button
+              onClick={() => switchView('needing-attention')}
+              className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                view === 'needing-attention' ? 'bg-amber-500 text-white' : 'text-ink-3 hover:bg-hover')}
+            >
+              <AlertTriangle size={12} /> {t('syncLog.needsAttention')}
+            </button>
+          </div>
           <button
-            onClick={() => switchView('needing-attention')}
-            className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-              view === 'needing-attention' ? 'bg-amber-500 text-white' : 'text-ink-3 hover:bg-hover')}
+            onClick={refresh}
+            className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line text-xs text-ink-2 hover:bg-hover transition-colors ml-auto', LIST_TOOLBAR_ACTION)}
           >
-            <AlertTriangle size={12} /> {t('syncLog.needsAttention')}
+            <RefreshCw size={12} /> {t('common:actions.refresh')}
           </button>
         </div>
-        <button
-          onClick={refresh}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line text-xs text-ink-2 hover:bg-hover transition-colors ml-auto"
-        >
-          <RefreshCw size={12} /> {t('common:actions.refresh')}
-        </button>
-      </div>
 
-      {/* Stats strip */}
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">
-          {view === 'all' ? t('syncLog.syncCount', { count: total }) : t('syncLog.listingCount', { count: total })}
-        </span>
-        {(error || actionError) && <span className="text-xs text-danger ml-auto">{error || actionError}</span>}
+        {/* Stats strip */}
+        <div className={clsx('flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0', LIST_TOOLBAR_ROW)}>
+          <span className={clsx('text-xs text-ink-4', LIST_TOOLBAR_LEAD)}>
+            {view === 'all' ? t('syncLog.syncCount', { count: total }) : t('syncLog.listingCount', { count: total })}
+          </span>
+          {(error || actionError) && <span className={clsx('text-xs text-danger ml-auto', LIST_TOOLBAR_INLINE)}>{error || actionError}</span>}
+        </div>
       </div>
 
       {/* Table */}
