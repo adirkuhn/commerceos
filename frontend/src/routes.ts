@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react'
+import { createElement, type ComponentType } from 'react'
 import type { NavItem } from './types'
 
 import Dashboard from './pages/Dashboard'
@@ -42,6 +42,7 @@ import CustomerCohortsPage from './pages/reports/CustomerCohortsPage'
 import CustomerRFMPage from './pages/reports/CustomerRFMPage'
 import FrequentlyBoughtTogetherPage from './pages/reports/FrequentlyBoughtTogetherPage'
 import StockoutRiskPage from './pages/reports/StockoutRiskPage'
+import { ReportsShell } from './reports/ReportsShell'
 
 export interface PageRoute {
   nav: NavItem
@@ -53,6 +54,15 @@ export interface PageRoute {
 // this into <Route> elements, AppContext derives the active nav item from
 // the current URL instead of tracking it as separate state (that separate
 // state is what used to get lost on refresh).
+// Report pages share one frame (the depot design's grouped report list).
+// Wrapped once per page at module load, so the component identity is
+// stable across renders.
+function inReportsShell(Page: ComponentType): ComponentType {
+  const Wrapped = () => createElement(ReportsShell, null, createElement(Page))
+  Wrapped.displayName = `InReportsShell(${Page.displayName ?? Page.name})`
+  return Wrapped
+}
+
 export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'dashboard', path: '/', Component: Dashboard },
   { nav: 'sales-orders', path: '/sales-orders', Component: SalesOrders },
@@ -79,19 +89,19 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'sales-channels', path: '/sales-channels', Component: SalesChannels },
   { nav: 'sync-log', path: '/sync-log', Component: SyncLog },
   { nav: 'shipping', path: '/shipping', Component: Shipping },
-  { nav: 'reports-overview', path: '/reports', Component: OverviewPage },
-  { nav: 'reports-product-performance', path: '/reports/product-performance', Component: ProductPerformancePage },
-  { nav: 'reports-product-performance-matrix', path: '/reports/product-performance-matrix', Component: ProductPerformanceMatrixPage },
-  { nav: 'reports-customer-performance', path: '/reports/customer-performance', Component: CustomerPerformancePage },
-  { nav: 'reports-category-performance', path: '/reports/category-performance', Component: CategoryPerformancePage },
-  { nav: 'reports-slow-moving-products', path: '/reports/slow-moving-products', Component: SlowMovingProductsPage },
-  { nav: 'reports-inventory-sales', path: '/reports/inventory-sales', Component: InventorySalesPage },
-  { nav: 'reports-sales-trends', path: '/reports/sales-trends', Component: SalesTrendsPage },
-  { nav: 'reports-product-lifecycle', path: '/reports/product-lifecycle', Component: ProductLifecyclePage },
-  { nav: 'reports-customer-cohorts', path: '/reports/customer-cohorts', Component: CustomerCohortsPage },
-  { nav: 'reports-customer-rfm', path: '/reports/customer-rfm', Component: CustomerRFMPage },
-  { nav: 'reports-frequently-bought-together', path: '/reports/frequently-bought-together', Component: FrequentlyBoughtTogetherPage },
-  { nav: 'reports-stockout-risk', path: '/reports/stockout-risk', Component: StockoutRiskPage },
+  { nav: 'reports-overview', path: '/reports', Component: inReportsShell(OverviewPage) },
+  { nav: 'reports-product-performance', path: '/reports/product-performance', Component: inReportsShell(ProductPerformancePage) },
+  { nav: 'reports-product-performance-matrix', path: '/reports/product-performance-matrix', Component: inReportsShell(ProductPerformanceMatrixPage) },
+  { nav: 'reports-customer-performance', path: '/reports/customer-performance', Component: inReportsShell(CustomerPerformancePage) },
+  { nav: 'reports-category-performance', path: '/reports/category-performance', Component: inReportsShell(CategoryPerformancePage) },
+  { nav: 'reports-slow-moving-products', path: '/reports/slow-moving-products', Component: inReportsShell(SlowMovingProductsPage) },
+  { nav: 'reports-inventory-sales', path: '/reports/inventory-sales', Component: inReportsShell(InventorySalesPage) },
+  { nav: 'reports-sales-trends', path: '/reports/sales-trends', Component: inReportsShell(SalesTrendsPage) },
+  { nav: 'reports-product-lifecycle', path: '/reports/product-lifecycle', Component: inReportsShell(ProductLifecyclePage) },
+  { nav: 'reports-customer-cohorts', path: '/reports/customer-cohorts', Component: inReportsShell(CustomerCohortsPage) },
+  { nav: 'reports-customer-rfm', path: '/reports/customer-rfm', Component: inReportsShell(CustomerRFMPage) },
+  { nav: 'reports-frequently-bought-together', path: '/reports/frequently-bought-together', Component: inReportsShell(FrequentlyBoughtTogetherPage) },
+  { nav: 'reports-stockout-risk', path: '/reports/stockout-risk', Component: inReportsShell(StockoutRiskPage) },
   { nav: 'users', path: '/users', Component: Users },
   { nav: 'settings', path: '/settings', Component: Settings },
   { nav: 'scheduled-jobs', path: '/scheduled-jobs', Component: ScheduledJobs },
