@@ -132,7 +132,7 @@ describe('Inventory page', () => {
     renderAt(<Inventory />, '/inventory')
 
     expect(await screen.findByText('Widget')).toBeInTheDocument()
-    expect(await screen.findByText('USD 10.00')).toBeInTheDocument()
+    expect(await screen.findByText('$10.00')).toBeInTheDocument()
     expect(await screen.findByText('10')).toBeInTheDocument()
     // No sale price on this fixture -- shown as a dash, not blank.
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)

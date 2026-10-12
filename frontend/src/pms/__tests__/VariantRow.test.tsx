@@ -88,15 +88,15 @@ describe('VariantRow summary', () => {
     renderRow(variant())
     expect(screen.getByText('Large')).toBeInTheDocument()
     expect(screen.getByText('TSHIRT-1')).toBeInTheDocument()
-    expect(screen.getByText('USD 19.99')).toBeInTheDocument()
+    expect(screen.getByText('$19.99')).toBeInTheDocument()
     expect(screen.getByText('active')).toBeInTheDocument()
     expect(await screen.findByText('7 in stock')).toBeInTheDocument()
   })
 
   it('shows the sale price struck-through pricing with its end date', () => {
     renderRow(variant([{ ...sku, sale_price_minor_units: 1500, sale_end_date: '2026-12-31' }]))
-    expect(screen.getByText('USD 19.99')).toHaveClass('line-through')
-    expect(screen.getByText('USD 15.00')).toBeInTheDocument()
+    expect(screen.getByText('$19.99').closest('.line-through')).toHaveClass('line-through')
+    expect(screen.getByText('$15.00')).toBeInTheDocument()
     expect(screen.getByText('until 2026-12-31')).toBeInTheDocument()
   })
 

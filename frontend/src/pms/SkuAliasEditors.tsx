@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import * as pmsApi from './api'
 import type { SKUCurrencyPrice, BarcodeAlias, ScaleCodeAlias } from './types'
-import { CURRENCIES, formatPrice, normalizeScaleCodeInput } from './productFormat'
+import { CURRENCIES, normalizeScaleCodeInput } from './productFormat'
+import { Money, useMoneyFormat } from '../format/amountVisibility'
 import { apiErrorText } from '../api/apiErrorText'
 
 // SKUCurrencyPricesEditor manages this SKU's manual per-currency price
@@ -14,6 +15,7 @@ import { apiErrorText } from '../api/apiErrorText'
 export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
   const { token } = useAuth()
   const { t } = useTranslation(['pms', 'common'])
+  const formatMoney = useMoneyFormat()
   const [open, setOpen] = useState(false)
   const [prices, setPrices] = useState<SKUCurrencyPrice[]>([])
   const [loading, setLoading] = useState(false)
@@ -85,8 +87,8 @@ export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
           {prices.map(p => (
             <div key={p.currency_code} className="flex items-center justify-between text-2xs text-ink-2">
               <span>
-                {p.currency_code}: {formatPrice(p.price_minor_units, p.currency_code)}
-                {p.sale_price_minor_units != null && t('alias.sale', { price: formatPrice(p.sale_price_minor_units, p.currency_code) })}
+                {p.currency_code}: <Money minor={p.price_minor_units} currency={p.currency_code} />
+                {p.sale_price_minor_units != null && t('alias.sale', { price: formatMoney(p.sale_price_minor_units, p.currency_code) })}
               </span>
               <button type="button" onClick={() => handleDelete(p.currency_code)} className="text-2xs text-ink-4 hover:text-danger transition-colors">
                 {t('common:actions.delete')}

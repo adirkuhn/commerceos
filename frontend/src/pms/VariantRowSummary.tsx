@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { Package, Trash2, Edit3 } from 'lucide-react'
 import clsx from 'clsx'
-import { SKU_STATUS_STYLES, formatPrice } from './productFormat'
+import { SKU_STATUS_STYLES } from './productFormat'
+import { Money } from '../format/amountVisibility'
 import { StockBadge } from './VariantsSection'
 import type { Media, SKU, VariantWithSKUs } from './types'
 
@@ -53,10 +54,10 @@ export function VariantRowSummary({ variant, sku, selectedImage, canPickImage, o
       {sku && sku.sale_price_minor_units != null ? (
         <span className="flex items-center gap-1.5 shrink-0">
           <span className="text-2xs text-ink-4 line-through">
-            {formatPrice(sku.price_minor_units, sku.currency_code)}
+            <Money minor={sku.price_minor_units} currency={sku.currency_code} />
           </span>
           <span className="text-xs font-medium text-success">
-            {formatPrice(sku.sale_price_minor_units, sku.currency_code)}
+            <Money minor={sku.sale_price_minor_units} currency={sku.currency_code} />
           </span>
           {sku.sale_end_date && (
             <span className="text-2xs text-ink-4">{t('variant.until', { date: sku.sale_end_date })}</span>
@@ -64,7 +65,7 @@ export function VariantRowSummary({ variant, sku, selectedImage, canPickImage, o
         </span>
       ) : sku && (
         <span className="text-xs font-medium text-ink shrink-0">
-          {formatPrice(sku.price_minor_units, sku.currency_code)}
+          <Money minor={sku.price_minor_units} currency={sku.currency_code} />
         </span>
       )}
       {sku && (

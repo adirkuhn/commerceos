@@ -11,7 +11,8 @@ import { useProductDetail } from '../pms/hooks/useProductDetail'
 import * as inventoryApi from './api'
 import type { SKU } from '../pms/types'
 import type { Batch } from './types'
-import { LOW_STOCK_THRESHOLD, formatPrice } from './inventoryFormat'
+import { LOW_STOCK_THRESHOLD } from './inventoryFormat'
+import { Money } from '../format/amountVisibility'
 import { SKUStockPanel } from './SKUStockPanel'
 import { useOnStockInvalidated } from './stockInvalidation'
 import { useDateFormat } from '../format/DateFormatProvider'
@@ -110,12 +111,11 @@ export function ProductStockRow({ token, productId, productName, productImageUrl
         <td className="px-3 py-2.5 font-medium text-ink">{productName || detail?.product.name}</td>
         <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
           {singleSKU ? (
-            <span className="text-xs text-ink-2">{formatPrice(singleSKU.price_minor_units, singleSKU.currency_code)}</span>
+            <span className="text-xs text-ink-2"><Money minor={singleSKU.price_minor_units} currency={singleSKU.currency_code} /></span>
           ) : priceRange ? (
             <span className="text-xs text-ink-2">
-              {priceRange[0] === priceRange[1]
-                ? formatPrice(priceRange[0], skus[0].currency_code)
-                : `${formatPrice(priceRange[0], skus[0].currency_code)} – ${formatPrice(priceRange[1], skus[0].currency_code)}`}
+              <Money minor={priceRange[0]} currency={skus[0].currency_code} />
+              {priceRange[0] !== priceRange[1] && <> – <Money minor={priceRange[1]} currency={skus[0].currency_code} /></>}
             </span>
           ) : (
             <span className="text-xs text-ink-4">—</span>
@@ -124,7 +124,7 @@ export function ProductStockRow({ token, productId, productName, productImageUrl
         <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
           {singleSKU && singleSKU.sale_price_minor_units != null ? (
             <span className="flex items-center gap-1">
-              <span className="text-xs font-medium text-success">{formatPrice(singleSKU.sale_price_minor_units, singleSKU.currency_code)}</span>
+              <span className="text-xs font-medium text-success"><Money minor={singleSKU.sale_price_minor_units} currency={singleSKU.currency_code} /></span>
               {singleSKU.sale_end_date && (
                 <span className="text-2xs text-ink-4">{t('row.saleUntil', { date: formatDate(singleSKU.sale_end_date) })}</span>
               )}

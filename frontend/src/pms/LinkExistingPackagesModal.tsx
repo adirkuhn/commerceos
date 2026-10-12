@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../inventory/components/Modal'
-import { formatMoney } from '../format/money'
+import { Money, useMoneyFormat } from '../format/amountVisibility'
 import * as pmsApi from './api'
 import type { LinkExistingWeightPackagesResult } from './types'
 import { apiErrorText } from '../api/apiErrorText'
@@ -17,6 +17,7 @@ export function LinkExistingPackagesModal({ token, bulkSkuId, currencyCode, onLi
   onClose: () => void
 }) {
   const { t } = useTranslation(['pms', 'common'])
+  const formatMoney = useMoneyFormat()
   const [preview, setPreview] = useState<LinkExistingWeightPackagesResult | null>(null)
   const [done, setDone] = useState<LinkExistingWeightPackagesResult | null>(null)
   const [linking, setLinking] = useState(false)
@@ -58,7 +59,7 @@ export function LinkExistingPackagesModal({ token, bulkSkuId, currencyCode, onLi
               <li key={p.sku_id} className="flex items-center justify-between gap-2 px-2 py-1">
                 <span className="text-ink-2">{p.variant_name} <span className="text-ink-4">{p.sku_code}</span></span>
                 <span className="text-ink-3">
-                  {p.price_changed ? t('split.linkPriceChanged', { price: formatMoney(p.price_minor_units, currencyCode) }) : formatMoney(p.price_minor_units, currencyCode)}
+                  {p.price_changed ? t('split.linkPriceChanged', { price: formatMoney(p.price_minor_units, currencyCode) }) : <Money minor={p.price_minor_units} currency={currencyCode} />}
                 </span>
               </li>
             ))}

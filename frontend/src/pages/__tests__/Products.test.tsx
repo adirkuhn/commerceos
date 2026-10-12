@@ -8,6 +8,7 @@ import i18next from 'i18next'
 import Products from '../Products'
 import { renderAt } from '../../test/renderAt'
 import { AppProvider, useApp } from '../../context/AppContext'
+import { AmountVisibilityProvider, maskMoney } from '../../format/amountVisibility'
 import type { Product, ProductDetail, Category } from '../../pms/types'
 import type { Connection } from '../../integrations/types'
 
@@ -269,6 +270,20 @@ describe('product list', () => {
 
     await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalledWith('test-token', 'prod-1'))
     expect(screen.getByDisplayValue('T-Shirt')).toBeInTheDocument()
+  })
+
+  it('hides prices while amounts are hidden; revealing one does not open the product', async () => {
+    mockPaginatedProducts([product({ price_minor_units: 1999, sale_price_minor_units: 1499, currency_code: 'USD' })])
+
+    render(<AmountVisibilityProvider><MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter></AmountVisibilityProvider>)
+
+    expect(await screen.findByText('T-Shirt')).toBeInTheDocument()
+    expect(screen.queryByText('$19.99')).not.toBeInTheDocument()
+    expect(screen.queryByText('$14.99')).not.toBeInTheDocument()
+    expect(screen.getAllByText(maskMoney('USD'))).toHaveLength(2)
+    await userEvent.click(screen.getAllByRole('button', { name: 'Show amount' })[0])
+    expect(screen.getByText('$19.99')).toBeInTheDocument()
+    expect(pmsApi.getProduct).not.toHaveBeenCalled()
   })
 
   it('a product with history cannot be deleted: offers to archive it instead', async () => {
@@ -1298,9 +1313,9 @@ describe('SKU currency overrides (VariantRow)', () => {
     expect(pmsApi.listSKUCurrencyPrices).not.toHaveBeenCalled()
 
     await userEvent.click(screen.getByRole('button', { name: /currency overrides/i }))
-    expect(await screen.findByText(/USD.*21\.99/)).toBeInTheDocument()
+    expect(await screen.findByText(/\$21\.99/)).toBeInTheDocument()
 
-    const overridesPanel = screen.getByText(/USD.*21\.99/).closest('div')!.parentElement!
+    const overridesPanel = screen.getByText(/\$21\.99/).closest('div')!.parentElement!
     await userEvent.selectOptions(within(overridesPanel).getByLabelText('Currency'), 'GBP')
     await userEvent.type(within(overridesPanel).getByPlaceholderText('0.00'), '17.99')
     await userEvent.click(within(overridesPanel).getByRole('button', { name: 'Add / update' }))
@@ -1326,12 +1341,12 @@ describe('SKU currency overrides (VariantRow)', () => {
     await screen.findByText('378g')
     await userEvent.click(screen.getByRole('button', { name: 'Edit variant' }))
     await userEvent.click(await screen.findByRole('button', { name: /currency overrides/i }))
-    await screen.findByText(/USD.*21\.99/)
+    await screen.findByText(/\$21\.99/)
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => expect(pmsApi.deleteSKUCurrencyPrice).toHaveBeenCalledWith('test-token', 'sku-1', 'USD'))
-    expect(screen.queryByText(/USD.*21\.99/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\$21\.99/)).not.toBeInTheDocument()
   })
 })
 
@@ -2296,8 +2311,8 @@ describe('Margin insight shows both markup and profit, with and without BTW', ()
     // prices_include_tax:true; at 25% rate: excl. = 1000 (profit 200, 20.0%
     // margin / 25.0% markup), incl. = 1250 (profit 450, 36.0% margin / 56.3%
     // markup, matching the backend-supplied top-line figures).
-    expect(await screen.findByText(/Excl\. BTW: USD 2\.00 \(20\.0% margin \/ 25\.0% markup\)/)).toBeInTheDocument()
-    expect(screen.getByText(/Incl\. BTW: USD 4\.50 \(36\.0% margin \/ 56\.3% markup\)/)).toBeInTheDocument()
+    expect(await screen.findByText(/Excl\. BTW: \$2\.00 \(20\.0% margin \/ 25\.0% markup\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Incl\. BTW: \$4\.50 \(36\.0% margin \/ 56\.3% markup\)/)).toBeInTheDocument()
   })
 })
 
@@ -2332,7 +2347,7 @@ describe('Price history card', () => {
     expect(screen.getByText('Current')).toBeInTheDocument()
     expect(screen.getByText('Manual edit')).toBeInTheDocument()
     expect(screen.getByText('Created')).toBeInTheDocument()
-    expect(screen.getByText('USD 7.99')).toBeInTheDocument()
+    expect(screen.getByText('$7.99')).toBeInTheDocument()
   })
 
   it('shows an error if loading price history fails', async () => {

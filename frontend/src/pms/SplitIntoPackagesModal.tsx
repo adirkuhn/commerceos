@@ -8,7 +8,7 @@ import * as pmsApi from './api'
 import type { Batch } from '../inventory/types'
 import type { PackedWeightLine } from './types'
 import { useDateFormat } from '../format/DateFormatProvider'
-import { formatMoney } from '../format/money'
+import { useMoneyFormat } from '../format/amountVisibility'
 import { addPackageLine, formatKg, packagePriceMinorUnits, summarizePackages, type PackageLine } from './weightPackages'
 import { apiErrorText } from '../api/apiErrorText'
 
@@ -37,6 +37,7 @@ export function SplitIntoPackagesModal({
   onClose: () => void
 }) {
   const { t } = useTranslation(['pms', 'common'])
+  const formatMoney = useMoneyFormat()
   const { formatDate } = useDateFormat()
   const { warehouses } = useWarehouses(token)
   const [sources, setSources] = useState<Batch[] | null>(null)

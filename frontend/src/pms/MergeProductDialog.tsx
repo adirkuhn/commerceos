@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { ArrowRight, X } from 'lucide-react'
 import { Dialog } from '../components/common/Dialog'
 import { useConfirm } from '../components/common/useConfirm'
-import { formatMoney } from '../format/money'
+import { Money } from '../format/amountVisibility'
 import * as api from './api'
 import { useProductMerge } from './hooks/useProductMerge'
 import type { MergePreviewSKU, Product, ProductMergeResult } from './types'
@@ -36,7 +36,7 @@ export function MergeProductDialog({ token, duplicate, currency, targetId, onCho
 
   const targetName = preview?.target.name ?? ''
   const nameConfirmed = targetName !== '' && typedName.trim() === targetName
-  const money = (v?: number | null) => (v == null ? t('merge.unknown') : formatMoney(v, currency))
+  const money = (v?: number | null) => (v == null ? t('merge.unknown') : <Money minor={v} currency={currency} />)
 
   const handleMerge = async () => {
     if (!(await confirm({

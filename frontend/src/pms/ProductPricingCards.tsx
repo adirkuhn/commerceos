@@ -4,7 +4,8 @@ import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as pmsApi from './api'
 import type { Category, SKUMarginInsight, SKUPriceHistoryEntry, SKUPriceHistoryReason, ProductHistoryEntry } from './types'
-import { formatPrice, parsePriceToMinorUnits } from './productFormat'
+import { parsePriceToMinorUnits } from './productFormat'
+import { Money, useMoneyFormat } from '../format/amountVisibility'
 import { FormCard } from './FormCard'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
@@ -56,7 +57,9 @@ export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesI
 
   useEffect(reload, [token, skuId])
 
-  const money = (minorUnits: number) => formatPrice(minorUnits, currency)
+  const formatMoney = useMoneyFormat()
+  const money = (minorUnits: number) => <Money minor={minorUnits} currency={currency} />
+  const moneyText = (minorUnits: number) => formatMoney(minorUnits, currency)
   const pct = (basisPoints: number) => `${(basisPoints / 100).toFixed(1)}%`
 
   // withBoth derives the excl./incl.-BTW pair for one selling price, given
@@ -79,9 +82,9 @@ export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesI
         </div>
         {both && (
           <div className="text-2xs text-ink-4 mt-0.5">
-            {t('insight.exclBtw', { profit: money(both.exclusive.profit), margin: pct(both.exclusive.marginBasisPoints), markup: pct(both.exclusive.markupBasisPoints) })}
+            {t('insight.exclBtw', { profit: moneyText(both.exclusive.profit), margin: pct(both.exclusive.marginBasisPoints), markup: pct(both.exclusive.markupBasisPoints) })}
             {' · '}
-            {t('insight.inclBtw', { profit: money(both.inclusive.profit), margin: pct(both.inclusive.marginBasisPoints), markup: pct(both.inclusive.markupBasisPoints) })}
+            {t('insight.inclBtw', { profit: moneyText(both.inclusive.profit), margin: pct(both.inclusive.marginBasisPoints), markup: pct(both.inclusive.markupBasisPoints) })}
           </div>
         )}
       </div>
@@ -173,7 +176,7 @@ export function PriceHistoryCard({ skuId, currency }: { skuId: string; currency:
     return () => { cancelled = true }
   }, [token, skuId])
 
-  const money = (minorUnits: number) => formatPrice(minorUnits, currency)
+  const money = (minorUnits: number) => <Money minor={minorUnits} currency={currency} />
 
   return (
     <FormCard title={t('priceHistory.title')} description={t('priceHistory.description')}>

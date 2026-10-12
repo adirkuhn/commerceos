@@ -12,7 +12,8 @@ import * as pmsApi from '../pms/api'
 import { CodedApiError } from '../api/codedApiError'
 import type { Product, UpdateProductPayload } from '../pms/types'
 import { useConfirm } from '../components/common/useConfirm'
-import { STATUS_STYLES, formatPrice } from '../pms/productFormat'
+import { STATUS_STYLES } from '../pms/productFormat'
+import { Money } from '../format/amountVisibility'
 import { ProductEditPage } from '../pms/ProductEditPage'
 import { apiErrorText } from '../api/apiErrorText'
 const PAGE_SIZE = 20
@@ -211,11 +212,11 @@ export default function Products() {
                 </td>
                 <td className="px-3 py-2.5 text-ink-3">{categoryName(p.category_id)}</td>
                 <td className="px-3 py-2.5 text-ink-2">
-                  {p.price_minor_units != null ? formatPrice(p.price_minor_units, p.currency_code ?? '') : '—'}
+                  {p.price_minor_units != null ? <Money minor={p.price_minor_units} currency={p.currency_code ?? ''} /> : '—'}
                 </td>
                 <td className="px-3 py-2.5">
                   {p.sale_price_minor_units != null ? (
-                    <span className="text-danger font-medium">{formatPrice(p.sale_price_minor_units, p.currency_code ?? '')}</span>
+                    <span className="text-danger font-medium"><Money minor={p.sale_price_minor_units} currency={p.currency_code ?? ''} /></span>
                   ) : (
                     <span className="text-ink-4">—</span>
                   )}
