@@ -69,7 +69,8 @@ export default function Webhooks() {
 
   return (
     <div className="flex flex-col p-5 gap-4">
-      <div className="flex items-center gap-2.5">
+      {/* The depot Topbar already names the page. */}
+      <div className="flex items-center gap-2.5 depot:hidden">
         <div className="w-8 h-8 rounded-lg dark:bg-accent/15 bg-accent/10 flex items-center justify-center shrink-0">
           <Webhook size={15} className="text-accent" />
         </div>

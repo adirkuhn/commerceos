@@ -123,6 +123,31 @@ export default function Sidebar() {
     )
   }
 
+  function renderGroup(group: NavGroup) {
+    if (group.flat) return <div key={group.id} className="pt-3 depot:pt-2 space-y-0.5">{group.items.map(renderLink)}</div>
+    const expanded = open.has(group.id)
+    const listId = `nav-group-${group.id}`
+    const Chevron = expanded ? ChevronDown : ChevronRight
+    return (
+      <div key={group.id} className="pt-3 depot:pt-2">
+        <button
+          onClick={() => toggle(group.id)}
+          aria-expanded={expanded}
+          aria-controls={listId}
+          className={clsx('w-full flex items-center gap-1 px-2.5 py-1 rounded-md text-left font-semibold', style.groupHeader)}
+        >
+          <span className="flex-1">{group.label}</span>
+          <Chevron size={12} aria-hidden />
+        </button>
+        {expanded && (
+          <div id={listId} className="mt-0.5 space-y-0.5">
+            {group.items.map(renderLink)}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <aside className={clsx('w-60 shrink-0 flex flex-col h-full', style.aside)}>
       <div className={clsx('h-14 flex items-center gap-2 px-4 shrink-0', style.brandRow)}>
@@ -132,32 +157,16 @@ export default function Sidebar() {
         <span className={clsx('font-semibold text-sm tracking-tight', style.brandName)}>CommerceOS</span>
       </div>
 
-      <nav aria-label={t('ui.mainNav')} className="flex-1 flex flex-col overflow-y-auto py-3 px-2 space-y-0.5">
-        {renderLink(homeLink(design))}
-        {groups.map(group => {
-          if (group.flat) return <div key={group.id} className="pt-3 depot:pt-2 space-y-0.5">{group.items.map(renderLink)}</div>
-          const expanded = open.has(group.id)
-          const listId = `nav-group-${group.id}`
-          const Chevron = expanded ? ChevronDown : ChevronRight
-          return (
-            <div key={group.id} className={clsx('pt-3 depot:pt-2', design === 'depot' && group.id === 'setup' && 'mt-auto')}>
-              <button
-                onClick={() => toggle(group.id)}
-                aria-expanded={expanded}
-                aria-controls={listId}
-                className={clsx('w-full flex items-center gap-1 px-2.5 py-1 rounded-md text-left font-semibold', style.groupHeader)}
-              >
-                <span className="flex-1">{group.label}</span>
-                <Chevron size={12} aria-hidden />
-              </button>
-              {expanded && (
-                <div id={listId} className="mt-0.5 space-y-0.5">
-                  {group.items.map(renderLink)}
-                </div>
-              )}
-            </div>
-          )
-        })}
+      <nav aria-label={t('ui.mainNav')} className="flex-1 min-h-0 flex flex-col">
+        <div data-testid="nav-scroll" className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+          {renderLink(homeLink(design))}
+          {groups.filter(g => !g.pinned).map(renderGroup)}
+        </div>
+        {groups.some(g => g.pinned) && (
+          <div data-testid="nav-pinned" className={clsx('shrink-0 px-2 pb-2 max-h-[50%] overflow-y-auto', style.accountRow)}>
+            {groups.filter(g => g.pinned).map(renderGroup)}
+          </div>
+        )}
       </nav>
 
       <AccountMenu role={user?.role} style={style} />

@@ -25,6 +25,8 @@ export interface NavGroup {
   qualifyTitles?: boolean
   // Rendered as plain top-level links, without a group heading.
   flat?: boolean
+  // Kept below the scrolling list (always on screen), above the account.
+  pinned?: boolean
 }
 
 // Single source for navigation: the Sidebar renders it, the Topbar takes
@@ -140,7 +142,7 @@ export function navGroupsForRole(role?: string, design: Design = 'classic'): Nav
     SETTINGS_LINK,
   ]
   if (design === 'depot') {
-    return [...DEPOT_GROUPS, group('setup', () => i18next.t('layout:group.setup'), [L.salesChannels, L.integrations, L.webhooks, L.syncLog, ...admin], { collapsedByDefault: true })]
+    return [...DEPOT_GROUPS, group('setup', () => i18next.t('layout:group.setup'), [L.salesChannels, L.integrations, L.webhooks, L.syncLog, ...admin], { collapsedByDefault: true, pinned: true })]
   }
   return [...CLASSIC_GROUPS, group('admin', () => i18next.t('layout:group.admin'), admin)]
 }

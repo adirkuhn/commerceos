@@ -101,6 +101,7 @@ describe('depot navigation', () => {
   it('puts setup pages in their own group, collapsed until needed', () => {
     const setup = navGroupsForRole('super_admin', 'depot').find(g => g.id === 'setup')
     expect(setup?.collapsedByDefault).toBe(true)
+    expect(setup?.pinned).toBe(true)
     expect(setup?.items.map(i => i.id)).toEqual(
       expect.arrayContaining(['sales-channels', 'integrations', 'webhooks', 'sync-log', 'users', 'scheduled-jobs', 'settings']),
     )

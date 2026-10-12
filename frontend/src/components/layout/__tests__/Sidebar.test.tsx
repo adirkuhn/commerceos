@@ -206,6 +206,13 @@ describe('Sidebar depot navigation', () => {
     expect(screen.getByRole('button', { name: 'Webhooks' })).toBeInTheDocument()
   })
 
+  it('pins Setup below the scrolling list, so it is reachable on short screens', () => {
+    renderSidebar('/')
+    const pinned = screen.getByTestId('nav-pinned')
+    expect(within(pinned).getByRole('button', { name: 'Setup' })).toBeInTheDocument()
+    expect(within(screen.getByTestId('nav-scroll')).queryByRole('button', { name: 'Setup' })).not.toBeInTheDocument()
+  })
+
   it('opens Setup when a setup page is the current page', () => {
     renderSidebar('/webhooks')
     expect(screen.getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'page')
