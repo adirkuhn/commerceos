@@ -1,11 +1,5 @@
 {
   "channelManual": "Manual",
-  "channels": {
-    "empty": "No sales yet this month.",
-    "revenue": "Revenue",
-    "sub": "This month",
-    "title": "Sales by channel"
-  },
   "errors": {
     "unknown": "Unknown error"
   },
@@ -27,8 +21,6 @@
     "ordersSub": "all time",
     "products": "Total products",
     "productsSub": "across all channels",
-    "revenue": "Est. revenue",
-    "revenueSub": "this month",
     "stock": "Total stock",
     "stockIssues": "Stock Issues",
     "stockIssuesSub": "orders need stock resolution",
@@ -72,8 +64,39 @@
     "writeOffExpired": "Write off expired batches",
     "resolveStock": "Resolve stock issues",
     "matchSkus": "Match SKUs",
-    "thisMonth": "This month",
-    "revenue": "Revenue",
-    "revenueSub": "Not counting pending, cancelled, refunded or failed orders"
+    "thisMonth": "This month"
+  },
+  "sales": {
+    "title": "Sales",
+    "periodLabel": "Sales period",
+    "byChannel": "By channel",
+    "excludes": "Not counting pending, cancelled, refunded or failed orders",
+    "orders_one": "{{count}} order",
+    "orders_other": "{{count}} orders",
+    "period": {
+      "today": "Today",
+      "this_week": "This week",
+      "this_month": "This month"
+    },
+    "previous": {
+      "today": "Yesterday",
+      "this_week": "Last week",
+      "this_month": "Last month"
+    },
+    "vs": {
+      "today": "{{value}} vs yesterday",
+      "this_week": "{{value}} vs last week",
+      "this_month": "{{value}} vs last month"
+    },
+    "noPrevious": {
+      "today": "No sales yesterday to compare with",
+      "this_week": "No sales last week to compare with",
+      "this_month": "No sales last month to compare with"
+    },
+    "empty": {
+      "today": "No sales yet today.",
+      "this_week": "No sales yet this week.",
+      "this_month": "No sales yet this month."
+    }
   }
 }

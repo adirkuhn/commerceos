@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { APIResponse, DashboardStatsReport } from '../types'
+import type { APIResponse, DashboardStatsReport, SalesComparison } from '../types'
 
 const TOKEN = 'test-token'
 
@@ -69,5 +69,27 @@ describe('getTodayQueue', () => {
   it('throws the coded API error on failure', async () => {
     mockFetchError('INTERNAL', 'internal server error')
     await expect(api.getTodayQueue(TOKEN)).rejects.toThrow()
+  })
+})
+
+describe('getSalesComparison', () => {
+  const comparison: SalesComparison = {
+    period: 'this_week', currency_code: 'EUR', change_percent: 20,
+    current: { from: '2026-10-11T00:00:00+02:00', to: '2026-10-14T09:00:00+02:00', revenue_minor_units: 12000, order_count: 6, by_channel: [] },
+    previous: { from: '2026-10-04T00:00:00+02:00', to: '2026-10-11T00:00:00+02:00', revenue_minor_units: 10000, order_count: 5, by_channel: [] },
+  }
+
+  it('GETs /dashboard/sales for the period with the bearer token', async () => {
+    mockFetch(comparison)
+    const result = await api.getSalesComparison(TOKEN, 'this_week')
+    expect(result).toEqual(comparison)
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toMatch(/\/dashboard\/sales\?period=this_week$/)
+    expect((init as RequestInit).headers).toMatchObject({ Authorization: `Bearer ${TOKEN}` })
+  })
+
+  it('throws the coded API error on failure', async () => {
+    mockFetchError('SALES_PERIOD_INVALID', 'sales period must be today, this_week or this_month', 422)
+    await expect(api.getSalesComparison(TOKEN, 'today')).rejects.toThrow()
   })
 })

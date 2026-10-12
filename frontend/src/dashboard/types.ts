@@ -47,3 +47,24 @@ export interface TodayQueue {
   expired_batches: number
   ship_today: number
 }
+
+// GET /dashboard/sales -- the sales card: the period so far against the
+// whole previous period (backend api/dashboard/openapi.yaml SalesComparison).
+export type SalesPeriod = 'today' | 'this_week' | 'this_month'
+
+export interface SalesFigures {
+  from: string
+  to: string
+  revenue_minor_units: number
+  order_count: number
+  by_channel: ChannelRevenue[]
+}
+
+export interface SalesComparison {
+  period: SalesPeriod
+  currency_code: string
+  current: SalesFigures
+  previous: SalesFigures
+  // Percent (20 = 20% more); null when the previous period sold nothing.
+  change_percent: number | null
+}

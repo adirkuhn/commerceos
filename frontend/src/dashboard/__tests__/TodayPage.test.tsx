@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppProvider } from '../../context/AppContext'
 import { AmountVisibilityProvider } from '../../format/amountVisibility'
-import type { DashboardStatsReport, TodayQueue } from '../types'
+import type { DashboardStatsReport, SalesComparison, TodayQueue } from '../types'
 
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
@@ -14,6 +14,7 @@ vi.mock('../../auth/AuthContext', () => ({
 vi.mock('../api', () => ({
   getTodayQueue: vi.fn(),
   getDashboardStats: vi.fn(),
+  getSalesComparison: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -35,6 +36,11 @@ function report(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsRe
     stock_flow_last_7_days: [], sales_by_channel_this_month: [], top_products_this_month: [],
     ...overrides,
   }
+}
+
+function sales(overrides: Partial<SalesComparison> = {}): SalesComparison {
+  const figures = { from: '', to: '', revenue_minor_units: 0, order_count: 0, by_channel: [] }
+  return { period: 'this_month', currency_code: 'EUR', change_percent: null, current: figures, previous: figures, ...overrides }
 }
 
 function Where() {
@@ -59,6 +65,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
   vi.mocked(api.getDashboardStats).mockResolvedValue(report())
+  vi.mocked(api.getSalesComparison).mockResolvedValue(sales())
 })
 
 describe('TodayPage work queue', () => {
@@ -148,15 +155,18 @@ describe('TodayPage needs attention', () => {
 })
 
 describe('TodayPage money', () => {
-  it('hides this month\'s revenue until revealed', async () => {
+  it('hides the sales card\'s revenue until revealed, but shows the change', async () => {
     vi.mocked(api.getTodayQueue).mockResolvedValue(queue())
-    vi.mocked(api.getDashboardStats).mockResolvedValue(report({ revenue_this_month_minor_units: 123456 }))
+    vi.mocked(api.getSalesComparison).mockResolvedValue(sales({
+      change_percent: 8,
+      current: { from: '', to: '', revenue_minor_units: 123456, order_count: 2, by_channel: [] },
+    }))
     renderToday({ privacy: true })
 
-    const reveal = await screen.findByRole('button', { name: 'Show amount' })
+    expect(await screen.findByText('+8% vs last month')).toBeInTheDocument()
     expect(screen.queryByText(/1,234\.56/)).not.toBeInTheDocument()
 
-    await userEvent.click(reveal)
+    await userEvent.click(screen.getAllByRole('button', { name: 'Show amount' })[0])
 
     expect(screen.getByText(/1,234\.56/)).toBeInTheDocument()
   })

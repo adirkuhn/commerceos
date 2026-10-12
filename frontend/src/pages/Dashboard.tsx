@@ -2,14 +2,14 @@ import type { ReactNode } from 'react'
 import {
   AlertCircle,
   Package, Warehouse, ShoppingCart, AlertTriangle,
-  TrendingUp, TrendingDown, XCircle, DollarSign,
+  TrendingUp, TrendingDown, XCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useDashboardStats } from '../dashboard/hooks/useDashboardStats'
-import { ChannelSalesPanel, ExpiringSoonWidget, StockFlowPanel, TopProductsPanel } from '../dashboard/widgets'
-import { Money } from '../format/amountVisibility'
+import { SalesPeriodCard } from '../dashboard/SalesPeriodCard'
+import { ExpiringSoonWidget, StockFlowPanel, TopProductsPanel } from '../dashboard/widgets'
 
 interface StatCardProps {
   label: string
@@ -77,27 +77,19 @@ export default function Dashboard() {
   return (
     <div className="p-5 space-y-5 overflow-auto h-full">
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard label={t('stats.products')} value={stats?.totalProducts.toLocaleString()} sub={t('stats.productsSub')} icon={Package} color="blue" />
         <StatCard label={t('stats.stock')} value={stats?.totalStockUnits.toLocaleString()} sub={t('stats.stockSub')} icon={Warehouse} color="green" />
         <StatCard label={t('stats.orders')} value={stats?.totalOrders.toLocaleString()} sub={t('stats.ordersSub')} icon={ShoppingCart} color="blue" />
         <StatCard label={t('stats.stockIssues')} value={stats?.stockIssues.toLocaleString()} sub={t('stats.stockIssuesSub')} icon={ShoppingCart} color="amber" />
         <StatCard label={t('stats.expiring')} value={stats?.expiringSoon.toLocaleString()} sub={t('stats.expiringSub')} icon={AlertTriangle} color="amber" />
         <StatCard label={t('stats.expired')} value={stats?.expired.toLocaleString()} sub={t('stats.expiredSub')} icon={XCircle} color="red" alert={(stats?.expired ?? 0) > 0} />
-        <StatCard
-          label={t('stats.revenue')}
-          value={stats ? <Money minor={stats.revenueThisMonthMinorUnits} currency={currency} /> : undefined}
-          sub={t('stats.revenueSub')}
-          icon={DollarSign}
-          color="green"
-        />
       </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <StockFlowPanel flow={stats?.stockFlowLast7Days ?? []} className="lg:col-span-2" />
-        <ChannelSalesPanel channels={stats?.salesByChannelThisMonth ?? []} currency={currency} />
-      </div>
+      {/* Sales and stock flow */}
+      <SalesPeriodCard />
+
+      <StockFlowPanel flow={stats?.stockFlowLast7Days ?? []} />
 
       {/* Bottom row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -6,16 +6,17 @@ import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { formatLongDay } from '../format/date'
-import { Money } from '../format/amountVisibility'
 import { inventoryPaths } from '../inventory/inventoryRoutes'
 import { navItemToPath } from '../routes'
 import { useToday } from './hooks/useToday'
 import type { TodayQueue } from './types'
-import { ChannelSalesPanel, StockFlowPanel, TopProductsPanel } from './widgets'
+import { SalesPeriodCard } from './SalesPeriodCard'
+import { StockFlowPanel, TopProductsPanel } from './widgets'
 
 // The depot design's home: what the shop has to do now. A dispatch board
 // with the three daily queues (pick, pack, ship today), then only the problems that exist right now
-// -- each with the action that clears it -- then this month's figures.
+// -- each with the action that clears it -- then sales (today, this week or
+// this month against the previous one) and this month's figures.
 
 interface QueueCounterProps {
   count: number | undefined
@@ -147,17 +148,11 @@ export default function TodayPage() {
         )}
       </section>
 
+      <SalesPeriodCard />
+
       <section aria-labelledby="today-month" className="space-y-4">
         <h3 id="today-month" className="text-sm font-semibold text-ink">{t('today.thisMonth')}</h3>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-          <div className="bg-raised rounded-xl p-4 border border-line">
-            <p className="text-xs text-ink-3">{t('today.revenue')}</p>
-            <p className="mt-2 font-data text-3xl font-semibold text-ink">
-              {report ? <Money minor={report.revenue_this_month_minor_units} currency={currency} /> : '–'}
-            </p>
-            <p className="mt-1 text-xs text-ink-4">{t('today.revenueSub')}</p>
-          </div>
-          <ChannelSalesPanel channels={report?.sales_by_channel_this_month ?? []} currency={currency} className="lg:col-span-2" />
           <TopProductsPanel products={report?.top_products_this_month ?? []} currency={currency} className="lg:col-span-2" />
           <StockFlowPanel flow={report?.stock_flow_last_7_days ?? []} />
         </div>

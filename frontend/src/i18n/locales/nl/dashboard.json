@@ -1,11 +1,5 @@
 {
   "channelManual": "Handmatig",
-  "channels": {
-    "empty": "Deze maand nog geen verkopen.",
-    "revenue": "Omzet",
-    "sub": "Deze maand",
-    "title": "Verkoop per kanaal"
-  },
   "errors": {
     "unknown": "Onbekende fout"
   },
@@ -27,8 +21,6 @@
     "ordersSub": "sinds het begin",
     "products": "Totaal producten",
     "productsSub": "over alle kanalen",
-    "revenue": "Geschatte omzet",
-    "revenueSub": "deze maand",
     "stock": "Totale voorraad",
     "stockIssues": "Voorraadproblemen",
     "stockIssuesSub": "orders wachten op voorraadoplossing",
@@ -72,8 +64,39 @@
     "writeOffExpired": "Verlopen partijen afboeken",
     "resolveStock": "Voorraadproblemen oplossen",
     "matchSkus": "SKUs koppelen",
-    "thisMonth": "Deze maand",
-    "revenue": "Omzet",
-    "revenueSub": "Zonder openstaande, geannuleerde, terugbetaalde of mislukte bestellingen"
+    "thisMonth": "Deze maand"
+  },
+  "sales": {
+    "title": "Verkopen",
+    "periodLabel": "Verkoopperiode",
+    "byChannel": "Per kanaal",
+    "excludes": "Zonder openstaande, geannuleerde, terugbetaalde of mislukte bestellingen",
+    "orders_one": "{{count}} bestelling",
+    "orders_other": "{{count}} bestellingen",
+    "period": {
+      "today": "Vandaag",
+      "this_week": "Deze week",
+      "this_month": "Deze maand"
+    },
+    "previous": {
+      "today": "Gisteren",
+      "this_week": "Vorige week",
+      "this_month": "Vorige maand"
+    },
+    "vs": {
+      "today": "{{value}} t.o.v. gisteren",
+      "this_week": "{{value}} t.o.v. vorige week",
+      "this_month": "{{value}} t.o.v. vorige maand"
+    },
+    "noPrevious": {
+      "today": "Gisteren geen verkopen om mee te vergelijken",
+      "this_week": "Vorige week geen verkopen om mee te vergelijken",
+      "this_month": "Vorige maand geen verkopen om mee te vergelijken"
+    },
+    "empty": {
+      "today": "Vandaag nog geen verkopen.",
+      "this_week": "Deze week nog geen verkopen.",
+      "this_month": "Deze maand nog geen verkopen."
+    }
   }
 }

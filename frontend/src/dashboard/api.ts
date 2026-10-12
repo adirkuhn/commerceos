@@ -1,4 +1,4 @@
-import type { APIResponse, DashboardStatsReport, TodayQueue } from './types'
+import type { APIResponse, DashboardStatsReport, SalesComparison, SalesPeriod, TodayQueue } from './types'
 import { CodedApiError } from '../api/codedApiError'
 
 function base(): string {
@@ -25,4 +25,15 @@ export async function getTodayQueue(token: string): Promise<TodayQueue> {
     throw CodedApiError.fromEnvelope(body.error, res.status)
   }
   return body.data as TodayQueue
+}
+
+export async function getSalesComparison(token: string, period: SalesPeriod): Promise<SalesComparison> {
+  const res = await fetch(`${base()}/sales?period=${encodeURIComponent(period)}`, {
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  })
+  const body: APIResponse<SalesComparison> = await res.json()
+  if (!res.ok || body.error) {
+    throw CodedApiError.fromEnvelope(body.error, res.status)
+  }
+  return body.data as SalesComparison
 }

@@ -1,18 +1,18 @@
 import { Calendar } from 'lucide-react'
 import {
-  AreaChart, Area, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import clsx from 'clsx'
 import i18next from 'i18next'
 import { useTranslation } from 'react-i18next'
-import { channelSeriesColor, seriesColor, useChartTheme } from '../charts/chartTheme'
+import { seriesColor, useChartTheme } from '../charts/chartTheme'
 import { useAuth } from '../auth/AuthContext'
 import { useExpiringBatches } from '../inventory/hooks/useExpiringBatches'
 import { useDateFormat } from '../format/DateFormatProvider'
-import { Money, useMoneyFormat } from '../format/amountVisibility'
+import { Money } from '../format/amountVisibility'
 import type { SalesOrderSource } from '../oms/types'
-import type { ChannelRevenue, DailyStockFlow, TopProduct } from './types'
+import type { DailyStockFlow, TopProduct } from './types'
 
 // Panels shared by the classic Dashboard and the depot Today page.
 
@@ -24,7 +24,7 @@ function channelLabels(): Record<SalesOrderSource, string> {
   }
 }
 
-function channelLabel(source: string): string {
+export function channelLabel(source: string): string {
   return channelLabels()[source as SalesOrderSource] ?? source
 }
 
@@ -61,46 +61,6 @@ export function StockFlowPanel({ flow, className }: { flow: DailyStockFlow[]; cl
           <Area type="monotone" dataKey="out" name={t('stockFlow.outbound')} stroke={seriesColor(chart, 1)} strokeWidth={2} fill="url(#outGrad)" />
         </AreaChart>
       </ResponsiveContainer>
-    </div>
-  )
-}
-
-export function ChannelSalesPanel({ channels, currency, className }: { channels: ChannelRevenue[]; currency: string; className?: string }) {
-  const { t } = useTranslation('dashboard')
-  const chart = useChartTheme()
-  const money = useMoneyFormat()
-  const data = channels.map(c => ({ ...c, label: channelLabel(c.source), color: channelSeriesColor(chart, c.source) }))
-  return (
-    <div className={clsx('bg-raised rounded-xl p-4 border border-line', className)}>
-      <h3 className="text-sm font-semibold text-ink mb-1">{t('channels.title')}</h3>
-      <p className="text-xs text-ink-4 mb-4">{t('channels.sub')}</p>
-      {data.length === 0 ? (
-        <p className="text-xs text-ink-4">{t('channels.empty')}</p>
-      ) : (
-        <>
-          <ResponsiveContainer width="100%" height={100}>
-            <BarChart data={data} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
-              <XAxis type="number" hide />
-              <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: chart.axis }} axisLine={false} tickLine={false} width={80} />
-              <Tooltip contentStyle={chart.tooltip} formatter={(v: number) => [money(v, currency), t('channels.revenue')]} />
-              <Bar dataKey="total_minor_units" radius={4}>
-                {data.map(c => <Cell key={c.source} fill={c.color} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="mt-3 space-y-2">
-            {data.map(c => (
-              <div key={c.source} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{ background: c.color }} />
-                  <span className="text-xs text-ink-3">{c.label}</span>
-                </div>
-                <Money minor={c.total_minor_units} currency={currency} className="text-xs font-medium text-ink-2" />
-              </div>
-            ))}
-          </div>
-        </>
-      )}
     </div>
   )
 }

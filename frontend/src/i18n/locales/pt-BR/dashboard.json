@@ -1,11 +1,5 @@
 {
   "channelManual": "Manual",
-  "channels": {
-    "empty": "Nenhuma venda este mês ainda.",
-    "revenue": "Receita",
-    "sub": "Este mês",
-    "title": "Vendas por canal"
-  },
   "errors": {
     "unknown": "Erro desconhecido"
   },
@@ -28,8 +22,6 @@
     "ordersSub": "desde o início",
     "products": "Total de produtos",
     "productsSub": "em todos os canais",
-    "revenue": "Receita estimada",
-    "revenueSub": "este mês",
     "stock": "Estoque total",
     "stockIssues": "Problemas de estoque",
     "stockIssuesSub": "pedidos aguardando solução de estoque",
@@ -73,8 +65,39 @@
     "writeOffExpired": "Baixar lotes vencidos",
     "resolveStock": "Resolver problemas de estoque",
     "matchSkus": "Vincular SKUs",
-    "thisMonth": "Este mês",
-    "revenue": "Receita",
-    "revenueSub": "Sem pedidos pendentes, cancelados, reembolsados ou com falha"
+    "thisMonth": "Este mês"
+  },
+  "sales": {
+    "title": "Vendas",
+    "periodLabel": "Período de vendas",
+    "byChannel": "Por canal",
+    "excludes": "Sem pedidos pendentes, cancelados, reembolsados ou com falha",
+    "orders_one": "{{count}} pedido",
+    "orders_other": "{{count}} pedidos",
+    "period": {
+      "today": "Hoje",
+      "this_week": "Esta semana",
+      "this_month": "Este mês"
+    },
+    "previous": {
+      "today": "Ontem",
+      "this_week": "Semana passada",
+      "this_month": "Mês passado"
+    },
+    "vs": {
+      "today": "{{value}} vs ontem",
+      "this_week": "{{value}} vs semana passada",
+      "this_month": "{{value}} vs mês passado"
+    },
+    "noPrevious": {
+      "today": "Sem vendas ontem para comparar",
+      "this_week": "Sem vendas na semana passada para comparar",
+      "this_month": "Sem vendas no mês passado para comparar"
+    },
+    "empty": {
+      "today": "Nenhuma venda hoje ainda.",
+      "this_week": "Nenhuma venda esta semana ainda.",
+      "this_month": "Nenhuma venda este mês ainda."
+    }
   }
 }

@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { render as rtlRender, screen, waitFor } from '@testing-library/react'
+import type { ReactElement } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Dashboard from '../Dashboard'
 import i18next from 'i18next'
@@ -24,13 +26,24 @@ vi.mock('../../oms/api', () => ({
 
 vi.mock('../../dashboard/api', () => ({
   getDashboardStats: vi.fn(),
+  getSalesComparison: vi.fn(),
 }))
 
 import * as inventoryApi from '../../inventory/api'
 import * as pmsApi from '../../pms/api'
 import * as omsApi from '../../oms/api'
 import * as dashboardApi from '../../dashboard/api'
-import type { DashboardStatsReport } from '../../dashboard/types'
+import type { DashboardStatsReport, SalesComparison } from '../../dashboard/types'
+
+// The sales card keeps its period in the URL, so the page needs a router.
+function render(ui: ReactElement) {
+  return rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
+}
+
+function sales(overrides: Partial<SalesComparison> = {}): SalesComparison {
+  const figures = { from: '', to: '', revenue_minor_units: 0, order_count: 0, by_channel: [] }
+  return { period: 'this_month', currency_code: 'USD', change_percent: null, current: figures, previous: figures, ...overrides }
+}
 
 function report(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
@@ -65,6 +78,7 @@ beforeEach(() => {
   vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [], total: 0 })
   vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [], total: 0 })
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(report())
+  vi.mocked(dashboardApi.getSalesComparison).mockResolvedValue(sales())
 })
 
 describe('Dashboard — Expiring Soon widget', () => {
@@ -153,14 +167,16 @@ describe('Dashboard — stat cards', () => {
     expect(await screen.findByText('Needs attention')).toBeInTheDocument()
   })
 
-  it('renders real total stock and revenue figures', async () => {
-    vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(report({
-      total_stock_units: 84293, currency_code: 'EUR', revenue_this_month_minor_units: 11600000,
+  it('renders real total stock and this month\'s revenue', async () => {
+    vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(report({ total_stock_units: 84293, currency_code: 'EUR' }))
+    vi.mocked(dashboardApi.getSalesComparison).mockResolvedValue(sales({
+      currency_code: 'EUR', current: { from: '', to: '', revenue_minor_units: 11600000, order_count: 4, by_channel: [] },
     }))
     render(<Dashboard />)
     expect(await screen.findByText('84,293')).toBeInTheDocument()
     expect(await screen.findByText('€116,000.00')).toBeInTheDocument()
     expect(dashboardApi.getDashboardStats).toHaveBeenCalledWith('test-token')
+    expect(dashboardApi.getSalesComparison).toHaveBeenCalledWith('test-token', 'this_month')
   })
 
   it('renders the stock flow chart from real data', async () => {
@@ -176,13 +192,13 @@ describe('Dashboard — stat cards', () => {
   })
 
   it('renders sales by channel from real data', async () => {
-    vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(report({
-      sales_by_channel_this_month: [{ source: 'woocommerce', total_minor_units: 3150000 }],
+    vi.mocked(dashboardApi.getSalesComparison).mockResolvedValue(sales({
       currency_code: 'EUR',
+      current: { from: '', to: '', revenue_minor_units: 3150000, order_count: 1, by_channel: [{ source: 'woocommerce', total_minor_units: 3150000 }] },
     }))
     render(<Dashboard />)
     expect(await screen.findByText('WooCommerce')).toBeInTheDocument()
-    expect(screen.getByText('€31,500.00')).toBeInTheDocument()
+    expect(screen.getAllByText('€31,500.00').length).toBeGreaterThan(0)
   })
 
   it('renders top products from real data', async () => {

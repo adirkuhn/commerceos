@@ -4,7 +4,7 @@ import * as pmsApi from '../../pms/api'
 import * as omsApi from '../../oms/api'
 import * as inventoryApi from '../../inventory/api'
 import * as dashboardApi from '../api'
-import type { DailyStockFlow, ChannelRevenue, TopProduct } from '../types'
+import type { DailyStockFlow, TopProduct } from '../types'
 import { apiErrorText } from '../../api/apiErrorText'
 
 export interface DashboardStats {
@@ -15,9 +15,7 @@ export interface DashboardStats {
   expired: number
   totalStockUnits: number
   currencyCode: string
-  revenueThisMonthMinorUnits: number
   stockFlowLast7Days: DailyStockFlow[]
-  salesByChannelThisMonth: ChannelRevenue[]
   topProductsThisMonth: TopProduct[]
 }
 
@@ -53,9 +51,7 @@ export function useDashboardStats(token: string): UseDashboardStatsState & { ref
         expired: expiredBatches.length,
         totalStockUnits: report.total_stock_units,
         currencyCode: report.currency_code,
-        revenueThisMonthMinorUnits: report.revenue_this_month_minor_units,
         stockFlowLast7Days: report.stock_flow_last_7_days,
-        salesByChannelThisMonth: report.sales_by_channel_this_month,
         topProductsThisMonth: report.top_products_this_month,
       })
     } catch (e) {
