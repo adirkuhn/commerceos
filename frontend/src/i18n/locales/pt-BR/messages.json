@@ -104,10 +104,53 @@
     "values": "valor1, valor2",
     "when": "Quando isto acontecer"
   },
+  "sent": {
+    "search": "Buscar destinatário ou assunto",
+    "allStatuses": "Todos os status",
+    "allSources": "Todas as origens",
+    "from": "De",
+    "to": "Até",
+    "count_one": "{{count}} e-mail",
+    "count_other": "{{count}} e-mails",
+    "empty": "Nenhum e-mail ainda.",
+    "pageOf": "Página {{page}} de {{pages}}",
+    "previousPage": "Página anterior",
+    "nextPage": "Próxima página",
+    "colDate": "Data",
+    "colRecipient": "Destinatário",
+    "colSubject": "Assunto",
+    "colSource": "Origem",
+    "colStatus": "Status",
+    "select": "Selecionar “{{subject}}”",
+    "deleteSelected_one": "Excluir {{count}}",
+    "deleteSelected_other": "Excluir {{count}}",
+    "deleteTitle_one": "Excluir este e-mail do histórico?",
+    "deleteTitle_other": "Excluir {{count}} e-mails do histórico?",
+    "deleteMessage": "Eles serão removidos de vez. Os destinatários continuam com a cópia deles.",
+    "deleteConfirm": "Excluir",
+    "bodyTitle": "E-mail como foi enviado",
+    "noBody": "Nada foi enviado, então não há mensagem para mostrar.",
+    "status": {
+      "sent": "Enviado",
+      "failed": "Falhou",
+      "skipped": "Ignorado"
+    },
+    "source": {
+      "automation": "Regra de automação",
+      "notification": "Notificação da equipe",
+      "sign_in_link": "Link de acesso à loja",
+      "newsletter": "Newsletter"
+    },
+    "reason": {
+      "noRecipient": "Ninguém para enviar (sem e-mail do cliente e sem destinatários extras)",
+      "templateDisabled": "O modelo está desativado"
+    }
+  },
   "tabs": {
     "conversations": "Conversas",
     "rules": "Regras de automação",
-    "templates": "Modelos"
+    "templates": "Modelos",
+    "sent": "E-mails enviados"
   },
   "templates": {
     "body": "Mensagem",

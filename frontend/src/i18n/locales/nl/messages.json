@@ -103,10 +103,53 @@
     "values": "waarde1, waarde2",
     "when": "Als dit gebeurt"
   },
+  "sent": {
+    "search": "Zoek ontvanger of onderwerp",
+    "allStatuses": "Alle statussen",
+    "allSources": "Alle bronnen",
+    "from": "Van",
+    "to": "Tot",
+    "count_one": "{{count}} e-mail",
+    "count_other": "{{count}} e-mails",
+    "empty": "Nog geen e-mails.",
+    "pageOf": "Pagina {{page}} van {{pages}}",
+    "previousPage": "Vorige pagina",
+    "nextPage": "Volgende pagina",
+    "colDate": "Datum",
+    "colRecipient": "Ontvanger",
+    "colSubject": "Onderwerp",
+    "colSource": "Bron",
+    "colStatus": "Status",
+    "select": "“{{subject}}” selecteren",
+    "deleteSelected_one": "{{count}} verwijderen",
+    "deleteSelected_other": "{{count}} verwijderen",
+    "deleteTitle_one": "Deze e-mail uit de geschiedenis verwijderen?",
+    "deleteTitle_other": "{{count}} e-mails uit de geschiedenis verwijderen?",
+    "deleteMessage": "Ze worden definitief verwijderd. De ontvangers houden hun kopie.",
+    "deleteConfirm": "Verwijderen",
+    "bodyTitle": "E-mail zoals verzonden",
+    "noBody": "Er is niets verzonden, dus er is geen bericht om te tonen.",
+    "status": {
+      "sent": "Verzonden",
+      "failed": "Mislukt",
+      "skipped": "Overgeslagen"
+    },
+    "source": {
+      "automation": "Automatiseringsregel",
+      "notification": "Teammelding",
+      "sign_in_link": "Inloglink winkel",
+      "newsletter": "Nieuwsbrief"
+    },
+    "reason": {
+      "noRecipient": "Niemand om naar te sturen (geen e-mail van de klant en geen extra ontvangers)",
+      "templateDisabled": "Het sjabloon staat uit"
+    }
+  },
   "tabs": {
     "conversations": "Gesprekken",
     "rules": "Automatiseringsregels",
-    "templates": "Sjablonen"
+    "templates": "Sjablonen",
+    "sent": "Verzonden e-mails"
   },
   "templates": {
     "body": "Bericht",

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { listMessageTriggers, previewMessageTemplate, uploadMessageTemplateImage, listMessageTemplateDefaults, resetMessageTemplate } from '../api'
+import { listMessageTriggers, previewMessageTemplate, uploadMessageTemplateImage, listMessageTemplateDefaults, resetMessageTemplate, listSentEmails, getSentEmail, deleteSentEmail, deleteSentEmails } from '../api'
 import { CodedApiError } from '../../api/codedApiError'
 
 beforeEach(() => { vi.restoreAllMocks() })
@@ -9,6 +9,29 @@ function mockJSON(body: unknown, status = 200) {
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
 }
+
+describe('sent email API', () => {
+  it('lists with only the filters that are set', async () => {
+    const fetchMock = mockJSON({ data: { items: [], total: 0, page: 1, per_page: 50 }, error: null })
+
+    await listSentEmails('tok', { status: 'failed', q: '', page: 2, source: undefined })
+
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/sent-emails\?status=failed&page=2$/)
+  })
+
+  it('gets, deletes one and deletes many', async () => {
+    const fetchMock = mockJSON({ data: { deleted: 2 }, error: null })
+
+    await getSentEmail('tok', 'e 1')
+    await deleteSentEmail('tok', 'e1')
+    expect(await deleteSentEmails('tok', ['a', 'b'])).toEqual({ deleted: 2 })
+
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/sent-emails\/e%201$/)
+    expect(fetchMock.mock.calls[1][1].method).toBe('DELETE')
+    expect(fetchMock.mock.calls[2][0]).toMatch(/\/sent-emails\/bulk-delete$/)
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ ids: ['a', 'b'] })
+  })
+})
 
 describe('design editor API', () => {
   it('lists the default templates', async () => {

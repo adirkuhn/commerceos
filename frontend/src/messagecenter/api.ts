@@ -1,6 +1,7 @@
 import type {
   MessageTemplate, CreateMessageTemplateInput, UpdateMessageTemplateInput,
   MessageTrigger, PreviewTemplateInput, TemplatePreview, MessageTemplateDefault,
+  SentEmail, SentEmailFilter, SentEmailList,
   AutomationRule, CreateAutomationRuleInput, UpdateAutomationRuleInput,
   APIResponse,
 } from './types'
@@ -95,4 +96,25 @@ export async function uploadMessageTemplateImage(token: string, file: File): Pro
   const body: APIResponse<{ url: string }> = await res.json()
   if (!res.ok || body.error || !body.data) throw CodedApiError.fromEnvelope(body.error, res.status)
   return body.data.url
+}
+
+export function listSentEmails(token: string, filter: SentEmailFilter): Promise<SentEmailList> {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(filter)) {
+    if (value !== undefined && value !== '') params.set(key, String(value))
+  }
+  const query = params.toString()
+  return request<SentEmailList>(`${apiBase()}/sent-emails${query ? `?${query}` : ''}`, { method: 'GET' }, token)
+}
+
+export function getSentEmail(token: string, id: string): Promise<SentEmail> {
+  return request<SentEmail>(`${apiBase()}/sent-emails/${encodeURIComponent(id)}`, { method: 'GET' }, token)
+}
+
+export function deleteSentEmail(token: string, id: string): Promise<null> {
+  return request<null>(`${apiBase()}/sent-emails/${encodeURIComponent(id)}`, { method: 'DELETE' }, token)
+}
+
+export function deleteSentEmails(token: string, ids: string[]): Promise<{ deleted: number }> {
+  return request<{ deleted: number }>(`${apiBase()}/sent-emails/bulk-delete`, { method: 'POST', body: JSON.stringify({ ids }) }, token)
 }

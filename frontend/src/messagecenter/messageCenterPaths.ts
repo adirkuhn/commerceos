@@ -6,9 +6,10 @@
 //   /message-center/templates/<id>/design  visual email editor
 //   /message-center/rules/<new|id>      automation rule editor
 //   /message-center/conversations/<e164>  selected WhatsApp thread
+//   /message-center/sent[/<id>]          sent-email history / one email
 export const MESSAGE_CENTER_PATH = '/message-center'
 
-export const MESSAGE_CENTER_TABS = ['templates', 'rules', 'conversations'] as const
+export const MESSAGE_CENTER_TABS = ['templates', 'rules', 'sent', 'conversations'] as const
 export type MessageCenterTab = typeof MESSAGE_CENTER_TABS[number]
 export const DEFAULT_MESSAGE_CENTER_TAB: MessageCenterTab = 'templates'
 
@@ -19,6 +20,7 @@ export function messageCenterTabPath(tab: MessageCenterTab): string {
 export const TEMPLATES_PATH = `${MESSAGE_CENTER_PATH}/templates`
 export const RULES_PATH = `${MESSAGE_CENTER_PATH}/rules`
 export const CONVERSATIONS_PATH = `${MESSAGE_CENTER_PATH}/conversations`
+export const SENT_PATH = `${MESSAGE_CENTER_PATH}/sent`
 
 export const DESIGN_VIEW = 'design'
 

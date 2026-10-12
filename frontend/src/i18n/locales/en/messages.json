@@ -103,10 +103,53 @@
     "values": "value1, value2",
     "when": "When this happens"
   },
+  "sent": {
+    "search": "Search recipient or subject",
+    "allStatuses": "All statuses",
+    "allSources": "All sources",
+    "from": "From",
+    "to": "To",
+    "count_one": "{{count}} email",
+    "count_other": "{{count}} emails",
+    "empty": "No emails yet.",
+    "pageOf": "Page {{page}} of {{pages}}",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "colDate": "Date",
+    "colRecipient": "Recipient",
+    "colSubject": "Subject",
+    "colSource": "Source",
+    "colStatus": "Status",
+    "select": "Select “{{subject}}”",
+    "deleteSelected_one": "Delete {{count}}",
+    "deleteSelected_other": "Delete {{count}}",
+    "deleteTitle_one": "Delete this email from the history?",
+    "deleteTitle_other": "Delete {{count}} emails from the history?",
+    "deleteMessage": "They are removed for good. The recipients still have their copy.",
+    "deleteConfirm": "Delete",
+    "bodyTitle": "Email as sent",
+    "noBody": "Nothing was sent, so there is no message to show.",
+    "status": {
+      "sent": "Sent",
+      "failed": "Failed",
+      "skipped": "Skipped"
+    },
+    "source": {
+      "automation": "Automation rule",
+      "notification": "Staff notification",
+      "sign_in_link": "Shop sign-in link",
+      "newsletter": "Newsletter"
+    },
+    "reason": {
+      "noRecipient": "Nobody to send to (no customer email and no extra recipients)",
+      "templateDisabled": "The template is switched off"
+    }
+  },
   "tabs": {
     "conversations": "Conversations",
     "rules": "Automation rules",
-    "templates": "Templates"
+    "templates": "Templates",
+    "sent": "Sent emails"
   },
   "templates": {
     "body": "Body",

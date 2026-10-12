@@ -19,6 +19,7 @@ vi.mock('../../messagecenter/api', () => ({
   updateMessageTemplate: vi.fn(),
   deleteMessageTemplate: vi.fn(),
   listMessageTemplateDefaults: vi.fn().mockResolvedValue([]),
+  listSentEmails: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, per_page: 50 }),
   listAutomationRules: vi.fn().mockResolvedValue([]),
   createAutomationRule: vi.fn(),
   updateAutomationRule: vi.fn(),

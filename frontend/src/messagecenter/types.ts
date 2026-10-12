@@ -141,3 +141,43 @@ export interface MessageTemplateDefault {
   body: string
   text_body: string
 }
+
+// Sent-email history (GET /sent-emails). "sent" = accepted by the mail
+// server; "skipped" = an automation rule matched but sent nothing.
+export type SentEmailStatus = 'sent' | 'failed' | 'skipped'
+export type SentEmailSource = 'automation' | 'notification' | 'sign_in_link' | 'newsletter'
+
+export interface SentEmailSummary {
+  id: string
+  source: SentEmailSource
+  recipient: string
+  subject: string
+  status: SentEmailStatus
+  // failed: the mail server's error; skipped: no_recipient | template_disabled.
+  reason: string
+  rule_id: string
+  template_id: string
+  trigger_subject: string
+  created_at: string
+}
+
+export interface SentEmail extends SentEmailSummary {
+  html_body: string
+}
+
+export interface SentEmailList {
+  items: SentEmailSummary[]
+  total: number
+  page: number
+  per_page: number
+}
+
+export interface SentEmailFilter {
+  status?: SentEmailStatus
+  source?: SentEmailSource
+  q?: string
+  from?: string
+  to?: string
+  page?: number
+  per_page?: number
+}

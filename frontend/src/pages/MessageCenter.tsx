@@ -8,6 +8,7 @@ import {
 import MessageTemplatesPanel from '../messagecenter/MessageTemplatesPanel'
 import AutomationRulesPanel from '../messagecenter/AutomationRulesPanel'
 import WhatsAppConversationsPanel from '../whatsapp/WhatsAppConversationsPanel'
+import SentEmailsPanel from '../messagecenter/sent/SentEmailsPanel'
 
 type Tab = MessageCenterTab
 
@@ -19,6 +20,9 @@ export default function MessageCenter() {
   const { t } = useTranslation('messages')
   const [segment] = subPathSegments(location.pathname, MESSAGE_CENTER_PATH)
   const tab: Tab = (MESSAGE_CENTER_TABS as readonly string[]).includes(segment) ? segment as Tab : DEFAULT_MESSAGE_CENTER_TAB
+  const TAB_LABELS: Record<Tab, string> = {
+    templates: t('tabs.templates'), rules: t('tabs.rules'), sent: t('tabs.sent'), conversations: t('tabs.conversations'),
+  }
   const setTab = (next: Tab) => {
     if (next !== tab) navigate(messageCenterTabPath(next))
   }
@@ -26,43 +30,26 @@ export default function MessageCenter() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-1 px-5 pt-3 border-b border-line bg-sunken shrink-0">
-        <button aria-pressed={tab === 'templates'}
-          onClick={() => setTab('templates')}
-          className={clsx(
-            'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
-            tab === 'templates'
-              ? 'border-accent text-ink'
-              : 'border-transparent text-ink-4 hover:text-ink-2',
-          )}
-        >
-          {t('tabs.templates')}
-        </button>
-        <button aria-pressed={tab === 'rules'}
-          onClick={() => setTab('rules')}
-          className={clsx(
-            'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
-            tab === 'rules'
-              ? 'border-accent text-ink'
-              : 'border-transparent text-ink-4 hover:text-ink-2',
-          )}
-        >
-          {t('tabs.rules')}
-        </button>
-        <button aria-pressed={tab === 'conversations'}
-          onClick={() => setTab('conversations')}
-          className={clsx(
-            'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
-            tab === 'conversations'
-              ? 'border-accent text-ink'
-              : 'border-transparent text-ink-4 hover:text-ink-2',
-          )}
-        >
-          {t('tabs.conversations')}
-        </button>
+        {MESSAGE_CENTER_TABS.map(id => (
+          <button key={id} aria-pressed={tab === id}
+            onClick={() => setTab(id)}
+            className={clsx(
+              'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
+              tab === id
+                ? 'border-accent text-ink'
+                : 'border-transparent text-ink-4 hover:text-ink-2',
+            )}
+          >
+            {TAB_LABELS[id]}
+          </button>
+        ))}
       </div>
 
       <div className="flex-1 min-h-0">
-        {tab === 'templates' ? <MessageTemplatesPanel /> : tab === 'rules' ? <AutomationRulesPanel /> : <WhatsAppConversationsPanel />}
+        {tab === 'templates' && <MessageTemplatesPanel />}
+        {tab === 'rules' && <AutomationRulesPanel />}
+        {tab === 'sent' && <SentEmailsPanel />}
+        {tab === 'conversations' && <WhatsAppConversationsPanel />}
       </div>
     </div>
   )
