@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
+import { LIST_TOOLBAR, LIST_TOOLBAR_ACTION, LIST_TOOLBAR_INLINE, LIST_TOOLBAR_LEAD, LIST_TOOLBAR_ROW } from '../components/common/listToolbar'
 import { useSuppliers } from '../suppliers/hooks/useSuppliers'
 import type { Supplier, SupplierInput, SupplierStatus } from '../suppliers/types'
 import { useQueryPage, useQueryString } from '../routing/useQueryState'
@@ -73,31 +74,33 @@ export default function Suppliers() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
-          <input
-            value={search}
-            onChange={e => handleSearchChange(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
-          />
+      {/* Toolbar -- two rows in classic, one band in depot */}
+      <div className={LIST_TOOLBAR}>
+        <div className={clsx('flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0', LIST_TOOLBAR_ROW)}>
+          <div className="relative flex-1 max-w-sm">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
+            <input
+              value={search}
+              onChange={e => handleSearchChange(e.target.value)}
+              placeholder={t('searchPlaceholder')}
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
+            />
+          </div>
+          <div className={clsx('flex items-center gap-2 ml-auto', LIST_TOOLBAR_ACTION)}>
+            <button
+              onClick={openNew}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
+            >
+              <Plus size={13} /> {t('add')}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 ml-auto">
-          <button
-            onClick={openNew}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
-          >
-            <Plus size={13} /> {t('add')}
-          </button>
-        </div>
-      </div>
 
-      {/* Stats strip */}
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{t('count', { count: filtered.length })}</span>
-        {(error || deleteError) && <span className="text-xs text-danger ml-auto">{error || deleteError}</span>}
+        {/* Stats strip */}
+        <div className={clsx('flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0', LIST_TOOLBAR_ROW)}>
+          <span className={clsx('text-xs text-ink-4', LIST_TOOLBAR_LEAD)}>{t('count', { count: filtered.length })}</span>
+          {(error || deleteError) && <span className={clsx('text-xs text-danger ml-auto', LIST_TOOLBAR_INLINE)}>{error || deleteError}</span>}
+        </div>
       </div>
 
       {/* Table */}

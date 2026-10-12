@@ -12,6 +12,7 @@ import { useConfirm } from '../components/common/useConfirm'
 import { PromotionEditPage } from '../promotions/PromotionEditPage'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
+import { LIST_TOOLBAR, LIST_TOOLBAR_ACTION, LIST_TOOLBAR_INLINE, LIST_TOOLBAR_LEAD, LIST_TOOLBAR_ROW } from '../components/common/listToolbar'
 
 const PAGE_SIZE = 20
 
@@ -68,29 +69,31 @@ export default function Promotions() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
-          <input
-            value={search}
-            onChange={e => handleSearchChange(e.target.value)}
-            placeholder={t('list.search')}
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
-          />
+      <div className={LIST_TOOLBAR}>
+        <div className={clsx('flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0', LIST_TOOLBAR_ROW)}>
+          <div className="relative flex-1 max-w-sm">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
+            <input
+              value={search}
+              onChange={e => handleSearchChange(e.target.value)}
+              placeholder={t('list.search')}
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
+            />
+          </div>
+          <div className={clsx('flex items-center gap-2 ml-auto', LIST_TOOLBAR_ACTION)}>
+            <button
+              onClick={openNew}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
+            >
+              <Plus size={13} /> {t('list.add')}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 ml-auto">
-          <button
-            onClick={openNew}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
-          >
-            <Plus size={13} /> {t('list.add')}
-          </button>
-        </div>
-      </div>
 
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{t('list.count', { count: filtered.length })}</span>
-        {(error || deleteError) && <span className="text-xs text-danger ml-auto">{error || deleteError}</span>}
+        <div className={clsx('flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0', LIST_TOOLBAR_ROW)}>
+          <span className={clsx('text-xs text-ink-4', LIST_TOOLBAR_LEAD)}>{t('list.count', { count: filtered.length })}</span>
+          {(error || deleteError) && <span className={clsx('text-xs text-danger ml-auto', LIST_TOOLBAR_INLINE)}>{error || deleteError}</span>}
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto">

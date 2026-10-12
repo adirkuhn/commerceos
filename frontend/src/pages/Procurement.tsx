@@ -17,6 +17,7 @@ import { CreateFromDocumentModal } from '../procurement/CreateFromDocumentModal'
 import { PurchaseOrderEditPage } from '../procurement/PurchaseOrderEditPage'
 import { Money } from '../format/amountVisibility'
 import { apiErrorText } from '../api/apiErrorText'
+import { LIST_TOOLBAR, LIST_TOOLBAR_ACTION, LIST_TOOLBAR_INLINE, LIST_TOOLBAR_LEAD, LIST_TOOLBAR_ROW } from '../components/common/listToolbar'
 
 const STATUS_TABS: readonly (PurchaseOrderStatus | 'all')[] = ['all', 'draft', 'sent', 'partially_received', 'received', 'needs_review', 'cancelled']
 
@@ -85,60 +86,62 @@ export default function Procurement() {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {STATUS_TABS.map(s => (
+      <div className={LIST_TOOLBAR}>
+        <div className={clsx('flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0', LIST_TOOLBAR_ROW)}>
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {STATUS_TABS.map(s => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={clsx(
+                  'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors whitespace-nowrap',
+                  statusFilter === s
+                    ? 'dark:bg-night-800 bg-gray-100 text-ink'
+                    : 'text-ink-4 hover:text-ink-2',
+                )}
+              >
+                {s === 'all' ? t('list.all') : poStatusLabel(s)}
+              </button>
+            ))}
+          </div>
+          <div className={clsx('flex items-center gap-2 ml-auto shrink-0', LIST_TOOLBAR_ACTION)}>
             <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={clsx(
-                'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors whitespace-nowrap',
-                statusFilter === s
-                  ? 'dark:bg-night-800 bg-gray-100 text-ink'
-                  : 'text-ink-4 hover:text-ink-2',
-              )}
+              onClick={() => open(`${PROCUREMENT_PATH}/${DISCREPANCIES_SEGMENT}`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
             >
-              {s === 'all' ? t('list.all') : poStatusLabel(s)}
+              <AlertTriangle size={13} /> {t('list.discrepancies')}
             </button>
-          ))}
+            <button
+              onClick={() => setUploadModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
+            >
+              <Upload size={13} /> {t('list.uploadDocument')}
+            </button>
+            <button
+              onClick={openNew}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
+            >
+              <Plus size={13} /> {t('list.add')}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 ml-auto shrink-0">
-          <button
-            onClick={() => open(`${PROCUREMENT_PATH}/${DISCREPANCIES_SEGMENT}`)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
-          >
-            <AlertTriangle size={13} /> {t('list.discrepancies')}
-          </button>
-          <button
-            onClick={() => setUploadModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
-          >
-            <Upload size={13} /> {t('list.uploadDocument')}
-          </button>
-          <button
-            onClick={openNew}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium"
-          >
-            <Plus size={13} /> {t('list.add')}
-          </button>
+
+        {uploadModalOpen && (
+          <CreateFromDocumentModal
+            onClose={() => setUploadModalOpen(false)}
+            onCreated={async (poId, jobId) => {
+              setUploadModalOpen(false)
+              await refresh()
+              open(`${PROCUREMENT_PATH}/${encodeURIComponent(poId)}?parsing=${encodeURIComponent(jobId)}`)
+            }}
+          />
+        )}
+
+        {/* Stats strip */}
+        <div className={clsx('flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0', LIST_TOOLBAR_ROW)}>
+          <span className={clsx('text-xs text-ink-4', LIST_TOOLBAR_LEAD)}>{t('list.count', { count: filtered.length })}</span>
+          {(error || deleteError) && <span className={clsx('text-xs text-danger ml-auto', LIST_TOOLBAR_INLINE)}>{error || deleteError}</span>}
         </div>
-      </div>
-
-      {uploadModalOpen && (
-        <CreateFromDocumentModal
-          onClose={() => setUploadModalOpen(false)}
-          onCreated={async (poId, jobId) => {
-            setUploadModalOpen(false)
-            await refresh()
-            open(`${PROCUREMENT_PATH}/${encodeURIComponent(poId)}?parsing=${encodeURIComponent(jobId)}`)
-          }}
-        />
-      )}
-
-      {/* Stats strip */}
-      <div className="flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0">
-        <span className="text-xs text-ink-4">{t('list.count', { count: filtered.length })}</span>
-        {(error || deleteError) && <span className="text-xs text-danger ml-auto">{error || deleteError}</span>}
       </div>
 
       {/* Table */}
