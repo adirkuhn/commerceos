@@ -138,8 +138,10 @@ func Register(rg gin.IRouter, db *gorm.DB, storage pmsDomain.FileStorage) {
 	templateRepo := repositories.NewMessageTemplateRepo(db)
 	ruleRepo := repositories.NewAutomationRuleRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
+	settings := appsettings.NewGetTenantSettingsUseCase(db, repositories.NewTenantSettingsRepo(db))
+	ensureDefaults := appmc.NewEnsureMessageCenterDefaultsUseCase(db, templateRepo, ruleRepo, repositories.NewMessageCenterSetupRepo(db), outboxRepo, settings)
 	h := NewHandler(
-		appmc.NewListMessageTemplatesUseCase(db, templateRepo),
+		appmc.NewListMessageTemplatesWithDefaultsUseCase(ensureDefaults, appmc.NewListMessageTemplatesUseCase(db, templateRepo)),
 		appmc.NewCreateMessageTemplateUseCase(db, templateRepo, outboxRepo),
 		appmc.NewUpdateMessageTemplateUseCase(db, templateRepo, outboxRepo),
 		appmc.NewDeleteMessageTemplateUseCase(db, templateRepo, outboxRepo),
@@ -152,7 +154,6 @@ func Register(rg gin.IRouter, db *gorm.DB, storage pmsDomain.FileStorage) {
 		appmc.NewPreviewTemplateUseCase(db, repositories.NewCompanyProfileRepo(db)),
 		appmc.NewUploadTemplateImageUseCase(storage),
 	)
-	settings := appsettings.NewGetTenantSettingsUseCase(db, repositories.NewTenantSettingsRepo(db))
 	h.WithDefaults(
 		appmc.NewListMessageTemplateDefaultsUseCase(settings),
 		appmc.NewResetMessageTemplateUseCase(db, templateRepo, outboxRepo, settings),

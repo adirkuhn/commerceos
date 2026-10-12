@@ -270,6 +270,17 @@ func main() {
 		defer sub.Unsubscribe()
 	}
 
+	// Every tenant gets the Message Center defaults (templates + enabled
+	// rules) once; this pass covers tenants that existed before them.
+	mcSetupRepo := repositories.NewMessageCenterSetupRepo(db)
+	ensureMessageCenterDefaultsUC := messagecenterapp.NewEnsureMessageCenterDefaultsUseCase(db, repositories.NewMessageTemplateRepo(db),
+		repositories.NewAutomationRuleRepo(db), mcSetupRepo, outboxRepo, settingsapp.NewGetTenantSettingsUseCase(db, settingsRepo))
+	go func() {
+		if err := messagecenterapp.NewSeedMessageCenterDefaultsUseCase(db, mcSetupRepo, ensureMessageCenterDefaultsUC).Execute(context.Background()); err != nil {
+			log.Printf("scheduler: seeding Message Center defaults: %v", err)
+		}
+	}()
+
 	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), repositories.NewShippingCarrierOverrideRepo(db), connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, repositories.NewOutboxRepository(db), settingsRepo)
 	salesOrderStatusChangedConsumer := consumers.NewSalesOrderStatusChangedConsumer(processedEventRepo, pushSalesOrderStatusUC, js)
 	if sub := subscribeConsumer(js, events.SalesOrderStatusChanged{}.EventName(), "sales-order-status-changed-scheduler",
