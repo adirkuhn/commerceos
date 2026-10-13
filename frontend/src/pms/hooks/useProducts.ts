@@ -2,6 +2,7 @@ import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type { Product, CreateProductPayload, UpdateProductPayload } from '../types'
 import * as api from '../api'
+import type { ProductStockFilter } from '../api'
 import { notifyProductsChanged, subscribeProductsChanged } from '../productsBus'
 import { apiErrorText } from '../../api/apiErrorText'
 
@@ -19,8 +20,8 @@ interface UseProductsActions {
   remove: (id: string) => Promise<void>
 }
 
-export function useProducts(token: string, params: { page?: number; perPage?: number; search?: string } = {}): UseProductsState & UseProductsActions {
-  const { page, perPage, search } = params
+export function useProducts(token: string, params: { page?: number; perPage?: number; search?: string; stock?: ProductStockFilter } = {}): UseProductsState & UseProductsActions {
+  const { page, perPage, search, stock } = params
   const [products, setProducts] = useState<Product[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -31,7 +32,7 @@ export function useProducts(token: string, params: { page?: number; perPage?: nu
     setLoading(true)
     setError(null)
     try {
-      const result = await api.listProducts(token, { page, perPage, search })
+      const result = await api.listProducts(token, { page, perPage, search, stock })
       setProducts(result.products)
       setTotal(result.total)
     } catch (e) {
@@ -39,7 +40,7 @@ export function useProducts(token: string, params: { page?: number; perPage?: nu
     } finally {
       setLoading(false)
     }
-  }, [token, page, perPage, search])
+  }, [token, page, perPage, search, stock])
 
   useEffect(() => { load() }, [load])
 

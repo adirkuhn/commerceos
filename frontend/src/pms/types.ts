@@ -55,6 +55,10 @@ export interface Product {
   // Channel's "by tag" enrollment rule to decide which products auto-sync
   // to that channel.
   tags: string[]
+  // The product's own low stock line (grams for a weighed product); null =
+  // the shop's setting. Optional so older fixtures stay valid -- a real
+  // response always includes it.
+  low_stock_threshold?: number | null
   created_at: string
   updated_at: string
   // Only ever populated on the list response (GET /products) -- the

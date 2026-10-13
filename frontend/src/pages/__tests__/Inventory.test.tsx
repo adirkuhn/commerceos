@@ -156,52 +156,56 @@ describe('Inventory page', () => {
     expect(container.querySelector('img')).not.toBeInTheDocument()
   })
 
-  it('filters to only low-stock or out-of-stock products', async () => {
-    const lowStockProduct: Product = { ...product, id: 'prod-2', name: 'Low Stock Widget', slug: 'low-stock-widget' }
-    const outOfStockProduct: Product = { ...product, id: 'prod-3', name: 'Empty Widget', slug: 'empty-widget' }
-    const lowSku = { ...sku, id: 'sku-2', sku_code: 'LOW-1' }
-    const outSku = { ...sku, id: 'sku-3', sku_code: 'OUT-1' }
-
-    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [product, lowStockProduct, outOfStockProduct], total: 3 })
-    vi.mocked(pmsApi.getProduct).mockImplementation(async (_token, id) => {
-      if (id === 'prod-2') return { product: lowStockProduct, variants: [{ ...detail.variants[0], skus: [lowSku] }] }
-      if (id === 'prod-3') return { product: outOfStockProduct, variants: [{ ...detail.variants[0], skus: [outSku] }] }
-      return detail
+  // The bug this replaces: Low/Out filtered one page of all products in
+  // the browser, so page 1 showed only the few low ones that happened to be
+  // on it. The server now filters, counts and paginates.
+  it('Low stock and Out of stock ask the server, and every product it returns is shown', async () => {
+    const lowProducts: Product[] = Array.from({ length: 20 }, (_, i) => ({ ...product, id: `low-${i}`, name: `Low ${i}`, slug: `low-${i}` }))
+    vi.mocked(pmsApi.listProducts).mockImplementation(async (_token, params) => {
+      if (params?.stock === 'low') return { products: lowProducts, total: 37 }
+      if (params?.stock === 'out') return { products: [{ ...product, id: 'empty', name: 'Empty Widget' }], total: 1 }
+      return { products: [product], total: 1 }
     })
-    vi.mocked(inventoryApi.getSKUStockLevel).mockImplementation(async (_token, skuId) => {
-      if (skuId === 'sku-2') return { sku_id: skuId, total: 3, syncable: 3 } // <= threshold -- low
-      if (skuId === 'sku-3') return { sku_id: skuId, total: 0, syncable: 0 } // zero -- out of stock
-      return { sku_id: skuId, total: 50, syncable: 50 } // sku-1: well above the low-stock threshold
-    })
+    // The rows still load their own stock -- even a total above the low
+    // line must not hide a row the server returned.
+    vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue({ sku_id: 'sku-1', total: 50, syncable: 50 })
 
     const user = userEvent.setup()
-    renderAt(<Inventory />, '/inventory')
+    const { router } = renderAt(<Inventory />, '/inventory', '/inventory?page=3')
     await screen.findByText('Widget')
-    await screen.findByText('Low Stock Widget')
-    await screen.findByText('Empty Widget')
 
     await user.click(screen.getByRole('button', { name: 'Low stock' }))
-    await waitFor(() => {
-      expect(screen.getByText('Low Stock Widget')).toBeInTheDocument()
-      expect(screen.queryByText('Widget')).not.toBeInTheDocument()
-      expect(screen.queryByText('Empty Widget')).not.toBeInTheDocument()
-    })
+    expect(await screen.findByText('Low 19')).toBeInTheDocument()
+    expect(screen.getAllByText(/^Low \d+$/)).toHaveLength(20)
+    expect(screen.getByText('37 products')).toBeInTheDocument()
+    expect(pmsApi.listProducts).toHaveBeenLastCalledWith('test-token', expect.objectContaining({ stock: 'low', page: 1 }))
+    expect(router.state.location.search).toBe('?stock=low')
 
     await user.click(screen.getByRole('button', { name: 'Out of stock' }))
-    await waitFor(() => {
-      expect(screen.getByText('Empty Widget')).toBeInTheDocument()
-      expect(screen.queryByText('Widget')).not.toBeInTheDocument()
-      expect(screen.queryByText('Low Stock Widget')).not.toBeInTheDocument()
-    })
+    expect(await screen.findByText('Empty Widget')).toBeInTheDocument()
+    expect(screen.queryByText('Low 0')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'All' }))
-    await waitFor(() => {
-      expect(screen.getByText('Widget')).toBeInTheDocument()
-      expect(screen.getByText('Low Stock Widget')).toBeInTheDocument()
-      expect(screen.getByText('Empty Widget')).toBeInTheDocument()
-    })
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+    expect(pmsApi.listProducts).toHaveBeenLastCalledWith('test-token', expect.objectContaining({ stock: undefined }))
   })
 
+  it('colours the stock total against the product\'s own low stock line, else the shop\'s', async () => {
+    vi.mocked(settingsApi.getTenantSettings).mockResolvedValue({ low_stock_threshold: 5 } as TenantSettings)
+    const ownLine: Product = { ...product, id: 'prod-own', name: 'Own line', low_stock_threshold: 100 }
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [product, ownLine], total: 2 })
+    vi.mocked(pmsApi.getProduct).mockImplementation(async (_token, id) => (id === 'prod-own'
+      ? { product: ownLine, variants: [{ ...detail.variants[0], skus: [{ ...sku, id: 'sku-own' }] }] }
+      : detail))
+    vi.mocked(inventoryApi.getSKUStockLevel).mockImplementation(async (_token, skuId) => ({ sku_id: skuId, total: 50, syncable: 50 }))
+
+    renderAt(<Inventory />, '/inventory')
+
+    const ownRow = (await screen.findByText('Own line')).closest('tr') as HTMLElement
+    const shopRow = screen.getByText('Widget').closest('tr') as HTMLElement
+    await waitFor(() => expect(within(ownRow).getByText('50')).toHaveClass('text-warning'))
+    expect(within(shopRow).getByText('50')).not.toHaveClass('text-warning')
+  })
   it('expanding a product loads its SKUs, stock level, and batches', async () => {
     const user = userEvent.setup()
     renderAt(<Inventory />, '/inventory')
@@ -1419,8 +1423,8 @@ describe('Inventory URLs (refresh + Back)', () => {
   })
 
   it('search, page and stock filter are read from the URL', async () => {
-    renderAt(<Inventory />, '/inventory', '/inventory?q=wid&page=2')
-    await waitFor(() => expect(pmsApi.listProducts).toHaveBeenCalledWith('test-token', expect.objectContaining({ page: 2, search: 'wid' })))
+    renderAt(<Inventory />, '/inventory', '/inventory?q=wid&page=2&stock=out')
+    await waitFor(() => expect(pmsApi.listProducts).toHaveBeenCalledWith('test-token', expect.objectContaining({ page: 2, search: 'wid', stock: 'out' })))
   })
 
   it('/inventory/expiry opens the expiry review, tab in ?tab=', async () => {

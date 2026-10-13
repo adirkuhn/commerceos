@@ -15,8 +15,8 @@ import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useExpiredBatchReview } from '../inventory/hooks/useExpiredBatchReview'
 import { useDiscards } from '../inventory/hooks/useDiscards'
 import { useDiscardBatch } from '../inventory/hooks/useDiscardBatch'
-import { LOW_STOCK_THRESHOLD } from '../inventory/inventoryFormat'
-import { ProductStockRow, ProductStockSummary } from '../inventory/ProductStockRow'
+import { ProductStockRow } from '../inventory/ProductStockRow'
+import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { BatchMovementHistoryPage, ProductMovementHistoryPage, SKUMovementHistoryPage } from '../inventory/MovementHistoryPages'
 import { ExpiryDiscardPage } from '../inventory/ExpiryDiscardPage'
 import { StockInvalidationProvider } from '../inventory/stockInvalidation'
@@ -53,8 +53,7 @@ function InventoryPage() {
   const search = urlSearch ?? ''
   const [searchInput, setSearchInput] = useState(search)
   const [page, setPage] = useQueryPage()
-  const [stockFilter, setStockFilter] = useQueryEnum<StockFilter>('stock', STOCK_FILTERS, 'all')
-  const [summaryByProduct, setSummaryByProduct] = useState<Record<string, ProductStockSummary>>({})
+  const [stockFilter, setStockFilter] = useQueryEnum<StockFilter>('stock', STOCK_FILTERS, 'all', { resets: ['page'] })
   const expiredReview = useExpiredBatchReview(token ?? '')
   const discardsReport = useDiscards(token ?? '')
   const discardHook = useDiscardBatch(token ?? '')
@@ -68,28 +67,14 @@ function InventoryPage() {
   }, [searchInput, search, setUrlSearch])
   useEffect(() => { setSearchInput(search) }, [search])
 
-  const { products, total, loading, error } = useProducts(token ?? '', { page, perPage: PAGE_SIZE, search })
-  const { warehouses } = useWarehouses(token ?? '')
-
-  // Rows report their own stock total once loaded — low-stock/out-of-stock
-  // filtering is client-side over the current page (the product search API
-  // has no stock-aware filtering yet), so a row not yet reporting a
-  // summary is still shown rather than hidden while it resolves.
-  const handleSummary = (productId: string, summary: ProductStockSummary) => {
-    setSummaryByProduct(prev => {
-      const existing = prev[productId]
-      if (existing && existing.totalStock === summary.totalStock && existing.skuCount === summary.skuCount) return prev
-      return { ...prev, [productId]: summary }
-    })
-  }
-
-  const visibleProducts = products.filter(p => {
-    if (stockFilter === 'all') return true
-    const summary = summaryByProduct[p.id]
-    if (!summary) return true
-    if (stockFilter === 'out') return summary.totalStock <= 0
-    return summary.totalStock > 0 && summary.totalStock <= LOW_STOCK_THRESHOLD
+  // Low/out are filtered, counted and paginated by the server -- every
+  // product it returns is shown.
+  const { products: visibleProducts, total, loading, error } = useProducts(token ?? '', {
+    page, perPage: PAGE_SIZE, search, stock: stockFilter === 'all' ? undefined : stockFilter,
   })
+  const { warehouses } = useWarehouses(token ?? '')
+  const { settings } = useTenantSettings(token ?? '')
+  const shopLowStockThreshold = settings?.low_stock_threshold
 
   if (view.kind === 'productHistory' || view.kind === 'skuHistory' || view.kind === 'batchHistory') {
     return <InventoryHistoryView token={token ?? ''} view={view} warehouses={warehouses} onClose={backToList} />
@@ -188,7 +173,7 @@ function InventoryPage() {
             {!loading && view.kind === 'skuAction' && !visibleProducts.some(p => p.id === view.productId) && (
               <ProductStockRow
                 key={`pinned-${view.productId}`} token={token ?? ''} productId={view.productId} productName="" warehouses={warehouses}
-                onSummary={handleSummary} onViewHistory={sku => open(inventoryPaths.skuHistory(view.productId, sku.id))}
+                shopLowStockThreshold={shopLowStockThreshold} onViewHistory={sku => open(inventoryPaths.skuHistory(view.productId, sku.id))}
                 onViewBatchHistory={(sku, batch) => open(inventoryPaths.batchHistory(view.productId, sku.id, batch.id))}
                 onViewProductHistory={() => open(inventoryPaths.productHistory(view.productId))}
               />
@@ -196,7 +181,7 @@ function InventoryPage() {
             {!loading && visibleProducts.map(p => (
               <ProductStockRow
                 key={p.id} token={token ?? ''} productId={p.id} productName={p.name} productImageUrl={p.image_url} warehouses={warehouses}
-                onSummary={handleSummary} onViewHistory={sku => open(inventoryPaths.skuHistory(p.id, sku.id))}
+                shopLowStockThreshold={shopLowStockThreshold} onViewHistory={sku => open(inventoryPaths.skuHistory(p.id, sku.id))}
                 onViewBatchHistory={(sku, batch) => open(inventoryPaths.batchHistory(p.id, sku.id, batch.id))}
                 onViewProductHistory={() => open(inventoryPaths.productHistory(p.id))}
               />

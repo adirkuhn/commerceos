@@ -11,7 +11,7 @@ import { useProductDetail } from '../pms/hooks/useProductDetail'
 import * as inventoryApi from './api'
 import type { SKU } from '../pms/types'
 import type { Batch } from './types'
-import { LOW_STOCK_THRESHOLD } from './inventoryFormat'
+import { effectiveLowStockThreshold, stockTone } from './lowStock'
 import { Money } from '../format/amountVisibility'
 import { SKUStockPanel } from './SKUStockPanel'
 import { useOnStockInvalidated } from './stockInvalidation'
@@ -23,14 +23,11 @@ import { useDateFormat } from '../format/DateFormatProvider'
 // "the" price/sale price to show at the product-row level — the price
 // columns show a min–max range instead, and the sale-price column shows
 // "-" rather than guessing which variant's sale is "the" one.
-export interface ProductStockSummary {
-  totalStock: number
-  skuCount: number
-}
-
-export function ProductStockRow({ token, productId, productName, productImageUrl, warehouses, onSummary, onViewHistory, onViewBatchHistory, onViewProductHistory }: {
+// shopLowStockThreshold is the shop's setting; the product's own line
+// (from its detail) wins when set.
+export function ProductStockRow({ token, productId, productName, productImageUrl, warehouses, shopLowStockThreshold, onViewHistory, onViewBatchHistory, onViewProductHistory }: {
   token: string; productId: string; productName: string; productImageUrl?: string | null; warehouses: { id: string; name: string }[]
-  onSummary: (productId: string, summary: ProductStockSummary) => void
+  shopLowStockThreshold?: number
   onViewHistory: (sku: SKU) => void
   onViewBatchHistory: (sku: SKU, batch: Batch) => void
   onViewProductHistory: (productName: string, skus: SKU[]) => void
@@ -83,11 +80,7 @@ export function ProductStockRow({ token, productId, productName, productImageUrl
   useOnStockInvalidated(skus.map(s => s.id), loadStock)
 
   const totalStock = Object.values(stockBySKU).reduce((sum, n) => sum + n, 0)
-
-  useEffect(() => {
-    if (!stockLoading) onSummary(productId, { totalStock, skuCount: skus.length })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- onSummary identity is stable per Inventory render; including it would re-fire on every parent render
-  }, [productId, totalStock, skus.length, stockLoading])
+  const tone = stockTone(totalStock, effectiveLowStockThreshold(detail?.product.low_stock_threshold, shopLowStockThreshold))
 
   const singleSKU = skus.length === 1 ? skus[0] : null
   const prices = skus.map(s => s.price_minor_units)
@@ -139,7 +132,7 @@ export function ProductStockRow({ token, productId, productName, productImageUrl
           ) : (
             <span className={clsx(
               'text-xs font-medium tabular-nums',
-              totalStock <= 0 ? 'text-danger' : totalStock <= LOW_STOCK_THRESHOLD ? 'text-warning' : 'text-ink-2',
+              tone === 'out' ? 'text-danger' : tone === 'low' ? 'text-warning' : 'text-ink-2',
             )}>
               {totalStock}
             </span>

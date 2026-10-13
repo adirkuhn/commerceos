@@ -115,6 +115,16 @@
   "bolField": {
     "notSet": "-- not set --"
   },
+  "lowStock": {
+    "help": "Shows the product under Inventory → Low stock when its stock is above 0 and at or below this. Empty uses the shop's setting (Settings → Inventory).",
+    "save": "Save low stock",
+    "saveFailed": "Failed to save the low stock alert",
+    "saved": "Saved.",
+    "shopDefault": "Shop default: {{value}}",
+    "thresholdKg": "Low stock at or below (kg)",
+    "thresholdPieces": "Low stock at or below (pieces)",
+    "title": "Low stock alert"
+  },
   "split": {
     "open": "Split into packages",
     "title": "Split into packages",

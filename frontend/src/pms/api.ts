@@ -60,10 +60,15 @@ export function deleteCategory(token: string, id: string): Promise<null> {
 
 // ── Products ──────────────────────────────────────────────────────────────────
 
+// low/out: only products low on / out of stock -- the server filters,
+// counts and paginates (see openapi listProducts).
+export type ProductStockFilter = 'low' | 'out'
+
 export interface ListProductsParams {
   page?: number
   perPage?: number
   search?: string
+  stock?: ProductStockFilter
 }
 
 export interface ListProductsResult {
@@ -76,6 +81,7 @@ export async function listProducts(token: string, params: ListProductsParams = {
   if (params.page) qs.set('page', String(params.page))
   if (params.perPage) qs.set('per_page', String(params.perPage))
   if (params.search) qs.set('search', params.search)
+  if (params.stock) qs.set('stock', params.stock)
   const query = qs.toString()
 
   const res = await fetch(`${base()}/products${query ? `?${query}` : ''}`, {
@@ -103,6 +109,12 @@ export function updateProduct(token: string, id: string, payload: UpdateProductP
 // Replaces the product's name/description in the store's other languages.
 export function setProductTranslations(token: string, id: string, translations: Record<string, ProductTexts>): Promise<Product> {
   return request<Product>(`${base()}/products/${id}/translations`, { method: 'PUT', body: JSON.stringify({ translations }) }, token)
+}
+
+// Sets the product's own low stock line, in stock units (grams for a
+// weighed product); null = back to the shop's setting.
+export function setProductLowStockThreshold(token: string, id: string, threshold: number | null): Promise<Product> {
+  return request<Product>(`${base()}/products/${id}/low-stock-threshold`, { method: 'PUT', body: JSON.stringify({ low_stock_threshold: threshold }) }, token)
 }
 
 export function deleteProduct(token: string, id: string): Promise<null> {

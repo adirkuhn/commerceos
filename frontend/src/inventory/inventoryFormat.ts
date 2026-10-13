@@ -2,11 +2,6 @@ import i18next from 'i18next'
 import type { SKU } from '../pms/types'
 import type { MovementType } from './types'
 
-// No per-SKU reorder threshold exists in the backend yet -- this is a
-// client-side heuristic ("low" = at or below this many units, but not
-// zero) until a real configurable threshold field is added.
-export const LOW_STOCK_THRESHOLD = 10
-
 export function formatPrice(minorUnits: number, currency: string): string {
   return `${currency} ${(minorUnits / 100).toFixed(2)}`
 }

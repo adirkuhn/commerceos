@@ -19,6 +19,7 @@ import { EDITOR_TABS, ProductEditorTabs, type EditorTab } from './ProductEditorT
 import { ProductEditHeader } from './ProductEditHeader'
 import { ProductDetailsCard } from './ProductDetailsCard'
 import { ProductTranslationsCard } from './ProductTranslationsCard'
+import { ProductLowStockCard, isWeighedProduct } from './ProductLowStockCard'
 import { ProductVariantsCard } from './ProductVariantsCard'
 import { ProductSidebar } from './ProductSidebar'
 import { FlatSkuPricingCard } from './FlatSkuPricingCard'
@@ -142,6 +143,10 @@ export function ProductEditPage({ productId, categories, onCreateCategory, onUpd
                 </FormCard>
 
                 {detail.detail?.product && <ProductTranslationsCard product={detail.detail.product} />}
+
+                {detail.detail?.product && (
+                  <ProductLowStockCard product={detail.detail.product} weighed={isWeighedProduct(detail.detail.variants)} />
+                )}
 
                 {savedProductId && <ProductHistoryCard productId={savedProductId} />}
 

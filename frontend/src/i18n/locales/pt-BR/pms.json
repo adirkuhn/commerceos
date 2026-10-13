@@ -115,6 +115,16 @@
   "bolField": {
     "notSet": "-- não definido --"
   },
+  "lowStock": {
+    "help": "Mostra o produto em Estoque → Estoque baixo quando o estoque é maior que 0 e no máximo este valor. Vazio usa a configuração da loja (Configurações → Estoque).",
+    "save": "Salvar estoque baixo",
+    "saveFailed": "Falha ao salvar o alerta de estoque baixo",
+    "saved": "Salvo.",
+    "shopDefault": "Padrão da loja: {{value}}",
+    "thresholdKg": "Estoque baixo até (kg)",
+    "thresholdPieces": "Estoque baixo até (unidades)",
+    "title": "Alerta de estoque baixo"
+  },
   "split": {
     "open": "Dividir em pacotes",
     "title": "Dividir em pacotes",

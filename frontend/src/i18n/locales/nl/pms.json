@@ -115,6 +115,16 @@
   "bolField": {
     "notSet": "-- niet ingesteld --"
   },
+  "lowStock": {
+    "help": "Toont het product onder Voorraad → Lage voorraad als de voorraad boven 0 ligt en hooguit deze waarde is. Leeg gebruikt de winkelinstelling (Instellingen → Voorraad).",
+    "save": "Lage voorraad opslaan",
+    "saveFailed": "Opslaan van de melding lage voorraad mislukt",
+    "saved": "Opgeslagen.",
+    "shopDefault": "Winkelstandaard: {{value}}",
+    "thresholdKg": "Lage voorraad bij of onder (kg)",
+    "thresholdPieces": "Lage voorraad bij of onder (stuks)",
+    "title": "Melding lage voorraad"
+  },
   "split": {
     "open": "Verdelen in pakketten",
     "title": "Verdelen in pakketten",

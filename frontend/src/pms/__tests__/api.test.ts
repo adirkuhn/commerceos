@@ -120,6 +120,13 @@ describe('listProducts', () => {
     expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/pms/products?page=3&per_page=50&search=shirt')
   })
 
+  it('sends the stock filter', async () => {
+    mockProductListFetch([], 0)
+    await api.listProducts(TOKEN, { page: 1, stock: 'low' })
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/pms/products?page=1&stock=low')
+  })
+
   it('throws on server error', async () => {
     mockFetchError('INTERNAL', 'internal server error', 500)
     await expect(api.listProducts(TOKEN)).rejects.toThrow('internal server error')
