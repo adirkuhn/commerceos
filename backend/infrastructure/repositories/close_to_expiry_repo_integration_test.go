@@ -169,6 +169,70 @@ func TestCloseToExpiryRepo_Integration_ListsBatchesSplitByAcknowledgement(t *tes
 	}))
 }
 
+// The clearance dialog shows how much a sale still makes: each row carries
+// the lot's own cost (else the SKU's average), the SKU's tax class (for the
+// excl./incl. VAT pair) and whether the SKU is a weight pool (grams, never
+// sold itself).
+func TestCloseToExpiryRepo_Integration_ListsCostTaxClassAndWeightPool(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	today := time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC)
+	inBand := today.AddDate(0, 0, 40)
+
+	ownCost := seedExpiryBatch(t, db, ctx, skuID, warehouseID, "OWN-COST", inBand, invDomain.BatchStatusActive, 3)
+	noCost := seedExpiryBatch(t, db, ctx, skuID, warehouseID, "NO-COST", inBand.AddDate(0, 0, 1), invDomain.BatchStatusActive, 4)
+	var taxClassID string
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		tx, _ := txctx.FromContext(ctx)
+		if err := tx.Raw(`INSERT INTO tax_classes (tenant_id, name) VALUES (?, 'Food') RETURNING id`, tenant.IDFromContext(ctx)).Scan(&taxClassID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec(`UPDATE skus SET cost_price_minor_units = 250, tax_class_id = ? WHERE id = ?`, taxClassID, skuID).Error; err != nil {
+			return err
+		}
+		return tx.Exec(`UPDATE batches SET landed_cost_minor_units = 210 WHERE id = ?`, ownCost).Error
+	}))
+
+	reader := repositories.NewCloseToExpiryRepo(db)
+	from, to := today.AddDate(0, 0, 31), today.AddDate(0, 0, 90)
+	var rows []invDomain.CloseToExpiryBatch
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		rows, err = reader.ListCloseToExpiryBatches(ctx, invDomain.CloseToExpiryQuery{From: from, To: to, WindowDays: 90, Limit: 50})
+		return err
+	}))
+	require.Len(t, rows, 2)
+	byID := map[string]invDomain.CloseToExpiryBatch{rows[0].BatchID: rows[0], rows[1].BatchID: rows[1]}
+
+	require.NotNil(t, byID[ownCost].UnitCostMinorUnits)
+	assert.Equal(t, int64(210), *byID[ownCost].UnitCostMinorUnits)
+	assert.Equal(t, invDomain.UnitCostSourceBatch, byID[ownCost].UnitCostSource)
+	require.NotNil(t, byID[noCost].UnitCostMinorUnits)
+	assert.Equal(t, int64(250), *byID[noCost].UnitCostMinorUnits)
+	assert.Equal(t, invDomain.UnitCostSourceSKU, byID[noCost].UnitCostSource)
+	require.NotNil(t, byID[ownCost].TaxClassID)
+	assert.Equal(t, taxClassID, *byID[ownCost].TaxClassID)
+	assert.False(t, byID[ownCost].WeightPool)
+
+	// No cost anywhere, and a kilo SKU.
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		tx, _ := txctx.FromContext(ctx)
+		return tx.Exec(`UPDATE skus SET cost_price_minor_units = NULL, tax_class_id = NULL, unit_type = 'kilo' WHERE id = ?`, skuID).Error
+	}))
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		rows, err = reader.ListCloseToExpiryBatches(ctx, invDomain.CloseToExpiryQuery{From: from, To: to, WindowDays: 90, Limit: 50})
+		return err
+	}))
+	byID = map[string]invDomain.CloseToExpiryBatch{rows[0].BatchID: rows[0], rows[1].BatchID: rows[1]}
+	assert.Nil(t, byID[noCost].UnitCostMinorUnits)
+	assert.Equal(t, invDomain.UnitCostSourceNone, byID[noCost].UnitCostSource)
+	assert.Nil(t, byID[noCost].TaxClassID)
+	assert.True(t, byID[noCost].WeightPool)
+	assert.Equal(t, invDomain.UnitCostSourceBatch, byID[ownCost].UnitCostSource, "the lot's own cost needs no SKU average")
+}
+
 func TestCloseToExpiryRepo_Integration_RequiresTransaction(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, err := repositories.NewCloseToExpiryRepo(db).ListCloseToExpiryBatches(context.Background(), invDomain.CloseToExpiryQuery{})

@@ -130,7 +130,7 @@ components:
     CloseToExpiryBatch:
       type: object
       required: [batch_id, lot_number, expiry_date, days_left, quantity, warehouse_id, warehouse_name, sku_id, sku_code,
-        product_id, product_name, image_url, price_minor_units, currency_code]
+        product_id, product_name, image_url, price_minor_units, currency_code, unit_cost_minor_units, unit_cost_source, tax_class_id, weight_pool]
       properties:
         batch_id: { type: string }
         lot_number: { type: string }
@@ -155,6 +155,27 @@ components:
           allOf: [{ $ref: '#/components/schemas/ClearancePromotion' }]
           nullable: true
           description: The promotion still selling this batch off, if any.
+        unit_cost_minor_units:
+          type: integer
+          nullable: true
+          description: >-
+            What one unit of this lot cost: the lot's own landed cost, else
+            the SKU's average cost price; null when neither is known. Per
+            stock unit -- per gram when weight_pool is true.
+        unit_cost_source:
+          type: string
+          enum: [batch, sku]
+          nullable: true
+          description: Which cost unit_cost_minor_units is; null with no cost.
+        tax_class_id:
+          type: string
+          nullable: true
+          description: The SKU's tax class; null = the tenant's default class. For profit excluding/including VAT.
+        weight_pool:
+          type: boolean
+          description: >-
+            A kilo SKU: stock in grams, never sold itself (its portioned
+            packages are), so it is not something to put on sale.
 
     CloseToExpiryList:
       type: object

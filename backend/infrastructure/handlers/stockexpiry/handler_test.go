@@ -129,6 +129,34 @@ func TestListCloseToExpiry_MapsTheWindowAndItems(t *testing.T) {
 	require.NotNil(t, item.AcknowledgedAt)
 }
 
+func TestListCloseToExpiry_IncludesCostTaxClassAndWeightPool(t *testing.T) {
+	cost, taxClass := int64(210), "tc-food"
+	list := &stubList{out: &appinventory.ListCloseToExpiryResult{Today: date("2026-10-12"),
+		Items: []invDomain.CloseToExpiryBatch{
+			{BatchID: "b-1", ExpiryDate: date("2026-10-30"), UnitCostMinorUnits: &cost, UnitCostSource: invDomain.UnitCostSourceBatch, TaxClassID: &taxClass},
+			{BatchID: "b-2", ExpiryDate: date("2026-10-30"), WeightPool: true},
+		}}}
+	r := newRouter(t, list, &stubAck{}, &stubAck{})
+
+	w := do(t, r, http.MethodGet, "/api/v1/inventory/batches/close-to-expiry", "", true)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	var resp genstockexpiry.CloseToExpiryListResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	withCost, pool := resp.Data.Items[0], resp.Data.Items[1]
+	require.NotNil(t, withCost.UnitCostMinorUnits)
+	assert.Equal(t, 210, *withCost.UnitCostMinorUnits)
+	require.NotNil(t, withCost.UnitCostSource)
+	assert.Equal(t, genstockexpiry.Batch, *withCost.UnitCostSource)
+	require.NotNil(t, withCost.TaxClassId)
+	assert.Equal(t, "tc-food", *withCost.TaxClassId)
+	assert.False(t, withCost.WeightPool)
+	assert.Nil(t, pool.UnitCostMinorUnits)
+	assert.Nil(t, pool.UnitCostSource, "no cost known: no source")
+	assert.True(t, pool.WeightPool)
+	assert.Contains(t, w.Body.String(), `"unit_cost_minor_units":null`)
+}
+
 func TestListCloseToExpiry_HidesAnEndedSale(t *testing.T) {
 	sale := int64(399)
 	ended := date("2026-10-01")

@@ -128,6 +128,13 @@ func toGenBatch(b invDomain.CloseToExpiryBatch, today time.Time) genstockexpiry.
 		v := int(*sale)
 		out.SalePriceMinorUnits = &v
 	}
+	if b.UnitCostMinorUnits != nil {
+		cost := int(*b.UnitCostMinorUnits)
+		source := genstockexpiry.CloseToExpiryBatchUnitCostSource(b.UnitCostSource)
+		out.UnitCostMinorUnits, out.UnitCostSource = &cost, &source
+	}
+	out.TaxClassId = b.TaxClassID
+	out.WeightPool = b.WeightPool
 	if b.Clearance != nil {
 		out.ClearancePromotion = &genstockexpiry.ClearancePromotion{Id: b.Clearance.PromotionID, Name: b.Clearance.PromotionName}
 	}

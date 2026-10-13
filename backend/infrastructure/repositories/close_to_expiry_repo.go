@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/txctx"
 )
 
@@ -25,14 +26,14 @@ var _ invDomain.CloseToExpiryReader = (*CloseToExpiryRepo)(nil)
 // window (if any). Parameters: from, to, window days.
 const closeToExpiryBatchesCTE = `
 	WITH batch_stock AS (
-		SELECT b.id, b.sku_id, b.warehouse_id, b.lot_number, b.expiry_date,
+		SELECT b.id, b.sku_id, b.warehouse_id, b.lot_number, b.expiry_date, b.landed_cost_minor_units,
 			SUM(sm.quantity_delta) AS quantity, a.acknowledged_at
 		FROM batches b
 		JOIN stock_movements sm ON sm.batch_id = b.id
 		LEFT JOIN batch_expiry_acknowledgements a ON a.batch_id = b.id AND a.window_days = ?
 		WHERE b.expiry_date BETWEEN ?::date AND ?::date
 			AND b.status <> 'expired'
-		GROUP BY b.id, b.sku_id, b.warehouse_id, b.lot_number, b.expiry_date, a.acknowledged_at
+		GROUP BY b.id, b.sku_id, b.warehouse_id, b.lot_number, b.expiry_date, b.landed_cost_minor_units, a.acknowledged_at
 		HAVING SUM(sm.quantity_delta) > 0
 	)`
 
@@ -55,6 +56,10 @@ type closeToExpiryRow struct {
 	AcknowledgedAt      *time.Time `gorm:"column:acknowledged_at"`
 	PromotionID         *string    `gorm:"column:promotion_id"`
 	PromotionName       string     `gorm:"column:promotion_name"`
+	LotCostMinorUnits   *int64     `gorm:"column:lot_cost_minor_units"`
+	SKUCostMinorUnits   *int64     `gorm:"column:sku_cost_minor_units"`
+	TaxClassID          *string    `gorm:"column:tax_class_id"`
+	UnitType            string     `gorm:"column:unit_type"`
 }
 
 func (r *CloseToExpiryRepo) ListCloseToExpiryBatches(ctx context.Context, q invDomain.CloseToExpiryQuery) ([]invDomain.CloseToExpiryBatch, error) {
@@ -70,7 +75,9 @@ func (r *CloseToExpiryRepo) ListCloseToExpiryBatches(ctx context.Context, q invD
 			s.id AS sku_id, s.sku_code, p.id AS product_id, p.name AS product_name,
 			COALESCE(fm.url, pm.url, '') AS image_url,
 			s.price_minor_units, s.sale_price_minor_units, s.sale_end_date, s.currency_code,
-			bs.acknowledged_at, cl.promotion_id, COALESCE(cl.promotion_name, '') AS promotion_name
+			bs.acknowledged_at, cl.promotion_id, COALESCE(cl.promotion_name, '') AS promotion_name,
+			bs.landed_cost_minor_units AS lot_cost_minor_units, s.cost_price_minor_units AS sku_cost_minor_units,
+			s.tax_class_id, s.unit_type
 		FROM batch_stock bs
 		JOIN warehouses w ON w.id = bs.warehouse_id
 		JOIN skus s ON s.id = bs.sku_id
@@ -129,6 +136,9 @@ func toCloseToExpiryBatch(row closeToExpiryRow) invDomain.CloseToExpiryBatch {
 		PriceMinorUnits: row.PriceMinorUnits, SalePriceMinorUnits: row.SalePriceMinorUnits, SaleEndDate: row.SaleEndDate,
 		CurrencyCode: row.CurrencyCode, AcknowledgedAt: row.AcknowledgedAt,
 	}
+	b.UnitCostMinorUnits, b.UnitCostSource = invDomain.ResolveUnitCost(row.LotCostMinorUnits, row.SKUCostMinorUnits)
+	b.TaxClassID = row.TaxClassID
+	b.WeightPool = row.UnitType == string(pmsDomain.SKUUnitTypeKilo)
 	if row.PromotionID != nil {
 		b.Clearance = &invDomain.ClearancePromotionRef{PromotionID: *row.PromotionID, PromotionName: row.PromotionName}
 	}

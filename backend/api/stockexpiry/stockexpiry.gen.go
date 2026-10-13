@@ -44,6 +44,24 @@ func (e AcknowledgeBatchExpiryRequestWindowDays) Valid() bool {
 	}
 }
 
+// Defines values for CloseToExpiryBatchUnitCostSource.
+const (
+	Batch CloseToExpiryBatchUnitCostSource = "batch"
+	Sku   CloseToExpiryBatchUnitCostSource = "sku"
+)
+
+// Valid indicates whether the value is a known member of the CloseToExpiryBatchUnitCostSource enum.
+func (e CloseToExpiryBatchUnitCostSource) Valid() bool {
+	switch e {
+	case Batch:
+		return true
+	case Sku:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListCloseToExpiryBatchesParamsWindow.
 const (
 	ListCloseToExpiryBatchesParamsWindowN15 ListCloseToExpiryBatchesParamsWindow = 15
@@ -132,9 +150,24 @@ type CloseToExpiryBatch struct {
 	SalePriceMinorUnits *int   `json:"sale_price_minor_units,omitempty"`
 	SkuCode             string `json:"sku_code"`
 	SkuId               string `json:"sku_id"`
-	WarehouseId         string `json:"warehouse_id"`
-	WarehouseName       string `json:"warehouse_name"`
+
+	// TaxClassId The SKU's tax class; null = the tenant's default class. For profit excluding/including VAT.
+	TaxClassId *string `json:"tax_class_id"`
+
+	// UnitCostMinorUnits What one unit of this lot cost: the lot's own landed cost, else the SKU's average cost price; null when neither is known. Per stock unit -- per gram when weight_pool is true.
+	UnitCostMinorUnits *int `json:"unit_cost_minor_units"`
+
+	// UnitCostSource Which cost unit_cost_minor_units is; null with no cost.
+	UnitCostSource *CloseToExpiryBatchUnitCostSource `json:"unit_cost_source"`
+	WarehouseId    string                            `json:"warehouse_id"`
+	WarehouseName  string                            `json:"warehouse_name"`
+
+	// WeightPool A kilo SKU: stock in grams, never sold itself (its portioned packages are), so it is not something to put on sale.
+	WeightPool bool `json:"weight_pool"`
 }
+
+// CloseToExpiryBatchUnitCostSource Which cost unit_cost_minor_units is; null with no cost.
+type CloseToExpiryBatchUnitCostSource string
 
 // CloseToExpiryList defines model for CloseToExpiryList.
 type CloseToExpiryList struct {
@@ -375,34 +408,39 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"3mz/GwAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

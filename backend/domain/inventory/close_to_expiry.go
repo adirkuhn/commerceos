@@ -31,6 +31,17 @@ type CloseToExpiryBatch struct {
 	AcknowledgedAt *time.Time
 	// Clearance is the promotion still selling this batch off, if any.
 	Clearance *ClearancePromotionRef
+	// UnitCostMinorUnits is what one unit of this lot cost -- see
+	// ResolveUnitCost; UnitCostSource says which cost it is. Per stock unit:
+	// per gram for a WeightPool SKU.
+	UnitCostMinorUnits *int64
+	UnitCostSource     UnitCostSource
+	// TaxClassID is the SKU's own tax class (nil = the tenant's default),
+	// for showing profit excluding and including VAT.
+	TaxClassID *string
+	// WeightPool is true for a kilo SKU: stock in grams, never sold itself
+	// (its portioned packages are) -- so it can't be put on sale.
+	WeightPool bool
 }
 
 // ActiveSalePrice is the SKU's sale price when a sale runs today (through
