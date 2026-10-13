@@ -17,7 +17,7 @@ function order(overrides: Partial<SalesOrder>): SalesOrder {
 const twelveMinAgo = () => new Date(Date.now() - 12 * 60_000).toISOString()
 
 const entries: QueueEntry[] = [
-  { sales_order: order({ id: 'so-1', number: '1001', fulfilled: true }), lock: null, in_packing: false },
+  { sales_order: order({ id: 'so-1', number: '1001', fulfilled: true, shipping_method_title: 'PostNL pakket' }), lock: null, in_packing: false },
   { sales_order: order({ id: 'so-2', number: '1002', fulfilled: false, billing: { first_name: 'Bo', last_name: 'Ng' } }), lock: null, in_packing: false },
   {
     sales_order: order({ id: 'so-3', number: '1003', fulfilled: false }),
@@ -51,6 +51,13 @@ function row(number: string): HTMLElement {
 }
 
 describe('PackingOrderQueue', () => {
+  it('shows each order\'s shipping method, and nothing when it has none', () => {
+    renderQueue()
+
+    expect(within(row('1001')).getByTitle('Shipping method')).toHaveTextContent('PostNL pakket')
+    expect(within(row('1002')).queryByTitle('Shipping method')).not.toBeInTheDocument()
+  })
+
   it('lists every order, marking ones that skipped picking', () => {
     renderQueue()
 

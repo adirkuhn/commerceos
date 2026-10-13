@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { ClipboardList, Lock, Search } from 'lucide-react'
+import { ClipboardList, Lock, Search, Truck } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import type { QueueEntry, SalesOrder } from '../oms/types'
 import { orderNumber } from './orderDisplay'
 import { lockLabel } from './lockDisplay'
-import { customerName } from '../oms/salesOrderDisplay'
+import { customerName, shippingMethodLabel } from '../oms/salesOrderDisplay'
 import { Money } from '../format/amountVisibility'
 
 interface PackingOrderQueueProps {
@@ -106,6 +106,7 @@ export function PackingOrderQueue({
         {visible.map(({ sales_order: o, lock }) => {
           const active = activeOrderId === o.id
           const lockedByOther = lock !== null && lock.user_id !== currentUserId
+          const shippingMethod = shippingMethodLabel(o)
           const details = (
             <>
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -115,6 +116,12 @@ export function PackingOrderQueue({
                   : !o.fulfilled && <span className="text-2xs font-medium text-warning">{t('queue.notPicked')}</span>}
               </div>
               <p className="text-2xs text-ink-3 truncate">{customerName(o)}</p>
+              {shippingMethod && (
+                <p title={t('order.shippingMethod')} className="flex items-center gap-1 text-2xs text-ink-3 mt-0.5">
+                  <Truck size={10} className="shrink-0" aria-hidden />
+                  <span className="truncate">{shippingMethod}</span>
+                </p>
+              )}
               <p className="text-2xs text-ink-4 mt-0.5"><Money minor={o.total_minor_units} currency={o.currency_code} /></p>
             </>
           )

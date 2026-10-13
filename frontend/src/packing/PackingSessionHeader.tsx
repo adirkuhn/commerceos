@@ -1,7 +1,7 @@
-import { CheckCircle, PackagePlus, Tag, Undo2 } from 'lucide-react'
+import { CheckCircle, PackagePlus, Tag, Truck, Undo2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { SalesOrder } from '../oms/types'
-import { customerName, shippingAddressLine } from '../oms/salesOrderDisplay'
+import { customerName, shippingAddressLine, shippingMethodLabel } from '../oms/salesOrderDisplay'
 import { Money } from '../format/amountVisibility'
 
 interface PackingSessionHeaderProps {
@@ -17,6 +17,7 @@ interface PackingSessionHeaderProps {
 // The open order's summary and the session-wide actions.
 export function PackingSessionHeader({ order, showCreateLabel, readOnly, onCreateLabel, onAddItem, onStartOver, onComplete }: PackingSessionHeaderProps) {
   const { t } = useTranslation('packing')
+  const shippingMethod = shippingMethodLabel(order)
   return (
     <div className="flex items-center gap-4 px-6 py-3 border-b border-line shrink-0">
       <div className="flex-1">
@@ -28,6 +29,12 @@ export function PackingSessionHeader({ order, showCreateLabel, readOnly, onCreat
         <p className="text-xs text-ink-4"><Money minor={order.total_minor_units} currency={order.currency_code} /></p>
         {shippingAddressLine(order.shipping) && (
           <p className="text-xs text-ink-4 mt-0.5">{shippingAddressLine(order.shipping)}</p>
+        )}
+        {shippingMethod && (
+          <p title={t('order.shippingMethod')} className="flex items-center gap-1 text-xs text-ink-3 mt-0.5">
+            <Truck size={12} className="shrink-0" aria-hidden />
+            {shippingMethod}
+          </p>
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">

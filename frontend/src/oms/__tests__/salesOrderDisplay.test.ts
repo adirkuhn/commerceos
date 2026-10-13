@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { STATUS_OPTIONS, addressesEqual, customerName, salesOrderSourceLabel, shippingAddressLine } from '../salesOrderDisplay'
+import { STATUS_OPTIONS, addressesEqual, customerName, salesOrderSourceLabel, shippingAddressLine, shippingMethodLabel } from '../salesOrderDisplay'
 import type { SalesOrder } from '../types'
 import omsContract from '../../../../backend/api/oms/openapi.yaml?raw'
 
@@ -24,6 +24,16 @@ describe('shippingAddressLine', () => {
   it('skips missing parts and handles no address', () => {
     expect(shippingAddressLine({ city: 'Amsterdam' })).toBe('Amsterdam')
     expect(shippingAddressLine(undefined)).toBe('')
+  })
+})
+
+describe('shippingMethodLabel', () => {
+  it('uses the title the customer saw, falling back to the method id', () => {
+    expect(shippingMethodLabel({ shipping_method_title: 'PostNL pakket', shipping_method: 'flat_rate' } as SalesOrder)).toBe('PostNL pakket')
+    expect(shippingMethodLabel({ shipping_method: 'flat_rate' } as SalesOrder)).toBe('flat_rate')
+  })
+  it('is empty when the order has no shipping method (POS, bol.com)', () => {
+    expect(shippingMethodLabel({} as SalesOrder)).toBe('')
   })
 })
 

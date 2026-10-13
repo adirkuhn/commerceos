@@ -95,6 +95,9 @@
     "takeOver": "Assumir",
     "user": "Usuário {{id}}"
   },
+  "order": {
+    "shippingMethod": "Método de envio"
+  },
   "page": {
     "selectOrder": "Selecione um pedido para começar a embalar"
   },

@@ -1,6 +1,6 @@
 import i18next from 'i18next'
 import type { SalesOrder } from '../oms/types'
-import { addressesEqual, shippingAddressLine } from '../oms/salesOrderDisplay'
+import { addressesEqual, shippingAddressLine, shippingMethodLabel } from '../oms/salesOrderDisplay'
 
 // Billing address, shown only when it differs from where the order ships.
 export function PickingBillingLine({ order }: { order: SalesOrder }) {
@@ -9,6 +9,7 @@ export function PickingBillingLine({ order }: { order: SalesOrder }) {
 }
 
 export function PickingShippingMethodLine({ order }: { order: SalesOrder }) {
-  if (!(order.shipping_method_title || order.shipping_method)) return null
-  return <p className="text-sm text-gray-400 mt-0.5">{i18next.t('scanner:session.shipping', { method: order.shipping_method_title || order.shipping_method })}</p>
+  const method = shippingMethodLabel(order)
+  if (!method) return null
+  return <p className="text-sm text-gray-400 mt-0.5">{i18next.t('scanner:session.shipping', { method })}</p>
 }

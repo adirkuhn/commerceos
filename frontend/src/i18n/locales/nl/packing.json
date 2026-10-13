@@ -95,6 +95,9 @@
     "takeOver": "Overnemen",
     "user": "Gebruiker {{id}}"
   },
+  "order": {
+    "shippingMethod": "Verzendmethode"
+  },
   "page": {
     "selectOrder": "Kies een order om te beginnen met inpakken"
   },

@@ -35,6 +35,13 @@ export function shippingAddressLine(address?: Address): string {
   return [streetAndLocality, address.country].filter(Boolean).join(', ')
 }
 
+// shippingMethodLabel is the shipping method as the sales order shows it:
+// the title the customer picked at checkout (e.g. "PostNL pakket"), else
+// the raw method id. Empty when the channel sent none (POS, bol.com).
+export function shippingMethodLabel(order: Pick<SalesOrder, 'shipping_method' | 'shipping_method_title'>): string {
+  return order.shipping_method_title || order.shipping_method || ''
+}
+
 // Billing shown as "Same as shipping address" when the two addresses match
 // on every field a customer would actually check -- not e.g. phone, which
 // legitimately differs (billing contact vs. delivery contact) without the

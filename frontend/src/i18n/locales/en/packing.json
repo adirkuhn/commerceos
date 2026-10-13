@@ -95,6 +95,9 @@
     "takeOver": "Take over",
     "user": "User {{id}}"
   },
+  "order": {
+    "shippingMethod": "Shipping method"
+  },
   "page": {
     "selectOrder": "Select an order to start packing"
   },

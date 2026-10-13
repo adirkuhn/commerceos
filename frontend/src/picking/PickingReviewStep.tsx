@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { SalesOrder } from '../oms/types'
 import type { PickingSessionDetail } from '../scanner/types'
 import { computeMissingItems } from '../scanner/pickingMissingItems'
-import { customerName, shippingAddressLine } from '../oms/salesOrderDisplay'
+import { customerName, shippingAddressLine, shippingMethodLabel } from '../oms/salesOrderDisplay'
 
 interface PickingReviewStepProps {
   order: SalesOrder
@@ -37,9 +37,9 @@ export function PickingReviewStep({ order, session, error, completing, onConfirm
         {shippingAddressLine(order.shipping) && (
           <p className="text-xs text-ink-4 mt-0.5">{shippingAddressLine(order.shipping)}</p>
         )}
-        {(order.shipping_method_title || order.shipping_method) && (
+        {shippingMethodLabel(order) && (
           <p className="text-xs text-ink-4 mt-0.5">
-            {t('review.shipping', { method: order.shipping_method_title || order.shipping_method })}
+            {t('review.shipping', { method: shippingMethodLabel(order) })}
           </p>
         )}
       </div>
