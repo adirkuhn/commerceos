@@ -44,7 +44,7 @@ export default function Topbar() {
       </button>
 
       <div className="flex items-center gap-2 ml-auto">
-        {/* Money privacy: amounts start hidden on every load */}
+        {/* Money privacy: amounts start hidden; this global choice is remembered */}
         <button
           onClick={() => amounts.setVisible(!amounts.visible)}
           aria-pressed={amounts.visible}

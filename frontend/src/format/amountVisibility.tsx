@@ -5,9 +5,10 @@ import { formatMoney } from './money'
 
 // Money privacy: inside the admin every amount starts hidden, so opening
 // the app with someone looking over your shoulder shows no revenue, totals
-// or prices. One click on an amount reveals that amount; the Topbar's
-// "Show amounts" reveals them all. Deliberately not remembered -- every
-// page load starts hidden again.
+// or prices. One click on an amount reveals that amount for this page load
+// only; the Topbar's "Show amounts" reveals them all, and that global
+// choice is remembered in this browser so a refresh keeps it. Storage is a
+// convenience: when it is unavailable amounts simply start hidden.
 //
 // Without a provider (unit tests, the scanner app, standalone screens)
 // amounts show normally.
@@ -19,9 +20,53 @@ interface AmountVisibility {
 
 const AmountVisibilityContext = createContext<AmountVisibility>({ visible: true, setVisible: () => {} })
 
-export function AmountVisibilityProvider({ children }: { children: ReactNode }) {
-  const [visible, setVisible] = useState(false)
-  const value = useMemo(() => ({ visible, setVisible }), [visible])
+export const AMOUNTS_STORAGE_KEY = 'commerceos.amounts'
+const VISIBLE = 'visible'
+const HIDDEN = 'hidden'
+
+// The subset of Storage the provider needs, so tests (and a blocked
+// localStorage) can supply their own.
+export interface AmountStorage {
+  getItem(key: string): string | null
+  setItem(key: string, value: string): void
+}
+
+function browserStorage(): AmountStorage | null {
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function loadVisible(storage: AmountStorage | null): boolean {
+  try {
+    return storage?.getItem(AMOUNTS_STORAGE_KEY) === VISIBLE
+  } catch {
+    return false
+  }
+}
+
+function saveVisible(storage: AmountStorage | null, visible: boolean): void {
+  try {
+    storage?.setItem(AMOUNTS_STORAGE_KEY, visible ? VISIBLE : HIDDEN)
+  } catch {
+    // Not remembered this time; the in-memory choice still applies.
+  }
+}
+
+interface AmountVisibilityProviderProps {
+  children: ReactNode
+  storage?: AmountStorage | null
+}
+
+export function AmountVisibilityProvider({ children, storage = browserStorage() }: AmountVisibilityProviderProps) {
+  const [visible, setVisibleState] = useState(() => loadVisible(storage))
+  const setVisible = useCallback((next: boolean) => {
+    setVisibleState(next)
+    saveVisible(storage, next)
+  }, [storage])
+  const value = useMemo(() => ({ visible, setVisible }), [visible, setVisible])
   return <AmountVisibilityContext.Provider value={value}>{children}</AmountVisibilityContext.Provider>
 }
 

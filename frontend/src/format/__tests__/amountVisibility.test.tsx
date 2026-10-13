@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { describe, expect, it } from 'vitest'
-import { AmountVisibilityProvider, Money, maskMoney, useAmountVisibility, useMoneyFormat } from '../amountVisibility'
+import { afterEach, describe, expect, it } from 'vitest'
+import { AMOUNTS_STORAGE_KEY, AmountVisibilityProvider, Money, maskMoney, useAmountVisibility, useMoneyFormat, type AmountStorage } from '../amountVisibility'
 import { formatMoney } from '../money'
+
+// The provider remembers the global switch -- start every test from a
+// fresh browser.
+afterEach(() => { localStorage.clear() })
 
 const hidden = ({ children }: { children: ReactNode }) => <AmountVisibilityProvider>{children}</AmountVisibilityProvider>
 
@@ -80,5 +84,63 @@ describe('useMoneyFormat', () => {
   it('formats normally without a provider', () => {
     const { result } = renderHook(() => useMoneyFormat())
     expect(result.current(1250, 'EUR')).toBe(formatMoney(1250, 'EUR'))
+  })
+})
+
+describe('AmountVisibilityProvider -- remembered across reloads', () => {
+  function Toggle() {
+    const { visible, setVisible } = useAmountVisibility()
+    return <button onClick={() => setVisible(!visible)}>{visible ? 'shown' : 'hidden'}</button>
+  }
+
+  it('starts hidden the first time', () => {
+    render(<AmountVisibilityProvider><Toggle /></AmountVisibilityProvider>)
+    expect(screen.getByRole('button').textContent).toBe('hidden')
+  })
+
+  it('keeps the global show/hide choice after a reload', () => {
+    const first = render(<AmountVisibilityProvider><Toggle /></AmountVisibilityProvider>)
+    fireEvent.click(screen.getByRole('button'))
+    first.unmount()
+
+    render(<AmountVisibilityProvider><Toggle /></AmountVisibilityProvider>)
+    expect(screen.getByRole('button').textContent).toBe('shown')
+  })
+
+  it('remembers hiding again too', () => {
+    localStorage.setItem(AMOUNTS_STORAGE_KEY, 'visible')
+    const first = render(<AmountVisibilityProvider><Toggle /></AmountVisibilityProvider>)
+    expect(screen.getByRole('button').textContent).toBe('shown')
+    fireEvent.click(screen.getByRole('button'))
+    first.unmount()
+
+    render(<AmountVisibilityProvider><Toggle /></AmountVisibilityProvider>)
+    expect(screen.getByRole('button').textContent).toBe('hidden')
+  })
+
+  it('does not remember one-off reveals of a single amount', () => {
+    const first = render(<Money minor={1250} currency="EUR" />, { wrapper: hidden })
+    fireEvent.click(screen.getByRole('button', { name: 'Show amount' }))
+    first.unmount()
+
+    render(<Money minor={1250} currency="EUR" />, { wrapper: hidden })
+    expect(screen.queryByText(formatMoney(1250, 'EUR'))).toBeNull()
+  })
+
+  it('ignores an unknown stored value and stays hidden', () => {
+    localStorage.setItem(AMOUNTS_STORAGE_KEY, 'garbage')
+    render(<AmountVisibilityProvider><Toggle /></AmountVisibilityProvider>)
+    expect(screen.getByRole('button').textContent).toBe('hidden')
+  })
+
+  it('still works when storage throws (private window, blocked site data)', () => {
+    const broken: AmountStorage = {
+      getItem: () => { throw new Error('blocked') },
+      setItem: () => { throw new Error('blocked') },
+    }
+    render(<AmountVisibilityProvider storage={broken}><Toggle /></AmountVisibilityProvider>)
+    expect(screen.getByRole('button').textContent).toBe('hidden')
+    fireEvent.click(screen.getByRole('button'))
+    expect(screen.getByRole('button').textContent).toBe('shown')
   })
 })
