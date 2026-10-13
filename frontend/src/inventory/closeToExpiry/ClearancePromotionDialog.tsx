@@ -8,7 +8,8 @@ import { formatMoney } from '../../format/money'
 import { addDays, zonedMidnight } from '../../format/calendarDay'
 import { apiErrorText } from '../../api/apiErrorText'
 import { createPromotion } from '../../promotions/api'
-import { buildClearancePromotion, clearanceLine, PRICE_MODES, previewSalePrice, type PriceMode } from './clearance'
+import { buildClearancePromotion, clearanceLine, clearanceProfit, PRICE_MODES, previewSalePrice, type PriceMode, type SkuVat } from './clearance'
+import { ClearanceProfitPanel } from './ClearanceProfitPanel'
 import type { CloseToExpiryBatch } from './types'
 
 export interface ClearanceCreated {
@@ -21,16 +22,22 @@ const MODE_LABEL = { price: 'modePrice', percent: 'modePercent', amount: 'modeAm
 const VALUE_LABEL = { price: 'valuePrice', percent: 'valuePercent', amount: 'valueAmount' } as const
 const INVALID = { price: 'invalidPrice', percent: 'invalidPercent', amount: 'invalidAmount' } as const
 
+const GRAMS_PER_KG = 1000
+// A VAT rate nobody resolved yet: profit is shown at the price as stored.
+const UNKNOWN_VAT: SkuVat = { rateBasisPoints: null, pricesIncludeTax: true }
+
 const inputClass = 'w-full px-3 py-2 text-sm rounded-lg bg-sunken border border-line text-ink outline-none focus:ring-1 focus:ring-focus'
 const labelClass = 'block text-xs text-ink-3 mb-1.5'
 
 // "Put on sale" for one close-to-expiry batch: an active clearance
 // promotion for its SKU, starting now, that ends by itself once the batch
 // is finished (see promotions' clearance lines). Amounts here stay
-// unmasked: it is an edit form.
-export function ClearancePromotionDialog({ token, batch, onClose, onCreated }: {
+// unmasked: it is an edit form. The profit panel shows what the sale still
+// makes against the lot's cost (vat: the SKU's VAT, for excl./incl.).
+export function ClearancePromotionDialog({ token, batch, vat = UNKNOWN_VAT, onClose, onCreated }: {
   token: string
   batch: CloseToExpiryBatch
+  vat?: SkuVat
   onClose: () => void
   onCreated: (created: ClearanceCreated) => void
 }) {
@@ -47,6 +54,8 @@ export function ClearancePromotionDialog({ token, batch, onClose, onCreated }: {
 
   const line = clearanceLine(mode, value)
   const money = (minor: number) => formatMoney(minor, batch.currency_code)
+  const salePrice = line ? previewSalePrice(batch.price_minor_units, line) : null
+  const profit = clearanceProfit(batch, salePrice, vat)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -66,6 +75,8 @@ export function ClearancePromotionDialog({ token, batch, onClose, onCreated }: {
   }
 
   const context = { lot: batch.lot_number, count: batch.quantity, date: formatDate(batch.expiry_date) }
+
+  if (batch.weight_pool) return <WeightPoolNotice batch={batch} onClose={onClose} />
 
   return (
     <Dialog onClose={onClose} dismissible={!submitting} label={t('closeToExpiry.dialog.title', { product: batch.product_name })}
@@ -102,12 +113,19 @@ export function ClearancePromotionDialog({ token, batch, onClose, onCreated }: {
           <label htmlFor="clearance-value" className={labelClass}>{t(`closeToExpiry.dialog.${VALUE_LABEL[mode]}`)}</label>
           <input id="clearance-value" inputMode="decimal" autoComplete="off" value={value}
             onChange={e => setValue(e.target.value)} className={clsx(inputClass, 'tabular-nums')} />
-          {line && (
+          {salePrice !== null && (
             <p className="text-xs text-ink-3 mt-1.5 tabular-nums">
-              {t('closeToExpiry.dialog.preview', { price: money(previewSalePrice(batch.price_minor_units, line)), regular: money(batch.price_minor_units) })}
+              {t('closeToExpiry.dialog.preview', { price: money(salePrice), regular: money(batch.price_minor_units) })}
             </p>
           )}
         </div>
+
+        {profit ? (
+          <ClearanceProfitPanel profit={profit} regularPrice={batch.price_minor_units} salePrice={salePrice}
+            quantity={batch.quantity} currency={batch.currency_code} />
+        ) : (
+          <p className="text-xs text-ink-4">{t('closeToExpiry.profit.noCost')}</p>
+        )}
 
         <div>
           <label htmlFor="clearance-ends" className={labelClass}>{t('closeToExpiry.dialog.ends')}</label>
@@ -133,6 +151,33 @@ export function ClearancePromotionDialog({ token, batch, onClose, onCreated }: {
           </button>
         </div>
       </form>
+    </Dialog>
+  )
+}
+
+// A kilo SKU is an internal weight pool (stock in grams, cost per gram): no
+// channel sells it, so a sale on it would reach nobody. Shows what the lot
+// holds and costs per kg instead.
+function WeightPoolNotice({ batch, onClose }: { batch: CloseToExpiryBatch; onClose: () => void }) {
+  const { t } = useTranslation(['inventory', 'common'])
+  const kg = batch.quantity / GRAMS_PER_KG
+  return (
+    <Dialog onClose={onClose} label={t('closeToExpiry.dialog.title', { product: batch.product_name })}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-raised border border-line p-5 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-sm font-semibold text-ink">{t('closeToExpiry.dialog.title', { product: batch.product_name })}</h2>
+          <button type="button" aria-label={t('common:actions.close')} onClick={onClose} className="shrink-0 text-ink-4 hover:text-ink-2">
+            <X size={16} />
+          </button>
+        </div>
+        <p className="text-xs text-ink-3">{t('closeToExpiry.profit.weightPool')}</p>
+        <p className="text-xs text-ink tabular-nums">
+          {batch.unit_cost_minor_units != null
+            ? t('closeToExpiry.profit.weightPoolCost', { kg, cost: formatMoney(batch.unit_cost_minor_units * GRAMS_PER_KG, batch.currency_code) })
+            : t('closeToExpiry.profit.weightPoolLeft', { kg })}
+        </p>
+      </div>
     </Dialog>
   )
 }

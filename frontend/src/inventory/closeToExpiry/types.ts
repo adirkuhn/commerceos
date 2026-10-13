@@ -36,7 +36,19 @@ export interface CloseToExpiryBatch {
   acknowledged_at?: string | null
   // The promotion still selling this batch off, if any.
   clearance_promotion?: ClearancePromotionRef | null
+  // What one unit of this lot cost: its own landed cost ('batch'), else
+  // the SKU's average ('sku'); null when unknown. Per gram for a weight
+  // pool. Optional so older fixtures stay valid -- a real response always
+  // includes these.
+  unit_cost_minor_units?: number | null
+  unit_cost_source?: UnitCostSource | null
+  // The SKU's tax class; null = the shop's default class.
+  tax_class_id?: string | null
+  // A kilo SKU: stock in grams, never sold itself (its packages are).
+  weight_pool?: boolean
 }
+
+export type UnitCostSource = 'batch' | 'sku'
 
 export interface CloseToExpiryList {
   today: string

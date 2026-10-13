@@ -1,6 +1,7 @@
 import { toMinorUnits } from '../../collections/form'
 import type { PromotionInput, PromotionLineInput, PromotionType } from '../../promotions/types'
-import type { CloseToExpiryBatch, CloseToExpiryWindow } from './types'
+import { profitAt, profitExclIncl, type Profit } from '../../pms/profit'
+import type { CloseToExpiryBatch, CloseToExpiryWindow, UnitCostSource } from './types'
 
 // How a clearance sale is priced: a new price, a percentage off or an
 // amount off.
@@ -50,6 +51,54 @@ export function buildClearancePromotion({ batch, line, name, endsAt, now }: {
     name: name.trim(), type: line.discount_type, status: 'active',
     starts_at: now.toISOString(), ends_at: endsAt ? endsAt.toISOString() : null,
     lines: [{ sku_id: batch.sku_id, batch_id: batch.batch_id, ...line }],
+  }
+}
+
+/** The shop's VAT for this SKU: rate (null = unknown) and whether stored prices include it. */
+export interface SkuVat {
+  rateBasisPoints: number | null
+  pricesIncludeTax: boolean
+}
+
+/** Profit at one price: as stored, plus excl./incl. VAT when the rate is known. */
+export interface PriceProfit {
+  stored: Profit
+  exclusive: Profit | null
+  inclusive: Profit | null
+}
+
+export interface ClearanceProfit {
+  cost: number
+  costSource: UnitCostSource
+  regular: PriceProfit
+  sale: PriceProfit | null
+  /** Profit on everything left in the lot at the sale price -- excl. VAT when known. */
+  lotProfit: number | null
+  belowCost: boolean
+}
+
+function priceProfit(price: number, cost: number, vat: SkuVat): PriceProfit {
+  const both = profitExclIncl(price, cost, vat.rateBasisPoints, vat.pricesIncludeTax)
+  return { stored: profitAt(price, cost), exclusive: both?.exclusive ?? null, inclusive: both?.inclusive ?? null }
+}
+
+/** How much a clearance still makes, against the lot's cost (else the SKU's
+ *  average). Same formula as the product page's margin panel. Null without a cost. */
+export function clearanceProfit(
+  batch: Pick<CloseToExpiryBatch, 'quantity' | 'price_minor_units' | 'unit_cost_minor_units' | 'unit_cost_source'>,
+  salePriceMinorUnits: number | null,
+  vat: SkuVat,
+): ClearanceProfit | null {
+  if (batch.unit_cost_minor_units == null || !batch.unit_cost_source) return null
+  const cost = batch.unit_cost_minor_units
+  const sale = salePriceMinorUnits == null ? null : priceProfit(salePriceMinorUnits, cost, vat)
+  const realSaleProfit = sale ? (sale.exclusive ?? sale.stored).profit : null
+  return {
+    cost, costSource: batch.unit_cost_source,
+    regular: priceProfit(batch.price_minor_units, cost, vat),
+    sale,
+    lotProfit: realSaleProfit == null ? null : realSaleProfit * batch.quantity,
+    belowCost: realSaleProfit != null && realSaleProfit < 0,
   }
 }
 

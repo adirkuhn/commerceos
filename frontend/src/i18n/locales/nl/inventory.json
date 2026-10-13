@@ -221,6 +221,26 @@
     "title": "Markeren als beschadigd / verloren"
   },
   "closeToExpiry": {
+    "profit": {
+      "belowCost": "Onder kostprijs: verlies van {{perUnit}} per stuk ({{lot}} op deze partij).",
+      "columns": "Winst · marge · opslag",
+      "cost": "Kostprijs per stuk",
+      "exclVat": "Excl. btw: winst · marge · opslag",
+      "inclVat": "Incl. btw",
+      "lot": "Hele partij ({{count}} over): {{profit}} winst",
+      "lotExclVat": "Hele partij ({{count}} over): {{profit}} winst excl. btw",
+      "noCost": "Geen kostprijs voor dit product, dus de winst kan niet worden getoond.",
+      "regular": "Normaal",
+      "sale": "Actie",
+      "source": {
+        "batch": "deze partij",
+        "sku": "gemiddelde kostprijs"
+      },
+      "title": "Winst",
+      "weightPool": "Dit is een bulkvoorraad op gewicht. Die wordt als verpakkingen verkocht, zet dus de verpakkingen in de aanbieding.",
+      "weightPoolCost": "{{kg}} kg over · kostprijs {{cost}} per kg",
+      "weightPoolLeft": "{{kg}} kg over"
+    },
     "title": "Bijna over de datum",
     "windowDays_one": "{{count}} dag",
     "windowDays_other": "{{count}} dagen",

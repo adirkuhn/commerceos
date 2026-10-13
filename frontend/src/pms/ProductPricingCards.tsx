@@ -9,6 +9,7 @@ import { Money, useMoneyFormat } from '../format/amountVisibility'
 import { FormCard } from './FormCard'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
+import { profitExclIncl } from './profit'
 
 // ── Shared form layout primitives ────────────────────────────────────────────
 
@@ -18,22 +19,6 @@ import { apiErrorText } from '../api/apiErrorText'
 // GetSKUMarginInsightUseCase. Fetched fresh whenever skuId changes (e.g.
 // switching between products), not tied to the price/salePrice form state --
 // this reflects the *saved* SKU, not an in-progress unsaved edit.
-// btwVariant computes profit/margin/markup at a given selling price against
-// a fixed cost -- used to derive the "with BTW" / "without BTW" pair from
-// whichever of the two the stored price already represents (per
-// tenant.prices_include_tax), by converting the price with taxRateBasisPoints
-// and re-deriving profit from there. Cost never carries tax (what you paid
-// a supplier), so only price/profit shift between the two variants.
-function btwVariant(priceMinorUnits: number, costMinorUnits: number) {
-  const profit = priceMinorUnits - costMinorUnits
-  return {
-    price: priceMinorUnits,
-    profit,
-    marginBasisPoints: priceMinorUnits > 0 ? Math.round((profit * 10000) / priceMinorUnits) : 0,
-    markupBasisPoints: costMinorUnits > 0 ? Math.round((profit * 10000) / costMinorUnits) : 0,
-  }
-}
-
 export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesIncludeTax }: {
   skuId: string; currency: string; taxRateBasisPoints: number | null; pricesIncludeTax: boolean
 }) {
@@ -62,15 +47,8 @@ export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesI
   const moneyText = (minorUnits: number) => formatMoney(minorUnits, currency)
   const pct = (basisPoints: number) => `${(basisPoints / 100).toFixed(1)}%`
 
-  // withBoth derives the excl./incl.-BTW pair for one selling price, given
-  // the rate and which side the stored price already represents.
-  const withBoth = (sellingPriceMinorUnits: number, costMinorUnits: number) => {
-    if (taxRateBasisPoints == null) return null
-    const rate = taxRateBasisPoints / 10000
-    const exclusivePrice = pricesIncludeTax ? Math.round(sellingPriceMinorUnits / (1 + rate)) : sellingPriceMinorUnits
-    const inclusivePrice = pricesIncludeTax ? sellingPriceMinorUnits : Math.round(sellingPriceMinorUnits * (1 + rate))
-    return { exclusive: btwVariant(exclusivePrice, costMinorUnits), inclusive: btwVariant(inclusivePrice, costMinorUnits) }
-  }
+  const withBoth = (sellingPriceMinorUnits: number, costMinorUnits: number) =>
+    profitExclIncl(sellingPriceMinorUnits, costMinorUnits, taxRateBasisPoints, pricesIncludeTax)
 
   const profitRow = (label: string, profitMinorUnits: number, marginBps: number, markupBps: number, sellingPriceMinorUnits: number, costMinorUnits: number) => {
     const both = withBoth(sellingPriceMinorUnits, costMinorUnits)

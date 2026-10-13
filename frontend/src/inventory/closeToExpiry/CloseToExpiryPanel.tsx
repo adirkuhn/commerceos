@@ -8,6 +8,7 @@ import { Money } from '../../format/amountVisibility'
 import { DaysLeftStamp } from './DaysLeftStamp'
 import { ClearancePromotionDialog, type ClearanceCreated } from './ClearancePromotionDialog'
 import { nextWindowOf } from './clearance'
+import { useSkuTaxContext } from '../../pms/hooks/useSkuTaxContext'
 import { useCloseToExpiry, type CloseToExpiryState } from './useCloseToExpiry'
 import type { CloseToExpiryBatch, CloseToExpiryList } from './types'
 
@@ -111,7 +112,7 @@ export function CloseToExpiryPanel({ token, state, onDiscard }: {
 
       {data && <Pager data={data} onPage={state.setPage} />}
 
-      {saleFor && <ClearancePromotionDialog token={token} batch={saleFor} onClose={() => setSaleFor(null)} onCreated={handleCreated} />}
+      {saleFor && <SaleDialog token={token} batch={saleFor} onClose={() => setSaleFor(null)} onCreated={handleCreated} />}
     </div>
   )
 }
@@ -220,4 +221,15 @@ function Pager({ data, onPage }: { data: CloseToExpiryList; onPage: (page: numbe
         className="px-2.5 py-1.5 rounded-lg bg-fill hover:bg-hover disabled:opacity-40">{t('closeToExpiry.next')}</button>
     </div>
   )
+}
+
+// The sale dialog with the SKU's VAT resolved (its tax class, else the
+// shop's default, in the shop's tax country) -- loaded only once the dialog
+// opens, not for every list render.
+function SaleDialog({ token, batch, onClose, onCreated }: {
+  token: string; batch: CloseToExpiryBatch; onClose: () => void; onCreated: (created: ClearanceCreated) => void
+}) {
+  const { tenantSettings, rateFor } = useSkuTaxContext()
+  const vat = { rateBasisPoints: rateFor(batch.tax_class_id)?.rate_basis_points ?? null, pricesIncludeTax: tenantSettings?.prices_include_tax ?? true }
+  return <ClearancePromotionDialog token={token} batch={batch} vat={vat} onClose={onClose} onCreated={onCreated} />
 }

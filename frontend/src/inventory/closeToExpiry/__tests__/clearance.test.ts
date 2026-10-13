@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildClearancePromotion, clearanceLine, previewSalePrice, urgencyOf, nextWindowOf } from '../clearance'
+import { buildClearancePromotion, clearanceLine, previewSalePrice, urgencyOf, nextWindowOf, clearanceProfit } from '../clearance'
 import type { CloseToExpiryBatch } from '../types'
 
 const batch: CloseToExpiryBatch = {
@@ -74,5 +74,52 @@ describe('nextWindowOf', () => {
   })
   it('is null for the smallest window', () => {
     expect(nextWindowOf(windows, 7)).toBeNull()
+  })
+})
+
+describe('clearanceProfit', () => {
+  const lot = {
+    quantity: 12, price_minor_units: 450, unit_cost_minor_units: 210, unit_cost_source: 'batch' as const,
+  }
+  const vat = { rateBasisPoints: 900, pricesIncludeTax: true }
+
+  it('profit at the regular and sale price, excl. and incl. VAT, and on the whole lot', () => {
+    const p = clearanceProfit(lot, 299, vat)!
+
+    expect(p.cost).toBe(210)
+    expect(p.costSource).toBe('batch')
+    expect(p.regular.stored.profit).toBe(240)
+    expect(p.regular.exclusive?.profit).toBe(203) // 450 / 1.09 = 413
+    expect(p.sale?.stored.profit).toBe(89)
+    expect(p.sale?.exclusive?.profit).toBe(64) // 299 / 1.09 = 274
+    expect(p.lotProfit).toBe(64 * 12) // real profit: excl. VAT
+    expect(p.belowCost).toBe(false)
+  })
+
+  it('flags a sale below cost', () => {
+    const p = clearanceProfit(lot, 199, vat)!
+
+    expect(p.sale?.exclusive?.profit).toBe(183 - 210)
+    expect(p.belowCost).toBe(true)
+    expect(p.lotProfit).toBe(-27 * 12)
+  })
+
+  it('without a known VAT rate it uses the price as stored', () => {
+    const p = clearanceProfit(lot, 299, { rateBasisPoints: null, pricesIncludeTax: true })!
+
+    expect(p.regular.exclusive).toBeNull()
+    expect(p.sale?.exclusive).toBeNull()
+    expect(p.lotProfit).toBe(89 * 12)
+  })
+
+  it('no sale price typed yet: regular only', () => {
+    const p = clearanceProfit(lot, null, vat)!
+
+    expect(p.sale).toBeNull()
+    expect(p.lotProfit).toBeNull()
+  })
+
+  it('is null without a cost', () => {
+    expect(clearanceProfit({ ...lot, unit_cost_minor_units: null, unit_cost_source: null }, 299, vat)).toBeNull()
   })
 })

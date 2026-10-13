@@ -221,6 +221,26 @@
     "title": "Mark damaged / lost"
   },
   "closeToExpiry": {
+    "profit": {
+      "belowCost": "Below cost: loses {{perUnit}} per unit ({{lot}} on this lot).",
+      "columns": "Profit · margin · markup",
+      "cost": "Cost per unit",
+      "exclVat": "Excl. VAT: profit · margin · markup",
+      "inclVat": "Incl. VAT",
+      "lot": "Whole lot ({{count}} left): {{profit}} profit",
+      "lotExclVat": "Whole lot ({{count}} left): {{profit}} profit excl. VAT",
+      "noCost": "No cost price for this product, so the profit can't be shown.",
+      "regular": "Regular",
+      "sale": "Sale",
+      "source": {
+        "batch": "this lot",
+        "sku": "average cost"
+      },
+      "title": "Profit",
+      "weightPool": "This is a bulk weight pool. It is sold as packages, so put the packages on sale instead.",
+      "weightPoolCost": "{{kg}} kg left · cost {{cost}} per kg",
+      "weightPoolLeft": "{{kg}} kg left"
+    },
     "title": "Close to expiry",
     "windowDays_one": "{{count}} day",
     "windowDays_other": "{{count}} days",

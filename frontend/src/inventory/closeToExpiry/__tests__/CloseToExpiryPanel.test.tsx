@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi } from 'vitest'
 import { CloseToExpiryPanel } from '../CloseToExpiryPanel'
@@ -7,6 +7,21 @@ import type { CloseToExpiryState } from '../useCloseToExpiry'
 import type { CloseToExpiryBatch, CloseToExpiryList, CloseToExpiryWindow } from '../types'
 
 vi.mock('../../../promotions/api')
+vi.mock('../../../auth/AuthContext', () => ({ useAuth: () => ({ token: 'tok' }) }))
+vi.mock('../../../tax/api', () => ({
+  listTaxClasses: vi.fn(async () => [
+    { id: 'tc-std', name: 'Standard', is_default: true, created_at: '', updated_at: '' },
+    { id: 'tc-food', name: 'Food', is_default: false, created_at: '', updated_at: '' },
+  ]),
+  listTaxRates: vi.fn(async () => [
+    { id: 'r1', tax_class_id: 'tc-std', country: 'NL', rate_basis_points: 2100, created_at: '', updated_at: '' },
+    { id: 'r2', tax_class_id: 'tc-food', country: 'NL', rate_basis_points: 900, created_at: '', updated_at: '' },
+  ]),
+}))
+vi.mock('../../../settings/api', () => ({
+  getTenantSettings: vi.fn(async () => ({ default_tax_country: 'NL', prices_include_tax: true })),
+  updateTenantSettings: vi.fn(),
+}))
 
 const w = (window_days: number, min_days_left: number, open_count: number, acknowledged_count = 0): CloseToExpiryWindow => ({
   window_days, min_days_left, from: '2026-10-28', to: '2026-11-11', open_count, acknowledged_count,
@@ -108,5 +123,18 @@ describe('CloseToExpiryPanel', () => {
     expect(screen.getByText('Page 1 of 3')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /next/i }))
     expect(s.setPage).toHaveBeenCalledWith(2)
+  })
+})
+
+describe('CloseToExpiryPanel -- put on sale profit', () => {
+  // The SKU's own tax class (9% food) decides the excl. VAT numbers.
+  it('opens the sale dialog with the SKU\'s VAT rate for the profit preview', async () => {
+    const costed: CloseToExpiryBatch = { ...batch, price_minor_units: 450, unit_cost_minor_units: 210, unit_cost_source: 'batch', tax_class_id: 'tc-food' }
+    renderPanel(state({}, { items: [costed] }))
+
+    fireEvent.click(screen.getByRole('button', { name: /put on sale/i }))
+
+    const panel = within(await screen.findByRole('region', { name: 'Profit' }))
+    await waitFor(() => expect(panel.getByText(/€2\.03 · 49\.1% · 96\.7%/)).toBeInTheDocument()) // 4.50 / 1.09
   })
 })

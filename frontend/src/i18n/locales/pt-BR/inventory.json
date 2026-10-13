@@ -221,6 +221,26 @@
     "title": "Marcar como danificado / perdido"
   },
   "closeToExpiry": {
+    "profit": {
+      "belowCost": "Abaixo do custo: perde {{perUnit}} por unidade ({{lot}} neste lote).",
+      "columns": "Lucro · margem · markup",
+      "cost": "Custo por unidade",
+      "exclVat": "Sem IVA: lucro · margem · markup",
+      "inclVat": "Com IVA",
+      "lot": "Lote inteiro ({{count}} restantes): {{profit}} de lucro",
+      "lotExclVat": "Lote inteiro ({{count}} restantes): {{profit}} de lucro sem IVA",
+      "noCost": "Sem preço de custo para este produto, então o lucro não pode ser mostrado.",
+      "regular": "Normal",
+      "sale": "Promoção",
+      "source": {
+        "batch": "deste lote",
+        "sku": "custo médio"
+      },
+      "title": "Lucro",
+      "weightPool": "Este é um estoque a granel por peso. Ele é vendido em pacotes, então coloque os pacotes em promoção.",
+      "weightPoolCost": "{{kg}} kg restantes · custo {{cost}} por kg",
+      "weightPoolLeft": "{{kg}} kg restantes"
+    },
     "title": "Perto do vencimento",
     "windowDays_one": "{{count}} dia",
     "windowDays_many": "{{count}} dias",

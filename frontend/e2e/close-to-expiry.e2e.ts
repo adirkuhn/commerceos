@@ -27,7 +27,7 @@ async function createExpiringBatch(request: APIRequestContext, token: string, wa
   await api(request, token, `/inventory/skus/${sku.id}/movements`, {
     method: 'POST', body: { warehouse_id: warehouseId, batch_id: batch.id, type: 'receipt', quantity_delta: 5 },
   })
-  return { productId: product.id, batchId: batch.id }
+  return { productId: product.id, skuId: sku.id, batchId: batch.id }
 }
 
 // The close-to-expiry tab: a batch 20 days from expiry shows in its window,
@@ -57,10 +57,18 @@ test('close-to-expiry: mark as seen, show again, put on sale', async ({ page, re
     await expect(row).toBeHidden()
     await page.getByRole('button', { name: /^To review/ }).click()
 
+    // The lot has no cost of its own: the dialog judges the sale against
+    // the SKU's average cost, and warns below it.
+    await api(request, token, `/pms/skus/${created.skuId}/cost-price`, { method: 'PUT', body: { cost_price_minor_units: 250 } })
     await row.getByRole('button', { name: 'Put on sale' }).click()
     const dialog = page.getByRole('dialog', { name: `Put ${name} on sale` })
+    const profit = dialog.getByRole('region', { name: 'Profit' })
+    await expect(profit.getByText('average cost')).toBeVisible()
+    await dialog.getByLabel('Sale price').fill('1')
+    await expect(dialog.getByRole('alert')).toContainText('Below cost')
     await dialog.getByLabel('Sale price').fill('4,99')
     await expect(dialog.getByText(/Sells for €4\.99 instead of €6\.50/)).toBeVisible()
+    await expect(profit.getByText(/Whole lot \(5 left\)/)).toBeVisible()
     await dialog.getByRole('button', { name: 'Start sale' }).click()
     await expect(dialog).toBeHidden()
     await expect(page.getByRole('status')).toContainText('Sale started')
