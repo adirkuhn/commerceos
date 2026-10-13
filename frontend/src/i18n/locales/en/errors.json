@@ -206,6 +206,8 @@
   "PRODUCT_HAS_PICKING_HISTORY": "This product has picking history, so it can’t be deleted.",
   "PRODUCT_HAS_RECEIVING_HISTORY": "This product has purchase-order receiving history, so it can’t be deleted.",
   "PRODUCT_HAS_SALES_ORDER_HISTORY": "This product has sales order history, so it can’t be deleted.",
+  "PRODUCT_INVALID_LOW_STOCK_THRESHOLD": "The product's low stock threshold must be 0 or more.",
+  "PRODUCT_INVALID_STOCK_LEVEL": "The stock filter must be low or out of stock.",
   "PRODUCT_MERGE_FORBIDDEN": "Only an owner or admin can merge products.",
   "PRODUCT_MERGE_INVALID": "These products can’t be merged.",
   "PRODUCT_NOT_AVAILABLE": "This product isn’t available on this sales channel.",

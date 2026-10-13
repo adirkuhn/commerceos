@@ -43,6 +43,8 @@ func mapError(c *gin.Context, err error) error {
 	case errors.Is(err, pmsDomain.ErrVariantsNotEnabled),
 		errors.Is(err, pmsDomain.ErrInvalidSlug),
 		errors.Is(err, pmsDomain.ErrInvalidProductTranslation),
+		errors.Is(err, pmsDomain.ErrInvalidStockLevel),
+		errors.Is(err, pmsDomain.ErrInvalidLowStockThreshold),
 		errors.Is(err, pmsDomain.ErrVirtualSKUCannotHaveDimensions),
 		errors.Is(err, pmsDomain.ErrSalePriceExceedsPrice),
 		errors.Is(err, pmsDomain.ErrSaleEndDateRequiresSalePrice),

@@ -432,6 +432,7 @@ type stubs struct {
 	previewProductMerge    stubPreviewProductMerge
 	mergeProducts          stubMergeProducts
 	setTranslations        stubSetProductTranslations
+	setLowStockThreshold   stubSetProductLowStockThreshold
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
@@ -452,6 +453,7 @@ func newTestRouter(s *stubs) *gin.Engine {
 		&s.correctCost,
 		pmshandler.ProductMergeUseCases{Preview: &s.previewProductMerge, Merge: &s.mergeProducts},
 		&s.setTranslations,
+		&s.setLowStockThreshold,
 	)
 	r := gin.New()
 	genpms.RegisterHandlers(r.Group("/api/v1"), h)

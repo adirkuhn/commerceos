@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-219 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+220 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -247,6 +247,7 @@ Payload (`events.EntityAction`):
 | `pms.product.changed` | typed | ProductChanged is raised whenever a product's core fields or its default SKU's price/weight/dimensions change. | `ProductChanged`: event_id, occurred_at, tenant_id, product_id |
 | `pms.product.deleted` | typed | ProductDeleted is raised after a product has been deleted. | `ProductDeleted`: event_id, occurred_at, tenant_id, product_id, listings |
 | `pms.product.duplicated` | action | A product was copied (as a draft) with its variants and SKUs; entity_id is the new product. data: source_product_id, variant_count, sku_count. | envelope |
+| `pms.product.low_stock_threshold_changed` | action | A product's own low stock threshold was set or cleared (changes: low_stock_threshold; null = use the tenant's setting). | envelope |
 | `pms.product.merged` | typed | ProductMerged is raised after a duplicate product was merged into an existing one (see domain/pms.ProductMerge): every reference to each duplicate SKU now points at its matched existing SKU, and the duplicate product is deleted (its own pms.product.deleted is raised alongside). | `ProductMerged`: event_id, occurred_at, tenant_id, source_product_id, target_product_id, skus |
 | `pms.product.translated` | typed | ProductTranslated is raised when a product's translated name/description change. | `ProductTranslated`: event_id, occurred_at, tenant_id, product_id |
 | `pms.scale_code_alias.created` | action | An extra scale code (a second weighing scale's PLU) was linked to a SKU. data: sku_id, code. | envelope |

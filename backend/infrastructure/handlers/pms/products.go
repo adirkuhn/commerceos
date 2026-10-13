@@ -24,6 +24,13 @@ func (h *Handler) ListProducts(c *gin.Context, params genpms.ListProductsParams)
 	if params.Search != nil {
 		in.Search = *params.Search
 	}
+	if params.Stock != nil {
+		level, err := pmsDomain.ParseStockLevel(string(*params.Stock))
+		if err := mapError(c, err); err != nil {
+			return
+		}
+		in.StockLevel = level
+	}
 	result, err := h.listProducts.Execute(c.Request.Context(), in)
 	if err := mapError(c, err); err != nil {
 		return
@@ -165,6 +172,7 @@ func toGenProduct(p pmsDomain.Product) genpms.Product {
 		SyncVariantsAsWooVariations: &syncVariantsAsWooVariations,
 		Tags:                        p.Tags,
 		Translations:                toGenProductTranslations(p.Translations),
+		LowStockThreshold:           p.LowStockThreshold,
 		CreatedAt:                   p.CreatedAt,
 		UpdatedAt:                   p.UpdatedAt,
 	}

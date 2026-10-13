@@ -206,6 +206,8 @@
   "PRODUCT_HAS_PICKING_HISTORY": "Este produto tem histórico de separação, então não pode ser excluído.",
   "PRODUCT_HAS_RECEIVING_HISTORY": "Este produto tem histórico de recebimento de compras, então não pode ser excluído.",
   "PRODUCT_HAS_SALES_ORDER_HISTORY": "Este produto tem histórico de pedidos de venda, então não pode ser excluído.",
+  "PRODUCT_INVALID_LOW_STOCK_THRESHOLD": "O limite de estoque baixo do produto deve ser 0 ou mais.",
+  "PRODUCT_INVALID_STOCK_LEVEL": "O filtro de estoque deve ser baixo ou esgotado.",
   "PRODUCT_MERGE_FORBIDDEN": "Só um proprietário ou administrador pode mesclar produtos.",
   "PRODUCT_MERGE_INVALID": "Estes produtos não podem ser mesclados.",
   "PRODUCT_NOT_AVAILABLE": "Este produto não está disponível neste canal de vendas.",

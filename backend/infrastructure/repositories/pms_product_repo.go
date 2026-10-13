@@ -14,6 +14,7 @@ import (
 
 	"github.com/adirkuhn/commerceos/domain/locale"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/internal/txctx"
 )
 
@@ -30,8 +31,10 @@ type productModel struct {
 	SyncVariantsAsWooVariations bool        `gorm:"column:sync_variants_as_woo_variations;not null;default:false"`
 	// Translations is written only by SetTranslations (Update leaves it).
 	Translations productTranslations `gorm:"type:jsonb;not null;default:'{}'"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// LowStockThreshold is written only by SetLowStockThreshold (Update leaves it).
+	LowStockThreshold *int `gorm:"column:low_stock_threshold"`
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func (productModel) TableName() string { return "products" }
@@ -188,8 +191,26 @@ func applyProductFilter(q *gorm.DB, filter pmsDomain.ProductFilter, includeAndCa
 	if filter.UpdatedAfter != nil {
 		q = q.Where("updated_at > ?", *filter.UpdatedAfter)
 	}
+	switch filter.StockLevel {
+	case pmsDomain.StockLevelOut:
+		q = q.Where("products.status <> ? AND "+productStockTotalSQL+" <= 0", string(pmsDomain.ProductStatusArchived))
+	case pmsDomain.StockLevelLow:
+		q = q.Where("products.status <> ? AND "+productStockTotalSQL+" > 0 AND "+productStockTotalSQL+" <= "+productLowStockThresholdSQL,
+			string(pmsDomain.ProductStatusArchived), settingsDomain.DefaultLowStockThreshold)
+	}
 	return q, pattern, nil
 }
+
+// productStockTotalSQL is a product's total stock: every movement of every
+// SKU, across warehouses -- the same total the inventory screen shows.
+const productStockTotalSQL = `(SELECT COALESCE(SUM(sm.quantity_delta), 0) FROM stock_movements sm ` +
+	`JOIN skus s ON s.id = sm.sku_id JOIN variants v ON v.id = s.variant_id WHERE v.product_id = products.id)`
+
+// productLowStockThresholdSQL is the product's effective low stock line:
+// its own, else the tenant's setting, else (never-saved tenant, no row)
+// the default passed as its one parameter.
+const productLowStockThresholdSQL = `COALESCE(products.low_stock_threshold, ` +
+	`(SELECT ts.low_stock_threshold FROM tenant_settings ts WHERE ts.tenant_id = products.tenant_id), ?)`
 
 func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) ([]pmsDomain.Product, int64, error) {
 	tx, err := r.tx(ctx)
@@ -374,6 +395,23 @@ func (r *ProductRepo) Update(ctx context.Context, p *pmsDomain.Product) error {
 	return nil
 }
 
+// SetLowStockThreshold sets (or clears, nil) a product's own low stock
+// threshold, touching nothing else.
+func (r *ProductRepo) SetLowStockThreshold(ctx context.Context, productID string, threshold *int) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	res := tx.Model(&productModel{}).Where("id = ?", productID).Update("low_stock_threshold", threshold)
+	if res.Error != nil {
+		return fmt.Errorf("productRepo.SetLowStockThreshold: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return pmsDomain.ErrProductNotFound
+	}
+	return nil
+}
+
 // SetTranslations replaces a product's translations, touching nothing else.
 func (r *ProductRepo) SetTranslations(ctx context.Context, productID string, tr map[locale.Locale]pmsDomain.ProductTexts) error {
 	tx, err := r.tx(ctx)
@@ -417,6 +455,7 @@ func toProductDomain(m productModel) *pmsDomain.Product {
 		Tags:                        []string(m.Tags),
 		SyncVariantsAsWooVariations: m.SyncVariantsAsWooVariations,
 		Translations:                m.Translations.toDomain(),
+		LowStockThreshold:           m.LowStockThreshold,
 		CreatedAt:                   m.CreatedAt,
 		UpdatedAt:                   m.UpdatedAt,
 	}

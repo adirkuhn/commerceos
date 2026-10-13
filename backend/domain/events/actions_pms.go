@@ -25,6 +25,8 @@ var (
 		"An extra scale code (a second weighing scale's PLU) was linked to a SKU. data: sku_id, code.")
 	ScaleCodeAliasDeleted = defineAction("pms.scale_code_alias.deleted",
 		"An extra scale code was unlinked from its SKU.")
+	ProductLowStockThresholdChanged = defineAction("pms.product.low_stock_threshold_changed",
+		"A product's own low stock threshold was set or cleared (changes: low_stock_threshold; null = use the tenant's setting).")
 	ProductDuplicated = defineAction("pms.product.duplicated",
 		"A product was copied (as a draft) with its variants and SKUs; entity_id is the new product. data: source_product_id, variant_count, sku_count.")
 )

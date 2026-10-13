@@ -86,6 +86,19 @@ paths:
         - name: search
           in: query
           schema: { type: string }
+        - name: stock
+          in: query
+          description: >-
+            Keep only products low on stock (total above 0 and at or below
+            the product's low_stock_threshold, else the tenant's setting)
+            or out of stock (total at or below 0, including products with
+            no SKUs). Total = every SKU, every warehouse. Archived products
+            are left out. Filtering, count and pagination happen together,
+            so total and pages cover only matching products. Anything
+            other than low/out is rejected with 422.
+          schema:
+            type: string
+            enum: [low, out]
       responses:
         '200':
           description: ok
@@ -93,6 +106,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProductListResponse'
+        '422':
+          $ref: '#/components/responses/Error'
     post:
       operationId: createProduct
       summary: Create a product
@@ -169,6 +184,36 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
         '409':
+          $ref: '#/components/responses/Error'
+
+  /pms/products/{id}/low-stock-threshold:
+    put:
+      operationId: setProductLowStockThreshold
+      summary: Set or clear a product's own low stock threshold
+      description: >
+        Separate from updateProduct, so product updates (the admin form,
+        channel imports) never touch it. null clears the override (the
+        tenant's settings low_stock_threshold applies again). In the
+        stock's own unit -- grams for a weighed product. A negative value
+        is rejected with 422.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductLowStockThresholdRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
           $ref: '#/components/responses/Error'
 
   /pms/products/{id}/translations:
@@ -927,12 +972,20 @@ components:
 
     Product:
       type: object
-      required: [id, tenant_id, name, slug, description, status, has_variants, tags, created_at, updated_at]
+      required: [id, tenant_id, name, slug, description, status, has_variants, tags, low_stock_threshold, created_at, updated_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
         category_id: { type: string, nullable: true }
         name: { type: string }
+        low_stock_threshold:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: >-
+            The product's own low stock line, in the stock's own unit
+            (grams for a weighed product). null = the tenant's settings
+            low_stock_threshold applies. Set via setProductLowStockThreshold.
         slug: { type: string }
         description: { type: string }
         translations: { $ref: '#/components/schemas/ProductTranslations' }
@@ -1458,6 +1511,16 @@ components:
       type: object
       description: A product's texts per language (en, pt-BR, nl); the product's own name/description are the company language.
       additionalProperties: { $ref: '#/components/schemas/ProductTexts' }
+    ProductLowStockThresholdRequest:
+      type: object
+      required: [low_stock_threshold]
+      additionalProperties: false
+      properties:
+        low_stock_threshold:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: null clears the override.
     ProductTranslationsRequest:
       type: object
       required: [translations]

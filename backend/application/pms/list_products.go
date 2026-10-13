@@ -40,6 +40,8 @@ type ListProductsInput struct {
 	Status *pmsDomain.ProductStatus
 	// OrderByIDs -- see pmsDomain.ProductFilter.OrderByIDs.
 	OrderByIDs []string
+	// StockLevel -- see pmsDomain.ProductFilter.StockLevel.
+	StockLevel pmsDomain.StockLevel
 }
 
 type ListProductsResult struct {
@@ -73,6 +75,7 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, in ListProductsInput
 		Limit: perPage, Offset: (page - 1) * perPage,
 		AndCategoryID: in.AndCategoryID, AndIncludeIDs: in.AndIncludeIDs, CategoryID: in.CategoryID, Tag: in.Tag,
 		IncludeIDs: in.IncludeIDs, ExcludeIDs: in.ExcludeIDs, Status: in.Status, OrderByIDs: in.OrderByIDs,
+		StockLevel: in.StockLevel,
 	}
 	if in.Search != "" {
 		filter.Search = &in.Search

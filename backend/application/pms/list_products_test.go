@@ -78,3 +78,13 @@ func TestListProducts_propagatesRepoError(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "db down")
 }
+
+func TestListProducts_passesStockLevelThrough(t *testing.T) {
+	repo := &stubProductRepo{}
+	uc := apppms.NewListProductsUseCase(newMockGormDB(t), repo)
+
+	_, err := uc.Execute(context.Background(), apppms.ListProductsInput{StockLevel: pmsDomain.StockLevelLow})
+
+	require.NoError(t, err)
+	require.Equal(t, pmsDomain.StockLevelLow, repo.gotFilter.StockLevel)
+}

@@ -206,6 +206,8 @@
   "PRODUCT_HAS_PICKING_HISTORY": "Dit product heeft pickgeschiedenis en kan niet worden verwijderd.",
   "PRODUCT_HAS_RECEIVING_HISTORY": "Dit product heeft ontvangstgeschiedenis van inkooporders en kan niet worden verwijderd.",
   "PRODUCT_HAS_SALES_ORDER_HISTORY": "Dit product heeft verkoopordergeschiedenis en kan niet worden verwijderd.",
+  "PRODUCT_INVALID_LOW_STOCK_THRESHOLD": "De lage-voorraaddrempel van het product moet 0 of meer zijn.",
+  "PRODUCT_INVALID_STOCK_LEVEL": "Het voorraadfilter moet laag of uitverkocht zijn.",
   "PRODUCT_MERGE_FORBIDDEN": "Alleen een eigenaar of beheerder kan producten samenvoegen.",
   "PRODUCT_MERGE_INVALID": "Deze producten kunnen niet worden samengevoegd.",
   "PRODUCT_NOT_AVAILABLE": "Dit product is niet beschikbaar in dit verkoopkanaal.",

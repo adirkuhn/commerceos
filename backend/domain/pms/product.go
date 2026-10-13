@@ -43,8 +43,13 @@ type Product struct {
 	// Translations are the name/description in the store's other
 	// languages (see ProductTexts); set only by SetProductTranslationsUseCase.
 	Translations map[locale.Locale]ProductTexts
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// LowStockThreshold overrides the tenant's low stock line for this
+	// product (see StockLevelLow), in the stock's own unit -- grams for a
+	// weighed product. Nil uses the tenant's. Set only by
+	// SetProductLowStockThresholdUseCase.
+	LowStockThreshold *int
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // IsSyncableToChannels is false for Draft/Archived -- a channel push (create

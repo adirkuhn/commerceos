@@ -94,8 +94,11 @@ type ProductFilter struct {
 	// bumped by UpdateProductUseCase but NOT by anything stock-related
 	// (stock lives in a separate ledger, not a Product field).
 	UpdatedAfter *time.Time
-	Limit        int
-	Offset       int
+	// StockLevel, when not StockLevelAny, keeps only low or out-of-stock
+	// products -- see StockLevel.
+	StockLevel StockLevel
+	Limit      int
+	Offset     int
 }
 
 type VariantRepository interface {
